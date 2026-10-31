@@ -4,6 +4,7 @@ import {decodeMonoCue} from '../src/audio.mjs';
 import {readStadiumRoot} from '../src/obe.mjs';
 import {readCharacterBindPose} from '../src/character.mjs';
 import {readCharacterAnimation} from '../src/animation.mjs';
+import {readAnimationClips,selectionIdleId} from '../src/clips.mjs';
 import {decodeTexture} from '../src/texture.mjs';
 import {sha256Blob,requireBlobIdentity} from '../src/identity.mjs';
 let animation, profile=false, resumeCheckpoint;
@@ -51,6 +52,14 @@ onmessage = async ({data: image}) => {
       // The selected LND places the sky at (0,-600,0).
       for(let i=1;i<sky.positions.length;i+=3)sky.positions[i]-=600;
       meshes.push(sky);
+      const conveyorEntry=arenaEntries.find(e=>e.name.toLowerCase()==='conv_mesh.obe');
+      if(!conveyorEntry)throw new Error('Stadium conveyor mesh not found');
+      const conveyor=readStadiumRoot(await xbpResource(arenaPackage,conveyorEntry).arrayBuffer(),{hierarchical:true});
+      // Initial transform keys only; these are the three graphical LND instances.
+      for(const translation of [[700,200,-1000],[700,200,1000],[-500,600,0]]){
+        const instance=conveyor.positions.map((value,i)=>value+translation[i%3]);
+        meshes.push({...conveyor,positions:instance});
+      }
     }
     const positions=new Float32Array(meshes.reduce((n,m)=>n+m.positions.length,0));
     const arenaColors=new Uint8Array(meshes.reduce((n,m)=>n+m.colors.length,0));
@@ -67,11 +76,15 @@ onmessage = async ({data: image}) => {
     if (!character) throw new Error('Character candidate not found');
     const characterData = await xbpResource(characterPackage, character).arrayBuffer();
     const bind = readCharacterBindPose(characterData);
-    animation = readCharacterAnimation(characterData, bind.positions.slice());
+    animation = readCharacterAnimation(characterData, bind.positions);
+    const clips=readAnimationClips(characterData);
+    const initialClip=clips.find(clip=>clip.id===selectionIdleId);
+    if(!initialClip)throw new Error('Required character-selection idle not found');
+    const characterPositions=animation.sample(initialClip.start);
     const texEntry=characterEntries.find(e=>e.name.toLowerCase()==='characters/newdub.bmp');
     if(!texEntry)throw new Error('Character texture candidate not found');
     const texture=decodeTexture(await xbpResource(characterPackage,texEntry).arrayBuffer());
     await checkpoint('Decoded assets held before rendering');
-    postMessage({identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, arenaColors, batches, textures, landscapeVertices:landscape.positions.length/3, frameVertices:(landscape.positions.length+wall.positions.length)/3, omittedTriangles, characterPositions: bind.positions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, arenaColors.buffer, ...textures.map(t=>t.rgba.buffer), bind.positions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
+    postMessage({clips, identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, arenaColors, batches, textures, landscapeVertices:landscape.positions.length/3, frameVertices:(landscape.positions.length+wall.positions.length)/3, omittedTriangles, characterPositions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, arenaColors.buffer, ...textures.map(t=>t.rgba.buffer), characterPositions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
   } catch (e) { postMessage({error: e instanceof Error ? e.message : 'Unknown error'}); }
 };

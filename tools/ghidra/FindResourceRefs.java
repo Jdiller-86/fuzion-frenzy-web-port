@@ -9,10 +9,11 @@ import java.nio.file.Path;
 public class FindResourceRefs extends GhidraScript {
     @Override public void run() throws Exception {
         String[] args = getScriptArgs();
-        if (args.length != 1) throw new IllegalArgumentException("Expected local output path");
+        if (args.length < 1 || args.length > 9) throw new IllegalArgumentException("Output and up to eight optional strings required");
         StringBuilder out = new StringBuilder();
-        String[] terms = {"characters\\dub.obe", "Twisted System", "%s.obe"};
+        String[] terms = args.length>1 ? java.util.Arrays.copyOfRange(args,1,args.length) : new String[]{"characters\\dub.obe", "Twisted System", "%s.obe"};
         for (String term : terms) {
+            if(term.isEmpty()||term.length()>128)throw new IllegalArgumentException("String outside bounds");
             byte[] bytes = term.getBytes(StandardCharsets.US_ASCII);
             Address from = currentProgram.getMinAddress();
             while (from != null) {

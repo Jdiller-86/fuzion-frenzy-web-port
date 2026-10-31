@@ -12,4 +12,6 @@
 | D010 | Require player-supplied compatible game files, converted only on their own device | No hosted ROM/assets, upload, peer transfer or server fallback; not a blanket permission conclusion |
 | D011 | Faithful rules/game feel with modernization mirroring or reusing original local assets | User selected modern browser presentation and emphasized original asset identity/reuse; see scope gates |
 
+| D012 | Accept the bounded G0 inventory deliverable and one-profile G1 local conversion proof; retain later fidelity and production gates | Requirement-by-requirement evidence in `G0_G1_CHECKPOINT.md`. No scope gate was changed: exact timing, full parity, working-memory budget and release device coverage remain unaccepted. |
+
 Add a new row when a material design choice changes, including evidence and migration impact. Do not silently rewrite a pending vendor choice into a provisioned service.

@@ -29,7 +29,7 @@ npm run test:formats
 npm run dev:research
 ```
 
-The latter serves only allowlisted source files on `127.0.0.1:4173`. Open that address locally and select the supported uncompressed XISO; conversion runs in the browser, and the server does not receive the image. The proof renders a selected character and stadium candidate and decodes one cue. It is experimental: visual and animation fidelity, the complete content inventory, broad format support and performance sign-off remain open. See [reference inventory](docs/REFERENCE_INVENTORY.md) for observations and limits.
+The latter serves only allowlisted source files on `127.0.0.1:4173`. Open that address locally and select the supported uncompressed XISO; conversion runs in the browser, and the server does not receive the image. The proof renders animated Dub, a representative stadium and one decoded cue. Enable the surroundings/initial-conveyor, camera and vertex-color diagnostics for the expanded arena comparison; play/pause or scrub motion, play the cue, and use Clear local preview to discard imported state. See the [G0/G1 audit](docs/G0_G1_CHECKPOINT.md) for the verified bounded result. It is experimental: visual and animation fidelity, the complete content inventory, broad format support and performance sign-off remain open. See [reference inventory](docs/REFERENCE_INVENTORY.md) for observations and limits.
 
 Local preparation checks pass. Both public-repository Windows/Linux preparation jobs also [passed](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41212045874), resolving the earlier private-runner billing blocker for this workflow. Details are in `docs/PROJECT_STATUS.md`.
 

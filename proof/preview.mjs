@@ -29,7 +29,7 @@ export function renderGeometry(canvas, positions, indices, texture = null, uvs =
   gl.uniform1i(gl.getUniformLocation(program,'textured'),texture&&uvs?1:0);
   let ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);
   gl.viewport(0,0,canvas.width,canvas.height); gl.clearColor(0.04,0.07,0.1,1); gl.enable(gl.DEPTH_TEST);
-  gl.uniform2f(gl.getUniformLocation(program,'tilt'),options.levelDirection?Math.cos(0.4):0.78,options.levelDirection?Math.sin(0.4):0.62);
+  gl.uniform2f(gl.getUniformLocation(program,'tilt'),options.levelDirection?Math.cos(0.8):0.78,options.levelDirection?Math.sin(0.8):0.62);
   if(options.cull==='back'||options.cull==='front'){gl.enable(gl.CULL_FACE);gl.cullFace(options.cull==='back'?gl.BACK:gl.FRONT);}
   if(options.colors&&batches?.some(b=>b.pass===1))throw new Error('Unsupported middle draw pass');
   const drawBatches=options.colors&&batches?[...batches.filter(b=>b.pass!==2),...batches.filter(b=>b.pass===2)]:batches;

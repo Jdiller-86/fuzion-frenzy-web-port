@@ -16,7 +16,7 @@
   "scripts": {
     "check": "node tools/check-preparation.mjs",
     "check:environment": "node tools/check-environment.mjs",
-    "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs",
+    "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs",
     "dev:research": "node tools/serve-proof.mjs"
   }
 }

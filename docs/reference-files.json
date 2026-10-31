@@ -1,0 +1,694 @@
+{
+  "schemaVersion": 1,
+  "kind": "file-identity-only",
+  "executableSha256": "45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9",
+  "fileCount": 136,
+  "totalBytes": 2083933828,
+  "limitations": [
+    "Digests identify supplied bytes; they do not establish retail authenticity or compatibility of another build.",
+    "File paths and extensions do not establish selectable activities or decoded assets.",
+    "No original or converted game bytes are included."
+  ],
+  "files": [
+    {
+      "path": "Packages/BootSeq.xbp",
+      "bytes": 4096,
+      "sha256": "7fc1fa45473096427c422c201f1cc316829247dcc05e5b1914dbf02244bf5db1"
+    },
+    {
+      "path": "Packages/BugBash.xbp",
+      "bytes": 19896320,
+      "sha256": "bebb8f06493f1175486f1446f088d20c1f10fc2ad8d22030d5914321b2c79afb"
+    },
+    {
+      "path": "Packages/Bumper.xbp",
+      "bytes": 14630912,
+      "sha256": "b288fc45dec569b5758683f7ea7309e9952a0d46612827c399b8de317d08130a"
+    },
+    {
+      "path": "Packages/Cluster.xbp",
+      "bytes": 22878208,
+      "sha256": "91dfc73d5ec05d7ddd9092753eac8dd7a22207ee09a5c105610366befe8ffc0e"
+    },
+    {
+      "path": "Packages/Demo-gen.xbp",
+      "bytes": 9011200,
+      "sha256": "dda660e041232aea8d69d511a31c348ddc928e994caea1e3d29d8fbb39161d10"
+    },
+    {
+      "path": "Packages/Demo-v1.xbp",
+      "bytes": 6737920,
+      "sha256": "3f168c9f7e34df943286030b8848a646e37b50665dc9e11a3056616d814f4c89"
+    },
+    {
+      "path": "Packages/Demo-v2.xbp",
+      "bytes": 4489216,
+      "sha256": "bbc8bcd2fc4be03c1c5777784c23bf25aed98c3323ac87e00f01a3297c7ad630"
+    },
+    {
+      "path": "Packages/Demo-v3.xbp",
+      "bytes": 2811904,
+      "sha256": "9a0645b1cd3643fb8b7e065b6414eb84015ae65d65f995ab4c13ff4f7bb98b76"
+    },
+    {
+      "path": "Packages/Demo-v4.xbp",
+      "bytes": 4038656,
+      "sha256": "fde9b379b30fea0888630e5fa0d261fb2a9716aa84c586bba308473a4b014906"
+    },
+    {
+      "path": "Packages/DemoSplash.xbp",
+      "bytes": 1231616,
+      "sha256": "0fb001cb2b8e365609e325a9344df9c4912daca353de6b64d85895865f3e6038"
+    },
+    {
+      "path": "Packages/English/Com_FrenzyIntro.xbp",
+      "bytes": 4096,
+      "sha256": "6727cd77afe268c9a8d732a2d3d43aa792d43b6a3edc48ce1a74343b9d52e695"
+    },
+    {
+      "path": "Packages/English/Com_InGame.xbp",
+      "bytes": 1693696,
+      "sha256": "852d2d24b9a333fec07a080faf30246df933c9a3c52e9b0feea2305278a769ce"
+    },
+    {
+      "path": "Packages/English/Com_MapScreen.xbp",
+      "bytes": 1499136,
+      "sha256": "6da69989187907441f7616197449a85d8c3d003faffaee2d9451767fd5ad51ea"
+    },
+    {
+      "path": "Packages/English/Com_ScoreScreen.xbp",
+      "bytes": 931840,
+      "sha256": "dcfc5816b917b6be87fde54beff98f6ded658b31556a2ec6d31ff2e8161bf72f"
+    },
+    {
+      "path": "Packages/English/Com_TeamScreen.xbp",
+      "bytes": 4096,
+      "sha256": "10af68e28f83f2a83e8967a696aa5d0d5f348a0f7e3b2315ffb600d3871f5ccb"
+    },
+    {
+      "path": "Packages/English/Com_WinScreen.xbp",
+      "bytes": 1312768,
+      "sha256": "56d17a01c63d0bfe7004a9ebe2b5643c199919ca0dd63e4f8c5b880e0277cfa2"
+    },
+    {
+      "path": "Packages/English/Com_ZoneScoreScreen.xbp",
+      "bytes": 1527808,
+      "sha256": "2b8f78f689855ff7d8bac6a1be526059814f66f16a74a2fab0f9d48925c12633"
+    },
+    {
+      "path": "Packages/English/Dub.xbp",
+      "bytes": 491520,
+      "sha256": "0afc216d1c156150effeb52ca6dcf784fae3a392da83b5d60260a4d78fd6e98d"
+    },
+    {
+      "path": "Packages/English/Fly.xbp",
+      "bytes": 636928,
+      "sha256": "be637eb039924e6e10854e344ca197127635364df8e5f24689dd871cdff8fbb2"
+    },
+    {
+      "path": "Packages/English/Geena.xbp",
+      "bytes": 385024,
+      "sha256": "72299c6e11806c735b03d1d9719bbd8cdf0490770ce9c4b9599b62cafb0920ef"
+    },
+    {
+      "path": "Packages/English/Jade.xbp",
+      "bytes": 417792,
+      "sha256": "57f31b908bd0edf1e9e1d4d2d8d6fddf884f2b0075106e82777757d5c455ada2"
+    },
+    {
+      "path": "Packages/English/Jet.xbp",
+      "bytes": 319488,
+      "sha256": "0726c5fe8346457e64102822de82fefa10f3f18c13e4e090e5b33953080cd654"
+    },
+    {
+      "path": "Packages/English/Zak.xbp",
+      "bytes": 430080,
+      "sha256": "8666a4099f8df34492a65c5d95c71235da8bbf051d62f37a5c52a1b817a72664"
+    },
+    {
+      "path": "Packages/English/charvoice.xbp",
+      "bytes": 235520,
+      "sha256": "29cfd5a51e7e2df75f7cc2a82028662b585960a860c6cfef7d50651c081fef33"
+    },
+    {
+      "path": "Packages/FoxLevel.xbp",
+      "bytes": 8511488,
+      "sha256": "c77b0e70ad0be5f1fd8d1792ccab4c2bd98d1f6a0f639b08da5f660b3a9b5299"
+    },
+    {
+      "path": "Packages/GameWinner.xbp",
+      "bytes": 14731264,
+      "sha256": "218ab7a92114e8a1d80f955def89bbd1d32d79d58b587d04af8598cd5e974fe2"
+    },
+    {
+      "path": "Packages/Generic.xbp",
+      "bytes": 3434496,
+      "sha256": "bc7969d5a9bc501fcd6a8e3ca890a9beedbf855f1594afebd6a0146e7d730204"
+    },
+    {
+      "path": "Packages/Local.xbp",
+      "bytes": 311296,
+      "sha256": "db8cf380636766c2bcf1eaf71307ee3bdf5980b6a93baf440f6274b515f12d43"
+    },
+    {
+      "path": "Packages/Meta.xbp",
+      "bytes": 9682944,
+      "sha256": "7b403675dd94a96ddc115f18aebb8d06cc56b7986cb664f5b4cf9c20d5450679"
+    },
+    {
+      "path": "Packages/MetaClub.xbp",
+      "bytes": 2846720,
+      "sha256": "49388b70ad2551facd69a73fe74a77945ddb1f32ffe4fbd4734cd3600c5acd1d"
+    },
+    {
+      "path": "Packages/MetaDbug.xbp",
+      "bytes": 38912,
+      "sha256": "508a014aa2efc785cd03fcc719dffb47255017fa8562623764aea779aaa37c03"
+    },
+    {
+      "path": "Packages/MetaHarb.xbp",
+      "bytes": 6776832,
+      "sha256": "2b6f1b8fbaeac470cbfeb1b46162246a6e48b86651c7a02b1ed8467abb77b498"
+    },
+    {
+      "path": "Packages/MetaInd.xbp",
+      "bytes": 3782656,
+      "sha256": "5004723857c198aa10873f66c129a8d59881b4b08c4bcdcf7de287d5f262b7bd"
+    },
+    {
+      "path": "Packages/MetaLevs/harbour_part_1.lnd",
+      "bytes": 40872,
+      "sha256": "1eec9146e81c6ceb7dc9e33535169decd92b98cbd117298a8da58e93404d0f4a"
+    },
+    {
+      "path": "Packages/MetaLevs/indust_part_1.lnd",
+      "bytes": 33661,
+      "sha256": "4802d8db87ae3249af35805e66a06476744ef3e1f90df40e45ff030d8a94aab2"
+    },
+    {
+      "path": "Packages/MetaLevs/military_part_1.lnd",
+      "bytes": 26935,
+      "sha256": "1afcdc8611f8544afbb1d13d07b2d026ad67f88276d2143266086bcff6fe3047"
+    },
+    {
+      "path": "Packages/MetaLevs/niteclub_part_1.lnd",
+      "bytes": 66683,
+      "sha256": "e3b266131f835465e3dccbb98ed676a096d5144df059e0e8a34f91b2c5badf8a"
+    },
+    {
+      "path": "Packages/MetaLevs/site_part_1.lnd",
+      "bytes": 30983,
+      "sha256": "cdcba2b505131e1ebbb2ddafe578bc357b3f0e4f1f5e7338177adb8ee9970b83"
+    },
+    {
+      "path": "Packages/MetaLevs/stadium_part_1.lnd",
+      "bytes": 26283,
+      "sha256": "4e25dd154ddfdb32104620c2362ebfe99cef360347120a3c74426abf87eb8fa4"
+    },
+    {
+      "path": "Packages/MetaMili.xbp",
+      "bytes": 6025216,
+      "sha256": "468b9d83bbc211342e3c443cd869333202b3a616b728076b90740a8002bcca33"
+    },
+    {
+      "path": "Packages/MetaSite.xbp",
+      "bytes": 4427776,
+      "sha256": "f7189116c013586bcfb783489022054da7bfa4e626d426f5245edd64a52b8c27"
+    },
+    {
+      "path": "Packages/MetaStad.xbp",
+      "bytes": 4204544,
+      "sha256": "0412bff78d89298de2ed6f2d0fc9fd1ae1e63899f55a4204f368e6aed37ff737"
+    },
+    {
+      "path": "Packages/MiniGameIntro.xbp",
+      "bytes": 2023424,
+      "sha256": "c7949eeed7fd6e7dbce93528b80e444d58f8ed92eaff7412191d5cc7dac578b7"
+    },
+    {
+      "path": "Packages/Music.xbp",
+      "bytes": 36974592,
+      "sha256": "94528610bbde1146f83b38a1456e831b79b0d21905309805287094398ab0c157"
+    },
+    {
+      "path": "Packages/Roll-gen.xbp",
+      "bytes": 9170944,
+      "sha256": "6287bd01de072f97ef1407775e2e1e6a6de5a51f551b7bb2d6b7d56e68812d90"
+    },
+    {
+      "path": "Packages/Roll-v1.xbp",
+      "bytes": 8847360,
+      "sha256": "e940ddfcb5955d7b87187cacea84007bcf47c3aee3849639c4e9a8e5954a2627"
+    },
+    {
+      "path": "Packages/Roll-v2.xbp",
+      "bytes": 5844992,
+      "sha256": "1f0ba1f006e33190c1b360da23019132cc6e5569d661553e44d6d57ebcf85963"
+    },
+    {
+      "path": "Packages/Roll-v3.xbp",
+      "bytes": 7059456,
+      "sha256": "3fb194281f7f4c7f900c25c58c3cbe01b594e5f3ccd9d393a2749715d68ff3f8"
+    },
+    {
+      "path": "Packages/Roll-v4.xbp",
+      "bytes": 5423104,
+      "sha256": "67370d87656b66876f6d676e2a902d34cff62fd017a657bb8ae77271c92df767"
+    },
+    {
+      "path": "Packages/Roll-v5.xbp",
+      "bytes": 6137856,
+      "sha256": "0a0a6becfd0fb247915bc0dbc54c5472e4a8653dce5e2aa370dcd43e4c1900ae"
+    },
+    {
+      "path": "Packages/ScoreScreen.xbp",
+      "bytes": 323584,
+      "sha256": "3e2f1833bb4bb723fdaadca5d5c75dc65f6d67fe85fcc7877eb219e5bc8072c5"
+    },
+    {
+      "path": "Packages/Scratch.xbp",
+      "bytes": 13752320,
+      "sha256": "014602ea6fa3359b64e5d5f021d13abc1b3573c3b4cd6f3a6535bebbf8e5f2df"
+    },
+    {
+      "path": "Packages/Scratch1.xbp",
+      "bytes": 3825664,
+      "sha256": "7eeb355e4d20d1c12c4b0c22bf88c99413da54e4a2bf4823e19eaaa5418b6058"
+    },
+    {
+      "path": "Packages/Scratch2.xbp",
+      "bytes": 3831808,
+      "sha256": "458bcde4a3a3e63f7ef0115692bc59c16d93905ccebe38fdfcccc58cbb638f03"
+    },
+    {
+      "path": "Packages/Scratch3.xbp",
+      "bytes": 3829760,
+      "sha256": "8f25e71b9ce82441587e28be4990654af2d5a8d8a0ec53ae088f58e27f1d301d"
+    },
+    {
+      "path": "Packages/Scratch4.xbp",
+      "bytes": 4096,
+      "sha256": "57ce22059ebfa16b1d2fcbb08988f78faa5333c6fcf1e1bdd5a9a1b775ee54ab"
+    },
+    {
+      "path": "Packages/ScratchMusic.xbp",
+      "bytes": 24938496,
+      "sha256": "d403b58d5bc881fcebad8d13d292a3944bb30ea5b896d9bb4bfadcd7085314d3"
+    },
+    {
+      "path": "Packages/Tag1.xbp",
+      "bytes": 3979264,
+      "sha256": "a96579b857cf5eebd0c128b5177b099dff7ce8716de1652920a689c95a80dd2a"
+    },
+    {
+      "path": "Packages/Tag3.xbp",
+      "bytes": 5814272,
+      "sha256": "c90b6ba2965ea8b75ec683cfb7305966fe8cbf517699babe7bde50cea4054022"
+    },
+    {
+      "path": "Packages/TankedUp.xbp",
+      "bytes": 14049280,
+      "sha256": "2352267025076bf052242c993df8e39aea22f9eb4c96409efef0a0d8f69a6022"
+    },
+    {
+      "path": "Packages/Video/ATTRACT.bik",
+      "bytes": 71707840,
+      "sha256": "dd8eeebe927ecc6e1c784fa82d9c7b583c3e3109d9f3f962b2ca1d0a40e76fa0"
+    },
+    {
+      "path": "Packages/Video/BLITZ50.bik",
+      "bytes": 2852728,
+      "sha256": "74bc38e0f770aec0fecf20f6221f31379f0dddb5e40364aa75a051920ca31f59"
+    },
+    {
+      "path": "Packages/Video/BLITZ60.bik",
+      "bytes": 2598752,
+      "sha256": "ed01f293d0fb851f3ba6db00df310889c90f985006ddd402696807500b6a1cc1"
+    },
+    {
+      "path": "Packages/Video/MICROSOFT.bik",
+      "bytes": 175100,
+      "sha256": "01b18ddd8586a9d8c28e74e7fc6f4d8082a5b6aada7fbcaf929480a64268d335"
+    },
+    {
+      "path": "Packages/Welsh.xbp",
+      "bytes": 313344,
+      "sha256": "e0a0d41fb5db0391ca255cfd42b39060c7a1dad4dbef31c06545f49144055a09"
+    },
+    {
+      "path": "Packages/XDemo.xbp",
+      "bytes": 1231616,
+      "sha256": "ae1ae2547fa449005472e8a54c1310f047ae8f20004532e9dd22ab94b218854e"
+    },
+    {
+      "path": "Packages/bgeffects.xbp",
+      "bytes": 182272,
+      "sha256": "63c107ddd3c6973699bf9f9e5f18a4a8f24b19d0b7fa848388e2d0d479541286"
+    },
+    {
+      "path": "Packages/bug-v1.xbp",
+      "bytes": 1804288,
+      "sha256": "267615cca2bbeca7ff3ffb9b6c59503c3832d052f1465a70abbb2caf12fbc3d6"
+    },
+    {
+      "path": "Packages/bug-v2.xbp",
+      "bytes": 1533952,
+      "sha256": "c7396e3d804149d4297d31b0ac942bd92ff7fbeeec286cce625b68f67171cb53"
+    },
+    {
+      "path": "Packages/bug-v3.xbp",
+      "bytes": 1570816,
+      "sha256": "7832a813da1a9a87d3d67db0c7c47e5b509735a4f3748e4d1bd41bbed5c28224"
+    },
+    {
+      "path": "Packages/bump-v01.xbp",
+      "bytes": 3532800,
+      "sha256": "dd1bdb3ba2bab4ed0463f975b1b6a0a3e4db5df21a4397d35e4467c44cad67cc"
+    },
+    {
+      "path": "Packages/bump-v02.xbp",
+      "bytes": 6770688,
+      "sha256": "180852e5952a3696a362e889a103875d960991310900ba0d70ca0a03d8394e49"
+    },
+    {
+      "path": "Packages/bump-v03.xbp",
+      "bytes": 7301120,
+      "sha256": "24476606bbf3481fea1f9b7f18cf05d42db5a934f1858959504527437b1fa523"
+    },
+    {
+      "path": "Packages/bump-v04.xbp",
+      "bytes": 7184384,
+      "sha256": "05fa6d0336e2a51c2e0ca63981a660e9e039b989b5960af02775a009c453f8be"
+    },
+    {
+      "path": "Packages/carryon_gen.xbp",
+      "bytes": 7778304,
+      "sha256": "f9e4f0b49ed1794c5d5268114af042d104f89441d6d25ca2568e814707767b13"
+    },
+    {
+      "path": "Packages/carryon_v1.xbp",
+      "bytes": 6787072,
+      "sha256": "2e3ed805d6b053152c8bb500f11ae7c165d70fdb2a708b14765f39f60a82ff46"
+    },
+    {
+      "path": "Packages/carryon_v2.xbp",
+      "bytes": 7090176,
+      "sha256": "b6c3e28728e70559981955bf3b598f3515929e71e176cd7c4f08949523a3b892"
+    },
+    {
+      "path": "Packages/carryon_v3.xbp",
+      "bytes": 7540736,
+      "sha256": "23d70b69573b46a04a908d9a8b0bdb2087314c573fecb751d0c93c80a4168797"
+    },
+    {
+      "path": "Packages/carryon_v4.xbp",
+      "bytes": 6717440,
+      "sha256": "43fbfa3ab07b4623b188455290e856f8eb1ffcb7f6b8c9bc8090cdc943f189b1"
+    },
+    {
+      "path": "Packages/charactersel.xbp",
+      "bytes": 6164480,
+      "sha256": "c808846e407f86e777f8f3752e8c06915a158c11f4adf0608e5de3d8de4f43db"
+    },
+    {
+      "path": "Packages/clust-v4.xbp",
+      "bytes": 387072,
+      "sha256": "8b1e6bb049ac0e38a5ce827dafa6e62df1688ddc3f0aca655ab5336b61e3654b"
+    },
+    {
+      "path": "Packages/drill-v1.xbp",
+      "bytes": 21981184,
+      "sha256": "06788a2af13470756338692de883789b9f9c7f4964ab84a45820e1e0e2bf4cc6"
+    },
+    {
+      "path": "Packages/drill-v2.xbp",
+      "bytes": 20713472,
+      "sha256": "7a5ddea01dcdd6cfd1355804f3bb4f30e7ea5450edd70308f126b4850b6134ff"
+    },
+    {
+      "path": "Packages/drill-v3.xbp",
+      "bytes": 19089408,
+      "sha256": "64d1a4c5c2e8b1d3d1abf7d786397879a119229261d4f45c7b4d88c18e231664"
+    },
+    {
+      "path": "Packages/drill-v4.xbp",
+      "bytes": 19623936,
+      "sha256": "cdd0d9e29912d7b2d1de5a2f32b8ce84bca13e7753cd0b917aa5dd5846a7d758"
+    },
+    {
+      "path": "Packages/hop-v1.xbp",
+      "bytes": 16648192,
+      "sha256": "b4b54fcc6b02f677ab84ca2281260341c411247f9f6b9aa3a385f05849ba9ee8"
+    },
+    {
+      "path": "Packages/hop-v2.xbp",
+      "bytes": 19132416,
+      "sha256": "ecd60d7d7d1a266e54674506d172a096f61e663d5e046e675ada1c7ce21d0056"
+    },
+    {
+      "path": "Packages/hop-v3.xbp",
+      "bytes": 17909760,
+      "sha256": "ce41282d5bbeeab83a72c367595091d9b8cf673f38ac219313729d47bbb3279e"
+    },
+    {
+      "path": "Packages/hop-v4.xbp",
+      "bytes": 17053696,
+      "sha256": "c3875b31803a92172a06e889351d609246aa03dc4fa99355a1c9fe9a82b013d6"
+    },
+    {
+      "path": "Packages/map.xbp",
+      "bytes": 2973696,
+      "sha256": "90e163139e1b93bb7129dcefce17d3ab1b8ebc256f53a6171dc6d8f287065983"
+    },
+    {
+      "path": "Packages/row_gen.xbp",
+      "bytes": 5670912,
+      "sha256": "f2ab48301b7e29160efb1016cc85462d3d48303db4e836ccc02e881e326e6538"
+    },
+    {
+      "path": "Packages/row_v1.xbp",
+      "bytes": 5826560,
+      "sha256": "803ac9619f5658e9aef3953fd7502796e371cd4cec867ec2c76a91dec4f497b0"
+    },
+    {
+      "path": "Packages/row_v2.xbp",
+      "bytes": 5498880,
+      "sha256": "7392361b57ebef616b5ffb1fcb3765f3966072d6d8cfd9db5db01430fca303c9"
+    },
+    {
+      "path": "Packages/row_v3.xbp",
+      "bytes": 7192576,
+      "sha256": "4ca1924d286a8562c71b662c39ccdefd9204ce2ab7f7e26b4146a7668f254e3f"
+    },
+    {
+      "path": "Packages/row_v4.xbp",
+      "bytes": 6266880,
+      "sha256": "34a39ee55bd512939ab41bf689c44d236935fb6b1b87d291dfee3cab57ba3081"
+    },
+    {
+      "path": "Packages/tank-v01.xbp",
+      "bytes": 6170624,
+      "sha256": "a6908092ac95278d4c6832920d622bf15db72b33e53d600cfd9fcad019e95ed2"
+    },
+    {
+      "path": "Packages/tank-v02.xbp",
+      "bytes": 3856384,
+      "sha256": "7e94c49932dd920a1fb056a8457eef2f5e219a966a73ed63e5aff10c87a8e594"
+    },
+    {
+      "path": "Packages/tank-v03.xbp",
+      "bytes": 4186112,
+      "sha256": "cdd836c8047dc2784234f04ebc1dea8dcd15d6188b20a0ca5b7dcefbf1b14da4"
+    },
+    {
+      "path": "Packages/tank-v04.xbp",
+      "bytes": 6234112,
+      "sha256": "d6e34d834bc64637ddb34eb58660f670c5cff9ad1dd976e2d93d357b303f7753"
+    },
+    {
+      "path": "XDemos/XDemos.xbe",
+      "bytes": 872448,
+      "sha256": "a2a82d6f00cce03f05e964d02ada918262516b97c826c934eebb131531b2a15f"
+    },
+    {
+      "path": "XDemos/media/Dn.png",
+      "bytes": 1321,
+      "sha256": "ac2f5fe01dabf3d0e9425f5cda71d41ca5eb0e526bda11e8fc63c39f71652e31"
+    },
+    {
+      "path": "XDemos/media/Up.png",
+      "bytes": 1407,
+      "sha256": "7cdab9bd063b6c1d7d9ad36cd9ca1191a45ae2fcb6471b7b8b206a9ec392d589"
+    },
+    {
+      "path": "XDemos/media/ambient.wma",
+      "bytes": 6438726,
+      "sha256": "36a5c680452c566f9acca1b797e0bffe2bbcd70f9a3ec8b781b3c0e679afe707"
+    },
+    {
+      "path": "XDemos/media/fontb.xpr",
+      "bytes": 266240,
+      "sha256": "60d91b108af3bfe840655020901416c6a87f52bfe3ab85c97da479db162a4727"
+    },
+    {
+      "path": "XDemos/media/fontn.xpr",
+      "bytes": 135168,
+      "sha256": "1827382e992d69257a5eaf02d320f13f2b59123953f4f9c2c2c940ba637b0cb8"
+    },
+    {
+      "path": "XDemos/media/launch.wav",
+      "bytes": 18048,
+      "sha256": "e9bdd1a577ec8b7767c3c80726cc264e5b6cf3945c065305da30032135434b2b"
+    },
+    {
+      "path": "XDemos/media/menu.wav",
+      "bytes": 8808,
+      "sha256": "c644e644dfd189045c0d230b7b0e257b63b30f23879d4b1c22fdd45c55c1ff1d"
+    },
+    {
+      "path": "XDemos/media/screen.png",
+      "bytes": 297643,
+      "sha256": "718a905bebfedd36aa8b616c089f3dff7cec02a9cc71be24a26c8cbdac6d1995"
+    },
+    {
+      "path": "XDemos/media/screenT.png",
+      "bytes": 289164,
+      "sha256": "b02836f48d6205cbec50a4a421bc11a197dc2da6ae30106b670b30b77555ca99"
+    },
+    {
+      "path": "XDemos/media/vssver.scc",
+      "bytes": 240,
+      "sha256": "b9e3e28073b2939dd7da38d9c574aee094bd1f23c4e0dc74c5086aaa8f8a2bf3"
+    },
+    {
+      "path": "XDemos/media/wait.png",
+      "bytes": 73987,
+      "sha256": "ec3fd36a6222b18d70f97223a4d0ae60727e45dda75a7cfa67dc43c9adef48ac"
+    },
+    {
+      "path": "XDemos/videos/Amped.bik",
+      "bytes": 61134348,
+      "sha256": "1ffebf9c4d3432657d37acf7fb939ff25e563d22eb0633f9720ba3cc6823a6bb"
+    },
+    {
+      "path": "XDemos/videos/Fever.bik",
+      "bytes": 135544400,
+      "sha256": "9bb56ca9c6edd03199e0c2b83691fc5ee409d6ebb7f302691cde2b48302ae57e"
+    },
+    {
+      "path": "XDemos/videos/Fever.png",
+      "bytes": 142408,
+      "sha256": "0aca270269a6edf37afc70212837d7217f00f1cc6f09feb70559404373f96a9e"
+    },
+    {
+      "path": "XDemos/videos/Gotham.bik",
+      "bytes": 128163352,
+      "sha256": "4eed83e03f109897f0bfae7ca85402d3972ee2dc123c50cfd50fea91d315caf1"
+    },
+    {
+      "path": "XDemos/videos/Gotham.png",
+      "bytes": 202271,
+      "sha256": "824177aceb9d924c8f34d5c7968aa6fe0bb3b68ea55a5565cf48ab6d884f3d52"
+    },
+    {
+      "path": "XDemos/videos/Thumbs.db",
+      "bytes": 9728,
+      "sha256": "4ff232d6f7911d407bf89fadf8614765cec27c6e5e7b920883757e6f0e6d009c"
+    },
+    {
+      "path": "XDemos/videos/amped.png",
+      "bytes": 53709,
+      "sha256": "546f39288f0f37fee1648a271b5c178ee335752b94f2bdb97067a40b58f9af3e"
+    },
+    {
+      "path": "XDemos/xdemos.xdi",
+      "bytes": 703,
+      "sha256": "248d01abefe6f3534b94f46c2ee6045013bc164755802d5cbcc0ecd7bc92d96d"
+    },
+    {
+      "path": "default.xbe",
+      "bytes": 2834432,
+      "sha256": "45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9"
+    },
+    {
+      "path": "layer0-1.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-2.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-3.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-4.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-5.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-6.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-7.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer0-8.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-1.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-2.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-3.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-4.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-5.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-6.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-7.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    },
+    {
+      "path": "layer1-8.zro",
+      "bytes": 67108864,
+      "sha256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+    }
+  ]
+}
