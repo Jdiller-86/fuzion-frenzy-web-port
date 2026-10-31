@@ -12,7 +12,9 @@ The user supplied `Fuzion Frenzy (USA)/`, now verified against all 136 regular f
 
 **Repository.** Public source-only repository: https://github.com/Jdiller-86/fuzion-frenzy-web-port, branch `main`, as requested by the user. Local preparation checks pass. The first private-repository CI attempt was blocked before execution; read current status for public workflow verification instead of assuming visibility alone fixed it.
 
-**Next implementation task: phase 0 reference inventory.** Once the user directs development to begin, complete one bounded evidence task before building game systems:
+**G0 inventory progress.** [Reference inventory](REFERENCE_INVENTORY.md) records executable identity and certificate fields, file categories, local evidence, capture scenarios, and unresolved catalog and fidelity questions. G0 remains open; the previously proposed first-pack activities are not confirmed from this build. The next bounded task is local XBP/LND format reconnaissance described in that inventory, toward but not equivalent to the G1 browser proof. Do not repeat extraction or reimport the XBE.
+
+**Remaining phase 0 reference work.** Continue the following as evidence becomes available, before building affected game systems:
 
 1. Inspect current local research without reimporting/decompiling everything. Check target digests and persistent Ghidra project availability.
 2. Record executable build metadata and an inventory of disc paths/container candidates. Treat filenames as leads, not format or behavior proof.
@@ -29,3 +31,21 @@ The first gameplay sequence is timing -> contact -> steering -> orb objectives, 
 **Handoff after every task.** Record the task, evidence/changed files, exact checks and outcomes, unfinished work, decisions, and next task. Avoid replacing uncertainty with optimistic completion labels. Keep the master plan's release scope separate from small task acceptance.
 
 OpenAI references used for preparation: [project configuration](https://learn.chatgpt.com/docs/config-file/config-basic), [AGENTS.md discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [model selection](https://learn.chatgpt.com/docs/models).
+
+
+**Current research spike.** Run `npm run test:formats` for synthetic input checks and `npm run dev:research` to start the loopback-only, allowlisted inspection page. The local browser has identified the supplied XISO and read the character-selection package index. See [reference inventory](REFERENCE_INVENTORY.md) for exact observations, external format lead and limits. One mono audio cue now decodes in the browser and matches a local FFmpeg PCM comparison, though audible quality has not been independently observed. Continue focused OBE/animation/arena investigation; no original visual assets are yet rendered and both G0 and G1 remain open. Do not treat index timing as total import time or memory evidence.
+
+
+The existing Ghidra project now has a completed time-limited automatic analysis and a focused OBE relocation lead; static pseudocode and outputs remain local. See the inventory's static lead and scripts before further analysis. The initial sandboxed invocation could not write the normal Ghidra user directory; setting `APPDATA` only for the PowerShell process to `research/ghidra-user` allowed reuse without changing global settings. Follow the type-2 node and geometry path; do not claim decoded rendering from relocation alone.
+
+
+**Latest browser experiment:** the loopback-only page now displays textured stadium geometry and a textured character animated from locally sampled tracks, and decodes one mono cue. The narrowly accepted executable and four packages are hash checked. Its timing/memory snapshot and synthetic failure results are in [reference inventory](REFERENCE_INVENTORY.md); visual fidelity, actual audio audition, original timing and peak memory remain open. Continue from these artifacts; do not treat G0 or G1 as passed. Matching original gameplay/reference captures and a verified selectable catalog are still missing.
+
+
+Read [G0/G1 checkpoint](G0_G1_CHECKPOINT.md) for the current requirement-by-requirement evidence and missing reference/hardware inputs. The identity helper has negative synthetic tests; browser cancellation and altered-package rejection were verified. The local synthetic image used for the latter includes the supplied executable and stays under ignored `research/verification/`.
+
+
+The default stadium preview includes landscape and wall only. A separate surrounding-geometry diagnostic can omit two triangles with extreme UVs, but its current view hides the arena; it is not included in the proof. Identity rejection and cancellation/reimport were checked in the browser. Continue against the checkpoint, including a real reference and peak-memory profiling; do not call the partial scene complete.
+
+
+The local proof supports Repeat import and optional paused-stage memory samples; see the inventory for reproducible timing, cache and coverage distinctions. Profiling deliberately pauses the worker and its elapsed time is not a speed benchmark. Neither diagnostic proves peak memory or the target-machine matrix.

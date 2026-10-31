@@ -5,10 +5,18 @@
   "description": "Source-only preparation workspace for a browser-playable Fuzion Frenzy reconstruction",
   "type": "module",
   "packageManager": "npm@11.9.0",
-  "engines": { "node": ">=24.14.0 <25", "npm": ">=11 <12" },
-  "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "npm": ">=11 <12"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "check": "node tools/check-preparation.mjs",
-    "check:environment": "node tools/check-environment.mjs"
+    "check:environment": "node tools/check-environment.mjs",
+    "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs",
+    "dev:research": "node tools/serve-proof.mjs"
   }
 }

@@ -1,0 +1,37 @@
+// Experimental local geometry preview; not a fidelity-validated arena renderer.
+export function renderGeometry(canvas, positions, indices, texture = null, uvs = null, batches = null) {
+  const gl = canvas.getContext('webgl2', { antialias: true });
+  if (!gl) throw new Error('WebGL 2 is unavailable');
+  const compile = (type, source) => { const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s); if (!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error('Shader compilation failed'); return s; };
+  const vs=compile(gl.VERTEX_SHADER,`#version 300 es
+    in vec3 position; in vec2 uv; uniform float angle; out float height; out vec2 texcoord;
+    void main() { float c=cos(angle), s=sin(angle); vec3 p=vec3(c*position.x+s*position.z,position.y,-s*position.x+c*position.z); p=vec3(p.x,0.78*p.y-0.62*p.z,0.62*p.y+0.78*p.z); height=position.y; texcoord=uv; gl_Position=vec4(p.x,p.y,p.z*0.4,1.0); }`);
+  const fs=compile(gl.FRAGMENT_SHADER,`#version 300 es
+    precision mediump float; in float height; in vec2 texcoord; uniform sampler2D image; uniform bool textured; out vec4 color;
+    void main() { color=textured?texture(image,texcoord):vec4(0.30+height*0.08,0.66+height*0.08,0.71+height*0.08,1.0); if(color.a<0.5) discard; }`);
+  const program=gl.createProgram(); gl.attachShader(program,vs); gl.attachShader(program,fs); gl.linkProgram(program);
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error('Shader linking failed');
+  let min=[Infinity,Infinity,Infinity], max=[-Infinity,-Infinity,-Infinity];
+  for(let i=0;i<positions.length;i++) { const k=i%3; min[k]=Math.min(min[k],positions[i]); max[k]=Math.max(max[k],positions[i]); }
+  const span=Math.max(...max.map((x,i)=>x-min[i])); if(!Number.isFinite(span) || span<=0) throw new Error('Invalid geometry bounds');
+  const normalized=positions.map((x,i)=>(x-(min[i%3]+max[i%3])/2)/span*1.5);
+  gl.useProgram(program); let buffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,normalized,gl.STATIC_DRAW);
+  const a=gl.getAttribLocation(program,'position'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,3,gl.FLOAT,false,0,0);
+  const glTextures=new Map(), extraBuffers=[];
+  if(texture && uvs) {
+    const tb=gl.createBuffer(); extraBuffers.push(tb); gl.bindBuffer(gl.ARRAY_BUFFER,tb); gl.bufferData(gl.ARRAY_BUFFER,uvs,gl.STATIC_DRAW); const location=gl.getAttribLocation(program,'uv'); gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location,2,gl.FLOAT,false,0,0);
+    for(const item of (Array.isArray(texture)?texture:[texture])) { const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,item.width,item.height,0,gl.RGBA,gl.UNSIGNED_BYTE,item.rgba); glTextures.set(item.hash??0,t); }
+  }
+  gl.uniform1i(gl.getUniformLocation(program,'textured'),texture&&uvs?1:0);
+  let ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);
+  gl.viewport(0,0,canvas.width,canvas.height); gl.clearColor(0.04,0.07,0.1,1); gl.enable(gl.DEPTH_TEST);
+  function draw(next) {
+    if(next.length!==positions.length) throw new Error('Geometry size changed');
+    const adjusted=next.map((x,i)=>(x-(min[i%3]+max[i%3])/2)/span*1.5);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferSubData(gl.ARRAY_BUFFER,0,adjusted);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.uniform1f(gl.getUniformLocation(program,'angle'),0.65); if(batches) { for(const batch of batches) { const t=glTextures.get(batch.hash); if(!t)throw new Error('Missing preview material'); gl.bindTexture(gl.TEXTURE_2D,t); gl.drawElements(gl.TRIANGLES,batch.count,gl.UNSIGNED_INT,batch.start*4); } } else { if(texture)gl.bindTexture(gl.TEXTURE_2D,glTextures.get(0)); gl.drawElements(gl.TRIANGLES,indices.length,gl.UNSIGNED_INT,0); }
+    if(gl.getError()!==gl.NO_ERROR) throw new Error('WebGL draw failed');
+  }
+  draw.dispose=()=>{ for(const t of glTextures.values())gl.deleteTexture(t);for(const b of extraBuffers)gl.deleteBuffer(b);gl.deleteBuffer(buffer);gl.deleteBuffer(ib);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext(); };
+  draw(positions); return draw;
+}
