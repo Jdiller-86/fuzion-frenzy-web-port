@@ -6,6 +6,8 @@ The user also selected required player-supplied files, local-only asset conversi
 
 **Current evidence.** REA 6.7.0 and a Ghidra provider are configured. Direct Ghidra successfully imported the actual XBE and decompiled its entry; this is an analysis toolchain test. It establishes no particular minigame timing, score rule, art format, or browser performance claim. The original planning-pass limitations are historical; use `ANALYSIS_SETUP.md` for the newer setup facts.
 
+The user supplied `Fuzion Frenzy (USA)/`, now verified against all 136 regular files in the existing XISO. Use it directly instead of extracting another copy. It includes 89 XBP packages and six LND zone-description files, but internal models/textures/animation/audio conversion remains unproved. Read `PROVIDED_FOLDER_ASSESSMENT.md` before requesting more input or running extraction.
+
 **Model/environment.** `.codex/config.toml` defaults to Terra with high reasoning for trusted project sessions. It does not replace the model in an existing desktop chat. Select Terra in that chat before execution. The local catalog listed the exact model ID as available during preparation; verify if the account/client changes. Do not substitute another model silently. No model API call, API key, or paid service is part of application setup.
 
 **Repository.** Public source-only repository: https://github.com/Jdiller-86/fuzion-frenzy-web-port, branch `main`, as requested by the user. Local preparation checks pass. The first private-repository CI attempt was blocked before execution; read current status for public workflow verification instead of assuming visibility alone fixed it.

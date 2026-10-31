@@ -6,6 +6,7 @@ Prepared October 31, 2026. Update this file with each completed development task
 | Model handoff | Prepared | Root instructions, Terra project defaults, bounded next task |
 | Local analysis tools | Verified in setup session | REA 6.7.0, Ghidra 12.1.4, JDK 21, matching XBE loader; see `ANALYSIS_SETUP.md` |
 | Original executable import | Verified, limited | XBE entry decompiled at `0x00030f7f`; full analysis not run |
+| User-supplied content folder | Verified against local XISO | All 136 files matched; no missing/changed/extra files; use it directly, with XBP decoding still pending; see `PROVIDED_FOLDER_ASSESSMENT.md` |
 | Original build/content inventory | Pending | Next phase 0 task; root paths alone do not establish all minigames/variants |
 | Runtime gameplay evidence | Unresolved | Hardware/emulator/captures not established |
 | Player-supplied content | Design selected; implementation pending | Local browser conversion, no uploads/hosted originals; see `PLAYER_SUPPLIED_CONTENT.md` |
