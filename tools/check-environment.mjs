@@ -7,7 +7,7 @@ const [major, minor] = process.versions.node.split('.').map(Number);
 if (major !== 24 || minor < 14) throw new Error('Use Node >=24.14.0 and <25; see .node-version.');
 const has = relative => fs.existsSync(path.join(root, relative));
 console.log(JSON.stringify({
-  stage: 'preparation; no playable application',
+  stage: 'G2 offline Twisted System; implementation verification is separate from fidelity acceptance',
   node: process.versions.node,
   preferredModel: 'gpt-6.1-terra',
   modelSelection: 'Project defaults do not replace an existing desktop chat model.',
@@ -19,5 +19,5 @@ console.log(JSON.stringify({
     persistentProject: has('research/ghidra-projects/FuzionFrenzySetup.gpr'),
     note: 'Existence checks only; see saved verification evidence for actual analysis tests.'
   },
-  dependencies: 'No application dependencies or production services provisioned.'
+  dependencies: 'Dependency-free browser ESM/WebGL 2 implementation; no production services provisioned.'
 }, null, 2));

@@ -1,6 +1,6 @@
 # G2 offline Twisted System: implementation and fidelity audit
 
-October 31, 2026. The offline implementation has been played in the actual browser. **Implementation delivery and original-game fidelity acceptance are separate.** Fidelity remains unaccepted for the unresolved values below. This is one activity, one imported character profile and one supported local content build.
+October 31, 2026. The offline implementation is delivered, published and has been played in the actual browser. **Implementation delivery and original-game fidelity acceptance are separate.** Fidelity remains unaccepted for the unresolved values below. This is one activity, one imported character profile and one supported local content build.
 
 ## Run and verify
 
@@ -37,7 +37,7 @@ Focus a key field in instructions and press a replacement key to remap it. Keys 
 | Original local assets and compatible content gate | Worker reuses existing XDVDFS/XBP/OBE/texture/weighted-animation readers; hashes executable and selected package before enabling play | Imported reactor/rods/Dub, not a placeholder arena. One uncompressed XISO profile supported. |
 | Local-only conversion and clearing | Worker receives selected File, reads bounded slices, emits decoded assets only to its own page; no upload/persistence API; server/build allowlists; malformed rejection and clear/reimport browser runs | No original content served, uploaded, staged or built. Clear terminates worker and releases GPU/decoded state without deleting originals. |
 | Meaningful tests | 23 gameplay/input/event-wiring/server/build tests; existing format tests extended for multiframe palette alignment and bounded large-package hashing | Passed locally. This does not establish physical-controller behavior or original fidelity. |
-| Source-only checkpoint and Windows/Linux CI | Workflow now executes gameplay tests and the real source-only build in both OS jobs | Remote result recorded below after publication. |
+| Source-only checkpoint and Windows/Linux CI | Workflow now executes gameplay tests and the real source-only build in both OS jobs | Published implementation `d2af6a2`; [run 41236582956](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41236582956) passed on both Windows and Linux, including gameplay tests and the source-only build. |
 | Preserve supplied content | All 136 file identities reproduce `reference-files.json` byte-for-byte; XISO SHA-256 remains `8662b9ccdf2507e6d1edd3fa8ec3003cc7b8f016e0f55518aa700200db104618` | Verified after implementation/browser work. No extraction repeated. |
 | Status, handoff, decisions and reproducibility | This audit, current status/handoff, D013–D015, README and actual scripts | Updated; older investigation history explicitly superseded. |
 
@@ -58,6 +58,8 @@ Windows workstation and ChatGPT in-app Chromium browser, using the existing loca
 | Focus/device clearing | Injectable event wiring tests dispatch blur, hidden/visible changes and owned/unowned disconnect notifications, proving pending jumps/held ducks clear for all seats and no automatic resume. Actual physical OS-focus loss/controller disconnect has not been independently exercised in this browser session. Opening a second background test tab did not establish focus loss and is not counted as that test. |
 | Built-bundle rerun | `npm run preview` served the 17-file allowlisted build. Import took 0.11 s. Duplicate Space ownership for P2 was rejected; remapping to Digit2 and back worked. A W press showed only P2 Jumping, with P1/P3/P4 Running, while the imported P2 model was visibly airborne. Refresh gamepads showed no discovered controller, so no physical gamepad run is claimed. |
 | Malformed and clear/reimport | `invalid-input.iso` rejected with XDVDFS range outside image and no Play control. Supported image then imported. Clear removed content/controls; reimport rendered four seats with the same canvas/GPU context and no browser warning/error entries. |
+
+The final built four-seat rerun also reached shared-win results with four frozen zero scores/seven misses, returned to instructions with ownership retained, and reported no browser warning/error entries. `npm ci --ignore-scripts --offline`, the runtime check and `git diff --check` passed locally.
 
 Screenshots containing imported originals remain ignored/local under `research/verification/`; none is included in the published source or build. Built four-seat screenshot: `research/verification/g2-built-four-seat-20261031.jpg`.
 
