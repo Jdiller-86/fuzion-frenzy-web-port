@@ -45,12 +45,19 @@ onmessage = async ({data: image}) => {
       if(!entry)throw new Error('Stadium surroundings not found');
       const mesh=readStadiumRoot(await xbpResource(arenaPackage,entry).arrayBuffer(),{omitInvalidUV:true});
       omittedTriangles=mesh.omittedTriangles; meshes.push(mesh);
+      const skyEntry=arenaEntries.find(e=>e.name.toLowerCase()==='stad_sky.obe');
+      if(!skyEntry)throw new Error('Stadium sky not found');
+      const sky=readStadiumRoot(await xbpResource(arenaPackage,skyEntry).arrayBuffer());
+      // The selected LND places the sky at (0,-600,0).
+      for(let i=1;i<sky.positions.length;i+=3)sky.positions[i]-=600;
+      meshes.push(sky);
     }
     const positions=new Float32Array(meshes.reduce((n,m)=>n+m.positions.length,0));
+    const arenaColors=new Uint8Array(meshes.reduce((n,m)=>n+m.colors.length,0));
     const arenaUvs=new Float32Array(meshes.reduce((n,m)=>n+m.uvs.length,0));
     const indices=new Uint32Array(meshes.reduce((n,m)=>n+m.indices.length,0));
     const batches=[]; let po=0,uo=0,io=0;
-    for(const mesh of meshes){positions.set(mesh.positions,po);arenaUvs.set(mesh.uvs,uo);for(let i=0;i<mesh.indices.length;i++)indices[io+i]=mesh.indices[i]+po/3;for(const batch of mesh.batches)batches.push({...batch,start:batch.start+io});po+=mesh.positions.length;uo+=mesh.uvs.length;io+=mesh.indices.length;}
+    for(const mesh of meshes){positions.set(mesh.positions,po);arenaColors.set(mesh.colors,po/3*4);arenaUvs.set(mesh.uvs,uo);for(let i=0;i<mesh.indices.length;i++)indices[io+i]=mesh.indices[i]+po/3;for(const batch of mesh.batches)batches.push({...batch,start:batch.start+io});po+=mesh.positions.length;uo+=mesh.uvs.length;io+=mesh.indices.length;}
     const textures=[], hashes=new Set(batches.map(x=>x.hash)); let textureBytes=0;
     if(hashes.size>64)throw new Error('Too many arena textures');
     for(const hash of hashes) { const matches=arenaEntries.filter(e=>e.hash===hash); if(matches.length!==1)throw new Error('Ambiguous arena texture'); const tex=decodeTexture(await xbpResource(arenaPackage,matches[0]).arrayBuffer()); textureBytes+=tex.rgba.byteLength; if(textureBytes>32*1024*1024)throw new Error('Arena texture budget exceeded'); textures.push({hash,...tex}); }
@@ -65,6 +72,6 @@ onmessage = async ({data: image}) => {
     if(!texEntry)throw new Error('Character texture candidate not found');
     const texture=decodeTexture(await xbpResource(characterPackage,texEntry).arrayBuffer());
     await checkpoint('Decoded assets held before rendering');
-    postMessage({identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, batches, textures, frameVertices:(landscape.positions.length+wall.positions.length)/3, omittedTriangles, characterPositions: bind.positions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, ...textures.map(t=>t.rgba.buffer), bind.positions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
+    postMessage({identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, arenaColors, batches, textures, landscapeVertices:landscape.positions.length/3, frameVertices:(landscape.positions.length+wall.positions.length)/3, omittedTriangles, characterPositions: bind.positions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, arenaColors.buffer, ...textures.map(t=>t.rgba.buffer), bind.positions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
   } catch (e) { postMessage({error: e instanceof Error ? e.message : 'Unknown error'}); }
 };
