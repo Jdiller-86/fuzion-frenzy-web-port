@@ -280,7 +280,7 @@ Set an initial hosting budget, peak-player target, account/egress limits, and ad
 | --- | --- | --- |
 | Original source unavailable | A direct source port cannot be assumed | Reconstruction baseline; short recompilation feasibility gate |
 | REA/XBE loader or runtime unavailable | Some numeric rules cannot yet be recovered | Verify provider/host support; use reference observations and preserve unknowns |
-| Original-content distribution unresolved | Public faithful-asset release cannot be scheduled confidently | Resolve permissions early; placeholder engineering and provenance checks |
+| Local original-content use and remaining IP questions | Player-supplied conversion may fail technical/fidelity targets; branding/audio/code questions are not automatically settled | Prove local conversion at G1; distribute source/approved original work only; preserve remaining release questions |
 | Unknown model/audio/animation formats | Full content conversion could dominate time | Prove one representative set before catalog estimates |
 | Collision or steering feels poor online | A timing-only prototype gives false confidence | Required contact and vehicle slices before framework freeze |
 | Full catalog effort | Dozens of superficially similar games hide unique mechanics | Family-based production with per-game evidence and acceptance |
@@ -295,9 +295,9 @@ Before broad content production, accept only a route that has demonstrated origi
 
 **19. First implementation backlog.** These tasks make the next development step concrete without silently beginning implementation during this planning request.
 
-1. Create the repository, ignore local reference media/research outputs, and add this plan plus a decision log.
+1. Repository preparation is complete: source-only GitHub repository, media/research exclusions, Terra instructions and decision log. Keep these boundaries during implementation.
 2. Verify reference build identity and runtime access; create the content/variant inventory and capture checklist.
-3. Decide the asset distribution path and prove one representative content pipeline with placeholders where needed.
+3. Prove the selected player-supplied local-content pipeline, with placeholders for technical spikes and original-inspired/local-original visuals as the fidelity target.
 4. Complete the bounded renderer, authority, multi-seat prediction and optional recompilation spikes; pin working dependencies.
 5. Scaffold `sim`, `protocol`, browser and match-server packages with a minimal reproducible developer environment.
 6. Implement semantic input, device ownership, lobby seats and a simple four-player test arena.
@@ -306,4 +306,4 @@ Before broad content production, accept only a route that has demonstrated origi
 9. Add contact, steering and orb-objective slices; refine the framework and revise estimates before expansion.
 10. Finish account/friends/lobby flows, first-pack content, desktop QA, load/recovery checks and staged release preparation.
 
-The remaining product decisions are the desired fidelity of the first pack's art/audio, the original-content permissions route, available staffing/time, initial hosting budget/concurrency, and test regions. They affect cost and sequencing; they do not prevent the reference inventory and core technical proofs from being specified now.
+The visual direction and player-supplied distribution path are selected in the newer scope documents. Remaining questions are verified asset conversion/reference behavior, exact content coverage at G4, residual branding/audio/code rights, available staffing/time, initial hosting budget/concurrency, and test regions. They affect cost and sequencing; they do not prevent the bounded reference/import/offline/network proofs from proceeding when development is requested.

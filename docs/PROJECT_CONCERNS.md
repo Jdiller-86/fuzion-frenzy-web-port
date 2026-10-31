@@ -11,7 +11,7 @@ These concerns were reported before gameplay development. They are planning and 
 | Model continuity | Terra is available and configured as the project default; existing desktop chats retain their selected model | Select Terra for development and keep status/tasks/evidence explicit; model choice alone does not provide runtime evidence or compatibility. |
 | Repository reproducibility | Original workstation has local media/tools that clones will not include | Version manifests and procedures; CI must run without game media or private tools. |
 | Code licensing | No license for newly written project code has been chosen | Do not invent a license or imply original game content is licensed by this repository. |
-| GitHub Actions availability | Initial private workflow was blocked by account billing/spending restrictions; user requested public visibility | Standard public runners are free; verify the actual fresh public workflow. See status for its result; no billing settings changed. |
+| GitHub Actions availability | Resolved for current workflow: both public Windows/Linux preparation jobs passed in run `41212045874` | Keep standard public runners and source-only CI; no billing settings changed. Reverify when workflow/dependencies change. |
 | Local ROM conversion and visual fidelity | Browser importer and proprietary asset formats remain unproved | Complete G0-G4 in `SCOPE_AND_FIDELITY.md` before broad catalog work; preserve original asset identity locally and measure import memory/time. |
 
 Placeholder implementation and source preparation can progress independently of the original-content release decision. Public distribution, spending on services, and unsupported fidelity promises must not be implied by a successful setup check.
