@@ -11,6 +11,7 @@ These concerns were reported before gameplay development. They are planning and 
 | Model continuity | Terra is available and configured as the project default; existing desktop chats retain their selected model | Select Terra for development and keep status/tasks/evidence explicit; model choice alone does not provide runtime evidence or compatibility. |
 | Repository reproducibility | Original workstation has local media/tools that clones will not include | Version manifests and procedures; CI must run without game media or private tools. |
 | Code licensing | No license for newly written project code has been chosen | Do not invent a license or imply original game content is licensed by this repository. |
+| GitHub Actions availability | Initial workflow was blocked before runner startup by an account billing/spending-limit restriction | Local checks pass; remote Windows/Linux checks remain unverified. Account owner needs to resolve the restriction before CI can run; no billing settings changed. |
 
 Placeholder implementation and source preparation can progress independently of the original-content release decision. Public distribution, spending on services, and unsupported fidelity promises must not be implied by a successful setup check.
 

@@ -33,7 +33,9 @@ for (const name of files) {
   const stat = fs.lstatSync(file);
   assert.ok(stat.isFile() && !stat.isSymbolicLink(), `Only regular source files allowed: ${name}`);
   assert.ok(stat.size < 5 * 1024 * 1024, `Review large file before publication: ${name}`);
-  const contents = fs.readFileSync(file, 'utf8');
+  const bytes = fs.readFileSync(file);
+  assert.ok(!bytes.includes(0), `Binary content is not allowed in this preparation-only repository: ${name}`);
+  const contents = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   for (const pattern of credentialPatterns) assert.ok(!pattern.test(contents), `Potential credential in ${name}`);
 }
 const ignoreProbes = ['research/reference/default.xbe', '.tools/example.exe', 'Fuzion Frenzy (USA).7z', '.env'];

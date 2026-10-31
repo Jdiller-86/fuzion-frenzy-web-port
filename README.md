@@ -2,6 +2,8 @@
 
 Planning and development preparation for a faithful browser-playable reconstruction of the original Xbox game, with online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies.
 
+Source repository: [Jdiller-86/fuzion-frenzy-web-port](https://github.com/Jdiller-86/fuzion-frenzy-web-port), private initially.
+
 **Status: preparation only. There is no playable web build yet.** The accepted first release is a desktop pack of four to six polished games, followed by expansion to full original-game parity. Mobile touch support follows desktop stability.
 
 Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
@@ -17,6 +19,8 @@ npm run check:environment
 ```
 
 `check` validates preparation files and prevents common accidental source publication mistakes. It does not test gameplay. Future client/server tasks will add their real development/build/test commands when implemented.
+
+Local preparation checks pass. The first GitHub Actions attempt was blocked before runner startup by GitHub account billing/spending-limit restrictions; Windows/Linux CI execution is not yet verified. See `docs/PROJECT_STATUS.md` for the run and current limits.
 
 The project's Codex configuration selects `gpt-6.1-terra` with high reasoning. Trusted project settings provide defaults; an existing desktop chat's selected model can take precedence. Select **GPT-6.1 Terra** in the desktop model control, or launch `codex -m gpt-6.1-terra`. No OpenAI API key is needed by the game or the preparation scripts.
 
