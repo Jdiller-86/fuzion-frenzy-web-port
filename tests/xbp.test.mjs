@@ -22,4 +22,11 @@ for (const mutate of [
   b => new DataView(b.buffer).setUint32(48, 65, true),
 ]) { const b = fixture(); mutate(b); await assert.rejects(readXbpIndex(new Blob([b]))); }
 await assert.rejects(readXbpIndex(new Blob([new Uint8Array(12)])));
+// Shared name offsets must not turn a bounded string table into unbounded work/output.
+const count=8193, big=new Uint8Array(8192+count*32), bd=new DataView(big.buffer);
+bd.setUint32(4,1,true);bd.setUint32(12,count,true);bd.setUint32(16,8192,true);bd.setUint32(40,4096,true);bd.setUint32(44,1025,true);bd.setUint32(48,count*32,true);big.fill(97,4096,5120);big[5120]=0;
+for(let i=0;i<count;i++){bd.setUint32(8192+i*32,64,true);bd.setUint32(8200+i*32,1,true);}
+await assert.rejects(readXbpIndex(new Blob([big])),/name budget/);
+const tooLong=big.slice();new DataView(tooLong.buffer).setUint32(12,1,true);new DataView(tooLong.buffer).setUint32(48,32,true);new DataView(tooLong.buffer).setUint32(44,1026,true);tooLong[5120]=97;tooLong[5121]=0;
+await assert.rejects(readXbpIndex(new Blob([tooLong])),/name too long/);
 console.log('XBP synthetic boundary checks passed');

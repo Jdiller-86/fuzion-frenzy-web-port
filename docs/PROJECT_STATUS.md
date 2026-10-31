@@ -54,3 +54,6 @@ A repeat-import control now records bounded in-page timing history; five runs an
 
 
 Checkpoint validation: `npm run test:formats`, `npm run check`, and `git diff --check` passed; Git reported line-ending conversion warnings. Browser tests covered package mismatch, cancellation/reimport, five timing runs and paused-stage samples. Original media, converted data, raw pseudocode and local logs remain ignored.
+
+
+The user confirmed that neither an original Xbox capture setup nor an already configured emulator is currently available. Matching interactive reference remains an external input for G0/G1 fidelity verification; do not acquire firmware or game downloads. The XBP reader now caps individual and aggregate names, and XDVDFS validates numeric ranges and overlapping directory entries. All 89 local package indexes, five selected image paths, synthetic format tests and a browser import passed after these changes. CI now includes the source-owned format tests on both matrix platforms; remote execution for this change remains to be verified.

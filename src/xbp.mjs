@@ -3,6 +3,7 @@
 const MAX_TABLE = 8 * 1024 * 1024;
 const MAX_STRINGS = 8 * 1024 * 1024;
 const MAX_ENTRIES = 100000;
+const MAX_NAME = 1024, MAX_NAME_BYTES = 8 * 1024 * 1024;
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
 async function read(blob, offset, length) {
@@ -24,7 +25,7 @@ export async function readXbpIndex(blob) {
   }
   const entries = new DataView(await read(blob, table, tableSize));
   const strings = new Uint8Array(await read(blob, names, nameSize));
-  const result = [];
+  const result = []; let totalNameBytes=0;
   for (let i = 0; i < count; i++) {
     const row = i * 32;
     const offset = entries.getUint32(row, true) * unit;
@@ -35,7 +36,10 @@ export async function readXbpIndex(blob) {
     if (nameOffset === nameSize && offset === names && size === nameSize) continue;
     if (nameOffset >= nameSize) throw new Error('XBP name offset outside string table');
     let end = nameOffset;
-    while (end < nameSize && strings[end] !== 0) end++;
+    while (end < nameSize && strings[end] !== 0 && end-nameOffset<MAX_NAME) end++;
+    if(end-nameOffset===MAX_NAME && end<nameSize && strings[end]!==0) throw new Error('XBP resource name too long');
+    totalNameBytes += end-nameOffset;
+    if(totalNameBytes>MAX_NAME_BYTES) throw new Error('XBP name budget exceeded');
     if (end === nameSize) throw new Error('Unterminated XBP resource name');
     let name;
     try { name = decoder.decode(strings.subarray(nameOffset, end)).replaceAll('\\', '/'); }

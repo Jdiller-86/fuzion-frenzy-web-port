@@ -49,3 +49,6 @@ The default stadium preview includes landscape and wall only. A separate surroun
 
 
 The local proof supports Repeat import and optional paused-stage memory samples; see the inventory for reproducible timing, cache and coverage distinctions. Profiling deliberately pauses the worker and its elapsed time is not a speed benchmark. Neither diagnostic proves peak memory or the target-machine matrix.
+
+
+The user confirmed neither original Xbox capture nor configured emulator is currently available. Do not repeatedly ask the same setup question; continue independent work and identify the missing matching reference at the gate. The format tests are now included in the Windows/Linux workflow. Verify the actual published commit and CI results rather than inheriting the earlier preparation-only run.

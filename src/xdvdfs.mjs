@@ -15,10 +15,10 @@ export async function openXiso(blob) {
   const v = new DataView(bytes.buffer);
   const root = {offset: v.getUint32(20, true) * SECTOR, size: v.getUint32(24, true), directory: true};
   async function list(dir) {
-    if (!dir.directory || dir.size > MAX_DIRECTORY) throw new Error('Unsupported XDVDFS directory');
+    if (!dir || !dir.directory || !Number.isSafeInteger(dir.offset) || !Number.isSafeInteger(dir.size) || dir.offset < 0 || dir.size < 0 || dir.offset > blob.size || dir.size > blob.size-dir.offset || dir.size > MAX_DIRECTORY) throw new Error('Unsupported XDVDFS directory');
     if (!dir.size) return [];
     const data = new Uint8Array(await range(blob, dir.offset, dir.size));
-    const view = new DataView(data.buffer), stack = [0], seen = new Set(), result = [], names = new Set();
+    const view = new DataView(data.buffer), stack = [0], seen = new Set(), result = [], names = new Set(), extents=[];
     while (stack.length) {
       const p = stack.pop();
       if (seen.has(p) || p + 14 > data.length) throw new Error('Invalid XDVDFS directory tree');
@@ -26,6 +26,7 @@ export async function openXiso(blob) {
       const left = view.getUint16(p, true) * 4, right = view.getUint16(p + 2, true) * 4;
       const length = data[p + 13];
       if (!length || p + 14 + length > data.length) throw new Error('Invalid XDVDFS name');
+      extents.push([p,p+14+length]);
       const name = text.decode(data.subarray(p + 14, p + 14 + length));
       if (/[\\/:\x00-\x1f]/.test(name) || name === '.' || name === '..') throw new Error('Unsafe XDVDFS name');
       const key = name.toLowerCase();
@@ -37,6 +38,8 @@ export async function openXiso(blob) {
       if (left) stack.push(left);
       if (right) stack.push(right);
     }
+    extents.sort((a,b)=>a[0]-b[0]);
+    for(let i=1;i<extents.length;i++) if(extents[i][0]<extents[i-1][1]) throw new Error('Overlapping XDVDFS directory entries');
     return result;
   }
   async function find(path) {
@@ -50,7 +53,7 @@ export async function openXiso(blob) {
     return entry;
   }
   function file(entry) {
-    if (entry.directory || entry.offset < 0 || entry.size < 0 || entry.offset > blob.size || entry.size > blob.size - entry.offset) throw new Error('Invalid XDVDFS file');
+    if (!entry || entry.directory || !Number.isSafeInteger(entry.offset) || !Number.isSafeInteger(entry.size) || entry.offset < 0 || entry.size < 0 || entry.offset > blob.size || entry.size > blob.size - entry.offset) throw new Error('Invalid XDVDFS file');
     return blob.slice(entry.offset, entry.offset + entry.size);
   }
   return {root, list, find, file};

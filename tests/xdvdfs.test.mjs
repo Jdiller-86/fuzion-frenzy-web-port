@@ -12,6 +12,9 @@ function fixture() {
 const b = fixture(), fs = await openXiso(new Blob([b]));
 assert.deepEqual([...new Uint8Array(await fs.file(await fs.find('A.BIN')).arrayBuffer())], [3, 2, 1]);
 await assert.rejects(fs.find('../a.bin'));
+assert.throws(()=>fs.file({offset:NaN,size:1,directory:false}));
+assert.throws(()=>fs.file({offset:0,size:Infinity,directory:false}));
+await assert.rejects(fs.list({offset:-1,size:0,directory:true}));
 for (const mutate of [
  b => {b[32*2048] = 0;},
  b => {new DataView(b.buffer).setUint32(32*2048+20, 99999, true);},
