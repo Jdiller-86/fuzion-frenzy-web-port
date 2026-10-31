@@ -11,4 +11,6 @@ function paletteFixture(code){const count=20,keys=128+count*256,vertex=keys+coun
 for(const [code,index]of[[-96,0],[-93,1],[-42,18],[-36,19]])assert.deepEqual([...readCharacterAnimation(paletteFixture(code),new Float32Array([1,2,3])).sample(0)],[index*10+1,2,3]);
 assert.throws(()=>readCharacterAnimation(paletteFixture(-39),new Float32Array([1,2,3])),/weights/);
 
+const blended=paletteFixture(-96),bv=new DataView(blended),vertex=bv.getUint32(0x24,true);bv.setFloat32(vertex+12,0.25,true);bv.setFloat32(vertex+16,0.75,true);bv.setInt16(vertex+26,-93,true);assert.deepEqual([...readCharacterAnimation(blended,new Float32Array([1,2,3])).sample(0)],[8.5,2,3]);
+bv.setFloat32(vertex+16,0.5,true);assert.throws(()=>readCharacterAnimation(blended,new Float32Array([1,2,3])),/weights/);bv.setFloat32(vertex+16,-0.25,true);assert.throws(()=>readCharacterAnimation(blended,new Float32Array([1,2,3])),/weights/);
 console.log('Skeleton sampling synthetic checks passed');

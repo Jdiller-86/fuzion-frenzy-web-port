@@ -1,4 +1,4 @@
-// Bounded one-weight sampling using serialized inverse binds and bone palette IDs.
+// Bounded three-weight sampling using serialized inverse binds and bone palette IDs.
 // Static analysis and validation context: docs/REFERENCE_INVENTORY.md.
 import {multiply,matrix} from './transforms.mjs';
 export function readCharacterAnimation(buffer, positions){
@@ -18,6 +18,16 @@ export function readCharacterAnimation(buffer, positions){
    return bind;
  });
  function globals(time){const out=[],parents=[],scales=[];for(const n of nodes){let o=n.offset,t=track(o,false,time),q=track(o+0x40,true,time),s=track(o+0x20,false,time);if(n.parent>=0)t=t.map((x,i)=>x*scales[n.parent][i]);let local=matrix(t,q,s),parent=matrix(t,q,identityScale);out.push(n.parent<0?local:multiply(parents[n.parent],local));parents.push(n.parent<0?parent:multiply(parents[n.parent],parent));scales.push(s);}return out;}
- const bones=new Uint16Array(vertices);for(let i=0;i<vertices;i++){let p=vertexOffset+i*56;let w0=f(p+12),w1=f(p+16),w2=f(p+20),code=v.getInt16(p+24,true),index=(code+96)/3-(code>=-36?1:0);if(Math.abs(w0-1)>1e-5||w1!==0||w2!==0||!Number.isInteger(index)||(code>-42&&code<-36)||!paletteSeen.has(index))throw new Error('Unsupported vertex weights');bones[i]=index;}
- return {bones:nodes.length, sample(time){if(!Number.isFinite(time)||time<0||time>65535)throw new Error('Invalid animation time');let curr=globals(time),delta=[];curr.forEach((m,i)=>{delta[nodes[i].bone]=multiply(m,binds[i]);});const out=new Float32Array(positions.length);for(let i=0;i<vertices;i++){let m=delta[bones[i]],x=positions[i*3],y=positions[i*3+1],z=positions[i*3+2];out[i*3]=m[0]*x+m[1]*y+m[2]*z+m[3];out[i*3+1]=m[4]*x+m[5]*y+m[6]*z+m[7];out[i*3+2]=m[8]*x+m[9]*y+m[10]*z+m[11];}return out;}};
+ const bones=new Uint16Array(vertices*3),weights=new Float32Array(vertices*3);
+ for(let i=0;i<vertices;i++){
+   const p=vertexOffset+i*56,values=[0,1,2].map(k=>f(p+12+k*4)),sum=values.reduce((a,b)=>a+b,0);
+   if(values.some(w=>w<0||w>1)||Math.abs(sum-1)>1e-4)throw new Error('Invalid vertex weights');
+   for(let k=0;k<3;k++){
+     if(values[k]===0)continue;
+     const code=v.getInt16(p+24+k*2,true),index=(code+96)/3-(code>=-36?1:0);
+     if(!Number.isInteger(index)||(code>-42&&code<-36)||!paletteSeen.has(index))throw new Error('Unsupported vertex weights');
+     bones[i*3+k]=index;weights[i*3+k]=values[k]/sum;
+   }
+ }
+ return {bones:nodes.length, sample(time){if(!Number.isFinite(time)||time<0||time>65535)throw new Error('Invalid animation time');let curr=globals(time),delta=[];curr.forEach((m,i)=>{delta[nodes[i].bone]=multiply(m,binds[i]);});const out=new Float32Array(positions.length);for(let i=0;i<vertices;i++){const x=positions[i*3],y=positions[i*3+1],z=positions[i*3+2];for(let k=0;k<3;k++){const weight=weights[i*3+k];if(!weight)continue;const m=delta[bones[i*3+k]];out[i*3]+=weight*(m[0]*x+m[1]*y+m[2]*z+m[3]);out[i*3+1]+=weight*(m[4]*x+m[5]*y+m[6]*z+m[7]);out[i*3+2]+=weight*(m[8]*x+m[9]*y+m[10]*z+m[11]);}}return out;}};
 }

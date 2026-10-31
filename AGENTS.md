@@ -4,7 +4,7 @@ Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.m
 
 ## Current stage and goal
 
-- Current stage: repository/environment preparation. No playable application has been implemented.
+- Current stage: G2 offline Twisted System implementation. G0/G1 technical preproduction acceptance is recorded in `docs/G0_G1_CHECKPOINT.md`; gameplay implementation is in progress.
 - Product: faithful web-native reconstruction of the original Xbox Fuzion Frenzy, with modern online/social/browser features.
 - Accepted sequence: desktop keyboard/gamepad first; a polished four-to-six-game online pack first; expand to complete original-game parity; touch/mobile later.
 - Player-supplied compatible game files are required per connected browser; original files and converted assets stay local. Read `docs/PLAYER_SUPPLIED_CONTENT.md` and `docs/SCOPE_AND_FIDELITY.md` before importer/gameplay tasks.
