@@ -51,9 +51,12 @@ Use a headless fixed-step simulation at 60 ticks/second, separate from DOM, rend
 | Duck | Hold-to-duck with provisional 0.06-second entry delay; no protection while airborne | Unverified, configurable; retain a pulse-mode option in rules configuration for later comparison |
 | Hazard progress | Initial 0.8 obstacles/second, ramp after 25 active seconds over five seconds to 2.2/second | Approximate fit to the sampled score progression, not recovered speed logic |
 | Hazard ordering | Reproducible seeded low/high sequence; same sequence for all seats | Original order/RNG unverified; this is a material fidelity deviation |
+| Knockback | A miss moves the seat back along the spiral by 0.22 obstacle intervals, approached at up to 0.04 intervals/tick; contact uses that same lag | Original positioning lead corroborates knockback; these numeric values are provisional and configurable |
 | Focus/disconnect | Clear all held/pending actions and pause; require explicit resume and released controls before rearming a lost device | Intentional browser reliability behavior |
 
 No arbitrary round time limit, online behavior, extra minigames, friends or lobbies. One imported character with distinct seat indicators is the G2 baseline; complete roster parity remains a later requirement. Keep all uncertain numeric parameters in a named configuration and display a concise research/fidelity notice in the application.
+
+Exact TS-R1 tick defaults for reproducibility: countdown 180; jump duration 24 with protected ages 5..18 inclusive; duck entry four ticks, optional pulse duration 18 ticks; hit action recovery six ticks; result-resolution delay 90 ticks. The acceleration parameters above use active simulation time. Knockback changes each seat's next contact time, so it must not be rendered as a cosmetic offset disconnected from collision timing. The first two reconstruction hazards are low then high; subsequent types are seeded. These are frozen implementation defaults, not verified original constants.
 
 ## Scenario freeze and tolerances
 

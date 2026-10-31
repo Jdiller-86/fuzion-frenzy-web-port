@@ -1,3 +1,17 @@
+# Current G2 implementation checkpoint
+
+October 31, 2026: offline Twisted System is implemented and has been played in the browser with imported original local assets, one to four owned seats, keyboard/standard-gamepad adapters, practice, countdown, complete rounds, final standings and rematches. **Original-game fidelity acceptance remains separate and unaccepted.** Read [the G2 audit](G2_ACCEPTANCE.md) and [frozen TS-R1 reference](TWISTED_SYSTEM_REFERENCE.md) for the exact observations, inferred rules and deviations. The older G0/G1-open and specification-only instructions below are historical and do not override this checkpoint.
+
+Run `npm ci --ignore-scripts`, `npm run test:formats`, `npm run test:gameplay`, `npm run check`, `npm run build`, then `npm run dev`; open `http://127.0.0.1:4174/`. `npm run preview` serves the built source bundle on the same port instead. Select the compatible local uncompressed XISO; no original assets are served. G1 diagnostics remain on port 4173 through `npm run dev:research`.
+
+Local validation: 23 gameplay/input/event-wiring/server/build tests passed; format tests passed including new multiframe texture and bounded hash-limit cases. Real browser runs covered successful jump/duck scores, solo elimination, four-seat shared tie, two-seat last-survivor victory, practice with one survivor, final standings, rematch reset, pause/resume, malformed rejection and clear/reimport. First import measured 0.15 s and about 5.2 MiB decoded textures, not peak memory or a performance acceptance. The final built-bundle rerun imported in 0.11 s, rejected duplicate key ownership, accepted remapping and showed P2-only jumping; local screenshot `research/verification/g2-built-four-seat-20261031.jpg` stays ignored. All 136 supplied file identities still match the manifest and the XISO SHA-256 is unchanged. Raw evidence/screenshots stay ignored/local. Physical controllers and real OS-focus loss remain untested; injectable event wiring and controller samples are covered by CI tests.
+
+Publication/CI: pending source-checkpoint publication and fresh Windows/Linux result verification for the implementation. Prior source checkpoint `54537e1` passed both jobs in run `41234320885`.
+
+Next task: complete the source publication/CI audit, then a bounded Twisted System fidelity and physical-device QA pass. Keep exact windows, original RNG/order, elimination/practice/ties, camera/placement, duck pose, animation rates, effects/audio and device coverage explicit. Do not expand to online systems or additional activities without a new task.
+
+## Historical handoff and investigation entries
+
 Terra 6.1 is the primary development executor. This file provides a bounded start point; `DEVELOPMENT_PLAN.md` provides the broader roadmap. Read the root `AGENTS.md` and `PROJECT_STATUS.md` before working.
 
 G2 is now active: deliver browser-playable offline Twisted System with one to four owned local seats, instructions/practice, countdown, complete rounds, results and rematches. Continue through implementation and actual browser verification; the task does not end at the specification. G0/G1 acceptance remains unchanged. Read `TWISTED_SYSTEM_REFERENCE.md` for the TS-R1 evidence/scenario freeze and explicit fidelity deviations before affected behavior. No gameplay simulation has been implemented yet.

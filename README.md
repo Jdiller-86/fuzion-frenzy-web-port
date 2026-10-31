@@ -6,7 +6,7 @@ Source repository: [Jdiller-86/fuzion-frenzy-web-port](https://github.com/Jdille
 
 The `private` flag in `package.json` prevents npm-package publication; it does not control GitHub repository visibility.
 
-**Status: preproduction research. There is no playable web build yet.** The accepted first release is a desktop pack of four to six polished games, followed by expansion to full original-game parity. Mobile touch support follows desktop stability.
+**Status: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). The accepted first release is a desktop pack of four to six polished games, followed by expansion to full original-game parity. Mobile touch support follows desktop stability.
 
 Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
@@ -49,6 +49,14 @@ REA supports the configured Ghidra provider for its admitted formats. Xbox XBE a
 - `.codex/config.toml`: project model defaults; no machine paths, credentials, or permission overrides.
 - `.github/workflows/prepare.yml`: preparation checks on Windows and Linux.
 
-Future application boundaries are `apps/web`, `apps/game-server`, and shared `packages/*`; their implementation has not begun.
+`apps/web` contains the offline browser game; `packages/simulation` and `packages/input` contain independently written shared rules and owned-device input. Online services have not been implemented.
 
 This repository contains no original game media or distributable original assets. It is an independent project and is not presented as an official Microsoft/Blitz release. Player-supplied files do not establish blanket permissions for branding, music, reverse engineering or redistribution. The license for new project code remains undecided; no license grant is asserted by this README.
+
+## Play the offline research build
+
+Use Node 24.14.0 and npm 11.x. Run `npm ci --ignore-scripts`, then `npm run dev` and open `http://127.0.0.1:4174/`. Select your supported uncompressed USA XISO locally. Choose 1–4 seats and Play round or Practice. No original game download or assets are provided.
+
+Default jump / held-duck keys: P1 Space / ArrowDown; P2 W / S; P3 I / K; P4 Numpad8 / Numpad5. Remap keys or assign a discovered standard gamepad per seat in instructions. Gamepad A / bottom jumps and B / right ducks. Esc pauses; focus loss or an owned controller disconnect clears input and requires Resume. Shared keyboard rollover varies by hardware. Menus use keyboard/mouse.
+
+Run `npm run test:gameplay` for rules, input, event-wiring and source-delivery checks; `npm run test:formats` for the local-converter fixtures; `npm run check` for publication guards. `npm run build` produces source-only `dist/`; `npm run preview` serves it on port 4174. Never expose the workspace or original files through a generic server. Known approximations and actual browser verification are recorded in the G2 audit.

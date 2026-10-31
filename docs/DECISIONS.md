@@ -15,3 +15,7 @@
 | D012 | Accept the bounded G0 inventory deliverable and one-profile G1 local conversion proof; retain later fidelity and production gates | Requirement-by-requirement evidence in `G0_G1_CHECKPOINT.md`. No scope gate was changed: exact timing, full parity, working-memory budget and release device coverage remain unaccepted. |
 
 Add a new row when a material design choice changes, including evidence and migration impact. Do not silently rewrite a pending vendor choice into a provisioned service.
+
+| D013 | G2 uses dependency-free browser ESM/WebGL 2 and a pure headless rules module to reuse the proved local converter | Bounded offline delivery, not a framework freeze or adoption of final online architecture; no new dependencies or global settings. |
+| D014 | TS-R1 freezes explicit configurable reconstruction policies before gameplay implementation | See `TWISTED_SYSTEM_REFERENCE.md`: original timings, RNG, elimination/practice and ties retain evidence gaps. Implementation completion does not accept G2 fidelity. |
+| D015 | G2 retains one original Dub model with colored seat indicators and original local reactor/rod geometry | Prototype scope permits one character. Camera, placement, duck pose, animation integration and absent effects/audio remain documented approximations; no original bytes in server/build/repository. |

@@ -17,6 +17,10 @@
     "check": "node tools/check-preparation.mjs",
     "check:environment": "node tools/check-environment.mjs",
     "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs",
-    "dev:research": "node tools/serve-proof.mjs"
+    "dev:research": "node tools/serve-proof.mjs",
+    "dev": "node tools/serve-web.mjs",
+    "build": "node tools/build-web.mjs",
+    "preview": "node tools/serve-web.mjs --built",
+    "test:gameplay": "node --test tests/twisted-system.test.mjs tests/local-input.test.mjs tests/browser-safety.test.mjs tests/web-delivery.test.mjs"
   }
 }

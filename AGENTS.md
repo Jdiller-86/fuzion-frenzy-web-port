@@ -4,7 +4,7 @@ Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.m
 
 ## Current stage and goal
 
-- Current stage: G2 offline Twisted System implementation. G0/G1 technical preproduction acceptance is recorded in `docs/G0_G1_CHECKPOINT.md`; gameplay implementation is in progress.
+- Current stage: G2 offline Twisted System implementation and verification. Read `docs/G2_ACCEPTANCE.md`; implementation delivery is separate from unresolved original-fidelity acceptance. G0/G1 technical preproduction acceptance remains recorded in `docs/G0_G1_CHECKPOINT.md`.
 - Product: faithful web-native reconstruction of the original Xbox Fuzion Frenzy, with modern online/social/browser features.
 - Accepted sequence: desktop keyboard/gamepad first; a polished four-to-six-game online pack first; expand to complete original-game parity; touch/mobile later.
 - Player-supplied compatible game files are required per connected browser; original files and converted assets stay local. Read `docs/PLAYER_SUPPLIED_CONTENT.md` and `docs/SCOPE_AND_FIDELITY.md` before importer/gameplay tasks.
@@ -41,7 +41,8 @@ Do not expand an investigation into full decompilation or an emulator project wi
 - `npm run test:formats`: source-owned format/conversion fixtures; not gameplay tests.
 - `npm run dev:research`: allowlisted loopback browser proof; no original content is served.
 - `git diff --check`: whitespace verification.
-- No app `dev`, `build`, or gameplay `test` command exists yet. Add real commands with their first implementation, not stubs.
+- `npm run test:gameplay`: headless rules, owned input, focus/device event wiring, and source-server/build boundary tests.
+- `npm run dev`: offline game at `http://127.0.0.1:4174/`; `npm run build`: allowlisted source-only `dist/`; `npm run preview`: serves that build on port 4174. Original content is selected locally and never served.
 - Use project-local tools and explicit paths on Windows. Do not change system PATH/Java or global model configuration.
 
 ## Reverse engineering

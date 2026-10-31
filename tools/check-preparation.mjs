@@ -41,4 +41,4 @@ for (const name of files) {
 }
 const ignoreProbes = ['research/reference/default.xbe', '.tools/example.exe', 'Fuzion Frenzy (USA).7z', 'Fuzion Frenzy (USA)/Packages/BootSeq.xbp', '.env'];
 for (const name of ignoreProbes) execFileSync('git', ['check-ignore', '--no-index', '--quiet', name], { cwd: root });
-console.log(`Preparation contract and publication guard passed for ${files.length} source files. No gameplay checks exist yet.`);
+console.log(`Preparation contract and publication guard passed for ${files.length} source files. Gameplay verification is separate: npm run test:gameplay.`);

@@ -5,3 +5,7 @@ let a=decodeTexture(fixture());assert.deepEqual([...a.rgba.slice(0,12)],[255,0,0
 b=new ArrayBuffer(1288);let v=new DataView(b);v.setUint16(0x2c,5,true);v.setUint16(0x2e,2,true);v.setUint16(0x30,4,true);v.setUint8(0x37,1);for(let i=0;i<8;i++){v.setUint32(256+i*4,0xff000000|(i<<16),true);v.setUint8(1280+i,i);}a=decodeTexture(b);assert.deepEqual(Array.from({length:8},(_,i)=>a.rgba[4*i]),[0,1,2,3,4,5,6,7]);
 b=new ArrayBuffer(272);v=new DataView(b);v.setUint16(0x2c,1,true);v.setUint16(0x2e,2,true);v.setUint16(0x30,2,true);v.setUint8(0x37,1);v.setUint32(256,0x80402010,true);a=decodeTexture(b);assert.deepEqual([...a.rgba.slice(0,4)],[64,32,16,128]);
 console.log('Texture synthetic checks passed');
+// Seven frame headers cross a 128-byte alignment boundary. Shared palette
+// must follow all headers; frame payloads have independent aligned strides.
+b=new ArrayBuffer(384+1024+7*128);v=new DataView(b);v.setUint16(0x2c,5,true);v.setUint16(0x2e,2,true);v.setUint16(0x30,2,true);v.setUint8(0x37,7);v.setUint32(0x28,4,true);v.setUint32(384,0xffff0000,true);v.setUint32(388,0xff00ff00,true);new Uint8Array(b,384+1024+128,4).fill(1);
+assert.deepEqual([...decodeTexture(b).rgba.slice(0,4)],[255,0,0,255]);assert.deepEqual([...decodeTexture(b,{frame:1}).rgba.slice(0,4)],[0,255,0,255]);assert.throws(()=>decodeTexture(b,{frame:7}));assert.throws(()=>decodeTexture(b.slice(0,-1)));v.setUint32(0x28,0,true);assert.throws(()=>decodeTexture(b));
