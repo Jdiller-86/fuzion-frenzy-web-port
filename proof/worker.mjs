@@ -20,7 +20,7 @@ onmessage = async ({data: image}) => {
   try {
     if (image && image.type === 'resume') { if(resumeCheckpoint){const resume=resumeCheckpoint;resumeCheckpoint=undefined;resume();} return; }
     if (image && image.type === 'sample') { if (!animation) throw new Error('No animation loaded'); const frame=animation.sample(image.time); postMessage({frame},[frame.buffer]); return; }
-    profile=!!image.profile; image=image.file;
+    profile=!!image.profile; const surroundings=!!image.surroundings; image=image.file;
     const x = await openXiso(image), exe = x.file(await x.find('default.xbe'));
     if (exe.size !== 2834432) throw new Error('Unsupported executable');
     const hash = await sha256Blob(exe,2834432);
@@ -39,6 +39,13 @@ onmessage = async ({data: image}) => {
     const wallEntry=arenaEntries.find(e=>e.name.toLowerCase()==='stadium_wall.obe'); if(!wallEntry)throw new Error('Stadium wall not found');
     const wall=readStadiumRoot(await xbpResource(arenaPackage,wallEntry).arrayBuffer());
     const meshes=[landscape,wall];
+    let omittedTriangles=0;
+    if(surroundings) {
+      const entry=arenaEntries.find(e=>e.name.toLowerCase()==='stadsurrndlit.obe');
+      if(!entry)throw new Error('Stadium surroundings not found');
+      const mesh=readStadiumRoot(await xbpResource(arenaPackage,entry).arrayBuffer(),{omitInvalidUV:true});
+      omittedTriangles=mesh.omittedTriangles; meshes.push(mesh);
+    }
     const positions=new Float32Array(meshes.reduce((n,m)=>n+m.positions.length,0));
     const arenaUvs=new Float32Array(meshes.reduce((n,m)=>n+m.uvs.length,0));
     const indices=new Uint32Array(meshes.reduce((n,m)=>n+m.indices.length,0));
@@ -58,6 +65,6 @@ onmessage = async ({data: image}) => {
     if(!texEntry)throw new Error('Character texture candidate not found');
     const texture=decodeTexture(await xbpResource(characterPackage,texEntry).arrayBuffer());
     await checkpoint('Decoded assets held before rendering');
-    postMessage({identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, batches, textures, characterPositions: bind.positions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, ...textures.map(t=>t.rgba.buffer), bind.positions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
+    postMessage({identity: hash, count: entries.length, pcm, rate: sampleRate, positions, indices, arenaUvs, batches, textures, frameVertices:(landscape.positions.length+wall.positions.length)/3, omittedTriangles, characterPositions: bind.positions, characterIndices: bind.indices, characterUvs:bind.uvs, texture, bones: animation.bones}, [pcm.buffer, positions.buffer, indices.buffer, arenaUvs.buffer, ...textures.map(t=>t.rgba.buffer), bind.positions.buffer, bind.indices.buffer, bind.uvs.buffer, texture.rgba.buffer]);
   } catch (e) { postMessage({error: e instanceof Error ? e.message : 'Unknown error'}); }
 };

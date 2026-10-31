@@ -1,21 +1,23 @@
 // Experimental local geometry preview; not a fidelity-validated arena renderer.
-export function renderGeometry(canvas, positions, indices, texture = null, uvs = null, batches = null) {
+export function renderGeometry(canvas, positions, indices, texture = null, uvs = null, batches = null, options = {}) {
   const gl = canvas.getContext('webgl2', { antialias: true });
   if (!gl) throw new Error('WebGL 2 is unavailable');
   const compile = (type, source) => { const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s); if (!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error('Shader compilation failed'); return s; };
   const vs=compile(gl.VERTEX_SHADER,`#version 300 es
-    in vec3 position; in vec2 uv; uniform float angle; out float height; out vec2 texcoord;
-    void main() { float c=cos(angle), s=sin(angle); vec3 p=vec3(c*position.x+s*position.z,position.y,-s*position.x+c*position.z); p=vec3(p.x,0.78*p.y-0.62*p.z,0.62*p.y+0.78*p.z); height=position.y; texcoord=uv; gl_Position=vec4(p.x,p.y,p.z*0.4,1.0); }`);
+    in vec3 position; in vec2 uv; uniform float angle; uniform float depthSign; out float height; out vec2 texcoord;
+    void main() { float c=cos(angle), s=sin(angle); vec3 p=vec3(c*position.x+s*position.z,position.y,-s*position.x+c*position.z); p=vec3(p.x,0.78*p.y-0.62*p.z,0.62*p.y+0.78*p.z); height=position.y; texcoord=uv; gl_Position=vec4(p.x,p.y,p.z*0.4*depthSign,1.0); }`);
   const fs=compile(gl.FRAGMENT_SHADER,`#version 300 es
     precision mediump float; in float height; in vec2 texcoord; uniform sampler2D image; uniform bool textured; out vec4 color;
     void main() { color=textured?texture(image,texcoord):vec4(0.30+height*0.08,0.66+height*0.08,0.71+height*0.08,1.0); if(color.a<0.5) discard; }`);
   const program=gl.createProgram(); gl.attachShader(program,vs); gl.attachShader(program,fs); gl.linkProgram(program);
   if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error('Shader linking failed');
   let min=[Infinity,Infinity,Infinity], max=[-Infinity,-Infinity,-Infinity];
-  for(let i=0;i<positions.length;i++) { const k=i%3; min[k]=Math.min(min[k],positions[i]); max[k]=Math.max(max[k],positions[i]); }
+  const frameLength=options.frameVertices===undefined?positions.length:options.frameVertices*3;
+  if(!Number.isSafeInteger(frameLength)||frameLength<=0||frameLength>positions.length)throw new Error('Invalid framing range');
+  for(let i=0;i<frameLength;i++) { const k=i%3; min[k]=Math.min(min[k],positions[i]); max[k]=Math.max(max[k],positions[i]); }
   const span=Math.max(...max.map((x,i)=>x-min[i])); if(!Number.isFinite(span) || span<=0) throw new Error('Invalid geometry bounds');
   const normalized=positions.map((x,i)=>(x-(min[i%3]+max[i%3])/2)/span*1.5);
-  gl.useProgram(program); let buffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,normalized,gl.STATIC_DRAW);
+  gl.useProgram(program); gl.uniform1f(gl.getUniformLocation(program,'depthSign'),options.reverseDepth?-1:1); let buffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,normalized,gl.STATIC_DRAW);
   const a=gl.getAttribLocation(program,'position'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,3,gl.FLOAT,false,0,0);
   const glTextures=new Map(), extraBuffers=[];
   if(texture && uvs) {
@@ -25,6 +27,7 @@ export function renderGeometry(canvas, positions, indices, texture = null, uvs =
   gl.uniform1i(gl.getUniformLocation(program,'textured'),texture&&uvs?1:0);
   let ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);
   gl.viewport(0,0,canvas.width,canvas.height); gl.clearColor(0.04,0.07,0.1,1); gl.enable(gl.DEPTH_TEST);
+  if(options.cull==='back'||options.cull==='front'){gl.enable(gl.CULL_FACE);gl.cullFace(options.cull==='back'?gl.BACK:gl.FRONT);}
   function draw(next) {
     if(next.length!==positions.length) throw new Error('Geometry size changed');
     const adjusted=next.map((x,i)=>(x-(min[i%3]+max[i%3])/2)/span*1.5);
