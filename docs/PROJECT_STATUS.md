@@ -8,10 +8,11 @@ Prepared October 31, 2026. Update this file with each completed development task
 | Original executable import | Verified, limited | XBE entry decompiled at `0x00030f7f`; full analysis not run |
 | Original build/content inventory | Pending | Next phase 0 task; root paths alone do not establish all minigames/variants |
 | Runtime gameplay evidence | Unresolved | Hardware/emulator/captures not established |
-| Art/audio distribution | Unresolved | Placeholder engineering allowed; original-content release needs a resolved path |
-| GitHub repository | Created and initial commit pushed | Private `Jdiller-86/fuzion-frenzy-web-port`; default/tracked branch `main`; initial commit `5a01264` |
+| Player-supplied content | Design selected; implementation pending | Local browser conversion, no uploads/hosted originals; see `PLAYER_SUPPLIED_CONTENT.md` |
+| Scope and fidelity | Baseline prepared before gameplay work | Original rules/game feel, original-inspired/reused local assets, explicit G0-G6 gates; see `SCOPE_AND_FIDELITY.md` |
+| GitHub repository | Public visibility requested | Source-only `Jdiller-86/fuzion-frenzy-web-port`; default/tracked branch `main`; initial commit `5a01264` |
 | Local preparation checks | Passed | `npm ci --ignore-scripts --offline`, `npm run check`, `npm run check:environment`, PowerShell syntax and Git whitespace/ignore checks |
-| GitHub Actions | Blocked before execution | Account billing/spending-limit restriction; Windows/Linux execution not verified; see run below |
+| GitHub Actions | Public workflow verification pending | Earlier private workflow blocked before execution; verify fresh public run |
 | Browser/client/server/gameplay | Not started | No app dev/build/test commands or runnable game yet |
 | Production auth/hosting | Not provisioned | Budget, initial regions, capacity and services remain decisions |
 

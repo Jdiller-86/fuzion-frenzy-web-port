@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const required = ['AGENTS.md', 'README.md', 'DEVELOPMENT_PLAN.md', 'docs/DEVELOPMENT_HANDOFF.md',
   'docs/PROJECT_STATUS.md', 'docs/PROJECT_CONCERNS.md', 'docs/DECISIONS.md', 'docs/ANALYSIS_SETUP.md',
+  'docs/PLAYER_SUPPLIED_CONTENT.md', 'docs/SCOPE_AND_FIDELITY.md',
   '.codex/config.toml', '.github/workflows/prepare.yml', '.node-version', 'package-lock.json'];
 for (const name of required) assert.ok(fs.existsSync(path.join(root, name)), `Missing ${name}`);
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -23,7 +24,7 @@ assert.equal(manifest.xbeLoader.ghidraVersion, manifest.ghidra.version);
 const files = [...new Set(execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z'],
   { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean))];
 assert.ok(files.length > 0, 'No source files discovered');
-const forbidden = /(^|\/)(?:research|\.tools|node_modules|\.venv)(?:\/|$)|\.(?:7z|zip|iso|xbe|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$/i;
+const forbidden = /(^|\/)(?:research|\.tools|node_modules|\.venv|Fuzion Frenzy \(USA\))(?:\/|$)|\.(?:7z|zip|iso|xbe|xbp|zro|xpr|xwb|xsb|dds|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$/i;
 const credentialPatterns = [/gh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{40,}/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/];
 for (const name of files) {
@@ -38,6 +39,6 @@ for (const name of files) {
   const contents = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   for (const pattern of credentialPatterns) assert.ok(!pattern.test(contents), `Potential credential in ${name}`);
 }
-const ignoreProbes = ['research/reference/default.xbe', '.tools/example.exe', 'Fuzion Frenzy (USA).7z', '.env'];
+const ignoreProbes = ['research/reference/default.xbe', '.tools/example.exe', 'Fuzion Frenzy (USA).7z', 'Fuzion Frenzy (USA)/Packages/BootSeq.xbp', '.env'];
 for (const name of ignoreProbes) execFileSync('git', ['check-ignore', '--no-index', '--quiet', name], { cwd: root });
 console.log(`Preparation contract and publication guard passed for ${files.length} source files. No gameplay checks exist yet.`);

@@ -7,6 +7,8 @@ Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.m
 - Current stage: repository/environment preparation. No playable application has been implemented.
 - Product: faithful web-native reconstruction of the original Xbox Fuzion Frenzy, with modern online/social/browser features.
 - Accepted sequence: desktop keyboard/gamepad first; a polished four-to-six-game online pack first; expand to complete original-game parity; touch/mobile later.
+- Player-supplied compatible game files are required per connected browser; original files and converted assets stay local. Read `docs/PLAYER_SUPPLIED_CONTENT.md` and `docs/SCOPE_AND_FIDELITY.md` before importer/gameplay tasks.
+- Fidelity direction: original rules/game feel and modernized visuals that mirror or reuse locally imported original assets. Preserve character/arena identity; enhancement does not change gameplay geometry.
 - Before the first gameplay implementation task, read the concerns recorded in `docs/PROJECT_CONCERNS.md`. Report newly discovered material concerns before committing to affected development. Placeholder engineering is independent of original-asset distribution permissions.
 - Do not advertise the partial pack as the full original game. A full-parity milestone requires every original inventory item and required mode.
 
@@ -56,9 +58,9 @@ Use the reverse-engineer-anything skill for shipped artifact/native evidence. Se
 
 - Never commit or upload the supplied archive, ISO/XBE, extracted assets, game pseudocode, Ghidra projects/logs, analysis reports, credentials, `.env`, or downloaded tools. They belong in ignored `research/` and `.tools/`.
 - New original source, source-owned test fixtures/generators, curated findings without copied game content, manifests, and documentation can be versioned after review.
-- Use independently created placeholders until original-content distribution is resolved. Do not infer permissions from private repository visibility, ownership of a copy, or a local asset importer.
+- The public repository/CDN/server must contain no original ROMs or asset packs. Use local player-supplied conversion and independently created placeholders for spikes. No ROM/asset upload, peer sharing, remote conversion, telemetry attachment or cloud sync. The importer is a distribution design, not a blanket permission conclusion.
 - Before staging/pushing: run `npm run check`, inspect `git diff --cached --stat`, and inspect the actual staged paths. Source allowlisting is preferred to `git add .`.
-- GitHub repository is private initially. Publishing a site, changing visibility, adding a source license, or buying production services requires a concrete user-directed task.
+- The user authorized a public, source-only GitHub repository. Keep source publication guards in place. Publishing a site, adding a source license, or buying production services remains separate work.
 - Never print credentials or place tokens in remote URLs, command arguments, logs, or source files.
 
 ## Collaboration

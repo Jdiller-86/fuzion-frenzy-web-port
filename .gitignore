@@ -1,8 +1,15 @@
 .tools/
 research/
+/Fuzion Frenzy (USA)/
 *.7z
 *.iso
 *.xbe
+*.xbp
+*.zro
+*.xpr
+*.xwb
+*.xsb
+*.dds
 *.gpr
 *.rep/
 node_modules/

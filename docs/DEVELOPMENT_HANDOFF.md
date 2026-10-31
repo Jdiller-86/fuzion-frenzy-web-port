@@ -2,11 +2,13 @@ Terra 6.1 is the primary development executor. This file provides a bounded star
 
 **Accepted decisions.** Use `gpt-6.1-terra`; desktop keyboard/gamepad first; first public pack four to six games; full original-game expansion later; touch/mobile later. The proposed client is TypeScript/Vite/Babylon.js, with shared headless rules and dedicated Node/Colyseus servers. Hosting and auth vendors are not purchased/provisioned.
 
+The user also selected required player-supplied files, local-only asset conversion, public source-only hosting, and modernized visuals mirroring or reusing original assets. Read `PLAYER_SUPPLIED_CONTENT.md` and `SCOPE_AND_FIDELITY.md`: complete the reference/import/offline/network gates before full-force content production. The asset importer does not establish blanket legal permission and does not execute an Xbox binary in the browser.
+
 **Current evidence.** REA 6.7.0 and a Ghidra provider are configured. Direct Ghidra successfully imported the actual XBE and decompiled its entry; this is an analysis toolchain test. It establishes no particular minigame timing, score rule, art format, or browser performance claim. The original planning-pass limitations are historical; use `ANALYSIS_SETUP.md` for the newer setup facts.
 
 **Model/environment.** `.codex/config.toml` defaults to Terra with high reasoning for trusted project sessions. It does not replace the model in an existing desktop chat. Select Terra in that chat before execution. The local catalog listed the exact model ID as available during preparation; verify if the account/client changes. Do not substitute another model silently. No model API call, API key, or paid service is part of application setup.
 
-**Repository.** Private source repository: https://github.com/Jdiller-86/fuzion-frenzy-web-port, branch `main`. Local preparation checks pass. GitHub Actions was blocked before execution by an account billing/spending-limit restriction; do not claim remote matrix tests passed. See current status for the run link, then rerun CI after the account restriction is resolved.
+**Repository.** Public source-only repository: https://github.com/Jdiller-86/fuzion-frenzy-web-port, branch `main`, as requested by the user. Local preparation checks pass. The first private-repository CI attempt was blocked before execution; read current status for public workflow verification instead of assuming visibility alone fixed it.
 
 **Next implementation task: phase 0 reference inventory.** Once the user directs development to begin, complete one bounded evidence task before building game systems:
 
