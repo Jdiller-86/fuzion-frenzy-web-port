@@ -1,0 +1,35 @@
+{
+  "rea": { "package": "rea-agents", "version": "6.7.0", "skillVersion": "42" },
+  "ghidra": {
+    "version": "12.1.4",
+    "directory": ".tools/ghidra_12.1.4_PUBLIC",
+    "url": "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/ghidra_12.1.4_PUBLIC_20260921.zip",
+    "sha256": "ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db",
+    "verifiedAgainstPublishedDigest": true
+  },
+  "java": {
+    "distribution": "Eclipse Temurin",
+    "version": "21.0.13+9",
+    "directory": ".tools/jdk-21.0.13+9",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip",
+    "sha256": "a4dbaa05fca4bd89d84584e58c459bd732efebb1722af80ab13c6516832004f9",
+    "verifiedAgainstPublishedDigest": true
+  },
+  "xbeLoader": {
+    "project": "XboxDev/ghidra-xbe",
+    "release": "build-202610161023",
+    "ghidraVersion": "12.1.4",
+    "url": "https://github.com/XboxDev/ghidra-xbe/releases/download/build-202610161023/ghidra_12.1.4_PUBLIC_20261016_ghidra-xbe.zip",
+    "sha256": "339b2f67563bbb8b5217740319b7f3eae9e9bbacf1f3a8aa29151f7ecb7d5152",
+    "verifiedAgainstPublishedDigest": true
+  },
+  "xdvdfs": {
+    "version": "0.8.3",
+    "commit": "1cc850bf1b3487fad7ec7c9eed01d83e8fc75ba4",
+    "directory": ".tools/xdvdfs",
+    "url": "https://github.com/antangelo/xdvdfs/releases/download/v0.8.3/xdvdfs-windows-1cc850bf1b3487fad7ec7c9eed01d83e8fc75ba4.zip",
+    "sha256": "008b1b3a63f1ecb00d1ed51ab154053fd0f7c41c68e973455bbe77ab989a7cc5",
+    "verifiedAgainstPublishedDigest": false,
+    "note": "Official release API supplied no digest; this records the downloaded archive identity."
+  }
+}

@@ -1,0 +1,3 @@
+# Project defaults for future trusted Codex sessions; the desktop chat model picker can override them.
+model = "gpt-6.1-terra"
+model_reasoning_effort = "high"
