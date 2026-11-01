@@ -1,4 +1,12 @@
-These concerns were reported before gameplay development. They are planning and validation constraints, not a claim that development must wait for every question to be resolved.
+Current original-execution concerns follow the user's browser-only/exact-original correction in D016. The older reconstruction and partial-pack entries below are historical wherever they conflict with that correction.
+
+| Current concern | Observed evidence | Required response |
+| --- | --- | --- |
+| Native runtime reporting crosses the local-content boundary | Pinned xemu `ui/xui/reporting.cc` base64-encodes all XBE headers in `SetXbeData`, serializes them in `GetSerializedReport`, then exposes an HTTP POST in `Send`. This is source behavior, not an observed upload; no game files have been loaded into xemu here. | Browser builds must exclude native report/upload and downloader services before loading user content. The partial browser-host profile uses explicit failure adapters and omits the native GitHub-report menu; its synthetic Wasm boundary check passes. Complete browser integration remains unimplemented. |
+| Desktop GPU assumptions | Pinned xemu requests OpenGL 4 shared contexts and generates geometry shaders for common primitives; see `ORIGINAL_EXECUTION_PROGRESS.md` | A real browser graphics port is required. Do not remove required rendering behavior or claim WebGL 2 flags provide parity. |
+| Authority with original execution | The plan assumes server-owned outcomes and a shared simulation, while the new candidate executes original code inside each browser | Resolve authority/state/content boundaries before online implementation. Original-containing RAM or save states must remain local; an input relay does not prove server authority. |
+
+The following concerns were reported before gameplay development. They are planning and validation constraints, not a claim that development must wait for every question to be resolved.
 
 | Concern | Current evidence | Development response |
 | --- | --- | --- |
