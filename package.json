@@ -2,7 +2,7 @@
   "name": "fuzion-frenzy-web-port",
   "version": "0.0.0",
   "private": true,
-  "description": "Source-only preparation workspace for a browser-playable Fuzion Frenzy reconstruction",
+  "description": "Source-only workspace for original Fuzion Frenzy browser execution and planned online features",
   "type": "module",
   "packageManager": "npm@11.9.0",
   "engines": {
@@ -16,7 +16,7 @@
   "scripts": {
     "check": "node tools/check-preparation.mjs",
     "check:environment": "node tools/check-environment.mjs",
-    "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs",
+    "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs && node --test tests/xbe.test.mjs",
     "dev:research": "node tools/serve-proof.mjs",
     "dev": "node tools/serve-web.mjs",
     "build": "node tools/build-web.mjs",

@@ -1,3 +1,23 @@
+# Original execution progress checkpoint
+
+The full active objective remains the original game executing entirely in the browser plus the additional planned features. Read [the implementation ledger and build evidence](ORIGINAL_EXECUTION_PROGRESS.md); the previous remake is preserved research and does not satisfy this goal.
+
+New bounded result: a source-owned XBE metadata reader profiles the supplied executable without executing/copying game code: 11 sections, TLS, 111 kernel import ordinals and the existing `0x30f7f` entry. Seven malformed/variant/TLS/library/publication-boundary cases are included in `npm run test:formats`. The original executable SHA-256 is unchanged. Pinned xemu/Emscripten sources and isolated build tools now exist in ignored `.tools/emulation`; no global activation, game/firmware acquisition or repeated extraction occurred.
+
+Actual xemu cross-build attempt 05 reached Meson feature checks and terminated at GLib host-dependency lookup with missing `empkg-config`; Wasm GLib is not installed. The source-owned build probe corrects pkg-config selection and confines lookup to the Wasm prefix. zlib 1.3.1 now cross-builds there and its freshly linked Wasm CRC/compression check passes. These are toolchain/dependency results, not browser execution or title fidelity. Native OpenGL 4/geometry-shader/shared-context requirements remain demonstrated source-level browser-port gaps.
+
+Next concrete task: build libffi 3.4.7 and GLib 2.84.0 plus their required cross dependencies from verified sources, then run `tools/probe-browser-build.py` with a new label to expose the next real build failure. Exact reproduction, pins and local evidence paths are in the ledger. Keep the goal active; original game execution and all additional features remain incomplete. The planned server-authority/content boundary also needs an explicit solution before online implementation; do not silently replace authoritative outcomes with input relay.
+
+## Prior direction and investigation history
+
+# Current direction: original game entirely inside the browser
+
+User clarification, October 31, 2026: the requested product executes the actual original Fuzion Frenzy entirely inside the browser. A fallback replica must be identical in every minute detail. Local native helpers/emulator streaming and remote streaming are excluded. The delivered approximate Twisted System loop does not satisfy this requirement; preserve it as research and do not continue approximation-based production. Prior implementation/CI acceptance remains evidence only for that research artifact.
+
+Read [the corrected route assessment](ORIGINAL_EXECUTION_ROUTE.md). Browser execution of the original game is currently unimplemented/unverified. The next bounded investigation is source/build feasibility for original execution, including browser Xbox core coverage and xemu/QEMU Wasm integration. No ready title-compatible browser solution was verified. Original files and game-derived output remain local; no firmware/game acquisition, uploads or redistribution are authorized. Do not automatically fall back to reconstruction if a candidate fails.
+
+## Superseded reconstruction checkpoint and history
+
 # Current G2 implementation checkpoint
 
 October 31, 2026: offline Twisted System is implemented and has been played in the browser with imported original local assets, one to four owned seats, keyboard/standard-gamepad adapters, practice, countdown, complete rounds, final standings and rematches. **Original-game fidelity acceptance remains separate and unaccepted.** Read [the G2 audit](G2_ACCEPTANCE.md) and [frozen TS-R1 reference](TWISTED_SYSTEM_REFERENCE.md) for the exact observations, inferred rules and deviations. The older G0/G1-open and specification-only instructions below are historical and do not override this checkpoint.

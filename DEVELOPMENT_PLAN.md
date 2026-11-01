@@ -1,3 +1,5 @@
+Current direction correction (October 31, 2026): the user requires the actual original game executing entirely in the browser, or a replica identical in every minute detail. The reconstruction-first recommendation, approximate small-pack acceptance and automatic fallback after a failed recompilation spike below are superseded. Read `docs/ORIGINAL_EXECUTION_ROUTE.md`; the existing implementation is research, not delivery of the corrected product.
+
 This development plan describes a faithful, browser-playable reconstruction of the original Xbox **Fuzion Frenzy**, with online play, flexible controls, friends, lobbies, and browser-specific quality-of-life improvements. Prepared October 31, 2026. The roadmap below includes historical preparation assumptions. The current offline Twisted System implementation and remaining fidelity gaps are audited in `docs/G2_ACCEPTANCE.md`.
 
 The user selected **a small online minigame pack first, followed by expansion to the full original game**, and **desktop browsers with keyboard and gamepad first, followed by mobile touch support**. Those decisions govern the sequence below.

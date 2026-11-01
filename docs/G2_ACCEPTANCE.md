@@ -1,5 +1,7 @@
 # G2 offline Twisted System: implementation and fidelity audit
 
+**User clarification supersedes product acceptance:** this audit covers the approximate research prototype only. The user requires the actual original game entirely inside the browser, or an identical replica, and rejected this prototype as the product. Read `ORIGINAL_EXECUTION_ROUTE.md`.
+
 October 31, 2026. The offline implementation is delivered, published and has been played in the actual browser. **Implementation delivery and original-game fidelity acceptance are separate.** Fidelity remains unaccepted for the unresolved values below. This is one activity, one imported character profile and one supported local content build.
 
 ## Run and verify

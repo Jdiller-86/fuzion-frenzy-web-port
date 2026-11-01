@@ -4,11 +4,11 @@ Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.m
 
 ## Current stage and goal
 
-- Current stage: G2 offline Twisted System implementation and verification. Read `docs/G2_ACCEPTANCE.md`; implementation delivery is separate from unresolved original-fidelity acceptance. G0/G1 technical preproduction acceptance remains recorded in `docs/G0_G1_CHECKPOINT.md`.
-- Product: faithful web-native reconstruction of the original Xbox Fuzion Frenzy, with modern online/social/browser features.
-- Accepted sequence: desktop keyboard/gamepad first; a polished four-to-six-game online pack first; expand to complete original-game parity; touch/mobile later.
+- Current stage: original-game browser-execution feasibility after the user rejected the approximate reconstruction. Read `docs/ORIGINAL_EXECUTION_ROUTE.md`. The actual game must execute entirely in the browser; streaming/native helpers are excluded. A fallback replica must be identical in every minute detail. Preserve the existing G2 prototype as research; do not continue approximation-based production. Prior G0/G1/G2 technical checks do not satisfy this corrected product requirement.
+- Product target: actual original Xbox Fuzion Frenzy running entirely inside the browser, or an identical replica. Earlier reconstruction-first/partial-pack assumptions are superseded where they conflict; original content stays player supplied and local.
+- Earlier phased pack/modernization plans are historical where they conflict with the corrected exact-original target. Desktop browser execution feasibility comes first; a partial approximate pack cannot satisfy the product requirement.
 - Player-supplied compatible game files are required per connected browser; original files and converted assets stay local. Read `docs/PLAYER_SUPPLIED_CONTENT.md` and `docs/SCOPE_AND_FIDELITY.md` before importer/gameplay tasks.
-- Fidelity direction: original rules/game feel and modernized visuals that mirror or reuse locally imported original assets. Preserve character/arena identity; enhancement does not change gameplay geometry.
+- Fidelity direction: preserve the actual original behavior and presentation. Optional modernization cannot replace an identical original baseline. Do not label visually similar assets or approximate mechanics as parity.
 - Before the first gameplay implementation task, read the concerns recorded in `docs/PROJECT_CONCERNS.md`. Report newly discovered material concerns before committing to affected development. Placeholder engineering is independent of original-asset distribution permissions.
 - Do not advertise the partial pack as the full original game. A full-parity milestone requires every original inventory item and required mode.
 

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Original-game browser execution feasibility, not a working title runtime",
+  "sources": {
+    "xemu": {
+      "repository": "https://github.com/xemu-project/xemu.git",
+      "commit": "dc10b4cea96e403d30c17ed53551fdaf023bc17f",
+      "directory": "xemu-source"
+    },
+    "emsdk": {
+      "repository": "https://github.com/emscripten-core/emsdk.git",
+      "commit": "e2627e265d940db5ea58dffa63e490375bfc92e5",
+      "tag": "3.1.50",
+      "directory": "emsdk"
+    },
+    "keycodemapdb": {
+      "repository": "https://gitlab.com/qemu-project/keycodemapdb.git",
+      "commit": "f5772a62ec52591ff6870b7e8ef32482371f22c6",
+      "directory": "xemu-source/subprojects/keycodemapdb"
+    }
+  },
+  "compiler": {
+    "emscriptenVersion": "3.1.50",
+    "sdkRelease": "2ce4170cef5ce46f337f9fd907b614a8db772c7d",
+    "emccReportedCommit": "047b82506d6b471873300a5e4d1e690420b582d0",
+    "clangLinuxX64Sha256": "8f76319bfe615e0731e0fe1239862df7f11b1c087ded7a5556500739c80128c6",
+    "sdkNodeVersion": "16.20.0",
+    "sdkNodeLinuxX64Sha256": "80df6c8703a19578ac3d21fe57ed04fd9f4ee40c3f76e21c8b8e8141ec072d3c",
+    "digestBoundary": "Locally measured installed binaries from official SDK acquisition; not independently verified published digests. SDK Node is compiler tooling only; project runtime pin remains Node 24.14.0."
+  },
+  "pythonBuildTools": { "meson": "1.5.0", "ninja": "1.11.1.1", "pycotap": "1.3.1" },
+  "crossLibraries": {
+    "zlib": {
+      "version": "1.3.1",
+      "source": "https://zlib.net/fossils/zlib-1.3.1.tar.gz",
+      "sha256": "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+      "upstreamDigestIndependentlyVerified": false,
+      "localState": "Wasm archive built and CRC/compression ABI check passed; not original-game execution"
+    },
+    "glib": {
+      "version": "2.84.0",
+      "source": "https://download.gnome.org/sources/glib/2.84/glib-2.84.0.tar.xz",
+      "publishedSha256": "f8823600cb85425e2815cfad82ea20fdaa538482ab74e7293d58b3f64a5aff6a",
+      "digestSource": "https://download.gnome.org/sources/glib/2.84/glib-2.84.0.sha256sum",
+      "localState": "Not yet built"
+    }
+  },
+  "storage": "Sources, SDK, cross libraries, logs and compiled output stay in ignored .tools/emulation; no global activation or firmware/game acquisition.",
+  "limits": "A successful cross-build would not establish browser execution, game compatibility, fidelity, network authority or performance."
+}

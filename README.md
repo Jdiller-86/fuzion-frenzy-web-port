@@ -1,5 +1,9 @@
 # Fuzion Frenzy Web Port
 
+**Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
+
+Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). A pinned xemu/Emscripten build attempt reached cross-dependency checks; the new bounded XBE metadata reader and Wasm zlib check are supporting work, not game execution.
+
 Independent development of a faithful browser-playable reconstruction of the original Xbox game, with online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies.
 
 Source repository: [Jdiller-86/fuzion-frenzy-web-port](https://github.com/Jdiller-86/fuzion-frenzy-web-port), public and source-only by user direction.
