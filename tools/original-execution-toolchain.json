@@ -24,6 +24,18 @@
       "directory": "sdl3-source"
     }
   },
+  "nativeRecompProbe": {
+    "source": {
+      "repository": "https://github.com/sp00nznet/xboxrecomp.git",
+      "commit": "f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b",
+      "directory": "xboxrecomp-source",
+      "scope": "Native-web feasibility candidate; not an accepted complete runtime"
+    },
+    "capstoneVersion": "5.0.6",
+    "windowsWheelSha256": "761c3deae00b22ac697081cdae1383bb90659dd0d79387a09cf5bdbb22b17064",
+    "digestSource": "https://pypi.org/project/capstone/5.0.6/#files",
+    "storage": "Ignored recomp-venv only; no global dependency changes"
+  },
   "compiler": {
     "emscriptenVersion": "3.1.50",
     "sdkRelease": "2ce4170cef5ce46f337f9fd907b614a8db772c7d",

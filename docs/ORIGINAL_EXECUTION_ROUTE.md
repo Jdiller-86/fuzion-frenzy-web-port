@@ -6,6 +6,8 @@ This supersedes the prior reconstruction-first route, partial-pack delivery assu
 
 Current build/source evidence and the full uncompleted feature ledger: [original execution progress](ORIGINAL_EXECUTION_PROGRESS.md). This supersedes metadata-only investigation status below.
 
+November 1, 2026 update: the user confirmed no local MCPX boot ROM or BIOS and asked about native web execution. Read [the native-web feasibility checkpoint](NATIVE_WEB_FEASIBILITY.md): one owned function passes actual x86-to-C/Wasm/browser execution, and the candidate has declared routes for all 111 imports. Neither is original-game compatibility. The next bounded task is an original initialization-function proof, with all generated title code selected locally and never served/uploaded/committed. A final runtime and browser-local conversion pipeline remain unselected/unimplemented. The full target and all planned features remain unchanged; xemu/renderer work is preserved.
+
 ## Bounded route investigation
 
 Primary sources checked October 31, 2026; external documentation is evidence about those projects, not a successful run of this title here.

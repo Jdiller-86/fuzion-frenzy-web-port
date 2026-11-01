@@ -6,7 +6,7 @@ Current full objective: implement `DEVELOPMENT_PLAN.md` with the actual original
 
 | Requirement retained from the plan and user clarification | Evidence required | Current state |
 | --- | --- | --- |
-| Original instructions executing entirely in browser | Actual compatible XBE executes in a normal browser with original controllable screen; no streamed/native-helper game | Not implemented. Runtime cross-build in progress. |
+| Original instructions executing entirely in browser | Actual compatible XBE executes in a normal browser with original controllable screen; no streamed/native-helper game | Not implemented. A synthetic static-recompilation probe passes in-browser; the next gate is one original initialization function. |
 | Every original detail, catalog, characters, arenas and modes | Matching-build menus, instruction/practice flows, original rules/AI, animations/camera, audio/video, save behavior, round/tournament cases and parity inventory | Not established. Prior footage/static inventory is reference evidence only. |
 | Player-supplied local content | Bounded worker reads, compatible-build checks, no original uploads/serving/distribution, clear/reselect and save/storage recovery | Prior importer proves one asset profile. New original-code runtime still needs local block/file devices and bounded storage. |
 | Keyboard/gamepad, remapping and owned seats | Original runtime receives correct virtual controllers for 1–4 seats; focus/hotplug/calibration and physical-device tests | Prior input adapters/tests can be reused. A synthetic SDL browser keyboard event now passes; original virtual-controller integration and physical-device validation remain incomplete. |
@@ -20,9 +20,15 @@ Current full objective: implement `DEVELOPMENT_PLAN.md` with the actual original
 
 Material architecture issue reported before affected network implementation: running the original XBE does not automatically provide the planned authoritative shared-TypeScript server. Machine RAM/save states may contain original code/assets and must not be uploaded as a shortcut. An input-only relay would not establish server-owned scoring/collisions or crash recovery. Preserve those requirements and resolve the execution/authority/content boundary before implementing online behavior; do not silently relax them.
 
-## Bounded source comparison
+## Native-web route reassessment
 
-The primary candidate is [xemu at `dc10b4c`](https://github.com/xemu-project/xemu/tree/dc10b4cea96e403d30c17ed53551fdaf023bc17f), because it implements the Xbox hardware and has title-compatibility evidence. Its documented native operation is not proof of browser compatibility. No native game/emulator streaming is proposed.
+November 1, 2026: the user confirmed no local MCPX/BIOS and asked about a native port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) records the actual pinned static recompiler, declared routes for all 111 imports, and one owned x86-to-C/Wasm function passing 25 browser arithmetic/return cases twice. Routes are not semantic coverage; no original instructions or kernel calls ran. The desktop runtime and Python/compiler pipeline still need a browser port and browser-local title conversion. Publishing a precompiled title module would violate the project's local-content boundary. The next task is a bounded original initialization-function proof using the existing analysis, with title-derived output selected locally and never served/uploaded/committed. This is a route investigation, not a final architecture freeze or a smaller goal.
+
+Before this steering, the actual generator also produced a new native line/quad reference: 72 variants, 24 owned streams, 1,728 records and 746,640 outputs, with primitive-count and untouched-tail checks. Its source/data identities are in the native-web checkpoint. No corresponding browser prepass has been implemented; the triangle component and previous outputs remain preserved.
+
+## Prior bounded source comparison
+
+The earlier primary candidate was [xemu at `dc10b4c`](https://github.com/xemu-project/xemu/tree/dc10b4cea96e403d30c17ed53551fdaf023bc17f), because it implements the Xbox hardware and has title-compatibility evidence. Its documented native operation is not proof of browser compatibility. No native game/emulator streaming is proposed. That work remains preserved while the native route is evaluated.
 
 Source observations at that pinned commit:
 
@@ -132,7 +138,7 @@ The next task's native-reference environment was checked independently: existing
 
 The subsequent [filled-triangle component checkpoint](NV2A_GEOMETRY_CHECKPOINT.md) now executes the actual pinned generator and compares its native shader output with a Wasm CPU prepass and WebGL2 feedback. All 960 cases / 146,880 values match exactly under the measured host arithmetic profile. The fused profile is independently checked against native libm. The initial 11-ULP discrepancy, diagnostic probes and all earlier outputs are retained; no tolerance hides it. This covers a geometry-stage candidate only, with no original game execution or complete renderer integration.
 
-Next concrete work: extend the same comparison to line/quad output and assembly, preserving the triangle cases and explicit host arithmetic. Other primitives, original vertex/pixel shaders, the GL/thread host port and performance remain unproved. Keep the full original execution/online/social target; no Xbox firmware may be acquired as a shortcut and no partial synthetic drawing is a substitute for title proof.
+At that checkpoint, the next task was line/quad output and assembly. Its native reference is now captured; browser expansion is pending after the native-route steering above. Other primitives, original vertex/pixel shaders, the GL/thread host port and performance remain unproved. Keep the full original execution/online/social target; no Xbox firmware may be acquired as a shortcut and no partial synthetic drawing is a substitute for title proof.
 
 Publication/checkpoint: `6ae0f9b` contains reviewed source/docs only. [CI run 41263236493](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41263236493) completed successfully on Windows and Linux, including the seven XBE/CLI fixture cases and Python build-probe compilation. Existing prototype tests/build remain historical engineering checks. All 136 original file identities reproduced the existing manifest byte-identically after this task. The full goal remains active and incomplete.
 

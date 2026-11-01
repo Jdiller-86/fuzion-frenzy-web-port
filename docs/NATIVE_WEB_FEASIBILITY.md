@@ -1,0 +1,53 @@
+# Native web port feasibility checkpoint
+
+November 1, 2026: the user confirmed no local MCPX boot ROM or Xbox BIOS and asked about an actual native web port. The target remains the complete original game executing entirely in the browser with all planned additional features. No firmware was acquired. This assessment changes the next investigation, not the acceptance standard or a final architecture selection.
+
+## Assessment
+
+A source port would be the most direct route if original source were available; this workspace contains the shipped executable and content, not that source. Static recompilation is a technically plausible binary-based route: translate the original x86 instructions ahead of time to C/WebAssembly and supply the Xbox services around them. A replacement kernel/runtime can avoid booting a console BIOS. It still has to implement the services correctly; skipping them or returning success is not equivalent behavior.
+
+The current evidence justifies a bounded title-specific recompilation test. It does **not** establish a ready browser port, complete Fuzion Frenzy compatibility, exact fidelity, acceptable performance or a delivery date. A native desktop build would also not satisfy the browser-only target.
+
+There is a material delivery constraint: a precompiled title module would contain original instructions, so it cannot be shipped as public runtime code under this project's content boundary. The finished product needs conversion inside the player's browser, with generated title code staying local. The current Python/compiler workflow is an engineering probe, not that end-user pipeline. For a developer title test, any privately generated module must be selected locally in the browser; it must not be served by the fixture server, uploaded or committed. Native helpers and remote conversion remain excluded from the product.
+
+## Observations
+
+| Evidence | Established result and limit |
+| --- | --- |
+| [xboxrecomp pinned at `f0f8a46`](https://github.com/sp00nznet/xboxrecomp/tree/f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b) | The current tool translates x86 to C and supplies desktop runtime libraries. Local source was acquired into ignored `.tools/emulation/xboxrecomp-source`; its tracked source is unchanged. The pin is separate from the xemu build's required sources. |
+| [Current project README](https://github.com/sp00nznet/xboxrecomp/blob/f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b/README.md) | WebAssembly is a portability possibility, not a demonstrated browser target. The README retires earlier playable-menu/dashboard presentation claims that used scaffolding. Such claims must not be counted as original-game execution evidence. No Fuzion Frenzy/browser demonstration was established in this inspected material. |
+| [Runtime build files](https://github.com/sp00nznet/xboxrecomp/blob/f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b/src/d3d/CMakeLists.txt) and [memory implementation](https://github.com/sp00nznet/xboxrecomp/blob/f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b/src/kernel/xbox_memory_layout.c) | Desktop graphics use D3D11 or SDL2/OpenGL/libepoxy. Memory/device paths use native mappings and fault handling. These require browser adaptation; cross-compiling C alone does not implement that adaptation. Which paths this title actually exercises remains unmeasured. |
+| This build's existing executable profile | SHA-256 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`, 111 declared kernel imports. The source-owned probe reads the existing metadata report, not the executable or game instructions. No extraction or Ghidra reimport was repeated. |
+| Candidate kernel-route audit | All 111 ordinals have a declared bridge/data route in this pin. This is **not 100% behavioral compatibility**: routed functions may contain stubs or incomplete semantics. Static imports are not observed calls. No original kernel call has been executed here. |
+| Actual mechanical translation | The actual pinned translator converts an independently authored 12-byte/four-instruction x86 function into C. The function calculates unsigned 32-bit `a*3+b` using a simulated argument/return stack. No original game code is used. |
+| Native and Wasm execution | Fresh GCC and Emscripten builds against the unmodified runtime type header pass 25 cases including signed-boundary/wrapping inputs and return-stack checks. The compile contract explicitly uses `-fwrapv` and `-ffp-contract=off`; this integer fixture does not verify x87/SSE or floating-point fidelity. |
+| Real browser execution | The same generated function compiled to WebAssembly passes all 25 cases in the browser, twice, with no current-build warnings/errors. It uses no BIOS. This proves only that small translation/ABI path; it executes no original Fuzion Frenzy instructions and supplies no complete Xbox runtime. |
+
+The [runtime guide](https://github.com/sp00nznet/xboxrecomp/blob/f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b/docs/runtime/README.md) describes kernel, memory, graphics and input replacements and game-specific work. Its permissive stub/workaround guidance is not fidelity acceptance for this project. Preserve original routines where possible and measure any required replacement; do not insert approximate gameplay or hand-written presentation to make a bring-up look successful.
+
+## Retained evidence and reproducibility
+
+- Pins and the digest-verified local Capstone 5.0.6 dependency are in `tools/original-execution-toolchain.json`. The Windows wheel matched the [published PyPI digest](https://pypi.org/project/capstone/5.0.6/#files). No global Python, compiler, model or system settings changed.
+- `tools/probe-native-recomp.py` validates the local source pin/clean checkout, accepts optional bounded research metadata, generates only the owned synthetic fixture, and refuses to reuse an output label. It downloads nothing and never accepts an XBE for translation. Generated code/reports remain ignored.
+- Current generation: `.tools/emulation/recomp-fixture-native-02/generation.json`, SHA-256 `ed35f0ca6205270ec0c42251f99c4301e2d20d19b595c282cce360e2a441738a`. Its generated C digest was checked against the actual file. Reusing `native-01` returned exit 2 and left its saved files byte-identical.
+- The final public generator/manifest layout reproduced that tested C byte-identically as `recomp-fixture-native-03`. An outside-research metadata input was rejected with exit 2 and no output directory. Python compilation, dependency-free CLI help, whitespace verification and the source-publication guard passed for 107 files. The supplied XBE digest remains unchanged.
+- Both pinned source checkouts remain unmodified. Verify the Linux-created xemu checkout with WSL Git; Windows Git cannot read one of its Linux symlinks and does not provide a valid clean-source check there.
+- Fresh compile/run commands and identities: `.tools/emulation/native-recomp-build-01/build.json` (SHA-256 `99332915c04213a7200bbbfeea7ec33b47ec3ec7c1619a2bc690d577bb8c46ac`) and `build.log`. Native compile/run, Wasm compile/run and browser module compilation all exited 0.
+- Browser fixture: `tools/fixtures/native_recomp_check.html`. Local result: `research/verification/native-recomp-browser-20261101-01.json` (SHA-256 `55a67fd3c6edaede008606deca5409cdca031149d2125bd709f950edf6926047`); screenshot matching `.jpg` (SHA-256 `9438c10d21ca8413c91a33260a4acdc939ce4b26c723e2a7a0b2365c44fb2be1`). The temporary tab and verified loopback server were closed.
+- Failed preparation attempts are preserved: the first owned harness used the wrong metadata key; the first compile omitted the toolkit's required generated-code preamble. The corrected public generator supplies that preamble. An initial generation report used a pre-write text digest; `native-02` records the actual file digest. These were harness errors, not evidence that the toolkit or game is incompatible.
+
+With the pinned source and local Python dependency already prepared, generate a new fixture with:
+
+```powershell
+& .tools/emulation/recomp-venv/Scripts/python.exe tools/probe-native-recomp.py --attempt new-native --profile research/verification/original-execution-profile-20261031.json
+```
+
+Omit `--profile` for a game-independent fixture. It requires no game/firmware input. Compile the generated `check.c` with the pinned toolkit's `templates/runtime` include path, C11, `-O2 -fwrapv -ffp-contract=off -Wall -Wextra -Werror -Wno-unused-label` and `-lm`. The fixture intentionally contains translator labels. The exact local GCC/Emscripten commands, including browser module exports, are retained in the build report; neither dependencies nor a browser runtime are installed by `npm ci`. CI syntax-checks the probe but does not acquire/run this private toolchain or execute the original game.
+
+## Unknowns and next task
+
+Unproved: whole-title function/control-flow recovery and indirect calls; instruction/flag/x87/SSE correctness; this build's TLS, memory aliases, exceptions and thread scheduling; kernel/HAL/device semantics; original GPU/texture/depth/blend output; audio/video/codecs; local files/save recovery; release browsers, physical controllers and performance. The recompiler does not supply the planned social services or prove server-owned outcomes. Original-containing code, RAM and saves must remain local; input relay alone is not authority.
+
+Next concrete task: use the existing XBE analysis/project to select one bounded original initialization function and its immediate call/memory requirements, mechanically translate it locally, and test the browser execution boundary. Keep generated original instructions and raw analysis ignored. Require an observable result or a concrete failure, retain all unsupported operations, and do not replace missing calls with success stubs. This gate precedes selecting the native runtime as the product route. The first title milestone still requires an original controllable screen executing original instructions entirely in the browser; a leaf function or this synthetic fixture cannot satisfy it.
+
+The line/quad shader reference completed before this steering is retained at `.tools/emulation/geom-reference-02/reference.json`, SHA-256 `4fcd544b780b0d531fedc1bca8a1e1266c3b9ba0eb5daaa7900cd2f6e167fccf`: 72 actual-generator variants, 24 owned streams, 1,728 records and 746,640 output values, with transform-feedback primitive counts and untouched-tail checks. Its browser prepass is not implemented. The [verified triangle component](NV2A_GEOMETRY_CHECKPOINT.md) is unchanged; both references may support either runtime route without implying complete rendering.

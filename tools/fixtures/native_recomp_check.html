@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Native web recompilation check</title>
+<style>
+body { font: 16px system-ui; max-width: 760px; margin: 36px auto; padding: 0 20px; color: #172033; }
+button { font: inherit; padding: 9px 18px; }
+pre { white-space: pre-wrap; background: #eef2f8; padding: 16px; border-radius: 6px; }
+</style>
+<h1>Native web recompilation check</h1>
+<p>A source-owned four-instruction x86 function was translated by the pinned toolkit, compiled to WebAssembly, and runs here without a console BIOS.</p>
+<p>This tests integer arithmetic and a simulated stack. It does not execute original Fuzion Frenzy code or implement the Xbox runtime.</p>
+<button id="run">Run translated function</button>
+<p id="status" role="status">Ready</p>
+<pre id="details"></pre>
+<script src="check.js"></script>
+<script type="module">
+let module;
+const messages = [], errors = [];
+const button = document.getElementById('run'), status = document.getElementById('status');
+button.onclick = async () => {
+  button.disabled = true;
+  messages.length = 0; errors.length = 0;
+  document.body.dataset.state = 'running';
+  try {
+    module ??= await NativeRecomp({ noInitialRun: true,
+      print: text => messages.push(text), printErr: text => errors.push(text) });
+    const exitCode = module._main(0, 0);
+    const passed = exitCode === 0 && errors.length === 0 &&
+      messages.includes('Synthetic native-recomp fixture: 25 cases passed');
+    const report = { cases: 25, exitCode, passed, messages, errors,
+      originalGameExecuted: false, biosUsed: false };
+    document.getElementById('details').textContent = JSON.stringify(report, null, 2);
+    document.body.dataset.state = passed ? 'passed' : 'failed';
+    status.textContent = passed ? '25 translated-function cases passed in this browser' : 'The fixture failed';
+  } catch (error) {
+    document.body.dataset.state = 'failed'; status.textContent = String(error);
+  } finally { button.disabled = false; }
+};
+</script>
+</html>

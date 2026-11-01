@@ -2,6 +2,8 @@
 
 The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers one post-vertex geometry component, not the complete NV2A renderer or original-game fidelity.
 
+Next-task update, November 1: the user confirmed no local boot firmware and asked about a native web port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) now scopes an original initialization-function proof. A native line/quad reference has been captured; its browser prepass remains pending. Preserve this triangle component and both references for either runtime route.
+
 ## Observations
 
 | Evidence | Result and scope |

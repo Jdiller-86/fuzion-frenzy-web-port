@@ -21,7 +21,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm run test:formats
-      - run: python -m py_compile tools/probe-browser-build.py
+      - run: python -m py_compile tools/probe-browser-build.py tools/probe-native-recomp.py
       - run: npm run test:runtime
       - name: Check triangle geometry (Linux)
         if: runner.os == 'Linux'
