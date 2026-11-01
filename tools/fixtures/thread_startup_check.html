@@ -9,18 +9,21 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <h1>Local original-thread startup proof</h1>
 <p>This engineering check creates a guest thread and lets original startup initialize its TLS in a browser worker. Select the private thread module and compatible local game executable. Neither file is uploaded.</p>
 <p>The game has not booted. Preemptive scheduling, waits, the complete kernel and rendering remain unimplemented. Unsupported original calls stop explicitly.</p>
+<p>The expanded startup proof requires explicit synthetic console settings. These test inputs do not establish an original console's settings or fidelity.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
+<label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
 <button id="run">Run thread startup proof</button><button id="clear">Clear local selection</button>
-<p id="status" role="status">Select both local files</p><pre id="details"></pre>
+<p id="status" role="status">Select local proof files</p><pre id="details"></pre>
 <script type="module">
 const moduleInput = document.getElementById('module'), xbeInput = document.getElementById('xbe');
+const settingsInput = document.getElementById('settings');
 const run = document.getElementById('run'), clear = document.getElementById('clear');
 const status = document.getElementById('status'), details = document.getElementById('details');
 let worker, timer, generation = 0;
 function release() { if (worker) worker.terminate(); worker = undefined; clearTimeout(timer); run.disabled = false; }
 clear.onclick = () => {
-  generation++; release(); moduleInput.value = ''; xbeInput.value = '';
+  generation++; release(); moduleInput.value = ''; xbeInput.value = ''; settingsInput.value = '';
   details.textContent = ''; status.textContent = 'Local selection cleared'; document.body.dataset.state = 'idle';
 };
 run.onclick = async () => {
@@ -31,6 +34,9 @@ run.onclick = async () => {
     if (!moduleFile || !xbeFile) throw new Error('Select both local files');
     if (moduleFile.size > 4 * 1024 * 1024 || xbeFile.size > 16 * 1024 * 1024) throw new Error('A selected file exceeds this bounded proof');
     const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
+    const settingsFile = settingsInput.files[0];
+    if (settingsFile && settingsFile.size > 4096) throw new Error('A settings profile exceeds this bounded proof');
+    const settingsBytes = settingsFile ? await settingsFile.arrayBuffer() : undefined;
     if (generation !== current) return;
     worker = new Worker('/src/runtime/thread-proof-worker.mjs', { type: 'module' });
     const fail = message => { if (generation !== current) return; release(); document.body.dataset.state = 'failed'; status.textContent = message; };
@@ -41,12 +47,14 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-thread-entry'
+      status.textContent = result.verified ? (result.phase === 'crt-timer-request'
+        ? 'Original startup initialized kernel objects and read explicit test settings; stopped at timer arming'
+        : result.phase === 'original-thread-entry'
         ? 'Original thread entry reached; stopped at the next untranslated call'
         : 'Original child thread initialized TLS; stopped at the next unsupported call')
         : 'Thread startup result differs from the bounded reference';
     };
-    worker.postMessage({ moduleBytes, xbeBytes }, [moduleBytes, xbeBytes]);
+    worker.postMessage({ moduleBytes, xbeBytes, settingsBytes }, [moduleBytes, xbeBytes, ...(settingsBytes ? [settingsBytes] : [])]);
   } catch (error) {
     if (generation === current) { release(); document.body.dataset.state = 'failed'; status.textContent = String(error); }
   }

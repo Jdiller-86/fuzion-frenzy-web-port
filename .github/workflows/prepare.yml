@@ -34,6 +34,16 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/thread_bootstrap_test.c src/runtime/thread_bootstrap.c -o "$RUNNER_TEMP/thread-context-check"
           "$RUNNER_TEMP/thread-context-check"
+      - name: Check kernel object initialization (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/kernel_objects_test.c src/runtime/kernel_objects.c -o "$RUNNER_TEMP/kernel-objects-check"
+          "$RUNNER_TEMP/kernel-objects-check"
+      - name: Check local settings query (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/local_settings_test.c src/runtime/local_settings.c -o "$RUNNER_TEMP/local-settings-check"
+          "$RUNNER_TEMP/local-settings-check"
       - run: npm run test:gameplay
       - run: npm run build
       - run: npm run check:environment

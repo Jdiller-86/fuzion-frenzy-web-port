@@ -1,5 +1,7 @@
 # Original thread-entry checkpoint
 
+Later progress: [the CRT startup checkpoint](CRT_STARTUP_CHECKPOINT.md) passes sixteen checks through object initialization and an explicit synthetic settings read before the original timer-arming request. This page preserves the earlier ten-check module and its historical next task; that module still passes through the current loader.
+
 November 1, 2026: the browser now runs the original loader to return, creates its child thread, executes the original system/exception/notification routines and reaches the original thread-start entry. It deliberately stops at untranslated call `0x00033ccc`. **No playable game, renderer, complete kernel, general scheduler or end-user browser converter is delivered.** The complete original-game/custom-feature objective remains active.
 
 This advances the [earlier kernel-255 stop](ORIGINAL_STARTUP_CHECKPOINT.md). That stop-only module and all earlier artifacts remain preserved; its six checks still pass through the shared loader after this change.

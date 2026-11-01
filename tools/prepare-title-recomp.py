@@ -21,10 +21,16 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def function_envelope(item):
+def function_envelope(item, kernel_imports=None):
     """Validate declared body membership separately from the translated span."""
-    if not item.get("established") or item.get("external") or item.get("thunk"):
+    if not item.get("established") or item.get("external"):
         raise ValueError("Only established local functions are admitted")
+    if item.get("thunk"):
+        rows = item.get("instructions", [])
+        if len(rows) != 1 or rows[0].get("mnemonic") != "JMP" or not rows[0].get("computed") or not any(
+                ref.get("type") == "INDIRECTION" and re.fullmatch(r"[0-9a-fA-F]+", ref.get("target", "")) and
+                int(ref["target"], 16) in (kernel_imports or {}) for ref in rows[0].get("references", [])):
+            raise ValueError("A local thunk must be one checked indirect jump to a declared kernel slot")
     start = int(item["entry"], 16)
     ranges = [(int(r["start"], 16), int(r["endInclusive"], 16) + 1) for r in item["bodyRanges"]]
     if not ranges or ranges[0][0] != start:
@@ -43,11 +49,31 @@ def function_envelope(item):
     return start, end
 
 
+def combine_seed_functions(seeds, source_sha256, kernel_imports=None):
+    """Compose bounded exports without silently replacing an earlier function."""
+    if not 1 <= len(seeds) <= 8:
+        raise ValueError("Use 1-8 bounded seed exports")
+    functions, seen = [], set()
+    for seed in seeds:
+        if seed.get("kind") != "bounded-ghidra-recompilation-seed" or seed.get("sourceSha256", "").lower() != source_sha256:
+            raise ValueError("Seed kind/executable identity differs")
+        items = seed.get("functions", [])
+        if not 1 <= len(items) <= 8:
+            raise ValueError("Each seed must contain 1-8 functions")
+        for item in items:
+            address, _ = function_envelope(item, kernel_imports)
+            if address in seen:
+                raise ValueError("Duplicate function across seed exports")
+            seen.add(address)
+            functions.append(item)
+    return functions
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
     parser.add_argument("--profile", required=True, type=Path)
-    parser.add_argument("--seed", required=True, type=Path)
+    parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for up to 8 checked exports (8 functions each)")
     parser.add_argument("--attempt", required=True)
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):
@@ -55,26 +81,30 @@ def main():
     research = (ROOT / "research").resolve(strict=True)
     if not research.is_relative_to(ROOT):
         parser.error("Research must remain inside the project")
+    if len(args.seed) > 8:
+        parser.error("Use at most 8 seed exports")
     metadata = []
-    for path, limit in [(args.profile, 1024 * 1024), (args.seed, 8 * 1024 * 1024)]:
+    for path, limit in [(args.profile, 1024 * 1024), *[(path, 8 * 1024 * 1024) for path in args.seed]]:
         path = path.resolve(strict=True)
         if not path.is_relative_to(research) or path.suffix != ".json" or path.stat().st_size > limit:
             parser.error("Use bounded existing private research JSON inputs")
         metadata.append(path.read_bytes())
-    profile_report, seed = map(json.loads, metadata)
-    if profile_report.get("kind") != "static-execution-dependencies" or seed.get("kind") != "bounded-ghidra-recompilation-seed":
+    profile_report, *seeds = map(json.loads, metadata)
+    if profile_report.get("kind") != "static-execution-dependencies":
         parser.error("Unexpected input metadata kind")
     xbe_path = args.xbe.resolve(strict=True)
     if xbe_path.stat().st_size != profile_report.get("bytes") or xbe_path.stat().st_size > 16 * 1024 * 1024:
         parser.error("Executable identity/size differs from the existing profile")
     xbe = xbe_path.read_bytes()
     sha = digest(xbe)
-    if sha != profile_report.get("sha256") or sha != seed.get("sourceSha256", "").lower():
+    if sha != profile_report.get("sha256"):
         parser.error("Executable and analysis identities differ")
     profile = profile_report["profile"]
-    functions_in = seed.get("functions", [])
-    if not 1 <= len(functions_in) <= 8:
-        parser.error("The seed must contain 1-8 established functions")
+    imports = {entry["address"]: entry["ordinal"] for entry in profile["imports"]}
+    try:
+        functions_in = combine_seed_functions(seeds, sha, imports)
+    except (KeyError, TypeError, ValueError) as error:
+        parser.error(str(error))
     manifest = json.loads((ROOT / "tools/original-execution-toolchain.json").read_text())
     pin = manifest["nativeRecompProbe"]["source"]
     private = (ROOT / ".tools/emulation").resolve(strict=True)
@@ -107,11 +137,10 @@ def main():
                     return xbe[start:start + size]
         raise ValueError("Instruction range is not original executable file-backed data")
     functions, direct_targets, bindings = {}, set(), {}
-    imports = {entry["address"]: entry["ordinal"] for entry in profile["imports"]}
     instruction_count = 0
     for item in functions_in:
         try:
-            start, end = function_envelope(item)
+            start, end = function_envelope(item, imports)
         except (KeyError, TypeError, ValueError) as error:
             parser.error(str(error))
         if any(start < info["end"] and address < end for address, info in functions.items()):
@@ -129,9 +158,9 @@ def main():
             cursor += length
             if row["call"] and not row["computed"]:
                 direct_targets.update(int(target, 16) for target in row["flows"])
-            if row["call"] and row["computed"]:
+            if row["computed"] and (row["call"] or row.get("mnemonic") == "JMP"):
                 for ref in row["references"]:
-                    if ref["type"] == "READ" and re.fullmatch(r"[0-9a-fA-F]+", ref["target"]):
+                    if ref["type"] in ("READ", "INDIRECTION") and re.fullmatch(r"[0-9a-fA-F]+", ref["target"]):
                         slot = int(ref["target"], 16)
                         if slot in imports:
                             bindings[slot] = imports[slot]
@@ -178,8 +207,10 @@ def main():
             file.write(text)
     report = {"kind": "bounded-original-startup-recompilation", "sourceSha256": sha, "toolkitCommit": pin["commit"],
               "seedSha256": digest(metadata[1]), "metadataSha256": digest(metadata[0]),
+              "seedSha256s": [digest(data) for data in metadata[1:]],
               "functions": [{"entry": address, "bytes": info["size"], "bodyBytes": info["bodyBytes"]} for address, info in functions.items()],
               "recognizedSehPrologs": sorted(translator.lifter.SEH_PROLOGS),
+              "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk")],
               "instructions": instruction_count, "originalBytesMatchGhidra": True, "decoderBoundariesAgree": True,
               "untranslatedDirectTargets": boundaries,
               "kernelBindings": [{"slot": slot, "ordinal": ordinal} for slot, ordinal in sorted(bindings.items())],

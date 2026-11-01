@@ -4,6 +4,8 @@
 #include "recomp_types.h"
 #include "title-profile.h"
 #include "../../src/runtime/thread_bootstrap.h"
+#include "../../src/runtime/kernel_objects.h"
+#include "../../src/runtime/local_settings.h"
 #if !defined(__wasm32__) || defined(__wasm64__)
 #error This proof requires wasm32
 #endif
@@ -27,6 +29,7 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
 static uint32_t kernel_calls[16][12], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
+static uint32_t misc_flags, misc_flags_ready;
 static const char source_digest[] = FF_SOURCE_SHA256;
 static const struct { uint32_t slot, ordinal; } bindings[] = FF_KERNEL_BINDINGS;
 
@@ -91,6 +94,39 @@ static void leave_critical(void)
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 294);
     g_esp += 8;
 }
+static void initialize_dpc(void)
+{
+    uint32_t *row = kernel_record(107, 3);
+    row[1] = ff_initialize_dpc(guest_ram, FF_GUEST_BYTES, row[2], row[3], row[4]);
+    if (row[1] != FF_BOOT_OK) stop(9, row[1], 107);
+    g_esp += 16;
+}
+static void initialize_timer(void)
+{
+    uint32_t *row = kernel_record(113, 2);
+    row[1] = ff_initialize_timer(guest_ram, FF_GUEST_BYTES, row[2], row[3]);
+    if (row[1] != FF_BOOT_OK) stop(9, row[1], 113);
+    g_esp += 12;
+}
+static void query_nonvolatile(void)
+{
+    uint32_t *row = kernel_record(24, 5);
+    if (!misc_flags_ready || row[2] != 17) stop(9, row[2], 24);
+    row[1] = ff_query_misc_flags(guest_ram, FF_GUEST_BYTES, row + 2, misc_flags);
+    if (row[1] != FF_BOOT_OK && row[1] != 0xc0000023u) stop(9, row[1], 24);
+    if (row[1] == FF_BOOT_OK) {
+        row[7] = MEM32(row[3]); row[8] = MEM32(row[4]); row[9] = row[6] ? MEM32(row[6]) : 4;
+    }
+    g_eax = row[1]; g_esp += 24;
+}
+static void status_to_dos_error(void)
+{
+    uint32_t *row = kernel_record(301, 1);
+    /* The observed STATUS_SUCCESS -> ERROR_SUCCESS conversion is exact.
+     * Other statuses remain unsupported, never silently mapped to success. */
+    if (row[2] != 0) stop(9, row[2], 301);
+    row[1] = 0; g_eax = 0; g_esp += 8;
+}
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
     uint32_t offset = address - FF_KERNEL_BASE;
@@ -100,12 +136,17 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 187) return close_thread_handle;
         if (ordinal == 277) return enter_critical;
         if (ordinal == 294) return leave_critical;
+        if (ordinal == 107) return initialize_dpc;
+        if (ordinal == 113) return initialize_timer;
+        if (ordinal == 24) return query_nonvolatile;
+        if (ordinal == 301) return status_to_dos_error;
         stop(1, address, ordinal);
     }
     return 0;
 }
 
-uint32_t ff_probe_abi(void) { return 2; }
+uint32_t ff_probe_abi(void) { return 3; }
+void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
 uint32_t ff_probe_stack_top(void) { return FF_STACK_TOP; }
@@ -137,6 +178,7 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
+    misc_flags = misc_flags_ready = 0;
     for (unsigned i = 0; i < ICALL_TRACE_SIZE; ++i) g_icall_trace[i] = 0;
     g_icall_trace_idx = 0; g_icall_count = 0; g_force_return = 0;
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;

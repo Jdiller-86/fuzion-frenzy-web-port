@@ -13,6 +13,16 @@ const required = ['abi','ram','ram_bytes','stack_top','source_digest','entry','s
 const sha256 = async buffer => [...new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))]
   .map(n => n.toString(16).padStart(2, '0')).join('');
 
+export function parseLocalConsoleSettings(buffer) {
+  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > 4096) throw new Error('Invalid local settings profile size');
+  const profile = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer));
+  if (profile?.kind !== 'local-console-settings' || profile.synthetic !== true ||
+      !Number.isInteger(profile.miscFlags) || profile.miscFlags < 0 || profile.miscFlags > 0xffffffff) {
+    throw new Error('Use an explicit synthetic misc-flags test profile');
+  }
+  return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = []) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -29,7 +39,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Unexpected local proof ABI');
   }
   if (typeof api._initialize === 'function') api._initialize();
-  if (api.ff_probe_abi() !== abi || api.ff_probe_entry() !== profile.entry || api.ff_probe_ram_bytes() !== RAM_BYTES) {
+  if (!(Array.isArray(abi) ? abi : [abi]).includes(api.ff_probe_abi()) || api.ff_probe_entry() !== profile.entry || api.ff_probe_ram_bytes() !== RAM_BYTES) {
     throw new Error('Module ABI/build does not match this proof');
   }
   const memory = api.memory.buffer;
