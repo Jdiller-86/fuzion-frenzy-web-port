@@ -1,5 +1,7 @@
 # Original execution progress checkpoint
 
+CRT source checkpoint `796365d` is published. [CI run 41321027683](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41321027683) passed on Windows and Linux, including format/runtime/Python checks, the preserved prototype tests/build and source guards. Linux also passed the new owned DPC/timer-initialization and explicit-settings C fixtures, plus prior boot-context and triangle checks. CI uses no original game files, generated title modules or private toolchain; original browser execution remains separate local evidence. This follow-up records passing CI without changing checked runtime source.
+
 The full active objective remains the original game executing entirely in the browser plus the additional planned features. Read [the implementation ledger and build evidence](ORIGINAL_EXECUTION_PROGRESS.md); the previous remake is preserved research and does not satisfy this goal.
 
 Selected implementation direction: **pursue static recompilation of the original executable to WebAssembly**, explicitly confirmed by the user (D023; earlier feature comparison D022). Implement the complete custom-feature plan while preserving original behavior and the local-content boundary. Keep emulator work as supporting research; do not automatically change routes after a failed probe. Full compatibility, fidelity, browser-local conversion, netcode and authority remain unproved. Next is the real clock/timer-queue/DPC contract required by original CRT startup.
