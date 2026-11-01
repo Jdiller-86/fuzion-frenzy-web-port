@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, proofTraceCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -84,6 +84,14 @@ test('standalone counted namespace strings reject invalid descriptors and read p
 
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
+});
+
+test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
+  assert.equal(proofTraceCapacity({}),64);
+  for (const capacity of [64,128]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
+  for (const capacity of [0,32,65,129,256,-1,NaN,Infinity,'128',true]) {
+    assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),/bounded trace capacity/);
+  }
 });
 
 test('copy diagnostic runner covers bounded overlap/edge cases and reports failures without hiding them', () => {

@@ -36,6 +36,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #define FF_GUEST_BYTES (64u * 1024u * 1024u)
 #define FF_STACK_TOP (FF_GUEST_BYTES - 4096u)
 #define FF_KERNEL_BASE 0xfe000000u
+#define FF_TRACE_CAPACITY 128u
 
 ptrdiff_t g_xbox_mem_offset;
 uint32_t g_xbox_code_lo, g_xbox_code_hi;
@@ -53,8 +54,8 @@ RECOMP_TLS RecompMmx g_mm0, g_mm1, g_mm2, g_mm3, g_mm4, g_mm5, g_mm6, g_mm7;
 volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
-static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
-static uint32_t probe_cpu_trace[64 * 3];
+static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
+static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[32][20], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
@@ -70,6 +71,12 @@ static uint32_t namespace_ready;
 static ff_virtual_memory virtual_memory;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
+#endif
+#ifdef FF_FORMAT_PROOF
+#ifndef FF_VM_PROOF
+#error Format observations require checked guest memory
+#endif
+static struct { uint32_t words[13]; uint8_t format[64], output[128]; } format_observation;
 #endif
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
@@ -170,12 +177,54 @@ uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
     stop(9, address, access);
 }
 #endif
+#ifdef FF_FORMAT_PROOF
+static uint32_t format_word(uint32_t address)
+{
+    return guest_ram[address] | (uint32_t)guest_ram[address+1]<<8 | (uint32_t)guest_ram[address+2]<<16 | (uint32_t)guest_ram[address+3]<<24;
+}
+static void observe_format(uint32_t kind,uint32_t address)
+{
+    if (address != 0x001dee6eu) return;
+    uint32_t *words=format_observation.words;
+    if (kind==1) {
+        if (++words[0] != 1) return;
+        words[2]=g_esp; words[8]=g_fs_base;
+        if (g_fs_base && !ff_vm_check(&virtual_memory,g_fs_base,4,FF_VM_READ)) { words[9]=format_word(g_fs_base); words[7]|=4; }
+        if (ff_vm_check(&virtual_memory,g_esp,16,FF_VM_READ)) return;
+        words[3]=format_word(g_esp+4); words[4]=format_word(g_esp+8); words[5]=format_word(g_esp+12);
+        for (unsigned i=0;i<sizeof format_observation.format;++i) {
+            uint64_t byte=(uint64_t)words[4]+i;
+            if (byte > UINT32_MAX || ff_vm_check(&virtual_memory,(uint32_t)byte,1,FF_VM_READ)) return;
+            format_observation.format[i]=guest_ram[byte];
+            if (!format_observation.format[i]) { words[7]|=1; return; }
+        }
+    } else {
+        if (++words[1] != 1 || words[0] != 1) return;
+        words[6]=g_eax; words[10]=g_esp; words[11]=g_fs_base;
+        if (g_fs_base && !ff_vm_check(&virtual_memory,g_fs_base,4,FF_VM_READ)) words[12]=format_word(g_fs_base);
+        else words[7]&=~4u;
+        if (!(words[7]&1u) || g_eax >= sizeof format_observation.output || ff_vm_check(&virtual_memory,words[3],(uint64_t)g_eax+1,FF_VM_READ)) return;
+        memcpy(format_observation.output,guest_ram+words[3],g_eax+1);
+        if (!format_observation.output[g_eax]) words[7]|=2;
+    }
+}
+uint32_t ff_probe_format_word(uint32_t index) { return index < 13 ? format_observation.words[index] : 0; }
+uint32_t ff_probe_format_byte(uint32_t which,uint32_t index)
+{
+    if (!which && index < sizeof format_observation.format) return format_observation.format[index];
+    if (which==1 && index < sizeof format_observation.output) return format_observation.output[index];
+    return 0;
+}
+#endif
 static void trace(uint32_t kind, uint32_t address)
 {
 #ifdef FF_COPY_PROOF
     if (copy_checking) return;
 #endif
-    if (probe_trace_count == 64) stop(5, address, 0);
+#ifdef FF_FORMAT_PROOF
+    observe_format(kind,address);
+#endif
+    if (probe_trace_count == FF_TRACE_CAPACITY) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
     probe_trace[i] = kind; probe_trace[i + 1] = address; probe_trace[i + 2] = g_esp;
     probe_cpu_trace[i] = g_eax; probe_cpu_trace[i + 1] = g_fs_base;
@@ -591,6 +640,7 @@ uint32_t ff_probe_entry(void) { return FF_ENTRY_ADDRESS; }
 uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
 uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
+uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
     return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }
@@ -619,6 +669,9 @@ void ff_probe_reset(void)
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_FORMAT_PROOF
+    memset(&format_observation,0,sizeof format_observation);
+#endif
 #ifdef FF_NAMESPACE_PROOF
     memset(&object_namespace,0,sizeof object_namespace); namespace_ready=0;
 #endif
@@ -665,4 +718,10 @@ void ff_probe_run(void)
     if (!entry) stop(2, thread->system, 0);
     entry(); stop(6, thread->system, 0);
 }
+/* The pinned emitter deliberately groups equality conditions twice. This
+ * Clang style diagnostic does not change their meaning; retain all other
+ * warnings/errors and scope the exception to generated title code only. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wparentheses-equality"
 #include "title-functions.inc"
+#pragma clang diagnostic pop

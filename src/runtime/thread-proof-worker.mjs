@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, proofTraceCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCountedAnsiString } from './file-request.mjs';
@@ -39,7 +39,8 @@ self.onmessage = async event => {
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
-    if (count > 64 || threadCount > 4 || callCount > 32) throw new Error('Invalid boot-proof counts');
+    const traceCapacity=proofTraceCapacity(api);
+    if (count < 0 || count > traceCapacity || threadCount > 4 || callCount > 32) throw new Error('Invalid boot-proof counts');
     const words = new Uint32Array(memory, range(api.ff_probe_trace(), count * 12, 4), count * 3);
     const hasCpuTrace = typeof api.ff_probe_trace_cpu === 'function';
     const trace = Array.from({ length: count }, (_, i) => ({ kind: words[i * 3] === 1 ? 'enter' : 'exit',
@@ -94,9 +95,12 @@ self.onmessage = async event => {
       api.ff_probe_binding_ordinal(bindingIndex) === 67 && state[5] === 0x33d41 && calls.length === 15;
     const reachedNamespaceDependency = namespaceAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 2 &&
       state[1] === 0x1dee6e && state[5] === 0x33c29 && calls.length === 16 && entered.includes(0x33c12);
+    const reachedFormatDependency = namespaceAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 2 &&
+      state[1] === 0x338de && state[5] === 0x33c45 && calls.length === 16 && entered.includes(0x1e2433) &&
+      trace.some(row=>row.kind==='exit' && row.address===0x1dee6e);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (reachedNamespaceDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -109,7 +113,7 @@ self.onmessage = async event => {
         ram.slice(thread.tls + 4, thread.tls + 4 + profile.tls.zeroFillBytes).every(n => n === 0),
       twoArgumentSystemFrame: view.getUint32(thread.initialSp + 4, true) === REF.threadStart &&
         view.getUint32(thread.initialSp + 8, true) === 0 && thread.routine === REF.threadStart && thread.system === REF.systemStart,
-      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency
+      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency
     };
     if (beyondThreadEntry) {
       checks.originalThreadStartEntered = entered.includes(0x34198) && entered.includes(REF.threadStart);
@@ -159,10 +163,25 @@ self.onmessage = async event => {
           view.getUint8(thread.fs + 0x24) === 0 && view.getUint32(thread.fs + 0x58, true) === 0;
         checks.originalArmingWrapperReturned = trace.some(row => row.kind === 'exit' && row.address === 0x3467a) &&
           trace.some(row => row.kind === 'exit' && row.address === 0x346a7);
-        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency) && entered.includes(0x322ef);
+        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, localVolume, symbolicLinkRequest, objectNamespace;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, localVolume, symbolicLinkRequest, objectNamespace, originalFormat;
+    if (typeof api.ff_probe_format_word==='function' && typeof api.ff_probe_format_byte==='function') {
+      const words=Array.from({length:13},(_,i)=>api.ff_probe_format_word(i)>>>0);
+      const text=(which,limit)=>{ let value=''; for(let i=0;i<limit;++i) { const byte=api.ff_probe_format_byte(which,i); if(!byte)return value;
+        if(byte<32 || byte>126)throw new Error('Invalid bounded format observation'); value+=String.fromCharCode(byte); } return value; };
+      originalFormat={entries:words[0],exits:words[1],entryStack:words[2],destination:words[3],formatPointer:words[4],value:words[5],
+        returnedBytes:words[6],validMask:words[7],entryFs:words[8],entryExceptionHead:words[9],exitStack:words[10],exitFs:words[11],exitExceptionHead:words[12],
+        format:text(0,64),output:text(1,128)};
+      checks.originalHexFormatReturnedCorrectly = reachedFormatDependency && originalFormat.entries===1 && originalFormat.exits===1 &&
+        originalFormat.validMask===7 && originalFormat.value===0x4d530002 && originalFormat.format==='%08lx' && originalFormat.returnedBytes===8 &&
+        originalFormat.output===originalFormat.value.toString(16).padStart(8,'0');
+      checks.originalFormatStackAndSehRestored = originalFormat.entryStack===originalFormat.exitStack && originalFormat.entryFs===thread.fs &&
+        originalFormat.exitFs===originalFormat.entryFs && originalFormat.exitExceptionHead===originalFormat.entryExceptionHead;
+      checks.originalFormatRoutinesReturned = [0x1dee6e,0x1e2433,0x1e6e50,0x1e23fc,0x1e23d8,0x1e23a5].every(address=>
+        trace.some(row=>row.kind==='exit' && row.address===address));
+    }
     if (namespaceAbi) {
       const objectCount=api.ff_probe_namespace_count();
       if (objectCount > 32) throw new Error('Invalid object namespace count');
@@ -192,7 +211,7 @@ self.onmessage = async event => {
         objectNamespace.driveResolution.remainingOffset===7 && objectNamespace.driveResolution.remainingBytes===0;
       checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 && disc.mediaReady===0 && created?.output?.mediaReady===0 &&
         objectNamespace.objects.filter(row=>row.kind===2).every(row=>row.mediaReady===0);
-      checks.originalNextHelperEntered = reachedNamespaceDependency;
+      checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency;
     }
     const admittedGuestRange = (address, bytes, access) => {
       for (let page = Math.floor(address / 4096); page <= Math.floor((address + bytes - 1) / 4096); ++page) {
@@ -230,7 +249,7 @@ self.onmessage = async event => {
         localVolume.opened === 1 && localVolume.closed === 1 && localVolume.active === 0 && localVolume.handles.length === 0;
       checks.originalVolumeInitializerReturned = !!entry?.cpu && !!returned?.cpu && entry.stack === returned.stack &&
         entry.cpu.fs === thread.fs && returned.cpu.fs === entry.cpu.fs && returned.cpu.exceptionHead === entry.cpu.exceptionHead;
-      checks.nextOriginalDriveLinkReached = namespaceAbi ? reachedNamespaceDependency && calls[15]?.ordinal===67 && calls[15].status===0 :
+      checks.nextOriginalDriveLinkReached = namespaceAbi ? (reachedNamespaceDependency || reachedFormatDependency) && calls[15]?.ordinal===67 && calls[15].status===0 :
         reachedVolumeLifecycle && symbolicLinkRequest?.link.name === '\\??\\D:' && symbolicLinkRequest.device.name === '\\Device\\CdRom0' && symbolicLinkRequest.serviceImplemented === false;
     }
     if (memoryAbi) {
@@ -298,10 +317,10 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
-      sourceSha256, moduleSha256, consoleSettings, volumeProfile, localVolume, objectNamespace, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
+      sourceSha256, moduleSha256, consoleSettings, volumeProfile, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      trace, traceCapacity, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });

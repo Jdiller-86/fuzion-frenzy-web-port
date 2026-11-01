@@ -68,9 +68,30 @@ class SeedCompositionTests(unittest.TestCase):
         oversized["functions"] *= 9
         wrong = self.seed()
         wrong["kind"] = "unrelated"
-        for seeds in [[], [self.seed()] * 9, [oversized], [wrong]]:
+        for seeds in [[], [self.seed()] * 17, [oversized], [wrong]]:
             with self.assertRaises(ValueError):
                 prepare.combine_seed_functions(seeds, "a" * 64)
+
+    def test_more_exports_retain_the_original_total_function_budget(self):
+        seeds = []
+        for group in range(16):
+            seed = self.seed()
+            seed["functions"] = [self.seed(f"{0x100 + (group * 4 + item) * 0x20:x}")["functions"][0] for item in range(4)]
+            seeds.append(seed)
+        items = prepare.combine_seed_functions(seeds, "a" * 64)
+        self.assertEqual(len(items), 64)
+        self.assertEqual(len({item["entry"] for item in items}), 64)
+        seeds[0]["functions"].append(self.seed("f000")["functions"][0])
+        with self.assertRaisesRegex(ValueError, "Aggregate function"):
+            prepare.combine_seed_functions(seeds, "a" * 64)
+
+    def test_metadata_count_individual_and_total_bytes_are_bounded(self):
+        prepare.validate_seed_sizes([4 * 1024 * 1024] * 16)
+        prepare.validate_seed_sizes([8 * 1024 * 1024] * 8)
+        with self.assertRaisesRegex(ValueError, "Aggregate seed metadata"):
+            prepare.validate_seed_sizes([8 * 1024 * 1024] * 9)
+        for sizes in [[], [1] * 17, [-1], [0.5], [True], [8 * 1024 * 1024 + 1]]:
+            with self.assertRaises(ValueError): prepare.validate_seed_sizes(sizes)
 
 class EnvelopeRangeTests(unittest.TestCase):
     def test_overlaps_order_size_and_foreign_entries_are_rejected(self):

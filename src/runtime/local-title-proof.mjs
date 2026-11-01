@@ -23,6 +23,12 @@ export function parseLocalConsoleSettings(buffer) {
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
 }
 
+export function proofTraceCapacity(api) {
+  const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
+  if (![64,128].includes(capacity)) throw new Error('Unsupported bounded trace capacity');
+  return capacity;
+}
+
 export function parseLocalVolumeProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const volume = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer)).volume;

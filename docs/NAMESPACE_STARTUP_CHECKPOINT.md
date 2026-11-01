@@ -1,5 +1,7 @@
 # Original drive link and next startup helper
 
+Later progress is recorded in [the formatter checkpoint](FORMAT_STARTUP_CHECKPOINT.md): the actual callee now returns its hexadecimal title-ID text, and startup reaches `0x000338de`. This document preserves the earlier namespace result and its limits.
+
 November 1, 2026. This advances the selected static-recompilation route toward the complete original-game/custom-feature goal. It does not accept a playable screen, mounted disc/file reads, full object-manager behavior or fidelity. Original execution remains browser-worker-only; native/Node fixture runs contain independently authored code only.
 
 ## Implemented contract and evidence boundary

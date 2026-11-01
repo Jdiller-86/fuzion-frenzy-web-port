@@ -15,6 +15,10 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
+MAX_SEED_EXPORTS = 16
+MAX_SEED_FUNCTIONS = 64
+MAX_SEED_BYTES = 8 * 1024 * 1024
+MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
 
 
 def digest(data):
@@ -51,8 +55,8 @@ def function_envelope(item, kernel_imports=None):
 
 def combine_seed_functions(seeds, source_sha256, kernel_imports=None):
     """Compose bounded exports without silently replacing an earlier function."""
-    if not 1 <= len(seeds) <= 8:
-        raise ValueError("Use 1-8 bounded seed exports")
+    if not 1 <= len(seeds) <= MAX_SEED_EXPORTS:
+        raise ValueError("Use 1-16 bounded seed exports")
     functions, seen = [], set()
     for seed in seeds:
         if seed.get("kind") != "bounded-ghidra-recompilation-seed" or seed.get("sourceSha256", "").lower() != source_sha256:
@@ -61,12 +65,21 @@ def combine_seed_functions(seeds, source_sha256, kernel_imports=None):
         if not 1 <= len(items) <= 8:
             raise ValueError("Each seed must contain 1-8 functions")
         for item in items:
+            if len(functions) == MAX_SEED_FUNCTIONS:
+                raise ValueError("Aggregate function budget exceeded")
             address, _ = function_envelope(item, kernel_imports)
             if address in seen:
                 raise ValueError("Duplicate function across seed exports")
             seen.add(address)
             functions.append(item)
     return functions
+
+
+def validate_seed_sizes(sizes):
+    if not 1 <= len(sizes) <= MAX_SEED_EXPORTS or any(type(size) is not int or size < 0 or size > MAX_SEED_BYTES for size in sizes):
+        raise ValueError("Invalid bounded seed metadata sizes")
+    if sum(sizes) > MAX_TOTAL_SEED_BYTES:
+        raise ValueError("Aggregate seed metadata budget exceeded")
 
 
 def _alignment_padding(raw):
@@ -216,7 +229,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
     parser.add_argument("--profile", required=True, type=Path)
-    parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for up to 8 checked exports (8 functions each)")
+    parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for up to 16 checked exports (8 functions each, 64 total)")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     args = parser.parse_args()
@@ -225,14 +238,29 @@ def main():
     research = (ROOT / "research").resolve(strict=True)
     if not research.is_relative_to(ROOT):
         parser.error("Research must remain inside the project")
-    if len(args.seed) > 8:
-        parser.error("Use at most 8 seed exports")
-    metadata = []
-    for path, limit in [(args.profile, 1024 * 1024), *[(path, 8 * 1024 * 1024) for path in args.seed]]:
+    if len(args.seed) > MAX_SEED_EXPORTS:
+        parser.error("Use at most 16 seed exports")
+    metadata, resolved, sizes = [], [], []
+    for path, limit in [(args.profile, 1024 * 1024), *[(path, MAX_SEED_BYTES) for path in args.seed]]:
         path = path.resolve(strict=True)
         if not path.is_relative_to(research) or path.suffix != ".json" or path.stat().st_size > limit:
             parser.error("Use bounded existing private research JSON inputs")
-        metadata.append(path.read_bytes())
+        resolved.append((path, limit)); sizes.append(path.stat().st_size)
+    try:
+        validate_seed_sizes(sizes[1:])
+    except ValueError as error:
+        parser.error(str(error))
+    consumed = 0
+    for index, (path, limit) in enumerate(resolved):
+        if index:
+            limit = min(limit, MAX_TOTAL_SEED_BYTES - consumed)
+        with path.open("rb") as stream:
+            data = stream.read(limit + 1)
+        if len(data) > limit:
+            parser.error("Metadata changed or exceeds its bounded input budget")
+        if index:
+            consumed += len(data)
+        metadata.append(data)
     profile_report, *seeds = map(json.loads, metadata)
     if profile_report.get("kind") != "static-execution-dependencies":
         parser.error("Unexpected input metadata kind")
