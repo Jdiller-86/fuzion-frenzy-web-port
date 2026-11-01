@@ -12,7 +12,7 @@ There is a material delivery constraint: a precompiled title module would contai
 
 ## Custom features and preferred route
 
-The user subsequently asked whether plain emulation could deliver the requested custom features and preferred recompilation if it could not. Plain emulation alone does not deliver the complete plan. **Recompilation is now the preferred product route**, subject to the title/browser proof below. Keep existing emulator/renderer evidence as supporting research. This is a preference about integration access, not proof of native compatibility or a claim that emulator modification is inherently incapable of these features.
+The user subsequently asked whether plain emulation could deliver the requested custom features, then explicitly confirmed that the plan must pursue recompilation. **Static recompilation to WebAssembly is the selected implementation direction (D023)**, with the title/browser proof below still required. Keep existing emulator/renderer evidence as supporting research. The route selection is not proof of native compatibility or a claim that emulator modification is inherently incapable of these features.
 
 The following is an engineering assessment against `DEVELOPMENT_PLAN.md`, not observed title behavior:
 
