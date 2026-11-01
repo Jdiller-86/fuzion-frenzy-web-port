@@ -28,7 +28,11 @@
     "sdkNodeLinuxX64Sha256": "80df6c8703a19578ac3d21fe57ed04fd9f4ee40c3f76e21c8b8e8141ec072d3c",
     "digestBoundary": "Locally measured installed binaries from official SDK acquisition; not independently verified published digests. SDK Node is compiler tooling only; project runtime pin remains Node 24.14.0."
   },
-  "pythonBuildTools": { "meson": "1.5.0", "ninja": "1.11.1.1", "pycotap": "1.3.1" },
+  "pythonBuildTools": {
+    "meson": "1.5.0",
+    "ninja": "1.11.1.1",
+    "pycotap": "1.3.1"
+  },
   "crossLibraries": {
     "zlib": {
       "version": "1.3.1",
@@ -42,9 +46,30 @@
       "source": "https://download.gnome.org/sources/glib/2.84/glib-2.84.0.tar.xz",
       "publishedSha256": "f8823600cb85425e2815cfad82ea20fdaa538482ab74e7293d58b3f64a5aff6a",
       "digestSource": "https://download.gnome.org/sources/glib/2.84/glib-2.84.0.sha256sum",
-      "localState": "Not yet built"
+      "localState": "Wasm static libraries installed; detected by xemu runtime-02 as 2.84.0; original-game behavior untested"
+    },
+    "libffi": {
+      "version": "3.4.7",
+      "source": "https://github.com/libffi/libffi/releases/download/v3.4.7/libffi-3.4.7.tar.gz",
+      "sha256": "138607dee268bdecf374adf9144c00e839e38541f75f24a1fcf18b78fda48b2d",
+      "upstreamDigestIndependentlyVerified": false,
+      "localState": "Wasm archive installed; signed32/uint64/double foreign-call ABI check passed"
+    },
+    "pixman": {
+      "version": "0.44.2",
+      "source": "https://cairographics.org/releases/pixman-0.44.2.tar.gz",
+      "sha256": "6349061ce1a338ab6952b92194d1b0377472244208d47ff25bef86fc71973466",
+      "upstreamDigestIndependentlyVerified": false,
+      "localState": "Wasm archive installed from upstream dependency recipe; current xemu probe flags skip pixman; no render validation"
+    },
+    "pcre2": {
+      "version": "10.44",
+      "sourceSha256": "d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef5de96",
+      "mesonPatchSha256": "4336d422ee9043847e5e10dbbbd01940d4c9e5027f31ccdc33a7898a1ca94009",
+      "verification": "Both archives matched the wrap pins in published-digest-verified GLib source",
+      "localState": "Built and installed as part of GLib"
     }
   },
-  "storage": "Sources, SDK, cross libraries, logs and compiled output stay in ignored .tools/emulation; no global activation or firmware/game acquisition.",
+  "storage": "Sources, SDK, cross libraries, logs and compiled output stay in ignored .tools/emulation; no global activation or Xbox firmware/game acquisition.",
   "limits": "A successful cross-build would not establish browser execution, game compatibility, fidelity, network authority or performance."
 }

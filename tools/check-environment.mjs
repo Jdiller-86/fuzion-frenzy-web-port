@@ -19,5 +19,5 @@ console.log(JSON.stringify({
     persistentProject: has('research/ghidra-projects/FuzionFrenzySetup.gpr'),
     note: 'Existence checks only; see saved verification evidence for actual analysis tests.'
   },
-  dependencies: 'Dependency-free browser ESM/WebGL 2 implementation; no production services provisioned.'
+  dependencies: 'Historical prototype has no npm application dependencies; original-runtime cross-build tools/libraries are separate and pinned under .tools. No production services provisioned.'
 }, null, 2));

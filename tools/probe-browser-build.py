@@ -57,7 +57,8 @@ def main():
                 ["bash", str(root / "xemu-source/configure"),
                  "--target-list=i386-softmmu", "--cpu=wasm32", "--cross-prefix=em",
                  "--cc=emcc", "--cxx=em++", "--enable-tcg-interpreter",
-                 "--disable-docs", "--disable-werror", "--disable-download"],
+                 "--disable-docs", "--disable-werror", "--disable-download",
+                 "--disable-slirp"],
                 ["ninja", "-C", str(build), "-j2", "qemu-system-i386"]]
     result = {"schemaVersion": 1, "startedUtc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "xemuCommit": manifest["sources"]["xemu"]["commit"],
