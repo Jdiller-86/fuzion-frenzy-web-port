@@ -8,6 +8,8 @@ Current build/source evidence and the full uncompleted feature ledger: [original
 
 November 1, 2026 update: the user confirmed no local MCPX boot ROM or BIOS and asked about native web execution. Read [the native-web feasibility checkpoint](NATIVE_WEB_FEASIBILITY.md): one owned function passes actual x86-to-C/Wasm/browser execution, and the candidate has declared routes for all 111 imports. Neither is original-game compatibility. The next bounded task is an original initialization-function proof, with all generated title code selected locally and never served/uploaded/committed. A final runtime and browser-local conversion pipeline remain unselected/unimplemented. The full target and all planned features remain unchanged; xemu/renderer work is preserved.
 
+The user subsequently preferred recompilation when plain emulation cannot supply the full custom-feature plan. Recompilation is now the preferred direction (D022); the checkpoint compares social/control wrappers, mixed-seat online play, title hooks, recovery and authority. A modified emulator is not inherently incapable, but plain emulation alone does not meet the complete plan. Native title compatibility and the server/content boundary remain unproved.
+
 ## Bounded route investigation
 
 Primary sources checked October 31, 2026; external documentation is evidence about those projects, not a successful run of this title here.

@@ -10,6 +10,24 @@ The current evidence justifies a bounded title-specific recompilation test. It d
 
 There is a material delivery constraint: a precompiled title module would contain original instructions, so it cannot be shipped as public runtime code under this project's content boundary. The finished product needs conversion inside the player's browser, with generated title code staying local. The current Python/compiler workflow is an engineering probe, not that end-user pipeline. For a developer title test, any privately generated module must be selected locally in the browser; it must not be served by the fixture server, uploaded or committed. Native helpers and remote conversion remain excluded from the product.
 
+## Custom features and preferred route
+
+The user subsequently asked whether plain emulation could deliver the requested custom features and preferred recompilation if it could not. Plain emulation alone does not deliver the complete plan. **Recompilation is now the preferred product route**, subject to the title/browser proof below. Keep existing emulator/renderer evidence as supporting research. This is a preference about integration access, not proof of native compatibility or a claim that emulator modification is inherently incapable of these features.
+
+The following is an engineering assessment against `DEVELOPMENT_PLAN.md`, not observed title behavior:
+
+| Planned feature | Emulation with a browser wrapper | Recompiled browser runtime |
+| --- | --- | --- |
+| Accounts, friends, invites, privacy, lobby discovery and permissions | Can be built around an emulator as independent app/server services | The same app/server work is needed; recompilation is not required for these features |
+| Keyboard/gamepad remapping and owned local seats | Can feed virtual controller ports through an input adapter | Can feed the compatible controller/runtime boundary; device and seat tests are still required |
+| Four-player online and mixed local/remote seats | A possible route is synchronized controller input, but no such Fuzion/browser path is verified. It needs a protocol, timing/state synchronization, reconnect and fairness work beyond plain emulation | More direct function/state integration is a useful design advantage; it still requires netcode, scheduling, compatibility and fairness proofs |
+| Custom playlists, integrated round/tournament flow and semantic checkpoints | Requires title-specific state discovery and control hooks or patches; whole-machine snapshots do not supply the game's application-level contract | Function/event/state hooks can be placed alongside translated code while preserving original routines. Correct field meanings and lifecycle behavior remain research work |
+| Server-owned scoring, collisions, pickups, randomness and durable results | Input relay or agreement between untrusted browsers does not establish authority. A server-side original game would conflict with the current local-content boundary | Recompilation also does not establish authority. Generated original code/RAM cannot be uploaded as a shortcut; an independently implemented verifier/simulation and its content boundary still need to be resolved |
+
+Observed supporting scope: xemu's [networking documentation](https://xemu.app/docs/networking/) describes emulated network adapters, tunneling and virtual LAN connections. That does not establish the browser product's mixed-seat or authoritative gameplay protocol. Its [snapshot documentation](https://xemu.app/docs/snapshots/) describes whole-machine state including attached devices and disk state. Such snapshots are not the plan's atomic, data-only tournament checkpoints and must remain local when they contain original content.
+
+Inference: recompilation is the better integration direction for this feature set because it provides a more direct place to expose original game events/state and attach host services. A sufficiently instrumented emulator could also do game-specific integration, but that is substantial additional work, not simply embedding an emulator. Neither route currently proves all requested features, exact original fidelity, playable speed or secure results. Preserve every requirement rather than silently substituting input relay for server authority or approximating original gameplay.
+
 ## Observations
 
 | Evidence | Established result and limit |

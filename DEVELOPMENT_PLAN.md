@@ -2,6 +2,8 @@ Current direction correction (October 31, 2026): the user requires the actual or
 
 November 1 route update: no local Xbox boot firmware is available. The [native-web feasibility checkpoint](docs/NATIVE_WEB_FEASIBILITY.md) records a bounded static-recompilation candidate and a real synthetic C/Wasm/browser probe. Next is one original initialization-function proof, with generated original code staying local. This does not select a final runtime, provide browser-local title conversion or satisfy any full-game/online acceptance gate below.
 
+Custom-feature route preference: prioritize recompilation after the user's conditional preference and the feature comparison in that checkpoint. Social/control wrappers can surround emulation, but the complete plan also requires game-specific integration and server-owned outcomes. Those remain implementation/verification requirements in the recompilation route; no input-relay or reduced-feature substitution is accepted.
+
 This development plan describes a faithful, browser-playable reconstruction of the original Xbox **Fuzion Frenzy**, with online play, flexible controls, friends, lobbies, and browser-specific quality-of-life improvements. Prepared October 31, 2026. The roadmap below includes historical preparation assumptions. The current offline Twisted System implementation and remaining fidelity gaps are audited in `docs/G2_ACCEPTANCE.md`.
 
 The user selected **a small online minigame pack first, followed by expansion to the full original game**, and **desktop browsers with keyboard and gamepad first, followed by mobile touch support**. Those decisions govern the sequence below.
