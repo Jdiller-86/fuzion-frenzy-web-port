@@ -48,7 +48,10 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   if (!(Array.isArray(abi) ? abi : [abi]).includes(api.ff_probe_abi()) || api.ff_probe_entry() !== profile.entry || api.ff_probe_ram_bytes() !== RAM_BYTES) {
     throw new Error('Module ABI/build does not match this proof');
   }
-  if ((api.ff_probe_abi() === 4) !== !!limits.clockImport) throw new Error('Only proof ABI 4 uses the required clock import');
+  const proofAbi = api.ff_probe_abi();
+  if ((proofAbi === 4 || proofAbi === 5) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if (proofAbi === 5 && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+    typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {
@@ -66,6 +69,15 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   for (const section of profile.sections) {
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
+  }
+  if (proofAbi === 5) {
+    if (api.ff_probe_vm_image(profile.base, profile.imageBytes) || api.ff_probe_vm_map_image(profile.base, profile.headerBytes, 2)) {
+      throw new Error('Cannot admit image and private runtime ranges');
+    }
+    for (const section of profile.sections) {
+      const protection = section.executable ? section.flags & 1 ? 0x40 : 0x20 : section.flags & 1 ? 4 : 2;
+      if (api.ff_probe_vm_map_image(section.address, section.virtualBytes, protection)) throw new Error('Cannot admit section pages');
+    }
   }
   const bindingCount = api.ff_probe_binding_count();
   if (!Number.isInteger(bindingCount) || bindingCount < 1 || bindingCount > 64) throw new Error('Invalid proof binding count');

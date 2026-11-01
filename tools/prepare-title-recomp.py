@@ -218,6 +218,7 @@ def main():
     parser.add_argument("--profile", required=True, type=Path)
     parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for up to 8 checked exports (8 functions each)")
     parser.add_argument("--attempt", required=True)
+    parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):
         parser.error("Use a simple new attempt label")
@@ -355,7 +356,7 @@ def main():
             translator.coalesced_function_starts.add(start)
             dispatch_census.append({"function": start, "sites": len(sites), "tableRegions": len(layout["tables"]),
                                     "anchors": len(tables), "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]})
-        generated, return_observations = [], []
+        generated, return_observations, memory_observations = [], [], []
         for address, info in functions.items():
             text = translator.translate_function(address, info)
             if not text or translator.lifter.unimplemented:
@@ -364,6 +365,10 @@ def main():
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
                 return_observations.append({"function": address, "sites": observations})
+            if args.guard_memory:
+                from recomp_memory_access import instrument_memory_accesses
+                text, access_counts = instrument_memory_accesses(text)
+                memory_observations.append({"function": address, **access_counts})
             generated.append(text)
     header = [f'#define FF_SOURCE_SHA256 "{sha}"', f'#define FF_ENTRY_ADDRESS 0x{profile["entry"]:08X}u',
               f'#define FF_ENTRY_FUNCTION {functions[profile["entry"]]["name"]}',
@@ -373,6 +378,8 @@ def main():
               '#define FF_KERNEL_BINDINGS { ' + ', '.join(f'{{0x{slot:08X}u,{ordinal}u}}' for slot, ordinal in sorted(bindings.items())) + ' }',
               '#define FF_TITLE_LOOKUP_CASES ' + ' '.join(f'case 0x{address:08X}u: return {info["name"]};' for address, info in functions.items())]
     header += ['#ifndef FF_RETURN_FRAME', '#define FF_RETURN_FRAME(address, frame) ((void)0)', '#endif']
+    if args.guard_memory:
+        header += ['#define FF_GUARDED_MEMORY 1', '#include "recomp_memory_access.h"']
     header += [f'void {info["name"]}(void);' for info in database.values()]
     for filename, text in [("title-profile.h", "\n".join(header) + "\n"),
                            ("title-functions.inc", "\n".join(generated) + "\n" + "\n".join(
@@ -386,6 +393,7 @@ def main():
                              "dataBytes": info["dataBytes"], "paddingBytes": info["paddingBytes"]} for address, info in functions.items()],
               "checkedMixedLayouts": dispatch_census,
               "returnFrameObservations": return_observations,
+              "checkedMemoryAccesses": memory_observations,
               "recognizedSehPrologs": sorted(translator.lifter.SEH_PROLOGS),
               "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk")],
               "instructions": instruction_count, "originalBytesMatchGhidra": True, "decoderBoundariesAgree": True,

@@ -21,8 +21,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm run test:formats
-      - run: python -m py_compile tools/probe-browser-build.py tools/probe-native-recomp.py tools/prepare-title-recomp.py
+      - run: python -m py_compile tools/probe-browser-build.py tools/probe-native-recomp.py tools/prepare-title-recomp.py tools/recomp_memory_access.py
       - run: python tests/title_seed_test.py
+      - run: python tests/recomp_memory_access_test.py
       - run: npm run test:runtime
       - name: Check triangle geometry (Linux)
         if: runner.os == 'Linux'
@@ -54,6 +55,14 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/dpc_context_test.c src/runtime/dpc_context.c src/runtime/kernel_timers.c src/runtime/kernel_objects.c -o "$RUNNER_TEMP/dpc-context-check"
           "$RUNNER_TEMP/dpc-context-check"
+      - name: Check guest memory ownership and access (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          python tools/recomp_memory_access.py "$RUNNER_TEMP/owned-memory.inc"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/virtual_memory_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/virtual-memory-check"
+          "$RUNNER_TEMP/virtual-memory-check"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-access-check"
+          "$RUNNER_TEMP/memory-access-check"
       - run: npm run test:gameplay
       - run: npm run build
       - run: npm run check:environment

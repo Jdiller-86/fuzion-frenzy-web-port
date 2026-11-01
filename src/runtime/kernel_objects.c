@@ -30,3 +30,14 @@ uint32_t ff_initialize_timer(uint8_t *ram, uint32_t bytes, uint32_t address, uin
     word(ram, address + 24, 0); word(ram, address + 28, 0); word(ram, address + 36, 0);
     return FF_BOOT_OK;
 }
+uint32_t ff_initialize_critical(uint8_t *ram, uint32_t bytes, uint32_t address)
+{
+    if (!fits(ram, bytes, address, 28)) return FF_BOOT_INVALID;
+    /* RTL critical section: unsignaled synchronization event, then lock count,
+     * recursion and owner. Unspecified event header bytes remain untouched. */
+    ram[address] = 1; ram[address + 2] = 4;
+    word(ram, address + 4, 0);
+    word(ram, address + 8, address + 8); word(ram, address + 12, address + 8);
+    word(ram, address + 16, UINT32_MAX); word(ram, address + 20, 0); word(ram, address + 24, 0);
+    return FF_BOOT_OK;
+}

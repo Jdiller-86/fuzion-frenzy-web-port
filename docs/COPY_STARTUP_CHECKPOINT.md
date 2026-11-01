@@ -1,5 +1,7 @@
 # Original copy-helper and mixed-layout checkpoint
 
+Later progress is recorded in [the checked-memory checkpoint](MEMORY_STARTUP_CHECKPOINT.md). Allocation and lock initialization now advance original startup to `0x00031da0`; this document retains the earlier helper proof and limits.
+
 November 1, 2026: original helper `0x001df9c0` now executes and returns in the browser. Both explicit synthetic settings profiles pass 22 startup checks and 8,410 owned buffer/ABI cases each. Startup advances to unsupported kernel ordinal 184, `NtAllocateVirtualMemory`, return `0x00032530`. **No playable original screen, complete runtime, full fidelity or planned online/social feature acceptance is established.** Static recompilation and the complete product objective remain selected.
 
 This extends the [timer startup proof](TIMER_STARTUP_CHECKPOINT.md). Original files, generated title C/Wasm, raw analysis and screenshots stay ignored/local. Original instructions execute only in a browser worker; developer translation/compilation is not the required browser-local end-user conversion pipeline. No firmware, extraction, global settings change or vendor-source edit was needed.

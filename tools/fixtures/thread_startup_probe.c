@@ -8,6 +8,12 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#ifdef FF_VM_PROOF
+#include "../../src/runtime/virtual_memory.h"
+#ifndef FF_GUARDED_MEMORY
+#error Virtual-memory proof requires checked translated accesses
+#endif
+#endif
 #ifdef FF_TIMER_PROOF
 #include "../../src/runtime/kernel_timers.h"
 #include "../../src/runtime/dpc_context.h"
@@ -39,6 +45,11 @@ static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
 static uint32_t kernel_calls[16][12], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#ifdef FF_VM_PROOF
+static ff_virtual_memory virtual_memory;
+static uint32_t vm_ready, vm_access_count, vm_fault[4];
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
+#endif
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
 static ff_dpc_frame dpc_frame;
@@ -85,6 +96,59 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
+#ifdef FF_VM_PROOF
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
+{
+    if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
+        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access;
+        stop(10, address, access);
+    }
+    ++vm_access_count;
+    /* Zero-count string operations access no guest address. Return a harmless
+     * in-array pointer even if their unused register is outside this window. */
+    return guest_ram + (bytes ? address : 0);
+}
+uint32_t ff_probe_vm_image(uint32_t base, uint32_t bytes)
+{
+    if (vm_ready || ff_vm_claim_fixed(&virtual_memory, base, bytes) ||
+        ff_vm_claim_fixed(&virtual_memory, 0x03c00000u, 0x00400000u) ||
+        ff_vm_map_fixed(&virtual_memory, 0x03c00000u, 0x00400000u, 4)) return FF_BOOT_INVALID;
+    vm_ready = 1; return 0;
+}
+uint32_t ff_probe_vm_map_image(uint32_t base, uint32_t bytes, uint32_t protection)
+{
+    return vm_ready ? ff_vm_map_fixed(&virtual_memory, base, bytes, protection) : FF_BOOT_INVALID;
+}
+uint32_t ff_probe_vm_region_count(void)
+{
+    uint32_t n = 0;
+    for (unsigned i = 0; i < FF_VM_REGIONS; ++i) if (virtual_memory.regions[i].kind) ++n;
+    return n;
+}
+uint32_t ff_probe_vm_region_word(uint32_t ordinal, uint32_t field)
+{
+    for (unsigned i = 0; i < FF_VM_REGIONS; ++i) if (virtual_memory.regions[i].kind) {
+        if (ordinal--) continue;
+        const ff_vm_region *r = &virtual_memory.regions[i];
+        switch (field) { case 0: return r->base; case 1: return r->bytes; case 2: return r->kind; case 3: return r->protection; default: return 0; }
+    }
+    return 0;
+}
+uint32_t ff_probe_vm_page_word(uint32_t address, uint32_t field)
+{
+    if (address >= FF_GUEST_BYTES) return 0;
+    uint32_t p = address / FF_VM_PAGE;
+    switch (field) { case 0: return virtual_memory.owner[p]; case 1: return virtual_memory.committed[p]; case 2: return virtual_memory.permission[p]; default: return 0; }
+}
+uint32_t ff_probe_vm_access_count(void) { return vm_access_count; }
+uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 4 ? vm_fault[index] : 0; }
+uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
+{
+    if (access == FF_VM_READ) return FF_MEMORY_U8(address, FF_VM_READ);
+    if (access == FF_VM_WRITE) { FF_MEMORY_U8(address, FF_VM_WRITE) = 0xb3; return 0; }
+    stop(9, address, access);
+}
+#endif
 static void trace(uint32_t kind, uint32_t address)
 {
 #ifdef FF_COPY_PROOF
@@ -96,12 +160,21 @@ static void trace(uint32_t kind, uint32_t address)
 }
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
+#ifdef FF_VM_PROOF
+    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE);
+#endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
     trace(1, address);
 }
-void recomp_trace_exit(const char *name, uint32_t address) { (void)name; trace(2, address); }
+void recomp_trace_exit(const char *name, uint32_t address) {
+    (void)name;
+#ifdef FF_VM_PROOF
+    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ);
+#endif
+    trace(2, address);
+}
 void recomp_trace_esp(const char *name, const char *tag) { (void)name; (void)tag; }
 void recomp_icall_fail_log(uint32_t address) { stop(3, address, 0); }
 void recomp_icall_not_code_log(uint32_t address) { stop(3, address, 0); }
@@ -217,6 +290,9 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
 
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
+#ifdef FF_VM_PROOF
+    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ);
+#endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
@@ -287,6 +363,24 @@ static void status_to_dos_error(void)
     if (row[2] != 0) stop(9, row[2], 301);
     row[1] = 0; g_eax = 0; g_esp += 8;
 }
+#ifdef FF_VM_PROOF
+static void initialize_critical(void)
+{
+    uint32_t *row = kernel_record(291, 1);
+    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE);
+    row[1] = ff_initialize_critical(guest_ram, FF_GUEST_BYTES, row[2]);
+    if (row[1]) stop(9, row[1], 291);
+    g_esp += 8;
+}
+static void allocate_virtual_memory(void)
+{
+    uint32_t *row = kernel_record(184, 5);
+    row[1] = ff_vm_allocate(&virtual_memory, row[2], row[3], row[4], row[5], row[6]);
+    if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION) stop(9, row[1], 184);
+    if (!row[1]) { row[7] = MEM32(row[2]); row[8] = MEM32(row[4]); }
+    g_eax = row[1]; g_esp += 24;
+}
+#endif
 #ifdef FF_TIMER_PROOF
 static void set_timer(void)
 {
@@ -320,6 +414,10 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 113) return initialize_timer;
         if (ordinal == 24) return query_nonvolatile;
         if (ordinal == 301) return status_to_dos_error;
+#ifdef FF_VM_PROOF
+        if (ordinal == 184) return allocate_virtual_memory;
+        if (ordinal == 291) return initialize_critical;
+#endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 149) return set_timer;
 #endif
@@ -329,7 +427,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_TIMER_PROOF
+#ifdef FF_VM_PROOF
+    return 5;
+#elif defined(FF_TIMER_PROOF)
     return 4;
 #else
     return 3;
@@ -368,6 +468,10 @@ void ff_probe_reset(void)
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_VM_PROOF
+    if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
+    vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);
+#endif
 #ifdef FF_TIMER_PROOF
     memset(&timers, 0, sizeof timers); memset(&dpc_frame, 0, sizeof dpc_frame);
     memset(clock_words, 0, sizeof clock_words); timers_ready = dpc_delivered = 0;
