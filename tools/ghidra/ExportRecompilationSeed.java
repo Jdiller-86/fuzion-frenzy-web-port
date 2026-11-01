@@ -98,6 +98,56 @@ public class ExportRecompilationSeed extends GhidraScript {
                 instructions.add(row);
             }
             item.add("instructions", instructions);
+            // Preserve every envelope byte without interpreting embedded data as
+            // code. Undefined spans remain explicit for conservative admission.
+            var layout = new JsonArray();
+            var cursor = first;
+            while (cursor.compareTo(last) <= 0) {
+                if (monitor.isCancelled()) throw new IllegalStateException("Cancelled");
+                var part = new JsonObject();
+                part.addProperty("start", cursor.toString());
+                var instruction = currentProgram.getListing().getInstructionAt(cursor);
+                var data = currentProgram.getListing().getDefinedDataContaining(cursor);
+                int length;
+                if (instruction != null) {
+                    part.addProperty("kind", "instruction");
+                    length = instruction.getLength();
+                } else if (data != null) {
+                    if (!data.getAddress().equals(cursor) || data.getMaxAddress().compareTo(last) > 0) {
+                        throw new IllegalArgumentException("Envelope cuts a defined data object");
+                    }
+                    part.addProperty("kind", "data");
+                    part.addProperty("dataType", data.getDataType().getDisplayName());
+                    length = data.getLength();
+                } else {
+                    part.addProperty("kind", "undefined");
+                    var limit = cursor;
+                    while (limit.compareTo(last) <= 0 && currentProgram.getListing().getInstructionAt(limit) == null &&
+                            currentProgram.getListing().getDefinedDataContaining(limit) == null) {
+                        if (currentProgram.getListing().getInstructionContaining(limit) != null) {
+                            throw new IllegalArgumentException("Layout starts inside an instruction");
+                        }
+                        limit = limit.add(1);
+                    }
+                    length = (int)limit.subtract(cursor);
+                }
+                if (length <= 0 || cursor.add(length - 1).compareTo(last) > 0) {
+                    throw new IllegalArgumentException("Invalid layout span");
+                }
+                part.addProperty("bytes", length);
+                if (instruction == null) {
+                    byte[] raw = new byte[length];
+                    if (currentProgram.getMemory().getBytes(cursor, raw) != length) {
+                        throw new IllegalStateException("Incomplete layout bytes");
+                    }
+                    var hex = new StringBuilder();
+                    for (byte b : raw) hex.append(String.format("%02x", b & 255));
+                    part.addProperty("analysisBytesHex", hex.toString());
+                }
+                layout.add(part);
+                cursor = cursor.add(length);
+            }
+            item.add("layout", layout);
             functions.add(item);
         }
         result.add("functions", functions);

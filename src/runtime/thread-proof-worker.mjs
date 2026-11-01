@@ -1,5 +1,6 @@
 import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
+import { runOriginalCopyProof } from './copy-proof.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
@@ -54,6 +55,12 @@ self.onmessage = async event => {
     const reachedTimerRequest = trapped && state[0] === 1 && state[2] === 149 && !!consoleSettings;
     const reachedTimerArmed = timerAbi && calls[8]?.ordinal === 149 && calls[8].status === 0;
     const reachedNextHelper = reachedTimerArmed && trapped && state[0] === 2 && state[1] === 0x1df9c0 && state[5] === 0x32327;
+    const copyReturned = trace.some(row => row.kind === 'exit' && row.address === 0x1df9c0);
+    const bindingIndex = (state[1] - 0xfe000000) / 4;
+    const reachedAllocation = reachedTimerArmed && copyReturned && trapped && state[0] === 1 && state[2] === 184 &&
+      Number.isInteger(bindingIndex) && bindingIndex >= 0 && bindingIndex < api.ff_probe_binding_count() &&
+      api.ff_probe_binding_ordinal(bindingIndex) === 184 && state[5] === 0x32530 &&
+      state.slice(6, 11).every((n, i) => n === [62983944, 0, 62983988, 8192, 4][i]);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
       realThreadCreation: calls.length === (reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
@@ -69,7 +76,7 @@ self.onmessage = async event => {
         ram.slice(thread.tls + 4, thread.tls + 4 + profile.tls.zeroFillBytes).every(n => n === 0),
       twoArgumentSystemFrame: view.getUint32(thread.initialSp + 4, true) === REF.threadStart &&
         view.getUint32(thread.initialSp + 8, true) === 0 && thread.routine === REF.threadStart && thread.system === REF.systemStart,
-      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper
+      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation
     };
     if (beyondThreadEntry) {
       checks.originalThreadStartEntered = entered.includes(0x34198) && entered.includes(REF.threadStart);
@@ -119,13 +126,26 @@ self.onmessage = async event => {
           view.getUint8(thread.fs + 0x24) === 0 && view.getUint32(thread.fs + 0x58, true) === 0;
         checks.originalArmingWrapperReturned = trace.some(row => row.kind === 'exit' && row.address === 0x3467a) &&
           trace.some(row => row.kind === 'exit' && row.address === 0x346a7);
-        checks.originalNextDependencyReached = reachedNextHelper && entered.includes(0x322ef);
+        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation) && entered.includes(0x322ef);
       }
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    let allocationRequest, copyProof;
+    if (reachedAllocation) {
+      for (const pointer of [state[6], state[8]]) {
+        if (pointer % 4 || pointer > ram.length - 4) throw new Error('Invalid original allocation output pointer');
+      }
+      allocationRequest = { baseAddressPointer: state[6], baseAddress: view.getUint32(state[6], true), zeroBits: state[7],
+        regionSizePointer: state[8], regionBytes: view.getUint32(state[8], true), allocationType: state[9], protection: state[10] };
+    }
+    if (entered.includes(0x1df9c0)) {
+      copyProof = runOriginalCopyProof(api, 0x1df9c0);
+      checks.originalCopyReturned = copyReturned;
+      checks.originalCopyMemoryAndAbi = copyProof.passed && api.ff_probe_trace_count() === count && api.ff_probe_kernel_count() === callCount;
+    }
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
       sourceSha256, moduleSha256, consoleSettings, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, calls, threads, objectInitialization, timerQueue, tlsSelfReference: view.getUint32(thread.tls, true),
+      trace, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, tlsSelfReference: view.getUint32(thread.tls, true),
       stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });

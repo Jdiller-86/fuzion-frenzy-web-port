@@ -5,6 +5,7 @@ import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/r
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
 import { loadLocalTitleProof, parseLocalConsoleSettings } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
+import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -19,6 +20,26 @@ const module = (...sections) => Uint8Array.from([...header, ...sections.flat()])
 
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
+});
+
+test('copy diagnostic runner covers bounded overlap/edge cases and reports failures without hiding them', () => {
+  let recovered = 0, calls = 0;
+  const api = { ff_probe_copy_case(entry, destination, source, bytes) {
+    ++calls;
+    if (!entry || destination > 8192 || source > 8192 || bytes > 4096 || bytes > 8192 - destination || bytes > 8192 - source) return 0x80000000;
+    return bytes === 48 && destination > source && destination - source < bytes ? 1 : 0;
+  }, ff_probe_copy_recover() { ++recovered; } };
+  const result = runOriginalCopyProof(api, 123);
+  assert.equal(result.passed, false);
+  assert.ok(result.failures.some(row => row.category === 'overlap-backward' && row.result === 1));
+  assert.equal(recovered, calls);
+  assert.equal(result.cases, calls);
+  assert.equal(result.categories['invalid-range'], 6);
+  assert.ok(result.categories['buffer-edge'] > 0 && result.categories['large-disjoint'] > 0 && result.categories['same-pointer'] > 0);
+  api.ff_probe_copy_case = () => { throw new WebAssembly.RuntimeError('owned fixture trap'); };
+  assert.throws(() => runOriginalCopyProof(api, 123), /owned fixture trap/);
+  assert.equal(recovered, calls + 1);
+  assert.throws(() => runOriginalCopyProof({}, 123), /Missing original-copy/);
 });
 
 test('local settings require explicit synthetic provenance and a bounded DWORD value', () => {
@@ -126,7 +147,7 @@ test('startup host serves only owned source and rejects original modules, files,
     req.on('error', reject); req.end(body);
   });
   for (const url of ['/', '/thread', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs',
-    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/thread-proof-worker.mjs']) {
+    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/copy-proof.mjs', '/src/runtime/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
     assert.ok(response.body.length > 100);

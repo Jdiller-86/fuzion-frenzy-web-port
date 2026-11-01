@@ -2,6 +2,8 @@
  * The previous stop-only harness is preserved separately and remains reproducible. */
 #define RECOMP_GENERATED_CODE
 #include "recomp_types.h"
+#define FF_RETURN_FRAME(address, frame) ff_probe_return_frame(address, frame)
+static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "title-profile.h"
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
@@ -46,8 +48,26 @@ extern void ff_host_clock(uint32_t output);
 void ff_probe_poll(void);
 void ff_probe_dpc_recover(void);
 #endif
+#ifdef FF_COPY_PROOF
+#ifndef FF_TIMER_PROOF
+#error Copy scenarios require the checked CPU snapshot bridge
+#endif
+static ff_guest_cpu copy_saved;
+static uint32_t copy_checking;
+static uint32_t copy_target, copy_return_frame, copy_return_seen;
+void ff_probe_copy_recover(void);
+#endif
 static const char source_digest[] = FF_SOURCE_SHA256;
 static const struct { uint32_t slot, ordinal; } bindings[] = FF_KERNEL_BINDINGS;
+
+static void ff_probe_return_frame(uint32_t address, uint32_t frame)
+{
+#ifdef FF_COPY_PROOF
+    if (copy_checking && address == copy_target) { copy_return_frame = frame; ++copy_return_seen; }
+#else
+    (void)address; (void)frame;
+#endif
+}
 
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 {
@@ -59,11 +79,17 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 #ifdef FF_TIMER_PROOF
     ff_probe_dpc_recover();
 #endif
+#ifdef FF_COPY_PROOF
+    ff_probe_copy_recover();
+#endif
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
 static void trace(uint32_t kind, uint32_t address)
 {
+#ifdef FF_COPY_PROOF
+    if (copy_checking) return;
+#endif
     if (probe_trace_count == 64) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
     probe_trace[i] = kind; probe_trace[i + 1] = address; probe_trace[i + 2] = g_esp;
@@ -102,6 +128,9 @@ void ff_probe_dpc_recover(void)
 }
 void ff_probe_poll(void)
 {
+#ifdef FF_COPY_PROOF
+    if (copy_checking) return;
+#endif
     if (!timers_ready || dpc_frame.active) return;
     sample_clock();
     for (unsigned i = 0; i < FF_DPC_CAPACITY; ++i) {
@@ -138,6 +167,51 @@ uint32_t ff_probe_timer_word(uint32_t i, uint32_t n)
         case 3: return (uint32_t)t->deadline; case 4: return (uint32_t)(t->deadline >> 32);
         case 5: return (uint32_t)t->system_due; case 6: return (uint32_t)(t->system_due >> 32); default: return 0;
     }
+}
+#endif
+
+#ifdef FF_COPY_PROOF
+void ff_probe_copy_recover(void)
+{
+    if (!copy_checking) return;
+    ff_restore_cpu(&copy_saved); copy_checking = 0;
+}
+static uint8_t copy_pattern(uint32_t index, uint32_t tag)
+{
+    return (uint8_t)(index * 73u + tag * 29u + (index >> 8) * 19u);
+}
+/* Source-owned diagnostic buffers/oracle. Only the selected original helper
+ * performs the copy. The source pattern is a snapshot oracle even on overlap.
+ * The ordinary boot trace/clock/state are separate from these synthetic cases. */
+uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t source, uint32_t bytes, uint32_t tag)
+{
+    const uint32_t base = 0x03f00020u, count = 8192u, top = 0x03f08000u, frame = top - 16u;
+    recomp_func_t function = recomp_lookup(target);
+    if (!function || copy_checking || dpc_frame.active || destination > count || source > count ||
+        bytes > 4096u || bytes > count - destination || bytes > count - source) return 0x80000000u;
+    ff_capture_cpu(&copy_saved);
+    uint32_t old_calls = kernel_call_count, result = 0;
+    for (uint32_t i = 0; i < count; ++i) guest_ram[base + i] = copy_pattern(i, tag);
+    memset(guest_ram + base - 32, 0xb7, 32); memset(guest_ram + base + count, 0xb7, 32);
+    MEM32(frame) = 0xfffffff8u; MEM32(frame + 4) = base + destination;
+    MEM32(frame + 8) = base + source; MEM32(frame + 12) = bytes;
+    g_eax = 0xa1b2c3d4u; g_ecx = 0x31415926u; g_edx = 0x27182818u; g_esp = frame;
+    g_ebx = 0x11223344u; g_esi = 0x55667788u; g_edi = 0x99aabbccu; g_ebp = g_seh_ebp = 0x13579bdfu;
+    g_df = 0; g_eflags = 0x202u; g_force_return = 0;
+    copy_target = target; copy_return_frame = 0; copy_return_seen = 0;
+    copy_checking = 1; function();
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t expected_index = i >= destination && i - destination < bytes ? source + i - destination : i;
+        if (guest_ram[base + i] != copy_pattern(expected_index, tag)) { result |= 1; break; }
+    }
+    for (uint32_t i = 0; i < 32; ++i) if (guest_ram[base - 32 + i] != 0xb7 || guest_ram[base + count + i] != 0xb7) result |= 2;
+    if (g_esp != top - 12 || MEM32(frame) != 0xfffffff8u) result |= 4;
+    if (g_eax != base + destination) result |= 8;
+    if (g_ebx != 0x11223344u || g_esi != 0x55667788u || g_edi != 0x99aabbccu ||
+        copy_return_seen != 1 || copy_return_frame != 0x13579bdfu) result |= 16;
+    if (g_df) result |= 32;
+    if (kernel_call_count != old_calls) result |= 64;
+    ff_probe_copy_recover(); return result;
 }
 #endif
 

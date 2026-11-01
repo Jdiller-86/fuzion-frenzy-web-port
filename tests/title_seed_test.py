@@ -93,5 +93,91 @@ class EnvelopeRangeTests(unittest.TestCase):
                 prepare.function_envelope(item)
 
 
+class MixedLayoutTests(unittest.TestCase):
+    def fixture(self, anchor=0x108):
+        # Owned x86: indexed jump, one padding byte, two local pointers, rets.
+        raw = bytearray(b"\xff\x24\x85" + anchor.to_bytes(4, "little") + b"\x90" +
+                        (0x110).to_bytes(4, "little") + (0x111).to_bytes(4, "little") + b"\xc3\xc3")
+        rows = [{"address": "100", "length": 7, "analysisBytesHex": raw[:7].hex(), "mnemonic": "JMP",
+                 "computed": True, "call": False, "flows": ["110", "111"]},
+                *[{"address": f"{address:x}", "length": 1, "analysisBytesHex": "c3", "mnemonic": "RET",
+                   "computed": False, "call": False, "flows": []} for address in [0x110, 0x111]]]
+        layout = [{"start": "100", "kind": "instruction", "bytes": 7},
+                  {"start": "107", "kind": "undefined", "bytes": 1, "analysisBytesHex": "90"},
+                  *[{"start": f"{address:x}", "kind": "data", "bytes": 4, "dataType": "pointer",
+                     "analysisBytesHex": raw[address - 0x100:address - 0x100 + 4].hex()} for address in [0x108, 0x10c]],
+                  {"start": "110", "kind": "instruction", "bytes": 1}, {"start": "111", "kind": "instruction", "bytes": 1}]
+        item = {"established": True, "entry": "100", "bodyBytes": 9, "envelopeBytes": 18,
+                "bodyRanges": [{"start": "100", "endInclusive": "106"}, {"start": "110", "endInclusive": "111"}],
+                "instructions": rows, "layout": layout}
+        read = lambda address, size: bytes(raw[address - 0x100:address - 0x100 + size])
+        site = {"address": 0x100, "base": None, "index": "eax", "scale": 4, "size": 4, "anchor": anchor}
+        return item, raw, read, site
+
+    def test_all_original_bytes_and_local_dispatch_are_accounted_for(self):
+        item, raw, read, site = self.fixture()
+        result = prepare.checked_function_layout(item, read)
+        self.assertEqual((result["end"] - result["start"], result["dataBytes"], result["paddingBytes"]), (18, 8, 1))
+        self.assertEqual(prepare.checked_dispatch_tables(result, [site]), {0x108: [0x110, 0x111]})
+        for padding in [b"\x90", b"\x8b\xff", b"\x8d\x49\x00", b"\x90\x8b\xff\x8d\x49\x00"]:
+            self.assertTrue(prepare._alignment_padding(padding))
+        self.assertFalse(prepare._alignment_padding(b"\x31\xc0"))
+
+    def test_biased_anchors_preserve_loaded_target_values(self):
+        for anchor in [0x104, 0x108, 0x10c, 0x110]:
+            item, raw, read, site = self.fixture(anchor)
+            result = prepare.checked_function_layout(item, read)
+            self.assertEqual(prepare.checked_dispatch_tables(result, [site])[anchor], [0x110, 0x111])
+
+    def test_missing_overlapping_or_inconsistent_layout_never_trims_the_envelope(self):
+        item, raw, read, site = self.fixture()
+        variants = []
+        for part in range(len(item["layout"])):
+            bad = copy.deepcopy(item); del bad["layout"][part]; variants.append(bad)
+        bad = copy.deepcopy(item); bad["layout"][1]["start"] = "106"; variants.append(bad)
+        bad = copy.deepcopy(item); bad["instructions"][1]["length"] = 2; variants.append(bad)
+        bad = copy.deepcopy(item); bad.pop("layout"); variants.append(bad)
+        for bad in variants:
+            with self.subTest(layout=bad.get("layout")), self.assertRaises(ValueError):
+                prepare.checked_function_layout(bad, read)
+
+    def test_byte_identity_unknown_data_and_noncode_edges_are_rejected(self):
+        item, raw, read, site = self.fixture()
+        for change in [lambda f: f["layout"][1].update(analysisBytesHex="cc"),
+                       lambda f: f["layout"][2].update(dataType="integer"),
+                       lambda f: f["instructions"][0].update(fallthrough="107"),
+                       lambda f: f["instructions"][0].update(flows=["108"]),
+                       lambda f: f["instructions"][0].update(analysisBytesHex="90" * 7)]:
+            bad = copy.deepcopy(item); change(bad)
+            with self.assertRaises(ValueError): prepare.checked_function_layout(bad, read)
+        raw[7] = 0xcc; item["layout"][1]["analysisBytesHex"] = "cc"
+        with self.assertRaises(ValueError): prepare.checked_function_layout(item, read)
+        item, raw, read, site = self.fixture()
+        raw[8:12] = (0x107).to_bytes(4, "little"); item["layout"][2]["analysisBytesHex"] = raw[8:12].hex()
+        with self.assertRaises(ValueError): prepare.checked_function_layout(item, read)
+
+    def test_incomplete_ambiguous_or_wrong_operand_dispatches_are_rejected(self):
+        item, raw, read, site = self.fixture(); result = prepare.checked_function_layout(item, read)
+        for sites in [[], [site, site], [dict(site, scale=8)], [dict(site, base="edx")],
+                      [dict(site, index=None)], [dict(site, size=8)], [dict(site, anchor=0x100)], [dict(site, anchor=0x109)]]:
+            with self.subTest(sites=sites), self.assertRaises(ValueError): prepare.checked_dispatch_tables(result, sites)
+        ambiguous = copy.deepcopy(result); ambiguous["tables"].append(copy.deepcopy(ambiguous["tables"][0]))
+        with self.assertRaises(ValueError): prepare.checked_dispatch_tables(ambiguous, [site])
+        foreign = copy.deepcopy(result); foreign["rows"][0]["flows"] = ["110"]
+        with self.assertRaises(ValueError): prepare.checked_dispatch_tables(foreign, [site])
+
+
+class ReturnObservationTests(unittest.TestCase):
+    def test_local_frame_is_observed_at_each_existing_return_trace_without_replacing_operations(self):
+        marker = 'RECOMP_TRACE_EXIT("ff_title_00000100", 0x00000100)'
+        body = 'uint32_t other = 0, ebp = 0;\nebp = saved; ' + marker + '; esp += 4; return;\n' + marker + ';'
+        observed, sites = prepare.observe_return_frames(body, 0x100)
+        self.assertEqual(sites, 2)
+        self.assertEqual(observed.replace('FF_RETURN_FRAME(0x00000100u, ebp); ', ''), body)
+        self.assertNotIn('g_ebp =', observed)
+        self.assertEqual(prepare.observe_return_frames('uint32_t eax = 0;', 0x100), ('uint32_t eax = 0;', 0))
+        with self.assertRaises(ValueError): prepare.observe_return_frames('uint32_t ebp = 0; return;', 0x100)
+
+
 if __name__ == "__main__":
     unittest.main()

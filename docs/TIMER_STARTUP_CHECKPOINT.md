@@ -1,5 +1,7 @@
 # Browser clock and original timer-arming checkpoint
 
+Later startup progress is recorded in [the copy-helper checkpoint](COPY_STARTUP_CHECKPOINT.md). The helper below now executes; ordinal 184 is the current stop. This document retains the earlier timer proof and its limits.
+
 November 1, 2026: original startup now arms its real six-hour timer, returns through the original arming/helper routines and enters the next initializer in the browser. Both explicit synthetic settings profiles pass twenty checks. The next stop is untranslated helper `0x001df9c0`, reached from `0x000322ef` with return address `0x00032327`. **No playable screen, complete scheduler/runtime, original-console fidelity or custom-feature acceptance is established.** The complete original-game/browser/online/social goal and selected recompilation direction remain active.
 
 This connects the [owned timer queue](TIMER_QUEUE_CHECKPOINT.md) to the prior [CRT startup proof](CRT_STARTUP_CHECKPOINT.md). Original files, title-derived modules/code, raw analysis, test output and screenshots remain local/ignored. No firmware, game download, repeat extraction or global tool/model/settings change occurred.
