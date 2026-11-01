@@ -41,16 +41,12 @@ static int equal(const char *a, const char *b, uint32_t bytes, uint32_t flags)
     for (uint32_t i = 0; i < bytes; ++i) if (folded((uint8_t)a[i], flags) != folded((uint8_t)b[i], flags)) return 0;
     return 1;
 }
-static uint32_t open_path(ff_local_volume *volume, uint32_t relative, const char *path, uint32_t bytes, uint32_t flags,
-                          uint32_t access, uint32_t share, uint32_t disposition, uint32_t options,
-                          uint32_t *opened, uint32_t *information)
+uint32_t ff_volume_resolve_path(const ff_local_volume *volume, uint32_t relative, const char *path, uint32_t bytes,
+                               uint32_t flags, ff_volume_path *result_path)
 {
     static const char root[] = "\\Device\\Harddisk0\\partition1";
-    if (!volume || !volume->memory || !opened || !information || (!path && bytes)) return FF_BOOT_INVALID;
-    if (bytes >= 256 || (flags & ~0x40u) ||
-        (access & ~0x001201ffu) || (share & ~7u) || (options & ~0x4021u) || !(options & 1u) ||
-        disposition < 1 || disposition > 3) return FF_BOOT_UNSUPPORTED;
-    if ((options & 0x20u) && !(access & 0x00100000u)) return FF_BOOT_INVALID;
+    if (!volume || !volume->memory || !result_path || (!path && bytes)) return FF_BOOT_INVALID;
+    if (bytes >= 256 || (flags & ~0x40u)) return FF_BOOT_UNSUPPORTED;
     for (uint32_t i = 0; i < bytes; ++i) {
         unsigned byte = (uint8_t)path[i];
         if (byte < 32 || byte > 126 || strchr("/:*?\"<>|", (int)byte)) return FF_BOOT_UNSUPPORTED;
@@ -66,8 +62,7 @@ static uint32_t open_path(ff_local_volume *volume, uint32_t relative, const char
         cursor = sizeof root - 1;
         if (cursor < bytes) ++cursor;
     }
-    uint32_t target = parent, new_slot = FF_VOLUME_DIRECTORIES;
-    char final_name[FF_VOLUME_DIRECTORY_NAME] = {0};
+    ff_volume_path found={parent,parent,0,{0}};
     while (cursor < bytes) {
         uint32_t start = cursor;
         while (cursor < bytes && path[cursor] != '\\') ++cursor;
@@ -75,25 +70,47 @@ static uint32_t open_path(ff_local_volume *volume, uint32_t relative, const char
         if (!length || length >= FF_VOLUME_DIRECTORY_NAME || (length == 1 && path[start] == '.') ||
             (length == 2 && path[start] == '.' && path[start + 1] == '.')) return FF_BOOT_UNSUPPORTED;
         int last = cursor == bytes || cursor + 1 == bytes;
-        target = 0;
+        found=(ff_volume_path){parent,0,0,{0}};
+        memcpy(found.name,path+start,length);
         for (unsigned i = 0; i < FF_VOLUME_DIRECTORIES; ++i) {
             const ff_volume_directory *directory = &volume->directories[i];
             if (directory->id && directory->parent == parent && strlen(directory->name) == length && equal(directory->name, path + start, length, flags)) {
-                target = directory->id; break;
+                found.directory = directory->id; break;
             }
         }
-        if (!target) {
-            if (!last) return FF_VOLUME_PATH_NOT_FOUND;
-            if (disposition == 1) return FF_VOLUME_NAME_NOT_FOUND;
-            for (unsigned i = 0; i < FF_VOLUME_DIRECTORIES; ++i) if (!volume->directories[i].id) { new_slot = i; break; }
-            if (new_slot == FF_VOLUME_DIRECTORIES) return FF_VOLUME_TOO_MANY_HANDLES;
-            target = new_slot + 1;
-            memcpy(final_name, path + start, length);
-        } else if (last && disposition == 2) return FF_VOLUME_NAME_COLLISION;
+        for(unsigned i=0;i<FF_VOLUME_DATA_FILES;++i) {
+            const ff_volume_data_file *file=&volume->data_files[i];
+            if(file->id && file->parent==parent && strlen(file->name)==length && equal(file->name,path+start,length,flags)) {
+                found.data_file=file->id; break;
+            }
+        }
         if (last) break;
-        parent = target; ++cursor;
+        if(!found.directory) return found.data_file?FF_VOLUME_NOT_DIRECTORY:FF_VOLUME_PATH_NOT_FOUND;
+        parent = found.directory; ++cursor;
     }
-    if (cursor == bytes && target == parent && disposition == 2) return FF_VOLUME_NAME_COLLISION;
+    *result_path=found;
+    return 0;
+}
+static uint32_t open_path(ff_local_volume *volume, uint32_t relative, const char *path, uint32_t bytes, uint32_t flags,
+                          uint32_t access, uint32_t share, uint32_t disposition, uint32_t options,
+                          uint32_t *opened, uint32_t *information)
+{
+    if(!opened || !information) return FF_BOOT_INVALID;
+    if((access & ~0x001201ffu) || (share & ~7u) || (options & ~0x4021u) || !(options & 1u) ||
+        disposition<1 || disposition>3) return FF_BOOT_UNSUPPORTED;
+    if((options & 0x20u) && !(access & 0x00100000u)) return FF_BOOT_INVALID;
+    ff_volume_path resolved;
+    uint32_t status=ff_volume_resolve_path(volume,relative,path,bytes,flags,&resolved);
+    if(status) return status;
+    if((resolved.directory || resolved.data_file) && disposition==2) return FF_VOLUME_NAME_COLLISION;
+    if(resolved.data_file) return FF_VOLUME_NOT_DIRECTORY;
+    uint32_t target=resolved.directory, new_slot=FF_VOLUME_DIRECTORIES;
+    if(!target) {
+        if(disposition==1) return FF_VOLUME_NAME_NOT_FOUND;
+        for(unsigned i=0;i<FF_VOLUME_DIRECTORIES;++i) if(!volume->directories[i].id) {new_slot=i;break;}
+        if(new_slot==FF_VOLUME_DIRECTORIES) return FF_VOLUME_TOO_MANY_HANDLES;
+        target=new_slot+1;
+    }
     for (unsigned i = 0; i < FF_VOLUME_HANDLES; ++i) {
         const ff_volume_handle *old = &volume->handles[i];
         if (old->handle && old->directory == target && (((access & 0x21u) && !(old->share & 1u)) || ((old->access & 0x21u) && !(share & 1u)) ||
@@ -105,11 +122,11 @@ static uint32_t open_path(ff_local_volume *volume, uint32_t relative, const char
     if (!slot || volume->next_handle >= FF_VOLUME_HANDLE_LIMIT) return FF_VOLUME_TOO_MANY_HANDLES;
     if (new_slot < FF_VOLUME_DIRECTORIES) {
         ff_volume_directory *directory = &volume->directories[new_slot];
-        directory->id = target; directory->parent = parent;
-        memcpy(directory->name, final_name, sizeof final_name);
+        directory->id = target; directory->parent = resolved.parent;
+        memcpy(directory->name, resolved.name, sizeof directory->name);
         ++volume->directory_count; ++volume->directories_created;
     }
-    *slot = (ff_volume_handle){volume->next_handle, access, share, options, target, 0};
+    *slot = (ff_volume_handle){volume->next_handle, access, share, options, target, 0, 0, 0};
     volume->next_handle += 4; ++volume->active; ++volume->opened;
     *opened=slot->handle; *information=new_slot < FF_VOLUME_DIRECTORIES ? 2 : 1;
     return 0;
@@ -142,6 +159,7 @@ uint32_t ff_volume_create_directory(ff_local_volume *volume, const uint32_t args
     path[bytes]=0;
     ff_volume_handle *base=relative?handle(volume,relative):NULL;
     if(relative && !base) return FF_BOOT_BAD_HANDLE;
+    if(base && !base->directory) return result(volume,iosb,FF_VOLUME_NOT_DIRECTORY,0);
     uint32_t opened=0,information=0;
     uint32_t status=open_path(volume,base?base->directory:0,path,bytes,flags,args[1],args[6],args[7],args[8],&opened,&information);
     if (status==FF_BOOT_UNSUPPORTED || status==FF_BOOT_INVALID) return status;

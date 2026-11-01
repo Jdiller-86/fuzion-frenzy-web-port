@@ -94,7 +94,7 @@ uint32_t ff_volume_open_root(ff_local_volume *volume, const uint32_t args[6])
     ff_volume_handle *slot = NULL;
     for (unsigned i = 0; i < FF_VOLUME_HANDLES; ++i) if (!volume->handles[i].handle) { slot = &volume->handles[i]; break; }
     if (!slot || volume->next_handle >= FF_VOLUME_HANDLE_LIMIT) return io_result(volume, iosb, FF_VOLUME_TOO_MANY_HANDLES, 0);
-    *slot = (ff_volume_handle){ volume->next_handle, access, share, options, 1, 0 };
+    *slot = (ff_volume_handle){ volume->next_handle, access, share, options, 1, 0, 0, 0 };
     volume->next_handle += 4; ++volume->active; ++volume->opened;
     put(volume, output, slot->handle, 4);
     return io_result(volume, iosb, 0, 1); /* FILE_OPENED */
@@ -149,7 +149,7 @@ uint32_t ff_volume_reference_handle(ff_local_volume *volume, uint32_t value, uin
     ff_volume_file *file=NULL;
     for(unsigned i=0;i<FF_VOLUME_FILES;++i) if(!volume->files[i].id) { file=&volume->files[i]; break; }
     if(!file || volume->next_file==UINT32_MAX) return FF_BOOT_NO_MEMORY;
-    *file=(ff_volume_file){volume->next_file++,slot->directory,slot->access,slot->share,slot->options,2,value};
+    *file=(ff_volume_file){volume->next_file++,slot->directory,slot->access,slot->share,slot->options,2,value,slot->data_file};
     slot->file=file->id; ++volume->file_count; *id=file->id;
     return 0;
 }

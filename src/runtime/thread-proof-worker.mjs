@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from './file-request.mjs';
@@ -9,14 +9,15 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
-    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() === 9;
+    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()===10;
+    if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
     if (timerAbi && ['timer_count','timer_word','dpc_count','dpc_delivered','poll','dpc_recover'].some(name =>
       typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing timer proof ABI');
-    let consoleSettings, volumeProfile, directoryProfile;
+    let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile;
     if (api.ff_probe_abi() >= 3) {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
@@ -27,6 +28,10 @@ self.onmessage = async event => {
       if (['volume_profile','volume_word','volume_handle_word'].some(name => typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing local volume ABI');
       volumeProfile = parseLocalVolumeProfile(event.data.settingsBytes);
       if (directoryAbi) directoryProfile = parseLocalDirectoryProfile(event.data.settingsBytes);
+      if (regularAbi) {
+        fileStorageProfile=parseLocalFileProfile(event.data.settingsBytes);
+        if(api.ff_probe_file_storage_capacity(0)!==fileStorageProfile.maxFiles || api.ff_probe_file_storage_capacity(1)!==fileStorageProfile.maxFileBytes) throw new Error('Unsupported bounded file storage capacity');
+      }
       const total = BigInt(volumeProfile.totalAllocationUnits), available = BigInt(volumeProfile.availableAllocationUnits);
       if (api.ff_probe_volume_profile(Number(total & 0xffffffffn), Number(total >> 32n), Number(available & 0xffffffffn),
           Number(available >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector)) throw new Error('Cannot admit explicit local volume profile');
@@ -37,11 +42,13 @@ self.onmessage = async event => {
       if (api.ff_probe_namespace_init()) throw new Error('Cannot admit guest device namespace');
     }
     if (profile.sections.some(s => s.address + s.virtualBytes > 0x03c00000)) throw new Error('Image overlaps boot-thread arena');
+    const fileClockWindow=regularAbi?{beforeSystemTicks:clock.sample().system.toString()}:undefined;
     let trapped = false;
     try { api.ff_probe_run(); } catch (error) {
       if (!(error instanceof WebAssembly.RuntimeError)) throw error;
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
+    if(fileClockWindow) fileClockWindow.afterSystemTicks=clock.sample().system.toString();
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
     const traceCapacity=proofTraceCapacity(api), kernelCapacity=proofKernelCapacity(api);
     if (count < 0 || count > traceCapacity || threadCount > 4 || callCount < 0 || callCount > kernelCapacity) throw new Error('Invalid boot-proof counts');
@@ -55,7 +62,7 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 218: 5, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
@@ -75,6 +82,9 @@ self.onmessage = async event => {
         opened:api.ff_probe_kernel_word(i,16),closed:api.ff_probe_kernel_word(i,17),active:api.ff_probe_kernel_word(i,18)});
       if (call.ordinal === 190) call.output = { handle:api.ff_probe_kernel_word(i,11)>>>0, ioStatus:api.ff_probe_kernel_word(i,12)>>>0,
         information:api.ff_probe_kernel_word(i,13), directories:api.ff_probe_kernel_word(i,14), created:api.ff_probe_kernel_word(i,15), active:api.ff_probe_kernel_word(i,16) };
+      if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
+      if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
+        words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
       if (call.ordinal === 289) call.output = {length:api.ff_probe_kernel_word(i,4),maximumLength:api.ff_probe_kernel_word(i,5),buffer:api.ff_probe_kernel_word(i,6)>>>0};
       if (call.ordinal === 279) call.output = {equal:api.ff_probe_kernel_word(i,5),firstBytes:api.ff_probe_kernel_word(i,6),secondBytes:api.ff_probe_kernel_word(i,7)};
     });
@@ -114,7 +124,9 @@ self.onmessage = async event => {
       trace.some(row=>row.kind==='exit' && row.address===0x1dee6e);
     const reachedDirectoryLink = directoryAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
       state[1] === 0xc000000d && state[2] === 67 && state[5] === 0x33c05 && calls.length === 22 && entered.includes(0x338de);
-    const reachedRegularFileRequest = fileLinkAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
+    const reachedFileMetadataHelper = regularAbi && reachedTimerArmed && copyReturned && trapped && state[0]===2 &&
+      state[1]===0x1df4f0 && state[2]===0 && state[5]===0x33b6e && calls.length===98 && entered.includes(0x3105c);
+    const reachedRegularFileRequest = reachedFileMetadataHelper || !regularAbi && fileLinkAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
       state[1] === 0xc00000bb && state[2] === 190 && state[5] === 0x33ac9 && calls.length === 97 &&
       [0x338de,0x34594,0x31127,0x3105c].every(address=>entered.includes(address));
     const expectedTlsData=new Uint8Array(profile.tls.zeroFillBytes);
@@ -123,7 +135,7 @@ self.onmessage = async event => {
     if(reachedRegularFileRequest && expectedTlsData.length>=8) new DataView(expectedTlsData.buffer).setUint32(4,1168,true);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedFileMetadataHelper ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -248,6 +260,19 @@ self.onmessage = async event => {
     if (namespaceAbi && trapped && [1,9].includes(state[0]) && state[2] === 190) {
       createFileRequest = inspectCreateFileRequest(ram,state.slice(6,15),admittedGuestRange);
     }
+    if(regularAbi && calls[96]?.ordinal===190 && !calls[96].status) {
+      const args=calls[96].arguments, captured=Array.from({length:6},(_,n)=>api.ff_probe_create_request_word(96,n)>>>0);
+      if(!captured[4] || captured[4]>=256 || captured[4]>captured[5]) throw new Error('Invalid captured create-request length');
+      let name='';
+      for(let n=0;n<captured[4];++n) {const byte=api.ff_probe_create_request_name(96,n); if(byte<32 || byte>126) throw new Error('Invalid captured create-request name'); name+=String.fromCharCode(byte);}
+      createFileRequest={fileHandlePointer:args[0],desiredAccess:args[1],objectAttributesPointer:args[2],rootDirectory:captured[0],attributes:captured[1],
+        nameDescriptorPointer:captured[2],nameBuffer:captured[3],nameBytes:captured[4],nameMaximumBytes:captured[5],name,
+        ioStatusBlockPointer:args[3],allocationSizePointer:args[4],fileAttributes:args[5],shareAccess:args[6],createDisposition:args[7],openOptions:args[8],
+        serviceImplemented:true,observation:'captured-at-create'};
+      if(admittedGuestRange(captured[2],8,1)) createFileRequest.descriptorAtStop={nameBytes:view.getUint16(captured[2],true),
+        nameMaximumBytes:view.getUint16(captured[2]+2,true),nameBuffer:view.getUint32(captured[2]+4,true)};
+      if(admittedGuestRange(captured[3],captured[4],1)) createFileRequest.bufferChangedAtStop=Array.from(name).some((byte,i)=>byte.charCodeAt(0)!==ram[captured[3]+i]);
+    }
     if (volumeAbi && trapped && [1,9].includes(state[0]) && state[2] === 67) {
       symbolicLinkRequest = { link:inspectCountedAnsiString(ram,state[6],admittedGuestRange),
         device:inspectCountedAnsiString(ram,state[7],admittedGuestRange), serviceImplemented:false };
@@ -274,8 +299,26 @@ self.onmessage = async event => {
       }
       if(fileLinkAbi) {
         localVolume.fileCount=api.ff_probe_volume_word(12);
-        localVolume.files=Array.from({length:32},(_,i)=>Object.fromEntries(['id','directory','access','share','options','references','handle'].map((field,n)=>[field,api.ff_probe_file_word(i,n)>>>0]))).filter(file=>file.id);
+        localVolume.files=Array.from({length:32},(_,i)=>Object.fromEntries(['id','directory','access','share','options','references','handle',...(regularAbi?['dataFile']:[])].map((field,n)=>[field,api.ff_probe_file_word(i,n)>>>0]))).filter(file=>file.id);
         if(localVolume.fileCount>32 || localVolume.files.length!==localVolume.fileCount) throw new Error('Invalid retained file-object count');
+      }
+      if(regularAbi) {
+        localVolume.dataFileCount=api.ff_probe_volume_word(13); localVolume.dataFilesCreated=api.ff_probe_volume_word(14);
+        localVolume.dataFiles=Array.from({length:fileStorageProfile.maxFiles},(_,i)=>{
+          let name='',terminated=false;
+          for(let n=0;n<64;++n) {const byte=api.ff_probe_regular_name(i,n); if(!byte){terminated=true;break;}
+            if(byte<32 || byte>126) throw new Error('Invalid regular-file diagnostic name'); name+=String.fromCharCode(byte);}
+          if(!terminated) throw new Error('Unterminated regular-file diagnostic name');
+          const file={id:api.ff_probe_regular_word(i,0),parent:api.ff_probe_regular_word(i,1),attributes:api.ff_probe_regular_word(i,2),bytes:api.ff_probe_regular_word(i,3),name};
+          for(const [field,low] of [['creationTime',4],['accessTime',6],['writeTime',8],['changeTime',10],['allocatedBytes',12]]) {
+            file[field]=((BigInt(api.ff_probe_regular_word(i,low+1)>>>0)<<32n)|BigInt(api.ff_probe_regular_word(i,low)>>>0)).toString();
+          }
+          if(file.bytes>fileStorageProfile.maxFileBytes) throw new Error('Invalid regular-file diagnostic size'); return file;
+        }).filter(file=>file.id);
+        if(localVolume.dataFileCount>fileStorageProfile.maxFiles || localVolume.dataFiles.length!==localVolume.dataFileCount) throw new Error('Invalid regular-file count');
+        localVolume.handles.forEach(handle=>{for(let i=0;i<16;++i) if(api.ff_probe_volume_handle_word(i,0)===handle.handle) {
+          handle.dataFile=api.ff_probe_volume_handle_word(i,5); handle.position=api.ff_probe_volume_handle_word(i,6);
+        }});
       }
       const open = calls[12], query = calls[13], close = calls[14], handle = open?.output?.handle;
       const entry = trace.find(row => row.address === 0x33794 && row.kind === 'enter');
@@ -333,6 +376,7 @@ self.onmessage = async event => {
         const target=objectNamespace.objects.find(object=>object.id===drive?.target && object.kind===4);
         const file=localVolume.files.find(file=>file.id===target?.providerObject);
         const helper=trace.filter(row=>row.address===0x338de), equalCalls=calls.filter(call=>call.ordinal===279);
+        const userHandle=localVolume.handles.find(handle=>handle.directory===userTitle?.id);
         const balanced=(address,expected)=>{
           const rows=trace.filter(row=>row.address===address);
           return rows.length===expected*2 && rows.every((row,i)=>row.kind===(i%2?'exit':'enter') && !!row.cpu &&
@@ -363,15 +407,44 @@ self.onmessage = async event => {
         checks.originalCountedComparisonsCompleted = equalCalls.length===33 && equalCalls.every(call=>call.status===0 && call.arguments[2]===1 && [0,1].includes(call.output.equal)) &&
           equalCalls.filter(call=>call.output.equal===1).length===1 && equalCalls.find(call=>call.output.equal===1)?.output.firstBytes===9 &&
           equalCalls.find(call=>call.output.equal===1)?.output.secondBytes===9;
-        checks.pendingUserDirectoryHandleIsOwned = !!userTitle && localVolume.opened===6 && localVolume.closed===5 && localVolume.active===1 && localVolume.handles.length===1 &&
-          localVolume.handles[0].directory===userTitle.id && localVolume.handles[0].handle===calls[25]?.output?.handle &&
-          localVolume.handles[0].access===0x120117 && localVolume.handles[0].share===3 && localVolume.handles[0].options===0x4021 &&
+        checks.pendingUserDirectoryHandleIsOwned = !!userTitle && !!userHandle && localVolume.opened===(regularAbi?7:6) && localVolume.closed===5 &&
+          localVolume.active===(regularAbi?2:1) && localVolume.handles.length===(regularAbi?2:1) && userHandle.handle===calls[25]?.output?.handle &&
+          userHandle.access===0x120117 && userHandle.share===3 && userHandle.options===0x4021 &&
           calls[23]?.ordinal===187 && calls[23].status===0 && calls[23].arguments[0]===calls[22]?.output?.handle;
-        checks.nextRegularFileRequestStoppedBeforeGuestReturn = reachedRegularFileRequest && calls.slice(0,96).every(call=>call.status===0) &&
+        if(!regularAbi) checks.nextRegularFileRequestStoppedBeforeGuestReturn = reachedRegularFileRequest && calls.slice(0,96).every(call=>call.status===0) &&
           calls[96]?.ordinal===190 && calls[96].status===0xc00000bb && createFileRequest?.serviceImplemented===false &&
           createFileRequest.name==='\\Device\\Harddisk0\\partition1\\UDATA\\4d530002\\TitleMeta.xbx' && createFileRequest.rootDirectory===0 &&
           createFileRequest.desiredAccess===0x40100000 && createFileRequest.attributes===0x40 && createFileRequest.allocationSizePointer===0 &&
           createFileRequest.fileAttributes===4 && createFileRequest.shareAccess===1 && createFileRequest.createDisposition===3 && createFileRequest.openOptions===0x22;
+        else {
+          const created=calls[96],query=calls[97],dataFile=localVolume.dataFiles.find(file=>file.id===created?.output?.dataFile);
+          const fileHandle=localVolume.handles.find(handle=>handle.handle===created?.output?.handle);
+          const words=query?.output?.words;
+          const wide=(low,high)=>((BigInt(high>>>0)<<32n)|BigInt(low>>>0)).toString();
+          checks.explicitFreshFileStorageSelected = fileStorageProfile.synthetic===true && fileStorageProfile.state==='fresh' && fileStorageProfile.persistent===false &&
+            fileStorageProfile.maxFiles===16 && fileStorageProfile.maxFileBytes===65536;
+          checks.originalRegularFileCreated = reachedFileMetadataHelper && created?.ordinal===190 && created.status===0 && created.output.ioStatus===0 && created.output.information===2 &&
+            created.output.dataFiles===1 && created.output.dataFilesCreated===1 && !!dataFile && dataFile.parent===userTitle?.id && dataFile.attributes===4 && dataFile.name==='TitleMeta.xbx' &&
+            createFileRequest?.serviceImplemented===true && createFileRequest.name==='\\Device\\Harddisk0\\partition1\\UDATA\\4d530002\\TitleMeta.xbx' &&
+            createFileRequest.desiredAccess===0x40100000 && createFileRequest.shareAccess===1 && createFileRequest.createDisposition===3 && createFileRequest.openOptions===0x22 && createFileRequest.allocationSizePointer===0;
+          checks.completedCreateRequestCapturedBeforeBufferReuse = createFileRequest?.observation==='captured-at-create' && createFileRequest.bufferChangedAtStop===true &&
+            createFileRequest.nameBytes===57 && createFileRequest.nameMaximumBytes===58 && createFileRequest.descriptorAtStop?.nameBuffer===createFileRequest.nameBuffer &&
+            createFileRequest.name.endsWith('\\TitleMeta.xbx');
+          checks.regularFileHandleHasSeparateIdentity = !!fileHandle && !!dataFile && fileHandle.directory===0 && fileHandle.dataFile===dataFile.id && fileHandle.position===0 &&
+            fileHandle.access===0x40100000 && fileHandle.share===1 && fileHandle.options===0x22 && fileHandle.handle!==userHandle?.handle && file?.dataFile===0;
+          checks.newFileHasEmptyOwnedBacking = localVolume.dataFileCount===1 && localVolume.dataFilesCreated===1 && localVolume.dataFiles.length===1 && !!dataFile &&
+            dataFile.bytes===0 && dataFile.allocatedBytes==='0';
+          checks.fileCreationUsesSampledBrowserClock = !!dataFile && dataFile.creationTime===dataFile.accessTime && dataFile.creationTime===dataFile.writeTime &&
+            dataFile.creationTime===dataFile.changeTime && BigInt(dataFile.creationTime)>=BigInt(fileClockWindow.beforeSystemTicks) &&
+            BigInt(dataFile.creationTime)<=BigInt(fileClockWindow.afterSystemTicks);
+          checks.originalNetworkOpenInformationRequested = query?.ordinal===211 && query.status===0 && query.arguments.length===5 && query.arguments[0]===created?.output?.handle &&
+            query.arguments[1]===created.arguments[3] && query.arguments[3]===56 && query.arguments[4]===34;
+          checks.fileInformationMatchesOwnedMetadata = !!dataFile && !!words && words.length===14 && query.output.ioStatus===0 && query.output.information===56 &&
+            wide(words[0],words[1])===dataFile.creationTime && wide(words[2],words[3])===dataFile.accessTime && wide(words[4],words[5])===dataFile.writeTime &&
+            wide(words[6],words[7])===dataFile.changeTime && wide(words[8],words[9])===dataFile.allocatedBytes && wide(words[10],words[11])===String(dataFile.bytes) &&
+            words[12]===dataFile.attributes && words[13]===0;
+          checks.nextOriginalMetadataHelperStopped = reachedFileMetadataHelper && calls.every(call=>call.status===0) && !entered.includes(0x1df4f0);
+        }
       }
     }
     if (memoryAbi) {
@@ -439,9 +512,9 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
-      sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
       trace, traceCapacity, kernelCapacity, calls, threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,

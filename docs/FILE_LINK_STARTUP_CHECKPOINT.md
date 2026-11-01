@@ -1,5 +1,7 @@
 # Original directory-backed drive link and next metadata-file request
 
+Later progress: [the regular-file checkpoint](REGULAR_FILE_STARTUP_CHECKPOINT.md) implements the reached create and metadata query. Its next untranslated-helper task supersedes this checkpoint's next create task; evidence below remains historical.
+
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and all planned custom features. Original startup now creates its `T:` link with a retained directory file object and returns from its first directory helper. It subsequently requests a regular metadata file. No playable screen, complete filesystem, original save state or full runtime/fidelity acceptance is established.
 
 ## Observed original execution

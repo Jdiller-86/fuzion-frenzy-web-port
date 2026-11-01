@@ -76,6 +76,14 @@ static uint32_t volume_ready;
 #endif
 #include "../../src/runtime/file_namespace.h"
 #endif
+#ifdef FF_REGULAR_FILE_PROOF
+#if !defined(FF_FILE_LINK_PROOF) || !defined(FF_TIMER_PROOF)
+#error Regular files retain the existing file-target and fresh-directory contract
+#endif
+static uint32_t file_information[FF_KERNEL_CAPACITY][14];
+static uint32_t create_request_words[FF_KERNEL_CAPACITY][6];
+static uint8_t create_request_names[FF_KERNEL_CAPACITY][256];
+#endif
 #ifdef FF_NAMESPACE_PROOF
 static ff_object_namespace object_namespace;
 static uint32_t namespace_ready;
@@ -481,13 +489,50 @@ uint32_t ff_probe_file_word(uint32_t index,uint32_t field)
     if(index>=FF_VOLUME_FILES) return 0;
     const ff_volume_file *file=&local_volume.files[index];
     switch(field) { case 0:return file->id; case 1:return file->directory; case 2:return file->access; case 3:return file->share;
-        case 4:return file->options; case 5:return file->references; case 6:return file->handle; default:return 0; }
+        case 4:return file->options; case 5:return file->references; case 6:return file->handle; case 7:return file->data_file; default:return 0; }
 }
 uint32_t ff_probe_file_resolution(uint32_t field)
 {
     ff_namespace_resolution result={0};
     uint32_t status=ff_namespace_resolve(&object_namespace,"\\??\\t:\\",7,&result);
     switch(field) { case 0:return status; case 1:return result.object; case 2:return result.remaining_offset; case 3:return result.remaining_bytes; default:return 0; }
+}
+#endif
+#ifdef FF_REGULAR_FILE_PROOF
+uint32_t ff_probe_file_storage_capacity(uint32_t field)
+{
+    return !field?FF_VOLUME_DATA_FILES:field==1?FF_VOLUME_FILE_BYTES:0;
+}
+uint32_t ff_probe_regular_word(uint32_t index,uint32_t field)
+{
+    if(index>=FF_VOLUME_DATA_FILES) return 0;
+    const ff_volume_data_file *file=&local_volume.data_files[index];
+    switch(field) {case 0:return file->id;case 1:return file->parent;case 2:return file->attributes;case 3:return file->bytes;
+        case 4:return (uint32_t)file->creation_time;case 5:return (uint32_t)(file->creation_time>>32);
+        case 6:return (uint32_t)file->access_time;case 7:return (uint32_t)(file->access_time>>32);
+        case 8:return (uint32_t)file->write_time;case 9:return (uint32_t)(file->write_time>>32);
+        case 10:return (uint32_t)file->change_time;case 11:return (uint32_t)(file->change_time>>32);
+        case 12:return (uint32_t)file->allocated_bytes;case 13:return (uint32_t)(file->allocated_bytes>>32);default:return 0;}
+}
+uint32_t ff_probe_regular_name(uint32_t index,uint32_t byte)
+{
+    return index<FF_VOLUME_DATA_FILES && byte<FF_VOLUME_DIRECTORY_NAME?(uint8_t)local_volume.data_files[index].name[byte]:0;
+}
+uint32_t ff_probe_regular_byte(uint32_t index,uint32_t byte)
+{
+    return index<FF_VOLUME_DATA_FILES && byte<local_volume.data_files[index].bytes && byte<FF_VOLUME_FILE_BYTES?local_volume.data_files[index].data[byte]:0;
+}
+uint32_t ff_probe_file_information_word(uint32_t index,uint32_t word)
+{
+    return index<kernel_call_count && word<14?file_information[index][word]:0;
+}
+uint32_t ff_probe_create_request_word(uint32_t index,uint32_t word)
+{
+    return index<kernel_call_count && word<6?create_request_words[index][word]:0;
+}
+uint32_t ff_probe_create_request_name(uint32_t index,uint32_t byte)
+{
+    return index<kernel_call_count && byte<256?create_request_names[index][byte]:0;
 }
 #endif
 #ifdef FF_VOLUME_PROOF
@@ -523,12 +568,41 @@ static void create_directory(void)
 {
     uint32_t *row = kernel_record(190, 9);
     if (!volume_ready) stop(9, 0, 190);
+#ifdef FF_REGULAR_FILE_PROOF
+    row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
+#else
     row[1] = ff_volume_create_directory(&local_volume, row + 2);
+#endif
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
     if (!row[1]) { row[11] = MEM32(row[2]); row[12] = MEM32(row[5]); row[13] = MEM32(row[5] + 4); }
     row[14] = local_volume.directory_count; row[15] = local_volume.directories_created; row[16] = local_volume.active;
+#ifdef FF_REGULAR_FILE_PROOF
+    row[17]=local_volume.data_file_count; row[18]=local_volume.data_files_created;
+    if(!row[1]) for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[11]) row[19]=local_volume.handles[i].data_file;
+    if(!row[1] && !(row[10]&1u)) {
+        const uint32_t index=kernel_call_count-1,descriptor=MEM32(row[4]+4),buffer=MEM32(descriptor+4),bytes=MEM16(descriptor);
+        if(bytes>=256) stop(9,bytes,190);
+        uint32_t *captured=create_request_words[index];
+        captured[0]=MEM32(row[4]); captured[1]=MEM32(row[4]+8); captured[2]=descriptor; captured[3]=buffer;
+        captured[4]=bytes; captured[5]=MEM16(descriptor+2);
+        for(unsigned i=0;i<bytes;++i) create_request_names[index][i]=MEM8(buffer+i);
+    }
+#endif
     g_eax = row[1]; g_esp += 40;
 }
+#ifdef FF_REGULAR_FILE_PROOF
+static void query_file_information(void)
+{
+    uint32_t *row=kernel_record(211,5);
+    row[1]=ff_volume_query_file(&local_volume,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],211);
+    if(!row[1]) {
+        row[7]=MEM32(row[3]); row[8]=MEM32(row[3]+4);
+        for(unsigned i=0;i<14;++i) file_information[kernel_call_count-1][i]=MEM32(row[4]+i*4);
+    }
+    g_eax=row[1]; g_esp+=24;
+}
+#endif
 uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
 {
     if (index >= FF_VOLUME_DIRECTORIES) return 0;
@@ -572,7 +646,7 @@ uint32_t ff_probe_volume_word(uint32_t field)
         case 6: return (uint32_t)local_volume.profile.available_units; case 7: return (uint32_t)(local_volume.profile.available_units >> 32);
         case 8: return local_volume.profile.sectors_per_unit; case 9: return local_volume.profile.bytes_per_sector;
         case 10: return local_volume.directory_count; case 11: return local_volume.directories_created;
-        case 12: return local_volume.file_count; default: return 0;
+        case 12: return local_volume.file_count; case 13:return local_volume.data_file_count; case 14:return local_volume.data_files_created; default: return 0;
     }
 }
 uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
@@ -580,7 +654,7 @@ uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
     if (index >= FF_VOLUME_HANDLES) return 0;
     const ff_volume_handle *handle = &local_volume.handles[index];
     switch (field) { case 0: return handle->handle; case 1: return handle->access; case 2: return handle->share; case 3: return handle->options;
-        case 4: return handle->directory; default: return 0; }
+        case 4: return handle->directory; case 5:return handle->data_file; case 6:return handle->position; default: return 0; }
 }
 #endif
 static void enter_critical(void)
@@ -692,6 +766,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_DIRECTORY_PROOF
         if (ordinal == 190) return create_directory;
         if (ordinal == 289) return initialize_ansi_string;
+#ifdef FF_REGULAR_FILE_PROOF
+        if (ordinal == 211) return query_file_information;
+#endif
 #ifdef FF_FILE_LINK_PROOF
         if (ordinal == 279) return equal_ansi_string;
 #endif
@@ -710,7 +787,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_FILE_LINK_PROOF
+#ifdef FF_REGULAR_FILE_PROOF
+    return 10;
+#elif defined(FF_FILE_LINK_PROOF)
     return 9;
 #elif defined(FF_DIRECTORY_PROOF)
     return 8;
@@ -763,6 +842,10 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+#ifdef FF_REGULAR_FILE_PROOF
+    memset(file_information,0,sizeof file_information);
+    memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
+#endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_FORMAT_PROOF

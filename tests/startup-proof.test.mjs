@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -182,6 +182,16 @@ test('directory state must be explicitly fresh and synthetic before original sta
     assert.throws(()=>parseLocalDirectoryProfile(bytes({directoryState:state})),/explicit fresh synthetic directory state/);
   }
   assert.throws(()=>parseLocalDirectoryProfile(bytes({directoryState:'fresh',synthetic:false})),/explicit synthetic volume/);
+});
+
+test('regular-file state must be explicitly fresh after directory/volume admission', () => {
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'65536',
+    availableAllocationUnits:'65536',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh'};
+  const bytes=edit=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume:{...volume,...edit}})).buffer;
+  assert.deepEqual(parseLocalFileProfile(bytes({fileState:'fresh'})),{synthetic:true,state:'fresh',persistent:false,maxFiles:16,maxFileBytes:65536});
+  for(const state of [undefined,null,false,'original','existing','',0]) assert.throws(()=>parseLocalFileProfile(bytes({fileState:state})),/explicit fresh synthetic file state/);
+  assert.throws(()=>parseLocalFileProfile(bytes({fileState:'fresh',directoryState:'existing'})),/explicit fresh synthetic directory state/);
+  assert.throws(()=>parseLocalFileProfile(bytes({fileState:'fresh',synthetic:false})),/explicit synthetic volume/);
 });
 
 test('clock samples separate monotonic duration from adjustable system time and write only the bounded output', () => {
