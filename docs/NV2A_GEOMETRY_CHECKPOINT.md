@@ -31,6 +31,8 @@ The host arithmetic distinction is material: the [desktop GLSL specification](ht
 - CI adds a Linux native compile/run of `tests/nv2a_triangle_test.c`. The Windows/Linux source and delivery checks remain separate from the private shader/Wasm/browser comparisons. CI does not execute the original game.
 - Local publication checks passed for 104 source files, together with comparator syntax and whitespace checks. The pinned xemu checkout has no tracked changes. The supplied `default.xbe` still hashes to `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`; it was not executed or modified.
 
+Source-only checkpoint `402fa29` is published. [CI run 41273163025](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41273163025) completed successfully on Windows and Linux, including the new Linux native triangle compile/run. CI does not execute the original game or the private shader/browser comparison. This documentation follow-up records that result without changing the checked implementation.
+
 With the pinned local generator/reference and compiled module already prepared, a new report can be reproduced with:
 
 ```powershell
