@@ -8,6 +8,8 @@ Latest bounded result: [original thread-start entry is reached](THREAD_STARTUP_C
 
 Thread-entry validation: the owned C context/locking fixture, four Python envelope cases, syntax checks, seven runtime tests, source guard (126 files) and whitespace checks passed. Documented artifact digests and compiled C identities match actual files. These checks verify bounded contracts and delivery; full-game, scheduling, fidelity and custom-feature acceptance remain open.
 
+Thread-entry source `b221b5a` is published; [CI run 41315595912](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41315595912) passed Windows/Linux, including new Python cases and runtime tests, with the owned boot-context/locking and triangle tests passing on Linux. No original game runs in CI. A bounded static follow-up saved `research/verification/recomp-crt-01/seed.json`: initializer `0x00033ccc` is 271 bytes / 97 instructions, first direct dependency `0x000346a7`, and declared ordinal-67 symbolic-link calls. Reuse that evidence; exact callee behavior and local namespace requirements remain the next investigation, not observed runtime operations.
+
 Planning consistency review, November 1: the development plan's risk register and implementation backlog now follow D023 explicitly. Recompilation is required by the selected route; the timing-game task integrates original routines rather than extending the approximate reconstruction. All planned custom features remain in scope.
 
 Documentation validation: `npm run check` passed the preparation/publication guard for 115 source files, and `git diff --check` passed. This review changes planning only; runtime/fidelity acceptance and the next bounded proof above are unchanged. Existing local implementation work was preserved.
