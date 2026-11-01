@@ -80,5 +80,10 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/object_namespace_test.c src/runtime/object_namespace.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/object-namespace-check"
           "$RUNNER_TEMP/object-namespace-check"
+      - name: Check retained file-target links (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/file_namespace_test.c src/runtime/file_namespace.c src/runtime/object_namespace.c src/runtime/local_directories.c src/runtime/local_volume.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/file-namespace-check"
+          "$RUNNER_TEMP/file-namespace-check"
       - run: npm run check:environment
       - run: git diff --exit-code

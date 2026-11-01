@@ -17,6 +17,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>The namespace proof creates an owned drive link holding a guest disc-device reference. Device identity does not mount content or enable disc reads.</p>
 <p>The expanded proof observes the original formatter's first return and compares its hexadecimal output with the actual input. This is one startup case, not complete formatting-library or game fidelity.</p>
 <p>The directory proof uses a fresh synthetic in-memory test volume. Created directories retain identity after handles close; no original saves, FATX persistence or disc-file provider is established.</p>
+<p>The file-target proof retains a real guest directory object after closing its temporary handle. Original startup then requests a regular metadata file; creating that file and writing its contents remain unsupported.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
@@ -54,7 +55,9 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-title-directory-link-stop'
+      status.textContent = result.verified ? (result.phase === 'original-file-link-regular-file-stop'
+        ? 'Original startup retained its T: directory link and returned from the first directory helper; stopped before unsupported metadata-file creation'
+        : result.phase === 'original-title-directory-link-stop'
         ? 'Original startup created and closed its title-data directories; stopped before an unsupported directory-target drive link'
         : result.phase === 'original-format-next-stop'
         ? 'Original formatter returned the correct title-ID text with stack and exception chain restored; stopped at the next untranslated helper'

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -114,6 +114,14 @@ test('trace admission retains legacy capacity and rejects arbitrary declared siz
   for (const capacity of [64,128]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
   for (const capacity of [0,32,65,129,256,-1,NaN,Infinity,'128',true]) {
     assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),/bounded trace capacity/);
+  }
+});
+
+test('kernel-record admission retains legacy capacity and rejects arbitrary sizes', () => {
+  assert.equal(proofKernelCapacity({}),32);
+  for(const capacity of [32,128]) assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),capacity);
+  for(const capacity of [0,31,33,64,129,-1,NaN,Infinity,'128',true]) {
+    assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),/bounded kernel-record capacity/);
   }
 });
 

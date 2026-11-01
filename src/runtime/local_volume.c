@@ -41,6 +41,7 @@ uint32_t ff_volume_init(ff_local_volume *volume, ff_virtual_memory *memory, cons
         profile->total_units > UINT64_MAX / profile->sectors_per_unit / profile->bytes_per_sector) return FF_BOOT_INVALID;
     memset(volume, 0, sizeof *volume); volume->memory = memory; volume->profile = *profile;
     volume->next_handle = FF_VOLUME_HANDLE_BASE;
+    volume->next_file = 1;
     volume->directories[0].id = 1; volume->directory_count = 1;
     return 0;
 }
@@ -93,7 +94,7 @@ uint32_t ff_volume_open_root(ff_local_volume *volume, const uint32_t args[6])
     ff_volume_handle *slot = NULL;
     for (unsigned i = 0; i < FF_VOLUME_HANDLES; ++i) if (!volume->handles[i].handle) { slot = &volume->handles[i]; break; }
     if (!slot || volume->next_handle >= FF_VOLUME_HANDLE_LIMIT) return io_result(volume, iosb, FF_VOLUME_TOO_MANY_HANDLES, 0);
-    *slot = (ff_volume_handle){ volume->next_handle, access, share, options, 1 };
+    *slot = (ff_volume_handle){ volume->next_handle, access, share, options, 1, 0 };
     volume->next_handle += 4; ++volume->active; ++volume->opened;
     put(volume, output, slot->handle, 4);
     return io_result(volume, iosb, 0, 1); /* FILE_OPENED */
@@ -117,6 +118,49 @@ uint32_t ff_volume_close(ff_local_volume *volume, uint32_t handle)
 {
     ff_volume_handle *slot = find(volume, handle);
     if (!slot) return FF_BOOT_BAD_HANDLE;
+    if (slot->file) {
+        ff_volume_file *file = NULL;
+        for (unsigned i=0;i<FF_VOLUME_FILES;++i) if (volume->files[i].id==slot->file) file=&volume->files[i];
+        if (!file || file->handle!=handle || !file->references) return FF_BOOT_UNSUPPORTED;
+        file->handle=0;
+        if (!--file->references) { memset(file,0,sizeof *file); --volume->file_count; }
+    }
     memset(slot, 0, sizeof *slot); --volume->active; ++volume->closed;
     return 0;
+}
+const ff_volume_file *ff_volume_file_object(const ff_local_volume *volume, uint32_t id)
+{
+    if (volume && id) for(unsigned i=0;i<FF_VOLUME_FILES;++i) if(volume->files[i].id==id) return &volume->files[i];
+    return NULL;
+}
+uint32_t ff_volume_reference_handle(ff_local_volume *volume, uint32_t value, uint32_t *id)
+{
+    if (!volume || !id) return FF_BOOT_INVALID;
+    ff_volume_handle *slot=find(volume,value);
+    if (!slot) return FF_BOOT_BAD_HANDLE;
+    if (slot->file) {
+        for(unsigned i=0;i<FF_VOLUME_FILES;++i) if(volume->files[i].id==slot->file) {
+            ff_volume_file *file=&volume->files[i];
+            if(file->handle!=value || !file->references || file->references==UINT32_MAX) return FF_BOOT_UNSUPPORTED;
+            ++file->references; *id=file->id; return 0;
+        }
+        return FF_BOOT_UNSUPPORTED;
+    }
+    ff_volume_file *file=NULL;
+    for(unsigned i=0;i<FF_VOLUME_FILES;++i) if(!volume->files[i].id) { file=&volume->files[i]; break; }
+    if(!file || volume->next_file==UINT32_MAX) return FF_BOOT_NO_MEMORY;
+    *file=(ff_volume_file){volume->next_file++,slot->directory,slot->access,slot->share,slot->options,2,value};
+    slot->file=file->id; ++volume->file_count; *id=file->id;
+    return 0;
+}
+uint32_t ff_volume_release_file(ff_local_volume *volume, uint32_t id)
+{
+    if (!volume || !id) return FF_BOOT_BAD_HANDLE;
+    for(unsigned i=0;i<FF_VOLUME_FILES;++i) if(volume->files[i].id==id) {
+        ff_volume_file *file=&volume->files[i];
+        if(file->references<=(file->handle?1u:0u)) return FF_BOOT_UNSUPPORTED;
+        if(!--file->references) { memset(file,0,sizeof *file); --volume->file_count; }
+        return 0;
+    }
+    return FF_BOOT_BAD_HANDLE;
 }

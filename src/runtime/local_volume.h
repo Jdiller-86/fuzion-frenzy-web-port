@@ -5,6 +5,7 @@
 /* Explicit synthetic developer volume. No native filesystem, file payloads,
  * persistence or implicit original-console capacity/content defaults. */
 #define FF_VOLUME_HANDLES 16u
+#define FF_VOLUME_FILES 32u
 #define FF_VOLUME_DIRECTORIES 32u
 #define FF_VOLUME_DIRECTORY_NAME 64u
 #define FF_VOLUME_HANDLE_BASE 0x00010000u
@@ -21,21 +22,31 @@ typedef struct {
     uint64_t total_units, available_units;
     uint32_t sectors_per_unit, bytes_per_sector;
 } ff_volume_profile;
-typedef struct { uint32_t handle, access, share, options, directory; } ff_volume_handle;
+typedef struct { uint32_t handle, access, share, options, directory, file; } ff_volume_handle;
+/* A referenced open instance can outlive its last handle. Directory identity
+ * and file-object identity are separate; these are opaque owned tokens. */
+typedef struct { uint32_t id, directory, access, share, options, references, handle; } ff_volume_file;
 typedef struct { uint32_t id, parent; char name[FF_VOLUME_DIRECTORY_NAME]; } ff_volume_directory;
 typedef struct {
     ff_virtual_memory *memory;
     ff_volume_profile profile;
     ff_volume_handle handles[FF_VOLUME_HANDLES];
+    ff_volume_file files[FF_VOLUME_FILES];
     ff_volume_directory directories[FF_VOLUME_DIRECTORIES];
     uint32_t next_handle, active, opened, closed;
     uint32_t directory_count, directories_created;
+    uint32_t next_file, file_count;
 } ff_local_volume;
 
 uint32_t ff_volume_init(ff_local_volume *, ff_virtual_memory *, const ff_volume_profile *);
 uint32_t ff_volume_open_root(ff_local_volume *, const uint32_t args[6]);
 uint32_t ff_volume_create_directory(ff_local_volume *, const uint32_t args[9]);
+uint32_t ff_volume_open_directory_path(ff_local_volume *, uint32_t directory, const char *, uint32_t bytes,
+                                       uint32_t access, uint32_t share, uint32_t options, uint32_t *handle);
 uint32_t ff_volume_query_size(ff_local_volume *, const uint32_t args[5]);
 uint32_t ff_volume_close(ff_local_volume *, uint32_t handle);
+uint32_t ff_volume_reference_handle(ff_local_volume *, uint32_t handle, uint32_t *file);
+uint32_t ff_volume_release_file(ff_local_volume *, uint32_t file);
+const ff_volume_file *ff_volume_file_object(const ff_local_volume *, uint32_t file);
 int ff_volume_owns_handle(uint32_t handle);
 #endif

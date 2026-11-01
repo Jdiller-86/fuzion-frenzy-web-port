@@ -11,20 +11,31 @@
 #define FF_NS_COLLISION 0xc0000035u
 #define FF_NS_NOT_FOUND 0xc0000034u
 #define FF_NS_PATH_NOT_FOUND 0xc000003au
-enum { FF_NS_DIRECTORY = 1, FF_NS_DEVICE, FF_NS_LINK };
+enum { FF_NS_DIRECTORY = 1, FF_NS_DEVICE, FF_NS_LINK, FF_NS_FILE };
 enum { FF_NS_LOCAL_DISC = 1 };
 typedef struct {
-    uint32_t id, parent, kind, references, target, device_kind, media_ready;
+    uint32_t id, parent, kind, references, target, device_kind, media_ready, provider_object;
     char name[FF_NS_NAME], target_name[FF_NS_PATH];
 } ff_namespace_object;
+typedef struct ff_object_namespace ff_object_namespace;
+/* open retains one owned file reference after closing its temporary handle;
+ * release drops that reference. Providers expose no host filesystem. */
 typedef struct {
+    uint32_t (*open)(void *, const ff_object_namespace *, const char *, uint32_t, uint32_t *);
+    uint32_t (*release)(void *, uint32_t);
+} ff_namespace_file_provider;
+
+struct ff_object_namespace {
     ff_virtual_memory *memory;
     ff_namespace_object objects[FF_NS_OBJECTS];
     uint32_t next_id, count;
-} ff_object_namespace;
+    const ff_namespace_file_provider *file_provider;
+    void *file_context;
+};
 typedef struct { uint32_t object, remaining_offset, remaining_bytes; } ff_namespace_resolution;
 
 uint32_t ff_namespace_init(ff_object_namespace *, ff_virtual_memory *);
+uint32_t ff_namespace_bind_files(ff_object_namespace *, const ff_namespace_file_provider *, void *);
 uint32_t ff_namespace_add_device(ff_object_namespace *, const char *, uint32_t bytes, uint32_t kind, uint32_t *id);
 uint32_t ff_namespace_resolve(const ff_object_namespace *, const char *, uint32_t bytes, ff_namespace_resolution *);
 uint32_t ff_namespace_create_link(ff_object_namespace *, uint32_t link_string, uint32_t target_string, uint32_t *id);

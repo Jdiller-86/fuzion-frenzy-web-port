@@ -37,6 +37,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #define FF_STACK_TOP (FF_GUEST_BYTES - 4096u)
 #define FF_KERNEL_BASE 0xfe000000u
 #define FF_TRACE_CAPACITY 128u
+#define FF_KERNEL_CAPACITY 128u
 
 ptrdiff_t g_xbox_mem_offset;
 uint32_t g_xbox_code_lo, g_xbox_code_hi;
@@ -56,7 +57,7 @@ volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
-static uint32_t kernel_calls[32][20], kernel_call_count, parent_returned;
+static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
 #ifdef FF_VOLUME_PROOF
@@ -68,6 +69,12 @@ static uint32_t volume_ready;
 #error Directory proof retains the explicit volume and namespace contracts
 #endif
 #include "../../src/runtime/guest_strings.h"
+#endif
+#ifdef FF_FILE_LINK_PROOF
+#ifndef FF_DIRECTORY_PROOF
+#error File-target links retain the explicit fresh-directory contract
+#endif
+#include "../../src/runtime/file_namespace.h"
 #endif
 #ifdef FF_NAMESPACE_PROOF
 static ff_object_namespace object_namespace;
@@ -381,7 +388,7 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
-    if (kernel_call_count == 32 || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+    if (kernel_call_count == FF_KERNEL_CAPACITY || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
     uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
@@ -411,6 +418,9 @@ uint32_t ff_probe_namespace_init(void)
     if (!vm_ready || !volume_ready || namespace_ready) return FF_BOOT_INVALID;
     uint32_t status=ff_namespace_init(&object_namespace,&virtual_memory),id;
     if (!status) status=ff_namespace_add_device(&object_namespace,"\\Device\\CdRom0",14,FF_NS_LOCAL_DISC,&id);
+#ifdef FF_FILE_LINK_PROOF
+    if (!status) status=ff_file_namespace_bind(&object_namespace,&local_volume);
+#endif
     if (!status) namespace_ready=1;
     return status;
 }
@@ -427,6 +437,15 @@ static void create_symbolic_link(void)
         for (unsigned i=0;i<FF_NS_OBJECTS;++i) if (object_namespace.objects[i].id==link->target) target=&object_namespace.objects[i];
         if (!target) stop(9,link->target,67);
         row[4]=link->id; row[5]=target->id; row[6]=target->references; row[7]=target->device_kind; row[8]=target->media_ready;
+#ifdef FF_FILE_LINK_PROOF
+        row[9]=target->kind; row[10]=target->provider_object; row[14]=object_namespace.count;
+        row[15]=local_volume.file_count; row[16]=local_volume.opened; row[17]=local_volume.closed; row[18]=local_volume.active;
+        if (target->kind==FF_NS_FILE) {
+            const ff_volume_file *file=ff_volume_file_object(&local_volume,target->provider_object);
+            if(!file) stop(9,target->provider_object,67);
+            row[11]=file->directory; row[12]=file->references; row[13]=file->handle;
+        }
+#endif
     }
     g_eax=row[1]; g_esp+=12;
 }
@@ -437,7 +456,8 @@ uint32_t ff_probe_namespace_word(uint32_t index,uint32_t field)
     const ff_namespace_object *object=&object_namespace.objects[index];
     switch (field) {
         case 0:return object->id; case 1:return object->parent; case 2:return object->kind; case 3:return object->references;
-        case 4:return object->target; case 5:return object->device_kind; case 6:return object->media_ready; default:return 0;
+        case 4:return object->target; case 5:return object->device_kind; case 6:return object->media_ready;
+        case 7:return object->provider_object; default:return 0;
     }
 }
 uint32_t ff_probe_namespace_name(uint32_t index,uint32_t byte)
@@ -455,6 +475,21 @@ uint32_t ff_probe_namespace_resolution(uint32_t field)
     switch (field) { case 0:return status; case 1:return result.object; case 2:return result.remaining_offset; case 3:return result.remaining_bytes; default:return 0; }
 }
 #endif
+#ifdef FF_FILE_LINK_PROOF
+uint32_t ff_probe_file_word(uint32_t index,uint32_t field)
+{
+    if(index>=FF_VOLUME_FILES) return 0;
+    const ff_volume_file *file=&local_volume.files[index];
+    switch(field) { case 0:return file->id; case 1:return file->directory; case 2:return file->access; case 3:return file->share;
+        case 4:return file->options; case 5:return file->references; case 6:return file->handle; default:return 0; }
+}
+uint32_t ff_probe_file_resolution(uint32_t field)
+{
+    ff_namespace_resolution result={0};
+    uint32_t status=ff_namespace_resolve(&object_namespace,"\\??\\t:\\",7,&result);
+    switch(field) { case 0:return status; case 1:return result.object; case 2:return result.remaining_offset; case 3:return result.remaining_bytes; default:return 0; }
+}
+#endif
 #ifdef FF_VOLUME_PROOF
 static void open_volume_root(void)
 {
@@ -466,6 +501,16 @@ static void open_volume_root(void)
     g_eax = row[1]; g_esp += 28;
 }
 #ifdef FF_DIRECTORY_PROOF
+#ifdef FF_FILE_LINK_PROOF
+static void equal_ansi_string(void)
+{
+    uint32_t *row=kernel_record(279,3),equal=0;
+    row[1]=ff_equal_ansi_string(&virtual_memory,row[2],row[3],(uint8_t)row[4],&equal);
+    if(row[1]) stop(9,row[1],279);
+    row[5]=equal; row[6]=MEM16(row[2]); row[7]=MEM16(row[3]);
+    g_eax=equal; g_esp+=16;
+}
+#endif
 static void initialize_ansi_string(void)
 {
     uint32_t *row = kernel_record(289, 2);
@@ -526,7 +571,8 @@ uint32_t ff_probe_volume_word(uint32_t field)
         case 4: return (uint32_t)local_volume.profile.total_units; case 5: return (uint32_t)(local_volume.profile.total_units >> 32);
         case 6: return (uint32_t)local_volume.profile.available_units; case 7: return (uint32_t)(local_volume.profile.available_units >> 32);
         case 8: return local_volume.profile.sectors_per_unit; case 9: return local_volume.profile.bytes_per_sector;
-        case 10: return local_volume.directory_count; case 11: return local_volume.directories_created; default: return 0;
+        case 10: return local_volume.directory_count; case 11: return local_volume.directories_created;
+        case 12: return local_volume.file_count; default: return 0;
     }
 }
 uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
@@ -646,6 +692,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_DIRECTORY_PROOF
         if (ordinal == 190) return create_directory;
         if (ordinal == 289) return initialize_ansi_string;
+#ifdef FF_FILE_LINK_PROOF
+        if (ordinal == 279) return equal_ansi_string;
+#endif
 #endif
         if (ordinal == 202) return open_volume_root;
 #ifdef FF_VOLUME_QUERY_PROOF
@@ -661,7 +710,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_DIRECTORY_PROOF
+#ifdef FF_FILE_LINK_PROOF
+    return 9;
+#elif defined(FF_DIRECTORY_PROOF)
     return 8;
 #elif defined(FF_NAMESPACE_PROOF)
     return 7;
@@ -694,6 +745,7 @@ uint32_t ff_probe_binding_ordinal(uint32_t i) { return i < FF_KERNEL_BINDING_COU
 uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
+uint32_t ff_probe_kernel_capacity(void) { return FF_KERNEL_CAPACITY; }
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {

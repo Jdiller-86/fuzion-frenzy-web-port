@@ -159,10 +159,36 @@ static void counted_string_initialization(void)
     ram[0x1ffff]=1; save();
     assert(ff_init_ansi_string(&memory,NAME,0x1ffff)==FF_VM_ACCESS_VIOLATION); unchanged();
 }
+static void counted_string_equality(void)
+{
+    reset(); memcpy(ram+TEXT,"OwNeD",6); memcpy(ram+TEXT+64,"owned",6);
+    assert(!ff_init_ansi_string(&memory,NAME,TEXT)); assert(!ff_init_ansi_string(&memory,NAME+16,TEXT+64));
+    uint32_t equal=99; save();
+    assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,0,&equal) && !equal); unchanged();
+    assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && equal==1); unchanged();
+    const uint8_t pairs[][2]={{0xe0,0xc0},{0xef,0xcf},{0xfd,0xdd},{0xfe,0xde},{0xff,'?'},{'a','A'}};
+    put(NAME,1,2); put(NAME+16,1,2);
+    for(unsigned i=0;i<sizeof pairs/sizeof pairs[0];++i) {
+        ram[TEXT]=pairs[i][0]; ram[TEXT+64]=pairs[i][1]; save();
+        assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && equal==1); unchanged();
+        assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,0,&equal) && !equal); unchanged();
+    }
+    ram[TEXT]=0xf7; ram[TEXT+64]=0xd7;
+    assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && !equal);
+    ram[TEXT]=ram[TEXT+64]=0; ram[TEXT+1]='x'; ram[TEXT+65]='y'; put(NAME,2,2); put(NAME+16,2,2);
+    assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && !equal);
+    ram[TEXT+65]='x'; assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,0,&equal) && equal==1);
+    put(NAME+4,0xfffffffc,4); put(NAME+16+4,0xfffffffc,4); put(NAME,1,2); put(NAME+16,2,2);
+    assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && !equal);
+    put(NAME,0,2); put(NAME+16,0,2); assert(!ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal) && equal==1);
+    put(NAME,1,2); put(NAME+16,1,2); equal=99; save();
+    assert(ff_equal_ansi_string(&memory,NAME,NAME+16,1,&equal)==FF_VM_ACCESS_VIOLATION && equal==99); unchanged();
+    assert(ff_equal_ansi_string(&memory,NAME+1,NAME+16,1,&equal)==FF_BOOT_INVALID && equal==99); unchanged();
+}
 int main(void)
 {
     directory_lifecycle(); disposition_and_parent_errors(); sharing_is_per_directory();
-    resource_failures_do_not_create_nodes(); input_and_memory_admission(); counted_string_initialization();
+    resource_failures_do_not_create_nodes(); input_and_memory_admission(); counted_string_initialization(); counted_string_equality();
     puts("Owned directory identity, create/open, handles, sharing, bounds and atomic-failure checks passed");
     return 0;
 }

@@ -47,6 +47,11 @@ uint32_t ff_namespace_init(ff_object_namespace *space, ff_virtual_memory *memory
     if (insert(space,1,"??",2,FF_NS_DIRECTORY,&id) || insert(space,1,"Device",6,FF_NS_DIRECTORY,&id)) return FF_BOOT_INVALID;
     return 0;
 }
+uint32_t ff_namespace_bind_files(ff_object_namespace *space, const ff_namespace_file_provider *provider, void *context)
+{
+    if (!space || !space->memory || space->file_provider || !provider || !provider->open || !provider->release || !context) return FF_BOOT_INVALID;
+    space->file_provider=provider; space->file_context=context; return 0;
+}
 uint32_t ff_namespace_resolve(const ff_object_namespace *space, const char *path, uint32_t bytes, ff_namespace_resolution *result)
 {
     if (!space || !space->memory || !result || !path_valid(path,bytes)) return FF_BOOT_UNSUPPORTED;
@@ -60,15 +65,15 @@ uint32_t ff_namespace_resolve(const ff_object_namespace *space, const char *path
         if (!object) return position == bytes ? FF_NS_NOT_FOUND : FF_NS_PATH_NOT_FOUND;
         if (position < bytes) ++position;
         if (object->kind == FF_NS_LINK) {
-            /* This admitted profile holds a direct device reference, not a
-             * host-path substitution or recursively interpreted target text. */
+            /* Hold the resolved object; leave any suffix for its provider.
+             * Target text is never recursively substituted into a host path. */
             const ff_namespace_object *target=NULL;
             for (unsigned i=0;i<FF_NS_OBJECTS;++i) if (space->objects[i].id == object->target) target=&space->objects[i];
-            if (!target || target->kind != FF_NS_DEVICE) return FF_BOOT_UNSUPPORTED;
+            if (!target || (target->kind != FF_NS_DEVICE && target->kind != FF_NS_FILE)) return FF_BOOT_UNSUPPORTED;
             object=target;
         }
         found=(ff_namespace_resolution){object->id,position,bytes-position};
-        if (object->kind == FF_NS_DEVICE) { *result=found; return 0; }
+        if (object->kind == FF_NS_DEVICE || object->kind == FF_NS_FILE) { *result=found; return 0; }
         if (object->kind != FF_NS_DIRECTORY) return FF_BOOT_UNSUPPORTED;
         parent=object->id;
     }
@@ -118,18 +123,42 @@ uint32_t ff_namespace_create_link(ff_object_namespace *space, uint32_t link_stri
     if (status) return status;
     status=read_string(space,target_string,target_name,&target_bytes);
     if (status) return status;
-    ff_namespace_resolution resolution;
+    ff_namespace_resolution resolution={0};
     status=ff_namespace_resolve(space,target_name,target_bytes,&resolution);
-    if (status) return status == FF_BOOT_UNSUPPORTED ? status : FF_BOOT_INVALID; /* Target resolution precedes creation. */
-    ff_namespace_object *target=find(space,resolution.object);
-    if (!target || target->kind != FF_NS_DEVICE || resolution.remaining_bytes) return FF_BOOT_UNSUPPORTED;
+    ff_namespace_object *target=status?NULL:find(space,resolution.object);
+    int new_file=0;
+    if ((status && status!=FF_BOOT_UNSUPPORTED && space->file_provider) ||
+        (!status && target && target->kind==FF_NS_FILE && resolution.remaining_bytes && space->file_provider)) {
+        uint32_t provider_object=0;
+        status=space->file_provider->open(space->file_context,space,target_name,target_bytes,&provider_object);
+        if (status) return status;
+        ff_namespace_object *slot=NULL;
+        for(unsigned i=0;i<FF_NS_OBJECTS;++i) if(!space->objects[i].id) { slot=&space->objects[i]; break; }
+        if(!slot || space->next_id==UINT32_MAX) {
+            uint32_t released=space->file_provider->release(space->file_context,provider_object);
+            return released?FF_BOOT_UNSUPPORTED:FF_BOOT_NO_MEMORY;
+        }
+        memset(slot,0,sizeof *slot); slot->id=space->next_id++; slot->kind=FF_NS_FILE;
+        slot->references=1; slot->provider_object=provider_object; ++space->count;
+        target=slot; new_file=1;
+    } else {
+        if (status) return status==FF_BOOT_UNSUPPORTED?status:FF_BOOT_INVALID;
+        if (!target || (target->kind!=FF_NS_DEVICE && target->kind!=FF_NS_FILE) || resolution.remaining_bytes) return FF_BOOT_UNSUPPORTED;
+        if (target->references==UINT32_MAX) return FF_BOOT_NO_MEMORY;
+    }
     uint32_t parent,start;
     status=parent_for(space,name,name_bytes,&parent,&start);
-    if (status) return status;
-    status=insert(space,parent,name+start,name_bytes-start,FF_NS_LINK,id);
-    if (status) return status;
+    if (!status) status=insert(space,parent,name+start,name_bytes-start,FF_NS_LINK,id);
+    if (status) {
+        if (new_file) {
+            if (space->file_provider->release(space->file_context,target->provider_object)) return FF_BOOT_UNSUPPORTED;
+            memset(target,0,sizeof *target); --space->count;
+        }
+        return status;
+    }
     ff_namespace_object *link=find(space,*id); link->target=target->id;
-    memcpy(link->target_name,target_name,target_bytes+1); ++target->references;
+    memcpy(link->target_name,target_name,target_bytes+1);
+    if(!new_file) ++target->references;
     return 0;
 }
 uint32_t ff_namespace_delete_link(ff_object_namespace *space, const char *path, uint32_t bytes)
@@ -141,8 +170,17 @@ uint32_t ff_namespace_delete_link(ff_object_namespace *space, const char *path, 
     if (!found) return FF_NS_NOT_FOUND;
     if (found->kind != FF_NS_LINK) return FF_BOOT_UNSUPPORTED;
     ff_namespace_object *target=find(space,found->target);
-    if (!target || target->references < 2) return FF_BOOT_UNSUPPORTED;
-    --target->references; memset(find(space,found->id),0,sizeof *found); --space->count;
+    if (!target || !target->references) return FF_BOOT_UNSUPPORTED;
+    if (target->kind==FF_NS_FILE) {
+        if (target->references==1) {
+            if (!space->file_provider || space->file_provider->release(space->file_context,target->provider_object)) return FF_BOOT_UNSUPPORTED;
+            memset(target,0,sizeof *target); --space->count;
+        } else --target->references;
+    } else {
+        if(target->kind!=FF_NS_DEVICE || target->references<2) return FF_BOOT_UNSUPPORTED;
+        --target->references;
+    }
+    memset(find(space,found->id),0,sizeof *found); --space->count;
     return 0;
 }
 uint32_t ff_namespace_remove_device(ff_object_namespace *space, uint32_t id)

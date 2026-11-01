@@ -1,5 +1,7 @@
 # Original title-data directories and next drive-link contract
 
+Later progress: [the file-target checkpoint](FILE_LINK_STARTUP_CHECKPOINT.md) implements the actual directory-backed link and observes the first helper return. Its regular metadata-file request supersedes this checkpoint's next task; evidence below remains historical.
+
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and all planned custom features. Original startup now creates its title-data directories in the explicit synthetic test volume. No playable screen, original save state, FATX persistence, complete runtime or fidelity acceptance is established.
 
 ## Observed original execution
