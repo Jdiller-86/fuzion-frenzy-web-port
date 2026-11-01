@@ -1,5 +1,7 @@
 # Original hexadecimal-format return and next startup dependency
 
+Later progress is recorded in [the directory checkpoint](DIRECTORY_STARTUP_CHECKPOINT.md): the next original helper now creates its title-data directories, then reaches the directory-backed `T:` link contract. This document preserves the earlier formatting case and limits.
+
 November 1, 2026. This advances the selected static recompilation of the original Xbox executable to WebAssembly. The complete original-game/browser/custom-feature goal remains active. No playable original screen, complete runtime, disc reads or fidelity acceptance follows from this startup case.
 
 ## Observed original execution

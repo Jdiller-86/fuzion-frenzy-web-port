@@ -45,6 +45,13 @@ export function parseLocalVolumeProfile(buffer) {
     availableAllocationUnits: available.toString(), sectorsPerAllocationUnit: sectors, bytesPerSector: bytes };
 }
 
+export function parseLocalDirectoryProfile(buffer) {
+  parseLocalVolumeProfile(buffer);
+  const state=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).volume.directoryState;
+  if(state!=='fresh') throw new Error('Select an explicit fresh synthetic directory state; no original save state is assumed');
+  return {synthetic:true,state:'fresh',persistent:false};
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -71,8 +78,8 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
@@ -92,7 +99,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
-  if ([5,6,7].includes(proofAbi)) {
+  if ([5,6,7,8].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes) || api.ff_probe_vm_map_image(profile.base, profile.headerBytes, 2)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }

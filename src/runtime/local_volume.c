@@ -41,6 +41,7 @@ uint32_t ff_volume_init(ff_local_volume *volume, ff_virtual_memory *memory, cons
         profile->total_units > UINT64_MAX / profile->sectors_per_unit / profile->bytes_per_sector) return FF_BOOT_INVALID;
     memset(volume, 0, sizeof *volume); volume->memory = memory; volume->profile = *profile;
     volume->next_handle = FF_VOLUME_HANDLE_BASE;
+    volume->directories[0].id = 1; volume->directory_count = 1;
     return 0;
 }
 int ff_volume_owns_handle(uint32_t handle)
@@ -71,7 +72,7 @@ uint32_t ff_volume_open_root(ff_local_volume *volume, const uint32_t args[6])
     if ((options & 0x41u) == 0x41u) return FF_BOOT_INVALID;
     if (relative) {
         if (!find(volume, relative)) return FF_BOOT_BAD_HANDLE;
-        if (length) return FF_BOOT_UNSUPPORTED;
+        if (length || find(volume, relative)->directory != 1) return FF_BOOT_UNSUPPORTED;
     } else {
         uint32_t count = length;
         if (count && get(volume, buffer + count - 1, 1) == '\\') --count;
@@ -85,13 +86,14 @@ uint32_t ff_volume_open_root(ff_local_volume *volume, const uint32_t args[6])
     if (options & 0x40u) return io_result(volume, iosb, FF_VOLUME_IS_DIRECTORY, 0);
     for (unsigned i = 0; i < FF_VOLUME_HANDLES; ++i) {
         const ff_volume_handle *old = &volume->handles[i];
-        if (old->handle && (((access & 0x21u) && !(old->share & 1u)) || ((old->access & 0x21u) && !(share & 1u))))
+        if (old->handle && old->directory == 1 && (((access & 0x21u) && !(old->share & 1u)) || ((old->access & 0x21u) && !(share & 1u)) ||
+            ((access & 6u) && !(old->share & 2u)) || ((old->access & 6u) && !(share & 2u))))
             return io_result(volume, iosb, FF_VOLUME_SHARING_VIOLATION, 0);
     }
     ff_volume_handle *slot = NULL;
     for (unsigned i = 0; i < FF_VOLUME_HANDLES; ++i) if (!volume->handles[i].handle) { slot = &volume->handles[i]; break; }
     if (!slot || volume->next_handle >= FF_VOLUME_HANDLE_LIMIT) return io_result(volume, iosb, FF_VOLUME_TOO_MANY_HANDLES, 0);
-    *slot = (ff_volume_handle){ volume->next_handle, access, share, options };
+    *slot = (ff_volume_handle){ volume->next_handle, access, share, options, 1 };
     volume->next_handle += 4; ++volume->active; ++volume->opened;
     put(volume, output, slot->handle, 4);
     return io_result(volume, iosb, 0, 1); /* FILE_OPENED */

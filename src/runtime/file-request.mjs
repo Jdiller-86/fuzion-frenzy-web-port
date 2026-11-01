@@ -37,3 +37,17 @@ export function inspectOpenFileRequest(ram, args, checkAccess) {
     ...name,
     ioStatusBlockPointer, shareAccess, openOptions, serviceImplemented: false };
 }
+
+export function inspectCreateFileRequest(ram, args, checkAccess) {
+  if (!Array.isArray(args) || args.length !== 9 || args.some(n => !Number.isInteger(n) || n < 0 || n > 0xffffffff)) {
+    throw new Error('Invalid create-file diagnostic input');
+  }
+  const request = inspectOpenFileRequest(ram, [...args.slice(0, 4), args[6], args[8]], checkAccess);
+  const allocationSizePointer = args[4];
+  let allocationBytes;
+  if (allocationSizePointer) {
+    admittedRange(ram, checkAccess, allocationSizePointer, 8, 4, 1);
+    allocationBytes = new DataView(ram.buffer, ram.byteOffset, ram.byteLength).getBigInt64(allocationSizePointer, true).toString();
+  }
+  return { ...request, allocationSizePointer, allocationBytes, fileAttributes:args[5], createDisposition:args[7] };
+}

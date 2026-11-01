@@ -1,7 +1,7 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, proofTraceCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
-import { inspectOpenFileRequest, inspectCountedAnsiString } from './file-request.mjs';
+import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from './file-request.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
@@ -9,11 +9,13 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
-    const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() === 7;
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+    const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
+    const directoryAbi = api.ff_probe_abi() === 8;
+    if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
     if (timerAbi && ['timer_count','timer_word','dpc_count','dpc_delivered','poll','dpc_recover'].some(name =>
       typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing timer proof ABI');
-    let consoleSettings, volumeProfile;
+    let consoleSettings, volumeProfile, directoryProfile;
     if (api.ff_probe_abi() >= 3) {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
@@ -23,6 +25,7 @@ self.onmessage = async event => {
     if (volumeAbi) {
       if (['volume_profile','volume_word','volume_handle_word'].some(name => typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing local volume ABI');
       volumeProfile = parseLocalVolumeProfile(event.data.settingsBytes);
+      if (directoryAbi) directoryProfile = parseLocalDirectoryProfile(event.data.settingsBytes);
       const total = BigInt(volumeProfile.totalAllocationUnits), available = BigInt(volumeProfile.availableAllocationUnits);
       if (api.ff_probe_volume_profile(Number(total & 0xffffffffn), Number(total >> 32n), Number(available & 0xffffffffn),
           Number(available >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector)) throw new Error('Cannot admit explicit local volume profile');
@@ -51,7 +54,7 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 202: 6, 218: 5, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 218: 5, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
@@ -65,6 +68,9 @@ self.onmessage = async event => {
         sizeWords:Array.from({length:6}, (_, n) => api.ff_probe_kernel_word(i, n + 9) >>> 0) };
       if (call.ordinal === 67 && !call.status) call.output = { link:api.ff_probe_kernel_word(i,4), target:api.ff_probe_kernel_word(i,5),
         targetReferences:api.ff_probe_kernel_word(i,6), deviceKind:api.ff_probe_kernel_word(i,7), mediaReady:api.ff_probe_kernel_word(i,8) };
+      if (call.ordinal === 190) call.output = { handle:api.ff_probe_kernel_word(i,11)>>>0, ioStatus:api.ff_probe_kernel_word(i,12)>>>0,
+        information:api.ff_probe_kernel_word(i,13), directories:api.ff_probe_kernel_word(i,14), created:api.ff_probe_kernel_word(i,15), active:api.ff_probe_kernel_word(i,16) };
+      if (call.ordinal === 289) call.output = {length:api.ff_probe_kernel_word(i,4),maximumLength:api.ff_probe_kernel_word(i,5),buffer:api.ff_probe_kernel_word(i,6)>>>0};
     });
     const thread = threads[0];
     if (!thread || thread.object < 0x03c00000 || thread.fs < thread.object || thread.fs + 64 > thread.stackLow ||
@@ -98,9 +104,11 @@ self.onmessage = async event => {
     const reachedFormatDependency = namespaceAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 2 &&
       state[1] === 0x338de && state[5] === 0x33c45 && calls.length === 16 && entered.includes(0x1e2433) &&
       trace.some(row=>row.kind==='exit' && row.address===0x1dee6e);
+    const reachedDirectoryLink = directoryAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
+      state[1] === 0xc000000d && state[2] === 67 && state[5] === 0x33c05 && calls.length === 22 && entered.includes(0x338de);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -113,7 +121,7 @@ self.onmessage = async event => {
         ram.slice(thread.tls + 4, thread.tls + 4 + profile.tls.zeroFillBytes).every(n => n === 0),
       twoArgumentSystemFrame: view.getUint32(thread.initialSp + 4, true) === REF.threadStart &&
         view.getUint32(thread.initialSp + 8, true) === 0 && thread.routine === REF.threadStart && thread.system === REF.systemStart,
-      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency
+      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink
     };
     if (beyondThreadEntry) {
       checks.originalThreadStartEntered = entered.includes(0x34198) && entered.includes(REF.threadStart);
@@ -163,10 +171,10 @@ self.onmessage = async event => {
           view.getUint8(thread.fs + 0x24) === 0 && view.getUint32(thread.fs + 0x58, true) === 0;
         checks.originalArmingWrapperReturned = trace.some(row => row.kind === 'exit' && row.address === 0x3467a) &&
           trace.some(row => row.kind === 'exit' && row.address === 0x346a7);
-        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency) && entered.includes(0x322ef);
+        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, localVolume, symbolicLinkRequest, objectNamespace, originalFormat;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, localVolume, symbolicLinkRequest, objectNamespace, originalFormat;
     if (typeof api.ff_probe_format_word==='function' && typeof api.ff_probe_format_byte==='function') {
       const words=Array.from({length:13},(_,i)=>api.ff_probe_format_word(i)>>>0);
       const text=(which,limit)=>{ let value=''; for(let i=0;i<limit;++i) { const byte=api.ff_probe_format_byte(which,i); if(!byte)return value;
@@ -174,7 +182,7 @@ self.onmessage = async event => {
       originalFormat={entries:words[0],exits:words[1],entryStack:words[2],destination:words[3],formatPointer:words[4],value:words[5],
         returnedBytes:words[6],validMask:words[7],entryFs:words[8],entryExceptionHead:words[9],exitStack:words[10],exitFs:words[11],exitExceptionHead:words[12],
         format:text(0,64),output:text(1,128)};
-      checks.originalHexFormatReturnedCorrectly = reachedFormatDependency && originalFormat.entries===1 && originalFormat.exits===1 &&
+      checks.originalHexFormatReturnedCorrectly = (reachedFormatDependency || reachedDirectoryLink) && originalFormat.entries===1 && originalFormat.exits===1 &&
         originalFormat.validMask===7 && originalFormat.value===0x4d530002 && originalFormat.format==='%08lx' && originalFormat.returnedBytes===8 &&
         originalFormat.output===originalFormat.value.toString(16).padStart(8,'0');
       checks.originalFormatStackAndSehRestored = originalFormat.entryStack===originalFormat.exitStack && originalFormat.entryFs===thread.fs &&
@@ -211,7 +219,7 @@ self.onmessage = async event => {
         objectNamespace.driveResolution.remainingOffset===7 && objectNamespace.driveResolution.remainingBytes===0;
       checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 && disc.mediaReady===0 && created?.output?.mediaReady===0 &&
         objectNamespace.objects.filter(row=>row.kind===2).every(row=>row.mediaReady===0);
-      checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency;
+      checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink;
     }
     const admittedGuestRange = (address, bytes, access) => {
       for (let page = Math.floor(address / 4096); page <= Math.floor((address + bytes - 1) / 4096); ++page) {
@@ -219,7 +227,10 @@ self.onmessage = async event => {
       }
       return true;
     };
-    if (volumeAbi && trapped && state[0] === 1 && state[2] === 67) {
+    if (namespaceAbi && trapped && [1,9].includes(state[0]) && state[2] === 190) {
+      createFileRequest = inspectCreateFileRequest(ram,state.slice(6,15),admittedGuestRange);
+    }
+    if (volumeAbi && trapped && [1,9].includes(state[0]) && state[2] === 67) {
       symbolicLinkRequest = { link:inspectCountedAnsiString(ram,state[6],admittedGuestRange),
         device:inspectCountedAnsiString(ram,state[7],admittedGuestRange), serviceImplemented:false };
     }
@@ -231,6 +242,18 @@ self.onmessage = async event => {
         bytesPerSector:api.ff_probe_volume_word(9), handles:Array.from({length:16}, (_, i) => ({handle:api.ff_probe_volume_handle_word(i,0),
           access:api.ff_probe_volume_handle_word(i,1), share:api.ff_probe_volume_handle_word(i,2), options:api.ff_probe_volume_handle_word(i,3)})).filter(row => row.handle) };
       if (localVolume.active > 16 || localVolume.opened > 32 || localVolume.closed > localVolume.opened) throw new Error('Invalid local volume counters');
+      if (directoryAbi) {
+        localVolume.directoryCount=api.ff_probe_volume_word(10); localVolume.directoriesCreated=api.ff_probe_volume_word(11);
+        localVolume.directories=Array.from({length:32},(_,i)=>{
+          let name='';
+          for(let n=0;n<64;++n) { const byte=api.ff_probe_directory_name(i,n); if(!byte)break;
+            if(byte<32 || byte>126)throw new Error('Invalid directory diagnostic name'); name+=String.fromCharCode(byte); }
+          return {id:api.ff_probe_directory_word(i,0),parent:api.ff_probe_directory_word(i,1),name};
+        }).filter(directory=>directory.id);
+        localVolume.handles.forEach((handle)=>{
+          for(let i=0;i<16;++i) if(api.ff_probe_volume_handle_word(i,0)===handle.handle) handle.directory=api.ff_probe_volume_handle_word(i,4);
+        });
+      }
       const open = calls[12], query = calls[13], close = calls[14], handle = open?.output?.handle;
       const entry = trace.find(row => row.address === 0x33794 && row.kind === 'enter');
       const returned = trace.find(row => row.address === 0x33794 && row.kind === 'exit');
@@ -246,11 +269,35 @@ self.onmessage = async event => {
         query.arguments[1] === open.arguments[3] && query.arguments[3] === 24 && query.arguments[4] === 3 &&
         query.output.ioStatus === 0 && query.output.information === 24 && query.output.sizeWords.every((n,i) => n === expectedSize[i]);
       checks.volumeRootHandleClosed = close?.ordinal === 187 && close.status === 0 && close.arguments[0] === handle &&
-        localVolume.opened === 1 && localVolume.closed === 1 && localVolume.active === 0 && localVolume.handles.length === 0;
+        localVolume.opened === (reachedDirectoryLink ? 3 : 1) && localVolume.closed === (reachedDirectoryLink ? 3 : 1) && localVolume.active === 0 && localVolume.handles.length === 0;
       checks.originalVolumeInitializerReturned = !!entry?.cpu && !!returned?.cpu && entry.stack === returned.stack &&
         entry.cpu.fs === thread.fs && returned.cpu.fs === entry.cpu.fs && returned.cpu.exceptionHead === entry.cpu.exceptionHead;
-      checks.nextOriginalDriveLinkReached = namespaceAbi ? (reachedNamespaceDependency || reachedFormatDependency) && calls[15]?.ordinal===67 && calls[15].status===0 :
+      checks.nextOriginalDriveLinkReached = namespaceAbi ? (reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink) && calls[15]?.ordinal===67 && calls[15].status===0 :
         reachedVolumeLifecycle && symbolicLinkRequest?.link.name === '\\??\\D:' && symbolicLinkRequest.device.name === '\\Device\\CdRom0' && symbolicLinkRequest.serviceImplemented === false;
+    }
+    if (directoryAbi) {
+      const first=calls[16], firstClose=calls[17], string=calls[18], title=calls[19], titleClose=calls[20], link=calls[21];
+      const root=localVolume.directories.find(directory=>directory.parent===0);
+      const data=localVolume.directories.find(directory=>directory.parent===root?.id && directory.name==='TDATA');
+      const owned=localVolume.directories.find(directory=>directory.parent===data?.id && directory.name===originalFormat?.output);
+      checks.explicitFreshDirectoryStateSelected = directoryProfile.synthetic===true && directoryProfile.state==='fresh' && directoryProfile.persistent===false;
+      checks.originalDirectoryHelperEntered = reachedDirectoryLink && !trace.some(row=>row.kind==='exit' && row.address===0x338de);
+      checks.originalDirectoryCreateArguments = [first,title].every((call,i)=>call?.ordinal===190 && call.status===0 &&
+        call.arguments[1]===[0x100001,0x120117][i] && call.arguments[4]===0 && call.arguments[5]===0x80 &&
+        call.arguments[6]===3 && call.arguments[7]===3 && call.arguments[8]===0x4021);
+      checks.ownedTitleDirectoriesCreated = localVolume.directoryCount===3 && localVolume.directoriesCreated===2 &&
+        localVolume.directories.length===3 && new Set(localVolume.directories.map(directory=>directory.id)).size===3 && !!root && !!data && !!owned &&
+        [first,title].every((call,i)=>call?.output?.ioStatus===0 && call.output.information===2 && call.output.directories===i+2 && call.output.created===i+1);
+      checks.directoryHandlesClosedAndNodesRetained = [firstClose,titleClose].every((call,i)=>call?.ordinal===187 && call.status===0 &&
+        call.arguments[0]===[first?.output?.handle,title?.output?.handle][i]) && first?.output?.handle!==title?.output?.handle &&
+        localVolume.active===0 && localVolume.handles.length===0 && localVolume.opened===3 && localVolume.closed===3 && !!data && !!owned;
+      checks.countedTitlePathUsesOriginalBuffer = string?.ordinal===289 && string.status===0 && string.output.length===43 && string.output.maximumLength===44 &&
+        string.output.buffer===string.arguments[1] && string.arguments[0]===symbolicLinkRequest?.device.nameDescriptorPointer &&
+        string.output.buffer===symbolicLinkRequest?.device.nameBuffer;
+      checks.directoryTargetDriveLinkStopped = reachedDirectoryLink && link?.ordinal===67 && link.status===0xc000000d &&
+        symbolicLinkRequest?.serviceImplemented===false && symbolicLinkRequest.link.name==='\\??\\T:' &&
+        symbolicLinkRequest.device.name==='\\Device\\Harddisk0\\partition1\\TDATA\\4d530002' && objectNamespace.count===5 &&
+        !objectNamespace.objects.some(object=>object.name==='T:');
     }
     if (memoryAbi) {
       const regionCount = api.ff_probe_vm_region_count();
@@ -317,10 +364,10 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
-      sourceSha256, moduleSha256, consoleSettings, volumeProfile, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
+      sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      trace, traceCapacity, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });

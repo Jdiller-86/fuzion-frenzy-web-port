@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, proofTraceCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, proofTraceCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
-import { inspectOpenFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
+import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -82,6 +82,29 @@ test('standalone counted namespace strings reject invalid descriptors and read p
   assert.throws(() => inspectCountedAnsiString(null,128,() => true));
 });
 
+test('create-file diagnostic uses nine Xbox arguments and reads optional signed allocation without writes', () => {
+  const {ram,view,name,args} = ownedOpenRequest();
+  const create = [...args.slice(0,4),256,0x80,args[4],3,args[5]];
+  view.setBigInt64(256,-0x100000001n,true);
+  const saved=ram.slice();
+  const result=inspectCreateFileRequest(ram,create,()=>true);
+  assert.equal(result.name,name); assert.equal(result.allocationBytes,'-4294967297');
+  assert.equal(result.fileAttributes,0x80); assert.equal(result.shareAccess,3);
+  assert.equal(result.createDisposition,3); assert.equal(result.openOptions,args[5]);
+  assert.equal(result.serviceImplemented,false); assert.deepEqual(ram,saved);
+  create[4]=0;
+  assert.equal(inspectCreateFileRequest(ram,create,()=>true).allocationBytes,undefined);
+  for(const bad of [create.slice(0,8),[...create,0],[...create.slice(0,8),0x100000000]]) {
+    assert.throws(()=>inspectCreateFileRequest(ram,bad,()=>true));
+  }
+  for(const pointer of [257,4092,0xfffffffc]) {
+    create[4]=pointer;
+    assert.throws(()=>inspectCreateFileRequest(ram,create,()=>true),/not admitted/);
+  }
+  create[4]=256;
+  assert.throws(()=>inspectCreateFileRequest(ram,create,(address)=>address!==256),/not admitted/);
+});
+
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
 });
@@ -140,6 +163,17 @@ test('volume settings require explicit synthetic capacity and geometry without u
   }
   assert.throws(() => parseLocalVolumeProfile(bytes(undefined)), /explicit synthetic volume/);
   assert.throws(() => parseLocalVolumeProfile(new ArrayBuffer(4097)));
+});
+
+test('directory state must be explicitly fresh and synthetic before original startup', () => {
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',
+    totalAllocationUnits:'65536',availableAllocationUnits:'65536',sectorsPerAllocationUnit:32,bytesPerSector:512};
+  const bytes=edit=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume:{...volume,...edit}})).buffer;
+  assert.deepEqual(parseLocalDirectoryProfile(bytes({directoryState:'fresh'})),{synthetic:true,state:'fresh',persistent:false});
+  for(const state of [undefined,null,false,'original','existing','',0]) {
+    assert.throws(()=>parseLocalDirectoryProfile(bytes({directoryState:state})),/explicit fresh synthetic directory state/);
+  }
+  assert.throws(()=>parseLocalDirectoryProfile(bytes({directoryState:'fresh',synthetic:false})),/explicit synthetic volume/);
 });
 
 test('clock samples separate monotonic duration from adjustable system time and write only the bounded output', () => {

@@ -63,6 +63,12 @@ static uint32_t misc_flags, misc_flags_ready;
 static ff_local_volume local_volume;
 static uint32_t volume_ready;
 #endif
+#ifdef FF_DIRECTORY_PROOF
+#ifndef FF_NAMESPACE_PROOF
+#error Directory proof retains the explicit volume and namespace contracts
+#endif
+#include "../../src/runtime/guest_strings.h"
+#endif
 #ifdef FF_NAMESPACE_PROOF
 static ff_object_namespace object_namespace;
 static uint32_t namespace_ready;
@@ -459,6 +465,36 @@ static void open_volume_root(void)
     if (!row[1]) { row[8] = MEM32(row[2]); row[9] = MEM32(row[5]); row[10] = MEM32(row[5] + 4); }
     g_eax = row[1]; g_esp += 28;
 }
+#ifdef FF_DIRECTORY_PROOF
+static void initialize_ansi_string(void)
+{
+    uint32_t *row = kernel_record(289, 2);
+    row[1] = ff_init_ansi_string(&virtual_memory,row[2],row[3]);
+    if (row[1]) stop(9,row[1],289);
+    row[4] = MEM16(row[2]); row[5] = MEM16(row[2]+2); row[6] = MEM32(row[2]+4);
+    g_esp += 12;
+}
+static void create_directory(void)
+{
+    uint32_t *row = kernel_record(190, 9);
+    if (!volume_ready) stop(9, 0, 190);
+    row[1] = ff_volume_create_directory(&local_volume, row + 2);
+    if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
+    if (!row[1]) { row[11] = MEM32(row[2]); row[12] = MEM32(row[5]); row[13] = MEM32(row[5] + 4); }
+    row[14] = local_volume.directory_count; row[15] = local_volume.directories_created; row[16] = local_volume.active;
+    g_eax = row[1]; g_esp += 40;
+}
+uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
+{
+    if (index >= FF_VOLUME_DIRECTORIES) return 0;
+    const ff_volume_directory *directory = &local_volume.directories[index];
+    return !field ? directory->id : field == 1 ? directory->parent : 0;
+}
+uint32_t ff_probe_directory_name(uint32_t index, uint32_t byte)
+{
+    return index < FF_VOLUME_DIRECTORIES && byte < FF_VOLUME_DIRECTORY_NAME ? (uint8_t)local_volume.directories[index].name[byte] : 0;
+}
+#endif
 #ifdef FF_VOLUME_QUERY_PROOF
 static void query_volume_size(void)
 {
@@ -489,14 +525,16 @@ uint32_t ff_probe_volume_word(uint32_t field)
         case 0: return volume_ready; case 1: return local_volume.active; case 2: return local_volume.opened; case 3: return local_volume.closed;
         case 4: return (uint32_t)local_volume.profile.total_units; case 5: return (uint32_t)(local_volume.profile.total_units >> 32);
         case 6: return (uint32_t)local_volume.profile.available_units; case 7: return (uint32_t)(local_volume.profile.available_units >> 32);
-        case 8: return local_volume.profile.sectors_per_unit; case 9: return local_volume.profile.bytes_per_sector; default: return 0;
+        case 8: return local_volume.profile.sectors_per_unit; case 9: return local_volume.profile.bytes_per_sector;
+        case 10: return local_volume.directory_count; case 11: return local_volume.directories_created; default: return 0;
     }
 }
 uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
 {
     if (index >= FF_VOLUME_HANDLES) return 0;
     const ff_volume_handle *handle = &local_volume.handles[index];
-    switch (field) { case 0: return handle->handle; case 1: return handle->access; case 2: return handle->share; case 3: return handle->options; default: return 0; }
+    switch (field) { case 0: return handle->handle; case 1: return handle->access; case 2: return handle->share; case 3: return handle->options;
+        case 4: return handle->directory; default: return 0; }
 }
 #endif
 static void enter_critical(void)
@@ -605,6 +643,10 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 149) return set_timer;
 #endif
 #ifdef FF_VOLUME_PROOF
+#ifdef FF_DIRECTORY_PROOF
+        if (ordinal == 190) return create_directory;
+        if (ordinal == 289) return initialize_ansi_string;
+#endif
         if (ordinal == 202) return open_volume_root;
 #ifdef FF_VOLUME_QUERY_PROOF
         if (ordinal == 218) return query_volume_size;
@@ -619,7 +661,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_NAMESPACE_PROOF
+#ifdef FF_DIRECTORY_PROOF
+    return 8;
+#elif defined(FF_NAMESPACE_PROOF)
     return 7;
 #elif defined(FF_VOLUME_PROOF)
     return 6;
