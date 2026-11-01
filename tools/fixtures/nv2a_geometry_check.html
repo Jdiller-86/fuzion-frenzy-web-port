@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Triangle geometry comparison</title>
+<style>
+body { font: 16px system-ui; max-width: 760px; margin: 36px auto; padding: 0 20px; color: #172033; }
+button { font: inherit; padding: 9px 18px; }
+canvas { display: block; width: 256px; height: 256px; margin: 20px 0; }
+pre { white-space: pre-wrap; background: #eef2f8; padding: 16px; border-radius: 6px; }
+</style>
+<h1>Triangle geometry comparison</h1>
+<p>This engineering check compares a browser geometry component with synthetic results from the pinned emulator's actual shader. It does not run an Xbox or Fuzion Frenzy.</p>
+<p>The arithmetic profile matches the measured software reference. Other primitives, original vertex/pixel shaders and game fidelity remain unverified.</p>
+<button id="run">Run comparison</button>
+<p id="status" role="status">Ready</p>
+<canvas id="canvas" width="128" height="128" aria-label="Synthetic geometry drawing"></canvas>
+<pre id="details"></pre>
+<script type="application/json" id="reference">__SYNTHETIC_REFERENCE__</script>
+<script src="check.js"></script>
+<script type="module">
+const status = document.getElementById('status'), details = document.getElementById('details');
+const reference = JSON.parse(document.getElementById('reference').textContent);
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+let wasm;
+const inputLayout = [[0,4,0],[1,1,4],[2,4,5],[3,4,9],[4,4,13],[5,4,17],[6,1,21],
+                     [7,4,22],[8,4,26],[9,4,30],[10,4,34],[11,4,38],[12,4,42],[13,4,46],[14,1,50]];
+const names = ['tfClip','tfPoint','vtxD0','vtxD1','vtxB0','vtxB1','vtxFog','vtxT0','vtxT1','vtxT2','vtxT3','vtxPos0','vtxPos1','vtxPos2','triMZ'];
+function program(smooth) {
+  const flat = smooth ? '' : 'flat ';
+  const vs = `#version 300 es
+precision highp float;
+layout(location=0) in vec4 aClip; layout(location=1) in float aPoint;
+layout(location=2) in vec4 aD0; layout(location=3) in vec4 aD1;
+layout(location=4) in vec4 aB0; layout(location=5) in vec4 aB1;
+layout(location=6) in float aFog; layout(location=7) in vec4 aT0;
+layout(location=8) in vec4 aT1; layout(location=9) in vec4 aT2; layout(location=10) in vec4 aT3;
+layout(location=11) in vec4 aP0; layout(location=12) in vec4 aP1; layout(location=13) in vec4 aP2;
+layout(location=14) in float aMZ;
+out vec4 tfClip; out float tfPoint;
+${flat}out vec4 vtxD0; ${flat}out vec4 vtxD1; ${flat}out vec4 vtxB0; ${flat}out vec4 vtxB1;
+out float vtxFog; out vec4 vtxT0; out vec4 vtxT1; out vec4 vtxT2; out vec4 vtxT3;
+flat out vec4 vtxPos0; flat out vec4 vtxPos1; flat out vec4 vtxPos2; flat out float triMZ;
+void main(){gl_Position=aClip;gl_PointSize=aPoint;tfClip=aClip;tfPoint=aPoint;
+vtxD0=aD0;vtxD1=aD1;vtxB0=aB0;vtxB1=aB1;vtxFog=aFog;
+vtxT0=aT0;vtxT1=aT1;vtxT2=aT2;vtxT3=aT3;
+vtxPos0=aP0;vtxPos1=aP1;vtxPos2=aP2;triMZ=aMZ;}`;
+  const fs = `#version 300 es
+precision highp float;
+${flat}in vec4 vtxD0; out vec4 color; void main(){color=vtxD0;}`;
+  const p = gl.createProgram();
+  for (const [type, source] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source); gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+    gl.attachShader(p, shader); gl.deleteShader(shader);
+  }
+  gl.transformFeedbackVaryings(p, names, gl.INTERLEAVED_ATTRIBS); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+document.getElementById('run').onclick = async event => {
+  event.target.disabled = true;
+  document.body.dataset.state = 'running'; status.textContent = 'Loading the geometry component…';
+  let input = 0, state = 0, output = 0, vao, sourceBuffer, resultBuffer, feedback;
+  const programs = [];
+  try {
+    if (!gl) throw new Error('WebGL 2 is unavailable');
+    if (reference.kind !== 'pinned-xemu-triangle-geometry-transform-feedback' ||
+        reference.inputStride !== 42 || reference.outputStride !== 51 ||
+        !Array.isArray(reference.records) || reference.records.length > 4096) throw new Error('Unexpected owned reference schema');
+    wasm ??= await Nv2aGeometry();
+    input = wasm._malloc(126 * 4); state = wasm._malloc(16); output = wasm._malloc(153 * 4);
+    if (!input || !state || !output) throw new Error('Geometry allocation failed');
+    programs.push(program(false), program(true));
+    vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    sourceBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, sourceBuffer);
+    for (const [location, size, offset] of inputLayout) {
+      gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location, size, gl.FLOAT, false, 204, offset * 4);
+    }
+    resultBuffer = gl.createBuffer(); gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, resultBuffer);
+    gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, 612, gl.DYNAMIC_READ);
+    feedback = gl.createTransformFeedback(); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, feedback);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, resultBuffer);
+    gl.enable(gl.RASTERIZER_DISCARD);
+    const result = new Uint32Array(153);
+    let compared = 0, cpuDifferences = 0, gpuDifferences = 0;
+    for (let index = 0; index < reference.records.length; index++) {
+      const record = reference.records[index];
+      if (record.input.length !== 126 || record.expected.length !== 153 || record.state.length !== 4) throw new Error('Invalid synthetic record');
+      wasm.HEAPU32.set(record.input, input >>> 2); wasm.HEAPU32.set(record.state, state >>> 2);
+      if (wasm._ff_nv2a_expand_triangle(input, state, output, 1)) throw new Error('Geometry rejected a reference state');
+      const computed = wasm.HEAPU32.subarray(output >>> 2, (output >>> 2) + 153);
+      for (let i = 0; i < 153; i++) if (computed[i] !== record.expected[i]) cpuDifferences++;
+      gl.useProgram(programs[record.state[0]]);
+      gl.bindBuffer(gl.ARRAY_BUFFER, sourceBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, wasm.HEAPU8.subarray(output, output + 612), gl.DYNAMIC_DRAW);
+      gl.beginTransformFeedback(gl.TRIANGLES); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.endTransformFeedback();
+      gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, resultBuffer); gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, result);
+      for (let i = 0; i < 153; i++) if (result[i] !== record.expected[i]) gpuDifferences++;
+      if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL transform-feedback error');
+      compared += 153;
+      if (index % 64 === 0) {
+        status.textContent = `Compared ${index + 1} / ${reference.records.length} triangle cases`;
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+    gl.disable(gl.RASTERIZER_DISCARD); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    // A source-owned visible triangle confirms that the same attribute path draws.
+    const demo = new Float32Array(126);
+    const clips = [[-.8,-.6,0,1],[.8,-.6,0,1],[0,.8,0,1]];
+    for (let i = 0; i < 3; i++) {
+      demo.set(clips[i], i * 42); demo[i*42+4] = 1;
+      demo[i*42+5+i] = 1; demo[i*42+8] = 1;
+      demo.set([i === 1 ? 1 : 0, i === 2 ? 1 : 0, 0, 1], i*42+38);
+    }
+    wasm.HEAPF32.set(demo, input >>> 2); wasm.HEAPU32.set([1,0,0,0], state >>> 2);
+    if (wasm._ff_nv2a_expand_triangle(input, state, output, 1)) throw new Error('Visible triangle rejected');
+    gl.useProgram(programs[1]); gl.bindBuffer(gl.ARRAY_BUFFER, sourceBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, wasm.HEAPU8.subarray(output, output + 612), gl.DYNAMIC_DRAW);
+    gl.viewport(0, 0, 128, 128); gl.clearColor(.05,.06,.09,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES, 0, 3);
+    const pixel = new Uint8Array(4); gl.readPixels(64,64,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+    if (gl.getError() !== gl.NO_ERROR || pixel[3] !== 255 || pixel[0] + pixel[1] + pixel[2] < 200) throw new Error('Visible triangle pixel check failed');
+    const passed = cpuDifferences === 0 && gpuDifferences === 0;
+    const report = { records: reference.records.length, comparedScalars: compared, cpuDifferences, gpuDifferences,
+      arithmetic: 'measured separate profile', pixel: Array.from(pixel), originalGameExecuted: false };
+    details.textContent = JSON.stringify(report, null, 2);
+    document.body.dataset.state = passed ? 'passed' : 'differences';
+    status.textContent = passed ? `${reference.records.length} cases matched exactly through Wasm and WebGL2` : 'Geometry differences remain';
+  } catch (error) {
+    document.body.dataset.state = 'failed'; status.textContent = String(error);
+  } finally {
+    if (gl) {
+      gl.disable(gl.RASTERIZER_DISCARD); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+      if (feedback) gl.deleteTransformFeedback(feedback);
+      if (sourceBuffer) gl.deleteBuffer(sourceBuffer); if (resultBuffer) gl.deleteBuffer(resultBuffer);
+      if (vao) gl.deleteVertexArray(vao); for (const p of programs) gl.deleteProgram(p);
+    }
+    if (wasm) { if (input) wasm._free(input); if (state) wasm._free(state); if (output) wasm._free(output); }
+    event.target.disabled = false;
+  }
+};
+</script>
+</html>

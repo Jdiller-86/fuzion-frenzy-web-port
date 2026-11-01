@@ -2,7 +2,7 @@
 
 **Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
 
-Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). SDL3 now builds for Wasm; a synthetic browser check verifies graphics readback, keyboard input and silent audio callbacks. The actual xemu build still stops at its desktop OpenGL dependency. Original-game execution remains unimplemented.
+Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). SDL3 browser support is checked, and a [filled-triangle geometry component](docs/NV2A_GEOMETRY_CHECKPOINT.md) matches 960 synthetic shader cases through Wasm and WebGL2 under the measured reference profile. The actual xemu build still stops at its desktop OpenGL dependency; the component is not integrated. Original-game execution remains unimplemented.
 
 Independent development of a faithful browser-playable reconstruction of the original Xbox game, with online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies.
 

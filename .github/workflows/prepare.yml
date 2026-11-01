@@ -23,6 +23,11 @@ jobs:
       - run: npm run test:formats
       - run: python -m py_compile tools/probe-browser-build.py
       - run: npm run test:runtime
+      - name: Check triangle geometry (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_triangle_test.c src/runtime/nv2a_triangle.c -lm -o "$RUNNER_TEMP/nv2a-triangle-check"
+          "$RUNNER_TEMP/nv2a-triangle-check"
       - run: npm run test:gameplay
       - run: npm run build
       - run: npm run check:environment

@@ -11,7 +11,7 @@ const files = new Map([
   ['/check.wasm', ['check.wasm', 'application/wasm']]
 ]);
 
-/** Serves only the four generated, synthetic SDL fixture outputs. No uploads. */
+/** Serves only four generated, synthetic Wasm fixture outputs. No uploads. */
 export function createSdlCheckServer(attempt) {
   if (!/^[a-zA-Z0-9_-]{1,64}$/.test(attempt ?? '')) throw new Error('Invalid fixture attempt');
   const directory = path.join(root, `sdl-browser-${attempt}`);
@@ -43,6 +43,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const port = Number(args[3]);
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid loopback port');
   createSdlCheckServer(args[1]).listen(port, '127.0.0.1', () => {
-    console.log(`Synthetic SDL dependency check: http://127.0.0.1:${port}/ (PID ${process.pid})`);
+    console.log(`Synthetic Wasm dependency check: http://127.0.0.1:${port}/ (PID ${process.pid})`);
   });
 }
