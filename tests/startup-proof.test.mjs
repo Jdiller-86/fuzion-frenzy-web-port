@@ -6,6 +6,7 @@ import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
 import { loadLocalTitleProof, parseLocalConsoleSettings } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
+import { inspectOpenFileRequest } from '../src/runtime/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -17,6 +18,61 @@ const section = (id, bytes) => [id, ...uint(bytes.length), ...bytes];
 const memory = (minimum = 1, maximum = PROOF_MEMORY_PAGES, flags = 1, count = 1) =>
   section(5, [count, flags, ...uint(minimum), ...uint(maximum)]);
 const module = (...sections) => Uint8Array.from([...header, ...sections.flat()]).buffer;
+
+function ownedOpenRequest() {
+  const ram = new Uint8Array(4096), view = new DataView(ram.buffer);
+  const name = '\\Device\\OwnedVolume';
+  ram.set(new TextEncoder().encode(name), 192);
+  view.setUint32(84, 128, true); view.setUint32(88, 0x40, true);
+  view.setUint16(128, name.length, true); view.setUint16(130, name.length + 1, true);
+  view.setUint32(132, 192, true);
+  return { ram, view, name, args: [64, 0x100001, 80, 96, 3, 0x21] };
+}
+
+test('file request diagnostic preserves counted ANSI bytes, six arguments and guest memory without opening anything', () => {
+  const { ram, view, name, args } = ownedOpenRequest(), accesses = [];
+  const saved = ram.slice();
+  const request = inspectOpenFileRequest(ram, args, (address, bytes, mode) => { accesses.push([address, bytes, mode]); return true; });
+  assert.equal(request.name, name); assert.equal(request.rootDirectory, 0);
+  assert.equal(request.attributes, 0x40); assert.equal(request.desiredAccess, args[1]);
+  assert.equal(request.serviceImplemented, false);
+  assert.deepEqual(accesses, [[64, 4, 2], [96, 8, 2], [80, 12, 1], [128, 8, 1], [192, name.length, 1]]);
+  assert.deepEqual(ram, saved);
+  ram[192] = 0xff;
+  assert.equal(inspectOpenFileRequest(ram, args, () => true).name.charCodeAt(0), 255);
+  view.setUint32(80, 123, true); view.setUint16(128, 0, true); view.setUint32(132, 0, true);
+  assert.equal(inspectOpenFileRequest(ram, args, () => true).name, '');
+  assert.equal(inspectOpenFileRequest(ram, args, () => true).rootDirectory, 123);
+});
+
+test('file request diagnostic rejects overflow, unaligned outputs, missing memory permissions and wrong argument counts', () => {
+  const { ram, args } = ownedOpenRequest();
+  for (const bad of [args.slice(0, 5), [...args, 0], [null, ...args.slice(1)],
+    [-1, ...args.slice(1)], [1.5, ...args.slice(1)], [0x100000000, ...args.slice(1)]]) {
+    assert.throws(() => inspectOpenFileRequest(ram, bad, () => true));
+  }
+  for (const [index, value] of [[0, 0], [0, 65], [0, 4096], [2, 0xfffffffc], [3, 4092]]) {
+    const bad = [...args]; bad[index] = value;
+    assert.throws(() => inspectOpenFileRequest(ram, bad, () => true), /not admitted/);
+  }
+  for (const denied of [1, 2]) assert.throws(() => inspectOpenFileRequest(ram, args, (_a, _n, mode) => mode !== denied), /not admitted/);
+  assert.throws(() => inspectOpenFileRequest(ram, args));
+});
+
+test('file request diagnostic bounds string descriptors and lengths and rejects embedded NUL', () => {
+  for (const mutate of [
+    ({ view }) => view.setUint32(84, 4092, true),
+    ({ view }) => view.setUint32(84, 129, true),
+    ({ view }) => view.setUint16(130, 1, true),
+    ({ view }) => { view.setUint16(128, 1025, true); view.setUint16(130, 1025, true); },
+    ({ view }) => view.setUint32(132, 0xfffffff0, true),
+    ({ view }) => view.setUint32(132, 4090, true),
+    ({ ram }) => { ram[193] = 0; }
+  ]) {
+    const fixture = ownedOpenRequest(); mutate(fixture);
+    assert.throws(() => inspectOpenFileRequest(fixture.ram, fixture.args, () => true));
+  }
+});
 
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
@@ -147,7 +203,8 @@ test('startup host serves only owned source and rejects original modules, files,
     req.on('error', reject); req.end(body);
   });
   for (const url of ['/', '/thread', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs',
-    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/copy-proof.mjs', '/src/runtime/thread-proof-worker.mjs']) {
+    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/copy-proof.mjs',
+    '/src/runtime/file-request.mjs', '/src/runtime/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
     assert.ok(response.body.length > 100);

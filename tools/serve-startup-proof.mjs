@@ -11,6 +11,7 @@ const files = new Map([
   ['/src/runtime/local-title-proof.mjs', ['src/runtime/local-title-proof.mjs', 'text/javascript']],
   ['/src/runtime/browser-clock.mjs', ['src/runtime/browser-clock.mjs', 'text/javascript']],
   ['/src/runtime/copy-proof.mjs', ['src/runtime/copy-proof.mjs', 'text/javascript']],
+  ['/src/runtime/file-request.mjs', ['src/runtime/file-request.mjs', 'text/javascript']],
   ['/src/runtime/thread-proof-worker.mjs', ['src/runtime/thread-proof-worker.mjs', 'text/javascript']],
   ['/src/runtime/wasm-proof.mjs', ['src/runtime/wasm-proof.mjs', 'text/javascript']],
   ['/src/runtime/startup-proof-worker.mjs', ['src/runtime/startup-proof-worker.mjs', 'text/javascript']]

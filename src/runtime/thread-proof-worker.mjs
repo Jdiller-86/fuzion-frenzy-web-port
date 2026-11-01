@@ -1,6 +1,7 @@
 import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
+import { inspectOpenFileRequest } from './file-request.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
@@ -28,8 +29,11 @@ self.onmessage = async event => {
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
     if (count > 64 || threadCount > 4 || callCount > 16) throw new Error('Invalid boot-proof counts');
     const words = new Uint32Array(memory, range(api.ff_probe_trace(), count * 12, 4), count * 3);
+    const hasCpuTrace = typeof api.ff_probe_trace_cpu === 'function';
     const trace = Array.from({ length: count }, (_, i) => ({ kind: words[i * 3] === 1 ? 'enter' : 'exit',
-      address: words[i * 3 + 1], stack: words[i * 3 + 2] }));
+      address: words[i * 3 + 1], stack: words[i * 3 + 2], ...(hasCpuTrace ? { cpu: {
+        eax: api.ff_probe_trace_cpu(i, 0) >>> 0, fs: api.ff_probe_trace_cpu(i, 1) >>> 0,
+        exceptionHead: api.ff_probe_trace_cpu(i, 2) >>> 0 } } : {}) }));
     const state = Array.from(new Uint32Array(memory, range(api.ff_probe_state(), 64, 4), 16));
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
@@ -64,9 +68,12 @@ self.onmessage = async event => {
       state.slice(6, 11).every((n, i) => n === [62983944, 0, 62983988, 8192, 4][i]);
     const reachedHeapDependency = memoryAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 2 &&
       state[1] === 0x31da0 && state[5] === 0x32696 && calls.length === 12;
+    const reachedFileRequest = memoryAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 1 && state[2] === 202 &&
+      Number.isInteger(bindingIndex) && bindingIndex >= 0 && bindingIndex < api.ff_probe_binding_count() &&
+      api.ff_probe_binding_ordinal(bindingIndex) === 202 && state[5] === 0x337ca && calls.length === 12 && entered.includes(0x33794);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (reachedHeapDependency ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -79,7 +86,7 @@ self.onmessage = async event => {
         ram.slice(thread.tls + 4, thread.tls + 4 + profile.tls.zeroFillBytes).every(n => n === 0),
       twoArgumentSystemFrame: view.getUint32(thread.initialSp + 4, true) === REF.threadStart &&
         view.getUint32(thread.initialSp + 8, true) === 0 && thread.routine === REF.threadStart && thread.system === REF.systemStart,
-      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency
+      explicitNextUnsupportedStop: (trapped && state[0] === 2 && (state[1] === 0x34198 || reachedThreadEntry)) || reachedTimerRequest || reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest
     };
     if (beyondThreadEntry) {
       checks.originalThreadStartEntered = entered.includes(0x34198) && entered.includes(REF.threadStart);
@@ -129,10 +136,10 @@ self.onmessage = async event => {
           view.getUint8(thread.fs + 0x24) === 0 && view.getUint32(thread.fs + 0x58, true) === 0;
         checks.originalArmingWrapperReturned = trace.some(row => row.kind === 'exit' && row.address === 0x3467a) &&
           trace.some(row => row.kind === 'exit' && row.address === 0x346a7);
-        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency) && entered.includes(0x322ef);
+        checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest;
     if (memoryAbi) {
       const regionCount = api.ff_probe_vm_region_count();
       if (regionCount > 128) throw new Error('Invalid virtual-memory region count');
@@ -159,6 +166,23 @@ self.onmessage = async event => {
         view.getUint32(ca + 8, true) === ca + 8 && view.getUint32(ca + 12, true) === ca + 8 &&
         view.getInt32(ca + 16, true) === -1 && view.getUint32(ca + 20, true) === 0 && view.getUint32(ca + 24, true) === 0;
       checks.checkedAccessesHadNoBootFault = virtualMemory.checkedAccesses > 0 && virtualMemory.fault.every(word => word === 0);
+      if (reachedFileRequest) {
+        const heapEnter = trace.find(row => row.address === 0x322ef && row.kind === 'enter');
+        const heapExit = trace.find(row => row.address === 0x322ef && row.kind === 'exit');
+        heapProof = { entry: heapEnter, returned: heapExit };
+        checks.originalHeapConstructorReturned = !!heapExit?.cpu && heapExit.cpu.eax === base;
+        checks.originalHeapStackAndSehRestored = !!heapEnter?.cpu && !!heapExit?.cpu && heapEnter.cpu.fs === thread.fs &&
+          heapExit.cpu.fs === heapEnter.cpu.fs && heapExit.cpu.exceptionHead === heapEnter.cpu.exceptionHead && heapExit.stack === heapEnter.stack;
+        checks.originalHeapSupportReturned = [0x31da0, 0x3139a, 0x31259, 0x3185d, 0x1e0505].every(address =>
+          trace.some(row => row.kind === 'exit' && row.address === address));
+        openFileRequest = inspectOpenFileRequest(ram, state.slice(6, 12), (address, bytes, access) => {
+          for (let page = Math.floor(address / 4096); page <= Math.floor((address + bytes - 1) / 4096); ++page) {
+            if (!api.ff_probe_vm_page_word(page * 4096, 1) || (api.ff_probe_vm_page_word(page * 4096, 2) & access) !== access) return false;
+          }
+          return true;
+        });
+        checks.boundedFileRequestDecoded = true;
+      }
     }
     if (reachedAllocation) {
       for (const pointer of [state[6], state[8]]) {
@@ -186,10 +210,10 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
       sourceSha256, moduleSha256, consoleSettings, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, tlsSelfReference: view.getUint32(thread.tls, true),
+      trace, calls, threads, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });

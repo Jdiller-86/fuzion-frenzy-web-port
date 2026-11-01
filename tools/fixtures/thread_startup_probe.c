@@ -42,6 +42,7 @@ volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
+static uint32_t probe_cpu_trace[64 * 3];
 static uint32_t kernel_calls[16][12], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
@@ -157,6 +158,15 @@ static void trace(uint32_t kind, uint32_t address)
     if (probe_trace_count == 64) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
     probe_trace[i] = kind; probe_trace[i + 1] = address; probe_trace[i + 2] = g_esp;
+    probe_cpu_trace[i] = g_eax; probe_cpu_trace[i + 1] = g_fs_base;
+    if (g_fs_base) {
+        if ((g_fs_base & 3u) || g_fs_base > FF_GUEST_BYTES - 4u) stop(9, g_fs_base, 0);
+#ifdef FF_VM_PROOF
+        probe_cpu_trace[i + 2] = FF_MEMORY_U32(g_fs_base, FF_VM_READ);
+#else
+        probe_cpu_trace[i + 2] = MEM32(g_fs_base);
+#endif
+    } else probe_cpu_trace[i + 2] = UINT32_MAX;
 }
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
@@ -444,6 +454,9 @@ uint32_t ff_probe_entry(void) { return FF_ENTRY_ADDRESS; }
 uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
 uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
+uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
+    return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
+}
 uint32_t ff_probe_binding_count(void) { return FF_KERNEL_BINDING_COUNT; }
 uint32_t ff_probe_binding_slot(uint32_t i) { return i < FF_KERNEL_BINDING_COUNT ? bindings[i].slot : 0; }
 uint32_t ff_probe_binding_ordinal(uint32_t i) { return i < FF_KERNEL_BINDING_COUNT ? bindings[i].ordinal : 0; }
@@ -465,6 +478,7 @@ uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 void ff_probe_reset(void)
 {
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
+    memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
