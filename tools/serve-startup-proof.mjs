@@ -6,7 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const files = new Map([
   ['/', ['tools/fixtures/local_startup_check.html', 'text/html; charset=utf-8']],
+  ['/thread', ['tools/fixtures/thread_startup_check.html', 'text/html; charset=utf-8']],
   ['/src/xbe.mjs', ['src/xbe.mjs', 'text/javascript']],
+  ['/src/runtime/local-title-proof.mjs', ['src/runtime/local-title-proof.mjs', 'text/javascript']],
+  ['/src/runtime/thread-proof-worker.mjs', ['src/runtime/thread-proof-worker.mjs', 'text/javascript']],
   ['/src/runtime/wasm-proof.mjs', ['src/runtime/wasm-proof.mjs', 'text/javascript']],
   ['/src/runtime/startup-proof-worker.mjs', ['src/runtime/startup-proof-worker.mjs', 'text/javascript']]
 ]);

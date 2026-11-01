@@ -1,5 +1,7 @@
 # Original startup execution checkpoint
 
+Later November 1 progress: [original thread-start entry is now reached](THREAD_STARTUP_CHECKPOINT.md) after implemented boot-thread/handle/TLS/locking behavior. The stop-only proof below remains preserved and its six checks still pass; its old next-task paragraph is superseded by that newer checkpoint. No playable original-game screen or full runtime has been delivered.
+
 November 1, 2026: privately recompiled original startup code executed in a browser worker, using the player-selected local executable. It entered the original entry point and thread-creation wrapper, initialized the observed TLS globals and deliberately stopped at the first unsupported kernel call. **The game has not booted; no original controllable screen, full runtime or fidelity acceptance is claimed.** The full original-game and custom-feature objective remains active.
 
 ## Observations and acceptance

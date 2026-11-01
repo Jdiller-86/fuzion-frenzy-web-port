@@ -21,6 +21,28 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def function_envelope(item):
+    """Validate declared body membership separately from the translated span."""
+    if not item.get("established") or item.get("external") or item.get("thunk"):
+        raise ValueError("Only established local functions are admitted")
+    start = int(item["entry"], 16)
+    ranges = [(int(r["start"], 16), int(r["endInclusive"], 16) + 1) for r in item["bodyRanges"]]
+    if not ranges or ranges[0][0] != start:
+        raise ValueError("Function body must start at its entry")
+    previous, body_bytes = start, 0
+    for low, high in ranges:
+        if low < previous or high <= low:
+            raise ValueError("Unordered, overlapping or empty function body ranges")
+        body_bytes += high - low
+        previous = high
+    end = ranges[-1][1]
+    if not 0 < end - start <= 65536 or item["bodyBytes"] != body_bytes:
+        raise ValueError("Unsupported function body size")
+    if len(ranges) > 1 and item.get("envelopeBytes") != end - start:
+        raise ValueError("Split functions require an explicitly exported full envelope")
+    return start, end
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
@@ -70,7 +92,10 @@ def main():
     from tools.recomp import config
     from tools.recomp.translator import FunctionTranslator
 
-    out = research / "verification" / ("recomp-title-" + args.attempt)
+    verification = (research / "verification").resolve(strict=True)
+    if not verification.is_relative_to(research):
+        parser.error("Verification output must remain inside private research")
+    out = verification / ("recomp-title-" + args.attempt)
     if out.exists():
         parser.error("Attempt exists; preserve previous evidence")
     def original_bytes(address, size):
@@ -85,13 +110,12 @@ def main():
     imports = {entry["address"]: entry["ordinal"] for entry in profile["imports"]}
     instruction_count = 0
     for item in functions_in:
-        if not item.get("established") or item.get("external") or item.get("thunk") or len(item["bodyRanges"]) != 1:
-            parser.error("Only exact established contiguous local functions are admitted in this proof")
-        start = int(item["entry"], 16)
-        bounds = item["bodyRanges"][0]
-        end = int(bounds["endInclusive"], 16) + 1
-        if int(bounds["start"], 16) != start or not 0 < end - start <= 65536 or item["bodyBytes"] != end - start:
-            parser.error("Unsupported function body range")
+        try:
+            start, end = function_envelope(item)
+        except (KeyError, TypeError, ValueError) as error:
+            parser.error(str(error))
+        if any(start < info["end"] and address < end for address, info in functions.items()):
+            parser.error("Selected function envelopes overlap")
         cursor = start
         rows = item.get("instructions", [])
         if not rows or len(rows) > 4096:
@@ -114,7 +138,7 @@ def main():
         if cursor != end:
             parser.error("Instruction listing does not cover the complete selected body")
         instruction_count += len(rows)
-        functions[start] = {"name": f"ff_title_{start:08X}", "end": end, "size": end - start,
+        functions[start] = {"name": f"ff_title_{start:08X}", "end": end, "size": end - start, "bodyBytes": item["bodyBytes"],
                             "method": "entry_point" if start == profile["entry"] else "call_target"}
     if instruction_count > 8192 or profile["entry"] not in functions:
         parser.error("Include the actual entry within the bounded instruction budget")
@@ -154,7 +178,8 @@ def main():
             file.write(text)
     report = {"kind": "bounded-original-startup-recompilation", "sourceSha256": sha, "toolkitCommit": pin["commit"],
               "seedSha256": digest(metadata[1]), "metadataSha256": digest(metadata[0]),
-              "functions": [{"entry": address, "bytes": info["size"]} for address, info in functions.items()],
+              "functions": [{"entry": address, "bytes": info["size"], "bodyBytes": info["bodyBytes"]} for address, info in functions.items()],
+              "recognizedSehPrologs": sorted(translator.lifter.SEH_PROLOGS),
               "instructions": instruction_count, "originalBytesMatchGhidra": True, "decoderBoundariesAgree": True,
               "untranslatedDirectTargets": boundaries,
               "kernelBindings": [{"slot": slot, "ordinal": ordinal} for slot, ordinal in sorted(bindings.items())],

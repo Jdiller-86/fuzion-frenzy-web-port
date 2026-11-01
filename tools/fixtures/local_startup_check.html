@@ -37,10 +37,11 @@ run.onclick = async () => {
     if (generation !== current) return;
     status.textContent = 'Validating local files and running original startup…';
     worker = new Worker('/src/runtime/startup-proof-worker.mjs', { type: 'module' });
-    const finishError = message => { release(); document.body.dataset.state = 'failed'; status.textContent = message; };
+    const finishError = message => { if (generation !== current) return; release(); document.body.dataset.state = 'failed'; status.textContent = message; };
     timer = setTimeout(() => finishError('The bounded worker timed out and was stopped'), 15000);
     worker.onerror = event => finishError(event.message);
     worker.onmessage = event => {
+      if (generation !== current) return;
       if (event.data.kind === 'error') return finishError(event.data.message);
       const result = event.data; release();
       details.textContent = JSON.stringify(result, null, 2);

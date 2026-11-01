@@ -1,5 +1,7 @@
 # Native web port feasibility checkpoint
 
+Latest evidence: [the original thread-entry checkpoint](THREAD_STARTUP_CHECKPOINT.md) advances beyond the synthetic fixture and kernel-255 stop below. Eight functions / 225 instructions translate; seven original routines reach thread-start entry and pass ten browser checks before untranslated `0x00033ccc`. Original CRT/startup bring-up is next. No playable game, general scheduler, full runtime or browser-local end-user converter is delivered; the full objective remains unchanged.
+
 November 1, 2026: the user confirmed no local MCPX boot ROM or Xbox BIOS and asked about an actual native web port. The target remains the complete original game executing entirely in the browser with all planned additional features. No firmware was acquired. This assessment changes the next investigation, not the acceptance standard or a final architecture selection.
 
 Later bounded result: [original startup executes in a browser worker](ORIGINAL_STARTUP_CHECKPOINT.md), reaches the entry and thread wrapper, initializes TLS and stops explicitly at unsupported kernel 255. Six checks and rejection/Clear/recovery pass. This supersedes the next-function investigation below; the owned arithmetic fixture remains supporting evidence. No playable screen or complete runtime/converter is delivered. Next is the actual thread-creation/TLS/scheduling contract.

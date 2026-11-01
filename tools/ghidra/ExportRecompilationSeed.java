@@ -1,6 +1,7 @@
 // Read-only, bounded function evidence for a local recompilation proof.
 // Original instruction bytes/text are written only to a new ignored research file.
 import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.AddressSet;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.nio.file.Files;
@@ -54,8 +55,17 @@ public class ExportRecompilationSeed extends GhidraScript {
                 ranges.add(r);
             }
             item.add("bodyRanges", ranges);
+            var first = function.getBody().getMinAddress();
+            var last = function.getBody().getMaxAddress();
+            long envelopeBytes = last.subtract(first) + 1;
+            if (!first.equals(function.getEntryPoint()) || envelopeBytes > 65536) {
+                throw new IllegalArgumentException("Unsupported function envelope");
+            }
+            item.addProperty("envelopeBytes", envelopeBytes);
             var instructions = new JsonArray();
-            var listing = currentProgram.getListing().getInstructions(function.getBody(), true);
+            // Include already-decoded code between split body ranges. The consumer
+            // rejects any undecoded gap, byte mismatch or overlapping envelope.
+            var listing = currentProgram.getListing().getInstructions(new AddressSet(first, last), true);
             int count = 0;
             while (listing.hasNext()) {
                 if (monitor.isCancelled()) throw new IllegalStateException("Cancelled");

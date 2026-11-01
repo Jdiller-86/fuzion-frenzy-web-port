@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
+import { loadLocalTitleProof } from '../src/runtime/local-title-proof.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -14,6 +15,10 @@ const section = (id, bytes) => [id, ...uint(bytes.length), ...bytes];
 const memory = (minimum = 1, maximum = PROOF_MEMORY_PAGES, flags = 1, count = 1) =>
   section(5, [count, flags, ...uint(minimum), ...uint(maximum)]);
 const module = (...sections) => Uint8Array.from([...header, ...sections.flat()]).buffer;
+
+test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
+  await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
+});
 
 test('proof admission accepts bounded memory and leaves full Wasm validation to the engine', () => {
   const bytes = module(memory());
@@ -62,7 +67,8 @@ test('startup host serves only owned source and rejects original modules, files,
     });
     req.on('error', reject); req.end(body);
   });
-  for (const url of ['/', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs']) {
+  for (const url of ['/', '/thread', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs',
+    '/src/runtime/local-title-proof.mjs', '/src/runtime/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
     assert.ok(response.body.length > 100);
