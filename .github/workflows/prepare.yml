@@ -22,6 +22,7 @@ jobs:
       - run: npm run check
       - run: npm run test:formats
       - run: python -m py_compile tools/probe-browser-build.py
+      - run: npm run test:runtime
       - run: npm run test:gameplay
       - run: npm run build
       - run: npm run check:environment

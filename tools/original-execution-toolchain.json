@@ -17,6 +17,11 @@
       "repository": "https://gitlab.com/qemu-project/keycodemapdb.git",
       "commit": "f5772a62ec52591ff6870b7e8ef32482371f22c6",
       "directory": "xemu-source/subprojects/keycodemapdb"
+    },
+    "sdl3": {
+      "repository": "https://github.com/libsdl-org/SDL.git",
+      "commit": "829a65d769d935c4852f8159e964312c0957260a",
+      "directory": "sdl3-source"
     }
   },
   "compiler": {
@@ -68,6 +73,12 @@
       "mesonPatchSha256": "4336d422ee9043847e5e10dbbbd01940d4c9e5027f31ccdc33a7898a1ca94009",
       "verification": "Both archives matched the wrap pins in published-digest-verified GLib source",
       "localState": "Built and installed as part of GLib"
+    },
+    "sdl3": {
+      "version": "3.4.18",
+      "commit": "829a65d769d935c4852f8159e964312c0957260a",
+      "pinSource": "Pinned xemu subprojects/sdl3.wrap",
+      "localState": "Unmodified source cross-built with Emscripten backends/pthreads; Wasm thread/PCM check passed; browser GL readback, keyboard and silent audio callback check passed with wasm32-dyncall adapter"
     }
   },
   "storage": "Sources, SDK, cross libraries, logs and compiled output stay in ignored .tools/emulation; no global activation or Xbox firmware/game acquisition.",

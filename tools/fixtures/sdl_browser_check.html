@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Browser host dependency check</title>
+<style>
+body { font: 16px system-ui; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+canvas { display: block; margin: 20px 0; width: 128px; height: 128px; }
+button { font: inherit; padding: 8px 16px; }
+</style>
+<h1>Browser host dependency check</h1>
+<p>This engineering check uses synthetic data. It does not run Fuzion Frenzy or an Xbox.</p>
+<p>Start, click the blue square, then press Space. Audio output is deliberately silent.</p>
+<button id="start" disabled>Start check</button>
+<button id="stop" disabled>Stop</button>
+<canvas id="canvas" tabindex="0" width="64" height="64" aria-label="Keyboard and graphics check"></canvas>
+<p id="status" role="status">Loading browser support code…</p>
+<p id="graphics"></p>
+<script>
+const showFailure = message => {
+  document.body.dataset.error = 'true';
+  document.getElementById('status').textContent = 'Browser error: ' + message;
+};
+window.addEventListener('error', event => showFailure(event.message));
+window.addEventListener('unhandledrejection', event => showFailure(String(event.reason)));
+var Module = {
+  canvas: document.getElementById('canvas'),
+  noInitialRun: true,
+  onRuntimeInitialized() {
+    document.getElementById('start').disabled = false;
+    document.getElementById('status').textContent = 'Ready';
+  },
+  onAbort(reason) {
+    document.getElementById('status').textContent = 'Runtime failed: ' + reason;
+    document.body.dataset.error = 'true';
+  }
+};
+document.getElementById('start').onclick = () => {
+  document.getElementById('start').disabled = true;
+  document.getElementById('stop').disabled = false;
+  Module.callMain([]);
+};
+document.getElementById('stop').onclick = () => {
+  Module._sdl_port_stop();
+  document.getElementById('stop').disabled = true;
+};
+Module.canvas.onclick = () => Module.canvas.focus();
+</script>
+<script src="check.js"></script>
+</html>

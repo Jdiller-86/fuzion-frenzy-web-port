@@ -2,7 +2,7 @@
 
 **Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
 
-Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). A pinned xemu/Emscripten build attempt reached cross-dependency checks; the new bounded XBE metadata reader and Wasm zlib check are supporting work, not game execution.
+Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). SDL3 now builds for Wasm; a synthetic browser check verifies graphics readback, keyboard input and silent audio callbacks. The actual xemu build still stops at its desktop OpenGL dependency. Original-game execution remains unimplemented.
 
 Independent development of a faithful browser-playable reconstruction of the original Xbox game, with online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies.
 
@@ -10,7 +10,7 @@ Source repository: [Jdiller-86/fuzion-frenzy-web-port](https://github.com/Jdille
 
 The `private` flag in `package.json` prevents npm-package publication; it does not control GitHub repository visibility.
 
-**Status: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). The accepted first release is a desktop pack of four to six polished games, followed by expansion to full original-game parity. Mobile touch support follows desktop stability.
+**Historical artifact: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). Earlier approximate partial-pack acceptance was superseded by the exact-original browser requirement. Mobile touch support remains later work.
 
 Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
@@ -19,6 +19,8 @@ Players will supply their own compatible game files for local browser conversion
 ## Development environment
 
 Use Node **24.14.0** and npm **11.x**. There are no application dependencies yet.
+
+Original-runtime compiler/source dependencies are separately pinned under ignored `.tools/emulation`; `npm ci` does not install them. `npm run test:runtime` validates only the synthetic proof server's delivery boundary. The browser support check and its actual build limitations are documented in the ledger.
 
 ```powershell
 npm ci --ignore-scripts

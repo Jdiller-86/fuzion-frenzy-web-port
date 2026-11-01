@@ -49,11 +49,16 @@ def browser_host_source(root, source, attempt, commit):
             "if host_os == 'emscripten'\n"
             "  xemu_ss.add(files('browser-reporting-disabled.cc'))\nelse\n"
             "  xemu_ss.add([curl, files('github-issue.cc')])\nendif")
-    for relative in ["util/browser-http-disabled.c", "ui/xui/browser-reporting-disabled.cc"]:
+    for relative in ["util/browser-http-disabled.c", "ui/xui/browser-reporting-disabled.cc",
+                     "util/wasm32-dyncall.js"]:
         content = Path(__file__).with_name("xemu").joinpath(Path(relative).name).read_bytes()
         with (destination / relative).open("xb") as output:
             output.write(content)
         changes[relative] = hashlib.sha256(content).hexdigest()
+    callback_library = repr(str(destination / "util/wasm32-dyncall.js"))
+    for kind in ["c", "cpp"]:
+        replace("configs/meson/emscripten.txt", kind + "_link_args = [",
+                kind + "_link_args = ['-sDYNCALLS=1','--js-library'," + callback_library + ",")
     # Reuse the pinned public key map already present; never initialize firmware submodules.
     keymap = destination / "subprojects/keycodemapdb"
     if keymap.is_symlink() or (keymap.exists() and

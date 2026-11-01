@@ -21,6 +21,7 @@
     "dev": "node tools/serve-web.mjs",
     "build": "node tools/build-web.mjs",
     "preview": "node tools/serve-web.mjs --built",
-    "test:gameplay": "node --test tests/twisted-system.test.mjs tests/local-input.test.mjs tests/browser-safety.test.mjs tests/web-delivery.test.mjs"
+    "test:gameplay": "node --test tests/twisted-system.test.mjs tests/local-input.test.mjs tests/browser-safety.test.mjs tests/web-delivery.test.mjs",
+    "test:runtime": "node --test tests/runtime-proof.test.mjs"
   }
 }

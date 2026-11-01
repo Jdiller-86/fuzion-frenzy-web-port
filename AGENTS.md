@@ -39,6 +39,7 @@ Do not expand an investigation into full decompilation or an emulator project wi
 - `npm run check`: preparation contract plus tracked/unignored source publication checks. This is not a gameplay test.
 - `npm run check:environment`: report local runtime and optional analysis-tool readiness without installing software or reading credentials.
 - `npm run test:formats`: source-owned format/conversion fixtures; not gameplay tests.
+- `npm run test:runtime`: synthetic browser-runtime delivery checks (file allowlist, rejected uploads and thread headers); does not execute an emulator or game.
 - `npm run dev:research`: allowlisted loopback browser proof; no original content is served.
 - `git diff --check`: whitespace verification.
 - `npm run test:gameplay`: headless rules, owned input, focus/device event wiring, and source-server/build boundary tests.
