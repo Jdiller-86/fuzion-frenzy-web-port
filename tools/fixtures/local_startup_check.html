@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Local original-startup proof</title>
+<style>
+body { font: 16px system-ui; max-width: 880px; margin: 30px auto; padding: 0 20px; color: #172033; }
+label { display: block; margin: 18px 0; } input { display: block; margin-top: 6px; }
+button { font: inherit; padding: 9px 15px; margin-right: 8px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; padding: 16px; border-radius: 6px; }
+</style>
+<h1>Local original-startup proof</h1>
+<p>This engineering check runs privately recompiled original startup code in a browser worker. Select the locally prepared module and compatible game executable. Both stay in this browser.</p>
+<p>The proof deliberately stops at the first unsupported Xbox kernel call. It does not boot a playable game or verify complete fidelity.</p>
+<label>Local startup module (.wasm)<input id="module" type="file" accept=".wasm"></label>
+<label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
+<button id="run">Run startup proof</button><button id="clear">Clear local selection</button>
+<p id="status" role="status">Select both local files</p>
+<pre id="details"></pre>
+<script type="module">
+const moduleInput = document.getElementById('module'), xbeInput = document.getElementById('xbe');
+const run = document.getElementById('run'), clear = document.getElementById('clear');
+const status = document.getElementById('status'), details = document.getElementById('details');
+let worker, timer, generation = 0;
+function release() { if (worker) worker.terminate(); worker = undefined; clearTimeout(timer); run.disabled = false; }
+clear.onclick = () => {
+  generation++; release(); moduleInput.value = ''; xbeInput.value = '';
+  details.textContent = ''; status.textContent = 'Local selection cleared'; document.body.dataset.state = 'idle';
+};
+run.onclick = async () => {
+  const current = ++generation; release(); details.textContent = '';
+  document.body.dataset.state = 'loading'; run.disabled = true;
+  try {
+    const moduleFile = moduleInput.files[0], xbeFile = xbeInput.files[0];
+    if (!moduleFile || !xbeFile) throw new Error('Select both local files');
+    if (moduleFile.size > 4 * 1024 * 1024 || xbeFile.size > 16 * 1024 * 1024) throw new Error('A selected file exceeds this bounded proof');
+    const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
+    if (generation !== current) return;
+    status.textContent = 'Validating local files and running original startup…';
+    worker = new Worker('/src/runtime/startup-proof-worker.mjs', { type: 'module' });
+    const finishError = message => { release(); document.body.dataset.state = 'failed'; status.textContent = message; };
+    timer = setTimeout(() => finishError('The bounded worker timed out and was stopped'), 15000);
+    worker.onerror = event => finishError(event.message);
+    worker.onmessage = event => {
+      if (event.data.kind === 'error') return finishError(event.data.message);
+      const result = event.data; release();
+      details.textContent = JSON.stringify(result, null, 2);
+      document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
+      status.textContent = result.verified
+        ? 'Original startup reached; stopped at unsupported thread creation (kernel 255)'
+        : 'Startup result differs from the bounded reference';
+    };
+    worker.postMessage({ moduleBytes, xbeBytes }, [moduleBytes, xbeBytes]);
+  } catch (error) {
+    if (generation === current) { release(); document.body.dataset.state = 'failed'; status.textContent = String(error); }
+  }
+};
+</script>
+</html>

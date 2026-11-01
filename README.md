@@ -2,7 +2,7 @@
 
 **Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
 
-Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). The [native-web feasibility checkpoint](docs/NATIVE_WEB_FEASIBILITY.md) now verifies a small source-owned x86 function translated to C/Wasm and executed in-browser without firmware. A title-specific runtime and browser-local code conversion remain unimplemented. Supporting SDL3 and [triangle geometry](docs/NV2A_GEOMETRY_CHECKPOINT.md) checks are retained; the xemu build still stops at its desktop OpenGL dependency. No original game instructions have executed here.
+Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). Static recompilation to WebAssembly is the selected direction. The [original-startup checkpoint](docs/ORIGINAL_STARTUP_CHECKPOINT.md) now verifies original startup code executing in a browser worker without BIOS, then stopping explicitly at unsupported thread creation. The game has not booted; a complete runtime and browser-local title conversion remain unimplemented. Supporting [synthetic recompilation](docs/NATIVE_WEB_FEASIBILITY.md), SDL3 and [triangle geometry](docs/NV2A_GEOMETRY_CHECKPOINT.md) checks are retained.
 
 The product includes original-game browser execution, online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies; those delivery requirements remain incomplete.
 
@@ -20,7 +20,7 @@ Players will supply their own compatible game files for local browser conversion
 
 Use Node **24.14.0** and npm **11.x**. There are no application dependencies yet.
 
-Original-runtime compiler/source dependencies are separately pinned under ignored `.tools/emulation`; `npm ci` does not install them. `npm run test:runtime` validates only the synthetic proof server's delivery boundary. The browser support check and its actual build limitations are documented in the ledger.
+Original-runtime compiler/source dependencies are separately pinned under ignored `.tools/emulation`; `npm ci` does not install them. `npm run test:runtime` validates source-owned proof-server delivery and module resource admission, without original-code execution. Actual private title compilation/browser observations and their limits are documented in the startup checkpoint.
 
 ```powershell
 npm ci --ignore-scripts

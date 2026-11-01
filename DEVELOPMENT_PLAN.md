@@ -1,6 +1,6 @@
 Current direction correction (October 31, 2026): the user requires the actual original game executing entirely in the browser, or a replica identical in every minute detail. The reconstruction-first recommendation, approximate small-pack acceptance and automatic fallback after a failed recompilation spike below are superseded. Read `docs/ORIGINAL_EXECUTION_ROUTE.md`; the existing implementation is research, not delivery of the corrected product.
 
-November 1 route update: no local Xbox boot firmware is available. The [native-web feasibility checkpoint](docs/NATIVE_WEB_FEASIBILITY.md) records a bounded static-recompilation candidate and a real synthetic C/Wasm/browser probe. Next is one original initialization-function proof, with generated original code staying local. This does not select a final runtime, provide browser-local title conversion or satisfy any full-game/online acceptance gate below.
+November 1 route update: the [original-startup checkpoint](docs/ORIGINAL_STARTUP_CHECKPOINT.md) verifies original startup code executing in a browser worker and stopping at unsupported kernel 255, without BIOS or content upload. Next is the thread-creation/TLS/scheduling contract. This is not a playable game, a complete runtime, browser-local end-user title conversion or full-game/online acceptance. The earlier [native-web feasibility checkpoint](docs/NATIVE_WEB_FEASIBILITY.md) remains supporting evidence.
 
 **Selected implementation direction (user confirmed November 1, 2026): pursue static recompilation of the original Xbox executable to WebAssembly, with compatible browser runtime services and the complete planned custom features.** Use this direction for implementation and milestone planning. Preserve original behavior and the browser-local/player-supplied content boundary. Emulator work remains supporting research. Runtime compatibility, fidelity, performance, networking and server authority still require proof. See D023 in `docs/DECISIONS.md`.
 
@@ -60,7 +60,7 @@ Four seats means four participants in a match, even if one browser owns several 
 
 xemu documents native Windows, macOS, and Linux operation; that establishes a potential reference environment, not a proven browser deployment. The xboxrecomp project describes native recompilation tooling, which does not establish this title's browser compatibility. Emscripten documents porting limitations that still need to be solved when targeting the browser. [xemu](https://xemu.app/), [xboxrecomp repository](https://github.com/sp00nznet/xboxrecomp), [Emscripten portability guidelines](https://emscripten.org/docs/porting/guidelines/portability_guidelines.html)
 
-Proceed through bounded recompilation milestones. Next, translate one original initialization function using the existing analysis and verify its browser execution boundary with locally selected title-derived output. Then work toward an original controllable scene, a browser-local conversion/runtime path, and verified custom-feature integration including authority. Preserve concrete failures and unsupported behavior; report material blockers before proposing a route change. Do not automatically fall back to reconstruction or plain emulation after a failed probe. The full original-game and custom-feature acceptance requirements remain in force.
+Proceed through bounded recompilation milestones. Original startup now reaches its first unsupported kernel call with locally selected title-derived output. Next, establish and implement thread creation, TLS context and scheduling, then verify original child startup in the browser. Work toward an original controllable scene, a browser-local conversion/runtime path, and verified custom-feature integration including authority. Preserve concrete failures and unsupported behavior; report material blockers before proposing a route change. Do not automatically fall back to reconstruction or plain emulation after a failed probe. The full original-game and custom-feature acceptance requirements remain in force.
 
 **5. Reference research and reverse engineering.** Use the supplied reverse-engineer-anything skill's evidence-first workflow. Answer explicit questions rather than attempting to recover the entire program before making a playable game.
 
@@ -284,7 +284,7 @@ Set an initial hosting budget, peak-player target, account/egress limits, and ad
 
 | Risk or unknown | Consequence | Mitigation/gate |
 | --- | --- | --- |
-| Original source unavailable | A direct source port cannot be assumed | Reconstruction baseline; short recompilation feasibility gate |
+| Original source unavailable | A direct source port cannot be assumed | Pursue static recompilation of the shipped XBE to WebAssembly; prove title coverage, compatible browser services and local conversion through bounded milestones |
 | REA/XBE loader or runtime unavailable | Some numeric rules cannot yet be recovered | Verify provider/host support; use reference observations and preserve unknowns |
 | Local original-content use and remaining IP questions | Player-supplied conversion may fail technical/fidelity targets; branding/audio/code questions are not automatically settled | Prove local conversion at G1; distribute source/approved original work only; preserve remaining release questions |
 | Unknown model/audio/animation formats | Full content conversion could dominate time | Prove one representative set before catalog estimates |
@@ -304,10 +304,10 @@ Before broad content production, accept only a route that has demonstrated origi
 1. Repository preparation is complete: source-only GitHub repository, media/research exclusions, Terra instructions and decision log. Keep these boundaries during implementation.
 2. Verify reference build identity and runtime access; create the content/variant inventory and capture checklist.
 3. Prove the selected player-supplied local-content pipeline, with placeholders for technical spikes and original-inspired/local-original visuals as the fidelity target.
-4. Complete the bounded renderer, authority, multi-seat prediction and optional recompilation spikes; pin working dependencies.
+4. Advance the selected static-recompilation route through bounded original-function, browser-runtime and local-conversion proofs, alongside renderer, authority and multi-seat prediction checks; pin working dependencies.
 5. Scaffold `sim`, `protocol`, browser and match-server packages with a minimal reproducible developer environment.
 6. Implement semantic input, device ownership, lobby seats and a simple four-player test arena.
-7. Specify and reconstruct the timing-game slice against captured references; add local bots and practice.
+7. Integrate the recompiled original timing-game routines and their required runtime services; verify original behavior, bots and practice against reference evidence.
 8. Connect four browsers through the authoritative server; prove reconnect and outcome agreement under latency.
 9. Add contact, steering and orb-objective slices; refine the framework and revise estimates before expansion.
 10. Finish account/friends/lobby flows, first-pack content, desktop QA, load/recovery checks and staged release preparation.
