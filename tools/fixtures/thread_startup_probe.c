@@ -6,6 +6,10 @@
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#ifdef FF_TIMER_PROOF
+#include "../../src/runtime/kernel_timers.h"
+#include "../../src/runtime/dpc_context.h"
+#endif
 #if !defined(__wasm32__) || defined(__wasm64__)
 #error This proof requires wasm32
 #endif
@@ -23,6 +27,9 @@ RECOMP_TLS uint16_t g_fp_control_word, g_fp_cc;
 RECOMP_TLS double g_fp_stack[8];
 RECOMP_TLS RecompXmm g_xmm0, g_xmm1, g_xmm2, g_xmm3, g_xmm4, g_xmm5, g_xmm6, g_xmm7;
 RECOMP_TLS RecompMmx g_mm0, g_mm1, g_mm2, g_mm3, g_mm4, g_mm5, g_mm6, g_mm7;
+#ifdef FF_TIMER_PROOF
+#include "../../src/runtime/recomp_cpu_snapshot.h"
+#endif
 volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
@@ -30,6 +37,15 @@ static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
 static uint32_t kernel_calls[16][12], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#ifdef FF_TIMER_PROOF
+static ff_timer_queue timers;
+static ff_dpc_frame dpc_frame;
+static uint32_t timers_ready, dpc_delivered, clock_words[4];
+__attribute__((import_module("env"), import_name("ff_host_clock")))
+extern void ff_host_clock(uint32_t output);
+void ff_probe_poll(void);
+void ff_probe_dpc_recover(void);
+#endif
 static const char source_digest[] = FF_SOURCE_SHA256;
 static const struct { uint32_t slot, ordinal; } bindings[] = FF_KERNEL_BINDINGS;
 
@@ -40,6 +56,9 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
         probe_state[4] = 10; probe_state[5] = MEM32(g_esp);
         for (unsigned i = 0; i < 10; ++i) probe_state[6 + i] = MEM32(g_esp + 4u + i * 4u);
     } else probe_state[0] = 4;
+#ifdef FF_TIMER_PROOF
+    ff_probe_dpc_recover();
+#endif
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
@@ -49,7 +68,13 @@ static void trace(uint32_t kind, uint32_t address)
     uint32_t i = probe_trace_count++ * 3;
     probe_trace[i] = kind; probe_trace[i + 1] = address; probe_trace[i + 2] = g_esp;
 }
-void recomp_trace_enter(const char *name, uint32_t address) { (void)name; trace(1, address); }
+void recomp_trace_enter(const char *name, uint32_t address) {
+    (void)name;
+#ifdef FF_TIMER_PROOF
+    ff_probe_poll();
+#endif
+    trace(1, address);
+}
 void recomp_trace_exit(const char *name, uint32_t address) { (void)name; trace(2, address); }
 void recomp_trace_esp(const char *name, const char *tag) { (void)name; (void)tag; }
 void recomp_icall_fail_log(uint32_t address) { stop(3, address, 0); }
@@ -58,8 +83,69 @@ void recomp_unimpl(const char *text, uint32_t address) { (void)text; stop(7, add
 recomp_func_t recomp_lookup_manual(uint32_t address) { (void)address; return 0; }
 recomp_func_t recomp_lookup(uint32_t address) { switch (address) { FF_TITLE_LOOKUP_CASES default: return 0; } }
 
+#ifdef FF_TIMER_PROOF
+static void sample_clock(void)
+{
+    if (!timers_ready) stop(9, 0, 149);
+    ff_host_clock((uint32_t)(uintptr_t)clock_words);
+    uint64_t interrupt = clock_words[0] | (uint64_t)clock_words[1] << 32;
+    uint64_t system = clock_words[2] | (uint64_t)clock_words[3] << 32;
+    uint32_t status = ff_timers_advance(&timers, interrupt, system);
+    if (status != FF_BOOT_OK) stop(9, status, 149);
+}
+void ff_probe_dpc_recover(void)
+{
+    if (!dpc_frame.active) return;
+    ff_guest_cpu cpu; ff_capture_cpu(&cpu);
+    if (ff_dpc_abort(&dpc_frame, &cpu, guest_ram, FF_GUEST_BYTES) != FF_BOOT_OK) __builtin_trap();
+    ff_restore_cpu(&cpu);
+}
+void ff_probe_poll(void)
+{
+    if (!timers_ready || dpc_frame.active) return;
+    sample_clock();
+    for (unsigned i = 0; i < FF_DPC_CAPACITY; ++i) {
+        if (!g_fs_base || g_fs_base > FF_GUEST_BYTES - 0x5cu) stop(9, g_fs_base, 0);
+        ff_dpc_call call; uint32_t present;
+        uint32_t status = ff_dpc_peek(&timers, guest_ram[g_fs_base + 0x24], &call, &present);
+        if (status != FF_BOOT_OK) stop(9, status, 0);
+        if (!present) return;
+        recomp_func_t callback = recomp_lookup(call.routine);
+        if (!callback) stop(2, call.routine, 0);
+        ff_guest_cpu cpu; ff_capture_cpu(&cpu);
+        status = ff_dpc_begin(&dpc_frame, &cpu, guest_ram, FF_GUEST_BYTES, 0x03e01000u, 0x03e11000u, &call);
+        if (status != FF_BOOT_OK) stop(9, status, 0);
+        /* This pop consumes the admission obtained before raising IRQL. No guest
+         * execution or yield occurs between peek, frame admission and dequeue. */
+        status = ff_dpc_pop(&timers, dpc_frame.irql, call.object);
+        if (status != FF_BOOT_OK) stop(9, status, 0);
+        ff_restore_cpu(&cpu); callback(); ff_capture_cpu(&cpu);
+        status = ff_dpc_end(&dpc_frame, &cpu, guest_ram, FF_GUEST_BYTES); ff_restore_cpu(&cpu);
+        if (status != FF_BOOT_OK) stop(9, status, 0);
+        ++dpc_delivered;
+    }
+    /* Further callbacks stay queued until the next safe point; none is dropped. */
+}
+uint32_t ff_probe_timer_count(void) { return timers.timer_count; }
+uint32_t ff_probe_dpc_count(void) { return timers.dpc_count; }
+uint32_t ff_probe_dpc_delivered(void) { return dpc_delivered; }
+uint32_t ff_probe_timer_word(uint32_t i, uint32_t n)
+{
+    if (i >= timers.timer_count) return 0;
+    const ff_timer_entry *t = &timers.timers[i];
+    switch (n) {
+        case 0: return t->object; case 1: return t->dpc; case 2: return t->absolute;
+        case 3: return (uint32_t)t->deadline; case 4: return (uint32_t)(t->deadline >> 32);
+        case 5: return (uint32_t)t->system_due; case 6: return (uint32_t)(t->system_due >> 32); default: return 0;
+    }
+}
+#endif
+
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
+#ifdef FF_TIMER_PROOF
+    ff_probe_poll();
+#endif
     if (kernel_call_count == 16 || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
     uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
@@ -127,6 +213,26 @@ static void status_to_dos_error(void)
     if (row[2] != 0) stop(9, row[2], 301);
     row[1] = 0; g_eax = 0; g_esp += 8;
 }
+#ifdef FF_TIMER_PROOF
+static void set_timer(void)
+{
+    uint32_t *row = kernel_record(149, 4);
+    if (row[5]) {
+        if ((row[5] & 3u) || row[5] > FF_GUEST_BYTES - 28u) stop(9, row[5], 149);
+        uint32_t routine = MEM32(row[5] + 12);
+        if (!recomp_lookup(routine)) stop(2, routine, 149);
+    }
+    sample_clock();
+    uint64_t raw_due = row[3] | (uint64_t)row[4] << 32;
+    int64_t due; memcpy(&due, &raw_due, sizeof due);
+    uint32_t previous;
+    row[1] = ff_timer_set(&timers, row[2], due, row[5], &previous);
+    if (row[1] != FF_BOOT_OK) stop(9, row[1], 149);
+    row[6] = previous; row[7] = clock_words[0]; row[8] = clock_words[1];
+    row[9] = clock_words[2]; row[10] = clock_words[3];
+    g_eax = previous; g_esp += 20;
+}
+#endif
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
     uint32_t offset = address - FF_KERNEL_BASE;
@@ -140,12 +246,21 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 113) return initialize_timer;
         if (ordinal == 24) return query_nonvolatile;
         if (ordinal == 301) return status_to_dos_error;
+#ifdef FF_TIMER_PROOF
+        if (ordinal == 149) return set_timer;
+#endif
         stop(1, address, ordinal);
     }
     return 0;
 }
 
-uint32_t ff_probe_abi(void) { return 3; }
+uint32_t ff_probe_abi(void) {
+#ifdef FF_TIMER_PROOF
+    return 4;
+#else
+    return 3;
+#endif
+}
 void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
@@ -179,6 +294,10 @@ void ff_probe_reset(void)
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_TIMER_PROOF
+    memset(&timers, 0, sizeof timers); memset(&dpc_frame, 0, sizeof dpc_frame);
+    memset(clock_words, 0, sizeof clock_words); timers_ready = dpc_delivered = 0;
+#endif
     for (unsigned i = 0; i < ICALL_TRACE_SIZE; ++i) g_icall_trace[i] = 0;
     g_icall_trace_idx = 0; g_icall_count = 0; g_force_return = 0;
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;
@@ -203,6 +322,10 @@ void ff_probe_run(void)
     if (!thread) stop(9, 0, 0);
     g_eax = g_ecx = g_edx = g_ebx = g_esi = g_edi = g_ebp = g_seh_ebp = 0;
     g_esp = thread->initial_sp; g_fs_base = thread->fs; g_eflags = 0x202; g_df = 0;
+#ifdef FF_TIMER_PROOF
+    if (ff_timers_init(&timers, guest_ram, FF_GUEST_BYTES, 0x03e00000u, thread->fs + 0x50u) != FF_BOOT_OK) stop(9, 0, 149);
+    timers_ready = 1;
+#endif
     recomp_func_t entry = recomp_lookup(thread->system);
     if (!entry) stop(2, thread->system, 0);
     entry(); stop(6, thread->system, 0);

@@ -49,6 +49,11 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/kernel_timers_test.c src/runtime/kernel_timers.c src/runtime/kernel_objects.c -o "$RUNNER_TEMP/kernel-timers-check"
           "$RUNNER_TEMP/kernel-timers-check"
+      - name: Check DPC CPU contexts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/dpc_context_test.c src/runtime/dpc_context.c src/runtime/kernel_timers.c src/runtime/kernel_objects.c -o "$RUNNER_TEMP/dpc-context-check"
+          "$RUNNER_TEMP/dpc-context-check"
       - run: npm run test:gameplay
       - run: npm run build
       - run: npm run check:environment

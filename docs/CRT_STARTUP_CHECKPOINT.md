@@ -1,6 +1,6 @@
 # CRT startup and explicit settings checkpoint
 
-Later component progress: [the one-shot timer queue](TIMER_QUEUE_CHECKPOINT.md) passes owned native/sanitizer/Wasm scenarios. It is not yet connected to this title proof: the sixteen-check original timer stop below remains the latest original execution boundary. Reuse the component and callback export for the pending browser-clock/CPU-context bridge.
+Later integration: [the timer startup checkpoint](TIMER_STARTUP_CHECKPOINT.md) passes twenty checks through actual timer arming and reaches the next original helper. The earlier no-import sixteen-check module documented here still passes as a regression. This page preserves its historical timer-stop boundary and evidence.
 
 November 1, 2026: original startup now initializes its deferred-callback and timer objects, reads an explicitly supplied test setting and reaches the original six-hour `KeSetTimer` request in the browser. Both source-owned settings inputs pass sixteen checks. **Timer arming/delivery, a playable screen, full runtime and original-console fidelity remain unaccepted.** The complete original-game/custom-feature goal and selected recompilation route are unchanged.
 
@@ -51,7 +51,7 @@ The final bundle uses `recomp-thread-05/seed.json` and `recomp-crt-01..04/seed.j
 | Matching final `.jpg` | `56a6fe9f45c4704cf4959cfecfa310f3202cdfcef299e7321125c1a678933057` |
 | `research/verification/thread-startup-browser-20261101-04.json` (legacy regression/Clear) | `ff0354accf9d80d27a374c5df4b0f02ab8e8cc297f20fc2297d1eb8b5b71d7f5` |
 
-Earlier CRT browser diagnostics `01..05`, builds `01..03`, seeds and logs stay ignored. Exact compiler arguments, owned C/header hashes and generation identity are in the final build report. Current compiled sources match that report; original XBE identity is unchanged. Pins remain xboxrecomp `f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b`, Capstone 5.0.6, Ghidra 12.1.4 and Emscripten 3.1.50; no global tool/model/settings changed.
+Earlier CRT browser diagnostics `01..05`, builds `01..03`, seeds and logs stay ignored. Exact compiler arguments, historical owned C/header hashes and generation identity are in the final build report. Later shared-host source changes and their new compiled identities are documented in the timer startup checkpoint; original XBE identity is unchanged. Pins remain xboxrecomp `f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b`, Capstone 5.0.6, Ghidra 12.1.4 and Emscripten 3.1.50; no global tool/model/settings changed.
 
 Owned tests cover both timer types, DPC fields, preservation of unspecified fields, alignment/range and failure atomicity; typed misc values/type/length, short buffers and unsupported keys; JSON profile admission; and composed-seed/thunk bounds. Local C11 `-O2 -Wall -Wextra -Werror` fixture runs, eight Python cases and eight runtime tests pass. CI adds the two new owned C checks on Linux. None uses original game files or private tools; actual compilation/browser execution is separate local evidence.
 

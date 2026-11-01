@@ -23,25 +23,32 @@ export function parseLocalConsoleSettings(buffer) {
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
 }
 
-export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = []) {
+export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
   }
   if (!(xbeBytes instanceof ArrayBuffer) || xbeBytes.byteLength > 16 * 1024 * 1024) throw new Error('Invalid local executable size');
-  const limits = inspectProofWasm(moduleBytes), sourceSha256 = await sha256(xbeBytes);
+  const limits = inspectProofWasm(moduleBytes, { allowClockImport: !!clock }), sourceSha256 = await sha256(xbeBytes);
   if (sourceSha256 !== BUILD_REFERENCE.sha256) throw new Error('This proof requires the verified local game build');
   const profile = readXbeProfile(xbeBytes);
   if (profile.entry !== BUILD_REFERENCE.entry || !profile.tls || profile.nonKernelImportsAddress) throw new Error('Unsupported startup profile');
   const compiled = await WebAssembly.compile(moduleBytes);
-  if (WebAssembly.Module.imports(compiled).length) throw new Error('Host imports are not admitted');
-  const api = (await WebAssembly.instantiate(compiled, {})).exports;
+  const imports = WebAssembly.Module.imports(compiled);
+  if (imports.length !== (limits.clockImport ? 1 : 0) || imports.some(item =>
+    item.module !== 'env' || item.name !== 'ff_host_clock' || item.kind !== 'function')) throw new Error('Host imports are not admitted');
+  let admittedMemory;
+  const api = (await WebAssembly.instantiate(compiled, limits.clockImport ? {
+    env: { ff_host_clock: address => clock.write(admittedMemory?.buffer, address) }
+  } : {})).exports;
   if (!(api.memory instanceof WebAssembly.Memory) || [...required, ...extraExports].some(name => typeof api['ff_probe_' + name] !== 'function')) {
     throw new Error('Unexpected local proof ABI');
   }
+  admittedMemory = api.memory;
   if (typeof api._initialize === 'function') api._initialize();
   if (!(Array.isArray(abi) ? abi : [abi]).includes(api.ff_probe_abi()) || api.ff_probe_entry() !== profile.entry || api.ff_probe_ram_bytes() !== RAM_BYTES) {
     throw new Error('Module ABI/build does not match this proof');
   }
+  if ((api.ff_probe_abi() === 4) !== !!limits.clockImport) throw new Error('Only proof ABI 4 uses the required clock import');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {

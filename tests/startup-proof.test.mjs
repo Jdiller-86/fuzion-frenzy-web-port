@@ -4,6 +4,7 @@ import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
 import { loadLocalTitleProof, parseLocalConsoleSettings } from '../src/runtime/local-title-proof.mjs';
+import { createProofClock } from '../src/runtime/browser-clock.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -31,6 +32,50 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
     assert.throws(() => parseLocalConsoleSettings(bytes(value)));
   }
   assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(4097)));
+});
+
+test('clock samples separate monotonic duration from adjustable system time and write only the bounded output', () => {
+  let now = 100, date = 0;
+  const clock = createProofClock({ monotonic: () => now, wall: () => date });
+  now = 100.125;
+  assert.deepEqual(clock.sample(), { interrupt: 1250n, system: 116444736000000000n });
+  now = 101; date = -1000;
+  const buffer = new ArrayBuffer(32), bytes = new Uint8Array(buffer); bytes.fill(0xa5);
+  clock.write(buffer, 4);
+  assert.equal(new DataView(buffer).getBigUint64(4, true), 10000n);
+  assert.equal(new DataView(buffer).getBigUint64(12, true), 116444735990000000n);
+  assert.ok(bytes.slice(0, 4).every(n => n === 0xa5) && bytes.slice(20).every(n => n === 0xa5));
+  const saved = bytes.slice();
+  for (const address of [1, 20, -1]) assert.throws(() => clock.write(buffer, address), /outside admitted memory/);
+  assert.deepEqual(bytes, saved);
+  assert.equal(clock.describe().samples, 2);
+  assert.equal(clock.describe().minimumObservedPositiveTicks, '1250');
+});
+
+test('clock rejects backward/nonfinite/unsafe samples and timestamps outside its epoch/range', () => {
+  for (const origin of [-1, NaN, Infinity]) assert.throws(() => createProofClock({ monotonic: () => origin }));
+  for (const [now, date] of [[9, 0], [NaN, 0], [Infinity, 0], [1e20, 0], [11, 0.5],
+    [11, -11644473600001], [11, Number.MAX_SAFE_INTEGER]]) {
+    let first = true;
+    const clock = createProofClock({ monotonic: () => { if (first) { first = false; return 10; } return now; }, wall: () => date });
+    assert.throws(() => clock.sample());
+  }
+});
+
+test('clock import admission is opt-in and accepts only env.ff_host_clock with the exact pointer-to-void signature', () => {
+  const name = text => { const bytes = [...new TextEncoder().encode(text)]; return [...uint(bytes.length), ...bytes]; };
+  const type = section(1, [1, 0x60, 1, 0x7f, 0]);
+  const imported = (namespace = 'env', field = 'ff_host_clock', kind = 0, count = 1) =>
+    section(2, [count, ...name(namespace), ...name(field), kind, 0]);
+  const bytes = module(type, imported(), memory());
+  assert.equal(WebAssembly.validate(bytes), true);
+  assert.throws(() => inspectProofWasm(bytes), /no host imports/);
+  assert.equal(inspectProofWasm(bytes, { allowClockImport: true }).clockImport, true);
+  for (const bad of [module(type, imported('other'), memory()), module(type, imported('env', 'fetch'), memory()),
+    module(type, imported('env', 'ff_host_clock', 2), memory()), module(type, imported('env', 'ff_host_clock', 0, 2), memory()),
+    module(section(1, [1, 0x60, 1, 0x7c, 0]), imported(), memory()),
+    module(section(1, [1, 0x60, 1, 0x7f, 1, 0x7f]), imported(), memory()),
+    module(type, type, imported(), memory())]) assert.throws(() => inspectProofWasm(bad, { allowClockImport: true }));
 });
 
 test('proof admission accepts bounded memory and leaves full Wasm validation to the engine', () => {
@@ -81,7 +126,7 @@ test('startup host serves only owned source and rejects original modules, files,
     req.on('error', reject); req.end(body);
   });
   for (const url of ['/', '/thread', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs',
-    '/src/runtime/local-title-proof.mjs', '/src/runtime/thread-proof-worker.mjs']) {
+    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
     assert.ok(response.body.length > 100);

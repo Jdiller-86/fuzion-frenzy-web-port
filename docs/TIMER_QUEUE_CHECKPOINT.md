@@ -1,6 +1,8 @@
 # One-shot timer queue component checkpoint
 
-November 1, 2026: an independently authored timer/DPC queue component now passes controlled-clock scenarios under native GCC, address/undefined-behavior sanitizers and WebAssembly. This implements part of the contract required by the original six-hour timer request. **It is not wired into the title runtime: original `KeSetTimer` still stops, and no additional original routine or playable screen has run.** The selected recompilation route and complete original-game/custom-feature objective remain active.
+Later integration: [the timer startup checkpoint](TIMER_STARTUP_CHECKPOINT.md) connects this component and an owned CPU-context bridge to original browser startup. This page preserves the independent component checkpoint and its limits before that integration.
+
+November 1, 2026 component checkpoint: an independently authored timer/DPC queue component passed controlled-clock scenarios under native GCC, address/undefined-behavior sanitizers and WebAssembly. This implemented part of the contract required by the original six-hour timer request. At this checkpoint it was not wired into the title runtime, and original `KeSetTimer` still stopped. The selected recompilation route and complete original-game/custom-feature objective remain active.
 
 ## Established behavior
 
