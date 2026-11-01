@@ -13,7 +13,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>The timer proof uses one bounded browser-clock capability. Its elapsed and wall-clock samples do not establish original console clock precision or suspend behavior.</p>
 <p>When the original copy helper is present, source-owned buffer cases also check its copying and calling behavior. These diagnostics do not establish full-game fidelity.</p>
 <p>The memory proof tracks reserved and committed pages in a bounded guest address window. It also checks denial of a reserved-page read and a read-only image write; full Xbox virtual memory and exception recovery remain unimplemented.</p>
-<p>The expanded heap check observes the original initializer's return and decodes its next file-open request. File services remain unsupported; the diagnostic opens no host files.</p>
+<p>The expanded heap check observes the original initializer's return and decodes its next file-open request. The volume proof requires explicit synthetic capacity/geometry in the settings file and provides bounded guest volume handles. It opens no host files and does not establish original disk/save fidelity.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
@@ -51,7 +51,9 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-heap-file-stop'
+      status.textContent = result.verified ? (result.phase === 'original-volume-drive-stop'
+        ? 'Original startup opened the local test volume, queried its size and closed its handle; stopped at unsupported drive-link creation'
+        : result.phase === 'original-heap-file-stop'
         ? 'Original heap initializer returned with stack and exception chain restored; stopped at the unsupported file-open request'
         : result.phase === 'heap-first-page-next-stop'
         ? 'Original startup reserved memory, committed its first page and initialized a lock; stopped at the next untranslated helper'

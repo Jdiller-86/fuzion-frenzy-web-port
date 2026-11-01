@@ -18,6 +18,12 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/kernel_timers.h"
 #include "../../src/runtime/dpc_context.h"
 #endif
+#ifdef FF_VOLUME_PROOF
+#ifndef FF_VM_PROOF
+#error Volume services require checked guest memory
+#endif
+#include "../../src/runtime/local_volume.h"
+#endif
 #if !defined(__wasm32__) || defined(__wasm64__)
 #error This proof requires wasm32
 #endif
@@ -43,9 +49,13 @@ volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[64 * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[64 * 3];
-static uint32_t kernel_calls[16][12], kernel_call_count, parent_returned;
+static uint32_t kernel_calls[32][20], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#ifdef FF_VOLUME_PROOF
+static ff_local_volume local_volume;
+static uint32_t volume_ready;
+#endif
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
@@ -306,7 +316,7 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
-    if (kernel_call_count == 16 || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+    if (kernel_call_count == 32 || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
     uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
@@ -319,13 +329,67 @@ static void create_thread(void)
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 255);
     g_eax = row[1]; g_esp += 44; /* NTAPI return address and ten arguments. */
 }
-static void close_thread_handle(void)
+static void close_handle(void)
 {
     uint32_t *row = kernel_record(187, 1);
+#ifdef FF_VOLUME_PROOF
+    if (ff_volume_owns_handle(row[2])) row[1] = ff_volume_close(&local_volume, row[2]);
+    else
+#endif
     row[1] = ff_boot_close(&boot, row[2]);
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 187);
     g_eax = row[1]; g_esp += 8;
 }
+#ifdef FF_VOLUME_PROOF
+static void open_volume_root(void)
+{
+    uint32_t *row = kernel_record(202, 6);
+    if (!volume_ready) stop(9, 0, 202);
+    row[1] = ff_volume_open_root(&local_volume, row + 2);
+    if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 202);
+    if (!row[1]) { row[8] = MEM32(row[2]); row[9] = MEM32(row[5]); row[10] = MEM32(row[5] + 4); }
+    g_eax = row[1]; g_esp += 28;
+}
+#ifdef FF_VOLUME_QUERY_PROOF
+static void query_volume_size(void)
+{
+    uint32_t *row = kernel_record(218, 5);
+    if (!volume_ready) stop(9, 0, 218);
+    row[1] = ff_volume_query_size(&local_volume, row + 2);
+    if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 218);
+    if (!row[1]) {
+        row[7] = MEM32(row[3]); row[8] = MEM32(row[3] + 4);
+        for (unsigned i = 0; i < 6; ++i) row[9 + i] = MEM32(row[4] + i * 4);
+    }
+    g_eax = row[1]; g_esp += 24;
+}
+#endif
+uint32_t ff_probe_volume_profile(uint32_t total_low, uint32_t total_high, uint32_t available_low,
+                                 uint32_t available_high, uint32_t sectors, uint32_t bytes)
+{
+    if (!vm_ready || volume_ready) return FF_BOOT_INVALID;
+    ff_volume_profile profile = {total_low | (uint64_t)total_high << 32,
+        available_low | (uint64_t)available_high << 32, sectors, bytes};
+    uint32_t status = ff_volume_init(&local_volume, &virtual_memory, &profile);
+    if (!status) volume_ready = 1;
+    return status;
+}
+uint32_t ff_probe_volume_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return volume_ready; case 1: return local_volume.active; case 2: return local_volume.opened; case 3: return local_volume.closed;
+        case 4: return (uint32_t)local_volume.profile.total_units; case 5: return (uint32_t)(local_volume.profile.total_units >> 32);
+        case 6: return (uint32_t)local_volume.profile.available_units; case 7: return (uint32_t)(local_volume.profile.available_units >> 32);
+        case 8: return local_volume.profile.sectors_per_unit; case 9: return local_volume.profile.bytes_per_sector; default: return 0;
+    }
+}
+uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
+{
+    if (index >= FF_VOLUME_HANDLES) return 0;
+    const ff_volume_handle *handle = &local_volume.handles[index];
+    switch (field) { case 0: return handle->handle; case 1: return handle->access; case 2: return handle->share; case 3: return handle->options; default: return 0; }
+}
+#endif
 static void enter_critical(void)
 {
     uint32_t *row = kernel_record(277, 1);
@@ -417,7 +481,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
     if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
         if (ordinal == 255) return create_thread;
-        if (ordinal == 187) return close_thread_handle;
+        if (ordinal == 187) return close_handle;
         if (ordinal == 277) return enter_critical;
         if (ordinal == 294) return leave_critical;
         if (ordinal == 107) return initialize_dpc;
@@ -431,13 +495,21 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_TIMER_PROOF
         if (ordinal == 149) return set_timer;
 #endif
+#ifdef FF_VOLUME_PROOF
+        if (ordinal == 202) return open_volume_root;
+#ifdef FF_VOLUME_QUERY_PROOF
+        if (ordinal == 218) return query_volume_size;
+#endif
+#endif
         stop(1, address, ordinal);
     }
     return 0;
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_VM_PROOF
+#ifdef FF_VOLUME_PROOF
+    return 6;
+#elif defined(FF_VM_PROOF)
     return 5;
 #elif defined(FF_TIMER_PROOF)
     return 4;
@@ -463,7 +535,7 @@ uint32_t ff_probe_binding_ordinal(uint32_t i) { return i < FF_KERNEL_BINDING_COU
 uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
-uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 12 ? kernel_calls[i][n] : 0; }
+uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {
     if (i >= boot.count) return 0;
@@ -482,6 +554,9 @@ void ff_probe_reset(void)
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_VOLUME_PROOF
+    memset(&local_volume, 0, sizeof local_volume); volume_ready = 0;
+#endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
     vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);

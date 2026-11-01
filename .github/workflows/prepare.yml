@@ -64,6 +64,11 @@ jobs:
           gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-access-check"
           "$RUNNER_TEMP/memory-access-check"
       - run: npm run test:gameplay
+      - name: Check local volume services (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/local_volume_test.c src/runtime/local_volume.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/local-volume-check"
+          "$RUNNER_TEMP/local-volume-check"
       - run: npm run build
       - run: npm run check:environment
       - run: git diff --exit-code

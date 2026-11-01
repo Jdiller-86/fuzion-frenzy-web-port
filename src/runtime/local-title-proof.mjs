@@ -23,6 +23,22 @@ export function parseLocalConsoleSettings(buffer) {
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
 }
 
+export function parseLocalVolumeProfile(buffer) {
+  parseLocalConsoleSettings(buffer);
+  const volume = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer)).volume;
+  const count = value => typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.test(value) ? BigInt(value) : -1n;
+  const total = count(volume?.totalAllocationUnits), available = count(volume?.availableAllocationUnits);
+  const sectors = volume?.sectorsPerAllocationUnit, bytes = volume?.bytesPerSector;
+  if (volume?.kind !== 'local-volume-profile' || volume.synthetic !== true || volume.device !== 'harddisk0-partition1' ||
+      total <= 0n || total > 0x7fffffffffffffffn || available < 0n || available > total ||
+      !Number.isInteger(sectors) || sectors < 1 || sectors > 128 || (sectors & (sectors - 1)) ||
+      ![512,1024,2048,4096].includes(bytes) || total * BigInt(sectors) * BigInt(bytes) > 0xffffffffffffffffn) {
+    throw new Error('Select explicit synthetic volume capacity and geometry; no original disk default is assumed');
+  }
+  return { kind: volume.kind, synthetic: true, device: volume.device, totalAllocationUnits: total.toString(),
+    availableAllocationUnits: available.toString(), sectorsPerAllocationUnit: sectors, bytesPerSector: bytes };
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -49,8 +65,8 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ((proofAbi === 4 || proofAbi === 5) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if (proofAbi === 5 && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ((proofAbi === 5 || proofAbi === 6) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
@@ -70,7 +86,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
-  if (proofAbi === 5) {
+  if (proofAbi === 5 || proofAbi === 6) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes) || api.ff_probe_vm_map_image(profile.base, profile.headerBytes, 2)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }

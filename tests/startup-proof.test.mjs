@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
-import { inspectOpenFileRequest } from '../src/runtime/file-request.mjs';
+import { inspectOpenFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -74,6 +74,14 @@ test('file request diagnostic bounds string descriptors and lengths and rejects 
   }
 });
 
+test('standalone counted namespace strings reject invalid descriptors and read permissions', () => {
+  const { ram, name } = ownedOpenRequest();
+  assert.equal(inspectCountedAnsiString(ram,128,() => true).name,name);
+  for (const address of [0,-1,NaN,1.5,0x100000000,4092]) assert.throws(() => inspectCountedAnsiString(ram,address,() => true));
+  assert.throws(() => inspectCountedAnsiString(ram,128,() => false), /not admitted/);
+  assert.throws(() => inspectCountedAnsiString(null,128,() => true));
+});
+
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
 });
@@ -109,6 +117,21 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
     assert.throws(() => parseLocalConsoleSettings(bytes(value)));
   }
   assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(4097)));
+});
+
+test('volume settings require explicit synthetic capacity and geometry without unsafe integer conversion', () => {
+  const valid = { kind:'local-volume-profile', synthetic:true, device:'harddisk0-partition1',
+    totalAllocationUnits:'4294967299', availableAllocationUnits:'4294967297', sectorsPerAllocationUnit:32, bytesPerSector:512 };
+  const bytes = volume => new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume})).buffer;
+  assert.deepEqual(parseLocalVolumeProfile(bytes(valid)), valid);
+  for (const edit of [{synthetic:false},{device:'host-path'},{kind:'disk-image'},{totalAllocationUnits:123},
+    {totalAllocationUnits:'0'},{totalAllocationUnits:'01'},{totalAllocationUnits:'9223372036854775808'},
+    {availableAllocationUnits:'4294967300'},{availableAllocationUnits:'-1'},{sectorsPerAllocationUnit:3},
+    {sectorsPerAllocationUnit:256},{bytesPerSector:513},{totalAllocationUnits:'9223372036854775807'}]) {
+    assert.throws(() => parseLocalVolumeProfile(bytes({...valid,...edit})), /explicit synthetic volume/);
+  }
+  assert.throws(() => parseLocalVolumeProfile(bytes(undefined)), /explicit synthetic volume/);
+  assert.throws(() => parseLocalVolumeProfile(new ArrayBuffer(4097)));
 });
 
 test('clock samples separate monotonic duration from adjustable system time and write only the bounded output', () => {
