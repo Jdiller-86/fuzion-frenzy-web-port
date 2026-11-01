@@ -70,5 +70,10 @@ jobs:
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/local_volume_test.c src/runtime/local_volume.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/local-volume-check"
           "$RUNNER_TEMP/local-volume-check"
       - run: npm run build
+      - name: Check object namespace (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/object_namespace_test.c src/runtime/object_namespace.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/object-namespace-check"
+          "$RUNNER_TEMP/object-namespace-check"
       - run: npm run check:environment
       - run: git diff --exit-code

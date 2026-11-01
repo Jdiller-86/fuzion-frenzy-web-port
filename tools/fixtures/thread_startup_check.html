@@ -14,6 +14,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>When the original copy helper is present, source-owned buffer cases also check its copying and calling behavior. These diagnostics do not establish full-game fidelity.</p>
 <p>The memory proof tracks reserved and committed pages in a bounded guest address window. It also checks denial of a reserved-page read and a read-only image write; full Xbox virtual memory and exception recovery remain unimplemented.</p>
 <p>The expanded heap check observes the original initializer's return and decodes its next file-open request. The volume proof requires explicit synthetic capacity/geometry in the settings file and provides bounded guest volume handles. It opens no host files and does not establish original disk/save fidelity.</p>
+<p>The namespace proof creates an owned drive link holding a guest disc-device reference. Device identity does not mount content or enable disc reads.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
@@ -51,7 +52,9 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-volume-drive-stop'
+      status.textContent = result.verified ? (result.phase === 'original-drive-helper-stop'
+        ? 'Original startup created its drive link with a held device reference; the next original helper entered and stopped at an untranslated callee'
+        : result.phase === 'original-volume-drive-stop'
         ? 'Original startup opened the local test volume, queried its size and closed its handle; stopped at unsupported drive-link creation'
         : result.phase === 'original-heap-file-stop'
         ? 'Original heap initializer returned with stack and exception chain restored; stopped at the unsupported file-open request'

@@ -24,6 +24,12 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #endif
 #include "../../src/runtime/local_volume.h"
 #endif
+#ifdef FF_NAMESPACE_PROOF
+#ifndef FF_VOLUME_PROOF
+#error Namespace proof retains the explicit local volume contract
+#endif
+#include "../../src/runtime/object_namespace.h"
+#endif
 #if !defined(__wasm32__) || defined(__wasm64__)
 #error This proof requires wasm32
 #endif
@@ -55,6 +61,10 @@ static uint32_t misc_flags, misc_flags_ready;
 #ifdef FF_VOLUME_PROOF
 static ff_local_volume local_volume;
 static uint32_t volume_ready;
+#endif
+#ifdef FF_NAMESPACE_PROOF
+static ff_object_namespace object_namespace;
+static uint32_t namespace_ready;
 #endif
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
@@ -340,6 +350,56 @@ static void close_handle(void)
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 187);
     g_eax = row[1]; g_esp += 8;
 }
+#ifdef FF_NAMESPACE_PROOF
+uint32_t ff_probe_namespace_init(void)
+{
+    if (!vm_ready || !volume_ready || namespace_ready) return FF_BOOT_INVALID;
+    uint32_t status=ff_namespace_init(&object_namespace,&virtual_memory),id;
+    if (!status) status=ff_namespace_add_device(&object_namespace,"\\Device\\CdRom0",14,FF_NS_LOCAL_DISC,&id);
+    if (!status) namespace_ready=1;
+    return status;
+}
+static void create_symbolic_link(void)
+{
+    uint32_t *row=kernel_record(67,2),id=0;
+    if (!namespace_ready) stop(9,0,67);
+    row[1]=ff_namespace_create_link(&object_namespace,row[2],row[3],&id);
+    if (row[1] == FF_BOOT_INVALID || row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION) stop(9,row[1],67);
+    if (!row[1]) {
+        const ff_namespace_object *link=NULL,*target=NULL;
+        for (unsigned i=0;i<FF_NS_OBJECTS;++i) if (object_namespace.objects[i].id==id) link=&object_namespace.objects[i];
+        if (!link) stop(9,id,67);
+        for (unsigned i=0;i<FF_NS_OBJECTS;++i) if (object_namespace.objects[i].id==link->target) target=&object_namespace.objects[i];
+        if (!target) stop(9,link->target,67);
+        row[4]=link->id; row[5]=target->id; row[6]=target->references; row[7]=target->device_kind; row[8]=target->media_ready;
+    }
+    g_eax=row[1]; g_esp+=12;
+}
+uint32_t ff_probe_namespace_count(void) { return object_namespace.count; }
+uint32_t ff_probe_namespace_word(uint32_t index,uint32_t field)
+{
+    if (index >= FF_NS_OBJECTS) return 0;
+    const ff_namespace_object *object=&object_namespace.objects[index];
+    switch (field) {
+        case 0:return object->id; case 1:return object->parent; case 2:return object->kind; case 3:return object->references;
+        case 4:return object->target; case 5:return object->device_kind; case 6:return object->media_ready; default:return 0;
+    }
+}
+uint32_t ff_probe_namespace_name(uint32_t index,uint32_t byte)
+{
+    return index < FF_NS_OBJECTS && byte < FF_NS_NAME ? (uint8_t)object_namespace.objects[index].name[byte] : 0;
+}
+uint32_t ff_probe_namespace_target_name(uint32_t index,uint32_t byte)
+{
+    return index < FF_NS_OBJECTS && byte < FF_NS_PATH ? (uint8_t)object_namespace.objects[index].target_name[byte] : 0;
+}
+uint32_t ff_probe_namespace_resolution(uint32_t field)
+{
+    ff_namespace_resolution result={0};
+    uint32_t status=ff_namespace_resolve(&object_namespace,"\\??\\d:\\",7,&result);
+    switch (field) { case 0:return status; case 1:return result.object; case 2:return result.remaining_offset; case 3:return result.remaining_bytes; default:return 0; }
+}
+#endif
 #ifdef FF_VOLUME_PROOF
 static void open_volume_root(void)
 {
@@ -501,13 +561,18 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 218) return query_volume_size;
 #endif
 #endif
+#ifdef FF_NAMESPACE_PROOF
+        if (ordinal == 67) return create_symbolic_link;
+#endif
         stop(1, address, ordinal);
     }
     return 0;
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_VOLUME_PROOF
+#ifdef FF_NAMESPACE_PROOF
+    return 7;
+#elif defined(FF_VOLUME_PROOF)
     return 6;
 #elif defined(FF_VM_PROOF)
     return 5;
@@ -554,6 +619,9 @@ void ff_probe_reset(void)
     memset(kernel_calls, 0, sizeof kernel_calls);
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_NAMESPACE_PROOF
+    memset(&object_namespace,0,sizeof object_namespace); namespace_ready=0;
+#endif
 #ifdef FF_VOLUME_PROOF
     memset(&local_volume, 0, sizeof local_volume); volume_ready = 0;
 #endif
