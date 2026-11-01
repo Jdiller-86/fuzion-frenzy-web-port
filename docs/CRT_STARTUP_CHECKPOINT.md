@@ -1,5 +1,7 @@
 # CRT startup and explicit settings checkpoint
 
+Later component progress: [the one-shot timer queue](TIMER_QUEUE_CHECKPOINT.md) passes owned native/sanitizer/Wasm scenarios. It is not yet connected to this title proof: the sixteen-check original timer stop below remains the latest original execution boundary. Reuse the component and callback export for the pending browser-clock/CPU-context bridge.
+
 November 1, 2026: original startup now initializes its deferred-callback and timer objects, reads an explicitly supplied test setting and reaches the original six-hour `KeSetTimer` request in the browser. Both source-owned settings inputs pass sixteen checks. **Timer arming/delivery, a playable screen, full runtime and original-console fidelity remain unaccepted.** The complete original-game/custom-feature goal and selected recompilation route are unchanged.
 
 This advances the [thread-entry checkpoint](THREAD_STARTUP_CHECKPOINT.md). Its ten-check module still passes through the current loader without a settings input. Original files, generated code/modules, analysis and screenshots remain local/ignored; no firmware, original source or new disc extraction was acquired.
