@@ -89,9 +89,11 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10,11,12].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10,11,12].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8,9,10,11,12,13].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
+  if(proofAbi===13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
+    typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing local image-section ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {
@@ -106,17 +108,35 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   ram.fill(0); api.ff_probe_reset();
   if (profile.base + profile.headerBytes > RAM_BYTES) throw new Error('Headers exceed the proof RAM');
   ram.set(new Uint8Array(xbeBytes, 0, profile.headerBytes), profile.base);
-  for (const section of profile.sections) {
+  for (const section of proofAbi===13?[]:profile.sections) {
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
-  if ([5,6,7,8,9,10,11,12].includes(proofAbi)) {
-    if (api.ff_probe_vm_image(profile.base, profile.imageBytes) || api.ff_probe_vm_map_image(profile.base, profile.headerBytes, 2)) {
+  let imageInitialState;
+  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi)) {
+    if (api.ff_probe_vm_image(profile.base, profile.imageBytes)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
-    for (const section of profile.sections) {
-      const protection = section.executable ? section.flags & 1 ? 0x40 : 0x20 : section.flags & 1 ? 4 : 2;
-      if (api.ff_probe_vm_map_image(section.address, section.virtualBytes, protection)) throw new Error('Cannot admit section pages');
+    if(proofAbi===13) {
+      const capacity=api.ff_probe_image_source_capacity();
+      if(capacity!==16*1024*1024) throw new Error('Unexpected bounded local image source capacity');
+      const sourceAddress=range(api.ff_probe_image_source(),capacity,16);
+      if(sourceAddress<ramAddress+RAM_BYTES && ramAddress<sourceAddress+capacity) throw new Error('Local image source overlaps guest RAM');
+      new Uint8Array(memory,sourceAddress,xbeBytes.byteLength).set(new Uint8Array(xbeBytes));
+      if(api.ff_probe_image_init(xbeBytes.byteLength) || api.ff_probe_image_count()!==profile.sections.length) throw new Error('Cannot admit local image section ownership');
+      const sectionFields=['descriptor','flags','address','virtualBytes','fileOffset','fileBytes','references','headReferences','tailReferences'];
+      imageInitialState={policy:'local-preload-demand',sourceCapacity:capacity,
+        sections:profile.sections.map((section,i)=>({
+          ...Object.fromEntries(sectionFields.map((name,n)=>[name,api.ff_probe_image_word(i,n)>>>0])),
+          firstPageCommitted:api.ff_probe_vm_page_word(section.address,1),
+          lastPageCommitted:api.ff_probe_vm_page_word(section.address+section.virtualBytes-1,1),
+          bytesMatchSource:new Uint8Array(xbeBytes,section.fileOffset,section.fileBytes).every((byte,n)=>byte===ram[section.address+n])}))};
+    } else {
+      if(api.ff_probe_vm_map_image(profile.base,profile.headerBytes,2)) throw new Error('Cannot admit image header pages');
+      for (const section of profile.sections) {
+        const protection = section.executable ? section.flags & 1 ? 0x40 : 0x20 : section.flags & 1 ? 4 : 2;
+        if (api.ff_probe_vm_map_image(section.address, section.virtualBytes, protection)) throw new Error('Cannot admit section pages');
+      }
     }
   }
   const bindingCount = api.ff_probe_binding_count();
@@ -131,5 +151,5 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   api.ff_probe_bind_kernels();
   const stackTop = api.ff_probe_stack_top();
   if (stackTop !== RAM_BYTES - 4096) throw new Error('Unsupported proof stack');
-  return { api, memory, range, view, ram, profile, sourceSha256, moduleSha256: await sha256(moduleBytes), stackTop };
+  return { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256: await sha256(moduleBytes), stackTop };
 }

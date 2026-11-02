@@ -100,6 +100,14 @@ static ff_virtual_memory virtual_memory;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
 #endif
+#ifdef FF_SECTION_PROOF
+#if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
+#error Section loading requires checked memory and real file writes
+#endif
+#include "../../src/runtime/image_sections.h"
+static uint8_t image_source[FF_IMAGE_SOURCE_BYTES] __attribute__((aligned(16)));
+static ff_image_sections image_sections;
+#endif
 #ifdef FF_FORMAT_PROOF
 #ifndef FF_VM_PROOF
 #error Format observations require checked guest memory
@@ -214,6 +222,26 @@ uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
     if (access == FF_VM_READ) return FF_MEMORY_U8(address, FF_VM_READ);
     if (access == FF_VM_WRITE) { FF_MEMORY_U8(address, FF_VM_WRITE) = 0xb3; return 0; }
     stop(9, address, access);
+}
+#endif
+#ifdef FF_SECTION_PROOF
+uint32_t ff_probe_image_source(void) { return (uint32_t)(uintptr_t)image_source; }
+uint32_t ff_probe_image_source_capacity(void) { return sizeof image_source; }
+uint32_t ff_probe_image_init(uint32_t bytes)
+{
+    return vm_ready?ff_image_init(&image_sections,&virtual_memory,image_source,bytes):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_image_count(void) { return image_sections.ready?image_sections.count:0; }
+uint32_t ff_probe_image_word(uint32_t index,uint32_t field)
+{
+    if(!image_sections.ready || index>=image_sections.count)return 0;
+    const ff_image_section *s=&image_sections.sections[index];
+    switch(field) {
+        case 0:return s->descriptor;case 1:return s->flags;case 2:return s->address;case 3:return s->bytes;
+        case 4:return s->offset;case 5:return s->file_bytes;case 6:return s->references;
+        case 7:return image_sections.shared[s->head].references;case 8:return image_sections.shared[s->tail].references;
+        default:return 0;
+    }
 }
 #endif
 #ifdef FF_FORMAT_PROOF
@@ -471,6 +499,24 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_SECTION_PROOF
+static void section_operation(uint32_t ordinal)
+{
+    uint32_t *row=kernel_record(ordinal,1),index=FF_IMAGE_SECTIONS;
+    for(uint32_t i=0;i<image_sections.count;++i)if(image_sections.sections[i].descriptor==row[2])index=i;
+    if(index<image_sections.count)row[3]=image_sections.sections[index].references;
+    row[1]=ordinal==327?ff_image_load(&image_sections,row[2]):ff_image_unload(&image_sections,row[2]);
+    if(row[1]==FF_BOOT_UNSUPPORTED)stop(9,row[1],ordinal);
+    if(!row[1] && index<image_sections.count) {
+        const ff_image_section *s=&image_sections.sections[index];
+        row[4]=s->references;row[5]=image_sections.shared[s->head].references;row[6]=image_sections.shared[s->tail].references;
+        row[7]=s->address;row[8]=s->bytes;row[9]=s->file_bytes;row[10]=s->offset;
+    }
+    g_eax=row[1];g_esp+=8;
+}
+static void load_image_section(void) { section_operation(327); }
+static void unload_image_section(void) { section_operation(328); }
+#endif
 static void create_thread(void)
 {
     uint32_t *row = kernel_record(255, 10);
@@ -780,7 +826,7 @@ static void initialize_timer(void)
 static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
-    if (!misc_flags_ready || row[2] != 17) stop(9, row[2], 24);
+    if (!misc_flags_ready || row[2] != 17) { row[1]=FF_BOOT_UNSUPPORTED; stop(9, row[2], 24); }
     row[1] = ff_query_misc_flags(guest_ram, FF_GUEST_BYTES, row + 2, misc_flags);
     if (row[1] != FF_BOOT_OK && row[1] != 0xc0000023u) stop(9, row[1], 24);
     if (row[1] == FF_BOOT_OK) {
@@ -847,6 +893,10 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 113) return initialize_timer;
         if (ordinal == 24) return query_nonvolatile;
         if (ordinal == 301) return status_to_dos_error;
+#ifdef FF_SECTION_PROOF
+        if (ordinal == 327) return load_image_section;
+        if (ordinal == 328) return unload_image_section;
+#endif
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
@@ -882,7 +932,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_FILE_WRITE_PROOF
+#ifdef FF_SECTION_PROOF
+    return 13;
+#elif defined(FF_FILE_WRITE_PROOF)
     return 12;
 #elif defined(FF_METADATA_FORMAT_PROOF)
     return 11;
@@ -947,6 +999,9 @@ void ff_probe_reset(void)
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_SECTION_PROOF
+    memset(&image_sections,0,sizeof image_sections);
+#endif
 #ifdef FF_FORMAT_PROOF
     memset(&format_observation,0,sizeof format_observation);
 #endif

@@ -20,7 +20,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>The file-target proof retains a real guest directory object after closing its temporary handle. The regular-file proof creates an owned metadata file and answers its size/attribute/time query using the existing browser clock. Original saves and persistence remain unimplemented.</p>
 <p>The metadata-format proof observes the original helper's inputs, return and pending write buffer with a fixed larger trace. It stops before the unsupported write; formatting a buffer does not save a file.</p>
 <p>The file-write proof completes that synchronous write into the explicit RAM volume and retains its backing after handle closure. Allocation and sampled timestamps are synthetic-volume state; persistence and original FATX fidelity remain unverified.</p>
-<p>The title-image check observes a second empty file and the original demand-load request for an image section. The proof loader currently copies all sections eagerly; demand loading, section references and unloading remain unimplemented. Already resident bytes do not establish a completed section-load service.</p>
+<p>The earlier title-image check stops before section loading and uses an eager proof loader. The section-residency proof instead loads the image on demand from local backing, writes its actual bytes, unloads it and preserves shared pages. Full Xbox physical memory, save fidelity and a playable game remain unverified.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
@@ -58,7 +58,11 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-title-image-section-stop'
+      status.textContent = result.verified ? (result.phase === 'original-image-written-settings-stop'
+        ? 'Original startup wrote its 10,240-byte title image and returned from data initialization; the next original routine requests unsupported console setting 10.'
+        : result.phase === 'original-image-written-initializer-returned'
+        ? 'Original startup wrote its 10,240-byte title image, released the section and returned from data initialization; stopped at the next untranslated routine.'
+        : result.phase === 'original-title-image-section-stop'
         ? 'Original startup created its title-image file; stopped before unsupported section loading. The file is empty; eager section residency remains a proof limitation.'
         : result.phase === 'original-metadata-write-next-stop'
         ? 'Original startup wrote and closed its metadata file; the exact 52-byte payload remains in local backing; stopped at the next untranslated helper'

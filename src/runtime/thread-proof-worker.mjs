@@ -8,10 +8,10 @@ const fields = ['id','handle','handleOpen','state','object','fs','stackLow','sta
 self.onmessage = async event => {
   try {
     const clock = createProofClock();
-    const { api, memory, range, view, ram, profile, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+    const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
-    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()===12;
+    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()===13;
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==1024) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
@@ -66,7 +66,7 @@ self.onmessage = async event => {
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
       arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
-      if (call.ordinal === 24) call.output = { type: api.ff_probe_kernel_word(i, 7),
+      if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
       if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),
         sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
@@ -91,6 +91,9 @@ self.onmessage = async event => {
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
         writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
+      if(sectionAbi && [327,328].includes(call.ordinal)) call.output={beforeReferences:api.ff_probe_kernel_word(i,3),references:api.ff_probe_kernel_word(i,4),
+        headReferences:api.ff_probe_kernel_word(i,5),tailReferences:api.ff_probe_kernel_word(i,6),address:api.ff_probe_kernel_word(i,7),
+        virtualBytes:api.ff_probe_kernel_word(i,8),fileBytes:api.ff_probe_kernel_word(i,9),fileOffset:api.ff_probe_kernel_word(i,10)};
       if (call.ordinal === 289) call.output = {length:api.ff_probe_kernel_word(i,4),maximumLength:api.ff_probe_kernel_word(i,5),buffer:api.ff_probe_kernel_word(i,6)>>>0};
       if (call.ordinal === 279) call.output = {equal:api.ff_probe_kernel_word(i,5),firstBytes:api.ff_probe_kernel_word(i,6),secondBytes:api.ff_probe_kernel_word(i,7)};
     });
@@ -141,7 +144,12 @@ self.onmessage = async event => {
       Number.isInteger(bindingIndex) && bindingIndex>=0 && bindingIndex<api.ff_probe_binding_count() && api.ff_probe_binding_ordinal(bindingIndex)===327 &&
       state[5]===0x34607 && calls.length===103 && calls[100]?.ordinal===289 && calls[101]?.ordinal===190 && calls[102]?.ordinal===211 &&
       calls.slice(98).every(call=>call.status===0);
-    const completedMetadataWrite=reachedWrittenFileHelper || reachedImageSectionRequest;
+    const reachedPostImageSetting=sectionAbi && trapped && state[0]===9 && state[1]===10 && state[2]===24 && state[5]===0x30aa9 && calls.length===110 &&
+      calls[109]?.ordinal===24 && calls[109].status===0xc00000bb && calls[109].arguments[0]===10;
+    const completedImageFlow=sectionAbi && reachedTimerArmed && copyReturned && trapped &&
+      (state[0]===2 && state[1]===0x30a91 && state[2]===0 && state[5]===0x33dc5 && calls.length===109 || reachedPostImageSetting) &&
+      calls.slice(103,109).every((call,n)=>call.ordinal===[327,236,328,187,187,67][n] && call.status===0);
+    const completedMetadataWrite=reachedWrittenFileHelper || reachedImageSectionRequest || completedImageFlow;
     const pastFileMetadataQuery=reachedFileMetadataHelper || reachedMetadataWrite || completedMetadataWrite;
     const reachedRegularFileRequest = pastFileMetadataQuery || !regularAbi && fileLinkAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
       state[1] === 0xc00000bb && state[2] === 190 && state[5] === 0x33ac9 && calls.length === 97 &&
@@ -152,7 +160,7 @@ self.onmessage = async event => {
     if(reachedRegularFileRequest && expectedTlsData.length>=8) new DataView(expectedTlsData.buffer).setUint32(4,1168,true);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (reachedImageSectionRequest ? 103 : reachedWrittenFileHelper ? 100 : pastFileMetadataQuery ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedPostImageSetting ? 110 : completedImageFlow ? 109 : reachedImageSectionRequest ? 103 : reachedWrittenFileHelper ? 100 : pastFileMetadataQuery ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -218,7 +226,7 @@ self.onmessage = async event => {
         checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, imageFileRequest, sectionLoadRequest, metadataWriteRequest, metadataFormat, localVolume, volumeAccounting, symbolicLinkRequest, objectNamespace, originalFormat;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, imageFileRequest, sectionLoadRequest, imageSectionLifecycle, metadataWriteRequest, metadataFormat, localVolume, volumeAccounting, symbolicLinkRequest, objectNamespace, originalFormat;
     if (typeof api.ff_probe_format_word==='function' && typeof api.ff_probe_format_byte==='function') {
       const words=Array.from({length:13},(_,i)=>api.ff_probe_format_word(i)>>>0);
       const text=(which,limit)=>{ let value=''; for(let i=0;i<limit;++i) { const byte=api.ff_probe_format_byte(which,i); if(!byte)return value;
@@ -258,7 +266,7 @@ self.onmessage = async event => {
       const disc=objectNamespace.objects.find(row=>row.parent===devices?.id && row.name==='CdRom0' && row.kind===2);
       const link=objectNamespace.objects.find(row=>row.parent===dos?.id && row.name==='D:' && row.kind===3);
       const created=calls[15];
-      const expectedObjects=fileLinkAbi?7:5;
+      const expectedObjects=completedImageFlow?9:fileLinkAbi?7:5;
       checks.ownedDriveLinkReferencesDevice = objectCount===expectedObjects && new Set(objectNamespace.objects.map(row=>row.id)).size===expectedObjects &&
         !!disc && !!link && disc.references===2 && link.references===1 && link.target===disc.id && link.targetName==='\\Device\\CdRom0' &&
         created?.output?.link===link.id && created.output.target===disc.id && created.output.targetReferences===disc.references;
@@ -292,8 +300,8 @@ self.onmessage = async event => {
       return request;
     };
     if(regularAbi && calls[96]?.ordinal===190 && !calls[96].status) createFileRequest=capturedCreateRequest(96);
+    if(reachedImageSectionRequest || completedImageFlow) imageFileRequest=capturedCreateRequest(101);
     if(reachedImageSectionRequest) {
-      imageFileRequest=capturedCreateRequest(101);
       sectionLoadRequest=inspectLoadSectionRequest(ram,profile,[state[6]],admittedGuestRange);
       const selected=new Uint8Array(event.data.xbeBytes,sectionLoadRequest.fileOffset,sectionLoadRequest.fileBytes);
       const current=ram.subarray(sectionLoadRequest.virtualAddress,sectionLoadRequest.virtualAddress+sectionLoadRequest.fileBytes);
@@ -303,6 +311,15 @@ self.onmessage = async event => {
       sectionLoadRequest.residentBytesMatchSource=selected.every((byte,i)=>byte===current[i]);
       sectionLoadRequest.loaderPolicy='eager-all-sections-proof';
       sectionLoadRequest.lifetimeImplemented=false;
+    }
+    if(completedImageFlow) {
+      const fields=['descriptor','flags','address','virtualBytes','fileOffset','fileBytes','references','headReferences','tailReferences'];
+      const final=Object.fromEntries(fields.map((name,n)=>[name,api.ff_probe_image_word(10,n)>>>0]));
+      imageSectionLifecycle={initial:imageInitialState.sections[10],final,policy:imageInitialState.policy,
+        pagesAfterUnload:Array.from({length:Math.ceil(((final.address%4096)+final.virtualBytes)/4096)},(_,i)=>{
+          const address=(final.address&~4095)+i*4096;
+          return {address,committed:api.ff_probe_vm_page_word(address,1),permission:api.ff_probe_vm_page_word(address,2)};
+        }),wholeSectionReadableAfterUnload:admittedGuestRange(final.address,final.virtualBytes,1)};
     }
     if (volumeAbi && trapped && [1,9].includes(state[0]) && state[2] === 67) {
       symbolicLinkRequest = { link:inspectCountedAnsiString(ram,state[6],admittedGuestRange),
@@ -423,7 +440,7 @@ self.onmessage = async event => {
           drive.targetName==='\\Device\\Harddisk0\\partition1\\TDATA\\4d530002' && drive.references===1 && target.references===1 &&
           link.output.link===drive.id && link.output.target===target.id && link.output.targetKind===4 && link.output.targetReferences===1;
         checks.directoryFileReferenceSurvivesTemporaryClose = !!file && file.directory===owned?.id && file.references===1 && file.handle===0 &&
-          file.access===0 && file.share===7 && file.options===1 && localVolume.fileCount===1 && link.output.providerObject===file.id &&
+          file.access===0 && file.share===7 && file.options===1 && localVolume.fileCount===(completedImageFlow?2:1) && link.output.providerObject===file.id &&
           link.output.directory===file.directory && link.output.fileReferences===1 && link.output.fileHandle===0;
         checks.temporaryTargetHandleClosed = link.output.opened===4 && link.output.closed===4 && link.output.active===0 && link.output.files===1;
         checks.caseInsensitiveFileDriveResolution = !!target && objectNamespace.fileResolution.status===0 && objectNamespace.fileResolution.object===target.id &&
@@ -431,10 +448,10 @@ self.onmessage = async event => {
         checks.linkIdentitySurvivesReusedOriginalBuffer = calls[24]?.ordinal===289 && calls[24].status===0 &&
           calls[24].arguments[0]===string.arguments[0] && calls[24].arguments[1]===string.arguments[1] &&
           calls[24].output.buffer===string.output.buffer && !!file && file.directory===owned?.id && file.directory!==userTitle?.id;
-        checks.firstOriginalDirectoryHelperReturned = helper.length===3 && helper[0].kind==='enter' && helper[1].kind==='exit' && helper[2].kind==='enter' &&
+        checks.firstOriginalDirectoryHelperReturned = helper.length===(completedImageFlow?4:3) && helper[0].kind==='enter' && helper[1].kind==='exit' && helper[2].kind==='enter' &&
           helper[1].cpu?.eax===0 && helper[1].stack===helper[0].stack && helper[1].cpu.fs===thread.fs &&
-          helper[1].cpu.exceptionHead===helper[0].cpu.exceptionHead && !trace.some(row=>row.address===0x33c12 && row.kind==='exit');
-        checks.originalLookupHelpersReturnedWithRestoredContext = balanced(0x34594,3) && balanced(0x31127,2) && balanced(0x3105c,reachedImageSectionRequest?2:1);
+          helper[1].cpu.exceptionHead===helper[0].cpu.exceptionHead && (completedImageFlow || !trace.some(row=>row.address===0x33c12 && row.kind==='exit'));
+        checks.originalLookupHelpersReturnedWithRestoredContext = balanced(0x34594,3) && balanced(0x31127,2) && balanced(0x3105c,reachedImageSectionRequest || completedImageFlow?2:1);
         checks.originalLookupUpdatedActualThreadLocalData = trace.filter(row=>row.address===0x31127 && row.kind==='exit').every(row=>row.cpu?.eax===threadLocalStorage.base) &&
           threadLocalStorage.templateBytes===0 && threadLocalStorage.zeroFillBytes===12 && view.getUint32(threadLocalStorage.base+4,true)===1168 &&
           threadLocalStorage.data.every((byte,i)=>byte===expectedTlsData[i]);
@@ -444,7 +461,7 @@ self.onmessage = async event => {
         checks.originalCountedComparisonsCompleted = equalCalls.length===33 && equalCalls.every(call=>call.status===0 && call.arguments[2]===1 && [0,1].includes(call.output.equal)) &&
           equalCalls.filter(call=>call.output.equal===1).length===1 && equalCalls.find(call=>call.output.equal===1)?.output.firstBytes===9 &&
           equalCalls.find(call=>call.output.equal===1)?.output.secondBytes===9;
-        checks.pendingUserDirectoryHandleIsOwned = !!userTitle && !!userHandle && localVolume.opened===(reachedImageSectionRequest?8:regularAbi?7:6) && localVolume.closed===(writeAbi?6:5) &&
+        if(!completedImageFlow) checks.pendingUserDirectoryHandleIsOwned = !!userTitle && !!userHandle && localVolume.opened===(reachedImageSectionRequest?8:regularAbi?7:6) && localVolume.closed===(writeAbi?6:5) &&
           localVolume.active===(reachedImageSectionRequest || regularAbi && !writeAbi?2:1) && localVolume.handles.length===(reachedImageSectionRequest || regularAbi && !writeAbi?2:1) && userHandle.handle===calls[25]?.output?.handle &&
           userHandle.access===0x120117 && userHandle.share===3 && userHandle.options===0x4021 &&
           calls[23]?.ordinal===187 && calls[23].status===0 && calls[23].arguments[0]===calls[22]?.output?.handle;
@@ -525,17 +542,17 @@ self.onmessage = async event => {
               checks.originalWritePayloadRetainedAfterClose = !!dataFile && dataFile.bytes===52 && dataFile.payload.length===52 &&
                 dataFile.payload.every((byte,n)=>byte===metadataFormat.comparison.expectedPayload[n]);
               checks.regularFileClosePreservesWrittenNode = close?.ordinal===187 && close.status===0 && close.arguments[0]===created.output.handle && !fileHandle &&
-                localVolume.dataFileCount===(reachedImageSectionRequest?2:1) && localVolume.dataFilesCreated===(reachedImageSectionRequest?2:1) &&
-                localVolume.opened===(reachedImageSectionRequest?8:7) && localVolume.closed===6 && localVolume.active===(reachedImageSectionRequest?2:1);
-              checks.syntheticAllocationChargedExactlyOnce = BigInt(dataFile.allocatedBytes)===unitBytes && write.output.allocatedBytes===dataFile.allocatedBytes && chargedUnits===1n &&
-                initialAvailable-available===1n;
+                localVolume.dataFileCount===(reachedImageSectionRequest || completedImageFlow?2:1) && localVolume.dataFilesCreated===(reachedImageSectionRequest || completedImageFlow?2:1) &&
+                localVolume.opened===(completedImageFlow?9:reachedImageSectionRequest?8:7) && localVolume.closed===(completedImageFlow?9:6) && localVolume.active===(completedImageFlow?0:reachedImageSectionRequest?2:1);
+              checks.syntheticAllocationChargedExactlyOnce = BigInt(dataFile.allocatedBytes)===unitBytes && write.output.allocatedBytes===dataFile.allocatedBytes && chargedUnits===(completedImageFlow?2n:1n) &&
+                initialAvailable-available===(completedImageFlow?2n:1n);
               checks.writeTimesUseExistingClockSample = dataFile.writeTime===dataFile.changeTime && dataFile.writeTime===write.output.writeTime &&
                 BigInt(dataFile.writeTime)>=BigInt(fileClockWindow.beforeSystemTicks) && BigInt(dataFile.writeTime)<=BigInt(fileClockWindow.afterSystemTicks);
-              if(!reachedImageSectionRequest) checks.nextOriginalFileHelperStoppedBeforeEntry = reachedWrittenFileHelper && calls.every(call=>call.status===0) && !entered.includes(0x337f7);
+              if(!reachedImageSectionRequest && !completedImageFlow) checks.nextOriginalFileHelperStoppedBeforeEntry = reachedWrittenFileHelper && calls.every(call=>call.status===0) && !entered.includes(0x337f7);
               else {
                 const imageCreate=calls[101], imageQuery=calls[102], image=localVolume.dataFiles.find(file=>file.id===imageCreate.output.dataFile);
                 const imageHandle=localVolume.handles.find(handle=>handle.handle===imageCreate.output.handle), imageWords=imageQuery.output.words;
-                checks.originalImageHelperEntered = reachedImageSectionRequest && entered.includes(0x337f7) && entered.includes(0x345fb) &&
+                if(!completedImageFlow) checks.originalImageHelperEntered = reachedImageSectionRequest && entered.includes(0x337f7) && entered.includes(0x345fb) &&
                   !trace.some(row=>row.kind==='exit' && [0x337f7,0x345fb].includes(row.address)) && !entered.includes(0x3461c) && !entered.includes(0x34670);
                 checks.originalImageFileCreated = imageFileRequest.name==='\\Device\\Harddisk0\\partition1\\UDATA\\4d530002\\TitleImage.xbx' &&
                   imageFileRequest.nameBytes===58 && imageFileRequest.nameMaximumBytes===59 && imageFileRequest.observation==='captured-at-create' &&
@@ -543,14 +560,15 @@ self.onmessage = async event => {
                   imageFileRequest.createDisposition===3 && imageFileRequest.openOptions===0x22 && imageFileRequest.allocationSizePointer===0 &&
                   imageCreate.output.ioStatus===0 && imageCreate.output.information===2 && imageCreate.output.dataFiles===2 && imageCreate.output.dataFilesCreated===2 &&
                   !!image && image.parent===userTitle.id && image.name==='TitleImage.xbx' && image.attributes===4;
-                checks.pendingImageFileOwnsEmptyBacking = !!image && !!imageHandle && image.id!==dataFile.id && imageHandle.handle!==created.output.handle &&
+                if(!completedImageFlow) checks.pendingImageFileOwnsEmptyBacking = !!image && !!imageHandle && image.id!==dataFile.id && imageHandle.handle!==created.output.handle &&
                   imageHandle.handle!==userHandle.handle && imageHandle.dataFile===image.id && imageHandle.directory===0 && imageHandle.position===0 &&
                   imageHandle.access===0x40100000 && imageHandle.share===1 && imageHandle.options===0x22 && image.bytes===0 && image.payload.length===0 && image.allocatedBytes==='0';
                 checks.originalImageMetadataQueryCompleted = !!image && imageQuery.arguments[0]===imageCreate.output.handle && imageQuery.arguments[1]===imageCreate.arguments[3] &&
                   imageQuery.arguments[3]===56 && imageQuery.arguments[4]===34 && imageQuery.output.ioStatus===0 && imageQuery.output.information===56 &&
                   [0,2,4,6].every(i=>wide(imageWords[i],imageWords[i+1])===image.creationTime) && imageWords.slice(8).every((word,i)=>word===[0,0,0,0,4,0][i]) &&
-                  image.creationTime===image.accessTime && image.creationTime===image.writeTime && image.creationTime===image.changeTime &&
+                  image.creationTime===image.accessTime && (completedImageFlow || image.creationTime===image.writeTime && image.creationTime===image.changeTime) &&
                   BigInt(image.creationTime)>=BigInt(fileClockWindow.beforeSystemTicks) && BigInt(image.creationTime)<=BigInt(fileClockWindow.afterSystemTicks);
+                if(!completedImageFlow) {
                 checks.originalImageSectionDescriptorRequested = sectionLoadRequest.descriptor===state[6] && sectionLoadRequest.index===10 && sectionLoadRequest.name==='$$XTIMAGE' &&
                   sectionLoadRequest.flags===0x38 && !sectionLoadRequest.preload && sectionLoadRequest.virtualAddress===profile.sections[10].address &&
                   sectionLoadRequest.virtualBytes===10240 && sectionLoadRequest.fileBytes===10240;
@@ -560,6 +578,49 @@ self.onmessage = async event => {
                 checks.eagerSectionResidencyRecordedAsProofLimitation = sectionLoadRequest.loaderPolicy==='eager-all-sections-proof' &&
                   sectionLoadRequest.guestBytesReadableBeforeService && sectionLoadRequest.residentBytesMatchSource &&
                   sectionLoadRequest.sourceBytesSha256===sectionLoadRequest.residentBytesSha256;
+                } else {
+                  const load=calls[103],imageWrite=calls[104],unload=calls[105],imageClose=calls[106],directoryClose=calls[107],userLink=calls[108];
+                  const selected=profile.sections[10],initial=imageSectionLifecycle.initial,final=imageSectionLifecycle.final;
+                  const source=new Uint8Array(event.data.xbeBytes,selected.fileOffset,selected.fileBytes);
+                  const digest=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
+                  imageSectionLifecycle.sourceBytesSha256=await digest(source);
+                  imageSectionLifecycle.fileBytesSha256=await digest(Uint8Array.from(image.payload));
+                  imageSectionLifecycle.fileBytesMatchSource=source.length===image.payload.length && source.every((byte,n)=>byte===image.payload[n]);
+                  checks.originalImageHelpersReturned = [0x337f7,0x345fb,0x34670,0x3461c].every(address=>balanced(address,1)) &&
+                    trace.some(row=>row.address===0x345fb && row.kind==='exit' && row.cpu.eax===selected.address) &&
+                    trace.some(row=>row.address===0x34670 && row.kind==='exit' && row.cpu.eax===selected.fileBytes);
+                  checks.imageSectionWasDemandLoaded = imageSectionLifecycle.policy==='local-preload-demand' && imageInitialState.sourceCapacity===16*1024*1024 &&
+                    imageInitialState.sections.every(section=>section.references===((section.flags&2)?1:0)) && initial.references===0 && initial.lastPageCommitted===0 &&
+                    !initial.bytesMatchSource && load.arguments[0]===initial.descriptor && load.output.beforeReferences===0 && load.output.references===1 &&
+                    load.output.headReferences===2 && load.output.tailReferences===1 && load.output.address===selected.address && load.output.fileBytes===selected.fileBytes;
+                  checks.originalImageWriteUsesLoadedBytes = imageWrite.arguments.every((value,n)=>value===[imageCreate.output.handle,0,0,0,imageQuery.arguments[1],selected.address,10240,0][n]) &&
+                    imageWrite.output.ioStatus===0 && imageWrite.output.information===10240 && imageWrite.output.initialPosition===0 && imageWrite.output.position===10240 &&
+                    imageWrite.output.dataFile===image.id && imageWrite.output.fileBytes===image.bytes && image.bytes===10240 &&
+                    BigInt(image.allocatedBytes)===unitBytes && imageWrite.output.allocatedBytes===image.allocatedBytes && imageSectionLifecycle.fileBytesMatchSource &&
+                    imageSectionLifecycle.sourceBytesSha256===imageSectionLifecycle.fileBytesSha256;
+                  checks.imageWriteTimesUseExistingClock = image.writeTime===image.changeTime && image.writeTime===imageWrite.output.writeTime &&
+                    BigInt(image.writeTime)>=BigInt(fileClockWindow.beforeSystemTicks) && BigInt(image.writeTime)<=BigInt(fileClockWindow.afterSystemTicks);
+                  checks.imageSectionUnloadPreservesSharedPage = unload.arguments[0]===load.arguments[0] && unload.output.beforeReferences===1 && unload.output.references===0 &&
+                    unload.output.headReferences===1 && unload.output.tailReferences===0 && final.references===0 && final.headReferences===1 && final.tailReferences===0 &&
+                    imageSectionLifecycle.pagesAfterUnload[0].committed===1 && imageSectionLifecycle.pagesAfterUnload.slice(1).every(page=>!page.committed && !page.permission) &&
+                    !imageSectionLifecycle.wholeSectionReadableAfterUnload;
+                  checks.imageAndDirectoryHandlesClosed = !imageHandle && !userHandle && imageClose.arguments[0]===imageCreate.output.handle && directoryClose.arguments[0]===calls[25].output.handle &&
+                    localVolume.opened===9 && localVolume.closed===9 && localVolume.active===0 && localVolume.handles.length===0;
+                  const drive=objectNamespace.objects.find(object=>object.name==='U:' && object.kind===3);
+                  const target=objectNamespace.objects.find(object=>object.id===drive?.target && object.kind===4);
+                  const retained=localVolume.files.find(file=>file.id===target?.providerObject);
+                  checks.userDriveRetainsRealDirectoryAfterClose = !!drive && !!target && !!retained && drive.targetName==='\\Device\\Harddisk0\\partition1\\UDATA\\4d530002' &&
+                    drive.references===1 && target.references===1 && retained.directory===userTitle.id && retained.references===1 && retained.handle===0 &&
+                    userLink.output.link===drive.id && userLink.output.target===target.id && userLink.output.providerObject===retained.id && userLink.output.active===0;
+                  checks.originalDataInitializerReturned = balanced(0x338de,2) && balanced(0x33c12,1) &&
+                    trace.filter(row=>row.kind==='exit' && [0x338de,0x337f7,0x33c12].includes(row.address)).every(row=>row.cpu.eax===0);
+                  if(!reachedPostImageSetting) checks.nextOriginalRoutineStopsBeforeEntry = completedImageFlow && !entered.includes(0x30a91) && calls.every(call=>call.status===0);
+                  else {
+                    checks.originalPostImageRoutineEntered = entered.includes(0x30a91) && !trace.some(row=>row.address===0x30a91 && row.kind==='exit');
+                    checks.nextOriginalSettingStopsBeforeGuestResult = reachedPostImageSetting && calls.slice(0,109).every(call=>call.status===0) &&
+                      calls[109].output===undefined && calls[109].arguments.every((value,n)=>value===[10,62983988,62983992,4,0][n]);
+                  }
+                }
               }
             }
           }
@@ -631,11 +692,12 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
       sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
-      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
+      trace, traceCapacity, kernelCapacity, calls, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
+      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });
   } catch (error) { self.postMessage({ kind: 'error', message: String(error) }); }

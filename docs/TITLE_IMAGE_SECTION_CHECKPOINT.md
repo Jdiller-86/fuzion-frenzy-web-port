@@ -1,5 +1,7 @@
 # Original title-image section-load boundary
 
+Later progress: [real section residency](SECTION_RESIDENCY_CHECKPOINT.md) implements the next service described here and advances through the actual image-file write, unload and initializer return. The request-only result and next task below are historical.
+
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and every planned custom feature. This checkpoint advances original browser startup into the actual image helper and stops before an unsupported section-load result. It does not deliver a playable screen or complete runtime/fidelity.
 
 ## Observed original execution
