@@ -1,3 +1,15 @@
+# Original FATX utility drive mounts in the browser
+
+Selected route: **static recompilation to WebAssembly**, preserving the complete original game and planned custom features. Read [the utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md).
+
+November 2: both explicit synthetic profiles let original code open its actual formatted FATX root, query 65,519 usable / 65,518 free clusters, close the root handle and create `Z:` for partition 5. Original `XMountUtilityDrive` returns one. All 83 initialization callbacks return; 227 routines execute and 392 kernel operations complete across 3,622 events. The next original helper enters and requests ordinal-181 `MmQueryStatistics`, return `0x00030af5`, with a writable 36-byte structure. No guest statistics or result is supplied. **There is no playable original screen.**
+
+Current selection/build: `recomp-title-post-utility-01` / `recomp-post-utility-build-02`, 317 functions / 10,612 instructions, ABI 22 and prior fixed resources / sole clock import. Final browser reports: `post-utility-browser-20261102-03.json`, `-04.json`; independent checks: `fatx-utility-checkpoint-20261102-01.json`. All 34 compiled identities match. Owned FATX and disk optimized/sanitizer checks pass; 39 runtime/admission/delivery cases pass. Prior ABI 21 retains its earlier root-open boundary. Logs are empty and Clear succeeds. No public CI result is claimed for current source.
+
+Next supply real modeled memory statistics with consistent physical/virtual ownership and any explicit baseline, then continue original execution. The FATX provider currently supports bounded root/size access; general files, writes/remount and durable saves remain unfinished. Partition-1 userdata references and the retired RAW object are distinct from the mounted cache. Full runtime/fidelity, disc reads, graphics/audio/controllers, playability, end-user conversion and every planned feature stay unaccepted. Original/derived content remains local; the full goal stays active.
+
+## Prior RAW dismount checkpoint
+
 # Original cache formatter returns in the browser
 
 Selected route: **static recompilation to WebAssembly**, preserving the complete original game, planned custom features and local player-supplied content. Read [the RAW-volume checkpoint](RAW_VOLUME_DISMOUNT_CHECKPOINT.md).

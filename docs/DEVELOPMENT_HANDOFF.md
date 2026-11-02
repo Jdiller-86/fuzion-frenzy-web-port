@@ -1,3 +1,17 @@
+# Continue from mounted Z: and the original memory-statistics request
+
+Read [the current utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+Original code now opens its formatted FATX root, queries allocation size, closes the root handle and creates `Z:` for partition 5. `XMountUtilityDrive` returns one, with stack/FS/exception head restored. Both explicit synthetic profiles complete 83 initialization callbacks, execute 227 routines and complete 392 kernel operations across 3,622 events. Cache mount/device/root identities are separate from userdata and the retired RAW attachment. Mounted geometry is derived from actual backing: four-byte FAT entries, 266,240 table bytes, data offset 270,336, 65,519 usable / 65,518 free clusters. General FATX file operations/remount/persistence remain unsupported.
+
+Reuse `recomp-title-post-utility-01` and `recomp-post-utility-build-02`: 317 functions / 10,612 instructions, ABI 22, prior fixed resources and sole clock import. `inputs.json` retains all nineteen exact seed paths/digests. The new seed exports only the reached 79-byte / 25-instruction `0x00030ade` from the existing project read-only. Final reports are `post-utility-browser-20261102-03.json`, `-04.json`; independent current-source/seed/module/return/namespace/byte checks are in `fatx-utility-checkpoint-20261102-01.json`. Preserve every prior report/module/input and the unchanged originals.
+
+**Next task:** implement ordinal 181, `MmQueryStatistics`, returning to `0x00030af5`. Its one pointer is `62983784`; the original supplies length 36 and the range is writable. Reconcile modeled physical capacity/availability, virtual committed/reserved bytes and cache/pool/stack/image ownership, with explicit baseline inputs where needed. Do not confuse the 128 MiB Wasm allocation or 64 MiB guest window with an established Xbox memory-accounting result. Validate units, shared pages, output/failure atomicity and genuine accounting before continuing the original helper. No new extraction/import or broad decompilation is needed to start.
+
+Validation: owned FATX/disk optimized and sanitizer checks pass, as do 39 runtime/admission/source-delivery cases. All 34 compiled identities match. The prior ABI-21 module retains its original 388-operation root-open boundary under the current harness. Browser logs are empty and Clear succeeds. CI includes the new owned fixture; no current public CI result is claimed. Full runtime/fidelity, disc/package reads, general filesystem/durable saves, original graphics/audio/controllers, playability, end-user conversion and all planned features remain unfinished. Keep the full goal active.
+
+## Prior RAW dismount handoff
+
 # Continue from original formatter return and the FATX root open
 
 Read [the current RAW-volume checkpoint](RAW_VOLUME_DISMOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected. There is no playable original screen.

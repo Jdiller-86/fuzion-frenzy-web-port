@@ -236,6 +236,7 @@ static uint32_t transfer(ff_local_disk *disk,const uint32_t args[8],int writing)
         bytes=(uint32_t)(file->bytes-offset);
     }
     const uint64_t begin=file->offset+offset,end=begin+bytes;
+    if(writing && disk->revision==UINT64_MAX)return FF_BOOT_UNSUPPORTED;
     if(writing) {
         uint32_t needed=0;
         for(uint64_t cursor=begin;cursor<end;) {
@@ -271,6 +272,7 @@ static uint32_t transfer(ff_local_disk *disk,const uint32_t args[8],int writing)
         cursor+=n;
     }
     file->position=offset+bytes;
+    if(writing)++disk->revision;
     return result(disk,iosb,0,bytes);
 }
 uint32_t ff_disk_read(ff_local_disk *disk,const uint32_t args[8]) {return transfer(disk,args,0);}

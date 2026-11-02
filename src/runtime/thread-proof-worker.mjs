@@ -9,10 +9,10 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
-    const dismountAbi=api.ff_probe_abi()===21,informationAbi=dismountAbi || api.ff_probe_abi()===20,geometryAbi=informationAbi || api.ff_probe_abi()===19,partitionAbi=geometryAbi || api.ff_probe_abi()===18,diskAbi=partitionAbi || api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
+    const fatxAbi=api.ff_probe_abi()===22,dismountAbi=fatxAbi || api.ff_probe_abi()===21,informationAbi=dismountAbi || api.ff_probe_abi()===20,geometryAbi=informationAbi || api.ff_probe_abi()===19,partitionAbi=geometryAbi || api.ff_probe_abi()===18,diskAbi=partitionAbi || api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
@@ -326,7 +326,7 @@ self.onmessage = async event => {
       checks.caseInsensitiveDriveResolution = !!disc && objectNamespace.driveResolution.status===0 && objectNamespace.driveResolution.object===disc.id &&
         objectNamespace.driveResolution.remainingOffset===7 && objectNamespace.driveResolution.remainingBytes===0;
       checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 && disc.mediaReady===0 && created?.output?.mediaReady===0 &&
-        objectNamespace.objects.filter(row=>row.kind===2).every(row=>row.mediaReady===0);
+        objectNamespace.objects.filter(row=>row.kind===2 && row.deviceKind===1).every(row=>row.mediaReady===0);
       checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest;
     }
     const admittedGuestRange = (address, bytes, access) => {
@@ -816,6 +816,38 @@ self.onmessage = async event => {
       openFileRequest={...inspectOpenFileRequest(ram,state.slice(6,12),admittedGuestRange),
         observation:'stopped-before-kernel-result'};
     }
+    let localFatx;
+    if(fatxAbi) {
+      const mountCount=api.ff_probe_fatx_word(1),fileCount=api.ff_probe_fatx_word(2);
+      if(api.ff_probe_fatx_word(0)!==1 || mountCount>4 || fileCount>16)throw new Error('Invalid FATX provider state');
+      const fieldNames=['id','partition','device','serial','sectorsPerCluster','clusterBytes','entryBytes','rootCluster',
+        'clusterCount','freeClusters','rootClusters','fileObjects'];
+      const mounts=Array.from({length:mountCount},(_,i)=>{
+        const value=Object.fromEntries(fieldNames.map((key,n)=>[key,api.ff_probe_fatx_mount_word(i,n)>>>0]));
+        for(const [key,low] of [['offset',12],['bytes',14],['fatBytes',16],['dataOffset',18],['revision',20]]) {
+          value[key]=((BigInt(api.ff_probe_fatx_mount_word(i,low+1)>>>0)<<32n)|BigInt(api.ff_probe_fatx_mount_word(i,low)>>>0)).toString();
+        }
+        const device=objectNamespace.objects.find(object=>object.id===value.device);
+        if(!device || device.kind!==2 || device.deviceKind!==2 || device.mediaReady!==1 || device.providerObject!==value.id ||
+           ![2,4].includes(value.entryBytes) || !value.rootClusters || value.rootClusters>64 || value.freeClusters>value.clusterCount) {
+          throw new Error('Invalid mounted FATX identity/layout');
+        }
+        return value;
+      });
+      const fileFields=['id','mount','handle','access','share','options','references'];
+      const files=Array.from({length:16},(_,i)=>Object.fromEntries(fileFields.map((key,n)=>[key,api.ff_probe_fatx_file_word(i,n)>>>0]))).filter(file=>file.id);
+      if(files.length!==fileCount || files.some(file=>!file.references || !mounts.some(mount=>mount.id===file.mount)))throw new Error('Invalid FATX file lifetime');
+      localFatx={ready:true,mountCount,fileCount,active:api.ff_probe_fatx_word(3),opened:api.ff_probe_fatx_word(4),closed:api.ff_probe_fatx_word(5),mounts,files,
+        persistent:false,scope:'backed FATX root/size; general file operations unsupported'};
+    }
+    let memoryStatisticsRequest;
+    if(fatxAbi && state[0]===1 && state[2]===181) {
+      const pointer=state[6];
+      if(!pointer || (pointer&3) || !admittedGuestRange(pointer,4,1))throw new Error('Invalid memory-statistics request pointer');
+      const suppliedLength=view.getUint32(pointer,true);
+      memoryStatisticsRequest={pointer,suppliedLength,expectedBytes:36,
+        outputWritable:admittedGuestRange(pointer,36,2),serviceImplemented:false,observation:'stopped-before-kernel-result'};
+    }
     let originalStartup;
     if(initializerAbi) {
       // Read the immutable selected file, not the reused live stack or a guessed catalog.
@@ -843,8 +875,8 @@ self.onmessage = async event => {
     }
     self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
-      sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      trace, traceCapacity, kernelCapacity, calls, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,

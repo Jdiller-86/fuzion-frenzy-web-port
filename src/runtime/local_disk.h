@@ -33,6 +33,7 @@ typedef struct {
     ff_disk_volume volumes[FF_DISK_PARTITIONS];
     uint32_t partition_count, volume_count;
     uint32_t next_handle, active, opened, closed, allocated_pages;
+    uint64_t revision;
 } ff_local_disk;
 
 uint32_t ff_disk_init(ff_local_disk *, ff_virtual_memory *, const ff_disk_profile *);

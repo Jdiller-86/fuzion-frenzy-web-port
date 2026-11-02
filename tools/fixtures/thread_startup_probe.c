@@ -45,6 +45,14 @@ static uint32_t disk_ready;
 #if defined(FF_DISK_DISMOUNT_PROOF) && !defined(FF_DISK_INFORMATION_PROOF)
 #error Dismount retains explicit partition information and attachment state
 #endif
+#ifdef FF_FATX_PROOF
+#if !defined(FF_DISK_DISMOUNT_PROOF) || !defined(FF_NAMESPACE_PROOF)
+#error FATX retains explicit disk, RAW lifetime and namespace contracts
+#endif
+#include "../../src/runtime/fatx_volume.h"
+static ff_fatx_volume fatx_volume;
+static uint32_t fatx_ready;
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -552,6 +560,13 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_FATX_PROOF
+static int fatx_parent_handle(uint32_t attributes)
+{
+    return attributes && !(attributes&3u) && !ff_vm_check(&virtual_memory,attributes,12,FF_VM_READ) &&
+        ff_fatx_owns_handle(MEM32(attributes));
+}
+#endif
 #if defined(FF_TIMER_PROOF) && defined(FF_VM_PROOF)
 static void query_system_time(void)
 {
@@ -595,6 +610,10 @@ static void create_thread(void)
 static void close_handle(void)
 {
     uint32_t *row = kernel_record(187, 1);
+#ifdef FF_FATX_PROOF
+    if (ff_fatx_owns_handle(row[2])) row[1] = ff_fatx_close(&fatx_volume, row[2]);
+    else
+#endif
 #ifdef FF_DISK_PROOF
     if (ff_disk_owns_handle(row[2])) row[1] = ff_disk_close(&local_disk, row[2]);
     else
@@ -615,6 +634,10 @@ uint32_t ff_probe_namespace_init(void)
     if (!status) status=ff_namespace_add_device(&object_namespace,"\\Device\\CdRom0",14,FF_NS_LOCAL_DISC,&id);
 #ifdef FF_FILE_LINK_PROOF
     if (!status) status=ff_file_namespace_bind(&object_namespace,&local_volume);
+#endif
+#ifdef FF_FATX_PROOF
+    if(!status)status=disk_ready?ff_fatx_init(&fatx_volume,&local_disk,&object_namespace):FF_BOOT_INVALID;
+    if(!status)fatx_ready=1;
 #endif
     if (!status) namespace_ready=1;
     return status;
@@ -731,6 +754,10 @@ static void open_volume_root(void)
 #ifdef FF_DISK_PROOF
     if (disk_ready) row[1] = ff_disk_open(&local_disk, row + 2);
 #endif
+#ifdef FF_FATX_PROOF
+    if(row[1]==FF_BOOT_UNSUPPORTED && fatx_ready)row[1]=ff_fatx_open_root(&fatx_volume,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED && fatx_parent_handle(row[4]))stop(9,row[1],202);
+#endif
     if (row[1] == FF_BOOT_UNSUPPORTED) row[1] = ff_volume_open_root(&local_volume, row + 2);
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 202);
     if (!row[1]) { row[8] = MEM32(row[2]); row[9] = MEM32(row[5]); row[10] = MEM32(row[5] + 4); }
@@ -758,6 +785,9 @@ static void initialize_ansi_string(void)
 static void create_directory(void)
 {
     uint32_t *row = kernel_record(190, 9);
+#ifdef FF_FATX_PROOF
+    if(fatx_parent_handle(row[4])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],190);}
+#endif
     if (!volume_ready) stop(9, 0, 190);
 #ifdef FF_REGULAR_FILE_PROOF
     row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
@@ -785,6 +815,9 @@ static void create_directory(void)
 static void query_file_information(void)
 {
     uint32_t *row=kernel_record(211,5);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],211);}
+#endif
     row[1]=ff_volume_query_file(&local_volume,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],211);
     if(!row[1]) {
@@ -798,6 +831,9 @@ static void query_file_information(void)
 static void write_regular_file(void)
 {
     uint32_t *row=kernel_record(236,8);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],236);}
+#endif
     ff_volume_handle *handle=NULL;
     for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[2]) handle=&local_volume.handles[i];
     if(handle) row[19]=handle->position;
@@ -893,6 +929,9 @@ static void control_disk(void)
 {
     uint32_t *row=kernel_record(196,10);
     row[1]=FF_BOOT_UNSUPPORTED;
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))stop(9,row[1],196);
+#endif
     if(!disk_ready)stop(9,row[1],196);
     row[1]=ff_disk_control(&local_disk,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],196);
@@ -935,6 +974,9 @@ static void filesystem_control_disk(void)
 {
     uint32_t *row=kernel_record(200,10);
     row[1]=FF_BOOT_UNSUPPORTED;
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))stop(9,row[1],200);
+#endif
     if(!disk_ready)stop(9,row[1],200);
     row[1]=ff_disk_fs_control(&local_disk,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],200);
@@ -966,6 +1008,10 @@ static void query_volume_size(void)
 {
     uint32_t *row = kernel_record(218, 5);
     if (!volume_ready) stop(9, 0, 218);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))row[1]=fatx_ready?ff_fatx_query_size(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
+#endif
     row[1] = ff_volume_query_size(&local_volume, row + 2);
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 218);
     if (!row[1]) {
@@ -1002,6 +1048,34 @@ uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
     const ff_volume_handle *handle = &local_volume.handles[index];
     switch (field) { case 0: return handle->handle; case 1: return handle->access; case 2: return handle->share; case 3: return handle->options;
         case 4: return handle->directory; case 5:return handle->data_file; case 6:return handle->position; default: return 0; }
+}
+#endif
+#ifdef FF_FATX_PROOF
+uint32_t ff_probe_fatx_word(uint32_t field)
+{
+    switch(field){case 0:return fatx_ready;case 1:return fatx_volume.mount_count;case 2:return fatx_volume.file_count;
+        case 3:return fatx_volume.active;case 4:return fatx_volume.opened;case 5:return fatx_volume.closed;default:return UINT32_MAX;}
+}
+uint32_t ff_probe_fatx_mount_word(uint32_t index,uint32_t field)
+{
+    if(index>=fatx_volume.mount_count)return UINT32_MAX;
+    const ff_fatx_mount *mount=&fatx_volume.mounts[index];
+    switch(field){case 0:return mount->id;case 1:return mount->partition;case 2:return mount->device;case 3:return mount->serial;
+        case 4:return mount->sectors_per_cluster;case 5:return mount->cluster_bytes;case 6:return mount->entry_bytes;
+        case 7:return mount->root_cluster;case 8:return mount->cluster_count;case 9:return mount->free_clusters;
+        case 10:return mount->root_clusters;case 11:return mount->file_objects;
+        case 12:return (uint32_t)mount->offset;case 13:return (uint32_t)(mount->offset>>32);
+        case 14:return (uint32_t)mount->bytes;case 15:return (uint32_t)(mount->bytes>>32);
+        case 16:return (uint32_t)mount->fat_bytes;case 17:return (uint32_t)(mount->fat_bytes>>32);
+        case 18:return (uint32_t)mount->data_offset;case 19:return (uint32_t)(mount->data_offset>>32);
+        case 20:return (uint32_t)mount->revision;case 21:return (uint32_t)(mount->revision>>32);default:return UINT32_MAX;}
+}
+uint32_t ff_probe_fatx_file_word(uint32_t index,uint32_t field)
+{
+    if(index>=FF_FATX_FILES)return UINT32_MAX;
+    const ff_fatx_file *file=&fatx_volume.files[index];
+    switch(field){case 0:return file->id;case 1:return file->mount;case 2:return file->handle;case 3:return file->access;
+        case 4:return file->share;case 5:return file->options;case 6:return file->references;default:return UINT32_MAX;}
 }
 #endif
 static void enter_critical(void)
@@ -1162,7 +1236,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_DISK_DISMOUNT_PROOF
+#ifdef FF_FATX_PROOF
+    return 22;
+#elif defined(FF_DISK_DISMOUNT_PROOF)
     return 21;
 #elif defined(FF_DISK_INFORMATION_PROOF)
     return 20;
@@ -1283,6 +1359,9 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_DISK_PROOF
     memset(&local_disk,0,sizeof local_disk);disk_ready=0;
+#endif
+#ifdef FF_FATX_PROOF
+    memset(&fatx_volume,0,sizeof fatx_volume);fatx_ready=0;
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
