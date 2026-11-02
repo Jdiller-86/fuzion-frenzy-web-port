@@ -6,7 +6,7 @@ import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
 import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
-import { inspectOpenFileRequest, inspectCreateFileRequest, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
+import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -105,14 +105,78 @@ test('create-file diagnostic uses nine Xbox arguments and reads optional signed 
   assert.throws(()=>inspectCreateFileRequest(ram,create,(address)=>address!==256),/not admitted/);
 });
 
+test('write-file diagnostic preserves the eight Xbox arguments, binary payload and signed offset without mutation', () => {
+  const ram=new Uint8Array(new ArrayBuffer(544),32,512), view=new DataView(ram.buffer,ram.byteOffset,ram.byteLength);
+  const payload=[0,0x80,0xff,65,10], args=[123,456,789,1000,64,192,payload.length,128], accesses=[];
+  ram.set(payload,192); view.setBigInt64(128,-0x100000001n,true);
+  const saved=ram.slice();
+  const result=inspectWriteFileRequest(ram,args,(...access)=>{accesses.push(access);return true;});
+  assert.deepEqual([result.fileHandle,result.eventHandle,result.apcRoutine,result.apcContext,result.ioStatusBlockPointer,result.buffer,result.bytes,result.byteOffsetPointer],args);
+  assert.equal(result.byteOffset,'-4294967297'); assert.equal(result.serviceImplemented,false);
+  assert.deepEqual(result.payload,payload); assert.deepEqual(ram,saved);
+  assert.deepEqual(accesses,[[64,8,2],[192,5,1],[128,8,1]]);
+  ram[192]=9; assert.deepEqual(result.payload,payload);
+  args[7]=0; assert.equal(inspectWriteFileRequest(ram,args,()=>true).byteOffset,undefined);
+});
+
+test('write-file diagnostic rejects invalid arguments, excessive lengths, ranges and denied permissions', () => {
+  const ram=new Uint8Array(512), args=[1,0,0,0,64,192,5,128];
+  for(const bad of [args.slice(1),[...args,0],[...args.slice(0,7),-1],[...args.slice(0,7),1.5],[...args.slice(0,7),0x100000000]]) {
+    assert.throws(()=>inspectWriteFileRequest(ram,bad,()=>true),/Invalid write-file/);
+  }
+  for(const [index,value] of [[4,0],[4,65],[4,508],[5,510],[5,0xfffffffe],[6,65537],[7,129],[7,508],[7,0xfffffffc]]) {
+    const invalid=args.slice(); invalid[index]=value;
+    assert.throws(()=>inspectWriteFileRequest(ram,invalid,()=>true));
+  }
+  for(const denied of [64,192,128]) assert.throws(()=>inspectWriteFileRequest(ram,args,address=>address!==denied),/not admitted/);
+  assert.throws(()=>inspectWriteFileRequest(null,args,()=>true));
+  assert.throws(()=>inspectWriteFileRequest(ram,args,null));
+});
+
+test('zero-length write diagnostics do not read the unused buffer or invent an explicit offset', () => {
+  const ram=new Uint8Array(256), accesses=[];
+  const result=inspectWriteFileRequest(ram,[1,0,0,0,64,0xffffffff,0,0],(...access)=>{accesses.push(access);return true;});
+  assert.deepEqual(result.payload,[]); assert.equal(result.byteOffset,undefined);
+  assert.deepEqual(accesses,[[64,8,2]]);
+});
+
+test('wide metadata comparison preserves BOM, surrogate code units and little-endian payload bytes', () => {
+  const output='\ufeffOwned=\ud83d\ude80\r\n%', observation={format:'%lc%ls%lc%ls%ls%%',arguments:[{kind:'character',value:0xfeff},
+    {kind:'string',value:'Owned'},{kind:'character',value:61},{kind:'string',value:'\ud83d\ude80'},{kind:'string',value:'\r\n'}],output,returnedUnits:output.length,maximumUnits:64};
+  const result=compareWideMetadataFormat(observation);
+  assert.equal(result.matches,true); assert.equal(result.expectedUnits,output.length);
+  assert.equal(result.expectedBytes,output.length*2);
+  assert.deepEqual(result.expectedPayload,[255,254,79,0,119,0,110,0,101,0,100,0,61,0,61,216,128,222,13,0,10,0,37,0]);
+});
+
+test('wide metadata comparison rejects mismatched output, byte counts, normalization and truncation', () => {
+  const observation={format:'%lc:%ls',arguments:[{kind:'character',value:65},{kind:'string',value:'e\u0301'}],output:'A:e\u0301',returnedUnits:4,maximumUnits:8};
+  assert.equal(compareWideMetadataFormat(observation).matches,true);
+  for(const changed of [{output:'A:\u00e9'},{returnedUnits:8},{maximumUnits:4},{output:'A:x'}]) {
+    assert.equal(compareWideMetadataFormat({...observation,...changed}).matches,false);
+  }
+});
+
+test('wide metadata comparison bounds snapshots and rejects unsupported argument/conversion shapes', () => {
+  const observation={format:'%lc%ls',arguments:[{kind:'character',value:65},{kind:'string',value:'owned'}],output:'Aowned',returnedUnits:6,maximumUnits:8};
+  for(const changed of [{format:'%ls%lc'},{format:'%lc%d'},{format:'%lc%ls%'},{format:'%lc'},{format:'%lc%ls%ls'},
+    {arguments:[{kind:'character',value:-1}]},{arguments:[{kind:'character',value:65536}]},{arguments:[{kind:'character',value:1.5}]},
+    {returnedUnits:260},{maximumUnits:261},{maximumUnits:0},{arguments:[{kind:'string',value:'x'.repeat(128)}]},
+    {output:'x'.repeat(260)},{format:'x'.repeat(128)},{arguments:[{kind:'string',value:'a\0b'}]},{arguments:[]},
+    {arguments:Array(9).fill({kind:'string',value:'owned'})},{arguments:[null]},{arguments:[{kind:'unknown',value:65}]}]) {
+    assert.throws(()=>compareWideMetadataFormat({...observation,...changed}));
+  }
+  assert.throws(()=>compareWideMetadataFormat());
+});
+
 test('title execution loader rejects non-browser-worker execution before compiling or instantiating a module', async () => {
   await assert.rejects(loadLocalTitleProof({}, 2), /requires a browser worker/);
 });
 
 test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
   assert.equal(proofTraceCapacity({}),64);
-  for (const capacity of [64,128]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
-  for (const capacity of [0,32,65,129,256,-1,NaN,Infinity,'128',true]) {
+  for (const capacity of [64,128,1024]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
+  for (const capacity of [0,32,65,129,256,1023,1025,0x80000000,-1,NaN,Infinity,'128','1024',true]) {
     assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),/bounded trace capacity/);
   }
 });

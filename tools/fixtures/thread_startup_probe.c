@@ -36,7 +36,14 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #define FF_GUEST_BYTES (64u * 1024u * 1024u)
 #define FF_STACK_TOP (FF_GUEST_BYTES - 4096u)
 #define FF_KERNEL_BASE 0xfe000000u
+#if defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
+#ifndef FF_REGULAR_FILE_PROOF
+#error Expanded metadata traces retain the explicit fresh regular-file contract
+#endif
+#define FF_TRACE_CAPACITY 1024u
+#else
 #define FF_TRACE_CAPACITY 128u
+#endif
 #define FF_KERNEL_CAPACITY 128u
 
 ptrdiff_t g_xbox_mem_offset;
@@ -98,6 +105,12 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
 #error Format observations require checked guest memory
 #endif
 static struct { uint32_t words[13]; uint8_t format[64], output[128]; } format_observation;
+#endif
+#ifdef FF_METADATA_FORMAT_PROOF
+#ifndef FF_FORMAT_PROOF
+#error Metadata observations retain the checked format observer contract
+#endif
+static struct { uint32_t words[21]; uint8_t format[256], output[520], input[3][256]; } metadata_observation;
 #endif
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
@@ -237,6 +250,55 @@ uint32_t ff_probe_format_byte(uint32_t which,uint32_t index)
     return 0;
 }
 #endif
+#ifdef FF_METADATA_FORMAT_PROOF
+static int observe_wide_string(uint32_t address,uint8_t *output,uint32_t capacity,uint32_t *bytes)
+{
+    if (!address) return 0;
+    for (uint32_t i=0;i+1<capacity;i+=2) {
+        uint64_t at=(uint64_t)address+i;
+        if (at > UINT32_MAX || ff_vm_check(&virtual_memory,(uint32_t)at,2,FF_VM_READ)) return 0;
+        output[i]=guest_ram[at]; output[i+1]=guest_ram[at+1];
+        if (!output[i] && !output[i+1]) { *bytes=i; return 1; }
+    }
+    return 0;
+}
+static void observe_metadata_format(uint32_t kind,uint32_t address)
+{
+    if (address != 0x001df4f0u) return;
+    uint32_t *words=metadata_observation.words;
+    if (kind==1) {
+        if (++words[0] != 1) return;
+        words[2]=g_esp; words[8]=g_fs_base;
+        if (g_fs_base && !ff_vm_check(&virtual_memory,g_fs_base,4,FF_VM_READ)) { words[9]=format_word(g_fs_base); words[7]|=4; }
+        if (ff_vm_check(&virtual_memory,g_esp,36,FF_VM_READ)) return;
+        words[3]=format_word(g_esp+4); words[13]=format_word(g_esp+8);
+        words[4]=format_word(g_esp+12); words[5]=format_word(g_esp+16); words[15]=format_word(g_esp+20);
+        words[16]=format_word(g_esp+24); words[17]=format_word(g_esp+28); words[18]=format_word(g_esp+32);
+        uint32_t format_bytes=0;
+        if (observe_wide_string(words[15],metadata_observation.input[0],sizeof metadata_observation.input[0],&words[14])) words[7]|=8;
+        if (observe_wide_string(words[17],metadata_observation.input[1],sizeof metadata_observation.input[1],&words[19])) words[7]|=16;
+        if (observe_wide_string(words[18],metadata_observation.input[2],sizeof metadata_observation.input[2],&words[20])) words[7]|=32;
+        if (observe_wide_string(words[4],metadata_observation.format,sizeof metadata_observation.format,&format_bytes)) words[7]|=1;
+    } else {
+        if (++words[1] != 1 || words[0] != 1) return;
+        words[6]=g_eax; words[10]=g_esp; words[11]=g_fs_base;
+        if (g_fs_base && !ff_vm_check(&virtual_memory,g_fs_base,4,FF_VM_READ)) words[12]=format_word(g_fs_base);
+        else words[7]&=~4u;
+        if (!(words[7]&1u) || !words[13] || words[13] > sizeof metadata_observation.output/2 || g_eax >= words[13] ||
+            g_eax >= sizeof metadata_observation.output/2 || ff_vm_check(&virtual_memory,words[3],((uint64_t)g_eax+1)*2,FF_VM_READ)) return;
+        memcpy(metadata_observation.output,guest_ram+words[3],(g_eax+1)*2);
+        if (!metadata_observation.output[g_eax*2] && !metadata_observation.output[g_eax*2+1]) words[7]|=2;
+    }
+}
+uint32_t ff_probe_metadata_format_word(uint32_t index) { return index < 21 ? metadata_observation.words[index] : 0; }
+uint32_t ff_probe_metadata_format_byte(uint32_t which,uint32_t index)
+{
+    if (!which && index < sizeof metadata_observation.format) return metadata_observation.format[index];
+    if (which==1 && index < sizeof metadata_observation.output) return metadata_observation.output[index];
+    if (which>=2 && which<=4 && index < sizeof metadata_observation.input[0]) return metadata_observation.input[which-2][index];
+    return 0;
+}
+#endif
 static void trace(uint32_t kind, uint32_t address)
 {
 #ifdef FF_COPY_PROOF
@@ -244,6 +306,9 @@ static void trace(uint32_t kind, uint32_t address)
 #endif
 #ifdef FF_FORMAT_PROOF
     observe_format(kind,address);
+#endif
+#ifdef FF_METADATA_FORMAT_PROOF
+    observe_metadata_format(kind,address);
 #endif
     if (probe_trace_count == FF_TRACE_CAPACITY) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
@@ -787,7 +852,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_REGULAR_FILE_PROOF
+#ifdef FF_METADATA_FORMAT_PROOF
+    return 11;
+#elif defined(FF_REGULAR_FILE_PROOF)
     return 10;
 #elif defined(FF_FILE_LINK_PROOF)
     return 9;
@@ -850,6 +917,9 @@ void ff_probe_reset(void)
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_FORMAT_PROOF
     memset(&format_observation,0,sizeof format_observation);
+#endif
+#ifdef FF_METADATA_FORMAT_PROOF
+    memset(&metadata_observation,0,sizeof metadata_observation);
 #endif
 #ifdef FF_NAMESPACE_PROOF
     memset(&object_namespace,0,sizeof object_namespace); namespace_ready=0;

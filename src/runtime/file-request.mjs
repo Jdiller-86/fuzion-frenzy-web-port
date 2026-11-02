@@ -51,3 +51,45 @@ export function inspectCreateFileRequest(ram, args, checkAccess) {
   }
   return { ...request, allocationSizePointer, allocationBytes, fileAttributes:args[5], createDisposition:args[7] };
 }
+
+export function inspectWriteFileRequest(ram, args, checkAccess) {
+  if (!(ram instanceof Uint8Array) || !Array.isArray(args) || args.length !== 8 ||
+      args.some(n => !Number.isInteger(n) || n < 0 || n > 0xffffffff) || typeof checkAccess !== 'function') {
+    throw new Error('Invalid write-file diagnostic input');
+  }
+  const [fileHandle,eventHandle,apcRoutine,apcContext,ioStatusBlockPointer,buffer,bytes,byteOffsetPointer]=args;
+  if (bytes > 65536) throw new Error('Write-file payload exceeds diagnostic bounds');
+  admittedRange(ram,checkAccess,ioStatusBlockPointer,8,4,2);
+  if (bytes) admittedRange(ram,checkAccess,buffer,bytes,1,1);
+  let byteOffset;
+  if (byteOffsetPointer) {
+    admittedRange(ram,checkAccess,byteOffsetPointer,8,4,1);
+    byteOffset=new DataView(ram.buffer,ram.byteOffset,ram.byteLength).getBigInt64(byteOffsetPointer,true).toString();
+  }
+  return {fileHandle,eventHandle,apcRoutine,apcContext,ioStatusBlockPointer,buffer,bytes,byteOffsetPointer,byteOffset,
+    payload:Array.from(ram.subarray(buffer,buffer+bytes)),serviceImplemented:false};
+}
+
+// Compare one bounded wide-format shape. This observes an already returned
+// original result; it is never an implementation of the guest formatter.
+export function compareWideMetadataFormat({format,arguments:args,output,returnedUnits,maximumUnits}={}) {
+  if ([format,output].some(text=>typeof text!=='string' || text.includes('\0')) || format.length>=128 || output.length>=260 ||
+      !Array.isArray(args) || args.length<1 || args.length>8 || args.some(arg=>!arg || (arg.kind==='character' ?
+        !Number.isInteger(arg.value) || arg.value<0 || arg.value>65535 : arg.kind!=='string' || typeof arg.value!=='string' || arg.value.length>=128 || arg.value.includes('\0'))) ||
+      !Number.isInteger(returnedUnits) || returnedUnits<0 || returnedUnits>=260 ||
+      !Number.isInteger(maximumUnits) || maximumUnits<1 || maximumUnits>260) throw new Error('Invalid bounded wide-format observation');
+  let expected='', argument=0;
+  for(let i=0;i<format.length;i++) {
+    if(format[i]!=='%') {expected+=format[i];continue;}
+    if(format[++i]==='%') {expected+='%';continue;}
+    const token=format.slice(i,i+2), arg=args[argument++]; i++;
+    if(token==='lc' && arg?.kind==='character') expected+=String.fromCharCode(arg.value);
+    else if(token==='ls' && arg?.kind==='string') expected+=arg.value;
+    else throw new Error('Unsupported observed wide-format shape');
+  }
+  if(argument!==args.length) throw new Error('Unsupported observed wide-format arguments');
+  const expectedPayload=[];
+  for(let i=0;i<expected.length;i++) {const unit=expected.charCodeAt(i);expectedPayload.push(unit&255,unit>>>8);}
+  return {matches:expected.length<maximumUnits && output===expected && returnedUnits===expected.length,
+    expectedUnits:expected.length,expectedBytes:expectedPayload.length,expectedPayload};
+}

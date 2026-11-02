@@ -25,7 +25,7 @@ export function parseLocalConsoleSettings(buffer) {
 
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128].includes(capacity)) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024].includes(capacity)) throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
@@ -89,8 +89,8 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8,9,10,11].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
@@ -110,7 +110,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
-  if ([5,6,7,8,9,10].includes(proofAbi)) {
+  if ([5,6,7,8,9,10,11].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes) || api.ff_probe_vm_map_image(profile.base, profile.headerBytes, 2)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
