@@ -146,11 +146,42 @@ static void partition_information_preserves_explicit_descriptor_and_range(void)
     args[9]=31;memcpy(saved_ram,ram,sizeof ram);assert(ff_disk_control(&disk,args)==0xc0000023u);
     assert(!memcmp(ram+DATA,saved_ram+DATA,40) && !get(IOSB+4,4));
 }
+static void raw_attachment_dismount_retires_after_close_and_preserves_bytes(void)
+{
+    reset();assert(!ff_disk_add_partition(&disk,5,0x180000000ull,0x40000000));
+    save();assert(ff_disk_attach_raw_volume(&disk,4)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_disk_attach_raw_volume(&disk,5));
+    save();assert(ff_disk_attach_raw_volume(&disk,5)==FF_BOOT_INVALID);unchanged();
+    const char *name="\\Device\\Harddisk0\\partition5";memcpy(ram+TEXT,name,strlen(name)+1);
+    open_args[4]=0;open_args[5]=0x18;uint32_t file=open_disk();
+    uint32_t control[10]={file,0,0,0,IOSB,0x90020,0,0,0,0};
+    uint32_t io[8]={file,0,0,0,IOSB,DATA,512,OFFSET};put(OFFSET,0,8);memset(ram+DATA,0x37,512);
+    assert(!ff_disk_write(&disk,io));assert(disk.volumes[0].references==1);
+    control[5]=0x90018;save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_UNSUPPORTED);unchanged();control[5]=0x90020;
+    control[4]=0x40000;save();assert(ff_disk_fs_control(&disk,control)==FF_VM_ACCESS_VIOLATION);unchanged();control[4]=IOSB;
+    control[2]=1;save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_UNSUPPORTED);unchanged();control[2]=0;
+    assert(!ff_disk_fs_control(&disk,control));assert(!get(IOSB,4) && !get(IOSB+4,4));
+    assert(disk.volumes[0].state==FF_DISK_VOLUME_DISMOUNTED && disk.volumes[0].references==1 && disk.volumes[0].dismounts==1);
+    assert(disk.active==1 && disk.allocated_pages==1 && ff_disk_byte(&disk,0x180000000ull)==0x37);
+    save();assert(ff_disk_open(&disk,open_args)==FF_BOOT_UNSUPPORTED);unchanged();
+    save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_UNSUPPORTED);unchanged();
+    memset(ram+DATA,0,512);assert(!ff_disk_read(&disk,io));for(unsigned i=0;i<512;++i)assert(ram[DATA+i]==0x37);
+    assert(!ff_disk_close(&disk,file));assert(!disk.active && !disk.volumes[0].references && disk.volumes[0].state==FF_DISK_VOLUME_RETIRED);
+    assert(ff_disk_byte(&disk,0x180000000ull)==0x37 && disk.allocated_pages==1);
+    save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_BAD_HANDLE);unchanged();
+    reset();assert(!ff_disk_add_partition(&disk,5,0x180000000ull,0x40000000));assert(!ff_disk_attach_raw_volume(&disk,5));
+    memcpy(ram+TEXT,name,strlen(name)+1);file=open_disk();uint32_t other=open_disk();control[0]=file;
+    assert(disk.volumes[0].references==2);save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_disk_close(&disk,file) && disk.volumes[0].references==1);assert(!ff_disk_close(&disk,other));
+    assert(disk.volumes[0].state==FF_DISK_VOLUME_ATTACHED && !disk.volumes[0].references);
+    reset();file=open_disk();control[0]=file;save();assert(ff_disk_fs_control(&disk,control)==FF_BOOT_UNSUPPORTED);unchanged();
+}
 int main(void)
 {
     sparse_roundtrip_and_lifetime();permissions_sharing_and_rejected_memory();sparse_capacity_failure_preserves_disk_and_position();
     explicit_partition_views_share_backing_without_crossing_boundaries();
     explicit_geometry_has_checked_output_and_no_disk_mutation();
     partition_information_preserves_explicit_descriptor_and_range();
+    raw_attachment_dismount_retires_after_close_and_preserves_bytes();
     puts("owned sparse disk and partition aliasing, range, lifetime and access checks passed");return 0;
 }

@@ -1,3 +1,15 @@
+# Original cache formatter returns in the browser
+
+Selected route: **static recompilation to WebAssembly**, preserving the complete original game, planned custom features and local player-supplied content. Read [the RAW-volume checkpoint](RAW_VOLUME_DISMOUNT_CHECKPOINT.md).
+
+November 2: both explicit synthetic profiles complete the original dismount/close sequence and return from formatter `0x00033ddb` with one. All 83 initialization callbacks return; 226 distinct original routines execute and 388 kernel operations complete across 3,619 events. The explicit RAW attachment detaches, remains alive until the final handle closes, then retires. All 286,720 format bytes remain backed. The following ordinal-202 request opens `\Device\Harddisk0\Partition5\`, return `0x000337ca`, and stops before a guest result. **The utility drive is not mounted and no playable original screen exists.**
+
+Current admitted generation/build: `recomp-title-disk-geometry-01` / `recomp-raw-dismount-build-01`, 316 functions / 10,587 instructions, ABI 21. Final original reports: `raw-dismount-browser-20261102-03.json`, `-04.json`; independent checks: `raw-dismount-checkpoint-20261102-01.json`. All 32 compiled identities match. Owned native/sanitizer checks and 39 runtime/admission/delivery cases pass; previous ABI 20 retains its original boundary under the current harness. Logs are empty and Clear succeeds. The retained formatter analysis explains the extra allocation-table page: it adds one entry before sizing/alignment. Only the reached geometry is dynamically corroborated.
+
+Next implement the actual FATX partition-root mount from retained backing, with validated table/root/allocation state and distinct provider/object lifetime; then follow original size query, close and utility link. Do not alias partition 5 into partition 1. RAW sharing/locking and general Xbox kernel equivalence remain unproved; the service admits only its explicit exclusive synthetic path. No new extraction/import/export, host disk, original upload, native/Node original execution or broad unrelated test campaign occurred. All full-game/custom-feature requirements remain active and unfinished; current source is not yet claimed as public-CI-validated.
+
+## Prior partition-format write checkpoint
+
 # Original formatter writes FATX metadata in the browser
 
 Selected route: **static recompilation to WebAssembly**, preserving the full original game, all planned custom features and local player-supplied content. Read [the partition-format checkpoint](PARTITION_FORMAT_CHECKPOINT.md).

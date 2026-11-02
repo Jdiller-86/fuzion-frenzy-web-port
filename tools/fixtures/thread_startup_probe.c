@@ -42,6 +42,9 @@ static uint32_t disk_ready;
 #if defined(FF_DISK_INFORMATION_PROOF) && !defined(FF_DISK_GEOMETRY_PROOF)
 #error Partition information retains explicit disk geometry
 #endif
+#if defined(FF_DISK_DISMOUNT_PROOF) && !defined(FF_DISK_INFORMATION_PROOF)
+#error Dismount retains explicit partition information and attachment state
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -860,6 +863,9 @@ uint32_t ff_probe_disk_word(uint32_t field)
     case 12:return (uint32_t)(local_disk.geometry.cylinders>>32);case 13:return local_disk.geometry.tracks_per_cylinder;
     case 14:return local_disk.geometry.sectors_per_track;
 #endif
+#ifdef FF_DISK_DISMOUNT_PROOF
+    case 15:return local_disk.volume_count;
+#endif
     default:return UINT32_MAX;
     }
 }
@@ -913,6 +919,34 @@ uint32_t ff_probe_disk_information_word(uint32_t index,uint32_t field)
     switch(field){case 0:return part->information_ready;case 1:return part->hidden_sectors;case 2:return part->type;
         case 3:return part->flags;default:return UINT32_MAX;}
 }
+#ifdef FF_DISK_DISMOUNT_PROOF
+uint32_t ff_probe_disk_raw_volume(uint32_t partition)
+{
+    return disk_ready?ff_disk_attach_raw_volume(&local_disk,partition):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_volume_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.volume_count)return UINT32_MAX;
+    const ff_disk_volume *volume=&local_disk.volumes[index];
+    switch(field){case 0:return volume->partition;case 1:return volume->state;case 2:return volume->references;
+        case 3:return volume->dismounts;default:return UINT32_MAX;}
+}
+static void filesystem_control_disk(void)
+{
+    uint32_t *row=kernel_record(200,10);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!disk_ready)stop(9,row[1],200);
+    row[1]=ff_disk_fs_control(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],200);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[12]=MEM32(row[6]);row[13]=MEM32(row[6]+4);}
+    if(!row[1])for(unsigned i=0;i<FF_DISK_HANDLES;++i)if(local_disk.handles[i].handle==row[2]) {
+        const uint32_t id=local_disk.handles[i].volume;
+        const ff_disk_volume *volume=&local_disk.volumes[id-1];
+        row[14]=id;row[15]=volume->state;row[16]=volume->references;row[17]=volume->dismounts;
+    }
+    g_eax=row[1];g_esp+=44;
+}
+#endif
 #endif
 #endif
 #endif
@@ -1102,6 +1136,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 236) return write_file;
 #ifdef FF_DISK_GEOMETRY_PROOF
         if (ordinal == 196) return control_disk;
+#ifdef FF_DISK_DISMOUNT_PROOF
+        if (ordinal == 200) return filesystem_control_disk;
+#endif
 #endif
 #else
         if (ordinal == 236) return write_regular_file;
@@ -1125,7 +1162,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_DISK_INFORMATION_PROOF
+#ifdef FF_DISK_DISMOUNT_PROOF
+    return 21;
+#elif defined(FF_DISK_INFORMATION_PROOF)
     return 20;
 #elif defined(FF_DISK_GEOMETRY_PROOF)
     return 19;

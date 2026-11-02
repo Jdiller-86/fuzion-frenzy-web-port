@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -78,6 +78,18 @@ test('partition information requires explicit typed flags and consistent hidden 
   assert.throws(()=>parseLocalPartitionInformation(bytes(undefined)),/explicit partition information/);
   assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>20}),4096);
   assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>20}),512);
+});
+
+test('RAW attachment profile must name every configured cache partition explicitly',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const bytes=rawVolumes=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,
+    disk:{kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:2,
+      partitions:[{number:3,offset:'4294967296',bytes:'1073741824'},{number:4,offset:'5368709120',bytes:'1073741824'}],rawVolumes}})).buffer;
+  assert.deepEqual(parseLocalRawDiskVolumes(bytes([3,4])),[3,4]);
+  for(const value of [undefined,[],[3],[3,3],[3,5],[3,'4']])assert.throws(()=>parseLocalRawDiskVolumes(bytes(value)),/explicit fresh RAW/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>21}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>21}),512);
 });
 
 function ownedSectionRequest() {

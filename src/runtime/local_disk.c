@@ -110,6 +110,35 @@ uint32_t ff_disk_control(ff_local_disk *disk,const uint32_t args[10])
     }
     return result(disk,iosb,0,required);
 }
+uint32_t ff_disk_attach_raw_volume(ff_local_disk *disk,uint32_t partition)
+{
+    if(!disk || !disk->memory || disk->opened || disk->allocated_pages || disk->volume_count>=FF_DISK_PARTITIONS)return FF_BOOT_INVALID;
+    int found=0;
+    for(unsigned i=0;i<disk->partition_count;++i)found|=disk->partitions[i].number==partition;
+    if(!found)return FF_BOOT_INVALID;
+    for(unsigned i=0;i<disk->volume_count;++i)if(disk->volumes[i].partition==partition)return FF_BOOT_INVALID;
+    disk->volumes[disk->volume_count++]=(ff_disk_volume){partition,FF_DISK_VOLUME_ATTACHED,0,0};
+    return 0;
+}
+uint32_t ff_disk_fs_control(ff_local_disk *disk,const uint32_t args[10])
+{
+    if(!disk || !disk->memory || !args)return FF_BOOT_INVALID;
+    const ff_disk_handle *file=handle(disk,args[0]);
+    if(!file)return FF_BOOT_BAD_HANDLE;
+    const uint32_t iosb=args[4];
+    if(iosb&3u)return FF_BOOT_INVALID;
+    if(!admitted(disk,iosb,8,FF_VM_WRITE))return FF_VM_ACCESS_VIOLATION;
+    if(args[1] || args[2] || args[3] || args[5]!=0x90020u || args[6] || args[7] || args[8] || args[9] ||
+       !file->volume || file->volume>disk->volume_count)return FF_BOOT_UNSUPPORTED;
+    ff_disk_volume *volume=&disk->volumes[file->volume-1];
+    /* Only the established synchronous exclusive RAW-volume path is admitted.
+     * Shared opens, retained filesystem references and other providers need
+     * their actual contracts before receiving a guest result. */
+    if(volume->partition!=file->partition || volume->state!=FF_DISK_VOLUME_ATTACHED || volume->references!=1 ||
+       file->share || (file->access&3u)!=3u)return FF_BOOT_UNSUPPORTED;
+    volume->state=FF_DISK_VOLUME_DISMOUNTED;++volume->dismounts;
+    return result(disk,iosb,0,0);
+}
 uint32_t ff_disk_open(ff_local_disk *disk,const uint32_t args[6])
 {
     static const char device[]="\\Device\\Harddisk0\\partition";
@@ -150,6 +179,11 @@ uint32_t ff_disk_open(ff_local_disk *disk,const uint32_t args[6])
     if(access&0x40000000u)access=(access&~0x40000000u)|0x120116u;
     if(access&~0x0012019fu)return FF_BOOT_UNSUPPORTED;
     if(!(options&0x30u) || !(access&0x100000u))return FF_BOOT_UNSUPPORTED;
+    uint32_t volume=0;
+    for(unsigned i=0;i<disk->volume_count;++i)if(disk->volumes[i].partition==partition) {
+        if(disk->volumes[i].state!=FF_DISK_VOLUME_ATTACHED)return FF_BOOT_UNSUPPORTED;
+        volume=i+1;
+    }
     for(unsigned i=0;i<FF_DISK_HANDLES;++i) {
         const ff_disk_handle *old=&disk->handles[i];
         if(old->handle && old->partition==partition && (((access&1u) && !(old->share&1u)) || ((old->access&1u) && !(share&1u)) ||
@@ -158,7 +192,8 @@ uint32_t ff_disk_open(ff_local_disk *disk,const uint32_t args[6])
     ff_disk_handle *slot=NULL;
     for(unsigned i=0;i<FF_DISK_HANDLES;++i)if(!disk->handles[i].handle){slot=&disk->handles[i];break;}
     if(!slot || disk->next_handle>=FF_DISK_HANDLE_LIMIT)return result(disk,iosb,FF_BOOT_NO_MEMORY,0);
-    *slot=(ff_disk_handle){disk->next_handle,access,share,options,partition,0,partition_offset,partition_bytes};
+    *slot=(ff_disk_handle){disk->next_handle,access,share,options,partition,volume,0,partition_offset,partition_bytes};
+    if(volume)++disk->volumes[volume-1].references;
     disk->next_handle+=4;++disk->active;++disk->opened;put(disk,output,slot->handle,4);
     return result(disk,iosb,0,1);
 }
@@ -244,5 +279,10 @@ uint32_t ff_disk_close(ff_local_disk *disk,uint32_t value)
 {
     ff_disk_handle *file=handle(disk,value);
     if(!file)return FF_BOOT_BAD_HANDLE;
+    if(file->volume) {
+        ff_disk_volume *volume=&disk->volumes[file->volume-1];
+        --volume->references;
+        if(!volume->references && volume->state==FF_DISK_VOLUME_DISMOUNTED)volume->state=FF_DISK_VOLUME_RETIRED;
+    }
     memset(file,0,sizeof *file);--disk->active;++disk->closed;return 0;
 }

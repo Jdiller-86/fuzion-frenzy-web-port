@@ -1,3 +1,17 @@
+# Continue from original formatter return and the FATX root open
+
+Read [the current RAW-volume checkpoint](RAW_VOLUME_DISMOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected. There is no playable original screen.
+
+Both explicit fresh synthetic profiles now complete dismount and close, return from original `0x00033ddb` with `EAX=1`, and request the selected partition's root. All 83 callbacks return; 226 routines execute and 388 operations complete across 3,619 trace events. The RAW attachment is detached, held until its last handle closes and retired; all written header/table/root bytes remain intact. The pending ordinal-202 request is `\Device\Harddisk0\Partition5\`, access `0x00100001`, share 3, options `0x00800021`, return `0x000337ca`. No guest open result, utility mount or drive link is supplied.
+
+Reuse `recomp-title-disk-geometry-01` and `recomp-raw-dismount-build-01`: unchanged 316 functions / 10,587 instructions, ABI 21 and prior fixed memory/backing/diagnostic bounds / sole clock import. Final reports are `raw-dismount-browser-20261102-03.json`, `-04.json`; compact identities/byte/lifetime/return checks are in `raw-dismount-checkpoint-20261102-01.json`. New inputs in `raw-volume-inputs-01` explicitly provide fresh RAW attachments; they are not original-console state. All prior code, inputs, reports and originals are preserved.
+
+**Next task:** implement a genuine FATX filesystem/root provider over the written partition backing, then observe the original volume query, close and utility link. Keep its identity separate from partition 1 and from retired RAW attachments. Validate cluster/table/root bounds, usable allocation geometry and actual object/reference lifetime. Retained formatter instructions `0x00033edc` and `0x00033ef3`..`0x00033efc` explain the extra table page: add one entry, choose entry width, then align. The reached 1 GiB geometry agrees with browser bytes; wider format acceptance remains unproved. No new Ghidra export/import/extraction is needed to start.
+
+Validation: owned optimized/sanitizer component checks and all 39 runtime/admission/source-delivery cases pass; all 32 compiled identities match. ABI-20 browser compatibility, empty warning/error logs and Clear pass. General RAW locking/sharing/retained-file cases remain unsupported rather than receiving invented retail statuses. Full filesystem/persistence, disc reads, runtime/fidelity, original graphics/audio/controllers, playability, end-user conversion and all planned features remain unfinished. Keep the full goal active and retain the prior source-only local server if reused.
+
+## Prior partition-format write handoff
+
 # Continue from original FATX writes and the pending dismount
 
 Read [the current partition-format checkpoint](PARTITION_FORMAT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected; there is no playable original screen.
