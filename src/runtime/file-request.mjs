@@ -70,6 +70,48 @@ export function inspectWriteFileRequest(ram, args, checkAccess) {
     payload:Array.from(ram.subarray(buffer,buffer+bytes)),serviceImplemented:false};
 }
 
+// Observe the one-argument Xbox XeLoadSection request. Admission to this
+// diagnostic neither loads a section nor changes its lifetime/reference state.
+export function inspectLoadSectionRequest(ram, profile, args, checkAccess) {
+  const unsigned=value=>Number.isInteger(value) && value>=0 && value<=0xffffffff;
+  if (!(ram instanceof Uint8Array) || typeof checkAccess!=='function' || !Array.isArray(args) || args.length!==1 ||
+      !unsigned(args[0]) || !unsigned(profile?.base) || !unsigned(profile?.headerBytes) || profile.headerBytes<0x178 ||
+      profile.base>ram.length-profile.headerBytes || !Array.isArray(profile.sections) || profile.sections.length<1 || profile.sections.length>128) {
+    throw new Error('Invalid section-load diagnostic input');
+  }
+  const view=new DataView(ram.buffer,ram.byteOffset,ram.byteLength), end=profile.base+profile.headerBytes;
+  const headerRange=(address,bytes,alignment=4)=>{
+    if(address<profile.base || address>end-bytes) throw new Error('Section metadata is outside the image header');
+    admittedRange(ram,checkAccess,address,bytes,alignment,1);
+  };
+  const word=address=>{headerRange(address,4);return view.getUint32(address,true);};
+  if(word(profile.base+0x104)!==profile.base || word(profile.base+0x108)!==profile.headerBytes ||
+      word(profile.base+0x11c)!==profile.sections.length) throw new Error('Section header identity differs from the admitted profile');
+  const table=word(profile.base+0x120), descriptor=args[0], delta=descriptor-table;
+  headerRange(table,profile.sections.length*56);
+  if(table<profile.base+0x178 || delta<0 || delta%56 || delta/56>=profile.sections.length) throw new Error('Section pointer is not a declared descriptor');
+  headerRange(descriptor,56);
+  const index=delta/56, section=profile.sections[index];
+  if(!section || section.index!==index || ['flags','address','virtualBytes','fileOffset','fileBytes'].some((field,i)=>word(descriptor+i*4)!==section[field]) ||
+      !section.virtualBytes || section.address>ram.length-section.virtualBytes) throw new Error('Section descriptor differs from the admitted profile');
+  const namePointer=word(descriptor+20), referenceCount=word(descriptor+24), headReferencePointer=word(descriptor+28), tailReferencePointer=word(descriptor+32);
+  headerRange(headReferencePointer,2,2); headerRange(tailReferencePointer,2,2);
+  let name='', terminated=false;
+  for(let i=0;i<128;i++) {
+    headerRange(namePointer+i,1,1);
+    const byte=ram[namePointer+i];
+    if(!byte) {terminated=true;break;}
+    if(byte<32 || byte>126) throw new Error('Invalid bounded section name');
+    name+=String.fromCharCode(byte);
+  }
+  if(!terminated || !name) throw new Error('Unterminated or empty bounded section name');
+  return {descriptor,index,name,namePointer,flags:section.flags,preload:!!(section.flags&2),
+    virtualAddress:section.address,virtualBytes:section.virtualBytes,fileOffset:section.fileOffset,fileBytes:section.fileBytes,
+    referenceCount,headReferencePointer,tailReferencePointer,headReferences:view.getUint16(headReferencePointer,true),
+    tailReferences:view.getUint16(tailReferencePointer,true),guestBytesReadableBeforeService:checkAccess(section.address,section.virtualBytes,1)===true,
+    serviceImplemented:false,observation:'stopped-before-kernel-result'};
+}
+
 // Compare one bounded wide-format shape. This observes an already returned
 // original result; it is never an implementation of the guest formatter.
 export function compareWideMetadataFormat({format,arguments:args,output,returnedUnits,maximumUnits}={}) {

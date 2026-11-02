@@ -6,7 +6,7 @@ import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
 import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
-import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
+import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -18,6 +18,77 @@ const section = (id, bytes) => [id, ...uint(bytes.length), ...bytes];
 const memory = (minimum = 1, maximum = PROOF_MEMORY_PAGES, flags = 1, count = 1) =>
   section(5, [count, flags, ...uint(minimum), ...uint(maximum)]);
 const module = (...sections) => Uint8Array.from([...header, ...sections.flat()]).buffer;
+
+function ownedSectionRequest() {
+  const ram=new Uint8Array(0x14000),view=new DataView(ram.buffer),base=0x10000,descriptor=0x10300;
+  const section={index:0,flags:0x38,address:0x11020,virtualBytes:96,fileOffset:0x1000,fileBytes:48};
+  const profile={base,headerBytes:0x1000,sections:[section]};
+  for(const [offset,value] of [[0x104,base],[0x108,profile.headerBytes],[0x11c,1],[0x120,descriptor]]) view.setUint32(base+offset,value,true);
+  for(const [i,value] of [section.flags,section.address,section.virtualBytes,section.fileOffset,section.fileBytes,0x10400,0,0x10480,0x10482].entries()) view.setUint32(descriptor+i*4,value,true);
+  ram.set(new TextEncoder().encode('OwnedImage'),0x10400);
+  view.setUint16(0x10480,2,true);view.setUint16(0x10482,3,true);
+  return {ram,view,profile,args:[descriptor]};
+}
+
+test('section-load observation reads the declared descriptor and reference state without implementing or mutating it',()=>{
+  const {ram,profile,args}=ownedSectionRequest(),saved=ram.slice(),accesses=[];
+  const request=inspectLoadSectionRequest(ram,profile,args,(...range)=>{accesses.push(range);return true;});
+  assert.equal(request.name,'OwnedImage');assert.equal(request.descriptor,args[0]);assert.equal(request.index,0);
+  assert.equal(request.preload,false);assert.equal(request.referenceCount,0);
+  assert.equal(request.headReferences,2);assert.equal(request.tailReferences,3);
+  assert.equal(request.fileBytes,48);assert.equal(request.virtualBytes,96);
+  assert.equal(request.serviceImplemented,false);assert.equal(request.guestBytesReadableBeforeService,true);
+  assert.equal(request.observation,'stopped-before-kernel-result');
+  assert.ok(accesses.every(([_address,_bytes,mode])=>mode===1));assert.deepEqual(ram,saved);
+});
+
+test('section-load observation rejects wrong argument shapes and pointers between or outside declared descriptors',()=>{
+  const {ram,profile,args}=ownedSectionRequest();
+  for(const bad of [[],[...args,0],[0],[-1],[NaN],[1.5],[0x100000000],[args[0]+4],[args[0]+56],[args[0]-56],[ram.length-4]]) {
+    assert.throws(()=>inspectLoadSectionRequest(ram,profile,bad,()=>true));
+  }
+  assert.throws(()=>inspectLoadSectionRequest(null,profile,args,()=>true));
+  assert.throws(()=>inspectLoadSectionRequest(ram,profile,args));
+  for(const edit of [{base:0xffffffff},{base:0x10001},{headerBytes:0x100},{headerBytes:0xffffffff},{sections:[]},{sections:Array(129)}]) {
+    assert.throws(()=>inspectLoadSectionRequest(ram,{...profile,...edit},args,()=>true));
+  }
+});
+
+test('section-load observation rejects changed image metadata and header tables before interpreting the request',()=>{
+  for(const [where,value] of [[0x10104,0x20000],[0x10108,0x2000],[0x1011c,2],[0x10120,0x10000],[0x10120,0x10ff0],
+    [0x10300,0x39],[0x10304,0x12000],[0x10308,97],[0x1030c,0x2000],[0x10310,49]]) {
+    const {ram,view,profile,args}=ownedSectionRequest();view.setUint32(where,value,true);
+    assert.throws(()=>inspectLoadSectionRequest(ram,profile,args,()=>true));
+  }
+});
+
+test('section-load observation bounds names and shared counters inside readable image headers',()=>{
+  for(const mutate of [
+    ({view})=>view.setUint32(0x10314,0x11000,true),
+    ({view})=>view.setUint32(0x1031c,0x10481,true),
+    ({view})=>view.setUint32(0x10320,0xfffffffe,true),
+    ({ram})=>ram.fill(65,0x10400,0x10480),
+    ({ram})=>{ram[0x10400]=0;},
+    ({ram})=>{ram[0x10400]=255;}
+  ]) {
+    const fixture=ownedSectionRequest();mutate(fixture);
+    assert.throws(()=>inspectLoadSectionRequest(fixture.ram,fixture.profile,fixture.args,()=>true));
+  }
+  const {ram,profile,args}=ownedSectionRequest();
+  for(const denied of [profile.base+0x104,args[0],0x10400,0x10480,0x10482]) {
+    assert.throws(()=>inspectLoadSectionRequest(ram,profile,args,(address)=>address!==denied),/not admitted/);
+  }
+});
+
+test('a declared section can remain unreadable before loading and observed residency never changes references',()=>{
+  const {ram,view,profile,args}=ownedSectionRequest(),section=profile.sections[0];
+  const request=inspectLoadSectionRequest(ram,profile,args,address=>address!==section.address);
+  assert.equal(request.guestBytesReadableBeforeService,false);assert.equal(request.referenceCount,0);
+  section.flags|=2;view.setUint32(args[0],section.flags,true);view.setUint32(args[0]+24,7,true);
+  const resident=inspectLoadSectionRequest(ram,profile,args,()=>true);
+  assert.equal(resident.preload,true);assert.equal(resident.referenceCount,7);
+  assert.equal(view.getUint32(args[0]+24,true),7);
+});
 
 function ownedOpenRequest() {
   const ram = new Uint8Array(4096), view = new DataView(ram.buffer);

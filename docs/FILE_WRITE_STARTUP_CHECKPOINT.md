@@ -1,5 +1,7 @@
 # Original metadata write and handle closure
 
+Later progress: [the title-image checkpoint](TITLE_IMAGE_SECTION_CHECKPOINT.md) admits this checkpoint's retained four-function export and reaches the actual unsupported section-load request. The next task below is historical; real section residency/lifetime is now required.
+
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and every planned custom feature. Original browser startup now completes its actual metadata-file write and closes that file's handle. The exact bytes remain in the owned RAM volume. This is further CPU startup, not persistent saves, a playable screen or complete runtime/fidelity acceptance.
 
 ## Observed original execution
@@ -44,6 +46,8 @@ All artifacts remain ignored under `research/verification/`. Original bytes, pay
 | `file-write-checkpoint-audit-01.json` | `56423ab3acc8e950de41acd8678a76f494e3441799327001b7fa67c8118cb401` |
 
 The **26-check audit passes**, matching all 26 compiled source/declaration identities, fixture identities 8/9/11/6, all thirteen unchanged seeds/generated output and exact browser/module identity. It verifies actual write/close/backing/allocation, pre-write versus final metadata, certificate title, clock bounds, next stop, regressions/rejections/Clear/logs, unchanged supplied/reference executable and clean vendor/header pin. The four owned service suites pass all twelve native optimized, address/undefined-behavior sanitizer and Wasm modes. Twenty-eight runtime/admission/delivery cases and nineteen Python cases pass locally. The preparation/publication guard passes for 186 source files and whitespace checks pass; CI results are recorded separately in status/handoff; CI never executes the original game or private toolchain.
+
+File-write source checkpoint `9babc12` is published. [CI run 41383105768](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41383105768) passed Windows and Linux, including 28 runtime/admission/delivery cases, nineteen Python cases, formats, source-publication guards and the preserved prototype tests/build. Linux also passed owned regular-file create/query/write and earlier file-target, directory/string, volume, namespace, memory, object/context, timer and triangle checks. This run validates that exact prior source commit; it does not execute the original game or private title toolchain. The 78-check original browser result remains separate local evidence. The linked title-image checkpoint advances original startup and retains the full unfinished objective.
 
 Browser `01` preserves the real write/close and next stop under the earlier verifier; `02/03/21` pass the initial module's 78 checks. `04..15` pass the earlier 74/69/61/50/43/40/36/31/27/22/20/16-check modules. `16..20/22` retain initial rejection/Clear coverage. Final module `02` adds guarded failed-handle observation; owned fixture `02` covers invalid output with a closed handle. Final browser `23/24/30` passes 78 checks, `25..28` rejects missing state/malformed Wasm and `29/31` verifies Clear. Recovery logs contain no warnings/errors. The two screenshots are byte-identical views of the same successful boundary. The temporary tabs and verified source-only host were cleared/closed. All original inputs and earlier evidence are preserved.
 
