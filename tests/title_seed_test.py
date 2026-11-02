@@ -3,6 +3,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location("title_prepare", Path(__file__).resolve().parents[1] / "tools/prepare-title-recomp.py")
 prepare = importlib.util.module_from_spec(spec)
@@ -15,6 +16,35 @@ def fixture():
 
 
 class EnvelopeTests(unittest.TestCase):
+    def test_kernel_data_binding_requires_the_declared_exact_absolute_pointer_load(self):
+        row={'mnemonic':'MOV','length':5,'call':False,'computed':False,'analysisBytesHex':'a100510000',
+             'references':[{'type':'READ','target':'5100'}]}
+        self.assertEqual(prepare.checked_kernel_data_binding(row,{0x5100:40}),0x5100)
+        self.assertIsNone(prepare.checked_kernel_data_binding(row,{0x5100:219}))
+        self.assertIsNone(prepare.checked_kernel_data_binding(row,{}))
+        for key,value in [('mnemonic','CALL'),('length',4),('call',True),('computed',True),
+                          ('analysisBytesHex','a104510000'),('analysisBytesHex','b800510000')]:
+            changed={**row,key:value}
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                prepare.checked_kernel_data_binding(changed,{0x5100:40})
+
+    def test_local_tail_thunk_requires_its_exact_relative_target_in_the_admitted_set(self):
+        item={'established':True,'thunk':True,'entry':'100','bodyBytes':5,
+              'bodyRanges':[{'start':'100','endInclusive':'104'}],
+              'instructions':[{'address':'100','length':5,'mnemonic':'JMP','computed':False,
+                               'call':False,'analysisBytesHex':'e9fb000000','flows':['200']}]}
+        self.assertEqual(prepare.function_envelope(item,local_entries={0x200}),(0x100,0x105))
+        for entries in [None,set(),{0x201}]:
+            with self.assertRaises(ValueError):prepare.function_envelope(item,local_entries=entries)
+        for key,value in [('analysisBytesHex','e8fb000000'),('analysisBytesHex','e9fc000000'),
+                          ('length',4),('computed',True),('call',True),('flows',['200','201'])]:
+            altered=copy.deepcopy(item);altered['instructions'][0][key]=value
+            with self.subTest(key=key,value=value),self.assertRaises(ValueError):
+                prepare.function_envelope(altered,local_entries={0x200})
+        short=copy.deepcopy(item);short.update(bodyBytes=2,bodyRanges=[{'start':'100','endInclusive':'101'}])
+        short['instructions'][0].update(length=2,analysisBytesHex='eb1e',flows=['120'])
+        self.assertEqual(prepare.function_envelope(short,local_entries={0x120}),(0x100,0x102))
+
     def test_only_declared_kernel_jump_thunks_are_admitted(self):
         item = {"established": True, "thunk": True, "entry": "100", "bodyBytes": 6,
                 "bodyRanges": [{"start": "100", "endInclusive": "105"}],
@@ -45,7 +75,33 @@ class EnvelopeTests(unittest.TestCase):
                 prepare.function_envelope(item)
 
 
+class DecoderAgreementTests(unittest.TestCase):
+    def test_wait_store_grouping_retains_both_instructions_and_all_bytes(self):
+        row={'address':'100','length':4,'mnemonic':'FSTCW'}
+        pair=[SimpleNamespace(address=0x100,size=1,mnemonic='wait'),
+              SimpleNamespace(address=0x101,size=3,mnemonic='fnstcw')]
+        raw=b'\x9b\xd9\x7d\xfc'
+        normalized=prepare.check_decoder_agreement([row],pair,lambda address,size:raw)
+        self.assertEqual(normalized,[{'address':0x100,'bytes':4,'ghidra':'FSTCW',
+                                     'capstone':['wait','fnstcw'],'translatedInstructions':2}])
+        for altered in [b'\x90\xd9\x7d\xfc',b'\x9b\xd9\x6d\xfc',b'\x9b\xd9\xfd\xfc',raw[:-1]]:
+            with self.subTest(raw=altered),self.assertRaises(ValueError):
+                prepare.check_decoder_agreement([row],pair,lambda address,size:altered)
+        with self.assertRaises(ValueError):
+            prepare.check_decoder_agreement([{**row,'mnemonic':'OTHER'}],pair,lambda address,size:raw)
+        with self.assertRaises(ValueError):
+            prepare.check_decoder_agreement([row],pair[:1],lambda address,size:raw)
+
+
+
 class SeedCompositionTests(unittest.TestCase):
+    def test_instruction_budgets_require_explicit_expansion(self):
+        prepare.validate_instruction_count(8192)
+        prepare.validate_instruction_count(16384,16384)
+        for count,limit in [(8193,8192),(16385,16384),(1,8193),(True,8192),(0,8192)]:
+            with self.subTest(count=count,limit=limit),self.assertRaises(ValueError):
+                prepare.validate_instruction_count(count,limit)
+
     def seed(self, entry="100", sha="a" * 64):
         item = fixture()
         item["entry"] = entry
@@ -85,6 +141,24 @@ class SeedCompositionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Aggregate function"):
             prepare.combine_seed_functions(seeds, "a" * 64)
 
+    def test_expanded_startup_is_explicit_and_retains_identity_and_group_limits(self):
+        seeds=[]
+        for group in range(16):
+            seed=self.seed()
+            seed['functions']=[self.seed(f'{0x100+(group*8+i)*0x20:x}')['functions'][0] for i in range(8)]
+            seeds.append(seed)
+        self.assertEqual(len(prepare.combine_seed_functions(seeds,'a'*64,function_limit=128)),128)
+        with self.assertRaisesRegex(ValueError,'Aggregate function'):
+            prepare.combine_seed_functions(seeds,'a'*64)
+        for limit in [0,65,129,True,'128']:
+            with self.subTest(limit=limit),self.assertRaises(ValueError):
+                prepare.combine_seed_functions(seeds,'a'*64,function_limit=limit)
+        with self.assertRaisesRegex(ValueError,'bounded seed exports'):
+            prepare.combine_seed_functions(seeds+[self.seed('f000')],'a'*64,function_limit=128)
+        seeds[-1]['functions'][-1]=seeds[0]['functions'][0]
+        with self.assertRaisesRegex(ValueError,'Duplicate'):
+            prepare.combine_seed_functions(seeds,'a'*64,function_limit=128)
+
     def test_metadata_count_individual_and_total_bytes_are_bounded(self):
         prepare.validate_seed_sizes([4 * 1024 * 1024] * 16)
         prepare.validate_seed_sizes([8 * 1024 * 1024] * 8)
@@ -92,6 +166,32 @@ class SeedCompositionTests(unittest.TestCase):
             prepare.validate_seed_sizes([8 * 1024 * 1024] * 9)
         for sizes in [[], [1] * 17, [-1], [0.5], [True], [8 * 1024 * 1024 + 1]]:
             with self.assertRaises(ValueError): prepare.validate_seed_sizes(sizes)
+
+    def test_initializer_batch_option_keeps_aggregate_metadata_bounded(self):
+        seeds=[]
+        for group in range(32):
+            seed=self.seed()
+            seed['functions']=[self.seed(f'{0x100+(group*8+i)*0x20:x}')['functions'][0] for i in range(8)]
+            seeds.append(seed)
+        self.assertEqual(len(prepare.combine_seed_functions(seeds,'a'*64,function_limit=256)),256)
+        grouped={**self.seed(),'functions':[item for seed in seeds[:4] for item in seed['functions']]}
+        self.assertEqual(len(prepare.combine_seed_functions([grouped],'a'*64,function_limit=256)),32)
+        with self.assertRaises(ValueError):prepare.combine_seed_functions([grouped],'a'*64,function_limit=128)
+        grouped['functions'].append(self.seed('f000')['functions'][0])
+        with self.assertRaises(ValueError):prepare.combine_seed_functions([grouped],'a'*64,function_limit=256)
+        with self.assertRaises(ValueError):prepare.combine_seed_functions(seeds,'a'*64,function_limit=128)
+        with self.assertRaises(ValueError):prepare.combine_seed_functions(seeds+[self.seed('f000')],'a'*64,function_limit=256)
+        prepare.validate_seed_sizes([2*1024*1024]*32,32)
+        with self.assertRaisesRegex(ValueError,'Aggregate seed metadata'):
+            prepare.validate_seed_sizes([2*1024*1024+1]*32,32)
+        for group,seed in enumerate(seeds):
+            seed['functions']=[self.seed(f'{0x100+(group*16+i)*0x20:x}')['functions'][0] for i in range(16)]
+        self.assertEqual(len(prepare.combine_seed_functions(seeds,'a'*64,function_limit=512)),512)
+        with self.assertRaisesRegex(ValueError,'Aggregate function'):
+            prepare.combine_seed_functions(seeds,'a'*64,function_limit=256)
+        oversized=self.seed();oversized['functions'][0]['instructions']=[{}]*8193
+        with self.assertRaisesRegex(ValueError,'Per-export instruction'):
+            prepare.combine_seed_functions([oversized],'a'*64,function_limit=512)
 
 class EnvelopeRangeTests(unittest.TestCase):
     def test_overlaps_order_size_and_foreign_entries_are_rejected(self):

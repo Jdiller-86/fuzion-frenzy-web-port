@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
@@ -9,22 +9,28 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
-    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()===13;
+    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
+    const diskAbi=api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
+    if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
-    if(metadataAbi && proofTraceCapacity(api)!==1024) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
+    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
     if (timerAbi && ['timer_count','timer_word','dpc_count','dpc_delivered','poll','dpc_recover'].some(name =>
       typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing timer proof ABI');
-    let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile;
+    let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk;
     if (api.ff_probe_abi() >= 3) {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
-      consoleSettings = parseLocalConsoleSettings(event.data.settingsBytes);
+      consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
       api.ff_probe_misc_flags(consoleSettings.miscFlags);
+      if(nvAbi) {
+        if(typeof api.ff_probe_parental_games!=='function') throw new Error('Missing explicit console-settings ABI');
+        api.ff_probe_parental_games(consoleSettings.parentalControlGames);
+      }
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
     if (volumeAbi) {
       if (['volume_profile','volume_word','volume_handle_word'].some(name => typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing local volume ABI');
@@ -37,6 +43,13 @@ self.onmessage = async event => {
       const total = BigInt(volumeProfile.totalAllocationUnits), available = BigInt(volumeProfile.availableAllocationUnits);
       if (api.ff_probe_volume_profile(Number(total & 0xffffffffn), Number(total >> 32n), Number(available & 0xffffffffn),
           Number(available >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector)) throw new Error('Cannot admit explicit local volume profile');
+    }
+    if(diskAbi) {
+      diskProfile=parseLocalDiskProfile(event.data.settingsBytes);
+      const bytes=BigInt(diskProfile.bytes);
+      if(api.ff_probe_disk_profile(Number(bytes&0xffffffffn),Number(bytes>>32n),diskProfile.sectorBytes,diskProfile.cachePartitions)) {
+        throw new Error('Cannot admit explicit local disk-device profile');
+      }
     }
     if (namespaceAbi) {
       if (['namespace_init','namespace_count','namespace_word','namespace_name','namespace_target_name','namespace_resolution'].some(name =>
@@ -51,6 +64,8 @@ self.onmessage = async event => {
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
     if(fileClockWindow) fileClockWindow.afterSystemTicks=clock.sample().system.toString();
+    const floatingPointState=api.ff_probe_abi()>=15?Object.fromEntries(
+      ['x87ControlWord','mxcsr','representedConditionBits','x87StackTop'].map((name,i)=>[name,api.ff_probe_fp_word(i)>>>0])):undefined;
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
     const traceCapacity=proofTraceCapacity(api), kernelCapacity=proofKernelCapacity(api);
     if (count < 0 || count > traceCapacity || threadCount > 4 || callCount < 0 || callCount > kernelCapacity) throw new Error('Invalid boot-proof counts');
@@ -64,7 +79,7 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
@@ -87,7 +102,9 @@ self.onmessage = async event => {
       if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
       if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
-      if(call.ordinal===236 && writeAbi) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
+      const diskTransfer=diskAbi && [219,236].includes(call.ordinal) && call.arguments[0]>=0x60000 && call.arguments[0]<0x70000;
+      if(diskTransfer)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11)};
+      if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
         writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
@@ -692,9 +709,52 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: Object.values(checks).every(Boolean), checks,
-      sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+    if(diskAbi) {
+      const fields=['ready','active','opened','closed','allocatedPages','bytesLow','bytesHigh','sectorBytes','cachePartitions'];
+      localDisk={...Object.fromEntries(fields.map((field,i)=>[field,api.ff_probe_disk_word(i)>>>0])),synthetic:true,persistent:false,
+        cacheRecord:Array.from({length:512},(_,i)=>api.ff_probe_disk_byte(2048+i,0))};
+      if(localDisk.allocatedPages>diskProfile.maxBackingPages || localDisk.cacheRecord.some(byte=>byte>255))throw new Error('Invalid disk observation bounds');
+      const slot=profile.imports.find(entry=>entry.ordinal===40)?.address;
+      if(slot===undefined)throw new Error('Missing declared cache-partition-count import');
+      const address=view.getUint32(slot,true);
+      if(address>ram.length-4 || !admittedGuestRange(address,4,1) || admittedGuestRange(address,4,2)) {
+        throw new Error('Kernel data import must point to readable, read-only guest memory');
+      }
+      localDisk.kernelData={slot,address,value:view.getUint32(address,true),readable:true,writable:false};
+      if(localDisk.kernelData.value!==diskProfile.cachePartitions)throw new Error('Kernel data differs from the explicit disk profile');
+    }
+    if(initializerAbi && state[2]===202 && (state[0]===1 || state[0]===9)) {
+      openFileRequest={...inspectOpenFileRequest(ram,state.slice(6,12),admittedGuestRange),
+        observation:'stopped-before-kernel-result'};
+    }
+    let originalStartup;
+    if(initializerAbi) {
+      // Read the immutable selected file, not the reused live stack or a guessed catalog.
+      const start=0x281750,end=0x2818a0;
+      const section=profile.sections.find(s=>s.address<=start && end<=s.address+s.fileBytes);
+      if(!section)throw new Error('Original initializer table is outside selected file backing');
+      const table=new DataView(event.data.xbeBytes,section.fileOffset+start-section.address,end-start);
+      const callbacks=Array.from({length:(end-start)/4},(_,i)=>table.getUint32(i*4,true)).filter(Boolean);
+      const callbackFrame=trace.find(row=>row.kind==='enter' && row.address===callbacks[0]);
+      let completed=0,cursor=-1;
+      if(callbackFrame)for(const address of callbacks) {
+        const entry=trace.findIndex((row,i)=>i>cursor && row.kind==='enter' && row.address===address && row.stack===callbackFrame.stack);
+        if(entry<0)break;
+        const returned=trace.findIndex((row,i)=>i>entry && row.kind==='exit' && row.address===address && row.stack===callbackFrame.stack);
+        if(returned<0 || trace[entry].cpu?.fs!==thread.fs || trace[returned].cpu?.fs!==thread.fs ||
+           trace[returned].cpu?.exceptionHead!==trace[entry].cpu?.exceptionHead)break;
+        cursor=returned;completed++;
+      }
+      originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
+        nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
+        completedKernelOperations:calls.filter(call=>call.status===0).length,
+        stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':'unsupported execution boundary',
+        limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
+    }
+    self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
       trace, traceCapacity, kernelCapacity, calls, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },

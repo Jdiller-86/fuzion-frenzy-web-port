@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -18,6 +18,22 @@ const section = (id, bytes) => [id, ...uint(bytes.length), ...bytes];
 const memory = (minimum = 1, maximum = PROOF_MEMORY_PAGES, flags = 1, count = 1) =>
   section(5, [count, flags, ...uint(minimum), ...uint(maximum)]);
 const module = (...sections) => Uint8Array.from([...header, ...sections.flat()]).buffer;
+
+test('disk startup requires explicit fresh geometry, cache count and bounded local backing',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:3};
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:value})).buffer;
+  assert.equal(parseLocalDiskProfile(bytes(disk)).bytes,disk.bytes);
+  assert.equal(parseLocalDiskProfile(bytes(disk)).persistent,false);
+  for(const edit of [{synthetic:false},{state:'existing'},{device:'host-disk'},{bytes:'-1'},{bytes:'513'},
+    {bytes:'9223372036854775808'},{sectorBytes:0},{cachePartitions:0},{cachePartitions:42},{cachePartitions:1.5}]) {
+    assert.throws(()=>parseLocalDiskProfile(bytes({...disk,...edit})),/explicit fresh synthetic disk/);
+  }
+  assert.throws(()=>parseLocalDiskProfile(bytes(undefined)),/explicit fresh synthetic disk/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>17}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>17}),512);
+});
 
 function ownedSectionRequest() {
   const ram=new Uint8Array(0x14000),view=new DataView(ram.buffer),base=0x10000,descriptor=0x10300;
@@ -247,6 +263,8 @@ test('title execution loader rejects non-browser-worker execution before compili
 test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
   assert.equal(proofTraceCapacity({}),64);
   for (const capacity of [64,128,1024]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>16}),4096);
+  for(const abi of [undefined,14,15]) assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>abi}),/bounded trace capacity/);
   for (const capacity of [0,32,65,129,256,1023,1025,0x80000000,-1,NaN,Infinity,'128','1024',true]) {
     assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),/bounded trace capacity/);
   }
@@ -255,6 +273,10 @@ test('trace admission retains legacy capacity and rejects arbitrary declared siz
 test('kernel-record admission retains legacy capacity and rejects arbitrary sizes', () => {
   assert.equal(proofKernelCapacity({}),32);
   for(const capacity of [32,128]) assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),capacity);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>256,ff_probe_abi:()=>15}),256);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>16}),512);
+  for(const abi of [undefined,14,15]) assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>abi}),/bounded kernel-record capacity/);
+  for(const abi of [undefined,13,14,16]) assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>256,ff_probe_abi:()=>abi}),/bounded kernel-record capacity/);
   for(const capacity of [0,31,33,64,129,-1,NaN,Infinity,'128',true]) {
     assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),/bounded kernel-record capacity/);
   }
@@ -291,6 +313,12 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
     assert.throws(() => parseLocalConsoleSettings(bytes(value)));
   }
   assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(4097)));
+});
+
+test('expanded console settings require an explicit DWORD without assuming a parental-control default',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,parentalControlGames:value})).buffer;
+  for(const value of [0,1,0xffffffff])assert.equal(parseLocalNvConsoleSettings(bytes(value)).parentalControlGames,value);
+  for(const value of [undefined,null,false,-1,0.5,0x100000000,'0'])assert.throws(()=>parseLocalNvConsoleSettings(bytes(value)),/explicit synthetic/);
 });
 
 test('volume settings require explicit synthetic capacity and geometry without unsafe integer conversion', () => {

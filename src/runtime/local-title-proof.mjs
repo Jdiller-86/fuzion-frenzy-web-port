@@ -23,14 +23,23 @@ export function parseLocalConsoleSettings(buffer) {
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
 }
 
+export function parseLocalNvConsoleSettings(buffer) {
+  const settings=parseLocalConsoleSettings(buffer);
+  const parentalControlGames=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).parentalControlGames;
+  if(!Number.isInteger(parentalControlGames) || parentalControlGames<0 || parentalControlGames>0xffffffff) {
+    throw new Error('Select an explicit synthetic parental-control-games DWORD; no original console default is assumed');
+  }
+  return {...settings,parentalControlGames};
+}
+
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024].includes(capacity)) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
   const capacity=typeof api.ff_probe_kernel_capacity==='function'?api.ff_probe_kernel_capacity():32;
-  if(![32,128].includes(capacity)) throw new Error('Unsupported bounded kernel-record capacity');
+  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
   return capacity;
 }
 
@@ -63,6 +72,19 @@ export function parseLocalFileProfile(buffer) {
   return {synthetic:true,state:'fresh',persistent:false,maxFiles:16,maxFileBytes:65536};
 }
 
+export function parseLocalDiskProfile(buffer) {
+  parseLocalFileProfile(buffer);
+  const disk=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk;
+  const bytes=typeof disk?.bytes==='string' && /^(0|[1-9][0-9]{0,18})$/.test(disk.bytes)?BigInt(disk.bytes):-1n;
+  if(disk?.kind!=='local-disk-profile' || disk.synthetic!==true || disk.device!=='harddisk0' || disk.state!=='fresh' ||
+     bytes<=0n || bytes>0x7fffffffffffffffn || ![512,4096].includes(disk.sectorBytes) || bytes%BigInt(disk.sectorBytes) ||
+     !Number.isInteger(disk.cachePartitions) || disk.cachePartitions<1 || disk.cachePartitions>41) {
+    throw new Error('Select an explicit fresh synthetic disk profile; no original disk contents or cache count is assumed');
+  }
+  return {kind:disk.kind,synthetic:true,device:disk.device,state:disk.state,bytes:bytes.toString(),
+    sectorBytes:disk.sectorBytes,cachePartitions:disk.cachePartitions,persistent:false,maxBackingPages:128};
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -89,11 +111,14 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10,11,12,13].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
-  if(proofAbi===13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
+  if(proofAbi>=13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
     typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing local image-section ABI');
+  if(proofAbi===17 && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-device ABI');
+  }
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {
@@ -108,16 +133,16 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   ram.fill(0); api.ff_probe_reset();
   if (profile.base + profile.headerBytes > RAM_BYTES) throw new Error('Headers exceed the proof RAM');
   ram.set(new Uint8Array(xbeBytes, 0, profile.headerBytes), profile.base);
-  for (const section of proofAbi===13?[]:profile.sections) {
+  for (const section of proofAbi>=13?[]:profile.sections) {
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
   let imageInitialState;
-  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi)) {
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
-    if(proofAbi===13) {
+    if(proofAbi>=13) {
       const capacity=api.ff_probe_image_source_capacity();
       if(capacity!==16*1024*1024) throw new Error('Unexpected bounded local image source capacity');
       const sourceAddress=range(api.ff_probe_image_source(),capacity,16);
@@ -143,9 +168,10 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   if (!Number.isInteger(bindingCount) || bindingCount < 1 || bindingCount > 64) throw new Error('Invalid proof binding count');
   for (let i = 0; i < bindingCount; i++) {
     const slot = api.ff_probe_binding_slot(i), ordinal = api.ff_probe_binding_ordinal(i);
+    const word=Number.isInteger(slot) && slot>=0 && slot<=RAM_BYTES-4?view.getUint32(slot,true):undefined;
     if (!profile.imports.some(entry => entry.address === slot && entry.ordinal === ordinal) ||
-        slot % 4 || slot > RAM_BYTES - 4 || view.getUint32(slot, true) !== (0x80000000 | ordinal) >>> 0) {
-      throw new Error('Kernel-call binding does not match the original import declaration');
+        slot % 4 || slot > RAM_BYTES - 4 || word !== (0x80000000 | ordinal) >>> 0) {
+      throw new Error(`Kernel-call binding does not match the original import declaration: slot ${slot}, ordinal ${ordinal}, loaded word ${word}`);
     }
   }
   api.ff_probe_bind_kernels();

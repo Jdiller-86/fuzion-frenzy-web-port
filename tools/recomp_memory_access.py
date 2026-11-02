@@ -70,7 +70,13 @@ def instrument_memory_accesses(text):
                 depth += (mask[closing] == '(') - (mask[closing] == ')'); closing += 1
             if depth: raise ValueError("Unclosed generated memory expression")
             before, after = mask[:begin].rstrip(), mask[closing:].lstrip()
-            if before.endswith('&'): raise ValueError("Generated guest pointer may escape its checked access")
+            if before.endswith('&'):
+                # The pinned integer AND lifter emits "eax = eax & MEM32(...)".
+                # Admit only that exact register-update form as a scalar read;
+                # unary address-taking and unknown pointer contexts still fail.
+                register_and = r"\b(?P<reg>e(?:ax|bx|cx|dx|si|di|bp|sp))\s*=\s*(?P=reg)\s*&$"
+                if not re.search(register_and, before):
+                    raise ValueError("Generated guest pointer may escape its checked access")
             if after.startswith(('+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '++', '--')) or before.endswith(('++', '--')):
                 access, key = 3, "readWrites"
             elif after.startswith('=') and not after.startswith('=='):

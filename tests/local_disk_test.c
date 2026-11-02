@@ -1,0 +1,97 @@
+/* Source-owned block-device cases; no original executable or disk content. */
+#include "../src/runtime/local_disk.h"
+#include "../src/runtime/thread_bootstrap.h"
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+static uint8_t ram[0x40000],saved_ram[sizeof ram];
+static ff_virtual_memory memory;
+static ff_local_disk disk,saved_disk;
+static const ff_disk_profile profile={0x200000000ull,512,3};
+enum {OUT=0x10100,IOSB=0x10120,ATTR=0x10140,NAME=0x10180,TEXT=0x10200,OFFSET=0x10300,DATA=0x11000};
+static uint32_t open_args[6];
+static void put(uint32_t p,uint64_t value,unsigned bytes){for(unsigned i=0;i<bytes;++i)ram[p+i]=(uint8_t)(value>>(i*8));}
+static uint64_t get(uint32_t p,unsigned bytes){uint64_t value=0;for(unsigned i=0;i<bytes;++i)value|=(uint64_t)ram[p+i]<<(i*8);return value;}
+static void reset(void)
+{
+    memset(ram,0xa5,sizeof ram);
+    assert(!ff_vm_init(&memory,ram,sizeof ram));
+    assert(!ff_vm_claim_fixed(&memory,0x10000,0x30000));
+    assert(!ff_vm_map_fixed(&memory,0x10000,0x30000,4));
+    assert(!ff_disk_init(&disk,&memory,&profile));
+    const char *name="\\Device\\Harddisk0\\partition0";
+    memcpy(ram+TEXT,name,strlen(name)+1);
+    put(NAME,strlen(name),2);put(NAME+2,strlen(name)+1,2);put(NAME+4,TEXT,4);
+    put(ATTR,0,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    uint32_t args[6]={OUT,0xc0100000u,ATTR,IOSB,3,0x10};memcpy(open_args,args,sizeof args);
+}
+static void save(void){saved_disk=disk;memcpy(saved_ram,ram,sizeof ram);}
+static void unchanged(void){assert(!memcmp(&disk,&saved_disk,sizeof disk));assert(!memcmp(ram,saved_ram,sizeof ram));}
+static uint32_t open_disk(void)
+{
+    assert(!ff_disk_open(&disk,open_args));assert(get(IOSB,4)==0 && get(IOSB+4,4)==1);
+    uint32_t file=(uint32_t)get(OUT,4);assert(ff_disk_owns_handle(file));return file;
+}
+static void sparse_roundtrip_and_lifetime(void)
+{
+    reset();uint32_t file=open_disk();
+    uint32_t io[8]={file,0,0,0,IOSB,DATA,512,OFFSET};
+    put(OFFSET,0x100000800ull,8);
+    assert(!ff_disk_read(&disk,io) && !disk.allocated_pages);
+    for(unsigned i=0;i<512;++i)assert(!ram[DATA+i]);
+    for(unsigned i=0;i<512;++i)ram[DATA+i]=(uint8_t)(i*37+13);
+    assert(!ff_disk_write(&disk,io));assert(disk.allocated_pages==1 && get(IOSB+4,4)==512);
+    assert(!ff_disk_close(&disk,file));assert(!disk.active && disk.closed==1);
+    uint32_t reopened=open_disk();assert(reopened!=file);io[0]=reopened;
+    memset(ram+DATA,0,512);assert(!ff_disk_read(&disk,io));
+    for(unsigned i=0;i<512;++i)assert(ram[DATA+i]==(uint8_t)(i*37+13));
+    assert(ff_disk_byte(&disk,0x100000800ull)==13 && !ff_disk_byte(&disk,0x800));
+    io[7]=0;assert(!ff_disk_read(&disk,io));
+    for(unsigned i=0;i<512;++i)assert(!ram[DATA+i]);
+    io[7]=OFFSET;assert(!ff_disk_write(&disk,io) && !disk.allocated_pages);
+    put(OFFSET,profile.bytes-128,8);memset(ram+DATA,0xa5,512);
+    assert(!ff_disk_read(&disk,io) && get(IOSB+4,4)==128 && ram[DATA+128]==0xa5);
+    put(OFFSET,profile.bytes,8);assert(ff_disk_read(&disk,io)==FF_DISK_EOF);
+    save();assert(ff_disk_close(&disk,file)==FF_BOOT_BAD_HANDLE);unchanged();
+}
+static void permissions_sharing_and_rejected_memory(void)
+{
+    reset();open_args[4]=0;uint32_t file=open_disk();
+    open_args[4]=3;assert(ff_disk_open(&disk,open_args)==FF_DISK_SHARING && disk.active==1);
+    assert(!ff_disk_close(&disk,file));open_args[1]=0x80100000u;file=open_disk();
+    uint32_t io[8]={file,0,0,0,IOSB,DATA,512,OFFSET};put(OFFSET,2048,8);
+    assert(ff_disk_write(&disk,io)==0xc0000022u && !disk.allocated_pages);
+    io[2]=1;save();assert(ff_disk_read(&disk,io)==FF_BOOT_UNSUPPORTED);unchanged();io[2]=0;
+    io[5]=0x3ff00;save();assert(ff_disk_read(&disk,io)==FF_VM_ACCESS_VIOLATION);unchanged();io[5]=DATA;
+    io[4]=DATA;save();assert(ff_disk_read(&disk,io)==FF_BOOT_UNSUPPORTED);unchanged();io[4]=IOSB;
+    put(OFFSET,UINT64_MAX,8);save();assert(ff_disk_read(&disk,io)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_vm_init(&memory,ram,sizeof ram));
+    assert(!ff_vm_claim_fixed(&memory,0x10000,0x30000));
+    assert(!ff_vm_map_fixed(&memory,0x10000,0x1000,4));
+    assert(!ff_vm_map_fixed(&memory,DATA,4096,2));
+    assert(!ff_vm_map_fixed(&memory,DATA+4096,0x40000-DATA-4096,4));put(OFFSET,2048,8);
+    save();assert(ff_disk_read(&disk,io)==FF_VM_ACCESS_VIOLATION);unchanged();
+    reset();open_args[0]=IOSB;save();assert(ff_disk_open(&disk,open_args)==FF_BOOT_UNSUPPORTED);unchanged();
+    reset();ram[TEXT+27]='9';save();assert(ff_disk_open(&disk,open_args)==FF_BOOT_UNSUPPORTED);unchanged();
+}
+static void sparse_capacity_failure_preserves_disk_and_position(void)
+{
+    reset();uint32_t file=open_disk();
+    memset(ram+DATA,0x5a,4096);
+    uint32_t io[8]={file,0,0,0,IOSB,DATA,4096,OFFSET};
+    for(unsigned i=0;i<FF_DISK_PAGES;++i){put(OFFSET,(uint64_t)i*4096,8);assert(!ff_disk_write(&disk,io));}
+    assert(disk.allocated_pages==FF_DISK_PAGES);put(OFFSET,(uint64_t)FF_DISK_PAGES*4096,8);
+    saved_disk=disk;assert(ff_disk_write(&disk,io)==FF_DISK_FULL);
+    assert(!memcmp(&disk,&saved_disk,sizeof disk) && get(IOSB+4,4)==0);
+    memset(ram+DATA,0,4096);put(OFFSET,0,8);assert(!ff_disk_write(&disk,io));assert(disk.allocated_pages==FF_DISK_PAGES-1);
+    memset(ram+DATA,0x6b,4096);put(OFFSET,(uint64_t)FF_DISK_PAGES*4096,8);assert(!ff_disk_write(&disk,io));
+    assert(disk.allocated_pages==FF_DISK_PAGES);
+    ff_disk_profile bad=profile;bad.cache_partitions=0;saved_disk=disk;
+    assert(ff_disk_init(&disk,&memory,&bad)==FF_BOOT_INVALID && !memcmp(&disk,&saved_disk,sizeof disk));
+}
+int main(void)
+{
+    sparse_roundtrip_and_lifetime();permissions_sharing_and_rejected_memory();sparse_capacity_failure_preserves_disk_and_position();
+    puts("owned sparse disk read/write, lifetime, access and failure atomicity passed");return 0;
+}

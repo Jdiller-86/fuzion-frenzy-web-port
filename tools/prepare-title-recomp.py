@@ -16,7 +16,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_SEED_EXPORTS = 16
+MAX_EXPANDED_EXPORTS = 32
 MAX_SEED_FUNCTIONS = 64
+MAX_EXPANDED_FUNCTIONS = 512
 MAX_SEED_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
 
@@ -25,17 +27,77 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def function_envelope(item, kernel_imports=None):
+def validate_instruction_count(count, limit=8192):
+    if type(limit) is not int or limit not in (8192,16384) or type(count) is not int or not 0<count<=limit:
+        raise ValueError('Instruction count exceeds the explicit supported budget')
+
+
+def checked_kernel_data_binding(row, imports):
+    """Admit the reached DWORD data import, never a fabricated call thunk.
+
+    Ordinal 40 is HalDiskCachePartitionCount. The current reached form is an
+    exact A1 absolute pointer load. Original-byte/layout and independent decoder
+    admission still apply to this row before any generated module is accepted.
+    """
+    slots = {int(ref['target'], 16) for ref in row.get('references', [])
+             if ref.get('type') == 'READ' and re.fullmatch(r'[0-9a-fA-F]+', ref.get('target', ''))
+             and imports.get(int(ref['target'], 16)) == 40}
+    if not slots:
+        return None
+    encoded = bytes.fromhex(row.get('analysisBytesHex', ''))
+    if len(slots) != 1 or row.get('mnemonic') != 'MOV' or row.get('call') or row.get('computed') or \
+       row.get('length') != 5 or len(encoded) != 5 or encoded[0] != 0xa1 or int.from_bytes(encoded[1:], 'little') not in slots:
+        raise ValueError('Unsupported kernel-data pointer-load encoding')
+    return slots.pop()
+
+
+def check_decoder_agreement(rows, decoded, original_bytes):
+    """Retain exact boundaries except the explicit x87 WAIT/FNSTCW grouping.
+
+    Ghidra's FSTCW includes 9B; Capstone exposes WAIT then FNSTCW. Both
+    instructions remain in translated code. Never trim, skip or relabel bytes.
+    """
+    cursor, normalizations = 0, []
+    for row in rows:
+        address, size = int(row['address'], 16), row['length']
+        if cursor < len(decoded) and (decoded[cursor].address, decoded[cursor].size) == (address, size):
+            cursor += 1
+            continue
+        pair = decoded[cursor:cursor + 2]
+        raw = original_bytes(address, size)
+        if not (row.get('mnemonic') == 'FSTCW' and size >= 3 and len(pair) == 2 and
+                (pair[0].address, pair[0].size, pair[0].mnemonic) == (address, 1, 'wait') and
+                (pair[1].address, pair[1].size, pair[1].mnemonic) == (address + 1, size - 1, 'fnstcw') and
+                raw[:2] == b'\x9b\xd9' and len(raw) == size and (raw[2] >> 3) & 7 == 7 and raw[2] >> 6 != 3):
+            raise ValueError('Capstone and Ghidra instruction boundaries disagree')
+        normalizations.append({'address': address, 'bytes': size, 'ghidra': 'FSTCW',
+                               'capstone': ['wait', 'fnstcw'], 'translatedInstructions': 2})
+        cursor += 2
+    if cursor != len(decoded):
+        raise ValueError('Capstone and Ghidra instruction coverage differs')
+    return normalizations
+
+
+def function_envelope(item, kernel_imports=None, local_entries=None):
     """Validate declared body membership separately from the translated span."""
     if not item.get("established") or item.get("external"):
         raise ValueError("Only established local functions are admitted")
+    start = int(item["entry"], 16)
     if item.get("thunk"):
         rows = item.get("instructions", [])
-        if len(rows) != 1 or rows[0].get("mnemonic") != "JMP" or not rows[0].get("computed") or not any(
+        kernel_jump = len(rows) == 1 and rows[0].get("mnemonic") == "JMP" and rows[0].get("computed") and any(
                 ref.get("type") == "INDIRECTION" and re.fullmatch(r"[0-9a-fA-F]+", ref.get("target", "")) and
-                int(ref["target"], 16) in (kernel_imports or {}) for ref in rows[0].get("references", [])):
-            raise ValueError("A local thunk must be one checked indirect jump to a declared kernel slot")
-    start = int(item["entry"], 16)
+                int(ref["target"], 16) in (kernel_imports or {}) for ref in rows[0].get("references", []))
+        local_jump = False
+        if len(rows) == 1 and rows[0].get('mnemonic') == 'JMP' and rows[0].get('computed') is False and not rows[0].get('call'):
+            row=rows[0];flows=row.get('flows',[]);raw_hex=row.get('analysisBytesHex','')
+            if len(flows)==1 and re.fullmatch(r'[0-9a-fA-F]{1,8}',flows[0]) and re.fullmatch(r'(?:[0-9a-fA-F]{4}|[0-9a-fA-F]{10})',raw_hex):
+                raw=bytes.fromhex(raw_hex);target=int(flows[0],16)
+                local_jump=(int(row.get('address','-1'),16)==start and row.get('length')==len(raw) and
+                            (raw[0],len(raw)) in ((0xeb,2),(0xe9,5)) and target!=start and target in (local_entries or set()) and
+                            (start+len(raw)+int.from_bytes(raw[1:],'little',signed=True))&0xffffffff==target)
+        if not (kernel_jump or local_jump):
+            raise ValueError("A local thunk must be one checked jump to an admitted function or declared kernel slot")
     ranges = [(int(r["start"], 16), int(r["endInclusive"], 16) + 1) for r in item["bodyRanges"]]
     if not ranges or ranges[0][0] != start:
         raise ValueError("Function body must start at its entry")
@@ -53,30 +115,41 @@ def function_envelope(item, kernel_imports=None):
     return start, end
 
 
-def combine_seed_functions(seeds, source_sha256, kernel_imports=None):
+def combine_seed_functions(seeds, source_sha256, kernel_imports=None, function_limit=MAX_SEED_FUNCTIONS):
     """Compose bounded exports without silently replacing an earlier function."""
-    if not 1 <= len(seeds) <= MAX_SEED_EXPORTS:
-        raise ValueError("Use 1-16 bounded seed exports")
-    functions, seen = [], set()
+    if type(function_limit) is not int or function_limit not in (MAX_SEED_FUNCTIONS, 128, 256, MAX_EXPANDED_FUNCTIONS):
+        raise ValueError("Use an explicit supported function limit")
+    export_limit = MAX_EXPANDED_EXPORTS if function_limit >=256 else MAX_SEED_EXPORTS
+    functions_per_export = 32 if function_limit >=256 else 8
+    if not 1 <= len(seeds) <= export_limit:
+        raise ValueError(f"Use 1-{export_limit} bounded seed exports")
+    items_in = []
     for seed in seeds:
         if seed.get("kind") != "bounded-ghidra-recompilation-seed" or seed.get("sourceSha256", "").lower() != source_sha256:
             raise ValueError("Seed kind/executable identity differs")
         items = seed.get("functions", [])
-        if not 1 <= len(items) <= 8:
-            raise ValueError("Each seed must contain 1-8 functions")
-        for item in items:
-            if len(functions) == MAX_SEED_FUNCTIONS:
-                raise ValueError("Aggregate function budget exceeded")
-            address, _ = function_envelope(item, kernel_imports)
-            if address in seen:
-                raise ValueError("Duplicate function across seed exports")
-            seen.add(address)
-            functions.append(item)
+        if not 1 <= len(items) <= functions_per_export:
+            raise ValueError(f"Each seed must contain 1-{functions_per_export} functions")
+        if sum(len(item.get('instructions',[])) for item in items)>8192:
+            raise ValueError('Per-export instruction-row budget exceeded')
+        items_in.extend(items)
+    if len(items_in)>function_limit:
+        raise ValueError("Aggregate function budget exceeded")
+    local_entries={int(item['entry'],16) for item in items_in}
+    functions, seen = [], set()
+    for item in items_in:
+        address, _ = function_envelope(item, kernel_imports, local_entries)
+        if address in seen:
+            raise ValueError("Duplicate function across seed exports")
+        seen.add(address)
+        functions.append(item)
     return functions
 
 
-def validate_seed_sizes(sizes):
-    if not 1 <= len(sizes) <= MAX_SEED_EXPORTS or any(type(size) is not int or size < 0 or size > MAX_SEED_BYTES for size in sizes):
+def validate_seed_sizes(sizes, export_limit=MAX_SEED_EXPORTS):
+    if type(export_limit) is not int or export_limit not in (MAX_SEED_EXPORTS, MAX_EXPANDED_EXPORTS):
+        raise ValueError("Unsupported export-group limit")
+    if not 1 <= len(sizes) <= export_limit or any(type(size) is not int or size < 0 or size > MAX_SEED_BYTES for size in sizes):
         raise ValueError("Invalid bounded seed metadata sizes")
     if sum(sizes) > MAX_TOTAL_SEED_BYTES:
         raise ValueError("Aggregate seed metadata budget exceeded")
@@ -94,9 +167,9 @@ def _alignment_padding(raw):
     return bool(raw)
 
 
-def checked_function_layout(item, read_bytes, kernel_imports=None):
+def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries=None):
     """Account for the full original envelope, including typed local tables."""
-    start, end = function_envelope(item, kernel_imports)
+    start, end = function_envelope(item, kernel_imports, local_entries)
     rows = item.get("instructions", [])
     if not rows or len(rows) > 4096:
         raise ValueError("Instruction budget exceeded")
@@ -229,7 +302,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
     parser.add_argument("--profile", required=True, type=Path)
-    parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for up to 16 checked exports (8 functions each, 64 total)")
+    parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for checked exports (8 functions each)")
+    parser.add_argument("--function-limit", type=int, choices=(64, 128, 256, 512), default=64, help="Explicit aggregate startup limit; 256/512 admit up to 32 export groups")
+    parser.add_argument("--instruction-limit", type=int, choices=(8192,16384), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     args = parser.parse_args()
@@ -238,8 +313,9 @@ def main():
     research = (ROOT / "research").resolve(strict=True)
     if not research.is_relative_to(ROOT):
         parser.error("Research must remain inside the project")
-    if len(args.seed) > MAX_SEED_EXPORTS:
-        parser.error("Use at most 16 seed exports")
+    export_limit = MAX_EXPANDED_EXPORTS if args.function_limit >=256 else MAX_SEED_EXPORTS
+    if len(args.seed) > export_limit:
+        parser.error(f"Use at most {export_limit} seed exports for this function limit")
     metadata, resolved, sizes = [], [], []
     for path, limit in [(args.profile, 1024 * 1024), *[(path, MAX_SEED_BYTES) for path in args.seed]]:
         path = path.resolve(strict=True)
@@ -247,7 +323,7 @@ def main():
             parser.error("Use bounded existing private research JSON inputs")
         resolved.append((path, limit)); sizes.append(path.stat().st_size)
     try:
-        validate_seed_sizes(sizes[1:])
+        validate_seed_sizes(sizes[1:], export_limit)
     except ValueError as error:
         parser.error(str(error))
     consumed = 0
@@ -274,7 +350,7 @@ def main():
     profile = profile_report["profile"]
     imports = {entry["address"]: entry["ordinal"] for entry in profile["imports"]}
     try:
-        functions_in = combine_seed_functions(seeds, sha, imports)
+        functions_in = combine_seed_functions(seeds, sha, imports, args.function_limit)
     except (KeyError, TypeError, ValueError) as error:
         parser.error(str(error))
     manifest = json.loads((ROOT / "tools/original-execution-toolchain.json").read_text())
@@ -308,11 +384,12 @@ def main():
                 if start >= 0 and start + size <= len(xbe):
                     return xbe[start:start + size]
         raise ValueError("Instruction range is not original executable file-backed data")
-    functions, direct_targets, bindings, layouts = {}, set(), {}, {}
+    functions, direct_targets, bindings, layouts, data_bindings = {}, set(), {}, {}, {}
+    local_entries={int(item['entry'],16) for item in functions_in}
     instruction_count = 0
     for item in functions_in:
         try:
-            layout = checked_function_layout(item, original_bytes, imports)
+            layout = checked_function_layout(item, original_bytes, imports, local_entries)
             start, end = layout["start"], layout["end"]
         except (KeyError, TypeError, ValueError) as error:
             parser.error(str(error))
@@ -320,6 +397,13 @@ def main():
             parser.error("Selected function envelopes overlap")
         rows = layout["rows"]
         for row in rows:
+            try:
+                data_slot=checked_kernel_data_binding(row,imports)
+            except ValueError as error:
+                parser.error(str(error))
+            if data_slot is not None:
+                bindings[data_slot]=imports[data_slot]
+                data_bindings[data_slot]=imports[data_slot]
             if row["call"] and not row["computed"]:
                 direct_targets.update(int(target, 16) for target in row["flows"])
             if row["computed"] and (row["call"] or row.get("mnemonic") == "JMP"):
@@ -333,8 +417,10 @@ def main():
         functions[start] = {"name": f"ff_title_{start:08X}", "end": end, "size": end - start, "bodyBytes": item["bodyBytes"],
                             "method": "entry_point" if start == profile["entry"] else "call_target",
                             "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]}
-    if instruction_count > 8192 or profile["entry"] not in functions:
-        parser.error("Include the actual entry within the bounded instruction budget")
+    try:validate_instruction_count(instruction_count,args.instruction_limit)
+    except ValueError as error:parser.error(str(error))
+    if profile["entry"] not in functions:
+        parser.error("Include the actual entry")
     boundaries = sorted(direct_targets - functions.keys())
     database = dict(functions)
     for address in boundaries:
@@ -343,7 +429,8 @@ def main():
     with (out / "prepare.log").open("x") as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
         config.configure_from_xbe(str(xbe_path))
         disassembler = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
-        # Separate decoders must agree on exact instruction addresses/lengths.
+        # Exact boundaries are retained except explicitly witnessed x87 grouping.
+        decoder_normalizations = []
         for item in functions_in:
             start = int(item["entry"], 16)
             if layouts[start]["mixed"]:
@@ -351,8 +438,9 @@ def main():
                     original_bytes(int(row["address"], 16), row["length"]), int(row["address"], 16))]
             else:
                 decoded = list(disassembler.disasm(original_bytes(start, functions[start]["size"]), start))
-            if [(r.address, r.size) for r in decoded] != [(int(r["address"], 16), r["length"]) for r in item["instructions"]]:
-                raise ValueError("Capstone and Ghidra instruction boundaries disagree")
+            decoder_normalizations.extend(check_decoder_agreement(item['instructions'], decoded, original_bytes))
+        decoded_instruction_count = instruction_count + len(decoder_normalizations)
+        validate_instruction_count(decoded_instruction_count,args.instruction_limit)
         translator = FunctionTranslator(xbe, database, trace_functions=set(functions))
         dispatch_census = []
         for start, layout in layouts.items():
@@ -419,20 +507,29 @@ def main():
               "seedSha256s": [digest(data) for data in metadata[1:]],
               "functions": [{"entry": address, "bytes": info["size"], "bodyBytes": info["bodyBytes"],
                              "dataBytes": info["dataBytes"], "paddingBytes": info["paddingBytes"]} for address, info in functions.items()],
+              "functionLimit": args.function_limit,
+              "exportLimit": export_limit,
+              "functionsPerExport": 32 if args.function_limit >=256 else 8,
+              "instructionLimit": args.instruction_limit,
               "checkedMixedLayouts": dispatch_census,
               "returnFrameObservations": return_observations,
               "checkedMemoryAccesses": memory_observations,
               "recognizedSehPrologs": sorted(translator.lifter.SEH_PROLOGS),
-              "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk")],
-              "instructions": instruction_count, "originalBytesMatchGhidra": True, "decoderBoundariesAgree": True,
+              "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk") and item['instructions'][0].get('computed')],
+              "localTailThunks": [{"entry":int(item['entry'],16),"target":int(item['instructions'][0]['flows'][0],16)}
+                                  for item in functions_in if item.get('thunk') and not item['instructions'][0].get('computed')],
+              "instructions": decoded_instruction_count, "ghidraInstructions": instruction_count,
+              "originalBytesMatchGhidra": True, "decoderBoundariesAgree": not decoder_normalizations,
+              "decoderInstructionsAgree": True, "decoderNormalizations": decoder_normalizations,
               "untranslatedDirectTargets": boundaries,
               "kernelBindings": [{"slot": slot, "ordinal": ordinal} for slot, ordinal in sorted(bindings.items())],
+              "kernelDataBindings": [{"slot":slot,"ordinal":ordinal,"bytes":4} for slot,ordinal in sorted(data_bindings.items())],
               "unimplementedInstructions": {}, "originalCodeExecuted": False,
               "outputSha256": {name: digest((out / name).read_bytes()) for name in ["title-profile.h", "title-functions.inc"]},
               "limitation": "Only selected startup functions translated; unsupported calls must stop. No original execution outside the browser."}
     with (out / "generation.json").open("x") as file:
         json.dump(report, file, indent=2)
-    print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": instruction_count,
+    print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": decoded_instruction_count,
                       "untranslatedDirectTargets": boundaries, "kernelBindings": report["kernelBindings"], "originalCodeExecuted": False}))
 
 

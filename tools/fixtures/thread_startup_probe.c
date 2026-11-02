@@ -24,6 +24,15 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #endif
 #include "../../src/runtime/local_volume.h"
 #endif
+#ifdef FF_DISK_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF) || !defined(FF_FILE_WRITE_PROOF)
+#error Disk startup retains the checked initializer proof
+#endif
+#include "../../src/runtime/local_disk.h"
+#define FF_DISK_DATA_ADDRESS 0x03f10000u
+static ff_local_disk local_disk;
+static uint32_t disk_ready;
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -36,7 +45,12 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #define FF_GUEST_BYTES (64u * 1024u * 1024u)
 #define FF_STACK_TOP (FF_GUEST_BYTES - 4096u)
 #define FF_KERNEL_BASE 0xfe000000u
-#if defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
+#ifdef FF_INITIALIZER_BATCH_PROOF
+#ifndef FF_STARTUP_EXPANSION_PROOF
+#error Initializer batches retain the expanded checked startup contract
+#endif
+#define FF_TRACE_CAPACITY 4096u
+#elif defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
 #ifndef FF_REGULAR_FILE_PROOF
 #error Expanded metadata traces retain the explicit fresh regular-file contract
 #endif
@@ -44,7 +58,18 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #else
 #define FF_TRACE_CAPACITY 128u
 #endif
+#ifdef FF_STARTUP_EXPANSION_PROOF
+#ifndef FF_NV_QUERY_PROOF
+#error Expanded startup retains the checked explicit settings contract
+#endif
+#endif
+#ifdef FF_INITIALIZER_BATCH_PROOF
+#define FF_KERNEL_CAPACITY 512u
+#elif defined(FF_STARTUP_EXPANSION_PROOF)
+#define FF_KERNEL_CAPACITY 256u
+#else
 #define FF_KERNEL_CAPACITY 128u
+#endif
 
 ptrdiff_t g_xbox_mem_offset;
 uint32_t g_xbox_code_lo, g_xbox_code_hi;
@@ -67,6 +92,13 @@ static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#ifdef FF_NV_QUERY_PROOF
+#ifndef FF_SECTION_PROOF
+#error Expanded settings retain checked image and guest memory ownership
+#endif
+#include "../../src/runtime/console_settings.h"
+static uint32_t parental_games,parental_games_ready;
+#endif
 #ifdef FF_VOLUME_PROOF
 static ff_local_volume local_volume;
 static uint32_t volume_ready;
@@ -186,8 +218,14 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
 uint32_t ff_probe_vm_image(uint32_t base, uint32_t bytes)
 {
     if (vm_ready || ff_vm_claim_fixed(&virtual_memory, base, bytes) ||
-        ff_vm_claim_fixed(&virtual_memory, 0x03c00000u, 0x00400000u) ||
-        ff_vm_map_fixed(&virtual_memory, 0x03c00000u, 0x00400000u, 4)) return FF_BOOT_INVALID;
+        ff_vm_claim_fixed(&virtual_memory, 0x03c00000u, 0x00400000u)) return FF_BOOT_INVALID;
+#ifdef FF_DISK_PROOF
+    if(ff_vm_map_fixed(&virtual_memory,0x03c00000u,FF_DISK_DATA_ADDRESS-0x03c00000u,4) ||
+       ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS,FF_VM_PAGE,2) ||
+       ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS+FF_VM_PAGE,FF_GUEST_BYTES-FF_DISK_DATA_ADDRESS-FF_VM_PAGE,4))return FF_BOOT_INVALID;
+#else
+    if(ff_vm_map_fixed(&virtual_memory,0x03c00000u,0x00400000u,4))return FF_BOOT_INVALID;
+#endif
     vm_ready = 1; return 0;
 }
 uint32_t ff_probe_vm_map_image(uint32_t base, uint32_t bytes, uint32_t protection)
@@ -528,6 +566,10 @@ static void create_thread(void)
 static void close_handle(void)
 {
     uint32_t *row = kernel_record(187, 1);
+#ifdef FF_DISK_PROOF
+    if (ff_disk_owns_handle(row[2])) row[1] = ff_disk_close(&local_disk, row[2]);
+    else
+#endif
 #ifdef FF_VOLUME_PROOF
     if (ff_volume_owns_handle(row[2])) row[1] = ff_volume_close(&local_volume, row[2]);
     else
@@ -656,7 +698,11 @@ static void open_volume_root(void)
 {
     uint32_t *row = kernel_record(202, 6);
     if (!volume_ready) stop(9, 0, 202);
-    row[1] = ff_volume_open_root(&local_volume, row + 2);
+    row[1] = FF_BOOT_UNSUPPORTED;
+#ifdef FF_DISK_PROOF
+    if (disk_ready) row[1] = ff_disk_open(&local_disk, row + 2);
+#endif
+    if (row[1] == FF_BOOT_UNSUPPORTED) row[1] = ff_volume_open_root(&local_volume, row + 2);
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 202);
     if (!row[1]) { row[8] = MEM32(row[2]); row[9] = MEM32(row[5]); row[10] = MEM32(row[5] + 4); }
     g_eax = row[1]; g_esp += 28;
@@ -740,6 +786,42 @@ static void write_regular_file(void)
     }
     g_eax=row[1]; g_esp+=36;
 }
+#endif
+#ifdef FF_DISK_PROOF
+static void transfer_disk(int writing)
+{
+    const uint32_t ordinal=writing?236:219;
+    uint32_t *row=kernel_record(ordinal,8);
+    if(!disk_ready || !ff_disk_owns_handle(row[2]))stop(9,FF_BOOT_UNSUPPORTED,ordinal);
+    row[1]=writing?ff_disk_write(&local_disk,row+2):ff_disk_read(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],ordinal);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
+    g_eax=row[1];g_esp+=36;
+}
+static void read_disk(void){transfer_disk(0);}
+static void write_file(void)
+{
+    if(ff_disk_owns_handle(MEM32(g_esp+4)))transfer_disk(1);
+    else write_regular_file();
+}
+uint32_t ff_probe_disk_profile(uint32_t low,uint32_t high,uint32_t sector_bytes,uint32_t cache_partitions)
+{
+    if(!vm_ready || disk_ready)return FF_BOOT_INVALID;
+    ff_disk_profile profile={low|((uint64_t)high<<32),sector_bytes,cache_partitions};
+    uint32_t status=ff_disk_init(&local_disk,&virtual_memory,&profile);
+    if(!status){disk_ready=1;MEM32(FF_DISK_DATA_ADDRESS)=cache_partitions;}
+    return status;
+}
+uint32_t ff_probe_disk_word(uint32_t field)
+{
+    switch(field){
+    case 0:return disk_ready;case 1:return local_disk.active;case 2:return local_disk.opened;case 3:return local_disk.closed;
+    case 4:return local_disk.allocated_pages;case 5:return (uint32_t)local_disk.profile.bytes;
+    case 6:return (uint32_t)(local_disk.profile.bytes>>32);case 7:return local_disk.profile.sector_bytes;
+    case 8:return local_disk.profile.cache_partitions;default:return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_disk_byte(uint32_t low,uint32_t high){return ff_disk_byte(&local_disk,low|((uint64_t)high<<32));}
 #endif
 uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
 {
@@ -826,8 +908,15 @@ static void initialize_timer(void)
 static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
+#ifdef FF_NV_QUERY_PROOF
+    if(!misc_flags_ready || (row[2]!=17 && row[2]!=10) || (row[2]==10 && !parental_games_ready)) {
+        row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[2],24);
+    }
+    row[1]=ff_query_console_dword(&virtual_memory,row+2,row[2]==17?misc_flags:parental_games);
+#else
     if (!misc_flags_ready || row[2] != 17) { row[1]=FF_BOOT_UNSUPPORTED; stop(9, row[2], 24); }
     row[1] = ff_query_misc_flags(guest_ram, FF_GUEST_BYTES, row + 2, misc_flags);
+#endif
     if (row[1] != FF_BOOT_OK && row[1] != 0xc0000023u) stop(9, row[1], 24);
     if (row[1] == FF_BOOT_OK) {
         row[7] = MEM32(row[3]); row[8] = MEM32(row[4]); row[9] = row[6] ? MEM32(row[6]) : 4;
@@ -912,7 +1001,12 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 211) return query_file_information;
 #endif
 #ifdef FF_FILE_WRITE_PROOF
+#ifdef FF_DISK_PROOF
+        if (ordinal == 219) return read_disk;
+        if (ordinal == 236) return write_file;
+#else
         if (ordinal == 236) return write_regular_file;
+#endif
 #endif
 #ifdef FF_FILE_LINK_PROOF
         if (ordinal == 279) return equal_ansi_string;
@@ -932,7 +1026,15 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_SECTION_PROOF
+#ifdef FF_DISK_PROOF
+    return 17;
+#elif defined(FF_INITIALIZER_BATCH_PROOF)
+    return 16;
+#elif defined(FF_STARTUP_EXPANSION_PROOF)
+    return 15;
+#elif defined(FF_NV_QUERY_PROOF)
+    return 14;
+#elif defined(FF_SECTION_PROOF)
     return 13;
 #elif defined(FF_FILE_WRITE_PROOF)
     return 12;
@@ -957,6 +1059,9 @@ uint32_t ff_probe_abi(void) {
 #endif
 }
 void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
+#ifdef FF_NV_QUERY_PROOF
+void ff_probe_parental_games(uint32_t value) { parental_games=value;parental_games_ready=1; }
+#endif
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
 uint32_t ff_probe_stack_top(void) { return FF_STACK_TOP; }
@@ -976,6 +1081,18 @@ uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
 uint32_t ff_probe_kernel_capacity(void) { return FF_KERNEL_CAPACITY; }
+#ifdef FF_STARTUP_EXPANSION_PROOF
+uint32_t ff_probe_fp_word(uint32_t field)
+{
+    switch(field) {
+    case 0:return g_fp_control_word;
+    case 1:return g_mxcsr;
+    case 2:return g_fp_cc;
+    case 3:return (uint32_t)g_fp_top;
+    default:return UINT32_MAX;
+    }
+}
+#endif
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {
@@ -999,6 +1116,9 @@ void ff_probe_reset(void)
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_NV_QUERY_PROOF
+    parental_games=parental_games_ready=0;
+#endif
 #ifdef FF_SECTION_PROOF
     memset(&image_sections,0,sizeof image_sections);
 #endif
@@ -1013,6 +1133,9 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_VOLUME_PROOF
     memset(&local_volume, 0, sizeof local_volume); volume_ready = 0;
+#endif
+#ifdef FF_DISK_PROOF
+    memset(&local_disk,0,sizeof local_disk);disk_ready=0;
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
@@ -1033,8 +1156,14 @@ void ff_probe_reset(void)
 }
 void ff_probe_bind_kernels(void)
 {
+#ifdef FF_DISK_PROOF
+    if(ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS,FF_VM_PAGE,2))stop(9,FF_DISK_DATA_ADDRESS,40);
+#endif
     for (unsigned i = 0; i < FF_KERNEL_BINDING_COUNT; ++i) {
         if ((bindings[i].slot & 3u) || bindings[i].slot > FF_GUEST_BYTES - 4u) stop(3, bindings[i].slot, 0);
+#ifdef FF_DISK_PROOF
+        if(bindings[i].ordinal==40){MEM32(bindings[i].slot)=FF_DISK_DATA_ADDRESS;continue;}
+#endif
         MEM32(bindings[i].slot) = FF_KERNEL_BASE + i * 4u;
     }
 }

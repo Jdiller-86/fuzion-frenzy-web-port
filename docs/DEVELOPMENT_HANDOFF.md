@@ -1,4 +1,16 @@
-# Original execution progress checkpoint
+# Continue from original application entry and disk-cache initialization
+
+Selected route: **static recompilation to WebAssembly**, with the complete original game and all planned custom features. Read [the current initialization/disk checkpoint](INITIALIZER_EXECUTION_CHECKPOINT.md). Earlier approximate reconstruction remains research.
+
+The original browser path now returns from **83/83 initialization callbacks**, enters `0x0002d540` / `0x0004e690` / `0x0002cd80`, opens the whole-disk device, reads fresh RAM backing, writes its own 512-byte cache record and closes the disk handle. Both explicit synthetic profiles execute 223 distinct original routines, record 3,583 events and complete 307 kernel operations. The original code selects cache partition 5 and enters formatting. It stops before a guest result for ordinal 202, `\Device\Harddisk0\Partition5`, return `0x00033e0e`, access `0x00100003`, share zero, options `0x18`. There is no playable screen.
+
+Reuse `research/verification/recomp-title-disk-device-01` and `recomp-build-disk-device-01`: 316 original functions / 10,587 instructions. Their `inputs.json` retains exact seed paths/digests; do not reconstruct the seed list from old checkpoints. Final actual-browser reports are `disk-cache-browser-20261102-02.json` and `-03.json`; their compact identity/payload checks are in `disk-cache-checkpoint-20261102-01.json`. ABI 17 retains fixed resources and the sole clock import. Its explicit fresh synthetic disk uses bounded sparse RAM backing and real read/write/close semantics; ordinal-40 data points to read-only guest memory containing the supplied cache count. Nothing accesses the host disk or assumes retail disk contents/defaults.
+
+**Next task:** provide the reached cache partition with a real bounded view and an explicit synthetic layout, then follow the original `0x00033ddb` formatting routine's actual next request. That routine and its immediate mount dependencies are already translated. Preserve identity, sector/range/access/sharing/status/lifetime semantics and failure atomicity. Prove the actual format return and utility-drive link before reporting a successful mount. No further extraction, import or Ghidra export is needed to start. Do not prefill the cache record, invent partition geometry or substitute successful formatting stubs.
+
+Targeted validation passes: disk optimized/sanitizer fixtures, 26 Python cases and 35 runtime/admission/delivery cases (two local-server cases require the scoped Windows loopback repeat). Compiled identities match all 32 inputs; browser warnings/errors are empty and Clear releases selections/results. Publication and whitespace guards pass. Source work includes earlier pre-pause settings/heap/initializer changes; preserve them. New source/current observations have not yet been claimed as public-CI-validated. Full disk/FATX persistence, disc/package reads, complete scheduling/exception/floating-point behavior, graphics/audio/controllers, a playable original screen, end-user recompilation and all planned custom features remain unfinished. Keep the full goal active.
+
+## Prior section-residency checkpoint
 
 Selected route: **static recompilation to WebAssembly**, preserving the complete original game, all planned custom features and local player-supplied content. Read [the section-residency checkpoint](SECTION_RESIDENCY_CHECKPOINT.md).
 

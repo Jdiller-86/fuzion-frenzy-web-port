@@ -1,4 +1,9 @@
 /* Independently written emitter-input fixture, not an original game routine. */
+static uint32_t owned_memory_and(uint32_t eax, uint32_t edi)
+{
+    eax = eax & MEM32(edi);
+    return eax;
+}
 static uint32_t owned_memory_expression(uint32_t source, uint32_t destination, uint32_t stack)
 {
     uint32_t result = MEM32(source + 1);

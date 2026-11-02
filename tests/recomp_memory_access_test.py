@@ -8,6 +8,15 @@ guard = importlib.util.module_from_spec(spec); spec.loader.exec_module(guard)
 
 
 class MemoryAccessTests(unittest.TestCase):
+    def test_register_and_reads_remain_checked_without_admitting_pointer_escape(self):
+        result, counts = guard.instrument_memory_accesses('eax = eax & MEM32(edi);')
+        self.assertEqual(result, 'eax = eax & FF_MEMORY_U32((edi), 1u);')
+        self.assertEqual(counts['reads'], 1)
+        for source in ['eax = &MEM32(edi);', 'eax = eax & &MEM32(edi);',
+                       'return &MEM32(edi);', 'call(&MEM32(edi));', 'eax = other & MEM32(edi);']:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                guard.instrument_memory_accesses(source)
+
     def test_scalar_direction_width_nesting_and_comparisons(self):
         source = 'eax = MEM32(ebp + 4); MEM16(edi) = eax; MEM8(esi) += 1; ++MEM32(edi); if (MEM8(esi) == 0) eax = SMEM64(MEM32(ebp));'
         result, counts = guard.instrument_memory_accesses(source)

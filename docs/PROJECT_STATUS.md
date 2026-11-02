@@ -1,4 +1,16 @@
-# Original execution progress checkpoint
+# Original initialization reaches application entry
+
+Selected route: **static recompilation to WebAssembly**, preserving the complete original game, planned custom features and local player-supplied content. Read [the initialization/disk checkpoint](INITIALIZER_EXECUTION_CHECKPOINT.md).
+
+November 2: both explicit fresh synthetic browser profiles now return from all **83/83 original initialization callbacks**, enter the original application path and complete a real whole-disk open/read/write/close sequence. Each run executes 223 distinct original routines, records 3,583 trace events and completes 307 kernel operations. The original code creates its own 512-byte cache record in bounded sparse RAM backing, closes its disk handle and selects cache partition 5. The next ordinal-202 partition-open request stops before a guest result. **There is no playable original screen.**
+
+Current translation/build: `recomp-title-disk-device-01` / `recomp-build-disk-device-01`, 316 functions / 10,587 instructions, with byte/decoder/layout/access checks retained. ABI 17 adds real local disk handles/backing and a checked, read-only kernel-data binding; no host disk, upload, firmware or additional host import is used. Explicit synthetic disk geometry/cache count and volatile backing are development inputs, not original disk/FATX fidelity. All 32 compiled input identities match; final browser reports are `disk-cache-browser-20261102-02.json` and `-03.json` under ignored research.
+
+Validation: owned disk optimized/sanitizer fixtures pass; 26 Python cases pass; all 35 runtime/admission/delivery cases pass across the normal run and scoped repeat of two Windows-loopback-denied cases. Publication/whitespace checks pass. Older source checks and public CI cover their recorded commits only; these local original-browser observations are separate. No broad preserved-prototype or unrelated conversion campaign was repeated.
+
+Next implement the reached cache-partition view from an explicit layout, then observe and implement the original formatting requests with real backing and results. Reuse the current translation and retained formatting routine; no extraction/import/export is needed to begin. Partition formatting/mounting, disc/package reads, durable saves, complete runtime/fidelity, original graphics/audio/controllers, a playable screen, end-user conversion and all online/social/control/authority features remain unaccepted. The full goal remains active.
+
+## Prior section-residency checkpoint
 
 Selected route: **static recompilation to WebAssembly**, preserving the complete original game, all planned custom features and local player-supplied content. Read [the section-residency checkpoint](SECTION_RESIDENCY_CHECKPOINT.md).
 

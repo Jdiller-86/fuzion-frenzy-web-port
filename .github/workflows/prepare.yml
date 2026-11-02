@@ -95,5 +95,15 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/image_sections_test.c src/runtime/image_sections.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/image-sections-check"
           "$RUNNER_TEMP/image-sections-check"
+      - name: Check explicit console settings and memory permissions (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/console_settings_test.c src/runtime/console_settings.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/console-settings-check"
+          "$RUNNER_TEMP/console-settings-check"
+      - name: Check owned sparse disk device (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/local_disk_test.c src/runtime/local_disk.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/local-disk-check"
+          "$RUNNER_TEMP/local-disk-check"
       - run: npm run check:environment
       - run: git diff --exit-code

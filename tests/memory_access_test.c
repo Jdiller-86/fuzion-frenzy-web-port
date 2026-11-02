@@ -24,6 +24,12 @@ int main(void)
     assert(ff_vm_map_fixed(&vm, 0x11000, 0x1000, 2) == 0);
     FF_MEMORY_U32(0x10001, 2u) = 0x12345678;
     assert(!setjmp(fault_return));
+    assert(owned_memory_and(0x00ff00ff, 0x10001) == 0x00340078);
+    assert(FF_MEMORY_U32(0x10001, 1u) == 0x12345678);
+    assert(owned_memory_and(UINT32_MAX, 0x11001) == 0);
+    if (!setjmp(fault_return)) { (void)owned_memory_and(UINT32_MAX, 0x11fff); assert(0); }
+    assert(fault_address == 0x11fff && fault_access == FF_VM_READ);
+    assert(!setjmp(fault_return));
     assert(owned_memory_expression(0x10000, 0x10100, 0x10ff0) == 0x12345678);
     assert(FF_MEMORY_U32(0x10103, 1u) == 0x12345678 && FF_MEMORY_U16(0x10107, 1u) == 2);
     if (!setjmp(fault_return)) { (void)owned_memory_expression(0x10000, 0x11000, 0x10ff0); assert(0); }
