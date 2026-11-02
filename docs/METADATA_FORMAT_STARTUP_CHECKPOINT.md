@@ -71,3 +71,7 @@ Earlier artifacts are preserved. Browser `01/02` retain newly reached untranslat
 Implement and independently verify the actual synchronous regular-file write requested above: typed live handle/access, checked payload/status ranges, real bounded backing bytes, file position/size, coherent owned allocation/timestamp state and failure atomicity. Preserve the observed eight-argument ABI and null event/APC/offset request. Only then return its actual result to original code and observe the next genuine operation; do not infer a later close, link or caller return. Reuse the thirteen seeds and `recomp-title-metadata-03`; no further Ghidra export/import or disc extraction is needed for this reached runtime service.
 
 Original save-state compatibility, persistent storage, general filesystem behavior and matching-console timing remain separate fidelity gates. Complete original execution/rendering/audio/controllers, catalog/mode/detail parity, browser-local conversion, all online/social/control features and server authority remain unfinished. Preserve the full objective, selected recompilation route and local-content boundary.
+
+## Later progress
+
+The [file-write checkpoint](FILE_WRITE_STARTUP_CHECKPOINT.md) supersedes this checkpoint's pending-write task. Original startup now completes the real RAM-backed write and closes the regular-file handle before stopping at the next untranslated helper. Persistent saves and every full-product gate remain open; the prior boundary/evidence above is preserved.

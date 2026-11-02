@@ -118,3 +118,57 @@ uint32_t ff_volume_query_file(ff_local_volume *volume,const uint32_t args[5])
     put(volume,output+48,file->attributes); put(volume,output+52,0);
     return result(volume,iosb,0,56);
 }
+
+uint32_t ff_volume_write_file(ff_local_volume *volume,const uint32_t args[8],uint64_t system_time)
+{
+    if(!volume || !volume->memory || !volume->memory->ram || !args || system_time>INT64_MAX) return FF_BOOT_INVALID;
+    ff_volume_handle *handle=NULL;
+    for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(args[0] && volume->handles[i].handle==args[0]) handle=&volume->handles[i];
+    if(!handle) return FF_BOOT_BAD_HANDLE;
+    const uint32_t iosb=args[4],buffer=args[5],bytes=args[6],offset_pointer=args[7];
+    if(iosb&3u) return FF_BOOT_INVALID;
+    if(!admitted(volume,iosb,8,FF_VM_WRITE)) return FF_VM_ACCESS_VIOLATION;
+    if(args[1] || args[2] || args[3]) return FF_BOOT_UNSUPPORTED;
+    if(!handle->data_file) return result(volume,iosb,FF_VOLUME_IS_DIRECTORY,0);
+    /* Only synchronous, buffered regular files are admitted. Write-through
+     * reaches this explicit RAM volume's backing; it is not persistent storage. */
+    if(!(handle->options&0x20u) || (handle->options&~0x62u)) return FF_BOOT_UNSUPPORTED;
+    ff_volume_data_file *file=NULL;
+    for(unsigned i=0;i<FF_VOLUME_DATA_FILES;++i) if(volume->data_files[i].id==handle->data_file) file=&volume->data_files[i];
+    if(!file) return FF_BOOT_UNSUPPORTED;
+    const uint32_t rights=mapped_access(handle->access);
+    if(!(rights&6u) || (file->attributes&1u)) return result(volume,iosb,FF_VOLUME_ACCESS_DENIED,0);
+    if(bytes>FF_VOLUME_FILE_BYTES) return FF_BOOT_UNSUPPORTED;
+    if(bytes && !admitted(volume,buffer,bytes,FF_VM_READ)) return FF_VM_ACCESS_VIOLATION;
+    if(offset_pointer && ((offset_pointer&3u) || !admitted(volume,offset_pointer,8,FF_VM_READ))) return FF_VM_ACCESS_VIOLATION;
+    if(overlaps(iosb,8,buffer,bytes) || overlaps(iosb,8,offset_pointer,offset_pointer?8:0)) return FF_BOOT_UNSUPPORTED;
+    const uint64_t unit_bytes=(uint64_t)volume->profile.sectors_per_unit*volume->profile.bytes_per_sector;
+    if(!unit_bytes || unit_bytes>524288u || !volume->profile.total_units || volume->profile.available_units>volume->profile.total_units ||
+        file->bytes>FF_VOLUME_FILE_BYTES || file->allocated_bytes<file->bytes || file->allocated_bytes%unit_bytes ||
+        file->allocated_bytes/unit_bytes>volume->profile.total_units) return FF_BOOT_UNSUPPORTED;
+    uint64_t offset=handle->position;
+    if(offset_pointer) {
+        offset=word(volume,offset_pointer,4)|(uint64_t)word(volume,offset_pointer+4,4)<<32;
+        if(offset==UINT64_MAX) offset=file->bytes;
+        else if(offset==UINT64_MAX-1) offset=handle->position;
+        else if(offset>INT64_MAX) return FF_BOOT_INVALID;
+    }
+    if(!(rights&2u)) offset=file->bytes; /* Append-only access never overwrites. */
+    if(offset>FF_VOLUME_FILE_BYTES || bytes>FF_VOLUME_FILE_BYTES-offset) return FF_BOOT_UNSUPPORTED;
+    /* A null write has no data, extent, position, capacity or timestamp effect. */
+    if(!bytes) return result(volume,iosb,0,0);
+    const uint32_t end=(uint32_t)offset+bytes,new_bytes=end>file->bytes?end:file->bytes;
+    const uint64_t required=((uint64_t)new_bytes+unit_bytes-1)/unit_bytes*unit_bytes;
+    const uint64_t allocated=required>file->allocated_bytes?required:file->allocated_bytes;
+    const uint64_t extra_units=(allocated-file->allocated_bytes)/unit_bytes;
+    if(extra_units>volume->profile.available_units) return result(volume,iosb,FF_VOLUME_DISK_FULL,0);
+    /* All admission and capacity checks precede the first backing mutation. */
+    if(offset>file->bytes) memset(file->data+file->bytes,0,(size_t)offset-file->bytes);
+    memcpy(file->data+(uint32_t)offset,volume->memory->ram+buffer,bytes);
+    file->bytes=new_bytes; file->allocated_bytes=allocated; handle->position=end;
+    volume->profile.available_units-=extra_units;
+    /* Explicit synthetic-volume times; FATX update/close granularity is not
+     * inferred from these coherent owned values. Creation/access stay intact. */
+    file->write_time=file->change_time=system_time;
+    return result(volume,iosb,0,bytes);
+}

@@ -85,7 +85,7 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/file_namespace_test.c src/runtime/file_namespace.c src/runtime/object_namespace.c src/runtime/local_directories.c src/runtime/local_volume.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/file-namespace-check"
           "$RUNNER_TEMP/file-namespace-check"
-      - name: Check owned regular file create/query (Linux)
+      - name: Check owned regular file create/query/write (Linux)
         if: runner.os == 'Linux'
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/local_files_test.c src/runtime/local_files.c src/runtime/local_directories.c src/runtime/local_volume.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/local-files-check"

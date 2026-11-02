@@ -20,6 +20,8 @@
 #define FF_VOLUME_NAME_COLLISION 0xc0000035u
 #define FF_VOLUME_PATH_NOT_FOUND 0xc000003au
 #define FF_VOLUME_NOT_DIRECTORY 0xc0000103u
+#define FF_VOLUME_ACCESS_DENIED 0xc0000022u
+#define FF_VOLUME_DISK_FULL 0xc000007fu
 
 typedef struct {
     uint64_t total_units, available_units;
@@ -57,6 +59,7 @@ uint32_t ff_volume_open_root(ff_local_volume *, const uint32_t args[6]);
 uint32_t ff_volume_create_directory(ff_local_volume *, const uint32_t args[9]);
 uint32_t ff_volume_create_file(ff_local_volume *, const uint32_t args[9], uint64_t system_time);
 uint32_t ff_volume_query_file(ff_local_volume *, const uint32_t args[5]);
+uint32_t ff_volume_write_file(ff_local_volume *, const uint32_t args[8], uint64_t system_time);
 uint32_t ff_volume_resolve_path(const ff_local_volume *, uint32_t directory, const char *, uint32_t bytes,
                               uint32_t attributes, ff_volume_path *);
 uint32_t ff_volume_open_directory_path(ff_local_volume *, uint32_t directory, const char *, uint32_t bytes,

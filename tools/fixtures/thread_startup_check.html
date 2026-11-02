@@ -17,8 +17,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>The namespace proof creates an owned drive link holding a guest disc-device reference. Device identity does not mount content or enable disc reads.</p>
 <p>The expanded proof observes the original formatter's first return and compares its hexadecimal output with the actual input. This is one startup case, not complete formatting-library or game fidelity.</p>
 <p>The directory proof uses a fresh synthetic in-memory test volume. Created directories retain identity after handles close; no original saves, FATX persistence or disc-file provider is established.</p>
-<p>The file-target proof retains a real guest directory object after closing its temporary handle. The regular-file proof creates an owned empty metadata file and answers its size/attribute/time query using the existing browser clock. File contents, original saves and persistence remain unimplemented.</p>
+<p>The file-target proof retains a real guest directory object after closing its temporary handle. The regular-file proof creates an owned metadata file and answers its size/attribute/time query using the existing browser clock. Original saves and persistence remain unimplemented.</p>
 <p>The metadata-format proof observes the original helper's inputs, return and pending write buffer with a fixed larger trace. It stops before the unsupported write; formatting a buffer does not save a file.</p>
+<p>The file-write proof completes that synchronous write into the explicit RAM volume and retains its backing after handle closure. Allocation and sampled timestamps are synthetic-volume state; persistence and original FATX fidelity remain unverified.</p>
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
@@ -56,7 +57,9 @@ run.onclick = async () => {
       if (event.data.kind === 'error') return fail(event.data.message);
       const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
-      status.textContent = result.verified ? (result.phase === 'original-metadata-format-write-stop'
+      status.textContent = result.verified ? (result.phase === 'original-metadata-write-next-stop'
+        ? 'Original startup wrote and closed its metadata file; the exact 52-byte payload remains in local backing; stopped at the next untranslated helper'
+        : result.phase === 'original-metadata-format-write-stop'
         ? 'Original metadata formatter returned its 52-byte output; stopped before the unsupported file write'
         : result.phase === 'original-file-create-query-next-stop'
         ? 'Original startup created its metadata file and queried its empty-file metadata; stopped at the next untranslated original helper'

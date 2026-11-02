@@ -162,10 +162,95 @@ static void metadata_query_uses_actual_file_state(void)
     query[2]=0x14001; save(); assert(ff_volume_query_file(&volume,query)==FF_BOOT_INVALID); unchanged();
     assert(!ff_volume_close(&volume,reopened)); query[2]=0x14000; save(); assert(ff_volume_query_file(&volume,query)==FF_BOOT_BAD_HANDLE); unchanged();
 }
+static void sequential_seek_append_and_written_metadata(void)
+{
+    reset(); uint32_t opened=create(2); ff_volume_data_file *file=&volume.data_files[handle(opened)->data_file-1];
+    uint32_t request[8]={opened,0,0,0,IOSB,0x18000,4,0};
+    const uint8_t initial[]={0,255,7,5}; memcpy(ram+0x18000,initial,sizeof initial);
+    assert(!ff_volume_write_file(&volume,request,file_time+10) && get(IOSB)==0 && get(IOSB+4)==4);
+    assert(file->bytes==4 && !memcmp(file->data,initial,4) && handle(opened)->position==4);
+    assert(file->allocated_bytes==16384 && volume.profile.available_units==89999);
+    assert(file->creation_time==file_time && file->access_time==file_time && file->write_time==file_time+10 && file->change_time==file_time+10);
+    request[7]=0x17000; put(0x17000,1,4); put(0x17004,0,4); request[6]=2; memcpy(ram+0x18000,"XY",2);
+    assert(!ff_volume_write_file(&volume,request,file_time+20) && file->bytes==4 && handle(opened)->position==3);
+    assert(file->data[0]==0 && file->data[1]=='X' && file->data[2]=='Y' && file->data[3]==5 && volume.profile.available_units==89999);
+    put(0x17000,10,4); memcpy(ram+0x18000,"ab",2); assert(!ff_volume_write_file(&volume,request,file_time+30));
+    assert(file->bytes==12 && handle(opened)->position==12 && file->data[10]=='a' && file->data[11]=='b');
+    for(unsigned i=4;i<10;++i) assert(!file->data[i]);
+    put(0x17000,0xfffffffeu,4); put(0x17004,0xffffffffu,4); request[6]=1; ram[0x18000]='z';
+    assert(!ff_volume_write_file(&volume,request,file_time+40) && file->bytes==13 && file->data[12]=='z' && handle(opened)->position==13);
+    put(0x17000,0,4); put(0x17004,0,4); ram[0x18000]='A'; assert(!ff_volume_write_file(&volume,request,file_time+50));
+    assert(handle(opened)->position==1 && file->bytes==13);
+    put(0x17000,0xffffffffu,4); put(0x17004,0xffffffffu,4); ram[0x18000]='B';
+    assert(!ff_volume_write_file(&volume,request,file_time+60) && file->bytes==14 && file->data[13]=='B' && handle(opened)->position==14);
+    assert(!ff_volume_close(&volume,opened)); args[1]=0x100004; args[6]=7; opened=create(1); request[0]=opened;
+    put(0x17000,0,4); put(0x17004,0,4); ram[0x18000]='C';
+    assert(!ff_volume_write_file(&volume,request,file_time+70) && file->data[0]=='A' && file->data[14]=='C' && file->bytes==15 && handle(opened)->position==15);
+    const uint32_t query[5]={opened,IOSB,0x14000,56,34}; assert(!ff_volume_query_file(&volume,query));
+    assert(get(0x14020)==16384 && get(0x14028)==15 && get(0x14030)==4);
+    assert(get(0x14010)==(uint32_t)(file_time+70) && get(0x14018)==(uint32_t)(file_time+70));
+    assert(!ff_volume_close(&volume,opened)); args[1]=0x40100000; opened=create(1); request[0]=opened;
+    assert(!handle(opened)->position && file->bytes==15 && file->data[14]=='C');
+    request[5]=0xffffffffu; request[6]=0; request[7]=0; saved_volume=volume;
+    assert(!ff_volume_write_file(&volume,request,file_time+80) && get(IOSB+4)==0 && !memcmp(&saved_volume,&volume,sizeof volume));
+    assert(!ff_volume_close(&volume,opened));
+}
+static void write_allocation_capacity_and_failure_atomicity(void)
+{
+    reset(); uint32_t opened=create(2); ff_volume_data_file *file=&volume.data_files[0];
+    uint32_t request[8]={opened,0,0,0,IOSB,0x18000,1,0}; ram[0x18000]='q'; volume.profile.available_units=0; saved_volume=volume;
+    assert(ff_volume_write_file(&volume,request,file_time+10)==FF_VOLUME_DISK_FULL && get(IOSB)==FF_VOLUME_DISK_FULL && get(IOSB+4)==0);
+    assert(!memcmp(&saved_volume,&volume,sizeof volume));
+    volume.profile.available_units=1; assert(!ff_volume_write_file(&volume,request,file_time+20));
+    assert(!volume.profile.available_units && file->allocated_bytes==16384);
+    request[7]=0x17000; put(0x17000,16383,4); put(0x17004,0,4); assert(!ff_volume_write_file(&volume,request,file_time+30));
+    assert(file->bytes==16384 && handle(opened)->position==16384 && file->data[16383]=='q');
+    put(0x17000,16384,4); saved_volume=volume;
+    assert(ff_volume_write_file(&volume,request,file_time+40)==FF_VOLUME_DISK_FULL && get(IOSB+4)==0 && !memcmp(&saved_volume,&volume,sizeof volume));
+    reset(); opened=create(2); request[0]=opened; request[6]=FF_VOLUME_FILE_BYTES; request[7]=0;
+    assert(!ff_vm_claim_fixed(&memory,0x20000,0x10000)); assert(!ff_vm_map_fixed(&memory,0x20000,0x10000,4));
+    for(unsigned i=0;i<FF_VOLUME_FILE_BYTES;++i) ram[0x18000+i]=(uint8_t)(i*17u+3u);
+    assert(!ff_volume_write_file(&volume,request,file_time+50)); file=&volume.data_files[0];
+    assert(file->bytes==FF_VOLUME_FILE_BYTES && file->allocated_bytes==FF_VOLUME_FILE_BYTES && handle(opened)->position==FF_VOLUME_FILE_BYTES);
+    assert(!memcmp(file->data,ram+0x18000,FF_VOLUME_FILE_BYTES) && volume.profile.available_units==89996);
+    request[6]=1; save(); assert(ff_volume_write_file(&volume,request,file_time+60)==FF_BOOT_UNSUPPORTED); unchanged();
+    request[6]=FF_VOLUME_FILE_BYTES+1; save(); assert(ff_volume_write_file(&volume,request,file_time+60)==FF_BOOT_UNSUPPORTED); unchanged();
+}
+static void write_admission_permissions_and_independent_files(void)
+{
+    reset(); uint32_t opened=create(2); uint32_t request[8]={opened,0,0,0,IOSB,0x18000,4,0}; memcpy(ram+0x18000,"data",4);
+    for(unsigned field=1;field<=3;++field) {request[field]=1;save();assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_UNSUPPORTED);unchanged();request[field]=0;}
+    request[4]=IOSB+1; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_INVALID); unchanged(); request[4]=IOSB;
+    request[5]=0x1fffe; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_VM_ACCESS_VIOLATION); unchanged();
+    request[5]=IOSB; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_UNSUPPORTED); unchanged(); request[5]=0x18000;
+    request[7]=0x17001; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_VM_ACCESS_VIOLATION); unchanged();
+    request[7]=IOSB; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
+    request[7]=0x17000; put(0x17000,0xfffffffdu,4); put(0x17004,0xffffffffu,4); save();
+    assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_INVALID); unchanged();
+    put(0x17000,0,4); put(0x17004,1,4); save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_UNSUPPORTED); unchanged(); request[7]=0;
+    save(); assert(ff_volume_write_file(&volume,request,UINT64_MAX)==FF_BOOT_INVALID); unchanged();
+    assert(!ff_vm_init(&memory,ram,sizeof ram)); assert(!ff_vm_claim_fixed(&memory,0x10000,0x10000));
+    assert(!ff_vm_map_fixed(&memory,0x10000,0x8000,4)); assert(!ff_vm_map_fixed(&memory,0x18000,0x1000,2));
+    uint8_t payload[4]; memcpy(payload,ram+0x18000,4); assert(!ff_volume_write_file(&volume,request,file_time+10)); assert(!memcmp(payload,ram+0x18000,4));
+    assert(!ff_vm_init(&memory,ram,sizeof ram)); assert(!ff_vm_claim_fixed(&memory,0x10000,0x10000));
+    assert(!ff_vm_map_fixed(&memory,0x10000,0x1000,2)); assert(!ff_vm_map_fixed(&memory,0x18000,0x1000,4));
+    save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_VM_ACCESS_VIOLATION); unchanged();
+    reset(); args[8]=2; opened=create(2); request[0]=opened; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
+    reset(); args[1]=0x80100000; opened=create(2); request[0]=opened; saved_volume=volume;
+    assert(ff_volume_write_file(&volume,request,file_time)==FF_VOLUME_ACCESS_DENIED && get(IOSB)==FF_VOLUME_ACCESS_DENIED && !memcmp(&saved_volume,&volume,sizeof volume));
+    assert(!ff_volume_close(&volume,opened)); save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_BAD_HANDLE); unchanged();
+    request[4]=0xffffffffu; save(); assert(ff_volume_write_file(&volume,request,file_time)==FF_BOOT_BAD_HANDLE); unchanged(); request[4]=IOSB;
+    reset(); opened=create(2); request[0]=opened; memcpy(ram+0x18000,"one!",4); assert(!ff_volume_write_file(&volume,request,file_time+10));
+    name("\\Device\\Harddisk0\\partition1\\OwnedData\\Independent.bin"); uint32_t other=create(2); request[0]=other;
+    memcpy(ram+0x18000,"two?",4); assert(!ff_volume_write_file(&volume,request,file_time+20));
+    assert(!memcmp(volume.data_files[0].data,"one!",4) && !memcmp(volume.data_files[1].data,"two?",4));
+    assert(volume.data_files[0].bytes==4 && volume.data_files[1].bytes==4 && volume.profile.available_units==89998);
+}
 int main(void)
 {
     file_identity_backing_and_reference_lifetime(); generic_access_sharing_and_independent_files();
     paths_types_and_dispositions(); capacities_do_not_leave_partial_files(); admission_is_atomic_and_read_only_names_work(); metadata_query_uses_actual_file_state();
-    puts("Owned regular files, backing identity, generic access/sharing, relative paths, lifetime and atomic admission passed");
+    sequential_seek_append_and_written_metadata(); write_allocation_capacity_and_failure_atomicity(); write_admission_permissions_and_independent_files();
+    puts("Owned regular files, create/query/write, backing identity, allocation, offsets, permissions, lifetime and atomic admission passed");
     return 0;
 }

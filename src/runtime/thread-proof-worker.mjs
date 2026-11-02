@@ -9,9 +9,9 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
-    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()===11;
+    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()===12;
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==1024) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
@@ -64,7 +64,7 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
@@ -87,6 +87,10 @@ self.onmessage = async event => {
       if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
       if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
+      if(call.ordinal===236 && writeAbi) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
+        dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
+        allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
+        writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
       if (call.ordinal === 289) call.output = {length:api.ff_probe_kernel_word(i,4),maximumLength:api.ff_probe_kernel_word(i,5),buffer:api.ff_probe_kernel_word(i,6)>>>0};
       if (call.ordinal === 279) call.output = {equal:api.ff_probe_kernel_word(i,5),firstBytes:api.ff_probe_kernel_word(i,6),secondBytes:api.ff_probe_kernel_word(i,7)};
     });
@@ -131,7 +135,9 @@ self.onmessage = async event => {
     const reachedMetadataWrite = metadataAbi && reachedTimerArmed && copyReturned && trapped && state[0]===1 && state[2]===236 &&
       Number.isInteger(bindingIndex) && bindingIndex>=0 && bindingIndex<api.ff_probe_binding_count() && api.ff_probe_binding_ordinal(bindingIndex)===236 &&
       state[5]===0x33b8c && calls.length===98 && trace.some(row=>row.kind==='exit' && row.address===0x1df4f0);
-    const pastFileMetadataQuery=reachedFileMetadataHelper || reachedMetadataWrite;
+    const reachedWrittenFileHelper = writeAbi && reachedTimerArmed && copyReturned && trapped && state[0]===2 && state[1]===0x337f7 && state[2]===0 &&
+      state[5]===0x33bc4 && calls.length===100 && calls[98]?.ordinal===236 && calls[98].status===0 && calls[99]?.ordinal===187 && calls[99].status===0;
+    const pastFileMetadataQuery=reachedFileMetadataHelper || reachedMetadataWrite || reachedWrittenFileHelper;
     const reachedRegularFileRequest = pastFileMetadataQuery || !regularAbi && fileLinkAbi && reachedTimerArmed && copyReturned && trapped && state[0] === 9 &&
       state[1] === 0xc00000bb && state[2] === 190 && state[5] === 0x33ac9 && calls.length === 97 &&
       [0x338de,0x34594,0x31127,0x3105c].every(address=>entered.includes(address));
@@ -141,7 +147,7 @@ self.onmessage = async event => {
     if(reachedRegularFileRequest && expectedTlsData.length>=8) new DataView(expectedTlsData.buffer).setUint32(4,1168,true);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
-      realThreadCreation: calls.length === (pastFileMetadataQuery ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
+      realThreadCreation: calls.length === (reachedWrittenFileHelper ? 100 : pastFileMetadataQuery ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
         calls[1].arguments[0] === thread.handle && thread.handleOpen === 0 && thread.state === 3,
@@ -207,7 +213,7 @@ self.onmessage = async event => {
         checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, metadataWriteRequest, metadataFormat, localVolume, symbolicLinkRequest, objectNamespace, originalFormat;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, metadataWriteRequest, metadataFormat, localVolume, volumeAccounting, symbolicLinkRequest, objectNamespace, originalFormat;
     if (typeof api.ff_probe_format_word==='function' && typeof api.ff_probe_format_byte==='function') {
       const words=Array.from({length:13},(_,i)=>api.ff_probe_format_word(i)>>>0);
       const text=(which,limit)=>{ let value=''; for(let i=0;i<limit;++i) { const byte=api.ff_probe_format_byte(which,i); if(!byte)return value;
@@ -319,7 +325,9 @@ self.onmessage = async event => {
           for(const [field,low] of [['creationTime',4],['accessTime',6],['writeTime',8],['changeTime',10],['allocatedBytes',12]]) {
             file[field]=((BigInt(api.ff_probe_regular_word(i,low+1)>>>0)<<32n)|BigInt(api.ff_probe_regular_word(i,low)>>>0)).toString();
           }
-          if(file.bytes>fileStorageProfile.maxFileBytes) throw new Error('Invalid regular-file diagnostic size'); return file;
+          if(file.bytes>fileStorageProfile.maxFileBytes) throw new Error('Invalid regular-file diagnostic size');
+          if(writeAbi) file.payload=Array.from({length:file.bytes},(_,byte)=>api.ff_probe_regular_byte(i,byte));
+          return file;
         }).filter(file=>file.id);
         if(localVolume.dataFileCount>fileStorageProfile.maxFiles || localVolume.dataFiles.length!==localVolume.dataFileCount) throw new Error('Invalid regular-file count');
         localVolume.handles.forEach(handle=>{for(let i=0;i<16;++i) if(api.ff_probe_volume_handle_word(i,0)===handle.handle) {
@@ -329,10 +337,14 @@ self.onmessage = async event => {
       const open = calls[12], query = calls[13], close = calls[14], handle = open?.output?.handle;
       const entry = trace.find(row => row.address === 0x33794 && row.kind === 'enter');
       const returned = trace.find(row => row.address === 0x33794 && row.kind === 'exit');
-      const expectedSize = [Number(total & 0xffffffffn), Number(total >> 32n), Number(available & 0xffffffffn),
-        Number(available >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector];
+      const initialTotal=BigInt(volumeProfile.totalAllocationUnits),initialAvailable=BigInt(volumeProfile.availableAllocationUnits);
+      const unitBytes=BigInt(volumeProfile.sectorsPerAllocationUnit)*BigInt(volumeProfile.bytesPerSector);
+      const chargedUnits=writeAbi?localVolume.dataFiles.reduce((sum,file)=>sum+BigInt(file.allocatedBytes)/unitBytes,0n):0n;
+      volumeAccounting={unitBytes,chargedUnits,initialAvailable,available};
+      const expectedSize = [Number(initialTotal & 0xffffffffn), Number(initialTotal >> 32n), Number(initialAvailable & 0xffffffffn),
+        Number(initialAvailable >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector];
       checks.explicitSyntheticVolumeProfileUsed = localVolume.ready === 1 && localVolume.totalAllocationUnits === volumeProfile.totalAllocationUnits &&
-        localVolume.availableAllocationUnits === volumeProfile.availableAllocationUnits && localVolume.sectorsPerAllocationUnit === volumeProfile.sectorsPerAllocationUnit &&
+        available+chargedUnits===initialAvailable && localVolume.sectorsPerAllocationUnit === volumeProfile.sectorsPerAllocationUnit &&
         localVolume.bytesPerSector === volumeProfile.bytesPerSector;
       checks.realVolumeRootOpened = open?.ordinal === 202 && open.status === 0 && open.output.ioStatus === 0 && open.output.information === 1 &&
         handle >= 0x10000 && handle < 0x20000 && !(handle & 3) && handle !== thread.handle &&
@@ -413,8 +425,8 @@ self.onmessage = async event => {
         checks.originalCountedComparisonsCompleted = equalCalls.length===33 && equalCalls.every(call=>call.status===0 && call.arguments[2]===1 && [0,1].includes(call.output.equal)) &&
           equalCalls.filter(call=>call.output.equal===1).length===1 && equalCalls.find(call=>call.output.equal===1)?.output.firstBytes===9 &&
           equalCalls.find(call=>call.output.equal===1)?.output.secondBytes===9;
-        checks.pendingUserDirectoryHandleIsOwned = !!userTitle && !!userHandle && localVolume.opened===(regularAbi?7:6) && localVolume.closed===5 &&
-          localVolume.active===(regularAbi?2:1) && localVolume.handles.length===(regularAbi?2:1) && userHandle.handle===calls[25]?.output?.handle &&
+        checks.pendingUserDirectoryHandleIsOwned = !!userTitle && !!userHandle && localVolume.opened===(regularAbi?7:6) && localVolume.closed===(writeAbi?6:5) &&
+          localVolume.active===(regularAbi && !writeAbi?2:1) && localVolume.handles.length===(regularAbi && !writeAbi?2:1) && userHandle.handle===calls[25]?.output?.handle &&
           userHandle.access===0x120117 && userHandle.share===3 && userHandle.options===0x4021 &&
           calls[23]?.ordinal===187 && calls[23].status===0 && calls[23].arguments[0]===calls[22]?.output?.handle;
         if(!regularAbi) checks.nextRegularFileRequestStoppedBeforeGuestReturn = reachedRegularFileRequest && calls.slice(0,96).every(call=>call.status===0) &&
@@ -436,18 +448,24 @@ self.onmessage = async event => {
           checks.completedCreateRequestCapturedBeforeBufferReuse = createFileRequest?.observation==='captured-at-create' && createFileRequest.bufferChangedAtStop===true &&
             createFileRequest.nameBytes===57 && createFileRequest.nameMaximumBytes===58 && createFileRequest.descriptorAtStop?.nameBuffer===createFileRequest.nameBuffer &&
             createFileRequest.name.endsWith('\\TitleMeta.xbx');
-          checks.regularFileHandleHasSeparateIdentity = !!fileHandle && !!dataFile && fileHandle.directory===0 && fileHandle.dataFile===dataFile.id && fileHandle.position===0 &&
-            fileHandle.access===0x40100000 && fileHandle.share===1 && fileHandle.options===0x22 && fileHandle.handle!==userHandle?.handle && file?.dataFile===0;
-          checks.newFileHasEmptyOwnedBacking = localVolume.dataFileCount===1 && localVolume.dataFilesCreated===1 && localVolume.dataFiles.length===1 && !!dataFile &&
-            dataFile.bytes===0 && dataFile.allocatedBytes==='0';
-          checks.fileCreationUsesSampledBrowserClock = !!dataFile && dataFile.creationTime===dataFile.accessTime && dataFile.creationTime===dataFile.writeTime &&
-            dataFile.creationTime===dataFile.changeTime && BigInt(dataFile.creationTime)>=BigInt(fileClockWindow.beforeSystemTicks) &&
+          if(!writeAbi) {
+            checks.regularFileHandleHasSeparateIdentity = !!fileHandle && !!dataFile && fileHandle.directory===0 && fileHandle.dataFile===dataFile.id && fileHandle.position===0 &&
+              fileHandle.access===0x40100000 && fileHandle.share===1 && fileHandle.options===0x22 && fileHandle.handle!==userHandle?.handle && file?.dataFile===0;
+            checks.newFileHasEmptyOwnedBacking = localVolume.dataFileCount===1 && localVolume.dataFilesCreated===1 && localVolume.dataFiles.length===1 && !!dataFile &&
+              dataFile.bytes===0 && dataFile.allocatedBytes==='0';
+          } else {
+            checks.closedRegularFileHadSeparateIdentity = !!dataFile && !fileHandle && created.output.dataFile===dataFile.id && created.output.handle!==userHandle?.handle && file?.dataFile===0;
+            checks.preWriteMetadataQuerySawEmptyBacking = !!words && wide(words[8],words[9])==='0' && wide(words[10],words[11])==='0';
+          }
+          const queriedWriteTime=writeAbi?wide(words[4],words[5]):dataFile?.writeTime,queriedChangeTime=writeAbi?wide(words[6],words[7]):dataFile?.changeTime;
+          checks.fileCreationUsesSampledBrowserClock = !!dataFile && dataFile.creationTime===dataFile.accessTime && dataFile.creationTime===queriedWriteTime &&
+            dataFile.creationTime===queriedChangeTime && BigInt(dataFile.creationTime)>=BigInt(fileClockWindow.beforeSystemTicks) &&
             BigInt(dataFile.creationTime)<=BigInt(fileClockWindow.afterSystemTicks);
           checks.originalNetworkOpenInformationRequested = query?.ordinal===211 && query.status===0 && query.arguments.length===5 && query.arguments[0]===created?.output?.handle &&
             query.arguments[1]===created.arguments[3] && query.arguments[3]===56 && query.arguments[4]===34;
           checks.fileInformationMatchesOwnedMetadata = !!dataFile && !!words && words.length===14 && query.output.ioStatus===0 && query.output.information===56 &&
-            wide(words[0],words[1])===dataFile.creationTime && wide(words[2],words[3])===dataFile.accessTime && wide(words[4],words[5])===dataFile.writeTime &&
-            wide(words[6],words[7])===dataFile.changeTime && wide(words[8],words[9])===dataFile.allocatedBytes && wide(words[10],words[11])===String(dataFile.bytes) &&
+            wide(words[0],words[1])===dataFile.creationTime && wide(words[2],words[3])===dataFile.accessTime && wide(words[4],words[5])===queriedWriteTime &&
+            wide(words[6],words[7])===queriedChangeTime && wide(words[8],words[9])===(writeAbi?'0':dataFile.allocatedBytes) && wide(words[10],words[11])===(writeAbi?'0':String(dataFile.bytes)) &&
             words[12]===dataFile.attributes && words[13]===0;
           if(!metadataAbi) checks.nextOriginalMetadataHelperStopped = reachedFileMetadataHelper && calls.every(call=>call.status===0) && !entered.includes(0x1df4f0);
           else {
@@ -462,7 +480,7 @@ self.onmessage = async event => {
             try {metadataFormat.comparison=compareWideMetadataFormat(metadataFormat);}
             catch(error) {metadataFormat.comparison={matches:false,expectedPayload:[],diagnostic:String(error)};}
             if(reachedMetadataWrite) metadataWriteRequest=inspectWriteFileRequest(ram,state.slice(6,14),admittedGuestRange);
-            checks.originalMetadataFormatterReturned = reachedMetadataWrite && metadataFormat.entries===1 && metadataFormat.exits===1 && metadataFormat.validMask===63 &&
+            checks.originalMetadataFormatterReturned = (reachedMetadataWrite || reachedWrittenFileHelper) && metadataFormat.entries===1 && metadataFormat.exits===1 && metadataFormat.validMask===63 &&
               metadataFormat.maximumUnits===142 && metadataFormat.returnedUnits===26 && metadataFormat.output.length===26;
             checks.originalMetadataOutputMatchesCapturedArguments = metadataFormat.comparison.matches && metadataFormat.comparison.expectedUnits===26 &&
               metadataFormat.comparison.expectedBytes===52 && metadataFormat.arguments.filter(arg=>arg.kind==='string').every(arg=>arg.capturedBytes===arg.value.length*2);
@@ -470,12 +488,31 @@ self.onmessage = async event => {
               metadataFormat.exitFs===metadataFormat.entryFs && metadataFormat.exitExceptionHead===metadataFormat.entryExceptionHead;
             checks.originalMetadataDependenciesReturned = [[0x1df4f0,1],[0x1e2c35,1],[0x1e2bd3,5],[0x1e2bae,26],[0x1e2bf8,10],[0x1e6ee5,26]]
               .every(([address,count])=>balanced(address,count));
-            checks.actualMetadataBufferRequestedForWrite = reachedMetadataWrite && metadataWriteRequest.serviceImplemented===false &&
-              metadataWriteRequest.fileHandle===fileHandle?.handle && metadataWriteRequest.eventHandle===0 && metadataWriteRequest.apcRoutine===0 && metadataWriteRequest.apcContext===0 &&
-              metadataWriteRequest.ioStatusBlockPointer===query.arguments[1] && metadataWriteRequest.buffer===metadataFormat.destination && metadataWriteRequest.bytes===metadataFormat.returnedUnits*2 &&
-              metadataWriteRequest.byteOffsetPointer===0 && metadataWriteRequest.payload.every((byte,n)=>byte===metadataFormat.comparison.expectedPayload[n]);
-            checks.writeStoppedBeforeFileMutation = reachedMetadataWrite && calls.every(call=>call.status===0) && dataFile.bytes===0 && dataFile.allocatedBytes==='0' && fileHandle.position===0 &&
-              view.getUint32(metadataWriteRequest.ioStatusBlockPointer,true)===0 && view.getUint32(metadataWriteRequest.ioStatusBlockPointer+4,true)===56;
+            if(!writeAbi) {
+              checks.actualMetadataBufferRequestedForWrite = reachedMetadataWrite && metadataWriteRequest.serviceImplemented===false &&
+                metadataWriteRequest.fileHandle===fileHandle?.handle && metadataWriteRequest.eventHandle===0 && metadataWriteRequest.apcRoutine===0 && metadataWriteRequest.apcContext===0 &&
+                metadataWriteRequest.ioStatusBlockPointer===query.arguments[1] && metadataWriteRequest.buffer===metadataFormat.destination && metadataWriteRequest.bytes===metadataFormat.returnedUnits*2 &&
+                metadataWriteRequest.byteOffsetPointer===0 && metadataWriteRequest.payload.every((byte,n)=>byte===metadataFormat.comparison.expectedPayload[n]);
+              checks.writeStoppedBeforeFileMutation = reachedMetadataWrite && calls.every(call=>call.status===0) && dataFile.bytes===0 && dataFile.allocatedBytes==='0' && fileHandle.position===0 &&
+                view.getUint32(metadataWriteRequest.ioStatusBlockPointer,true)===0 && view.getUint32(metadataWriteRequest.ioStatusBlockPointer+4,true)===56;
+            } else {
+              const {unitBytes,chargedUnits,initialAvailable,available}=volumeAccounting;
+              const write=calls[98],close=calls[99],args=write?.arguments??[];
+              metadataWriteRequest={fileHandle:args[0],eventHandle:args[1],apcRoutine:args[2],apcContext:args[3],ioStatusBlockPointer:args[4],buffer:args[5],bytes:args[6],byteOffsetPointer:args[7],
+                serviceImplemented:true,observation:'captured-call-and-result',result:write?.output};
+              checks.originalMetadataWriteCompleted = reachedWrittenFileHelper && write?.ordinal===236 && write.status===0 && write.output.ioStatus===0 && write.output.information===52 &&
+                args[0]===created.output.handle && args.slice(1,4).every(value=>value===0) && args[4]===query.arguments[1] && args[5]===metadataFormat.destination && args[6]===52 && args[7]===0 &&
+                write.output.initialPosition===0 && write.output.position===52 && write.output.fileBytes===52 && write.output.dataFile===dataFile.id;
+              checks.originalWritePayloadRetainedAfterClose = !!dataFile && dataFile.bytes===52 && dataFile.payload.length===52 &&
+                dataFile.payload.every((byte,n)=>byte===metadataFormat.comparison.expectedPayload[n]);
+              checks.regularFileClosePreservesWrittenNode = close?.ordinal===187 && close.status===0 && close.arguments[0]===created.output.handle && !fileHandle &&
+                localVolume.dataFileCount===1 && localVolume.dataFilesCreated===1 && localVolume.opened===7 && localVolume.closed===6 && localVolume.active===1;
+              checks.syntheticAllocationChargedExactlyOnce = BigInt(dataFile.allocatedBytes)===unitBytes && write.output.allocatedBytes===dataFile.allocatedBytes && chargedUnits===1n &&
+                initialAvailable-available===1n;
+              checks.writeTimesUseExistingClockSample = dataFile.writeTime===dataFile.changeTime && dataFile.writeTime===write.output.writeTime &&
+                BigInt(dataFile.writeTime)>=BigInt(fileClockWindow.beforeSystemTicks) && BigInt(dataFile.writeTime)<=BigInt(fileClockWindow.afterSystemTicks);
+              checks.nextOriginalFileHelperStoppedBeforeEntry = reachedWrittenFileHelper && calls.every(call=>call.status===0) && !entered.includes(0x337f7);
+            }
           }
         }
       }
@@ -545,7 +582,7 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: Object.values(checks).every(Boolean), checks,
       sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
       trace, traceCapacity, kernelCapacity, calls, threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),

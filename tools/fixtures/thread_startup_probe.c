@@ -112,6 +112,11 @@ static struct { uint32_t words[13]; uint8_t format[64], output[128]; } format_ob
 #endif
 static struct { uint32_t words[21]; uint8_t format[256], output[520], input[3][256]; } metadata_observation;
 #endif
+#ifdef FF_FILE_WRITE_PROOF
+#ifndef FF_METADATA_FORMAT_PROOF
+#error File writes retain the bounded original metadata observation contract
+#endif
+#endif
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
 static ff_dpc_frame dpc_frame;
@@ -668,6 +673,28 @@ static void query_file_information(void)
     g_eax=row[1]; g_esp+=24;
 }
 #endif
+#ifdef FF_FILE_WRITE_PROOF
+static void write_regular_file(void)
+{
+    uint32_t *row=kernel_record(236,8);
+    ff_volume_handle *handle=NULL;
+    for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[2]) handle=&local_volume.handles[i];
+    if(handle) row[19]=handle->position;
+    row[1]=ff_volume_write_file(&local_volume,row+2,timers.system_time);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],236);
+    if(row[1]!=FF_BOOT_BAD_HANDLE) {row[10]=MEM32(row[6]); row[11]=MEM32(row[6]+4);}
+    if(!row[1]) {
+        if(!handle) stop(9,0,236);
+        const ff_volume_data_file *file=NULL;
+        for(unsigned i=0;i<FF_VOLUME_DATA_FILES;++i) if(local_volume.data_files[i].id==handle->data_file) file=&local_volume.data_files[i];
+        if(!file) stop(9,handle->data_file,236);
+        row[12]=file->id; row[13]=handle->position; row[14]=file->bytes;
+        row[15]=(uint32_t)file->allocated_bytes; row[16]=(uint32_t)(file->allocated_bytes>>32);
+        row[17]=(uint32_t)file->write_time; row[18]=(uint32_t)(file->write_time>>32);
+    }
+    g_eax=row[1]; g_esp+=36;
+}
+#endif
 uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
 {
     if (index >= FF_VOLUME_DIRECTORIES) return 0;
@@ -834,6 +861,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_REGULAR_FILE_PROOF
         if (ordinal == 211) return query_file_information;
 #endif
+#ifdef FF_FILE_WRITE_PROOF
+        if (ordinal == 236) return write_regular_file;
+#endif
 #ifdef FF_FILE_LINK_PROOF
         if (ordinal == 279) return equal_ansi_string;
 #endif
@@ -852,7 +882,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_METADATA_FORMAT_PROOF
+#ifdef FF_FILE_WRITE_PROOF
+    return 12;
+#elif defined(FF_METADATA_FORMAT_PROOF)
     return 11;
 #elif defined(FF_REGULAR_FILE_PROOF)
     return 10;
