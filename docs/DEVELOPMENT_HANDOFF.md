@@ -1,4 +1,18 @@
-# Continue from original application entry and disk-cache initialization
+# Continue from original FATX writes and the pending dismount
+
+Read [the current partition-format checkpoint](PARTITION_FORMAT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected; there is no playable original screen.
+
+Both explicit fresh synthetic profiles now return from 83 initialization callbacks, execute 226 distinct original routines, record 3,617 trace events and complete 386 kernel operations. The original formatter opens partition 5, receives configured geometry/partition information, queries system time and writes its own FATX header/table/root: 70 writes / 286,720 bytes. Both final byte checks verify the table/root boundary and all 16 KiB of the empty root. The formatter has not returned and the utility drive is not mounted.
+
+**Current code/build:** `research/verification/recomp-title-disk-geometry-01` and `recomp-format-snapshot-build-02`, 316 functions / 10,587 instructions. Reuse this generation's `inputs.json`; the earlier disk-device generation lacks the register-loaded ordinal-196 binding. ABI 20 retains the prior fixed resources, 4,096/512 diagnostics, local-only content and sole browser-clock import. Exact final evidence: `format-layout-browser-20261102-05.json`, `-06.json` and `format-layout-checkpoint-20261102-03.json`. The prior ABI-17 module retains its original boundary under the new harness.
+
+**Next request:** ordinal 200 (`NtFsControlFile`), `FSCTL_DISMOUNT_VOLUME` / `0x00090020`, return `0x000340d4`, arguments `[393220,0,0,0,62983480,589856,0,0,0,0]`. No guest result was supplied. Establish and implement actual raw-device versus mounted-volume attachment, invalidation and handle/reference lifetime; preserve all written bytes. Then follow the genuine original close/formatter return and subsequent utility-volume open/query/link. No unconditional success or invented retail failure status is justified by the current raw block backend alone.
+
+**Material format concern:** the supplied 1 GiB / 32-sector-cluster case places its FAT at 4,096, root at 270,336 and root end at 286,720. There is one more table page than a naive ceiling formula predicts. Read the retained formatter's actual calculation before generalizing a mount parser. Explicit synthetic layout/flags are development inputs; retail equivalence and general FATX support remain unproved.
+
+Validation: owned disk/control optimized/sanitizer checks, 27 Python cases and 38 runtime/admission/source-server cases pass. All 32 compiled identities match; browser logs are empty and Clear succeeds. No original native/Node execution, new extraction/import/export or unrelated broad campaign occurred. Full filesystem/durable saves, disc/package reads, complete runtime/fidelity, original graphics/audio/controllers, playability, browser-local end-user conversion and all planned features remain unfinished. Preserve every earlier file and keep the full goal active.
+
+## Prior application-entry and disk-cache checkpoint
 
 Selected route: **static recompilation to WebAssembly**, with the complete original game and all planned custom features. Read [the current initialization/disk checkpoint](INITIALIZER_EXECUTION_CHECKPOINT.md). Earlier approximate reconstruction remains research.
 

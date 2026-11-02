@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
@@ -9,10 +9,10 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
-    const diskAbi=api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
+    const informationAbi=api.ff_probe_abi()===20,geometryAbi=informationAbi || api.ff_probe_abi()===19,partitionAbi=geometryAbi || api.ff_probe_abi()===18,diskAbi=partitionAbi || api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
@@ -46,9 +46,30 @@ self.onmessage = async event => {
     }
     if(diskAbi) {
       diskProfile=parseLocalDiskProfile(event.data.settingsBytes);
+      if(partitionAbi)diskProfile.partitions=parseLocalDiskPartitions(event.data.settingsBytes);
+      if(geometryAbi)diskProfile.geometry=parseLocalDiskGeometry(event.data.settingsBytes);
+      if(informationAbi)diskProfile.partitionInformation=parseLocalPartitionInformation(event.data.settingsBytes);
       const bytes=BigInt(diskProfile.bytes);
       if(api.ff_probe_disk_profile(Number(bytes&0xffffffffn),Number(bytes>>32n),diskProfile.sectorBytes,diskProfile.cachePartitions)) {
         throw new Error('Cannot admit explicit local disk-device profile');
+      }
+      if(partitionAbi)for(const part of diskProfile.partitions) {
+        const offset=BigInt(part.offset),length=BigInt(part.bytes);
+        if(api.ff_probe_disk_partition_profile(part.number,Number(offset&0xffffffffn),Number(offset>>32n),Number(length&0xffffffffn),Number(length>>32n))) {
+          throw new Error('Cannot admit explicit disk-partition backing');
+        }
+      }
+      if(geometryAbi) {
+        const cylinders=BigInt(diskProfile.geometry.cylinders);
+        if(api.ff_probe_disk_geometry_profile(Number(cylinders&0xffffffffn),Number(cylinders>>32n),diskProfile.geometry.tracksPerCylinder,diskProfile.geometry.sectorsPerTrack)) {
+          throw new Error('Cannot admit explicit disk geometry');
+        }
+      }
+      if(informationAbi)for(const info of diskProfile.partitionInformation) {
+        if(api.ff_probe_disk_partition_information(info.number,info.hiddenSectors,info.partitionType,
+          (info.bootIndicator?1:0)|(info.recognizedPartition?2:0)|(info.rewritePartition?4:0))) {
+          throw new Error('Cannot admit explicit partition information');
+        }
       }
     }
     if (namespaceAbi) {
@@ -79,10 +100,11 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 196:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
+      if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),
         sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
         sampledSystemTicks: ((BigInt(api.ff_probe_kernel_word(i, 10) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 9) >>> 0)).toString() };
@@ -104,6 +126,12 @@ self.onmessage = async event => {
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
       const diskTransfer=diskAbi && [219,236].includes(call.ordinal) && call.arguments[0]>=0x60000 && call.arguments[0]<0x70000;
       if(diskTransfer)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11)};
+      if(diskTransfer && !call.status && call.output.information && api.ff_probe_disk_transfer_details?.()===1) {
+        const wide=(low,high)=>((BigInt(api.ff_probe_kernel_word(i,high)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,low)>>>0)).toString();
+        Object.assign(call.output,{partition:api.ff_probe_kernel_word(i,12)>>>0,position:wide(13,14),relativeOffset:wide(15,16),physicalOffset:wide(17,18)});
+      }
+      if(geometryAbi && call.ordinal===196 && !call.status)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,12)>>>0,
+        information:api.ff_probe_kernel_word(i,13)>>>0,words:Array.from({length:api.ff_probe_kernel_word(i,13)/4},(_,n)=>api.ff_probe_disk_control_word(i,n)>>>0)};
       if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
@@ -722,6 +750,49 @@ self.onmessage = async event => {
       }
       localDisk.kernelData={slot,address,value:view.getUint32(address,true),readable:true,writable:false};
       if(localDisk.kernelData.value!==diskProfile.cachePartitions)throw new Error('Kernel data differs from the explicit disk profile');
+      if(partitionAbi) {
+        const count=api.ff_probe_disk_word(9);
+        if(count!==diskProfile.partitions.length)throw new Error('Incomplete disk-partition backing');
+        localDisk.partitions=Array.from({length:count},(_,i)=>({number:api.ff_probe_disk_partition_word(i,0),
+          offset:((BigInt(api.ff_probe_disk_partition_word(i,2)>>>0)<<32n)|BigInt(api.ff_probe_disk_partition_word(i,1)>>>0)).toString(),
+          bytes:((BigInt(api.ff_probe_disk_partition_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_disk_partition_word(i,3)>>>0)).toString()}));
+        if(JSON.stringify(localDisk.partitions)!==JSON.stringify(diskProfile.partitions))throw new Error('Disk-partition backing differs from the explicit layout');
+      }
+      if(geometryAbi) {
+        localDisk.geometry={ready:api.ff_probe_disk_word(10),cylinders:((BigInt(api.ff_probe_disk_word(12)>>>0)<<32n)|BigInt(api.ff_probe_disk_word(11)>>>0)).toString(),
+          tracksPerCylinder:api.ff_probe_disk_word(13)>>>0,sectorsPerTrack:api.ff_probe_disk_word(14)>>>0};
+        if(localDisk.geometry.ready!==1 || ['cylinders','tracksPerCylinder','sectorsPerTrack'].some(key=>localDisk.geometry[key]!==diskProfile.geometry[key])) {
+          throw new Error('Disk geometry differs from the explicit profile');
+        }
+      }
+      if(informationAbi) {
+        localDisk.partitionInformation=diskProfile.partitions.map((part,i)=>{
+          const flags=api.ff_probe_disk_information_word(i,3)>>>0;
+          if(api.ff_probe_disk_information_word(i,0)!==1)throw new Error('Incomplete partition information');
+          return {number:part.number,hiddenSectors:api.ff_probe_disk_information_word(i,1)>>>0,
+            partitionType:api.ff_probe_disk_information_word(i,2)>>>0,bootIndicator:!!(flags&1),recognizedPartition:!!(flags&2),rewritePartition:!!(flags&4)};
+        });
+        if(JSON.stringify(localDisk.partitionInformation)!==JSON.stringify(diskProfile.partitionInformation))throw new Error('Partition information differs from the explicit profile');
+      }
+      if(partitionAbi && api.ff_probe_disk_transfer_details?.()===1) {
+        localDisk.partitionSamples=[];
+        for(const part of diskProfile.partitions) {
+          const writes=calls.filter(call=>call.ordinal===236 && !call.status && call.output?.partition===part.number && call.output.information>0);
+          if(!writes.length)continue;
+          const positions=[...new Set(writes.map(call=>call.output.relativeOffset))];
+          const selected=[...new Set([...positions.slice(0,3),...positions.slice(-5)])];
+          const samples=selected.map(value=>{
+            const relative=BigInt(value),physical=BigInt(part.offset)+relative;
+            const count=Number(BigInt(part.bytes)-relative<4096n?BigInt(part.bytes)-relative:4096n);
+            if(count<1 || count>4096)throw new Error('Partition sample lies outside explicit backing');
+            return {relativeOffset:value,physicalOffset:physical.toString(),bytes:Array.from({length:count},(_,i)=>{
+              const address=physical+BigInt(i);return api.ff_probe_disk_byte(Number(address&0xffffffffn),Number(address>>32n));
+            })};
+          });
+          localDisk.partitionSamples.push({number:part.number,writes:writes.length,transferredBytes:writes.reduce((total,call)=>total+call.output.information,0),
+            observation:'post-stop-current-backing',samples});
+        }
+      }
     }
     if(initializerAbi && state[2]===202 && (state[0]===1 || state[0]===9)) {
       openFileRequest={...inspectOpenFileRequest(ram,state.slice(6,12),admittedGuestRange),

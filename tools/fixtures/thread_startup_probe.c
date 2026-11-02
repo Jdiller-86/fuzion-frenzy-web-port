@@ -33,6 +33,15 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 static ff_local_disk local_disk;
 static uint32_t disk_ready;
 #endif
+#if defined(FF_DISK_PARTITION_PROOF) && !defined(FF_DISK_PROOF)
+#error Partition views retain the checked sparse-disk contract
+#endif
+#if defined(FF_DISK_GEOMETRY_PROOF) && !defined(FF_DISK_PARTITION_PROOF)
+#error Disk control retains the explicit partition contract
+#endif
+#if defined(FF_DISK_INFORMATION_PROOF) && !defined(FF_DISK_GEOMETRY_PROOF)
+#error Partition information retains explicit disk geometry
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -90,6 +99,9 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+#ifdef FF_DISK_GEOMETRY_PROOF
+static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
+#endif
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
 #ifdef FF_NV_QUERY_PROOF
@@ -537,6 +549,20 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#if defined(FF_TIMER_PROOF) && defined(FF_VM_PROOF)
+static void query_system_time(void)
+{
+    uint32_t *row=kernel_record(128,1);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!timers_ready)stop(9,row[1],128);
+    row[1]=(!row[2] || (row[2]&3u))?FF_BOOT_INVALID:ff_vm_check(&virtual_memory,row[2],8,FF_VM_WRITE);
+    if(row[1])stop(9,row[1],128);
+    const uint64_t ticks=timers.system_time;
+    MEM32(row[2])=(uint32_t)ticks;MEM32(row[2]+4)=(uint32_t)(ticks>>32);
+    row[1]=0;row[3]=(uint32_t)ticks;row[4]=(uint32_t)(ticks>>32);
+    g_esp+=8; /* VOID NTAPI: preserve registers; pop return address and pointer. */
+}
+#endif
 #ifdef FF_SECTION_PROOF
 static void section_operation(uint32_t ordinal)
 {
@@ -792,10 +818,17 @@ static void transfer_disk(int writing)
 {
     const uint32_t ordinal=writing?236:219;
     uint32_t *row=kernel_record(ordinal,8);
-    if(!disk_ready || !ff_disk_owns_handle(row[2]))stop(9,FF_BOOT_UNSUPPORTED,ordinal);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!disk_ready || !ff_disk_owns_handle(row[2]))stop(9,row[1],ordinal);
     row[1]=writing?ff_disk_write(&local_disk,row+2):ff_disk_read(&local_disk,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],ordinal);
     if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
+    if(!row[1] && row[11])for(unsigned i=0;i<FF_DISK_HANDLES;++i)if(local_disk.handles[i].handle==row[2]) {
+        const ff_disk_handle *file=&local_disk.handles[i];
+        const uint64_t start=file->position-row[11],physical=file->offset+start;
+        row[12]=file->partition;row[13]=(uint32_t)file->position;row[14]=(uint32_t)(file->position>>32);
+        row[15]=(uint32_t)start;row[16]=(uint32_t)(start>>32);row[17]=(uint32_t)physical;row[18]=(uint32_t)(physical>>32);
+    }
     g_eax=row[1];g_esp+=36;
 }
 static void read_disk(void){transfer_disk(0);}
@@ -818,10 +851,70 @@ uint32_t ff_probe_disk_word(uint32_t field)
     case 0:return disk_ready;case 1:return local_disk.active;case 2:return local_disk.opened;case 3:return local_disk.closed;
     case 4:return local_disk.allocated_pages;case 5:return (uint32_t)local_disk.profile.bytes;
     case 6:return (uint32_t)(local_disk.profile.bytes>>32);case 7:return local_disk.profile.sector_bytes;
-    case 8:return local_disk.profile.cache_partitions;default:return UINT32_MAX;
+    case 8:return local_disk.profile.cache_partitions;
+#ifdef FF_DISK_PARTITION_PROOF
+    case 9:return local_disk.partition_count;
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+    case 10:return local_disk.geometry.ready;case 11:return (uint32_t)local_disk.geometry.cylinders;
+    case 12:return (uint32_t)(local_disk.geometry.cylinders>>32);case 13:return local_disk.geometry.tracks_per_cylinder;
+    case 14:return local_disk.geometry.sectors_per_track;
+#endif
+    default:return UINT32_MAX;
     }
 }
 uint32_t ff_probe_disk_byte(uint32_t low,uint32_t high){return ff_disk_byte(&local_disk,low|((uint64_t)high<<32));}
+uint32_t ff_probe_disk_transfer_details(void){return 1;}
+#ifdef FF_DISK_PARTITION_PROOF
+uint32_t ff_probe_disk_partition_profile(uint32_t number,uint32_t offset_low,uint32_t offset_high,uint32_t bytes_low,uint32_t bytes_high)
+{
+    return disk_ready?ff_disk_add_partition(&local_disk,number,offset_low|((uint64_t)offset_high<<32),bytes_low|((uint64_t)bytes_high<<32)):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_partition_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.partition_count)return UINT32_MAX;
+    const ff_disk_partition *part=&local_disk.partitions[index];
+    switch(field){case 0:return part->number;case 1:return (uint32_t)part->offset;case 2:return (uint32_t)(part->offset>>32);
+        case 3:return (uint32_t)part->bytes;case 4:return (uint32_t)(part->bytes>>32);default:return UINT32_MAX;}
+}
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+uint32_t ff_probe_disk_geometry_profile(uint32_t low,uint32_t high,uint32_t tracks,uint32_t sectors)
+{
+    return disk_ready?ff_disk_set_geometry(&local_disk,low|((uint64_t)high<<32),tracks,sectors):FF_BOOT_INVALID;
+}
+static void control_disk(void)
+{
+    uint32_t *row=kernel_record(196,10);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!disk_ready)stop(9,row[1],196);
+    row[1]=ff_disk_control(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],196);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[12]=MEM32(row[6]);row[13]=MEM32(row[6]+4);}
+    if(!row[1]) {
+        if(row[13]>32 || (row[13]&3u))stop(9,row[13],196);
+        for(unsigned i=0;i<row[13]/4;++i)disk_control_information[kernel_call_count-1][i]=MEM32(row[10]+i*4);
+    }
+    g_eax=row[1];g_esp+=44;
+}
+uint32_t ff_probe_disk_control_word(uint32_t index,uint32_t word)
+{
+    return index<kernel_call_count && word<8?disk_control_information[index][word]:0;
+}
+#ifdef FF_DISK_INFORMATION_PROOF
+uint32_t ff_probe_disk_partition_information(uint32_t number,uint32_t hidden,uint32_t type,uint32_t flags)
+{
+    return disk_ready?ff_disk_set_partition_information(&local_disk,number,hidden,type,flags):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_information_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.partition_count)return UINT32_MAX;
+    const ff_disk_partition *part=&local_disk.partitions[index];
+    switch(field){case 0:return part->information_ready;case 1:return part->hidden_sectors;case 2:return part->type;
+        case 3:return part->flags;default:return UINT32_MAX;}
+}
+#endif
+#endif
 #endif
 uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
 {
@@ -989,6 +1082,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
+#ifdef FF_TIMER_PROOF
+        if (ordinal == 128) return query_system_time;
+#endif
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 149) return set_timer;
@@ -1004,6 +1100,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_DISK_PROOF
         if (ordinal == 219) return read_disk;
         if (ordinal == 236) return write_file;
+#ifdef FF_DISK_GEOMETRY_PROOF
+        if (ordinal == 196) return control_disk;
+#endif
 #else
         if (ordinal == 236) return write_regular_file;
 #endif
@@ -1026,7 +1125,13 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_DISK_PROOF
+#ifdef FF_DISK_INFORMATION_PROOF
+    return 20;
+#elif defined(FF_DISK_GEOMETRY_PROOF)
+    return 19;
+#elif defined(FF_DISK_PARTITION_PROOF)
+    return 18;
+#elif defined(FF_DISK_PROOF)
     return 17;
 #elif defined(FF_INITIALIZER_BATCH_PROOF)
     return 16;
@@ -1110,6 +1215,9 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+#ifdef FF_DISK_GEOMETRY_PROOF
+    memset(disk_control_information,0,sizeof disk_control_information);
+#endif
 #ifdef FF_REGULAR_FILE_PROOF
     memset(file_information,0,sizeof file_information);
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);

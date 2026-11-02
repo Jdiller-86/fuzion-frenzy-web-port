@@ -51,6 +51,26 @@ def checked_kernel_data_binding(row, imports):
     return slots.pop()
 
 
+def checked_kernel_code_pointer_binding(row, imports):
+    """Bind the reached NtDeviceIoControlFile pointer load before CALL reg.
+
+    Restrict this extension to the declared function ordinal 196. Other data or
+    unknown imports are not silently reclassified as callable function tokens.
+    """
+    slots={int(ref['target'],16) for ref in row.get('references',[])
+           if ref.get('type')=='READ' and re.fullmatch(r'[0-9a-fA-F]+',ref.get('target',''))
+           and imports.get(int(ref['target'],16))==196}
+    if not slots:return None
+    raw=bytes.fromhex(row.get('analysisBytesHex',''))
+    encoded_slot=None
+    if len(raw)==5 and raw[0]==0xa1:encoded_slot=int.from_bytes(raw[1:],'little')
+    if len(raw)==6 and raw[0]==0x8b and raw[1]&0xc7==5:encoded_slot=int.from_bytes(raw[2:],'little')
+    if len(slots)!=1 or row.get('mnemonic')!='MOV' or row.get('call') or row.get('computed') or \
+       row.get('length')!=len(raw) or encoded_slot not in slots:
+        raise ValueError('Unsupported kernel-code pointer-load encoding')
+    return slots.pop()
+
+
 def check_decoder_agreement(rows, decoded, original_bytes):
     """Retain exact boundaries except the explicit x87 WAIT/FNSTCW grouping.
 
@@ -384,7 +404,7 @@ def main():
                 if start >= 0 and start + size <= len(xbe):
                     return xbe[start:start + size]
         raise ValueError("Instruction range is not original executable file-backed data")
-    functions, direct_targets, bindings, layouts, data_bindings = {}, set(), {}, {}, {}
+    functions, direct_targets, bindings, layouts, data_bindings, code_pointer_bindings = {}, set(), {}, {}, {}, {}
     local_entries={int(item['entry'],16) for item in functions_in}
     instruction_count = 0
     for item in functions_in:
@@ -404,6 +424,13 @@ def main():
             if data_slot is not None:
                 bindings[data_slot]=imports[data_slot]
                 data_bindings[data_slot]=imports[data_slot]
+            try:
+                code_slot=checked_kernel_code_pointer_binding(row,imports)
+            except ValueError as error:
+                parser.error(str(error))
+            if code_slot is not None:
+                bindings[code_slot]=imports[code_slot]
+                code_pointer_bindings[code_slot]=imports[code_slot]
             if row["call"] and not row["computed"]:
                 direct_targets.update(int(target, 16) for target in row["flows"])
             if row["computed"] and (row["call"] or row.get("mnemonic") == "JMP"):
@@ -524,6 +551,7 @@ def main():
               "untranslatedDirectTargets": boundaries,
               "kernelBindings": [{"slot": slot, "ordinal": ordinal} for slot, ordinal in sorted(bindings.items())],
               "kernelDataBindings": [{"slot":slot,"ordinal":ordinal,"bytes":4} for slot,ordinal in sorted(data_bindings.items())],
+              "kernelCodePointerBindings": [{"slot":slot,"ordinal":ordinal} for slot,ordinal in sorted(code_pointer_bindings.items())],
               "unimplementedInstructions": {}, "originalCodeExecuted": False,
               "outputSha256": {name: digest((out / name).read_bytes()) for name in ["title-profile.h", "title-functions.inc"]},
               "limitation": "Only selected startup functions translated; unsupported calls must stop. No original execution outside the browser."}

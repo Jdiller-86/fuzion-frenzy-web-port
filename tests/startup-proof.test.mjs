@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -33,6 +33,51 @@ test('disk startup requires explicit fresh geometry, cache count and bounded loc
   assert.throws(()=>parseLocalDiskProfile(bytes(undefined)),/explicit fresh synthetic disk/);
   assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>17}),4096);
   assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>17}),512);
+});
+
+test('partition startup rejects missing, overlapping, duplicate, unaligned and out-of-disk views',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:2};
+  const partitions=[{number:3,offset:'4294967296',bytes:'1073741824'},{number:4,offset:'5368709120',bytes:'1073741824'}];
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:{...disk,partitions:value}})).buffer;
+  assert.deepEqual(parseLocalDiskPartitions(bytes(partitions)),partitions);
+  for(const value of [undefined,[],partitions.slice(0,1),[partitions[0],partitions[0]],
+    [partitions[0],{...partitions[1],offset:'4294967808'}],[partitions[0],{...partitions[1],offset:'5368709121'}],
+    [partitions[0],{...partitions[1],bytes:'4294967296'}],[partitions[0],{...partitions[1],number:5}]]) {
+    assert.throws(()=>parseLocalDiskPartitions(bytes(value)),/partition/i);
+  }
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>18}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>18}),512);
+});
+
+test('disk geometry must be explicit and describe the configured capacity exactly',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:3};
+  const geometry={cylinders:'32768',tracksPerCylinder:16,sectorsPerTrack:32};
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:{...disk,geometry:value}})).buffer;
+  assert.deepEqual(parseLocalDiskGeometry(bytes(geometry)),geometry);
+  for(const edit of [{cylinders:'32767'},{cylinders:'0'},{cylinders:32768},{tracksPerCylinder:0},{tracksPerCylinder:1.5},
+    {sectorsPerTrack:0x100000000},{sectorsPerTrack:31}])assert.throws(()=>parseLocalDiskGeometry(bytes({...geometry,...edit})),/explicit disk geometry/);
+  assert.throws(()=>parseLocalDiskGeometry(bytes(undefined)),/explicit disk geometry/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>19}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>19}),512);
+});
+
+test('partition information requires explicit typed flags and consistent hidden sectors',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const information={hiddenSectors:8388608,partitionType:127,bootIndicator:true,recognizedPartition:false,rewritePartition:true};
+  const bytes=info=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,
+    disk:{kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:1,
+      partitions:[{number:3,offset:'4294967296',bytes:'1073741824',information:info}]}})).buffer;
+  assert.deepEqual(parseLocalPartitionInformation(bytes(information)),[{number:3,...information}]);
+  for(const edit of [{hiddenSectors:0},{hiddenSectors:'8388608'},{partitionType:256},{bootIndicator:1},
+    {recognizedPartition:undefined},{rewritePartition:null}])assert.throws(()=>parseLocalPartitionInformation(bytes({...information,...edit})),/explicit partition information/);
+  assert.throws(()=>parseLocalPartitionInformation(bytes(undefined)),/explicit partition information/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>20}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>20}),512);
 });
 
 function ownedSectionRequest() {

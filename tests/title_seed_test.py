@@ -16,6 +16,17 @@ def fixture():
 
 
 class EnvelopeTests(unittest.TestCase):
+    def test_register_loaded_kernel_function_pointer_requires_its_exact_declared_slot(self):
+        row={'mnemonic':'MOV','length':6,'call':False,'computed':False,'analysisBytesHex':'8b3500510000',
+             'references':[{'type':'READ','target':'5100'}]}
+        self.assertEqual(prepare.checked_kernel_code_pointer_binding(row,{0x5100:196}),0x5100)
+        self.assertIsNone(prepare.checked_kernel_code_pointer_binding(row,{0x5100:40}))
+        self.assertIsNone(prepare.checked_kernel_code_pointer_binding(row,{}))
+        for key,value in [('analysisBytesHex','8b3504510000'),('analysisBytesHex','8b3400510000'),
+                          ('analysisBytesHex','893500510000'),('length',5),('mnemonic','CALL'),('call',True)]:
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                prepare.checked_kernel_code_pointer_binding({**row,key:value},{0x5100:196})
+
     def test_kernel_data_binding_requires_the_declared_exact_absolute_pointer_load(self):
         row={'mnemonic':'MOV','length':5,'call':False,'computed':False,'analysisBytesHex':'a100510000',
              'references':[{'type':'READ','target':'5100'}]}

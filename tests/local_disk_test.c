@@ -90,8 +90,67 @@ static void sparse_capacity_failure_preserves_disk_and_position(void)
     ff_disk_profile bad=profile;bad.cache_partitions=0;saved_disk=disk;
     assert(ff_disk_init(&disk,&memory,&bad)==FF_BOOT_INVALID && !memcmp(&disk,&saved_disk,sizeof disk));
 }
+static void explicit_partition_views_share_backing_without_crossing_boundaries(void)
+{
+    reset();
+    for(unsigned i=0;i<3;++i)assert(!ff_disk_add_partition(&disk,3+i,0x100000000ull+(uint64_t)i*0x40000000,0x40000000));
+    save();assert(ff_disk_add_partition(&disk,5,0x1c0000000ull,512)==FF_BOOT_INVALID);unchanged();
+    const char *part5="\\Device\\Harddisk0\\Partition5";memcpy(ram+TEXT,part5,strlen(part5)+1);
+    open_args[4]=0;open_args[5]=0x18;uint32_t selected=open_disk();
+    assert(ff_disk_open(&disk,open_args)==FF_DISK_SHARING);
+    uint32_t io[8]={selected,0,0,0,IOSB,DATA,512,OFFSET};put(OFFSET,512,8);memset(ram+DATA,0x9a,512);
+    assert(!ff_disk_write(&disk,io));
+    assert(ff_disk_byte(&disk,0x180000200ull)==0x9a && !ff_disk_byte(&disk,512));
+    ram[TEXT+27]='0';uint32_t whole=open_disk();io[0]=whole;put(OFFSET,0x180000200ull,8);
+    memset(ram+DATA,0,512);assert(!ff_disk_read(&disk,io));for(unsigned i=0;i<512;++i)assert(ram[DATA+i]==0x9a);
+    ram[TEXT+27]='3';uint32_t other=open_disk();io[0]=other;put(OFFSET,512,8);
+    assert(!ff_disk_read(&disk,io));for(unsigned i=0;i<512;++i)assert(!ram[DATA+i]);
+    io[0]=selected;io[6]=1024;put(OFFSET,0x40000000ull-512,8);memset(ram+DATA,0x6c,1024);
+    saved_disk=disk;assert(ff_disk_write(&disk,io)==FF_DISK_FULL);assert(!memcmp(&disk,&saved_disk,sizeof disk));
+    assert(!ff_disk_read(&disk,io) && get(IOSB+4,4)==512 && ram[DATA+512]==0x6c);
+    save();assert(ff_disk_add_partition(&disk,3,0,512)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_disk_close(&disk,selected));assert(!ff_disk_close(&disk,whole));assert(!ff_disk_close(&disk,other));
+    reset();assert(!ff_disk_add_partition(&disk,3,4096,4096));
+    for(unsigned i=0;i<4;++i) {
+        uint32_t number=i==0?3:4;uint64_t offset=i==1?4096:i==2?4097:profile.bytes-512,bytes=i==3?1024:4096;
+        save();assert(ff_disk_add_partition(&disk,number,offset,bytes)==FF_BOOT_INVALID);unchanged();
+    }
+}
+static void explicit_geometry_has_checked_output_and_no_disk_mutation(void)
+{
+    reset();save();assert(ff_disk_set_geometry(&disk,32767,16,32)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_disk_set_geometry(&disk,32768,16,32));
+    uint32_t file=open_disk(),args[10]={file,0,0,0,IOSB,0x70000,0,0,DATA,32};
+    saved_disk=disk;assert(!ff_disk_control(&disk,args));assert(!memcmp(&disk,&saved_disk,sizeof disk));
+    assert(get(DATA,8)==32768 && get(DATA+8,4)==12 && get(DATA+12,4)==16 && get(DATA+16,4)==32 && get(DATA+20,4)==512);
+    assert(get(IOSB+4,4)==24 && ram[DATA+24]==0xa5);
+    args[9]=23;memcpy(saved_ram,ram,sizeof ram);assert(ff_disk_control(&disk,args)==0xc0000023u);
+    assert(!memcmp(ram+DATA,saved_ram+DATA,32) && get(IOSB+4,4)==0);
+    args[9]=24;args[8]=IOSB;save();assert(ff_disk_control(&disk,args)==FF_BOOT_UNSUPPORTED);unchanged();args[8]=DATA;
+    args[8]=0x3fff0;save();assert(ff_disk_control(&disk,args)==FF_VM_ACCESS_VIOLATION);unchanged();args[8]=DATA;
+    args[5]=0x74004;save();assert(ff_disk_control(&disk,args)==FF_BOOT_UNSUPPORTED);unchanged();args[5]=0x70000;
+    args[2]=1;save();assert(ff_disk_control(&disk,args)==FF_BOOT_UNSUPPORTED);unchanged();args[2]=0;
+    assert(!ff_disk_close(&disk,file));save();assert(ff_disk_control(&disk,args)==FF_BOOT_BAD_HANDLE);unchanged();
+}
+static void partition_information_preserves_explicit_descriptor_and_range(void)
+{
+    reset();assert(!ff_disk_add_partition(&disk,5,0x180000000ull,0x40000000));
+    save();assert(ff_disk_set_partition_information(&disk,5,1,0x7f,5)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_disk_set_partition_information(&disk,5,0xc00000,0x7f,5));
+    const char *name="\\Device\\Harddisk0\\partition5";memcpy(ram+TEXT,name,strlen(name)+1);
+    uint32_t file=open_disk(),args[10]={file,0,0,0,IOSB,0x74004,0,0,DATA,40};
+    saved_disk=disk;assert(!ff_disk_control(&disk,args));assert(!memcmp(&disk,&saved_disk,sizeof disk));
+    assert(get(DATA,8)==0x180000000ull && get(DATA+8,8)==0x40000000 && get(DATA+16,4)==0xc00000 && get(DATA+20,4)==5);
+    assert(ram[DATA+24]==0x7f && ram[DATA+25]==1 && !ram[DATA+26] && ram[DATA+27]==1);
+    assert(!get(DATA+28,4) && ram[DATA+32]==0xa5 && get(IOSB+4,4)==32);
+    args[9]=31;memcpy(saved_ram,ram,sizeof ram);assert(ff_disk_control(&disk,args)==0xc0000023u);
+    assert(!memcmp(ram+DATA,saved_ram+DATA,40) && !get(IOSB+4,4));
+}
 int main(void)
 {
     sparse_roundtrip_and_lifetime();permissions_sharing_and_rejected_memory();sparse_capacity_failure_preserves_disk_and_position();
-    puts("owned sparse disk read/write, lifetime, access and failure atomicity passed");return 0;
+    explicit_partition_views_share_backing_without_crossing_boundaries();
+    explicit_geometry_has_checked_output_and_no_disk_mutation();
+    partition_information_preserves_explicit_descriptor_and_range();
+    puts("owned sparse disk and partition aliasing, range, lifetime and access checks passed");return 0;
 }

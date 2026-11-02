@@ -1,4 +1,14 @@
-# Original initialization reaches application entry
+# Original formatter writes FATX metadata in the browser
+
+Selected route: **static recompilation to WebAssembly**, preserving the full original game, all planned custom features and local player-supplied content. Read [the partition-format checkpoint](PARTITION_FORMAT_CHECKPOINT.md).
+
+November 2: both explicit synthetic browser profiles execute 226 distinct original routines and complete 386 kernel operations after all 83 initialization callbacks return. Original code opens cache partition 5, queries its real configured geometry/descriptor, obtains the existing browser clock and performs **70 actual writes / 286,720 bytes**. Retained backing contains the original FATX header, allocation-table markers and complete 16 KiB empty-root byte pattern. The next `NtFsControlFile` dismount request stops before a guest result; the formatter has not returned and the utility drive is not mounted. **There is no playable original screen.**
+
+Reuse `recomp-title-disk-geometry-01` / `recomp-format-snapshot-build-02`: 316 admitted functions / 10,587 instructions, current ABI 20 and unchanged fixed resources / sole clock import. Final original reports are `format-layout-browser-20261102-05.json` and `-06.json`; independent byte/time/range/identity checks are in `format-layout-checkpoint-20261102-03.json`. All original/derived content remains ignored/local. The test layout and descriptors are explicit synthetic inputs, not retail defaults. At this geometry the FAT includes an additional page that a naive formula would omit; establish the original alignment rule before mount implementation.
+
+Validation: disk/partition/control optimized and sanitizer fixtures pass; 27 Python cases and 38 runtime/admission/delivery cases pass. All 32 compiled input identities match. A prior ABI-17 browser boundary is retained, final logs are empty and Clear succeeds. Current source is not yet claimed as public-CI-validated. Next implement real dismount/volume lifetime, then follow original format return and utility-volume mounting. Full filesystem/persistence, disc reads, runtime/fidelity, graphics/audio/controllers, playability, end-user conversion and every planned custom feature remain unfinished. Keep the complete goal active.
+
+## Prior initialization checkpoint
 
 Selected route: **static recompilation to WebAssembly**, preserving the complete original game, planned custom features and local player-supplied content. Read [the initialization/disk checkpoint](INITIALIZER_EXECUTION_CHECKPOINT.md).
 

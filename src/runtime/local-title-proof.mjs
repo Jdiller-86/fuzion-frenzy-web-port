@@ -34,12 +34,12 @@ export function parseLocalNvConsoleSettings(buffer) {
 
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17,18,19,20].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
   const capacity=typeof api.ff_probe_kernel_capacity==='function'?api.ff_probe_kernel_capacity():32;
-  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
+  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17,18,19,20].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
   return capacity;
 }
 
@@ -85,6 +85,53 @@ export function parseLocalDiskProfile(buffer) {
     sectorBytes:disk.sectorBytes,cachePartitions:disk.cachePartitions,persistent:false,maxBackingPages:128};
 }
 
+export function parseLocalDiskPartitions(buffer) {
+  const profile=parseLocalDiskProfile(buffer);
+  const partitions=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.partitions;
+  const count=value=>typeof value==='string' && /^(0|[1-9][0-9]{0,18})$/.test(value)?BigInt(value):-1n;
+  if(!Array.isArray(partitions) || partitions.length!==profile.cachePartitions)throw new Error('Select an explicit complete cache-partition layout');
+  const result=[];
+  for(const part of partitions) {
+    const offset=count(part?.offset),bytes=count(part?.bytes),sector=BigInt(profile.sectorBytes);
+    if(!Number.isInteger(part?.number) || part.number<3 || part.number>=profile.cachePartitions+3 || offset<0n || bytes<=0n ||
+       offset+bytes>BigInt(profile.bytes) || offset%sector || bytes%sector || result.some(old=>old.number===part.number ||
+         offset<BigInt(old.offset)+BigInt(old.bytes) && BigInt(old.offset)<offset+bytes)) {
+      throw new Error('Select nonoverlapping, sector-aligned cache partitions inside the explicit disk');
+    }
+    result.push({number:part.number,offset:offset.toString(),bytes:bytes.toString()});
+  }
+  return result;
+}
+
+export function parseLocalDiskGeometry(buffer) {
+  const disk=parseLocalDiskProfile(buffer);
+  const geometry=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.geometry;
+  const cylinders=typeof geometry?.cylinders==='string' && /^(0|[1-9][0-9]{0,18})$/.test(geometry.cylinders)?BigInt(geometry.cylinders):-1n;
+  const tracks=geometry?.tracksPerCylinder,sectors=geometry?.sectorsPerTrack;
+  if(cylinders<=0n || !Number.isInteger(tracks) || tracks<1 || tracks>0xffffffff ||
+     !Number.isInteger(sectors) || sectors<1 || sectors>0xffffffff ||
+     cylinders*BigInt(tracks)*BigInt(sectors)*BigInt(disk.sectorBytes)!==BigInt(disk.bytes)) {
+    throw new Error('Select explicit disk geometry consistent with the configured capacity');
+  }
+  return {cylinders:cylinders.toString(),tracksPerCylinder:tracks,sectorsPerTrack:sectors};
+}
+
+export function parseLocalPartitionInformation(buffer) {
+  const disk=parseLocalDiskProfile(buffer),parts=parseLocalDiskPartitions(buffer);
+  const raw=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.partitions;
+  return parts.map((part,i)=>{
+    const info=raw[i]?.information;
+    if(!Number.isInteger(info?.hiddenSectors) || info.hiddenSectors<0 || info.hiddenSectors>0xffffffff ||
+       BigInt(info.hiddenSectors)!==BigInt(part.offset)/BigInt(disk.sectorBytes) ||
+       !Number.isInteger(info.partitionType) || info.partitionType<0 || info.partitionType>255 ||
+       ['bootIndicator','recognizedPartition','rewritePartition'].some(key=>typeof info[key]!=='boolean')) {
+      throw new Error('Select explicit partition information consistent with the configured layout');
+    }
+    return {number:part.number,hiddenSectors:info.hiddenSectors,partitionType:info.partitionType,
+      bootIndicator:info.bootIndicator,recognizedPartition:info.recognizedPartition,rewritePartition:info.rewritePartition};
+  });
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -111,13 +158,22 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   if(proofAbi>=13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
     typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing local image-section ABI');
-  if(proofAbi===17 && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([17,18,19,20].includes(proofAbi) && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing local disk-device ABI');
+  }
+  if([18,19,20].includes(proofAbi) && ['disk_partition_profile','disk_partition_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-partition ABI');
+  }
+  if([19,20].includes(proofAbi) && ['disk_geometry_profile','disk_control_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-control ABI');
+  }
+  if(proofAbi===20 && ['disk_partition_information','disk_information_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing explicit disk-partition information ABI');
   }
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
@@ -138,7 +194,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
   let imageInitialState;
-  if ([5,6,7,8,9,10,11,12,13,14,15,16,17].includes(proofAbi)) {
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
