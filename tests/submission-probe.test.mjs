@@ -229,6 +229,17 @@ test('the RAMIN aperture scan inventories observed entries read-only', () => {
   assert.equal(none.available, false);
 });
 
+test('the write-page scan surveys only the reported pages read-only', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  const before = new Uint8Array(view.buffer).slice();
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, writtenPages: [0] });
+  assert.equal(probe.writePageScan.pages, 1);
+  assert.equal(probe.writePageScan.scanned[0].page, 0);
+  assert.equal(probe.writePageScan.scanned[0].available, true);
+  assert.match(probe.writePageScan.note, /GET not advanced/);
+  assert.deepEqual(new Uint8Array(view.buffer), before);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();

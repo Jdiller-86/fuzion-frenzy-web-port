@@ -1,14 +1,14 @@
-# Contiguous 0x80000000 window now aliases guest RAM; the queue producer still does not run
+# Per-written-page scan: 16 of 49 written pages contain command-like headers, none is the queue
 
-November 3: the pinned bridge documents that physical `P` is visible at `0x80000000 + P` and that D3D stores a physical address while reading the GPU position back as `GET | 0x80000000`. The proof previously modeled only one separate 4 KiB mirror page there; it now maps the full 64 MiB contiguous window directly onto modeled guest RAM. The cache-flush write at `0x80000000` now lands in guest physical 0 (one more written page, and the scanner sees its non-zero word), but no CPU write reaches the GPU-instance claim pages and the PFIFO wait still cannot complete. No consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: a read-only per-page header survey now scans each page the translated code actually wrote. Of 49 written pages, 16 contain command-like sequences (method kinds, jumps or calls) under a bounded heuristic. The queue claim pages are still unwritten, the submitted `GET..PUT` range still starts zeroed apart from the flush word, and the PFIFO wait cannot complete. No consumer is implemented. This is the last evidence probe before retaining the boundary and selecting an independent prerequisite. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-44.json`.
+The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-45.json`.
 
-Source change: `guest_mirror.h/.c` becomes a 64 MiB contiguous-window descriptor (`0x80000000`..`0x84000000`) with bounds and offset calculation; the probe returns `guest_ram + offset` for data accesses inside it and marks writes in the guest write-page map; the separate 4 KiB storage is removed. Tests cover the window and offsets. The claim pages remain unwritten and the submitted guest range is zero apart from the flush word. No consumer, GET advance, packet execution, interrupt, DMA or rendering is fabricated. Validation: mirror tests optimized/ASan/UBSan, scanner/submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `submission-probe.mjs` adds `writePageScan` (per-page read-only header survey over up to 64 reported pages, 16 interesting rows max); the worker computes the write-page list first and passes it; tests cover the survey and read-only behavior (17 cases). The heuristic cannot establish a producer or ring base. No consumer, GET advance, packet execution, interrupt, DMA or rendering is fabricated. Validation: submission tests, device-register/scanner/mirror tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: RAMIN scan
+## Prior: 64 MiB contiguous alias
 
-The RAMIN aperture decodes as mixed context data, not a command stream. Report `post-memory-browser-20261103-43.json`.
+The contiguous window now maps to guest RAM; the cache-flush write reaches physical 0, but the queue claim is unwritten. Report `post-memory-browser-20261103-44.json`.
 
 ## Prior: 0x200f59
 

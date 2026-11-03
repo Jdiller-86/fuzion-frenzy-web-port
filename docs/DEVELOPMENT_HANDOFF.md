@@ -1,18 +1,18 @@
-# Continue from the 64 MiB contiguous alias and the still-unwritten queue
+# Continue from the write-page survey: retain the boundary and pick an independent prerequisite
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The pinned bridge documents that physical `P` is visible at `0x80000000 + P` and that D3D stores a physical address while reading the GPU position back as `GET | 0x80000000`. The proof now maps the full 64 MiB contiguous window directly onto modeled guest RAM (the separate 4 KiB mirror page is removed). The cache-flush write at `0x80000000` now lands in guest physical 0 (one more written page; the scanner sees its non-zero word), but no CPU write reaches the GPU-instance claim pages and the PFIFO wait still cannot complete. No consumer, GET advance, packet execution, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A read-only per-page header survey now scans each page the translated code wrote. Of 49 written pages, 16 contain command-like sequences under a bounded heuristic; the queue claim pages are still unwritten and the submitted `GET..PUT` range still starts zeroed apart from the flush word. The PFIFO wait cannot complete, GET never advances, and no consumer is implemented. This is the last evidence probe before retaining the boundary and selecting an independent prerequisite. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-44.json`. `guest_mirror.h/.c` is now a 64 MiB window descriptor; the probe returns `guest_ram + offset` and marks writes; tests cover bounds/offsets.
+The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-45.json`. `submissionProbe.writePageScan` runs the read-only header scanner over up to 64 written pages and reports per-page method kinds/unknowns/jumps/calls and up to 16 interesting rows; tests cover it (17 cases).
 
-Validation: mirror tests optimized/ASan/UBSan, scanner/submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: submission tests, device-register/scanner/mirror tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** choose the next bounded independent startup prerequisite or producer-provenance step, preserving the fail-closed boundary. The PFIFO consumer remains blocked; do not treat the contiguous window, zero headers or mixed RAMIN data as an empty-queue completion, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** choose and execute one independent bounded startup/feature prerequisite, preserving the PFIFO boundary and all evidence. Do not treat command-like pages as a queue, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: RAMIN scan
+## Prior: 64 MiB contiguous alias
 
-The RAMIN aperture decodes as mixed context data, not a command stream. Report `post-memory-browser-20261103-43.json`.
+The contiguous window now maps to guest RAM; the cache-flush write reaches physical 0, but the queue claim is unwritten. Report `post-memory-browser-20261103-44.json`.
 
 ## Prior: 0x200f59
 

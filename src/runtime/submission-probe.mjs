@@ -147,6 +147,32 @@ function raminScan(entries) {
   };
 }
 
+// Read-only scans of the pages the translated code actually wrote, to locate a
+// producer's command buffer without guessing at addresses.
+function writePageScan(view, pages, pageBytes = 0x1000) {
+  const rows = (pages || []).slice(0, 64).map(page => {
+    const start = page * pageBytes, end = Math.min(start + pageBytes, view?.byteLength ?? 0);
+    if (!view || start + 4 > end) return { page, address: start, available: false };
+    const scan = scanPushbuffer(view, start, end);
+    return {
+      page,
+      address: start,
+      available: scan.available,
+      methodKinds: scan.methodKinds,
+      unknown: scan.unknown,
+      jumps: scan.jumps,
+      calls: scan.calls,
+      interesting: scan.available && scan.unknown < 64 && (scan.methodKinds > 1 || scan.jumps > 0 || scan.calls > 0),
+    };
+  });
+  return {
+    pages: rows.length,
+    interesting: rows.filter(row => row.available && row.interesting).slice(0, 16),
+    scanned: rows,
+    note: 'read-only per-page header survey; no commands executed and GET not advanced',
+  };
+}
+
 function submissionSummary(entries, events, put, get, allocation) {
   const putWrites = (events || []).filter(event => event.address === 0xFD800040 && event.direction === 2);
   const last = putWrites.length ? putWrites[putWrites.length - 1] : null;
@@ -172,7 +198,7 @@ function submissionSummary(entries, events, put, get, allocation) {
   };
 }
 
-export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation, aliases = [], events = [] } = {}) {
+export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation, aliases = [], events = [], writtenPages = [] } = {}) {
   const unavailable = reason => ({ available: false, reason });
   if (status !== 13) return unavailable('not stopped at the PFIFO DMA submission boundary');
   const putEntry = entries?.find(entry => entry.address === 0xFD800040);
@@ -210,6 +236,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     pfifoState: pfifoState(entries, put, get, aliases),
     submissionSummary: submissionSummary(entries, events, put, get, allocation),
     raminScan: raminScan(entries),
+    writePageScan: writePageScan(view, writtenPages),
     pushbufferScan: scanPushbuffer(view, get, put),
     note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };

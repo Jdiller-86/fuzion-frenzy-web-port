@@ -885,12 +885,6 @@ self.onmessage = async event => {
       deviceRegisters=createDeviceReport(api, mmioProfile);
     }
     const claim = calls.find(call => call.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
-    const submissionProbe = deviceRegisters ? createSubmissionProbe({
-      status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
-      allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
-      aliases: deviceRegisters.aliases,
-      events: deviceRegisters.log,
-    }) : { available: false, reason: 'no observed device aperture' };
     let guestWritePages;
     if (typeof api.ff_probe_write_map_size === 'function') {
       const words = api.ff_probe_write_map_size() >>> 0, pages = [];
@@ -900,6 +894,13 @@ self.onmessage = async event => {
       }
       guestWritePages = { pageBytes: 4096, count: api.ff_probe_write_map_count() >>> 0, pages };
     }
+    const submissionProbe = deviceRegisters ? createSubmissionProbe({
+      status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
+      allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
+      aliases: deviceRegisters.aliases,
+      events: deviceRegisters.log,
+      writtenPages: guestWritePages?.pages ?? [],
+    }) : { available: false, reason: 'no observed device aperture' };
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {
       const pointer=state[6];

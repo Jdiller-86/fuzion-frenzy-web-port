@@ -641,6 +641,21 @@ Module `recomp-post-memory-build-51` is 526,955 bytes, SHA-256 `cd0bf176d65407f0
 
 The report is `research/verification/post-memory-browser-20261103-44.json` (local/ignored). The window is functional and more faithful, but no CPU write reaches the queue claim; no consumer, GET advance, packet execution, interrupt, DMA or rendering is implemented.
 
+### Survey the written pages for command-like data
+
+`submission-probe.mjs` adds `writePageScan`: for up to 64 pages the translated code wrote, it runs the read-only header scanner over each 4 KiB page and reports per-page method kinds, unknown words, jumps and calls, with at most 16 "interesting" rows. The worker computes the write-page list before the probe and passes it in.
+
+Module `recomp-post-memory-build-51` is unchanged (526,955 bytes, SHA-256 `cd0bf176d65407f08bf9409b1fd45d6efafde0c7aa3cc31000d2af49c7ba26bb`). In the run:
+
+- 49 written pages, 16 interesting: pages 0, 515, 517, 686, 716, 749, 753, 770, 773, 775–778, 782, 783, 787;
+- examples: page 515 (3 calls, 6 jumps, 5 method kinds, 14 unknown), pages 770/776 (9/11 method kinds, 0 unknown), page 0 (flush word, 1 jump);
+- claim pages 15224–15228 remain unwritten; the submitted range still starts zeroed apart from the flush word;
+- PFIFO views alias-consistent (PUT `0x03B7D000`, GET 0);
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-45.json` (local/ignored). The heuristic cannot establish a producer or ring base; no consumer, GET advance, packet execution, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Choose the next bounded independent startup prerequisite or producer-provenance step, preserving the fail-closed boundary. The PFIFO consumer remains blocked; do not treat the contiguous window, zero headers or mixed RAMIN data as an empty-queue completion, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the 64 MiB contiguous alias, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs, the submission summary, the read-only scanner and the RAMIN scan. The captured line/quad reference comparison and browser prepass also remain private.
+Choose and execute one independent bounded startup/feature prerequisite, preserving the PFIFO boundary and all evidence. Do not treat command-like pages as a queue, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the 64 MiB contiguous alias, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs, the submission summary, the read-only scanner, the RAMIN scan and the write-page survey. The captured line/quad reference comparison and browser prepass also remain private.
