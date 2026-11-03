@@ -17,6 +17,9 @@
 #define FF_FATX_FILE_LIMIT 0x50010000u
 #define FF_FATX_NAME 42u
 #define FF_FATX_ATTR_DIRECTORY 0x10u
+#define FF_FATX_PATH_BYTES 256u
+#define FF_FATX_PATH_DEPTH 8u
+#define FF_FATX_DIRECTORY_CHAIN 256u
 
 typedef struct {
     char name[FF_FATX_NAME + 1];
@@ -51,5 +54,12 @@ uint32_t ff_fatx_root_count(ff_fatx_volume *,uint32_t mount,uint32_t *count);
 uint32_t ff_fatx_root_entry(ff_fatx_volume *,uint32_t mount,uint32_t index,ff_fatx_directory_entry *entry);
 uint32_t ff_fatx_read_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
                             uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Resolve a relative path of up to eight components and read a file. The path
+ * uses '\\' or '/' separators; flags 0x40 selects case-insensitive matching.
+ * These remain source-owned helpers, not guest services. */
+uint32_t ff_fatx_lookup(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                        uint32_t flags,ff_fatx_directory_entry *entry);
+uint32_t ff_fatx_read_path(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                           uint32_t flags,uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
 int ff_fatx_owns_handle(uint32_t);
 #endif

@@ -81,6 +81,7 @@ static void setup_files(uint32_t fat2,uint32_t hello_size,uint32_t hello_cluster
     reset(0x40000000);format_owned(4,270336);
     memset(ram+DATA,0,4096);put(DATA,0xfffffff8u,4);put(DATA+4,UINT32_MAX,4);
     put(DATA+8,fat2,4);put(DATA+12,UINT32_MAX,4);put(DATA+16,5,4);put(DATA+20,UINT32_MAX,4);
+    put(DATA+24,UINT32_MAX,4);put(DATA+28,UINT32_MAX,4);
     write_raw_page(part_base+4096);
     memset(ram+DATA,0xff,4096);dirent(DATA+0,"HELLO.TXT",0x20,hello_cluster,hello_size);
     dirent(DATA+64,"SUBDIR",0x10,3,0);ram[DATA+128]=0xe5;dirent(DATA+192,"EMPTY.BIN",0x20,0,0);
@@ -89,6 +90,9 @@ static void setup_files(uint32_t fat2,uint32_t hello_size,uint32_t hello_cluster
     memset(ram+DATA,0x41,4096);write_raw_page(part_base+319488);
     memset(ram+DATA,0x41,4096);write_raw_page(part_base+331776);
     memset(ram+DATA,0x42,4096);write_raw_page(part_base+335872);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"NESTED",0x10,6,0);write_raw_page(part_base+303104);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"DEEP.TXT",0x20,7,6);write_raw_page(part_base+352256);
+    memset(ram+DATA,0,4096);memcpy(ram+DATA,"DEEP!\n",6);write_raw_page(part_base+368640);
 }
 static void setup_two_cluster_root(void)
 {
@@ -150,6 +154,28 @@ static void read_only_root_entries_and_files(void)
     assert(!ff_fatx_close(&fs,handle));
     write_raw_page(part_base+270336);
     assert(ff_fatx_root_count(&fs,1,&count)==FF_BOOT_UNSUPPORTED);
+}
+static void subdirectory_lookup_and_reads(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();ff_fatx_directory_entry entry;
+    static const uint8_t path[]="SUBDIR\\NESTED\\DEEP.TXT";
+    static const uint8_t lower[]="subdir/nested/deep.txt";
+    assert(!ff_fatx_lookup(&fs,1,path,sizeof path-1u,0,&entry) && !strcmp(entry.name,"DEEP.TXT") && entry.size==6);
+    assert(ff_fatx_lookup(&fs,1,lower,sizeof lower-1u,0,&entry)==FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_lookup(&fs,1,lower,sizeof lower-1u,0x40u,&entry) && !strcmp(entry.name,"DEEP.TXT"));
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"SUBDIR",6,0,&entry) &&
+           (entry.attributes&FF_FATX_ATTR_DIRECTORY));
+    uint8_t output[8];uint32_t bytes;
+    assert(!ff_fatx_read_path(&fs,1,path,sizeof path-1u,0,0,output,sizeof output,&bytes) &&
+           bytes==6 && !memcmp(output,"DEEP!\n",6));
+    assert(!ff_fatx_read_path(&fs,1,path,sizeof path-1u,0,1,output,3,&bytes) &&
+           bytes==3 && !memcmp(output,"EEP",3));
+    const char *bad[]={"SUBDIR\\NOPE","HELLO.TXT\\X",".","..","SUBDIR\\\\NESTED","\\SUBDIR","SUBDIR\\",""};
+    for(unsigned i=0;i<sizeof bad/sizeof bad[0];++i)
+        assert(ff_fatx_lookup(&fs,1,(const uint8_t*)bad[i],(uint32_t)strlen(bad[i]),0,&entry));
+    assert(ff_fatx_lookup(&fs,1,path,sizeof path-1u,0x80u,&entry)==FF_BOOT_UNSUPPORTED);
+    assert(ff_fatx_read_path(&fs,1,(const uint8_t*)"SUBDIR",6,0,0,output,sizeof output,&bytes)==FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
 }
 static void multi_cluster_root_and_fat16_reads(void)
 {
@@ -246,6 +272,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();
     puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounds and mutation checks passed");return 0;
 }

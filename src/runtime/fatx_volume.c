@@ -226,6 +226,26 @@ static uint32_t fat_next(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t 
     if(value!=last && (!value || value>mount->cluster_count))return FF_BOOT_UNSUPPORTED;
     *next=value;return 0;
 }
+enum { FF_FATX_PARSE_OK=0,FF_FATX_PARSE_END=1,FF_FATX_PARSE_DELETED=2,FF_FATX_PARSE_INVALID=3 };
+static uint32_t parse_entry(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint64_t address,
+                            ff_fatx_directory_entry *entry)
+{
+    const uint32_t length=ff_disk_byte(fs->disk,address);
+    if(length==0u || length==0xffu)return FF_FATX_PARSE_END;
+    if(length==0xe5u)return FF_FATX_PARSE_DELETED;
+    if(length>FF_FATX_NAME)return FF_FATX_PARSE_INVALID;
+    const uint32_t attributes=ff_disk_byte(fs->disk,address+1);
+    const uint32_t first=disk_word(fs,address+44,4),size=disk_word(fs,address+48,4);
+    if(first>mount->cluster_count || ((attributes&FF_FATX_ATTR_DIRECTORY)&&!first) || (size&&!first))
+        return FF_FATX_PARSE_INVALID;
+    for(uint32_t i=0;i<length;++i) {
+        const uint32_t value=ff_disk_byte(fs->disk,address+2+i);
+        if(!value)return FF_FATX_PARSE_INVALID;
+        entry->name[i]=(char)value;
+    }
+    entry->name[length]=0;entry->attributes=attributes;entry->first_cluster=first;entry->size=size;
+    return FF_FATX_PARSE_OK;
+}
 static uint32_t root_scan(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t target,
                           ff_fatx_directory_entry *entry,uint32_t *count)
 {
@@ -235,25 +255,13 @@ static uint32_t root_scan(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t
         if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_ROOT_CHAIN)return FF_BOOT_UNSUPPORTED;
         const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
         for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
-            const uint64_t address=base+offset;
-            const uint32_t length=ff_disk_byte(fs->disk,address);
-            if(length==0u || length==0xffu) { if(count)*count=seen;return entry?FF_BOOT_UNSUPPORTED:0; }
-            if(length==0xe5u)continue;
-            if(length>FF_FATX_NAME)return FF_BOOT_UNSUPPORTED;
-            const uint32_t attributes=ff_disk_byte(fs->disk,address+1);
-            const uint32_t first=disk_word(fs,address+44,4),size=disk_word(fs,address+48,4);
-            if(first>mount->cluster_count || ((attributes&FF_FATX_ATTR_DIRECTORY)&&!first) || (size&&!first))
-                return FF_BOOT_UNSUPPORTED;
-            char name[FF_FATX_NAME+1];
-            for(uint32_t i=0;i<length;++i) {
-                const uint32_t value=ff_disk_byte(fs->disk,address+2+i);
-                if(!value)return FF_BOOT_UNSUPPORTED;
-                name[i]=(char)value;
-            }
-            name[length]=0;
+            ff_fatx_directory_entry candidate;
+            const uint32_t parsed=parse_entry(fs,mount,base+offset,&candidate);
+            if(parsed==FF_FATX_PARSE_END) { if(count)*count=seen;return entry?FF_BOOT_UNSUPPORTED:0; }
+            if(parsed==FF_FATX_PARSE_DELETED)continue;
+            if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
             if(entry && seen==target) {
-                memcpy(entry->name,name,length+1u);
-                entry->attributes=attributes;entry->first_cluster=first;entry->size=size;
+                *entry=candidate;
                 if(count)*count=seen+1u;
                 return 0;
             }
@@ -315,4 +323,70 @@ uint32_t ff_fatx_read_entry(ff_fatx_volume *fs,uint32_t id,const ff_fatx_directo
         if(written<size) { if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;cluster=next; }
     }
     *bytes=written;return 0;
+}
+static int name_equal(const char *entry_name,const uint8_t *path,uint32_t bytes,uint32_t flags)
+{
+    if(strlen(entry_name)!=bytes)return 0;
+    for(uint32_t i=0;i<bytes;++i) {
+        unsigned a=(uint8_t)entry_name[i],b=path[i];
+        if(flags&0x40u){a=fold(a);b=fold(b);}
+        if(a!=b)return 0;
+    }
+    return 1;
+}
+static uint32_t directory_find(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t start,
+                               const uint8_t *path,uint32_t bytes,uint32_t flags,
+                               ff_fatx_directory_entry *entry)
+{
+    uint32_t cluster=start,steps=0;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_DIRECTORY_CHAIN)return FF_BOOT_UNSUPPORTED;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
+        for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
+            ff_fatx_directory_entry candidate;
+            const uint32_t parsed=parse_entry(fs,mount,base+offset,&candidate);
+            if(parsed==FF_FATX_PARSE_END)return FF_BOOT_UNSUPPORTED;
+            if(parsed==FF_FATX_PARSE_DELETED)continue;
+            if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
+            if(name_equal(candidate.name,path,bytes,flags)){*entry=candidate;return 0;}
+        }
+        uint32_t next;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX))return FF_BOOT_UNSUPPORTED;
+        cluster=next;
+    }
+}
+uint32_t ff_fatx_lookup(ff_fatx_volume *fs,uint32_t id,const uint8_t *path,uint32_t path_bytes,
+                        uint32_t flags,ff_fatx_directory_entry *entry)
+{
+    ff_fatx_mount *mount;
+    if(!fs || !path || !entry || !path_bytes || path_bytes>FF_FATX_PATH_BYTES)return FF_BOOT_INVALID;
+    if(flags&~0x40u)return FF_BOOT_UNSUPPORTED;
+    uint32_t status=current_mount(fs,id,&mount);if(status)return status;
+    uint32_t position=0,cluster=mount->root_cluster,depth=0;
+    while(position<path_bytes) {
+        uint32_t end=position;
+        while(end<path_bytes && path[end]!='\\' && path[end]!='/')++end;
+        const uint32_t length=end-position;
+        if(!length || length>FF_FATX_NAME || depth++>=FF_FATX_PATH_DEPTH)return FF_BOOT_UNSUPPORTED;
+        for(uint32_t i=0;i<length;++i)if(!path[position+i])return FF_BOOT_UNSUPPORTED;
+        if((length==1 && path[position]=='.') ||
+           (length==2 && path[position]=='.' && path[position+1]=='.'))return FF_BOOT_UNSUPPORTED;
+        ff_fatx_directory_entry found;
+        status=directory_find(fs,mount,cluster,path+position,length,flags,&found);
+        if(status)return status;
+        if(end==path_bytes){*entry=found;return 0;}
+        if(!(found.attributes&FF_FATX_ATTR_DIRECTORY) || !found.first_cluster)return FF_BOOT_UNSUPPORTED;
+        cluster=found.first_cluster;position=end+1;
+        if(position==path_bytes)return FF_BOOT_UNSUPPORTED;
+    }
+    return FF_BOOT_UNSUPPORTED;
+}
+uint32_t ff_fatx_read_path(ff_fatx_volume *fs,uint32_t id,const uint8_t *path,uint32_t path_bytes,
+                           uint32_t flags,uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes)
+{
+    ff_fatx_directory_entry entry;
+    uint32_t status=ff_fatx_lookup(fs,id,path,path_bytes,flags,&entry);
+    if(status)return status;
+    return ff_fatx_read_entry(fs,id,&entry,offset,output,capacity,bytes);
 }

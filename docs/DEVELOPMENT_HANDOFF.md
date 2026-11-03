@@ -2,7 +2,7 @@
 
 Read [the FATX utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The source-owned FATX mount now enumerates root directory entries and reads file bytes. It parses the public 64-byte entry layout, follows FAT16/FAT32 chains with cycle/bounds/short-chain checks, and copies only after preflight. It is not a guest service: original file operations beyond root/size still stop.
+The source-owned FATX mount now enumerates root directory entries, reads file bytes and resolves relative paths up to eight components. It parses the public 64-byte entry layout, follows FAT16/FAT32 chains with cycle/bounds/short-chain checks, and copies only after preflight. It is not a guest service: original file operations beyond root/size still stop.
 
 Validation: owned FATX test optimized plus ASan/UBSan, Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` for 221 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
 
