@@ -1,8 +1,12 @@
-# Serving the observed DMA_GET makes the original wait poll to its limit
+# Device-context observation: the ring is 512 KB at 0x03B7D000; the title waits for GET=base
 
-November 4: a bounded diagnostic tested whether the status-13 PFIFO gate was masking a false boundary. An opt-in `FF_ALLOW_DMA_GET_READ` in the probe serves the observed GET (`0`) instead of stopping; the original code then spins on the same read until the device poll limit (status 12), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This rules out the false-boundary explanation and confirms the wait expects a different GET value. The default source is unchanged and a control build reproduces the known fail-closed module byte-for-byte (`cd0bf176…`, 526,955 bytes). The ring base/end and command source remain unresolved, so the runtime stays fail-closed at status 13. **There is no playable original screen.**
+November 4: a bounded diagnostic read the original device context after the GET-read run. `D3D_g_pDevice` at `0x00206720` points to `0x00203B90`; its context gives ring base `0x03B7D000`, ring end `0x03BFD000` (512 KB), current push/PUT at the base (empty), and a wait for GET to reach `0x03B7D000`. The observed GET is still 0, so the wait polls to the limit. This corrects the earlier full-range interpretation: GET=0 is a software reset, not the ring base; the actual ring is the empty 512 KB buffer, not a 59 MB span. An opt-in `FF_CONTEXT_PROBE` export and optional `contextWords` report make the values observable; the default source is unchanged and a control build is byte-identical to `cd0bf176…` (526,955 bytes). The runtime stays fail-closed at status 13 until a bounded empty-ring initialization is implemented and verified. **There is no playable original screen.**
 
-Validation: private diagnostic run and byte-identical control build; runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the GET-read checkpoint](PFIFO_GET_READ_CHECKPOINT.md).
+Validation: private diagnostic run and byte-identical control build; runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the context checkpoint](PFIFO_CONTEXT_CHECKPOINT.md).
+
+## Prior: DMA_GET diagnostic
+
+An opt-in `FF_ALLOW_DMA_GET_READ` in the probe served the observed GET (`0`) instead of stopping; the original code then spun on the same read until the device poll limit (status 12), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This ruled out the false-boundary explanation and confirmed the wait expects a different GET value.
 
 ## Prior: pushbuffer ring pointer model
 

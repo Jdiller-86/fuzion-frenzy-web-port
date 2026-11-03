@@ -363,6 +363,22 @@ uint32_t ff_probe_vm_page_word(uint32_t address, uint32_t field)
     switch (field) { case 0: return virtual_memory.owner[p]; case 1: return virtual_memory.committed[p]; case 2: return virtual_memory.permission[p]; default: return 0; }
 }
 uint32_t ff_probe_vm_access_count(void) { return vm_access_count; }
+#ifdef FF_CONTEXT_PROBE
+static uint32_t probe_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+uint32_t ff_probe_context_word(uint32_t index)
+{
+    if (index >= 32u) return 0;
+    if (index == 0u) return probe_word(0x00206720u);
+    uint32_t base = probe_word(0x00206720u);
+    if (!base || base > FF_GUEST_BYTES - 0x80u) return 0;
+    return probe_word(base + (index - 1u) * 4u);
+}
+#endif
 uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
 uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
 uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
