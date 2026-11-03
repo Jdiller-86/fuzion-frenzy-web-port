@@ -1,18 +1,20 @@
-# Continue from the PFIFO DMA submission boundary at 0xFD800044
+# Continue from the bounded PFIFO submission snapshot
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The USER-region wait is identified as NV2A PFIFO DMA submission: `0x001FAED0` writes DMA_PUT = `0x03B7D000` to `0xFD800040`, and `0x001FBB00` reads DMA_GET at `0xFD800044`, waiting for the device to consume the pushbuffer. A source-owned PFIFO classifier and a dedicated status now report **pushbuffer consumption required** (status 13) instead of spinning to the generic poll limit. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete.
+An architect escalation approved **observation only** at the PFIFO DMA stall. A bounded, read-only submission snapshot now records at most 256 bytes of checked guest memory ending at the submitted cursor, with explicit availability reasons. No FIFO consumer, DMA_GET advance, method execution, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 distinct original routines execute and 402 kernel operations complete.
 
-Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes). The local report is `post-memory-browser-20261103-31.json`, logging 5,302 entries / 12,524 events. `src/runtime/pfifo_dma.c/.h` classifies the channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` registers from the pinned xemu USER map; the probe compares GET with the aperture's PUT and fails closed on a mismatch. No FIFO consumer, value, interrupt, DMA or rendering is fabricated.
+The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-32.json`. The first snapshot covers `0x03B7CF00`–`0x03B7CFFF` for PUT `0x03B7D000` and GET `0`, and all 64 captured words are zero; the cursor alone does not identify queued commands.
 
-Validation: PFIFO classifier optimized/ASan/UBSan, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+`src/runtime/submission-probe.mjs` builds the snapshot; the worker adds `submissionProbe`; `tools/serve-startup-proof.mjs` serves the new module; `tests/submission-probe.test.mjs` covers the bounded window, read-only behavior and unavailable reasons.
 
-**Next task:** analyze the queued pushbuffer at `0x03B7D000` and the `0x001FACA0`/`0xFD800044` wait from static and pinned-emulator evidence, then decide whether a bounded PFIFO consumer is the right next investment. This affects the device/runtime boundary and may need architect escalation before implementation; do not fabricate the get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Validation: runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-## Prior: 16 MiB aperture window
+**Next task:** establish the PFIFO DMA object/base/limit, cursor units, address mapping, initial GET, packet/control-flow forms and reached method dependencies from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-The parser admitted a 16 MiB NV2A window and a bounded USER page; the run reached the pushbuffer wait after 262 routines. Module `recomp-post-memory-build-47` was unchanged (524,891 bytes, SHA-256 `efb0fbea…`). Report `post-memory-browser-20261103-30.json`.
+## Prior: PFIFO DMA map
+
+Module `recomp-post-memory-build-48` classified channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` and added status 13; the run stopped at the first GET read with PUT = `0x03B7D000`. Report `post-memory-browser-20261103-31.json`.
 
 ## Prior: 0x200f59
 

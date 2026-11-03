@@ -452,6 +452,21 @@ Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 inst
 
 Execution stopped at **`0xFD800044`** with status 13 (`pushbuffer consumption required`). The report is `research/verification/post-memory-browser-20261103-31.json` (local/ignored). No get pointer, FIFO progress, interrupt, DMA or rendering is fabricated. There is no playable screen.
 
+### Add a bounded PFIFO submission snapshot
+
+An architect escalation approved observation only. `src/runtime/submission-probe.mjs` builds a bounded read-only snapshot at the status-13 stop: channel, PUT/GET, base and at most 256 bytes of checked guest memory ending at the cursor, with explicit unavailable reasons. The worker adds `submissionProbe`; the source-only proof host serves the module; `tests/submission-probe.test.mjs` covers the window, read-only behavior and bounds.
+
+Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b`). In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 261 distinct original routines executed and 402 kernel operations completed;
+- `submissionProbe` is available for channel 0 with PUT `0x03B7D000`, GET `0`, base `0x03B7CF00` and 256 bytes;
+- all 64 captured words are zero, so the cursor alone does not identify queued commands;
+- the aperture retained 5,302 entries / 12,524 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution still stops at **`0xFD800044`** with status 13. The report is `research/verification/post-memory-browser-20261103-32.json` (local/ignored). The snapshot is a memory view, not decoded commands, and does not advance DMA_GET.
+
 ## Next task
 
-Analyze the queued pushbuffer at `0x03B7D000` and the `0x001FACA0`/`0xFD800044` wait from static and pinned-emulator evidence, then decide whether a bounded PFIFO consumer is the right next investment. This affects the device/runtime boundary and may need architect escalation before implementation. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit and the PFIFO register map; do not fabricate the get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Establish the PFIFO DMA object/base/limit, cursor units, address mapping, initial GET, packet/control-flow forms and reached method dependencies from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit and the PFIFO register map. The captured line/quad reference comparison and browser prepass also remain private.

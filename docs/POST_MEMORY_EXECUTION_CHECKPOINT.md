@@ -1,6 +1,6 @@
-# Original execution reaches a precise PFIFO DMA submission boundary
+# Bounded submission snapshot at the PFIFO boundary; consumer deferred
 
-November 3, 2026. The USER-region wait is now identified as NV2A PFIFO DMA submission: `0x001FAED0` writes the DMA put pointer `0x03B7D000` to `0xFD800040`, and `0x001FBB00` reads the device get pointer `0xFD800044`, waiting until it catches up. A source-owned classifier and a dedicated status now report **pushbuffer consumption required** instead of spinning to the generic poll limit. **There is no playable original screen and no renderer/device model.**
+November 3, 2026. An architect escalation reviewed the PFIFO DMA stall and approved **observation only**: no consumer, no DMA_GET advance, no method execution. A bounded, read-only snapshot now records at most 256 bytes of checked guest memory at the submitted cursor, with explicit availability reasons. The first snapshot at `0x03B7D000` covers `0x03B7CF00`–`0x03B7CFFF` and is entirely zero, which confirms the cursor alone does not identify queued commands. **There is no playable original screen and no renderer/device model.**
 
 ## Selection and build
 
@@ -12,39 +12,51 @@ November 3, 2026. The USER-region wait is now identified as NV2A PFIFO DMA submi
 | Module bytes | 525,113 |
 | Module SHA-256 | `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b` |
 | Original executable SHA-256 | `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9` |
-| Report | `research/verification/post-memory-browser-20261103-31.json` (local/ignored) |
+| Report | `research/verification/post-memory-browser-20261103-32.json` (local/ignored) |
 | Synthetic profile | `research/verification/memory-statistics-inputs-01/settings-mmio-20.json` (local/ignored) |
 
-ABI 24, the sole `env.ff_host_clock` import, the 8,192-entry / 32,768-event aperture, the 16 MiB window, the mirror page, the 16-read poll limit and the single self-clearing flush bit are unchanged.
+The module is unchanged; the milestone adds a source-owned report diagnostic. ABI 24 and every prior synthetic boundary are unchanged.
 
-## Source-owned change
+## Architect escalation
 
-- `src/runtime/pfifo_dma.c` / `.h`: classifies the reached NV2A USER-region PFIFO DMA registers for channel 0 — `NV_USER_DMA_PUT` (`0xFD800040`), `NV_USER_DMA_GET` (`0xFD800044`) and `NV_USER_REF` (`0xFD800048`). Other offsets and channels return none. Evidence: the pinned xemu model maps USER at NV2A offset `0x800000`, and `nv2a_regs.h` defines those three offsets; xemu's `user.c` routes them to the PFIFO DMA put/get/reference registers.
-- `tools/fixtures/thread_startup_probe.c`: on a read of DMA_GET, compares it with the aperture's DMA_PUT value; if they differ, stops with status 13. This is a fail-closed boundary, not a value model.
-- `src/runtime/thread-proof-worker.mjs`: status 13 reports `pushbuffer consumption required`.
-- `tests/pfifo_dma_test.c`: covers the three channel-0 registers, nearby offsets, channel 1, and out-of-window addresses.
+The project architect reviewed the evidence (`DMA_PUT`/`GET` at `0xFD800040`/`0xFD800044`, the `0x190` delay helper, xemu's PFIFO routing) and recommended **A: bounded read-only submission diagnostics**, not a consumer. Key cautions:
+
+- `DMA_PUT` is a producer cursor, not automatically the first command address.
+- Its position at the top of the `0x03B78000 + 0x5000` claim makes forward decoding especially unsafe.
+- Address translation, buffer bounds and initial GET provenance must be established before identifying commands.
+- A synthetic GET of zero is not evidence of a valid command-stream start.
+- Parsing packets alone would not justify advancing GET past unperformed effects.
+
+This approves observation only; the consumer remains an open architecture decision.
+
+## Source-owned changes
+
+- `src/runtime/submission-probe.mjs`: bounded builder that returns unavailable with an explicit reason unless the run stopped at status 13 and an observed DMA_PUT exists. It captures at most 256 bytes from checked guest memory ending at the cursor, plus channel, PUT, GET, base and a note that the bytes are a memory snapshot, not decoded commands. It never mutates memory or state.
+- `src/runtime/thread-proof-worker.mjs`: adds the `submissionProbe` report field from the guest-memory view and the observed aperture entries.
+- `tools/serve-startup-proof.mjs`: serves the new module on the source-only proof host.
+- `tests/submission-probe.test.mjs`: covers the exact little-endian window, read-only behavior, missing PUT/GET, unaligned/out-of-range cursors, invalid window sizes and the low-cursor clamp. Wired into `npm run test:runtime`.
 
 ## Observed browser execution
 
-- All **83/83** initialization callbacks returned.
-- **261** distinct original routines executed and **402** kernel operations completed. The run stops before entering the delay helper `0x001FACA0`; the previous poll-limit run reached 262 by looping.
-- `0x001FAED0` wrote DMA_PUT = **`0x03B7D000`** at `0xFD800040`.
-- The first DMA_GET read at `0xFD800044` returned `0` (bounded USER page), so the put/get comparison could not match and status 13 stopped the run.
+- All **83/83** initialization callbacks returned; **261** distinct original routines and **402** kernel operations.
+- Stop remains status 13 (`pushbuffer consumption required`) at `0xFD800044`.
+- `submissionProbe`: available, channel 0, PUT `0x03B7D000`, GET `0`, base `0x03B7CF00`, 256 bytes, **0 nonzero words**.
 - Device aperture: **5,302 entries** / **12,524 events**; memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
-- Stop: status 13 (`pushbuffer consumption required`), target `0xFD800044`.
+
+The zero window demonstrates that the submitted cursor is not immediately preceded by identifiable command data; the buffer base, cursor units and initial GET must be established before any consumer work.
 
 ## Next dependency
 
-Completing this wait requires a real PFIFO consumer: parsing the submitted pushbuffer at `0x03B7D000`, executing or accounting for its commands, and advancing DMA_GET. That is a device/FIFO subsystem decision that affects multiple subsystems and must not be fabricated. The next task is to analyze `0x001FACA0`'s caller path and the queued pushbuffer contents from static and pinned-emulator evidence, then decide whether a bounded FIFO-consumer model is the right next investment (with architect escalation if it changes the route).
+Establish the PFIFO DMA object/base/limit, cursor units, address mapping, initial GET, packet/control-flow forms and reached method dependencies from pinned evidence. Then decide a bounded synchronous PFIFO contract (supported operations, downstream side effects, work limits and fail-closed behavior) before implementing any consumer. No GET advancement or method execution is approved.
 
 ## Validation
 
-`tests/pfifo_dma_test.c` passes optimized and ASan/UBSan WSL GCC runs. The runtime suite (49/49), Python memory-access 10/10 and title-seed 25/25 pass, and `git diff --check` is clean. The report saved as `post-memory-browser-20261103-31.json` (3,994,544 bytes).
+`tests/submission-probe.test.mjs` passes. `npm run test:runtime`, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-32.json` (3,995,391 bytes).
 
-## Prior milestone: 16 MiB window and USER page
+## Prior milestone: PFIFO DMA map
 
-Module `recomp-post-memory-build-47` was unchanged; the profile and parser admitted the 16 MiB NV2A window and a bounded USER page at `0xFD800000`, reaching the pushbuffer wait after 262 routines and 402 kernel operations. Report `post-memory-browser-20261103-30.json`.
+Module `recomp-post-memory-build-48` classified channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` and added status 13; the run stopped at the first GET read with PUT = `0x03B7D000`. Report `post-memory-browser-20261103-31.json`.
 
 ## Limits and next task
 
-No renderer, audio, controller, disc read, playable screen or complete runtime is established. The mirror page, zero ranges, event capacity, poll limit, flush bit, USER page, PFIFO register map, time conversion, port-output log and GPU instance claim are synthetic proof scaffolding, not recovered console state. Next: analyze the queued pushbuffer and decide the FIFO-consumer architecture before attempting any device progress.
+No renderer, audio, controller, disc read, playable screen or complete runtime. The snapshot is evidence only; it is not a command decoder, a FIFO consumer or fidelity acceptance. Next: establish the DMA cursor/base/units and initial GET from pinned evidence before proposing a bounded consumer.

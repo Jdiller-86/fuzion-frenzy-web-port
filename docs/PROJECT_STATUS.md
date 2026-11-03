@@ -1,14 +1,14 @@
-# Original execution reaches a precise PFIFO DMA submission boundary
+# Bounded submission snapshot at the PFIFO boundary; consumer deferred
 
-November 3: the USER-region wait is identified as NV2A PFIFO DMA submission. `0x001FAED0` writes DMA_PUT = `0x03B7D000` to `0xFD800040`, and `0x001FBB00` reads DMA_GET at `0xFD800044`, waiting for the device to consume the pushbuffer. A source-owned PFIFO classifier and a dedicated status now report **pushbuffer consumption required** (status 13) instead of spinning to the generic poll limit. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: an architect escalation approved **observation only** at the PFIFO DMA stall. A bounded, read-only submission snapshot now records at most 256 bytes of checked guest memory at the submitted cursor, with explicit availability reasons, and adds no FIFO consumer or DMA_GET advance. The first snapshot at `0x03B7D000` covers `0x03B7CF00`–`0x03B7CFFF` and is entirely zero, confirming that the cursor alone does not identify queued commands. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`. The aperture logged 5,302 entries / 12,524 events; statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The report is `post-memory-browser-20261103-31.json`.
+The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the aperture logs 5,302 entries / 12,524 events. The report is `post-memory-browser-20261103-32.json`.
 
-`src/runtime/pfifo_dma.c/.h` classifies channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` from the pinned xemu USER map and register definitions; the probe compares GET with the aperture's PUT and fails closed when they differ. No FIFO consumer, value, interrupt, DMA or rendering is fabricated. Validation: PFIFO classifier optimized/ASan/UBSan, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `src/runtime/submission-probe.mjs` builds the bounded snapshot (availability, channel, PUT/GET/base, little-endian words, memory-snapshot label); the worker adds it as `submissionProbe`; the source-only proof host serves it; `tests/submission-probe.test.mjs` covers bounds, read-only behavior and unavailable reasons. This is observation only: no get pointer, FIFO progress, interrupt, DMA or rendering is fabricated. Validation: runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: 16 MiB aperture window
+## Prior: PFIFO DMA map
 
-The parser admitted a 16 MiB NV2A window and a bounded USER page; the run reached the pushbuffer wait after 262 routines. Module `recomp-post-memory-build-47` was unchanged (524,891 bytes, SHA-256 `efb0fbea…`). Report `post-memory-browser-20261103-30.json`.
+Module `recomp-post-memory-build-48` classified channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` and added status 13; the run stopped at the first GET read with PUT = `0x03B7D000`. Report `post-memory-browser-20261103-31.json`.
 
 ## Prior: 0x200f59
 
