@@ -640,6 +640,10 @@ uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 {
     return ff_device_registers_add_initial(&device_registers,address,value);
 }
+uint32_t ff_probe_mmio_zero(uint32_t base,uint32_t bytes)
+{
+    return ff_device_registers_add_zero_range(&device_registers,base,bytes);
+}
 uint32_t ff_probe_mmio_word(uint32_t field)
 {
     if(ff_device_registers_commit(&device_registers))return UINT32_MAX;

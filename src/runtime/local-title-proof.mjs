@@ -164,8 +164,21 @@ export function parseLocalMmioProfile(buffer) {
   if (seen.size !== entries.length || !seen.has(0xfd001804) || !seen.has(0xfd600140)) {
     throw new Error('Register storage must declare distinct reached device addresses');
   }
+  const rawRanges = device.zeroRanges ?? [];
+  if (!Array.isArray(rawRanges) || rawRanges.length > 4)
+    throw new Error('Use at most four explicit synthetic zero ranges');
+  const zeroRanges = [];
+  for (const range of rawRanges) {
+    if (!Number.isInteger(range?.address) || (range.address & 3) || !Number.isInteger(range?.bytes) ||
+        range.bytes < 4 || (range.bytes & 3) || range.address < window.base ||
+        range.bytes > window.size - (range.address - window.base) ||
+        zeroRanges.some(old => old.address === range.address)) {
+      throw new Error('Zero ranges require an aligned in-window base and bounded byte length');
+    }
+    zeroRanges.push({ address: range.address, bytes: range.bytes });
+  }
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
-    registers: entries.map(e => ({ address: e.address, initial: e.initial })) };
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges };
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);

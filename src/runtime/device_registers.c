@@ -8,6 +8,24 @@ static ff_device_entry *find(ff_device_registers *device, uint32_t address)
     return NULL;
 }
 
+static int in_zero_range(const ff_device_registers *device, uint32_t address, uint32_t bytes)
+{
+    const uint64_t end = (uint64_t)address + bytes;
+    for (uint32_t i = 0; i < device->zero_count; ++i) {
+        const ff_device_zero_range *range = &device->zero_ranges[i];
+        if (address >= range->base && end <= (uint64_t)range->base + range->bytes) return 1;
+    }
+    return 0;
+}
+
+static uint32_t record_zero_read(ff_device_registers *device, uint32_t address, uint32_t site)
+{
+    if (!device || !site || device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_UNSUPPORTED;
+    device->events[device->event_count++] =
+        (ff_device_event){address, site, FF_DEVICE_READ, 0, 1};
+    return 0;
+}
+
 static uint32_t seed(ff_device_registers *device, uint32_t address, uint32_t value)
 {
     if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
@@ -72,6 +90,18 @@ uint32_t ff_device_registers_add_initial(ff_device_registers *device, uint32_t a
         device->count >= FF_DEVICE_INITIAL || (address & 3u) || address < device->base ||
         address - device->base >= device->bytes) return FF_BOOT_INVALID;
     return seed(device, address, value);
+}
+
+uint32_t ff_device_registers_add_zero_range(ff_device_registers *device, uint32_t base, uint32_t bytes)
+{
+    if (!device || !device->ready || device->event_count || device->pending) return FF_BOOT_INVALID;
+    if (!bytes || (base & 3u) || (bytes & 3u) || base < device->base ||
+        (uint64_t)base + bytes > (uint64_t)device->base + device->bytes) return FF_BOOT_INVALID;
+    if (device->zero_count >= FF_DEVICE_ZERO_RANGES) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->zero_count; ++i)
+        if (device->zero_ranges[i].base == base) return FF_BOOT_INVALID;
+    device->zero_ranges[device->zero_count++] = (ff_device_zero_range){base, bytes};
+    return 0;
 }
 
 uint32_t ff_device_registers_contains(const ff_device_registers *device, uint32_t address, uint32_t bytes)
@@ -171,6 +201,10 @@ uint32_t *ff_device_registers_access(ff_device_registers *device, uint32_t addre
 {
     if (!device || !site || ff_device_registers_contains(device, address, 4u)) return NULL;
     if (access == FF_DEVICE_ACCESS_READ) {
+        if (!find(device, address) && in_zero_range(device, address, 4u)) {
+            if (ff_device_registers_commit(device) || record_zero_read(device, address, site)) return NULL;
+            return &device->zero_word;
+        }
         uint32_t value = 0;
         if (ff_device_registers_touch(device, address, FF_DEVICE_READ, site, &value)) return NULL;
         return ff_device_registers_slot(device, address);
@@ -198,6 +232,10 @@ uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t
     if (ff_device_registers_contains(device, address, bytes) ||
         ff_device_registers_commit(device)) return NULL;
     ff_device_entry *entry = find(device, address & ~3u);
+    if (access == FF_DEVICE_ACCESS_READ && !entry && in_zero_range(device, address, bytes)) {
+        if (record_zero_read(device, address, site)) return NULL;
+        return (uint32_t *)((uint8_t *)&device->zero_word + (address & 3u));
+    }
     uint32_t byte_bits = (bytes == 1u ? 1u : 3u) << (address & 3u);
     if (!entry || (entry->known_bytes & byte_bits) != byte_bits ||
         device->event_count >= FF_DEVICE_EVENTS ||

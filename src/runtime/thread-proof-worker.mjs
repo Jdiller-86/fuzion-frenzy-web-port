@@ -47,6 +47,11 @@ self.onmessage = async event => {
           throw new Error('The private module cannot seed the explicit extra register profile');
         }
       }
+      for(const range of mmioProfile.zeroRanges ?? []) {
+        if(typeof api.ff_probe_mmio_zero!=='function' || api.ff_probe_mmio_zero(range.address,range.bytes)) {
+          throw new Error('The private module cannot seed the explicit zero range');
+        }
+      }
     }
     if(statisticsAbi) {
       memoryProfile=parseLocalMemoryProfile(event.data.settingsBytes);

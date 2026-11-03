@@ -40,6 +40,7 @@ test('device reports preserve the explicit supplied profile separately from obse
       { address: 0xFD600140, initial: 0x20 },
       { address: 0xFD009140, initial: 0x30 },
     ],
+    zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }],
   };
   const report = createDeviceReport(fake(2, 1), profile);
   assert.deepEqual(report.supplied, profile);

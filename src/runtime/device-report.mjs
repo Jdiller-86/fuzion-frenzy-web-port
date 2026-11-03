@@ -47,6 +47,7 @@ export function createDeviceReport(api, profile = null) {
     supplied: profile ? {
       window: { base: profile.window.base, size: profile.window.size },
       registers: profile.registers.map(entry => ({ address: entry.address, initial: entry.initial })),
+      zeroRanges: (profile.zeroRanges ?? []).map(range => ({ address: range.address, bytes: range.bytes })),
     } : null,
   };
 }

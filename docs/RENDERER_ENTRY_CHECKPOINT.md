@@ -316,6 +316,21 @@ Execution stopped at device read **`0xFD100284`** (status 10, ordinal 1). The re
 
 The next access is a device read in `0x2010FD`, not a new original routine. `0x200F59` on the `0x2010FD` path and `0x1FDAC0`/`0x1FD700` on the `0x2000CB` non-zero branch remain static dependencies.
 
+### Serve the device table and reach 0x200F59
+
+Added a bounded source-owned zero-range device model (up to four explicit ranges). Translation `recomp-title-post-memory-22` remains **358 functions / 13,571 instructions**. Module `recomp-post-memory-build-35` was rebuilt with zero-range support and is 481,870 bytes, SHA-256 `bc77a4cede489adcafe427b099f0b17d9bcd85fe2c14c3b282ccd916a6218f75`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 248 distinct original routines executed and 402 kernel operations completed;
+- `0x002000cb` read `0xFD400700` = `0` and returned;
+- `0x002010fd` served its device-table reads through the explicit 0x1000-byte zero range at `0xFD100200` and called `0x00200f59`;
+- the aperture retained 5,275 entries / 5,377 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x200F59`** (return `0x201389`, status 2). The report is `research/verification/post-memory-browser-20261103-18.json` (local/ignored). There is no playable screen.
+
+Reads inside the zero range return zero without creating an entry, writes override the range, and out-of-range reads still fault. C, parser and report tests cover the model.
+
 ## Next task
 
-Decide a bounded explicit device-table input model for the `0xFD100200` region (or extend the current zero block), continue `0x2010FD`, and then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/device reads. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x200F59` (291 bytes / 78 instructions) from the retained `recomp-post-memory-next-19` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.

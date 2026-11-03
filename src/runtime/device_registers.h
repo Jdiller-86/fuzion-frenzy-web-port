@@ -8,6 +8,7 @@
 #define FF_DEVICE_ENTRIES 8192u
 #define FF_DEVICE_EVENTS 8192u
 #define FF_DEVICE_INITIAL 64u
+#define FF_DEVICE_ZERO_RANGES 4u
 #define FF_DEVICE_READ 1u
 #define FF_DEVICE_WRITE 2u
 /* Access masks mirror the translated memory intent: read, write, read-write. */
@@ -22,10 +23,15 @@ typedef struct {
     uint32_t address, site, direction, value, before_known;
 } ff_device_event;
 typedef struct {
-    uint32_t base, bytes, ready, count, event_count;
+    uint32_t base, bytes;
+} ff_device_zero_range;
+typedef struct {
+    uint32_t base, bytes, ready, count, event_count, zero_count;
     /* A generated store writes through a returned lvalue after the host call.
      * Keep one staged write so the event can record the actual stored value. */
     uint32_t pending, pending_address, pending_site, pending_value, pending_bytes, pending_offset;
+    uint32_t zero_word;
+    ff_device_zero_range zero_ranges[FF_DEVICE_ZERO_RANGES];
     ff_device_entry entries[FF_DEVICE_ENTRIES];
     ff_device_event events[FF_DEVICE_EVENTS];
 } ff_device_registers;
@@ -39,6 +45,10 @@ uint32_t ff_device_registers_init_many(ff_device_registers *, uint32_t base, uin
                                        const ff_device_init_entry *, uint32_t count);
 /* Seed one additional explicit initial value before any access is recorded. */
 uint32_t ff_device_registers_add_initial(ff_device_registers *, uint32_t address, uint32_t value);
+/* Declare an explicit zero-filled device region. Reads in the region return
+ * zero without creating entries; a later write creates a normal entry that
+ * takes precedence over the range. */
+uint32_t ff_device_registers_add_zero_range(ff_device_registers *, uint32_t base, uint32_t bytes);
 uint32_t ff_device_registers_contains(const ff_device_registers *, uint32_t address, uint32_t bytes);
 /* Reads fail atomically when the address was never written or supplied. */
 uint32_t *ff_device_registers_slot(ff_device_registers *, uint32_t address);

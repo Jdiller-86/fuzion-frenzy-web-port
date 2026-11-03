@@ -23,6 +23,21 @@ test('an explicit register profile accepts 2-64 distinct entries', () => {
   assert.equal(parseLocalMmioProfile(bytes(sixtyFour)).registers.length, 64);
 });
 
+test('explicit zero ranges are preserved and bounded', () => {
+  const profile = parseLocalMmioProfile(bytes(reached, { zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }] }));
+  assert.deepEqual(profile.zeroRanges, [{ address: 0xFD100200, bytes: 0x1000 }]);
+  assert.deepEqual(parseLocalMmioProfile(bytes(reached)).zeroRanges, []);
+  const bad = [
+    [{ address: 0xFD100202, bytes: 0x100 }],
+    [{ address: 0xFD100200, bytes: 2 }],
+    [{ address: 0xFC000000, bytes: 0x100 }],
+    [{ address: 0xFD7FFFF0, bytes: 0x20 }],
+    Array.from({ length: 5 }, (_, i) => ({ address: 0xFD100000 + i * 0x1000, bytes: 0x100 })),
+    [{ address: 0xFD100200, bytes: 0x100 }, { address: 0xFD100200, bytes: 0x200 }],
+  ];
+  for (const zeroRanges of bad) assert.throws(() => parseLocalMmioProfile(bytes(reached, { zeroRanges })));
+});
+
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {
   const bad = [
     [reached[0]],
