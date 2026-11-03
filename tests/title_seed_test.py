@@ -251,9 +251,11 @@ class MixedLayoutTests(unittest.TestCase):
         result = prepare.checked_function_layout(item, read)
         self.assertEqual((result["end"] - result["start"], result["dataBytes"], result["paddingBytes"]), (18, 8, 1))
         self.assertEqual(prepare.checked_dispatch_tables(result, [site]), {0x108: [0x110, 0x111]})
-        for padding in [b"\x90", b"\x8b\xff", b"\x8d\x49\x00", b"\x90\x8b\xff\x8d\x49\x00"]:
+        for padding in [b"\x90", b"\x8b\xff", b"\x8d\x49\x00", b"\x90\x8b\xff\x8d\x49\x00",
+                        b"\x8d\xa4\x24\x00\x00\x00\x00"]:
             self.assertTrue(prepare._alignment_padding(padding))
-        self.assertFalse(prepare._alignment_padding(b"\x31\xc0"))
+        for non_padding in [b"\x31\xc0", b"\x8d\xa4\x24\x04\x00\x00\x00", b"\x8d\xa4\x24\x00\x00\x00"]:
+            self.assertFalse(prepare._alignment_padding(non_padding))
 
     def test_biased_anchors_preserve_loaded_target_values(self):
         for anchor in [0x104, 0x108, 0x10c, 0x110]:

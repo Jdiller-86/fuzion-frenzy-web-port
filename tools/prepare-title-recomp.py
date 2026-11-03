@@ -178,7 +178,7 @@ def validate_seed_sizes(sizes, export_limit=MAX_SEED_EXPORTS):
 def _alignment_padding(raw):
     """Known x86 no-effect alignment encodings, not arbitrary skipped code."""
     cursor = 0
-    encodings = (b"\x8d\x49\x00", b"\x8b\xff", b"\x90")
+    encodings = (b"\x8d\x49\x00", b"\x8b\xff", b"\x90", b"\x8d\xa4\x24\x00\x00\x00\x00")
     while cursor < len(raw):
         match = next((code for code in encodings if raw.startswith(code, cursor)), None)
         if match is None:
