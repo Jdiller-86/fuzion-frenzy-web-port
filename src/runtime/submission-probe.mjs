@@ -182,6 +182,10 @@ function submissionSummary(entries, events, put, get, allocation) {
   const zeroSites = address => [...new Set((events || [])
     .filter(event => event.address === address && event.direction === 2 && event.value === 0)
     .map(event => event.site))];
+  const putWriteIndex = (events || []).reduce((last, event, index) =>
+    event.address === 0xFD800040 && event.direction === 2 ? index : last, -1);
+  const zeroBeforePut = address => putWriteIndex >= 0 && (events || []).some((event, index) =>
+    index < putWriteIndex && event.address === address && event.direction === 2 && event.value === 0);
   return {
     putWrites: putWrites.length,
     lastPutSite: last?.site ?? null,
@@ -194,7 +198,9 @@ function submissionSummary(entries, events, put, get, allocation) {
     cachePutZeroSites: zeroSites(0xFD003240),
     cacheGetZeroSites: zeroSites(0xFD003244),
     cacheRefZeroSites: zeroSites(0xFD003248),
-    note: 'observational provenance only; the queue backing is not established',
+    putZeroBeforePut: zeroBeforePut(0xFD003240),
+    getZeroBeforePut: zeroBeforePut(0xFD003240) || zeroBeforePut(0xFD003244),
+    note: 'observational provenance only; a setup zero before the put write does not establish queue backing or authorize consumption',
   };
 }
 

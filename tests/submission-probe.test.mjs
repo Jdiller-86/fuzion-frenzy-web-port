@@ -195,7 +195,24 @@ test('the submission summary records the put write site and claim-end alignment'
   assert.deepEqual(probe.submissionSummary.cachePutZeroSites, [0x20005A, 0x200143]);
   assert.deepEqual(probe.submissionSummary.cacheGetZeroSites, [0x20005A, 0x200143]);
   assert.deepEqual(probe.submissionSummary.cacheRefZeroSites, []);
-  assert.match(probe.submissionSummary.note, /backing is not established/);
+  assert.equal(probe.submissionSummary.putZeroBeforePut, false);
+  assert.equal(probe.submissionSummary.getZeroBeforePut, false);
+  assert.match(probe.submissionSummary.note, /does not establish queue backing/);
+});
+
+test('a channel setup that zeroes PUT and GET before kickoff is recorded', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  const events = [
+    { address: 0xFD003240, direction: 2, value: 0, site: 0x20005A },
+    { address: 0xFD003244, direction: 2, value: 0, site: 0x20005A },
+    { address: 0xFD800040, direction: 2, value: 0x800, site: 0x1FAF1C },
+  ];
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, events, allocation: { base: 0x700, bytes: 0x100 } });
+  assert.equal(probe.submissionSummary.putZeroBeforePut, true);
+  assert.equal(probe.submissionSummary.getZeroBeforePut, true);
+  assert.equal(probe.submissionSummary.lastPutSite, 0x1FAF1C);
+  assert.equal(probe.submissionSummary.lastPutValue, 0x800);
+  assert.equal(probe.submissionSummary.putAtClaimEnd, true);
 });
 
 test('the submission probe scans the submitted range read-only', () => {

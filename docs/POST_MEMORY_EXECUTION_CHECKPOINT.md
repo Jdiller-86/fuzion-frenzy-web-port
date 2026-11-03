@@ -1,5 +1,7 @@
 # Full-range scan: the GET..PUT span includes the game image/heap, not a queue
 
+**Later evidence (November 4):** [the channel-setup checkpoint](PFIFO_CHANNEL_SETUP_CHECKPOINT.md) shows the title's own context setup writes PFIFO PUT/GET to zero at `0x20005A`/`0x20027C`/`0x20047F` before the `0x1FAF1C` PUT write. GET=0 is therefore title-initialized; the command source and the empty 20 KB claim remain unresolved. Do not consume, set GET=PUT or treat the scan as a queue.
+
 November 3, 2026. The read-only header scanner now walks the full `GET..PUT` span instead of a 4,096-word prefix. The 15,594,496-word range contains **661,203 nonzero words** up to `0x3328AC` and decodes as 1,481 method kinds, 9,138 calls, 10,994 jumps, 164 returns and 28,230 unknown words. That is the game image/heap being read as command headers, not a coherent submitted queue. `GET=0` spans the whole low memory to `PUT=0x03B7D000`, so it is not a usable ring start. The PFIFO wait cannot complete and no consumer is implemented. **There is no playable original screen and no renderer/device model.**
 
 ## Selection and build
