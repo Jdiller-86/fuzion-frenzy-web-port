@@ -148,7 +148,7 @@ export function parseLocalMmioProfile(buffer) {
   const entries = device?.registers, window = device?.window;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
-      window.size < 4096 || window.size > 0x800000 || (window.size & 3) ||
+      window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
       !Array.isArray(entries) || entries.length < 2 || entries.length > 64) {
     throw new Error('Select an explicit synthetic register window with 2-64 supplied entries');
   }

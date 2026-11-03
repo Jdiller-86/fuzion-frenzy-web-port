@@ -38,6 +38,18 @@ test('explicit zero ranges are preserved and bounded', () => {
   for (const zeroRanges of bad) assert.throws(() => parseLocalMmioProfile(bytes(reached, { zeroRanges })));
 });
 
+test('an explicit register profile admits the 16 MiB NV2A aperture window', () => {
+  const wide = bytes(reached, { window: { base: 0xFD000000, size: 0x1000000 } });
+  assert.equal(parseLocalMmioProfile(wide).window.size, 0x1000000);
+  const user = [...reached, { address: 0xFD800040, initial: 0x10 }];
+  const profile = parseLocalMmioProfile(bytes(user, {
+    window: { base: 0xFD000000, size: 0x1000000 },
+    zeroRanges: [{ address: 0xFD800000, bytes: 0x1000 }],
+  }));
+  assert.deepEqual(profile.zeroRanges, [{ address: 0xFD800000, bytes: 0x1000 }]);
+  assert.throws(() => parseLocalMmioProfile(bytes(reached, { window: { base: 0xFD000000, size: 0x1000004 } })));
+});
+
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {
   const bad = [
     [reached[0]],

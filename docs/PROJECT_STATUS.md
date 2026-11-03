@@ -1,14 +1,14 @@
-# Original execution completes the NV_PFB_WBC flush and reaches the NV2A USER region
+# Original execution reaches the NV2A USER region and waits on pushbuffer progress
 
-November 3: the reached `0x001FAED0` wait now completes. `NV_PFB_WBC` (NV2A offset `0x410`, flush bit `1 << 16`) is modeled as a single self-clearing bit from the pinned xemu PFB model, so the guest's write/poll sequence sees the flush finish. Execution then writes `0xFD800040`, the start of the NV2A USER region, which is just outside the current 8 MiB aperture window; the run stops there with status 10 (`guest memory access stopped`). All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the explicit aperture window ceiling was raised from 8 MiB to the 16 MiB NV2A MMIO span, and the profile supplies a bounded USER page at `0xFD800000`. Execution wrote `0xFD800040`, entered `0x001FACA0`, and then compared the context value with `0xFD800044` in a loop, waiting for the device to consume the pushbuffer. The 16-read poll limit stopped the run with explicit evidence rather than fabricating device progress. All 83 initialization callbacks return; 262 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-47` is 524,891 bytes, SHA-256 `efb0fbea…`. The aperture logged 5,301 entries / 12,523 events and did not trigger the 16-read poll limit this run. The report is `post-memory-browser-20261103-29.json`. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+The module is unchanged: `recomp-post-memory-build-47` is 524,891 bytes, SHA-256 `efb0fbea…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The aperture logged 5,302 entries / 12,542 events; statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The report is `post-memory-browser-20261103-30.json`.
 
-The self-clearing model is narrow and evidence-based: the write event retains `0x10000`, the read-back is `0`, and unmasked bits still store normally. Only `NV_PFB_WBC_FLUSH` is modeled; no general NV2A behavior is claimed. Validation: device-register (including self-clearing and the poll limit), guest-mirror, port-output, time-field and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `local-title-proof.mjs` now admits an explicit window of at most `0x1000000` bytes (the NV2A span), with unchanged alignment/entry/range bounds; `tests/mmio-profile.test.mjs` covers a 16 MiB window with the `0xFD800040` entry and `0xFD800000` zero page, and rejects a larger window. Validation: mmio-profile tests pass, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: mirror page and poll limit
+## Prior: NV_PFB_WBC flush bit
 
-Module `recomp-post-memory-build-46` (524,523 bytes, SHA-256 `cc4d7c74…`) completed the `MOV [0x80000000], EDX; WBINVD` write through a bounded mirror page and stopped after 16 identical reads of `0xFD100410`. Report `post-memory-browser-20261103-28.json`.
+Module `recomp-post-memory-build-47` completed the `NV_PFB_WBC_FLUSH` wait after one poll and reached `0xFD800040`. Report `post-memory-browser-20261103-29.json`.
 
 ## Prior: 0x200f59
 

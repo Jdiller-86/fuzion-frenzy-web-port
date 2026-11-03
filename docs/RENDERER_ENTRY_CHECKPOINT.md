@@ -423,6 +423,20 @@ Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 inst
 
 Execution stopped at **`0xFD800040`** (status 10, `guest memory access stopped`, return `0x203B90`). The report is `research/verification/post-memory-browser-20261103-29.json` (local/ignored). The self-clearing model follows the pinned xemu `NV_PFB_WBC` read/write behavior and covers only the flush bit. There is no playable screen.
 
+### Extend the aperture window to the NV2A USER region
+
+`local-title-proof.mjs` now admits an explicit synthetic window of at most `0x1000000` bytes, and profile `settings-mmio-20.json` selects `0xFD000000` / `0x1000000` with the same 64 registers and a new bounded USER page at `0xFD800000` (0x1000). Module `recomp-post-memory-build-47` is unchanged (524,891 bytes, SHA-256 `efb0fbea1c67c44c3a904b0da9294120cdf3f3439909e639e3f0866b7b76e27e`). In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 262 distinct original routines executed and 402 kernel operations completed;
+- execution wrote `0xFD800040` and entered `0x001FACA0` (new);
+- loop `0x1FBECD` compared the context value with `0xFD800044` (USER page reads zero) under mask `0x0FFFFFFF`;
+- the aperture retained 5,302 entries / 12,542 events;
+- after 16 identical reads of `0xFD800044` the poll limit stopped the run;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0xFD800044`** with status 12 (`device poll limit reached`). The report is `research/verification/post-memory-browser-20261103-30.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Choose a bounded way to reach `0xFD800040`: the pinned xemu map places the NV2A USER region at offset `0x800000` (size `0x800000`), beyond the profile parser's 8 MiB aperture ceiling. Extend the explicit aperture ceiling and/or supply the USER page with tests, without inventing pushbuffer submission behavior or fabricating device results. Preserve the explicit synthetic register values, the 8,192-entry / 32,768-event aperture, the 0x1000-byte mirror page, the 16-read poll limit and the single self-clearing flush bit. The captured line/quad reference comparison and browser prepass also remain private.
+Analyze `0x001FACA0` and the `0xFD800040`/`0xFD800044` pair from static and pinned-emulator evidence, then decide whether a bounded pushbuffer-consumption model is justified. The loop waits for the USER-region get/put comparison to match, which needs real device progress. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit and the single self-clearing flush bit; do not fabricate the awaited value, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
