@@ -59,3 +59,10 @@ uint32_t ff_pfifo_channel_empty(const ff_pfifo_channel *channel)
 {
     return channel && channel->ready && channel->put == channel->base;
 }
+
+uint32_t ff_pfifo_channel_should_serve_empty_get(const ff_pfifo_channel *channel, uint32_t put)
+{
+    if (!channel || !channel->ready || !channel->enabled || (put & 3u) ||
+        put < channel->base || put > channel->end || channel->put != put) return 0;
+    return put == channel->base;
+}

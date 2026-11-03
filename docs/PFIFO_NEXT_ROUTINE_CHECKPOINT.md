@@ -1,5 +1,7 @@
 # Next routine 0x1FB5B0 needs 29 D3D dependencies; guard-memory admission is blocked at 0x1FA460
 
+**Later evidence (November 4):** [the override-guard checkpoint](PFIFO_OVERRIDE_GUARD_CHECKPOINT.md) adds the changed-PUT guard; the profile path still reaches `0x1FB5B0`. The `0x1FA460` admission blocker is unchanged.
+
 November 4, 2026. The adopted empty-ring profile reaches `0x1FB5B0`; that address is a loop body inside `FUN_001FB580`, a D3D device-defaults routine. A bounded closure export recovered 29 new functions / 1,518 instructions, but the guard-memory recomposition rejects a raw matrix-helper access at `0x1FA460`. The new translation is therefore not admitted into the guarded build. The adopted module `recomp-post-memory-build-58` remains the current reachable build. **There is no playable screen, renderer or device model.**
 
 ## Export and recomposition
