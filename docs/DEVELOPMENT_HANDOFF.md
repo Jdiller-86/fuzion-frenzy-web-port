@@ -1,18 +1,18 @@
-# Continue from the completed 0x200F59 helper at 0x20107C
+# Continue from the completed 0x20107C helper at 0x200143
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-`0x00200f59` read `0xFD400100` = `0`, skipped `0x1FDAC0`, called `0x2000CB` twice, and returned; the caller continued to untranslated **`0x20107C`** (return `0x1FE2ED`, status 2). All 83 initialization callbacks return; 249 distinct original routines execute and 402 kernel operations complete.
+`0x0020107c` programmed device fields and called untranslated **`0x200143`** (return `0x2010D8`, status 2). All 83 initialization callbacks return; 250 distinct original routines execute and 402 kernel operations complete.
 
-Selection `recomp-title-post-memory-23` is 359 functions / 13,649 instructions; module `recomp-post-memory-build-36` is SHA-256 `91afe5cb…` (484,657 bytes). The local report is `post-memory-browser-20261103-19.json`. The aperture logged 5,277 entries / 5,386 events. The synthetic profile adds a 0x1000-byte zero range at `0xFD400000`; the conditional first call and the `0x20010A` branch were not taken. A bounded read-only export reports the reached callee `0x20107C` as 129 bytes / 33 instructions with a call to `0x200143` (`recomp-post-memory-next-20`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-24` is 360 functions / 13,682 instructions; module `recomp-post-memory-build-37` is SHA-256 `e6407043…` (485,351 bytes). The local report is `post-memory-browser-20261103-20.json`. The aperture logged 5,286 entries / 5,395 events. A bounded read-only export reports the reached callee `0x200143` as 509 bytes / 132 instructions with no direct calls (`recomp-post-memory-next-21`); it is static export evidence, not admitted translation or observed execution.
 
 Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x20107C` from the retained `recomp-post-memory-next-20` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/zero-range/device reads or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x200143` from the retained `recomp-post-memory-next-21` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/zero-range/device reads or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: zero-range device table and 0x200F59
+## Prior: 0x200f59
 
-`0x002010fd` served its device-table reads through an explicit 0x1000-byte zero range at `0xFD100200` and called `0x200F59`. Selection `recomp-title-post-memory-22` was 358 functions / 13,571 instructions; module `recomp-post-memory-build-35` was rebuilt with zero-range support and was 481,870 bytes, SHA-256 `bc77a4ce…`. Report `post-memory-browser-20261103-18.json`.
+`0x00200f59` read `0xFD400100` = `0`, skipped `0x1FDAC0`, called `0x2000CB` twice, and returned; the caller reached `0x20107C`. Selection `recomp-title-post-memory-23` was 359 functions / 13,649 instructions; module `recomp-post-memory-build-36` was 484,657 bytes, SHA-256 `91afe5cb…`. Report `post-memory-browser-20261103-19.json`.
 
 ## Prior: 0x2000cb
 

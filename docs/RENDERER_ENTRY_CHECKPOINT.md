@@ -345,6 +345,18 @@ Translation `recomp-title-post-memory-23` contains **359 functions / 13,649 inst
 
 Execution stopped at **`0x20107C`** (return `0x1FE2ED`, status 2). The report is `research/verification/post-memory-browser-20261103-19.json` (local/ignored). There is no playable screen.
 
+### Execute 0x20107C
+
+Translation `recomp-title-post-memory-24` contains **360 functions / 13,682 instructions**, including `ff_title_0020107C`. Module `recomp-post-memory-build-37` is 485,351 bytes, SHA-256 `e64070431da915dc10e9e6e9c7fb37aebd58ee88bce12620c5e545c0229886de`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 250 distinct original routines executed and 402 kernel operations completed;
+- `0x0020107c` programmed its device fields and called `0x00200143`;
+- the aperture retained 5,286 entries / 5,395 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x200143`** (return `0x2010D8`, status 2). The report is `research/verification/post-memory-browser-20261103-20.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x20107C` (129 bytes / 33 instructions) from the retained `recomp-post-memory-next-20` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x200143` (509 bytes / 132 instructions, no direct calls) from the retained `recomp-post-memory-next-21` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.
