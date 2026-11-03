@@ -30,9 +30,15 @@ No module rebuild is required; the component is not yet integrated into the boot
 
 `src/runtime/gamepad-adapter.mjs` adds a pure, bounded adapter from an explicit standard-mapping snapshot to the controller state above. It follows the pinned `input_map.c` rules: 15% radial stick deadzone with rescale, 5% trigger threshold, 50% digital-button threshold, analog face/shoulder buttons at 255, and Y positive upwards. It requires checked 16-button/4-axis snapshots, maps D-pad/Start/Back/thumb bits, keeps the two extra analog slots at zero, and fails closed on malformed input. It does not read the browser Gamepad API, host devices or a clock, and is not integrated into the worker or boot path. `tests/gamepad-adapter.test.mjs` covers neutral, buttons, triggers, deadzone, Y inversion, disconnection and malformed snapshots; it is wired into `npm run test:runtime`. This is adapter-component progress, not input or title fidelity.
 
+## Controller port query
+
+`src/runtime/controller_port.h/.c` wraps one bounded controller port around the packet state and a guest-facing query. The pinned `xinput_device.c` `xbox_InputGetState` returns `result` from `XInputGetState`, which is `ERROR_DEVICE_NOT_CONNECTED` (`1167`) for an absent pad, and does not fill the guest state on that path; on success it zeroes the state and fills `dwPacketNumber`, `wButtons`, the eight analog buttons and the four thumb axes. The port query mirrors the disconnected part of that contract: `FF_CONTROLLER_NOT_CONNECTED` is `1167`, a disconnected port returns it, and the output buffer is left untouched. On success it returns 0 and writes the checked 24-byte packet. Null port/output or a short buffer returns `FF_BOOT_INVALID` before writing; this is a source-owned programming-error code, matching the project's other bounded components rather than the pinned layer's use of `1167` for a null state pointer. Port indices, enumeration, keyboard/mouse merge, rumble and asynchronous requests are excluded.
+
+`tests/controller_port_test.c` covers the disconnected query with a byte-identical untouched buffer, connect, packet-number advance only on change, port independence and null/short rejection. It passes optimized and ASan/UBSan WSL GCC runs. The port remains unintegrated with the worker/boot path.
+
 ## Next task
 
-Integrate the adapter and packet encoder only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence.
+Integrate the adapter, packet encoder and port query only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence.
 
 ## Prior milestone: full GET..PUT scan
 
