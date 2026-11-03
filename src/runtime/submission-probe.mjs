@@ -129,7 +129,26 @@ function pfifoState(entries, userPut, userGet, aliases = []) {
   };
 }
 
-export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation, aliases = [] } = {}) {
+function submissionSummary(entries, events, put, get, allocation) {
+  const putWrites = (events || []).filter(event => event.address === 0xFD800040 && event.direction === 2);
+  const last = putWrites.length ? putWrites[putWrites.length - 1] : null;
+  const claimBase = allocation && Number.isInteger(allocation.base) ? allocation.base : null;
+  const claimBytes = allocation && Number.isInteger(allocation.bytes) ? allocation.bytes : null;
+  const instance = (entries || []).filter(entry => entry.address >= 0xFD700000 && entry.address < 0xFD705000);
+  return {
+    putWrites: putWrites.length,
+    lastPutSite: last?.site ?? null,
+    lastPutValue: last?.value ?? null,
+    claimBase,
+    claimBytes,
+    putAtClaimEnd: claimBase !== null && claimBytes !== null && put === claimBase + claimBytes,
+    instanceEntries: instance.length,
+    instanceNonzero: instance.filter(entry => entry.value).length,
+    note: 'observational provenance only; the queue backing is not established',
+  };
+}
+
+export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation, aliases = [], events = [] } = {}) {
   const unavailable = reason => ({ available: false, reason });
   if (status !== 13) return unavailable('not stopped at the PFIFO DMA submission boundary');
   const putEntry = entries?.find(entry => entry.address === 0xFD800040);
@@ -165,6 +184,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     putResolved: resolveDmaOffset(object, put, ramBytes),
     getResolved: resolveDmaOffset(object, get, ramBytes),
     pfifoState: pfifoState(entries, put, get, aliases),
+    submissionSummary: submissionSummary(entries, events, put, get, allocation),
     note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };
 }

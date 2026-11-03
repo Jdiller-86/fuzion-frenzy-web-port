@@ -1,18 +1,18 @@
-# Continue from the coherent PFIFO alias state with an unwritten queue
+# Continue from the claim-end DMA_PUT and the nonzero instance aperture
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The synthetic aperture now supports evidence-backed address aliases, and the probe declares the three reached USER↔PFIFO CACHE1 DMA pairs (PUT, GET, REF). The channel state is coherent: DMA mode, channel 0, instance `0x11C`, CACHE1/USER PUT `0x03B7D000`, GET `0`. The wait still cannot complete because GET never advances, and the guest write-page map still shows 48 pages with none in the published queue claim. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A bounded submission-provenance summary now records that the single USER DMA_PUT write occurs at site `0x1FAF1C` with value `0x03B7D000`, which equals the end of the observed `0x03B78000` + `0x5000` GPU-instance claim. The device aperture's `0xFD700000`–`0xFD704FFC` region holds 5,120 entries, 559 nonzero, while the guest write map still shows 48 pages and none in the claim. PUT/GET are alias-consistent (PUT `0x03B7D000`, GET `0`), but GET never advances, and no consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-39.json`. Bounded alias pairs live in `device_registers.c/.h` (shared canonical entry, events keep the accessed address); the probe declares the three DMA pairs; the report/worker pass the alias list; `pfifoState` resolves it; tests cover shared storage, guards and alias-aware state.
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-40.json`. `submissionProbe.submissionSummary` reports the PUT write site/value, claim base/bytes, claim-end alignment and instance entry/nonzero counts; the worker passes the device event log; tests cover it (14 cases).
 
-Validation: device-register tests optimized/ASan/UBSan, submission tests (13), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** identify the expected queue producer from static and runtime evidence, or establish that initial GET=0 is not a valid ring start. A targeted static trace of the routines that compute the PUB value and the ring base, or a bounded write-observation around the instance/queue region, is the next evidence step. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** determine whether the `0xFD700000` instance-aperture content is the queue that the DMA object addresses: establish the aperture↔physical translation, inspect the method-like entries, and verify the initial GET. This is evidence work only; no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: PFIFO state observer
+## Prior: USER/CACHE1 alias
 
-DMA mode/channel 0/instance `0x11C`; USER PUT/GET `0x03B7D000`/0 vs CACHE1 0/0, alias inconsistent. Report `post-memory-browser-20261103-38.json`.
+The three DMA register pairs now share storage; channel state is alias-consistent but GET stays 0. Report `post-memory-browser-20261103-39.json`.
 
 ## Prior: 0x200f59
 

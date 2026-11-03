@@ -173,6 +173,24 @@ test('the PFIFO state resolves declared aliases to the shared entry', () => {
   assert.equal(probe.pfifoState.aliasConsistent, true);
 });
 
+test('the submission summary records the put write site and claim-end alignment', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  const events = [
+    { address: 0xFD800040, direction: 2, value: 0x700, site: 0x1000 },
+    { address: 0xFD800040, direction: 2, value: 0x800, site: 0x2000 },
+    { address: 0xFD800044, direction: 1, value: 0, site: 0x3000 },
+  ];
+  entries.push({ address: 0xFD700000, value: 0 }, { address: 0xFD700004, value: 0x80000118 });
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, events, allocation: { base: 0x700, bytes: 0x100 } });
+  assert.equal(probe.submissionSummary.putWrites, 2);
+  assert.equal(probe.submissionSummary.lastPutSite, 0x2000);
+  assert.equal(probe.submissionSummary.lastPutValue, 0x800);
+  assert.equal(probe.submissionSummary.putAtClaimEnd, true);
+  assert.equal(probe.submissionSummary.instanceEntries, 2);
+  assert.equal(probe.submissionSummary.instanceNonzero, 1);
+  assert.match(probe.submissionSummary.note, /backing is not established/);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();

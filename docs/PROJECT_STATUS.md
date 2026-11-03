@@ -1,14 +1,14 @@
-# USER and PFIFO CACHE1 DMA registers now alias; the queue is still unwritten
+# Submission provenance: PUT equals the GPU-instance claim end; the instance aperture holds nonzero data
 
-November 3: the synthetic aperture now supports evidence-backed address aliases, and the probe declares the three reached USER↔PFIFO CACHE1 DMA pairs (PUT, GET, REF). The observed channel state is coherent: DMA mode, channel 0, instance `0x11C`, CACHE1/USER PUT `0x03B7D000`, GET `0`. The wait still cannot complete because GET never advances, and the guest write-page map still shows no CPU writes to the published queue claim. No consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: a bounded submission-provenance summary now records where the USER DMA_PUT write came from and how it relates to the observed GPU-instance claim. The single USER PUT write occurs at site `0x1FAF1C` with value `0x03B7D000`; the claim is `0x03B78000` + `0x5000`, so PUT equals the claim end. The device aperture's `0xFD700000`–`0xFD704FFC` region holds 5,120 entries, 559 nonzero, but the guest write map still shows no CPU writes to the claim pages. The queue producer and initial GET provenance remain unresolved, and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-39.json`.
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-40.json`.
 
-Source change: bounded alias pairs in `device_registers.c/.h` (shared canonical entry, events keep the accessed address), probe declarations for the three DMA pairs plus alias exports, report/worker plumbing, alias-aware `pfifoState`, and extended device/submission tests. The guest write map still shows 48 pages with none in the claim. No consumer, GET advance, packet decoding, interrupt, DMA or rendering is fabricated. Validation: device-register tests optimized/ASan/UBSan, submission tests (13), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `submission-probe.mjs` adds `submissionSummary` (USER PUT write count/site/value, claim base/bytes, claim-end alignment, instance entry/nonzero counts), the worker passes the device event log, and tests cover the summary. The PFIFO alias state remains consistent, but GET stays 0 and no queue bytes exist in guest RAM. No consumer, GET advance, packet decoding, interrupt, DMA or rendering is fabricated. Validation: submission tests (14), device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: PFIFO state observer
+## Prior: USER/CACHE1 alias
 
-DMA mode/channel 0/instance `0x11C`; USER PUT/GET `0x03B7D000`/0 vs CACHE1 0/0, alias inconsistent. Report `post-memory-browser-20261103-38.json`.
+The three DMA register pairs now share storage; channel state is alias-consistent but GET stays 0. Report `post-memory-browser-20261103-39.json`.
 
 ## Prior: 0x200f59
 

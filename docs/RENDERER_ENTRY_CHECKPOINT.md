@@ -566,6 +566,22 @@ Module `recomp-post-memory-build-50` is 526,712 bytes, SHA-256 `bd0acb033fcf0e9b
 
 The report is `research/verification/post-memory-browser-20261103-39.json` (local/ignored). The register views agree, but GET never advances and no queue bytes exist; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
 
+### Record submission provenance
+
+`submission-probe.mjs` adds `submissionSummary`: USER DMA_PUT write count/site/value, claim base/bytes, whether PUT equals the claim end, and the count/nonzero count of `0xFD700000`–`0xFD705000` aperture entries. The worker passes the device event log; tests cover the summary (14 cases).
+
+Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0acb033fcf0e9b6c768ef56a9b802225652099f6d1b797cb71e2f8cc996646`). In the run:
+
+- USER DMA_PUT: 1 write at site `0x1FAF1C`, value `0x03B7D000`;
+- claim `0x03B78000` + `0x5000`, so **PUT = claim end**;
+- instance aperture: 5,120 entries, **559 nonzero**;
+- guest write map: 48 pages, none in the claim;
+- PFIFO state alias-consistent (PUT `0x03B7D000`, GET `0`);
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-40.json` (local/ignored). The instance aperture contains nonzero data while the guest claim is untouched; the aperture↔physical translation is unverified, and no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Identify the expected queue producer from static and runtime evidence, or establish that initial GET=0 is not a valid ring start. A targeted static trace of the routines that compute the PUB value and the ring base, or a bounded write-observation around the instance/queue region, is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer and the alias pairs; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Determine whether the `0xFD700000` instance-aperture content is the queue that the DMA object addresses: establish the aperture↔physical translation, inspect the method-like entries, and verify the initial GET. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs and the submission summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

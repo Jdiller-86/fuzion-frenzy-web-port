@@ -889,6 +889,7 @@ self.onmessage = async event => {
       status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
       allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
       aliases: deviceRegisters.aliases,
+      events: deviceRegisters.log,
     }) : { available: false, reason: 'no observed device aperture' };
     let guestWritePages;
     if (typeof api.ff_probe_write_map_size === 'function') {
