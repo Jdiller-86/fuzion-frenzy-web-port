@@ -56,6 +56,28 @@ function snapshot(view, ramBytes, base, bytes) {
   return { available: true, base, bytes, words };
 }
 
+// Candidate resolution only: the proof has no established VRAM target backing.
+// This never returns bytes and never advances GET.
+function resolveDmaOffset(object, offset, ramBytes) {
+  if (!object?.available) return { resolved: false, reason: 'DMA object unavailable' };
+  if (object.target !== 0) return { resolved: false, reason: `target ${object.targetName} is not modeled` };
+  if (!Number.isInteger(offset) || (offset & 3)) return { resolved: false, reason: 'unaligned DMA offset' };
+  if (offset > object.limit) return { resolved: false, reason: 'DMA offset beyond object limit' };
+  if ((object.base & 3) || offset > 0xFFFFFFFF - object.base)
+    return { resolved: false, reason: 'DMA base/offset overflow' };
+  const address = (object.base + offset) >>> 0;
+  if (!Number.isInteger(ramBytes) || ramBytes < 4 || address > ramBytes - 4)
+    return { resolved: false, reason: 'resolved address outside modeled guest RAM' };
+  return {
+    resolved: true,
+    candidate: true,
+    verified: false,
+    address,
+    backing: 'guest-physical identity (unverified)',
+    reason: 'target backing is not established',
+  };
+}
+
 export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation } = {}) {
   const unavailable = reason => ({ available: false, reason });
   if (status !== 13) return unavailable('not stopped at the PFIFO DMA submission boundary');
@@ -74,6 +96,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
   const allocationWindow = allocation && Number.isInteger(allocation.base)
     ? snapshot(view, ramBytes, allocation.base, Math.min(windowBytes, allocation.bytes ?? windowBytes))
     : { available: false, reason: 'no observed GPU-instance allocation' };
+  const object = dmaObject(entries);
   return {
     available: true,
     channel: 0,
@@ -83,7 +106,9 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     bytes: before.bytes,
     words: before.words,
     allocation: allocationWindow,
-    dmaObject: dmaObject(entries),
+    dmaObject: object,
+    putResolved: resolveDmaOffset(object, put, ramBytes),
+    getResolved: resolveDmaOffset(object, get, ramBytes),
     note: 'checked guest-memory snapshots at the raw cursor and allocation addresses; PUT/GET are DMA-object offsets and the mapped buffer is not modeled',
   };
 }

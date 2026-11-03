@@ -1,14 +1,14 @@
-# PFIFO DMA object decoded: the pushbuffer is a VRAM-target offset, not a guest address
+# DMA offsets resolve to candidate guest addresses, but target backing stays unverified
 
-November 3: the reached PFIFO stall now has an evidence-backed DMA object. The PFIFO instance register at `0xFD00322C` holds `0x11C`, selecting the RAMIN object at `0x11C0`: flags `0xB002` (class 2, target NVM/VRAM, adjust 0), frame 3, base 0, limit `0x3FFAFFF`. DMA_PUT `0x03B7D000` and DMA_GET `0` are offsets into that ~64 MiB VRAM-target object, not guest addresses. The proof models no VRAM target buffer, so the queue contents are unavailable and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: following architect escalation, the project did **not** allocate a separate VRAM buffer or implement a consumer. An observation-only DMA resolver maps the decoded object's PUT `0x03B7D000` and GET `0` to candidate guest-physical addresses under an unverified identity assumption; the guest bytes there remain zero, so producer provenance is unestablished. The PFIFO boundary stays fail-closed. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-34.json`.
+The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-35.json`.
 
-Source change: `src/runtime/submission-probe.mjs` decodes the DMA object from the aperture entries (instance register, RAMIN flags/limit/frame, class/target/adjust/base/limit) with explicit notes that PUT/GET are offsets; tests cover complete, missing, incomplete and masked cases. No consumer, GET advance, command decoding, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests (8), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `src/runtime/submission-probe.mjs` adds a fail-closed `resolveDmaOffset` (NVM/VRAM only, aligned, within object limit and guest RAM) that always reports `verified:false` / backing unverified, plus `putResolved`/`getResolved`; tests cover candidate resolution, non-NVM targets, limit and RAM bounds and read-only behavior. This is observation only: no VRAM allocation, consumer, GET advance, packet execution, interrupt, DMA or rendering. Validation: submission-probe tests (10), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: allocation-base snapshot
+## Prior: DMA object decode
 
-The probe added a second window at the observed GPU-instance allocation base; both guest windows were zero while the device aperture held 5,120 nonzero-capable entries. Report `post-memory-browser-20261103-33.json`.
+The instance/object decode established class 2, NVM/VRAM target, base 0 and limit `0x3FFAFFF`; PUT/GET are offsets. Report `post-memory-browser-20261103-34.json`.
 
 ## Prior: 0x200f59
 

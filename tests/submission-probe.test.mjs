@@ -92,6 +92,43 @@ test('the DMA object decoder applies target and adjust masks', () => {
   assert.equal(probe.dmaObject.base, 0x00300000);
 });
 
+test('the DMA resolver reports a candidate guest address without claiming backing', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  entries.push({ address: 0xFD00322C, value: 0x11C });
+  entries.push({ address: 0xFD7011C0, value: 0xB002 });
+  entries.push({ address: 0xFD7011C4, value: 0x3FFAFFF });
+  entries.push({ address: 0xFD7011C8, value: 3 });
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x400, bytes: 256 } });
+  assert.deepEqual(probe.putResolved, {
+    resolved: true, candidate: true, verified: false, address: 0x800,
+    backing: 'guest-physical identity (unverified)', reason: 'target backing is not established',
+  });
+  assert.equal(probe.getResolved.address, 0);
+  const noObject = createSubmissionProbe({ status, entries: [], view, ramBytes });
+  assert.equal(noObject.available, false);
+});
+
+test('the DMA resolver fails closed on target, limit and RAM bounds', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800 });
+  const object = (flags, limit, frame) => {
+    entries.length = 1;
+    entries.push({ address: 0xFD00322C, value: 0x10 });
+    entries.push({ address: 0xFD700100, value: flags });
+    entries.push({ address: 0xFD700104, value: limit });
+    entries.push({ address: 0xFD700108, value: frame });
+  };
+  object(0x00030002, 0x3FFAFFF, 0);
+  let probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.putResolved.resolved, false);
+  assert.match(probe.putResolved.reason, /AGP is not modeled/);
+  object(0x00000002, 0x100, 0);
+  probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.putResolved.reason, 'DMA offset beyond object limit');
+  object(0x00000002, 0x3FFAFFF, 0x1000);
+  probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.putResolved.reason, 'resolved address outside modeled guest RAM');
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();

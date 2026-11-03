@@ -1,18 +1,20 @@
-# Continue from the decoded PFIFO DMA object (VRAM-target offsets)
+# Continue from the unverified DMA target backing at PUT 0x03B7D000
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The reached PFIFO stall now has an evidence-backed DMA object: the instance register at `0xFD00322C` holds `0x11C`, selecting the RAMIN object at `0x11C0` with flags `0xB002` (class 2, target NVM/VRAM, adjust 0), base `0`, limit `0x3FFAFFF`. DMA_PUT `0x03B7D000` and DMA_GET `0` are offsets into that ~64 MiB VRAM-target object, not guest addresses. The proof models no VRAM target buffer, so the queue contents are unavailable and no consumer, DMA_GET advance, command decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+Following architect escalation, the project did **not** allocate a separate VRAM buffer or implement a consumer. The decoded DMA object (class 2, target NVM/VRAM, base 0, limit `0x3FFAFFF`) maps PUT `0x03B7D000` and GET `0` to candidate guest-physical addresses only under an unverified identity assumption; the guest bytes at those addresses are zero, so producer provenance and the initial GET are unestablished. The PFIFO boundary stays fail-closed with status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-34.json`. `src/runtime/submission-probe.mjs` decodes the DMA object from the aperture entries (instance, RAMIN flags/limit/frame, class/target/adjust/base/limit); tests cover complete, missing, incomplete and masked cases.
+The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-35.json`. `submissionProbe` now reports `putResolved`/`getResolved` as candidates with `verified:false` and backing unverified; no bytes, GET advance or consumer are produced.
 
-Validation: submission-probe tests (8), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+`src/runtime/submission-probe.mjs` adds the fail-closed resolver; `tests/submission-probe.test.mjs` covers candidate resolution, non-NVM targets, object-limit and RAM bounds and read-only behavior (10 cases).
 
-**Next task:** decide whether to add a bounded VRAM target model and PFIFO object mapping, then define a synchronous consumer contract (supported packets, downstream effects, work limits, fail-closed behavior). This is an open architecture decision and should receive architect escalation before implementation; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-## Prior: allocation-base snapshot
+**Next task:** verify the NVM/VRAM target backing and initial GET provenance against pinned sources and the physical-memory contract: whether the target aliases guest physical RAM, where the producer wrote the queue, and what initial GET means. If backing cannot be established, record the unresolved mapping and re-plan only on explicit evidence. Do not fabricate the get pointer, command data, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-`submissionProbe` added a second window at the observed GPU-instance allocation base; both guest windows were zero while the device aperture held 5,120 entries. Report `post-memory-browser-20261103-33.json`.
+## Prior: DMA object decode
+
+The instance/object decode established class 2, NVM/VRAM target, base 0 and limit `0x3FFAFFF`; PUT/GET are offsets. Report `post-memory-browser-20261103-34.json`.
 
 ## Prior: 0x200f59
 
