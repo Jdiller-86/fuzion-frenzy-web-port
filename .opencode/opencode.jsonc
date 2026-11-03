@@ -79,7 +79,7 @@
       "description": "Sol project authority for milestone direction, design approval, integration review and bounded merges on the architect branch.",
       "mode": "all",
       "model": "openai/gpt-6.1-sol",
-      "steps": 18,
+      "steps": 32,
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
         { "action": "read", "resource": "research/*", "effect": "deny" },
