@@ -1,8 +1,12 @@
-# Explicit translation budget extended to 32,768; execution reaches 0x1F78E0
+# Bounded 0x80C0 port input; execution reaches a new register read at 0xFD002080
 
-November 4: the guarded translation had reached 16,283 of its 16,384-instruction cap. The source-owned composer and closure exporter now accept an explicit 32,768-instruction budget, with tests and the same bounded per-closure/function/export limits. `FUN_001FD200` was exported (2 functions / 196 instructions); the guarded translation is 402 functions / 16,479 instructions. Private module `recomp-post-memory-build-66` (606,679 bytes, SHA-256 `02086f5e…`) advances to `0x1F78E0` (return `0x1FB8D6`) with **270** distinct routines, 83/83 initializers and 403 kernel operations. A closure for `0x1F78E0` added 1 function / 13 instructions; build `recomp-post-memory-build-67` (608,098 bytes, SHA-256 `834c9393…`) advances to `0x1F6240` with 272 routines. Without the profile it still stops at status 13 with 261 routines. **There is no playable original screen.**
+November 4: the reached D3D path reads x86 port `0x80C0`, which the build did not define. The source-owned port surface now models the pinned bridge's field-pin read (bit 5 toggles per read), and the probe defines `xbox_PortIn`. `src/runtime/port_io.h/.c` adds a bounded `ff_port_io_read`; `tests/port_io_test.c` covers it. Translation with the `0x1F6240` closure is 415 functions / 17,284 instructions; private module `recomp-post-memory-build-68` (637,321 bytes, SHA-256 `e83b8986…`) advances to **276** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 10 on a read of undeclared PFIFO address `0xFD002080` (return `0x205E98`). No value for that register is invented. **There is no playable original screen.**
 
-Validation: title-seed 25/25, recomp memory-access 11/11, owned XMM boundary test optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, `npm run check` and whitespace checks pass. See [the translation-budget checkpoint](TRANSLATION_BUDGET_CHECKPOINT.md).
+Validation: port surface optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the port-input checkpoint](PORT_INPUT_CHECKPOINT.md).
+
+## Prior: explicit translation budget extended to 32,768
+
+The guarded translation had reached 16,283 of its 16,384-instruction cap. The source-owned composer and closure exporter now accept an explicit 32,768-instruction budget, with tests and the same bounded per-closure/function/export limits. `FUN_001FD200` and `FUN_001F78E0` were exported; the guarded translation advanced through `0x1F78E0` to `0x1F6240`.
 
 ## Prior: checked XMM memory surface
 

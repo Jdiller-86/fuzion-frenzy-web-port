@@ -21,8 +21,14 @@ int main(void)
     assert(io.count == FF_PORT_EVENTS);
     assert(ff_port_io_write(&io, 0x200u, 0x55u, 1) == 0);
     assert(io.count == FF_PORT_EVENTS && io.events[FF_PORT_EVENTS - 1].port == 0x100u + FF_PORT_EVENTS - 1u);
+    assert(ff_port_io_read(&io, 0x80C0u, 1) == 0x20u);
+    assert(ff_port_io_read(&io, 0x80C0u, 1) == 0u);
+    assert(ff_port_io_read(&io, 0x1234u, 1) == 0u);
+    assert(io.reads == 2u);
+    assert(ff_port_io_read(&io, 0x80C0u, 3) == 0u);
+    assert(io.reads == 2u);
     ff_port_io_init(&io);
-    assert(io.count == 0);
-    puts("owned port-output log: bounded records, masking, width rejection and capacity passed");
+    assert(io.count == 0 && io.reads == 0u);
+    puts("owned port surface: output log plus bounded 0x80C0 field-pin reads passed");
     return 0;
 }

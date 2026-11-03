@@ -140,6 +140,10 @@ void xbox_PortOut(uint32_t port, uint32_t value, int width)
 {
     (void)ff_port_io_write(&port_io, port, value, (uint32_t)width);
 }
+uint32_t xbox_PortIn(uint32_t port, int width)
+{
+    return ff_port_io_read(&port_io, port, (uint32_t)width);
+}
 #ifdef FF_DISK_GEOMETRY_PROOF
 static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif
