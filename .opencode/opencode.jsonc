@@ -2,6 +2,13 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "openai/gpt-6.1-sol",
   "default_agent": "architect",
+  "providers": {
+    "unsloth": {
+      "models": {
+        "qwen3.8-27b": { "limit": { "context": 32768, "output": 2048 } }
+      }
+    }
+  },
   "policies": [
     { "action": "tool.use", "resource": "subagent:*", "effect": "deny" },
     { "action": "tool.use", "resource": "subagent:builder", "effect": "allow" },
