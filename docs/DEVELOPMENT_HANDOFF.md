@@ -1,4 +1,18 @@
-# Continue from supplied-profile device reporting
+# Continue from original execution at 0x1FE0C6
+
+Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+Original `0x001fe085` executed and returned to `0x1FE5CE`. All 83 initialization callbacks return; 235 distinct original routines execute and 399 kernel operations complete. The reached interrupt-initialization services (ordinals 44, 109, 98, 47) are modeled from the pinned public bridge. Execution stops at untranslated **`0x1FE0C6`** (return `0x1FE616`).
+
+Selection `recomp-title-post-memory-09` is 345 functions / 12,892 instructions; module `recomp-post-memory-build-21` is SHA-256 `5fc6d100…` (459,080 bytes). An explicit synthetic profile supplied zero for the newly observed device reads `0xFD001800`, `0xFD001808`, `0xFD10020C`; these are test inputs, not original defaults.
+
+Validation: interrupt fixtures optimized/ASan/UBSan, Python 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+
+**Next task:** admit and translate `0x1FE0C6` from a bounded read-only export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior supplied-profile handoff
+
+## Device reports preserve supplied register profiles
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 

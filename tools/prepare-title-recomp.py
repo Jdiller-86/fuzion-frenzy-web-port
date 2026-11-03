@@ -576,7 +576,10 @@ def main():
                 return_observations.append({"function": address, "sites": observations})
             if args.guard_memory:
                 from recomp_memory_access import instrument_memory_accesses
-                text, access_counts = instrument_memory_accesses(text, address, info["end"])
+                try:
+                    text, access_counts = instrument_memory_accesses(text, address, info["end"])
+                except ValueError as error:
+                    raise ValueError(f"0x{address:08X}: {error}") from error
                 memory_observations.append({"function": address, **access_counts})
             generated.append(text)
     header = [f'#define FF_SOURCE_SHA256 "{sha}"', f'#define FF_ENTRY_ADDRESS 0x{profile["entry"]:08X}u',

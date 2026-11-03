@@ -69,11 +69,27 @@ class MemoryAccessTests(unittest.TestCase):
             self.assertIn(f"FF_MEMORY_SITE_U{width}((edi), 2u, 0x00100000u) = _ff_copy{width}; }}", result)
             self.assertEqual((counts['reads'], counts['writes']), (1, 1))
 
-    def test_write_value_expressions_cannot_probe_memory(self):
-        for source in ['MEM32(edx) = MEM32(esi);', 'MEM32(edi) += MEM16(esi);',
-                       'MEM32(edi) = (MEM32(esi) + 1);', 'MEM32(edi) = PUSH32(esi, eax);']:
-            with self.subTest(source=source), self.assertRaises(ValueError):
-                guard.instrument_memory_accesses(source, SITE)
+    def test_write_value_expressions_are_split_before_staging(self):
+        cases = [
+            ('MEM32(edx) = MEM32(esi);',
+             'uint32_t _ff_wtmp0 = FF_MEMORY_SITE_U32((esi), 1u, 0x00100000u);',
+             'FF_MEMORY_SITE_U32((edx), 2u, 0x00100000u) = _ff_wtmp0;'),
+            ('MEM32(edi) += MEM16(esi);',
+             'uint32_t _ff_wtmp0 = FF_MEMORY_SITE_U16((esi), 1u, 0x00100000u);',
+             'FF_MEMORY_SITE_U32((edi), 3u, 0x00100000u) += _ff_wtmp0;'),
+            ('MEM32(edi) = (MEM32(esi) + 1);',
+             'uint32_t _ff_wtmp0 = (FF_MEMORY_SITE_U32((esi), 1u, 0x00100000u) + 1);',
+             'FF_MEMORY_SITE_U32((edi), 2u, 0x00100000u) = _ff_wtmp0;'),
+            ('MEM32(ebp + -3068) = MEM32(ebp + -3068) & 0;',
+             'uint32_t _ff_wtmp0 = FF_MEMORY_SITE_U32((ebp + -3068), 1u, 0x00100000u) & 0;',
+             'FF_MEMORY_SITE_U32((ebp + -3068), 2u, 0x00100000u) = _ff_wtmp0;'),
+        ]
+        for source, read, write in cases:
+            with self.subTest(source=source):
+                result, counts = guard.instrument_memory_accesses(source, SITE)
+                self.assertIn(read, result)
+                self.assertIn(write, result)
+                self.assertEqual((counts['reads'], counts['writes'] + counts['readWrites']), (1, 1))
         result, counts = guard.instrument_memory_accesses('MEM32(MEM32(edi)) = 1;', SITE)
         self.assertIn('FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)', result)
         self.assertIn('FF_MEMORY_SITE_U32((FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)), 2u, 0x00100000u)', result)

@@ -1,4 +1,12 @@
-# Device reports preserve supplied register profiles
+# Original execution passes 0x1fe085 and reaches 0x1FE0C6
+
+November 3: original `0x001fe085` now executes in the browser and returns to `0x1FE5CE`. All 83 initialization callbacks return; 235 distinct original routines execute and 399 kernel operations complete. The reached interrupt-initialization exports 44 (`HalGetInterruptVector`), 109 (`KeInitializeInterrupt`), 98 (`KeConnectInterrupt`) and 47 (`HalRegisterShutdownNotification`) are serviced. Execution then stops at untranslated original routine **`0x1FE0C6`** (return `0x1FE616`, status 2). **There is no playable original screen.**
+
+Selection `recomp-title-post-memory-09` is 345 functions / 12,892 instructions; module `recomp-post-memory-build-21` is 459,080 bytes, SHA-256 `5fc6d100…`. One explicit synthetic profile supplied zero as the test value for the newly observed reads `0xFD001800`, `0xFD001808` and `0xFD10020C`; these are test inputs, not console defaults. The aperture logged 7 events with sites `2089050`/`2089093`; statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-02.json`.
+
+Validation: interrupt-vector fixtures optimized and ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Device reports preserve supplied register profiles
 
 Source-only milestone (November 3): the device report now records the explicit multi-register profile input separately from the observed aperture state. `device-report.mjs` accepts the parsed profile, normalizes its window and 2–64 supplied address/initial entries into a `supplied` field, and leaves `entries`/`log` as the post-run observations. The worker passes `mmioProfile`, so a private run can distinguish supplied values from writes and reads without consulting a separate settings file.
 

@@ -10,6 +10,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/local_settings.h"
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
+#include "../../src/runtime/interrupt_vector.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -673,6 +674,37 @@ static void query_memory_statistics(void)
     for(unsigned i=0;i<FF_MEMORY_STATISTICS_WORDS;++i)row[3+i]=MEM32(row[2]+i*4);
     g_eax=0;g_esp+=8;
 }
+#ifdef FF_VM_PROOF
+static void hal_get_interrupt_vector(void)
+{
+    uint32_t *row=kernel_record(44,2),vector=0;
+    row[1]=ff_hal_get_interrupt_vector(&virtual_memory,guest_ram,row[2],row[3],&vector);
+    if(row[1])stop(9,row[1],44);
+    row[4]=vector;g_eax=vector;g_esp+=12;
+}
+static void ke_initialize_interrupt(void)
+{
+    uint32_t *row=kernel_record(109,7);
+    row[1]=ff_ke_initialize_interrupt(&virtual_memory,guest_ram,row[2],row[3],row[4],row[5]);
+    if(row[1])stop(9,row[1],109);
+    row[9]=row[6];row[10]=row[7];row[11]=row[8];
+    g_eax=0;g_esp+=32;
+}
+static void ke_connect_interrupt(void)
+{
+    uint32_t *row=kernel_record(98,1);
+    row[1]=ff_ke_connect_interrupt(&virtual_memory,guest_ram,row[2]);
+    if(row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],98);
+    g_eax=row[1];g_esp+=8;
+}
+static void hal_register_shutdown_notification(void)
+{
+    uint32_t *row=kernel_record(47,2);
+    row[1]=ff_hal_register_shutdown_notification(&virtual_memory,guest_ram,row[2],row[3]);
+    if(row[1])stop(9,row[1],47);
+    g_eax=0;g_esp+=12;
+}
+#endif
 #endif
 #ifdef FF_FATX_PROOF
 static int fatx_parent_handle(uint32_t attributes)
@@ -1317,6 +1349,10 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
+        if (ordinal == 44) return hal_get_interrupt_vector;
+        if (ordinal == 109) return ke_initialize_interrupt;
+        if (ordinal == 98) return ke_connect_interrupt;
+        if (ordinal == 47) return hal_register_shutdown_notification;
 #ifdef FF_MEMORY_STATISTICS_PROOF
         if (ordinal == 181) return query_memory_statistics;
         if (ordinal == 166) return allocate_contiguous_memory;

@@ -13,8 +13,8 @@ label belongs to the function entry block. Emitting that site lets the device
 aperture record which original code performed an access instead of claiming one
 routine for every access. Stack and bulk helpers deliberately pass zero; the
 host admits zero only against owned RAM, never a device window. A scalar write
-may not combine another memory access in its value expression: the staged
-lvalue must be followed only by its store, so that form fails closed.
+whose value expression probes memory is evaluated into a temporary before the
+staged store; the pinned movs mem-to-mem forms are split the same way.
 """
 import bisect
 import re
@@ -22,6 +22,9 @@ import re
 ACCESSORS = {"MEM8": "U8", "MEM16": "U16", "MEM32": "U32", "MEM64": "U64",
              "SMEM8": "I8", "SMEM16": "I16", "SMEM32": "I32", "SMEM64": "I64",
              "MEMF": "F32", "MEMD": "F64"}
+TEMP_TYPES = {"U8": "uint8_t", "U16": "uint16_t", "U32": "uint32_t", "U64": "uint64_t",
+              "I8": "int8_t", "I16": "int16_t", "I32": "int32_t", "I64": "int64_t",
+              "F32": "float", "F64": "double"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
 MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32)\b")
 
@@ -116,6 +119,7 @@ def instrument_memory_accesses(text, site, limit=None):
     labels = checked_block_sites(text, site, limit)
     label_offsets = [offset for offset, _ in labels]
     used_sites = set()
+    write_temps = [0]
 
     def site_at(offset):
         index = bisect.bisect_right(label_offsets, offset) - 1
@@ -156,18 +160,34 @@ def instrument_memory_accesses(text, site, limit=None):
             elif after.startswith('=') and not after.startswith('=='):
                 access, key = 2, "writes"
             else: access, key = 1, "reads"
-            if key in ("writes", "readWrites") and MEMORY_TOKEN.search(mask[closing:statement_end(mask, closing)]):
-                # The generated store must be the only probe after its staged
-                # lvalue. A nested access in the value expression would commit
-                # the staged write before the store and lose the stored value.
-                raise ValueError("Generated write combines another memory access")
             argument = rewrite(source[opening + 1:closing - 1], base + opening + 1)
             if not argument.strip(): raise ValueError("Empty generated memory address")
             block = site_at(base + begin)
-            used_sites.add(block)
+            end = statement_end(mask, closing)
+            split = key in ("writes", "readWrites") and MEMORY_TOKEN.search(mask[closing:end])
+            if split:
+                op_start = closing
+                while op_start < end and mask[op_start].isspace(): op_start += 1
+                operator = next((candidate for candidate in (
+                    "<<=", ">>=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "=")
+                    if mask.startswith(candidate, op_start)), None)
+                if operator is None:
+                    snippet = " ".join(source[begin:end].split())
+                    raise ValueError(f"Generated write has no split operator: {snippet}")
+                rhs_start = op_start + len(operator)
+                while rhs_start < end and mask[rhs_start].isspace(): rhs_start += 1
+                rewritten_rhs = rewrite(source[rhs_start:end], base + rhs_start)
+                if not rewritten_rhs.strip(): raise ValueError("Empty generated write value")
+                temp = f"_ff_wtmp{write_temps[0]}"; write_temps[0] += 1
+                lhs = f"FF_MEMORY_SITE_{ACCESSORS[name]}(({argument}), {access}u, 0x{block:08X}u)"
+                pieces += [source[cursor:begin],
+                           f"{{ {TEMP_TYPES[ACCESSORS[name]]} {temp} = {rewritten_rhs}; {lhs} {operator} {temp}; }}"]
+                stats[key] += 1; used_sites.add(block)
+                cursor = scan = end
+                continue
             pieces += [source[cursor:begin],
                        f"FF_MEMORY_SITE_{ACCESSORS[name]}(({argument}), {access}u, 0x{block:08X}u)"]
-            stats[key] += 1; cursor = scan = closing
+            stats[key] += 1; used_sites.add(block); cursor = scan = closing
         pieces.append(source[cursor:]); return "".join(pieces)
 
     converted = rewrite(text, 0)

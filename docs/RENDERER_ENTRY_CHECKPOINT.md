@@ -84,7 +84,7 @@ Validation: `python tests/recomp_memory_access_test.py` 8/8, `python tests/title
 
 The aperture no longer records a write before the generated store. `ff_device_registers_stage_write` returns the lvalue that the store fills; `ff_device_registers_commit` records one write event with the stored value. `ff_device_registers_touch` and `ff_device_registers_access` commit a pending write first, so a later read observes it and event order is preserved. `ff_device_registers_access` maps READ, WRITE and READWRITE; the read half of a read-modify-write is recorded immediately and its write is staged. `ff_probe_guest_memory` commits before any later access, and the helper-return stop plus the event readers commit before reading counts.
 
-`tests/device_registers_test.c` covers staged writes, consecutive writes, auto-commit before a following read, read-modify-write, unknown read halves, zero-site/invalid-mask rejection, and capacity atomicity. `tests/memory_access_test.c` exercises the same path through transformed guest accessors, including the split `movsd` form. `tools/recomp_memory_access.py` splits the pinned lifter's exact `movs` mem-to-mem forms into a temporary read plus store, and rejects any other scalar write whose value expression contains another memory access, because the staged lvalue must be followed only by its store; the Python memory-access suite is 10/10. The guard covers the lifter's memory tokens; its stores otherwise use register/immediate values, so no other probe is emitted between the staged lvalue and the store. A future form that calls a probing helper in a store value expression would need its own split or fail-closed rule. Optimized and ASan/UBSan WSL runs pass.
+`tests/device_registers_test.c` covers staged writes, consecutive writes, auto-commit before a following read, read-modify-write, unknown read halves, zero-site/invalid-mask rejection, and capacity atomicity. `tests/memory_access_test.c` exercises the same path through transformed guest accessors, including the split `movsd` form. `tools/recomp_memory_access.py` splits the pinned lifter's exact `movs` mem-to-mem forms and evaluates any other scalar write whose value expression probes memory into a temporary before the staged store; the Python memory-access suite is 10/10. The transform covers the observed `MEM32(ebp-3068) = MEM32(ebp-3068) & 0` form. Optimized and ASan/UBSan WSL runs pass.
 
 No original module was rebuilt or run, so build-16's recorded write values remain the old probe's pre-store placeholders; no new browser observation is claimed. ABI 24 and D060 are unchanged.
 
@@ -96,6 +96,22 @@ The proof worker previously copied only 16 aperture entries and 8 ordered events
 
 The aperture profile now accepts 2–64 distinct explicit initial entries, not only the two reached addresses. `ff_device_registers_init_many` validates base/width, alignment, window bounds and distinct addresses before mutation. `ff_device_registers_add_initial` seeds further values only while no access or staged write has been recorded. The probe exports `ff_probe_mmio_add`; the worker seeds entries beyond `0xfd001804`/`0xfd600140` and fails explicitly if the private module lacks that export. The parser still requires the two reached addresses and rejects duplicates, unaligned/out-of-window values and more than 64 entries. `device-report.mjs` now records the normalized supplied window/registers separately from observed entries/log, so a private run can distinguish profile inputs from reads/writes. Owned C and Node tests pass; `npm run test:runtime` is 47/47. Older ABI-24 modules remain compatible for exactly two entries; no module was rebuilt or run, and no register value is inferred.
 
+### Post-memory execution: 0x1fe085 and interrupt initialization
+
+Using the retained private seeds, the selected `0x001fe085` seed was admitted with the existing 22-seed selection. Translation `recomp-title-post-memory-09` contains **345 functions / 12,892 instructions**, including `ff_title_001FE085`. Module `recomp-post-memory-build-21` is 459,080 bytes, SHA-256 `5fc6d100977022a55beb187be233eb1b1ce663df0fde1ef38058e22d560630a9`.
+
+One explicit synthetic profile supplied zero as the test value for three newly observed reads: `0xFD001800`, `0xFD001808` and `0xFD10020C`. These are explicit test inputs, not console defaults. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 235 distinct original routines executed and 399 kernel operations completed;
+- `0x001fe085` executed and returned to `0x1FE5CE`;
+- the aperture logged seven events across six addresses, with sites `2089050` and `2089093`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The next reached services were modeled from the pinned public xboxrecomp bridge/ordinal table: ordinal 44 `HalGetInterruptVector`, ordinal 109 `KeInitializeInterrupt`, ordinal 98 `KeConnectInterrupt` and ordinal 47 `HalRegisterShutdownNotification`. The first returned vector 3 and wrote the IRQL byte; the second wrote a zeroed 44-byte KINTERRUPT with routine/context/vector at offsets 0/4/8; the third returned TRUE; the fourth accepted registration and dropped it. **No interrupt is delivered and no NV2A interrupt behavior is modeled.**
+
+Execution then stopped at untranslated original routine **`0x1FE0C6`** (return `0x1FE616`, status 2) after 399 kernel operations. The report is `research/verification/post-memory-browser-20261103-02.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Decide the next device address (`0xfd009140`, a write) under the same evidence rules: either extend the explicit synthetic register file through a recorded decision, or stop there. Do not infer NV2A behavior, DMA, interrupts or rendering from these stores; the WBINVD admission (D060) remains conditioned on there being no device model beyond this storage abstraction.
+Admit and translate `0x1FE0C6` from a bounded read-only export, then follow the next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering. The captured line/quad reference comparison and browser prepass also remain private.
