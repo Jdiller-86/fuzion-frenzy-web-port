@@ -1,6 +1,6 @@
 # Continue from mounted Z: and the original memory-statistics request
 
-OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md). This changes development coordination, not the runtime checkpoint below. Do not overwrite the in-progress memory-statistics work.
+OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md); the [continuous development goal](OPENCODE_GOAL.md) defines the bounded advancement loop. This changes development coordination, not the runtime checkpoint below. Do not overwrite the in-progress memory-statistics work.
 
 Read [the current utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 

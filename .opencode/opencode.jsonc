@@ -7,7 +7,7 @@
     { "action": "tool.use", "resource": "subagent:builder", "effect": "allow" },
     { "action": "tool.use", "resource": "subagent:scout", "effect": "allow" },
     { "action": "tool.use", "resource": "subagent:reviewer", "effect": "allow" },
-    { "action": "tool.use", "resource": "subagent:architect", "effect": "deny" },
+    { "action": "tool.use", "resource": "subagent:architect", "effect": "allow" },
     { "action": "tool.use", "resource": "read:*.env", "effect": "deny" },
     { "action": "tool.use", "resource": "read:*.env.*", "effect": "deny" },
     { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
@@ -33,7 +33,8 @@
         { "action": "rea_*", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "scout", "effect": "allow" },
-        { "action": "subagent", "resource": "reviewer", "effect": "allow" }
+        { "action": "subagent", "resource": "reviewer", "effect": "allow" },
+        { "action": "subagent", "resource": "architect", "effect": "allow" }
       ]
     },
     "scout": {
@@ -75,8 +76,8 @@
       ]
     },
     "architect": {
-      "description": "Manually selected Sol architect for milestone design, difficult decisions, and final evidence review.",
-      "mode": "primary",
+      "description": "Sol architect for consequential design decisions and unresolved CPU, memory, ABI or GPU reasoning after a concise evidence report; one bounded escalation per decision.",
+      "mode": "all",
       "model": "openai/gpt-6.1-sol",
       "steps": 8,
       "permissions": [
