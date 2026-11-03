@@ -1,4 +1,12 @@
-# Read-only FATX directory/file component added
+# Device reports retain every bounded aperture entry and event
+
+Source-only milestone (November 3): the browser proof worker no longer truncates the modeled device-aperture report to 16 entries / 8 events. A new source-owned mapper validates the module's counts against the 1,024-entry / 4,096-event aperture capacities, copies every recorded entry and event, and maps the additive site field (`UINT32_MAX` to `null` for older modules). This is observational support for the next original device sequence, not an original-runtime advance.
+
+Validation: new Node tests cover 17 entries / 9 events (beyond the old caps), site/null mapping, capacity rejection and missing accessors; `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, FATX optimized/ASan/UBSan, `npm run check` and whitespace checks pass. No public CI result is claimed.
+
+Boundary: no original module was rebuilt or run, so there is no new original-runtime observation. ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`; the private export is unavailable in this worktree.
+
+## Read-only FATX directory/file component
 
 Source-only milestone (November 3): the validated FATX mount now has a read-only root/arbitrary-directory enumerator, file reader and relative-path lookup. It parses the public 64-byte FATX directory-entry layout, follows FAT16/FAT32 cluster chains with cycle, bounds and short-chain checks, and copies bytes only after a successful preflight. Path lookup walks up to eight components with an explicit case-fold flag. It is **not guest-integrated**: original `NtOpenFile`/read operations beyond the reached root/size path still stop.
 

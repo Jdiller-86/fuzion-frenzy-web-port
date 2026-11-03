@@ -88,6 +88,10 @@ The aperture no longer records a write before the generated store. `ff_device_re
 
 No original module was rebuilt or run, so build-16's recorded write values remain the old probe's pre-store placeholders; no new browser observation is claimed. ABI 24 and D060 are unchanged.
 
+### Complete device-aperture reporting
+
+The proof worker previously copied only 16 aperture entries and 8 ordered events into its report, which could hide the next original register sequence. `src/runtime/device-report.mjs` now validates the module's counts against the 1,024-entry / 4,096-event capacities, copies every recorded entry and event, and maps the additive site field (`UINT32_MAX` to `null` for older modules). Node tests cover 17 entries / 9 events (beyond the old caps), site/null mapping, capacity rejection and missing accessors; `npm run test:runtime` is 44/44. This is an observer capability only: no original module was rebuilt or run, and ABI 24/D060 are unchanged.
+
 ## Next task
 
 Decide the next device address (`0xfd009140`, a write) under the same evidence rules: either extend the explicit synthetic register file through a recorded decision, or stop there. Do not infer NV2A behavior, DMA, interrupts or rendering from these stores; the WBINVD admission (D060) remains conditioned on there being no device model beyond this storage abstraction.

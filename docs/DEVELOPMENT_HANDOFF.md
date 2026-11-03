@@ -1,4 +1,16 @@
-# Continue from the read-only FATX directory/file component
+# Continue from complete device-aperture reporting
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The browser proof worker now reports every bounded device-aperture entry and event instead of truncating to 16/8. The mapper rejects counts beyond the 1,024-entry / 4,096-event capacities, copies all recorded values and keeps the additive site mapping (`UINT32_MAX` to `null`). This prepares the next private device run for complete evidence.
+
+Validation: new Node tests 4/4 (17 entries/9 events, site/null, capacity rejection, missing accessors), `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, FATX optimized/ASan/UBSan, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency with the complete device report. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior FATX directory handoff
+
+## Read-only FATX directory/file component
 
 Read [the FATX utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
