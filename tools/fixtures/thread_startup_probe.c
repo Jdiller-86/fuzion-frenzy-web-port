@@ -1199,6 +1199,14 @@ static void allocate_virtual_memory(void)
     if (!row[1]) { row[7] = MEM32(row[2]); row[8] = MEM32(row[4]); }
     g_eax = row[1]; g_esp += 24;
 }
+static void allocate_contiguous_memory(void)
+{
+    uint32_t *row = kernel_record(166, 5), base = 0;
+    row[1] = ff_vm_allocate_contiguous(&virtual_memory, row[2], row[3], row[4], row[5], row[6], &base);
+    if (row[1] != 0 && row[1] != FF_BOOT_NO_MEMORY) stop(9, row[1], 166);
+    row[7] = base;
+    g_eax = base; g_esp += 24;
+}
 #endif
 #ifdef FF_TIMER_PROOF
 static void set_timer(void)
@@ -1242,6 +1250,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 291) return initialize_critical;
 #ifdef FF_MEMORY_STATISTICS_PROOF
         if (ordinal == 181) return query_memory_statistics;
+        if (ordinal == 166) return allocate_contiguous_memory;
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 128) return query_system_time;

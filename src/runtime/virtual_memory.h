@@ -35,6 +35,11 @@ uint32_t ff_vm_map_fixed(ff_virtual_memory *, uint32_t base, uint32_t bytes, uin
 uint32_t ff_vm_check(const ff_virtual_memory *, uint32_t address, uint64_t bytes, uint32_t access);
 uint32_t ff_vm_allocate(ff_virtual_memory *, uint32_t base_pointer, uint32_t zero_bits,
                         uint32_t size_pointer, uint32_t type, uint32_t protection);
+/* Physically contiguous kernel allocation over the identity-mapped window.
+ * Returns a genuine base or a checked failure; never a host pointer. */
+uint32_t ff_vm_allocate_contiguous(ff_virtual_memory *, uint32_t bytes, uint32_t lowest,
+                                   uint32_t highest, uint32_t alignment, uint32_t protection,
+                                   uint32_t *base);
 uint32_t ff_vm_free(ff_virtual_memory *, uint32_t base_pointer, uint32_t size_pointer, uint32_t type);
 uint32_t ff_vm_protect(ff_virtual_memory *, uint32_t base_pointer, uint32_t size_pointer,
                        uint32_t protection, uint32_t old_protection_pointer);

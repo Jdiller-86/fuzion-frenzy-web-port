@@ -133,9 +133,39 @@ static void implicit_reservation_and_output_overlap(void)
     put(BP, base); put(SP, 4096); save();
     assert(ff_vm_protect(&vm, BP, SP, 0x204, OLD) == FF_BOOT_UNSUPPORTED); unchanged();
 }
+static void contiguous_allocation_is_bounded_and_transactional(void)
+{
+    reset(); uint32_t base = 0;
+    assert(ff_vm_allocate_contiguous(&vm, 0x60, 0, 0x1ff7ff, 0, 4, &base) == 0 && base == 0x1FE000);
+    assert(ff_vm_check(&vm, base, 0x60, FF_VM_READ | FF_VM_WRITE) == 0);
+    for (unsigned i = 0; i < 0x60; ++i) assert(ram[base + i] == 0);
+    uint32_t second = 0;
+    assert(ff_vm_allocate_contiguous(&vm, 0x1000, 0, 0x1ff7ff, 0, 4, &second) == 0 && second == 0x1FD000);
+    uint32_t cached = 0;
+    assert(ff_vm_allocate_contiguous(&vm, 0x1000, 0, 0x1ff7ff, 0, 0x404, &cached) == 0 && cached == 0x1FC000);
+    assert(ff_vm_check(&vm, cached, 0x1000, FF_VM_READ | FF_VM_WRITE) == 0);
+    uint32_t aligned = 0;
+    assert(ff_vm_allocate_contiguous(&vm, 0x1000, 0, 0x1ff7ff, 0x2000, 4, &aligned) == 0 && aligned == 0x1FA000);
+    uint32_t none = 0xdeadbeef;
+    const uint32_t unknown_protections[] = {0x1004u, 0x8004u, 0x40cu, 0x400u, 0x800u};
+    for (unsigned i = 0; i < sizeof unknown_protections / sizeof *unknown_protections; ++i) {
+        save(); assert(ff_vm_allocate_contiguous(&vm, 0x10, 0, 0x1ff7ff, 0, unknown_protections[i], &none) == FF_VM_BAD_PROTECTION);
+        unchanged();
+    }
+    save();
+    assert(ff_vm_allocate_contiguous(&vm, 0x2000, 0, 0x1000, 0, 4, &none) == FF_BOOT_NO_MEMORY && none == 0xdeadbeef);
+    unchanged();
+    assert(ff_vm_allocate_contiguous(&vm, 0, 0, 0x1ff7ff, 0, 4, &none) == FF_BOOT_INVALID); unchanged();
+    assert(ff_vm_allocate_contiguous(&vm, 0x10, 0, 0x1ff7ff, 0x1001, 4, &none) == FF_BOOT_INVALID); unchanged();
+    assert(ff_vm_allocate_contiguous(&vm, 0x10, 0, 0x1ff7ff, 0x1800, 4, &none) == FF_BOOT_INVALID); unchanged();
+    assert(ff_vm_allocate_contiguous(&vm, 0x10, 0, 0x1ff7ff, 0, 0, &none) == FF_VM_BAD_PROTECTION); unchanged();
+    reset(); base = 0;
+    assert(ff_vm_allocate_contiguous(&vm, 0x1000, 0, 0x1ffff, 0, 4, &base) == FF_BOOT_NO_MEMORY && base == 0);
+}
 int main(void)
 {
     reserve_commit_and_protection(); decommit_release_and_split(); errors_are_transactional(); capacity_and_fixed_ownership(); implicit_reservation_and_output_overlap();
+    contiguous_allocation_is_bounded_and_transactional();
     puts("Owned virtual-memory reservation, commit, permission, split/release and failure scenarios passed");
     return 0;
 }

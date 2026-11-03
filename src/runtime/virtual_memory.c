@@ -14,7 +14,13 @@ static void put(ff_virtual_memory *vm, uint32_t p, uint32_t n)
 }
 static uint32_t permissions(uint32_t protection)
 {
-    switch (protection) {
+    /* PAGE_NOCACHE (0x400) and PAGE_WRITECOMBINE (0x800) are documented cache
+     * modifiers. This coherent guest-RAM model has no cache, so they are
+     * accepted as no-ops over a known base protection; every other bit stays
+     * rejected. */
+    const uint32_t modifiers = 0x400u | 0x800u;
+    if (protection & ~(modifiers | 0x40u | 0x20u | 0x10u | 0x8u | 0x4u | 0x2u | 0x1u)) return UINT32_MAX;
+    switch (protection & ~modifiers) {
         case 1: return 0;
         case 2: return FF_VM_READ;
         case 4: return FF_VM_READ | FF_VM_WRITE;
@@ -149,6 +155,41 @@ uint32_t ff_vm_allocate(ff_virtual_memory *vm, uint32_t bp, uint32_t zero_bits, 
     }
     put(vm, bp, low); put(vm, sp, high - low);
     return 0;
+}
+uint32_t ff_vm_allocate_contiguous(ff_virtual_memory *vm, uint32_t bytes, uint32_t lowest,
+                                   uint32_t highest, uint32_t alignment, uint32_t protection,
+                                   uint32_t *base_out)
+{
+    if (!vm || !vm->ram || !bytes || !base_out) return FF_BOOT_INVALID;
+    uint32_t access = permissions(protection);
+    if (access == UINT32_MAX) return protection_error(protection);
+    if (alignment && ((alignment & (alignment - 1u)) || (alignment % FF_VM_PAGE))) return FF_BOOT_INVALID;
+    uint32_t align = alignment ? alignment : FF_VM_PAGE;
+    uint64_t rounded = ((uint64_t)bytes + FF_VM_PAGE - 1u) & ~(uint64_t)(FF_VM_PAGE - 1u);
+    if (!rounded || rounded > vm->bytes) return FF_BOOT_UNSUPPORTED;
+    uint32_t high_byte = highest >= vm->bytes ? vm->bytes - 1u : highest;
+    uint64_t end = (uint64_t)high_byte + 1u;
+    if (end < rounded) return FF_BOOT_NO_MEMORY;
+    uint64_t cursor = (end - rounded) & ~(uint64_t)(align - 1u);
+    while (cursor + rounded <= end) {
+        uint32_t base = (uint32_t)cursor, low = 0, top = 0;
+        if (base >= lowest && span(vm, base, (uint32_t)rounded, &low, &top) && low == base &&
+            top == base + (uint32_t)rounded && free_span(vm, low, top)) {
+            unsigned index = empty_region(vm);
+            if (index == FF_VM_REGIONS) return FF_BOOT_NO_MEMORY;
+            vm->regions[index] = (ff_vm_region){low, top - low, protection, FF_VM_PRIVATE};
+            for (uint32_t p = low / FF_VM_PAGE; p < top / FF_VM_PAGE; ++p) {
+                vm->owner[p] = (uint16_t)(index + 1);
+                vm->committed[p] = 1; vm->permission[p] = (uint8_t)access;
+                memset(vm->ram + p * FF_VM_PAGE, 0, FF_VM_PAGE);
+            }
+            *base_out = low;
+            return 0;
+        }
+        if (cursor < align || cursor - align < lowest) break;
+        cursor -= align;
+    }
+    return FF_BOOT_NO_MEMORY;
 }
 uint32_t ff_vm_free(ff_virtual_memory *vm, uint32_t bp, uint32_t sp, uint32_t type)
 {

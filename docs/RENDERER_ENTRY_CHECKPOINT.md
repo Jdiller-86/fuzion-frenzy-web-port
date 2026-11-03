@@ -39,6 +39,8 @@ Private records under `research/verification/`:
 | `recomp-post-memory-next-01/02/03/seed.json`, `recomp-post-memory-closure-01/` | Read-only exports for the reached boundary |
 | `post-memory-front-checkpoint-20261102-01.json` | Independent identity audit of the front build and the `0x1fbb00` WBINVD bytes |
 | `post-memory-browser-20261102-05.json`, `-06.json` | Previous boundary: stop at `0x001fbb00` entry before the WBINVD admission |
+| `post-memory-browser-20261102-09.json`, `-10.json` | Ordinal-166 service: both profiles allocate 96 then 532,480 bytes, 233 routines / 396 operations, stop `0x001fe05a` return `0x001fe5ab`, consistent statistics |
+| `contiguous-memory-checkpoint-20261102-01.json` | Build-07 module/source identities, both reports' ordinal-166/107 dispatch, stop and statistics facts; zero source mismatches |
 
 `python3 tests/title_seed_test.py` passes 25 tests (including the new WBINVD admission and rejection cases). `npm run check` and `npm run test:runtime` (40/40) pass. No public CI result is claimed.
 
@@ -48,6 +50,14 @@ Private records under `research/verification/`:
 - The WBINVD model has no ordering, cache, TLB, device-visibility or timing semantics and admits exactly one site.
 - General FATX files/writes/persistence, disc reads, scheduling/preemption, exceptions, audio, controllers, playability, end-user conversion and every planned online/social/control/authority feature remain unfinished.
 
+## Contiguous-memory service and the new graphics boundary
+
+`ff_vm_allocate_contiguous` implements ordinal 166 for the reached request: page-rounded, top-down first-fit inside `[lowest, highest]`, alignment honoured, checked span/ownership, a real `FF_VM_PRIVATE` region claimed and every page committed/zero-filled, with `base` written only on success. `permissions()` accepts the documented cache modifiers `PAGE_NOCACHE (0x400)` and `PAGE_WRITECOMBINE (0x800)` as no-ops over a known base protection and still rejects every other bit.
+
+Both profiles against `recomp-post-memory-build-07` (module `00c1b2ed…`, 1,019,182 bytes) now service ordinal 166 twice (96 bytes, then 532,480 bytes) and continue to **233** routines, **396** kernel operations and 3,631 events. `MmQueryStatistics` reports `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`, i.e. 1,948 pages used = 1,813 fixed (pool/stack/image) + 135 committed, matching the two contiguous allocations. Ordinal 107 was also dispatched with status 0 by the existing binding; its identity is not established here.
+
+Execution then stops at **`0x001fe05a`** (status 2, untranslated original routine) with return `0x001fe5ab`, having re-entered the graphics cluster. Reports: `post-memory-browser-20261102-09.json` and `-10.json`; audit: `contiguous-memory-checkpoint-20261102-01.json` (zero source-identity mismatches, module file matches the build record, both profiles identical).
+
 ## Next task
 
-Implement ordinal 166, `MmAllocateContiguousMemoryEx`, following the reached request: 0x60 bytes, lowest 0, highest 0x3FFAFFF, alignment 0, protect 4. Model contiguous physical page ownership consistently with `MmQueryStatistics`, return a real guest address or a checked failure, and record output/failure atomicity. Do not return the request's highest address, a Wasm pointer or an invented success. Then continue `0x001fbb00` and follow its next genuine dependency. Reuse `recomp-title-post-memory-05`, the new build and the retained analysis project.
+Admit and translate the reached `0x001fe05a` from a bounded read-only export, then observe its next genuine kernel or translation dependency. Preserve byte/decoder/layout/memory admission and the existing budgets; do not substitute a graphics/D3D result. The ordinal-166 service is bounded to this identity-mapped window and still has no physical-address space separate from guest VA; record any new address/permission semantics explicitly.
