@@ -11,6 +11,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
 #include "../../src/runtime/interrupt_vector.h"
+#include "../../src/runtime/gpu_instance.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -1308,6 +1309,14 @@ static void allocate_contiguous_memory(void)
     row[7] = base;
     g_eax = base; g_esp += 24;
 }
+static void claim_gpu_instance_memory(void)
+{
+    uint32_t *row = kernel_record(168, 2), base = 0;
+    row[1] = ff_claim_gpu_instance_memory(&virtual_memory, row[2], row[3], 0, 0x03e00000u, &base);
+    if (row[1]) stop(9, row[1], 168);
+    row[4] = base;
+    g_eax = base; g_esp += 12;
+}
 #endif
 #ifdef FF_TIMER_PROOF
 static void set_timer(void)
@@ -1356,6 +1365,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_MEMORY_STATISTICS_PROOF
         if (ordinal == 181) return query_memory_statistics;
         if (ordinal == 166) return allocate_contiguous_memory;
+        if (ordinal == 168) return claim_gpu_instance_memory;
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 128) return query_system_time;

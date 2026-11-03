@@ -5,8 +5,8 @@
 /* Bounded synthetic device aperture for reached original register accesses.
  * Not an NV2A model: every address starts unknown unless the selected profile
  * supplies a value; unknown reads fault instead of returning a fabricated 0. */
-#define FF_DEVICE_ENTRIES 1024u
-#define FF_DEVICE_EVENTS 4096u
+#define FF_DEVICE_ENTRIES 8192u
+#define FF_DEVICE_EVENTS 8192u
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_READ 1u
 #define FF_DEVICE_WRITE 2u

@@ -157,8 +157,23 @@ The explicit synthetic profile also supplied zero for `0xFD100200`, `0xFD100204`
 
 Execution stopped at ordinal **168 `MmClaimGpuInstanceMemory`** (status 1, return `0x1FFE76`, request `[0x5000, padding pointer]`). The report is `research/verification/post-memory-browser-20261103-06.json` (local/ignored). There is no playable screen.
 
-The pinned public bridge models ordinal 168 as returning the top of the contiguous window minus the requested bytes and writing zero to the padding output; its 64 MiB window at `0x80000000` is not this project's window. The static path after the call clears 0x5000 bytes at `0xFD700000` plus the padding value; that clear has not executed, and the aperture's 1,024-entry / 4,096-event capacity needs an explicit decision.
+The pinned public bridge models ordinal 168 as returning the top of the contiguous window minus the requested bytes and writing zero to the padding output; its 64 MiB window at `0x80000000` is not this project's window.
+
+### Claim GPU instance memory
+
+Using the same translation with the source-owned `gpu_instance` service and expanded aperture, module `recomp-post-memory-build-25` is 466,517 bytes, SHA-256 `ee7c9a2e98bf4698eddb094196a0b54b9ecfbe9e3817f8945032e56dcc3a9956`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 238 distinct original routines executed and 400 kernel operations completed;
+- ordinal 168 returned status 0 with base `0x03B78000` and zero padding;
+- the original 5,120 dword stores cleared `0xFD700000`–`0xFD704FFC`;
+- the aperture retained 5,142 entries and 5,152 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FDF70`** (return `0x1FFF1A`, status 2). The report is `research/verification/post-memory-browser-20261103-07.json` (local/ignored). There is no playable screen.
+
+The service claims the topmost free span through the bounded contiguous allocator rather than copying the bridge's `0x80000000` window; it validates padding before allocation and writes zero only after a successful claim. GPU-instance and device-register tests pass optimized and ASan/UBSan.
 
 ## Next task
 
-Implement and verify the bounded `MmClaimGpuInstanceMemory` service and the reached 0x5000-byte clear under an explicit capacity/bulk-write model, preserving the project's contiguous window and memory accounting. Then continue to `0x1FDF70`. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FDF70` (19 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-09` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or writes. The captured line/quad reference comparison and browser prepass also remain private.

@@ -1,10 +1,14 @@
-# Original execution reaches MmClaimGpuInstanceMemory
+# Original execution claims GPU instance memory and reaches 0x1FDF70
 
-November 3: original `0x001ffe27` executes through its three device reads and stops at ordinal **168 `MmClaimGpuInstanceMemory`** (status 1, return `0x1FFE76`, request `[0x5000, padding pointer]`). All 83 initialization callbacks return; 238 distinct original routines execute and 399 kernel operations complete. **There is no playable original screen.**
+November 3: ordinal **168 `MmClaimGpuInstanceMemory`** now returns a bounded source-owned base for the 0x5000-byte request, the original 0x5000-byte device clear executes, and `0x001ffe27` reaches untranslated **`0x1FDF70`** (return `0x1FFF1A`, status 2). All 83 initialization callbacks return; 238 distinct original routines execute and **400** kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-12` is 348 functions / 13,185 instructions; module `recomp-post-memory-build-24` is 465,978 bytes, SHA-256 `67e7c9a5…`. The explicit synthetic profile now supplies zero for three additional reads: `0xFD100200`, `0xFD100204` and `0xFD001218`. These are test inputs, not console defaults. The aperture logged 28 events across 19 addresses. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-06.json`.
+Module `recomp-post-memory-build-25` is 466,517 bytes, SHA-256 `ee7c9a2e…`; the translation remains 348 functions / 13,185 instructions. The source-owned `gpu_instance` service claims the topmost free span (base `0x03B78000`) rather than copying the pinned bridge's `0x80000000` window, validates and zeros the padding output, and uses the expanded 8,192-entry / 8,192-event aperture so the 0x5000-byte clear is retained rather than truncated. The run logged 5,142 device entries and 5,152 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-07.json`.
 
-The pinned public bridge models ordinal 168 as returning the top of the contiguous window minus the requested bytes and writing zero to the padding output; its 64 MiB window at `0x80000000` is not this project's window, so that address is not copied. No guest result was supplied. The static path after the call stores the base and then clears 0x5000 bytes at `0xFD700000` plus the padding value, which is not yet executed. Validation: device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Validation: `tests/gpu_instance_test.c` and `tests/device_registers_test.c` optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: MmClaimGpuInstanceMemory request
+
+Original `0x001ffe27` executed through its three device reads and stopped at ordinal 168 with a 0x5000-byte request and padding pointer. Selection `recomp-title-post-memory-12` was 348 functions / 13,185 instructions; module `recomp-post-memory-build-24` was 465,978 bytes, SHA-256 `67e7c9a5…`. The run reached 238 routines, 399 kernel operations and 28 device events. Report `post-memory-browser-20261103-06.json`.
 
 ## Prior: 0x1ffcc0
 

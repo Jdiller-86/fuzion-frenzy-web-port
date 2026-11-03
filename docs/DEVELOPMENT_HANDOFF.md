@@ -1,14 +1,18 @@
-# Continue from MmClaimGpuInstanceMemory at 0x1FFE76
+# Continue from the GPU instance claim at 0x1FDF70
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x001ffe27` executed through its three device reads and stopped at ordinal **168 `MmClaimGpuInstanceMemory`** (status 1, return `0x1FFE76`, request `[0x5000, padding pointer]`). All 83 initialization callbacks return; 238 distinct original routines execute and 399 kernel operations complete. The explicit synthetic profile now supplies zero for three additional reads (`0xFD100200`, `0xFD100204`, `0xFD001218`); these are test inputs, not original defaults. The aperture logged 28 events across 19 addresses.
+Original `0x001ffe27` now receives a bounded source-owned result for ordinal **168 `MmClaimGpuInstanceMemory`**, executes the original 0x5000-byte clear, and reaches untranslated **`0x1FDF70`** (return `0x1FFF1A`, status 2). All 83 initialization callbacks return; 238 distinct original routines execute and **400** kernel operations complete. The explicit synthetic profile includes `0xFD100214` plus the earlier entries; all values are test inputs, not original defaults.
 
-Selection `recomp-title-post-memory-12` is 348 functions / 13,185 instructions; module `recomp-post-memory-build-24` is SHA-256 `67e7c9a5…` (465,978 bytes). The local report is `post-memory-browser-20261103-06.json`. The pinned public bridge reports ordinal 168 as returning the top of the contiguous window minus the requested bytes and writing zero to the padding output; its 64 MiB window at `0x80000000` is not this project's window, so that address is not copied. No guest result was supplied. The static path after the call stores the base and clears 0x5000 bytes at `0xFD700000` plus the padding value; that clear has not executed. The aperture holds 1,024 entries and 4,096 events, so the next task must choose an explicit capacity or bulk-write model rather than silently dropping writes.
+Module `recomp-post-memory-build-25` is SHA-256 `ee7c9a2e…` (466,517 bytes); the translation remains 348 functions / 13,185 instructions. The source-owned `gpu_instance` service claims the topmost free span (base `0x03B78000`), validates and zeros the padding output, and the aperture now retains 8,192 entries / 8,192 events so the 5,120-store clear is recorded rather than truncated. The local report is `post-memory-browser-20261103-07.json`.
 
-Validation: device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: `tests/gpu_instance_test.c` and `tests/device_registers_test.c` optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** implement and verify the bounded `MmClaimGpuInstanceMemory` service and the reached 0x5000-byte clear under an explicit capacity/bulk-write model, preserving the project's contiguous window and memory accounting. Then continue to `0x1FDF70`. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic device reads/writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x1FDF70` (19 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-09` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, device reads/writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: MmClaimGpuInstanceMemory request
+
+Original `0x001ffe27` executed through its three device reads and stopped at ordinal 168 with a 0x5000-byte request and padding pointer. Selection `recomp-title-post-memory-12` was 348 functions / 13,185 instructions; module `recomp-post-memory-build-24` was 465,978 bytes, SHA-256 `67e7c9a5…`. The run reached 238 routines, 399 kernel operations and 28 device events. Report `post-memory-browser-20261103-06.json`.
 
 ## Prior: 0x1ffcc0
 
