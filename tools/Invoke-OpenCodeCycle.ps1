@@ -8,6 +8,20 @@ $sessionPath = Join-Path $repo '.worktrees\opencode-cycle-session.txt'
 $logPath = Join-Path $repo '.worktrees\opencode-cycle.log'
 $lockPath = Join-Path $repo '.worktrees\opencode-cycle.lock'
 
+function Get-WorktreeFingerprint([string]$path) {
+    $unstaged = git -C $path diff --binary --no-ext-diff | Out-String
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect unstaged worktree changes.' }
+    $staged = git -C $path diff --cached --binary --no-ext-diff | Out-String
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect staged worktree changes.' }
+    $status = git -C $path status --porcelain | Out-String
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect worktree status.' }
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [Text.Encoding]::UTF8.GetBytes($unstaged + $staged + $status)
+        return ([BitConverter]::ToString($hash.ComputeHash($bytes))).Replace('-', '')
+    } finally { $hash.Dispose() }
+}
+
 if (-not (Test-Path -LiteralPath $worktree)) { throw 'Clean OpenCode worktree is missing.' }
 $lock = $null
 try {
@@ -36,6 +50,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Could not fast-forward clean worktree.' }
         $head = (git -C $worktree rev-parse HEAD).Trim()
     }
+    $beforeFingerprint = Get-WorktreeFingerprint $worktree
 
     $previous = $null
     if (Test-Path -LiteralPath $statePath) {
@@ -45,7 +60,7 @@ try {
     }
 
     $failures = if ($previous -and $previous.outcome -in @('running', 'retry', 'no_progress')) { [int]$previous.failures + 1 } else { 0 }
-    $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures; sessionId = $sessionId }
+    $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures; sessionId = $sessionId; startedFingerprint = $beforeFingerprint }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     if ($dirty -and $sessionId) {
         $prompt = 'Continue the unfinished Fuzion Frenzy milestone in this same project session. Inspect the current diff and the previous cycle result, then complete the pending implementation, targeted checks, status/decision updates, source-only staged-path review and bounded commit. Preserve all worktree edits. Do not restart discovery or switch tasks unless the current task is demonstrably blocked. Never push or merge to main.'
@@ -86,10 +101,12 @@ try {
     $output | Add-Content -LiteralPath $logPath
     $after = (git -C $worktree rev-parse HEAD).Trim()
     $dirty = (git -C $worktree status --porcelain).Count -gt 0
+    $afterFingerprint = Get-WorktreeFingerprint $worktree
     $state.finished = (Get-Date).ToString('o')
     $state.exitCode = $exitCode
     $state.finishedHead = $after
-    $state.outcome = if ($exitCode -ne 0) { 'retry' } elseif ($dirty) { 'resume' } elseif ($after -eq $head) { 'no_progress' } else { 'progressed' }
+    $state.finishedFingerprint = $afterFingerprint
+    $state.outcome = if ($exitCode -ne 0) { 'retry' } elseif ($after -ne $head) { 'progressed' } elseif ($afterFingerprint -ne $beforeFingerprint) { 'resume' } else { 'no_progress' }
     $summary = ($output | Out-String).Trim()
     if ($summary.Length -gt 2000) { $summary = $summary.Substring($summary.Length - 2000) }
     $state.lastSummary = $summary
