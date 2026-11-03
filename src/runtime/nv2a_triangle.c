@@ -117,6 +117,23 @@ static void emit_line(const FFNv2aPostVertex input[3], unsigned i0, unsigned i1,
     }
 }
 
+/* Shared shader fill body for the triangle, strip, fan and polygon branches. */
+static void emit_fill(const FFNv2aPostVertex input[3], const unsigned *indices,
+                      uint32_t perspective_depth, uint32_t arithmetic,
+                      unsigned flat_color, uint32_t smooth,
+                      FFNv2aRasterVertex output[3])
+{
+    float rows[3][4], slope;
+    calc_triz(input, indices, perspective_depth, arithmetic, rows, &slope);
+    FFNv2aRasterVertex expanded[3];
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = indices[i];
+        emit_vertex(input, index, smooth ? index : flat_color, rows, slope,
+                    &expanded[i]);
+    }
+    memcpy(output, expanded, sizeof(expanded));
+}
+
 int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
                             const FFNv2aTriangleState *state,
                             FFNv2aRasterVertex output[3], uint32_t arithmetic)
@@ -126,17 +143,43 @@ int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
     }
     static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
     const unsigned *indices = order[state->rotation];
-    float rows[3][4], slope;
-    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
     const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
+    emit_fill(input, indices, state->perspective_depth, arithmetic, flat_color,
+              state->smooth, output);
+    return 0;
+}
 
-    FFNv2aRasterVertex expanded[3];
-    for (unsigned i = 0; i < 3; ++i) {
-        const unsigned index = indices[i];
-        emit_vertex(input, index, state->smooth ? index : flat_color,
-                    (const float (*)[4])rows, slope, &expanded[i]);
+int ff_nv2a_expand_triangle_strip(const FFNv2aPostVertex input[3],
+                                  const FFNv2aTriangleState *state,
+                                  FFNv2aRasterVertex output[3], uint32_t arithmetic,
+                                  uint32_t primitive_id)
+{
+    if (!input || !output || invalid_state(state, arithmetic) ||
+        state->rotation_odd > 2) {
+        return -1;
     }
-    memcpy(output, expanded, sizeof(expanded));
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const uint32_t parity = primitive_id & 1u;
+    const unsigned *indices = order[parity ? state->rotation_odd : state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0]
+                                                       : indices[2 - parity];
+    emit_fill(input, indices, state->perspective_depth, arithmetic, flat_color,
+              state->smooth, output);
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_fan(const FFNv2aPostVertex input[3],
+                                const FFNv2aTriangleState *state,
+                                FFNv2aRasterVertex output[3], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[1];
+    emit_fill(input, indices, state->perspective_depth, arithmetic, flat_color,
+              state->smooth, output);
     return 0;
 }
 
@@ -151,18 +194,9 @@ int ff_nv2a_expand_polygon_fill(const FFNv2aPostVertex input[3],
     }
     static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
     const unsigned *indices = order[state->rotation];
-    float rows[3][4], slope;
-    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
     /* The pinned polygon fill branch always takes the rotated third vertex. */
-    const unsigned flat_color = indices[2];
-
-    FFNv2aRasterVertex expanded[3];
-    for (unsigned i = 0; i < 3; ++i) {
-        const unsigned index = indices[i];
-        emit_vertex(input, index, state->smooth ? index : flat_color, rows,
-                    slope, &expanded[i]);
-    }
-    memcpy(output, expanded, sizeof(expanded));
+    emit_fill(input, indices, state->perspective_depth, arithmetic, indices[2],
+              state->smooth, output);
     return 0;
 }
 

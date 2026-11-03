@@ -27,7 +27,7 @@ static void triangle_polygon_modes(void)
     FFNv2aPostVertex input[3];
     triangle_inputs(input, positions);
     FFNv2aRasterVertex output[6];
-    FFNv2aTriangleState state = {0,0,0,0};
+    FFNv2aTriangleState state = {0,0,0,0,0};
 
     /* LINE mode: shared slope, rotated helper row, triangle provoking color. */
     assert(ff_nv2a_expand_triangle_lines(input, &state, output, FF_NV2A_FUSED) == 0);
@@ -71,7 +71,7 @@ static void triangle_polygon_modes(void)
         assert(!memcmp(output[i].color, input[1].color, sizeof(output[0].color)));
 
     /* POINT mode: one repeated position row per rotated vertex. */
-    state = (FFNv2aTriangleState){0,0,0,0};
+    state = (FFNv2aTriangleState){0,0,0,0,0};
     FFNv2aRasterVertex points[3];
     assert(ff_nv2a_expand_triangle_points(input, &state, points, FF_NV2A_FUSED) == 0);
     for (unsigned i = 0; i < 3; ++i) {
@@ -101,7 +101,7 @@ static void triangle_polygon_modes(void)
     FFNv2aRasterVertex saved[6], saved_points[3];
     memcpy(saved, output, sizeof(saved));
     memcpy(saved_points, points, sizeof(saved_points));
-    state = (FFNv2aTriangleState){0,0,0,0};
+    state = (FFNv2aTriangleState){0,0,0,0,0};
     assert(ff_nv2a_expand_triangle_lines(NULL, &state, output, FF_NV2A_FUSED) == -1);
     assert(ff_nv2a_expand_triangle_lines(input, NULL, output, FF_NV2A_FUSED) == -1);
     assert(ff_nv2a_expand_triangle_lines(input, &state, NULL, FF_NV2A_FUSED) == -1);
@@ -218,6 +218,102 @@ static void polygon_primitive_modes(void)
     assert(!memcmp(line, saved_line, sizeof(saved_line)));
 }
 
+static void triangle_strip_and_fan_modes(void)
+{
+    const float positions[3][4] = { {0,0,1,1}, {1,0,2,2}, {0,1,3,4} };
+    FFNv2aPostVertex input[3];
+    triangle_inputs(input, positions);
+    FFNv2aRasterVertex output[3];
+
+    /* TRIANGLE_STRIP: even/odd primitive IDs select different rotations and
+     * alternate the flat provoking vertex. */
+    FFNv2aTriangleState state = {0,0,0,0,1};
+    static const unsigned even_order[3] = { 0, 1, 2 };
+    static const unsigned odd_order[3] = { 2, 0, 1 };
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 0) == 0);
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = even_order[i];
+        assert(output[i].clip[0] == (float)index);
+        assert(!memcmp(output[i].color, input[2].color, sizeof(output[i].color)));
+        for (unsigned j = 0; j < 3; ++j)
+            assert(!memcmp(output[i].triangle_position[j], positions[even_order[j]],
+                           sizeof(positions[0])));
+        assert(output[i].depth_slope == 2.0f);
+    }
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 1) == 0);
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = odd_order[i];
+        assert(output[i].clip[0] == (float)index);
+        assert(!memcmp(output[i].color, input[0].color, sizeof(output[i].color)));
+        for (unsigned j = 0; j < 3; ++j)
+            assert(!memcmp(output[i].triangle_position[j], positions[odd_order[j]],
+                           sizeof(positions[0])));
+        assert(output[i].depth_slope == 2.0f);
+    }
+    state.first_provoking = 1;
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 0) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[0].color, sizeof(output[i].color)));
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 1) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[2].color, sizeof(output[i].color)));
+    state.first_provoking = 0;
+    state.smooth = 1;
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 0) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[even_order[i]].color,
+                       sizeof(output[0].color)));
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 1) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[odd_order[i]].color,
+                       sizeof(output[0].color)));
+
+    /* TRIANGLE_FAN: one rotation, flat provoking at the rotated second vertex. */
+    state = (FFNv2aTriangleState){0,0,0,2,0};
+    static const unsigned fan_order[3] = { 1, 2, 0 };
+    assert(ff_nv2a_expand_triangle_fan(input, &state, output, FF_NV2A_FUSED) == 0);
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = fan_order[i];
+        assert(output[i].clip[0] == (float)index);
+        assert(!memcmp(output[i].color, input[2].color, sizeof(output[i].color)));
+        for (unsigned j = 0; j < 3; ++j)
+            assert(!memcmp(output[i].triangle_position[j], positions[fan_order[j]],
+                           sizeof(positions[0])));
+        assert(output[i].depth_slope == 2.0f);
+    }
+    state.first_provoking = 1;
+    assert(ff_nv2a_expand_triangle_fan(input, &state, output, FF_NV2A_FUSED) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[1].color, sizeof(output[i].color)));
+    state.first_provoking = 0;
+    state.rotation = 0;
+    state.smooth = 1;
+    assert(ff_nv2a_expand_triangle_fan(input, &state, output, FF_NV2A_FUSED) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(output[i].color, input[i].color, sizeof(output[0].color)));
+
+    /* Rejection must leave every output byte unchanged. */
+    state = (FFNv2aTriangleState){0,0,0,0,0};
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 0) == 0);
+    FFNv2aRasterVertex saved[3];
+    memcpy(saved, output, sizeof(saved));
+    state.rotation_odd = 3;
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 0) == -1);
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, FF_NV2A_FUSED, 1) == -1);
+    assert(ff_nv2a_expand_triangle_strip(input, NULL, output, FF_NV2A_FUSED, 0) == -1);
+    state.rotation_odd = 0;
+    assert(ff_nv2a_expand_triangle_strip(input, &state, output, 2, 0) == -1);
+    assert(ff_nv2a_expand_triangle_strip(NULL, &state, output, FF_NV2A_FUSED, 0) == -1);
+    assert(ff_nv2a_expand_triangle_strip(input, &state, NULL, FF_NV2A_FUSED, 0) == -1);
+    state.rotation = 3;
+    assert(ff_nv2a_expand_triangle_fan(input, &state, output, FF_NV2A_FUSED) == -1);
+    state.rotation = 0;
+    assert(ff_nv2a_expand_triangle_fan(input, &state, output, 2) == -1);
+    assert(ff_nv2a_expand_triangle_fan(input, NULL, output, FF_NV2A_FUSED) == -1);
+    assert(ff_nv2a_expand_triangle_fan(NULL, &state, output, FF_NV2A_FUSED) == -1);
+    assert(!memcmp(output, saved, sizeof(saved)));
+}
+
 int main(void)
 {
     FFNv2aPostVertex input[3] = {0};
@@ -235,7 +331,7 @@ int main(void)
         }
     }
     FFNv2aRasterVertex output[3];
-    FFNv2aTriangleState state = {1,0,0,0};
+    FFNv2aTriangleState state = {1,0,0,0,0};
     assert(ff_nv2a_expand_triangle(input, &state, output, FF_NV2A_FUSED) == 0);
     for (unsigned i = 0; i < 3; ++i) {
         assert(output[i].depth_slope == 2.0f);
@@ -255,7 +351,7 @@ int main(void)
     assert(ff_nv2a_expand_triangle(input, &state, output, FF_NV2A_FUSED) == 0);
     assert(output[0].clip[0] == 2 && output[1].clip[0] == 0 && output[2].clip[0] == 1);
     assert(output[1].color[0][0] == 200);
-    state = (FFNv2aTriangleState){1,0,0,0};
+    state = (FFNv2aTriangleState){1,0,0,0,0};
     memcpy(input[2].position, input[1].position, sizeof(input[2].position));
     assert(ff_nv2a_expand_triangle(input, &state, output, FF_NV2A_FUSED) == 0);
     assert(output[0].depth_slope == 0);
@@ -275,7 +371,7 @@ int main(void)
         {1131899770,1129275120,3304187498,1091484617}
     };
     for (unsigned i = 0; i < 3; ++i) memcpy(input[i].position, sensitive[i], sizeof(sensitive[i]));
-    state = (FFNv2aTriangleState){1,0,0,0};
+    state = (FFNv2aTriangleState){1,0,0,0,0};
     uint32_t slope_bits;
     assert(ff_nv2a_expand_triangle(input, &state, output, FF_NV2A_FUSED) == 0);
     memcpy(&slope_bits, &output[0].depth_slope, sizeof(slope_bits));
@@ -288,6 +384,7 @@ int main(void)
     assert(!memcmp(before, output, sizeof(before)));
     triangle_polygon_modes();
     polygon_primitive_modes();
-    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon cases passed");
+    triangle_strip_and_fan_modes();
+    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan cases passed");
     return 0;
 }

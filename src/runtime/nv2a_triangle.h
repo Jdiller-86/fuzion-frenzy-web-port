@@ -32,6 +32,10 @@ typedef struct FFNv2aTriangleState {
     uint32_t first_provoking;
     uint32_t perspective_depth;
     uint32_t rotation;
+    /* Odd-parity rotation for triangle strips. Ignored by the list, fan, line
+     * and point paths.
+     */
+    uint32_t rotation_odd;
 } FFNv2aTriangleState;
 
 /* PRIM_TYPE_POLYGON state. The pinned fill branch always uses the rotated third
@@ -79,6 +83,30 @@ int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
 int ff_nv2a_expand_triangle_points(const FFNv2aPostVertex input[3],
                                    const FFNv2aTriangleState *state,
                                    FFNv2aRasterVertex output[3], uint32_t arithmetic);
+
+/* PRIM_TYPE_TRIANGLE_STRIP fill for one host-assembled triangle. Even
+ * primitive IDs use `rotation`; odd IDs use `rotation_odd`. The flat provoking
+ * vertex follows the shader: the rotated first vertex when first_provoking is
+ * set, otherwise the rotated `indices[2 - (primitive_id & 1)]`. Smooth color
+ * follows each emitted input.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_strip(const FFNv2aPostVertex input[3],
+                                  const FFNv2aTriangleState *state,
+                                  FFNv2aRasterVertex output[3], uint32_t arithmetic,
+                                  uint32_t primitive_id);
+
+/* PRIM_TYPE_TRIANGLE_FAN fill for one host-assembled triangle. The shader uses
+ * one fan rotation for every triangle; the flat provoking vertex is the rotated
+ * first vertex when first_provoking is set, otherwise the rotated second
+ * vertex. Smooth color follows each emitted input.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_fan(const FFNv2aPostVertex input[3],
+                                const FFNv2aTriangleState *state,
+                                FFNv2aRasterVertex output[3], uint32_t arithmetic);
 
 /* PRIM_TYPE_POLYGON fill: emits the three rotated vertices with the triangle
  * depth slope. The pinned branch always takes the rotated third vertex as the
