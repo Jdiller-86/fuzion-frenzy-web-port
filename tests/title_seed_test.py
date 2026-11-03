@@ -16,6 +16,40 @@ def fixture():
 
 
 class EnvelopeTests(unittest.TestCase):
+    def test_wbinvd_is_admitted_only_at_its_witnessed_site(self):
+        row = {"address": "1fbea3", "length": 2, "mnemonic": "WBINVD", "analysisBytesHex": "0f09",
+               "call": False, "computed": False}
+        item = {"entry": "1fbb00", "instructions": [row]}
+        read = lambda address, size: b"\x0f\x09" if (address, size) == (0x001FBEA3, 2) else b"\x00" * size
+        self.assertEqual(prepare.checked_modeled_noop_sites([item], read),
+                         [{"address": "001fbea3", "bytes": "0f09", "mnemonic": "WBINVD", "sites": 1,
+                           "modeledSemantics": "no-op; single-core coherent guest RAM; no caches/TLB/devices/SMP/interrupts/cycle fidelity",
+                           "decision": "D060"}])
+        self.assertEqual(prepare.checked_modeled_noop_sites([{"entry": "100", "instructions": []}], read), [])
+        for change in [{"address": "1fbea4"}, {"length": 1}, {"analysisBytesHex": "0f08"}, {"call": True}]:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                prepare.checked_modeled_noop_sites([{"entry": "1fbb00", "instructions": [{**row, **change}]}], read)
+        with self.assertRaises(ValueError):
+            prepare.checked_modeled_noop_sites([item, {"entry": "200", "instructions": [row]}], read)
+        with self.assertRaises(ValueError):
+            prepare.checked_modeled_noop_sites([item], lambda address, size: b"\x0f\x08")
+
+    def test_wbinvd_gate_and_emission_allow_exactly_one_site(self):
+        self.assertIsNone(prepare.admit_modeled_noop({}))
+        self.assertEqual(prepare.admit_modeled_noop({"wbinvd": [0x001FBEA3]}), "wbinvd")
+        for gap in [{"wbinvd": [0x001FBEA4]}, {"wbinvd": [0x001FBEA3, 0x001FBEA3]},
+                    {"wbinvd": [0x001FBEA3], "invd": [0x500]}, {"invd": [0x001FBEA3]}, {"hlt": [0x500]}]:
+            with self.subTest(gap=gap), self.assertRaises(ValueError):
+                prepare.admit_modeled_noop(gap)
+        marker = 'RECOMP_UNIMPL("wbinvd", 0x001FBEA3u); /* TODO: wbinvd */'
+        self.assertEqual(prepare.apply_modeled_noop("a " + marker + " b", "wbinvd", 0x001FBEA3),
+                         "a FF_GUEST_WBINVD(0x001FBEA3u); /* wbinvd: modeled no-op, D060 */ b")
+        self.assertEqual(prepare.apply_modeled_noop('x RECOMP_UNIMPL("wbinvd", 0x001FBEA3u); y', "wbinvd", 0x001FBEA3),
+                         "x FF_GUEST_WBINVD(0x001FBEA3u); /* wbinvd: modeled no-op, D060 */ y")
+        for text in ["a b", marker + marker]:
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                prepare.apply_modeled_noop(text, "wbinvd", 0x001FBEA3)
+
     def test_register_loaded_kernel_function_pointer_requires_its_exact_declared_slot(self):
         row={'mnemonic':'MOV','length':6,'call':False,'computed':False,'analysisBytesHex':'8b3500510000',
              'references':[{'type':'READ','target':'5100'}]}

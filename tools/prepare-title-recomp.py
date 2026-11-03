@@ -175,6 +175,62 @@ def validate_seed_sizes(sizes, export_limit=MAX_SEED_EXPORTS):
         raise ValueError("Aggregate seed metadata budget exceeded")
 
 
+MODELED_NOOP_SITES = {"wbinvd": 0x001FBEA3}
+
+
+def checked_modeled_noop_sites(items, read_bytes):
+    """Admit only the witnessed privileged no-op instruction (WBINVD, D060).
+
+    Intel documents WBINVD as internal cache write-back/invalidation plus
+    external-cache signaling and serialization, with no register, flag or memory
+    effect. This modeled machine has one core, coherent guest RAM behind checked
+    accessors, no data/instruction cache, no TLB or guest page tables, no
+    device/DMA model, no SMP and no interleaving interrupts, so none of those
+    effects has a witness. Admission stays at this exact site and byte pair; any
+    second site, other mnemonic or different encoding fails.
+    """
+    sites = []
+    for item in items:
+        for row in item.get("instructions", []):
+            if row.get("mnemonic") == "WBINVD":
+                sites.append((int(row["address"], 16), row))
+    if not sites:
+        return []
+    if len(sites) != 1:
+        raise ValueError("Only one witnessed WBINVD site is admitted")
+    address, row = sites[0]
+    expected = MODELED_NOOP_SITES["wbinvd"]
+    raw = read_bytes(address, 2)
+    if (address != expected or row.get("length") != 2 or row.get("analysisBytesHex", "").lower() != "0f09"
+            or row.get("call") or row.get("computed") or len(raw) != 2 or raw.hex() != "0f09"):
+        raise ValueError("Unsupported privileged instruction site")
+    return [{"address": f"{address:08x}", "bytes": "0f09", "mnemonic": "WBINVD", "sites": 1,
+             "modeledSemantics": "no-op; single-core coherent guest RAM; no caches/TLB/devices/SMP/interrupts/cycle fidelity",
+             "decision": "D060"}]
+
+
+def admit_modeled_noop(unimplemented):
+    """Return the single admitted mnemonic or raise for any other gap."""
+    if not unimplemented:
+        return None
+    if list(unimplemented) != ["wbinvd"] or unimplemented["wbinvd"] != [MODELED_NOOP_SITES["wbinvd"]]:
+        raise ValueError("Translation contains unsupported instructions: " + str(unimplemented))
+    return "wbinvd"
+
+
+def apply_modeled_noop(text, mnemonic, address):
+    """Rewrite the one emitted marker into the owned sink call; keep it visible."""
+    marker = f'RECOMP_UNIMPL("{mnemonic}", 0x{address:08X}u);'
+    index = text.find(marker)
+    if index < 0 or text.find(marker, index + 1) >= 0:
+        raise ValueError("Modeled no-op marker count differs")
+    end = index + len(marker)
+    text_suffix = f" /* TODO: {mnemonic} */"
+    if text.startswith(text_suffix, end):
+        end += len(text_suffix)
+    return text[:index] + f'FF_GUEST_WBINVD(0x{address:08X}u); /* {mnemonic}: modeled no-op, D060 */' + text[end:]
+
+
 def _alignment_padding(raw):
     """Known x86 no-effect alignment encodings, not arbitrary skipped code."""
     cursor = 0
@@ -405,6 +461,10 @@ def main():
                     return xbe[start:start + size]
         raise ValueError("Instruction range is not original executable file-backed data")
     functions, direct_targets, bindings, layouts, data_bindings, code_pointer_bindings = {}, set(), {}, {}, {}, {}
+    try:
+        modeled_noops = checked_modeled_noop_sites(functions_in, original_bytes)
+    except (KeyError, TypeError, ValueError) as error:
+        parser.error(str(error))
     local_entries={int(item['entry'],16) for item in functions_in}
     instruction_count = 0
     for item in functions_in:
@@ -502,8 +562,14 @@ def main():
         generated, return_observations, memory_observations = [], [], []
         for address, info in functions.items():
             text = translator.translate_function(address, info)
-            if not text or translator.lifter.unimplemented:
-                raise ValueError("Translation contains unsupported instructions: " + str(translator.lifter.unimplemented))
+            modeled = admit_modeled_noop(translator.lifter.unimplemented)
+            if modeled:
+                if not modeled_noops:
+                    raise ValueError("Untranslated instruction was not declared by its seed")
+                text = apply_modeled_noop(text, modeled, MODELED_NOOP_SITES[modeled])
+                translator.lifter.unimplemented.clear()
+            if not text:
+                raise ValueError("Translation produced no code")
             returns = any(row.get("mnemonic", "").startswith("RET") for row in layouts[address]["rows"])
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
@@ -521,6 +587,7 @@ def main():
               '#define FF_KERNEL_BINDINGS { ' + ', '.join(f'{{0x{slot:08X}u,{ordinal}u}}' for slot, ordinal in sorted(bindings.items())) + ' }',
               '#define FF_TITLE_LOOKUP_CASES ' + ' '.join(f'case 0x{address:08X}u: return {info["name"]};' for address, info in functions.items())]
     header += ['#ifndef FF_RETURN_FRAME', '#define FF_RETURN_FRAME(address, frame) ((void)0)', '#endif']
+    header += ['#ifndef FF_GUEST_WBINVD', '#define FF_GUEST_WBINVD(address) ((void)0)', '#endif']
     if args.guard_memory:
         header += ['#define FF_GUARDED_MEMORY 1', '#include "recomp_memory_access.h"']
     header += [f'void {info["name"]}(void);' for info in database.values()]
@@ -539,6 +606,7 @@ def main():
               "functionsPerExport": 32 if args.function_limit >=256 else 8,
               "instructionLimit": args.instruction_limit,
               "checkedMixedLayouts": dispatch_census,
+              "modeledNoOpInstructions": modeled_noops,
               "returnFrameObservations": return_observations,
               "checkedMemoryAccesses": memory_observations,
               "recognizedSehPrologs": sorted(translator.lifter.SEH_PROLOGS),
