@@ -1,6 +1,6 @@
-# Submission snapshot finds the command data in the device aperture, not guest RAM
+# PFIFO DMA object decoded: the pushbuffer is a VRAM-target offset, not a guest address
 
-November 3, 2026. The bounded submission probe now captures two read-only windows: the 256 bytes before DMA_PUT and the 256 bytes at the observed GPU-instance allocation base. Both guest-RAM windows are entirely zero. The same run's aperture retains **5,120 entries** at `0xFD700000`–`0xFD704FFC`, **559 of them nonzero**, so the instance/command data is represented in the separate synthetic device backing, not at the guest physical addresses the DMA cursor names. Address translation and buffer ownership remain unestablished, and no consumer is implemented. **There is no playable original screen and no renderer/device model.**
+November 3, 2026. The reached PFIFO stall now has an evidence-backed DMA object. The PFIFO instance register at `0xFD00322C` holds `0x11C`, selecting the RAMIN object at `0x11C0`: flags `0xB002` (class `2`, target NVM/VRAM, adjust `0`), frame `3`, base `0`, limit `0x3FFAFFF`. DMA_PUT `0x03B7D000` and DMA_GET `0` are **offsets into that ~64 MiB VRAM-target object**, not guest addresses. Because the proof models no VRAM target buffer, the queue contents remain unavailable and no consumer is implemented. **There is no playable original screen and no renderer/device model.**
 
 ## Selection and build
 
@@ -12,42 +12,41 @@ November 3, 2026. The bounded submission probe now captures two read-only window
 | Module bytes | 525,113 |
 | Module SHA-256 | `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b` |
 | Original executable SHA-256 | `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9` |
-| Report | `research/verification/post-memory-browser-20261103-33.json` (local/ignored) |
+| Report | `research/verification/post-memory-browser-20261103-34.json` (local/ignored) |
 | Synthetic profile | `research/verification/memory-statistics-inputs-01/settings-mmio-20.json` (local/ignored) |
 
-The module is unchanged; only the source-owned snapshot diagnostic and its report field changed. ABI 24 and all prior synthetic boundaries are unchanged.
+The module is unchanged; only the source-owned diagnostic and its report field changed. ABI 24 and all prior synthetic boundaries are unchanged.
 
-## Source-owned change
+## Evidence and source-owned change
 
-- `src/runtime/submission-probe.mjs`: the status-13 snapshot now also accepts the observed GPU-instance allocation (`base`, claim bytes) and captures a second bounded read-only window at that base. Each window is independently available/unavailable with an explicit reason; both are labelled memory snapshots, not decoded commands. The before-PUT window remains the primary `base`/`words` fields.
-- `src/runtime/thread-proof-worker.mjs`: extracts the successful ordinal-168 claim (`baseAddress`, requested bytes) from the reported calls and passes it to the probe.
-- `tests/submission-probe.test.mjs`: covers the allocation window, short claim capture, out-of-range base, read-only behavior and the missing-allocation reason.
+- Pinned xemu model: `nv_dma_load` reads a RAMIN object (`flags`, `limit`, `frame`); `nv_dma_map` returns `vram_ptr + address` with `len = limit`, and PFIFO processes DMA_PUT/GET as offsets into that mapping. `NV_PFIFO_CACHE1_DMA_INSTANCE` is at PFIFO offset `0x122C`; the object address is `(value & 0xFFFF) << 4`. Masks: class `0xFFF`, target `0x30000`, adjust `0xFFF00000`, address `0xFFFFF000`.
+- `src/runtime/submission-probe.mjs` now decodes the observed DMA object from the aperture entries: instance register at `0xFD00322C`, object fields at `0xFD700000 + objectAddress`, and reports class/target/adjust/base/limit with an explicit note that PUT/GET are offsets and the mapped buffer is not modeled.
+- Tests cover a complete object, missing instance, incomplete fields, and target/adjust masking.
 
-## Observed browser execution
+## Observed values
 
-- All **83/83** initialization callbacks returned; **261** distinct original routines and **402** kernel operations.
-- Stop remains status 13 (`pushbuffer consumption required`) at `0xFD800044`; the aperture retains 5,302 entries / 12,524 events.
-- `submissionProbe`: available, channel 0, PUT `0x03B7D000`, GET `0`, before-window base `0x03B7CF00` / 256 bytes / **0 nonzero words**.
-- Allocation window: available at base `0x03B78000` / 256 bytes / **0 nonzero words**.
-- The device aperture's `0xFD700000`–`0xFD704FFC` region contains **5,120 entries, 559 nonzero** (for example `0xFD700014 = 0x80000118`, `0xFD70001C = 0x80000112`), matching the instance/context writes observed earlier.
-- Memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+- `instanceRegister` = `0x11C` (284); `objectAddress` = `0x11C0` (4544).
+- `flags` = `0xB002` (45058): class `2`, target `NVM/VRAM`, adjust `0`.
+- `base` = `0`; `limit` = `0x3FFAFFF` (67,088,383); PUT = `0x03B7D000`; GET = `0`.
+- The 256-byte guest-RAM windows at the raw cursor and allocation base remain zero; they are not the mapped buffer.
+- Run: 83/83 initializers, 261 routines, 402 kernel operations; stop status 13 (`pushbuffer consumption required`) at `0xFD800044`.
 
 ## Interpretation
 
-The DMA_PUT/DMA_GET pair names guest physical addresses, but the proof's device aperture is separate storage: the GPU-instance claim was zeroed at the guest base while the corresponding instance writes landed in the `0xFD700000` aperture. The command/context bytes therefore are not visible at the cursor in guest RAM. Before any consumer, the proof must establish the DMA object base/limit, the guest-physical-to-device-aperture mapping, cursor units, initial GET and packet/control-flow forms. Zero windows at the cursor and allocation base must not be read as an empty queue.
+The pushbuffer is a VRAM-target object covering base 0 through ~64 MiB; PUT/GET are offsets and the queue spans from GET 0 to PUT `0x03B7D000`. The proof has no VRAM target buffer, so the command words are unavailable. A consumer would require a bounded VRAM target model plus PFIFO object mapping and a command decoder; that is a device subsystem decision, not a small extension. No consumer, GET advance, command decoding, interrupt, DMA or rendering is implemented.
 
 ## Next task
 
-Establish the DMA object/base/limit and the physical↔device-aperture translation from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering.
+Decide whether to add a bounded VRAM target model and PFIFO object mapping, then define a synchronous consumer contract (supported packets, downstream effects, work limits, fail-closed behavior). This is an open architecture decision and should receive architect escalation before implementation.
 
 ## Validation
 
-`tests/submission-probe.test.mjs` passes (5 cases). The runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-33.json` (3,996,235 bytes).
+`tests/submission-probe.test.mjs` passes (8 cases). The runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-34.json` (3,996,619 bytes).
 
-## Prior milestone: first submission snapshot
+## Prior milestone: allocation-base snapshot
 
-Module `recomp-post-memory-build-48` added a single 256-byte pre-PUT snapshot; the run showed that window entirely zero and deferred the consumer. Report `post-memory-browser-20261103-32.json`.
+The probe added a second window at the observed GPU-instance allocation base; both guest windows were zero while the device aperture held 5,120 nonzero-capable entries. Report `post-memory-browser-20261103-33.json`.
 
 ## Limits and next task
 
-No renderer, audio, controller, disc read, playable screen or complete runtime. The snapshots are evidence only; they are not a command decoder, FIFO consumer or fidelity acceptance. Next: establish the DMA/device translation and buffer ownership before proposing a bounded consumer.
+No renderer, audio, controller, disc read, playable screen or complete runtime. The DMA object decode is evidence only; it is not a command decoder, VRAM model or fidelity acceptance. Next: decide the bounded VRAM/consumer architecture before implementation.

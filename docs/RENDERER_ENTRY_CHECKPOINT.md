@@ -481,6 +481,21 @@ Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff3
 
 Execution still stops at **`0xFD800044`** with status 13. The report is `research/verification/post-memory-browser-20261103-33.json` (local/ignored). The command/context data is in the separate device-aperture backing, not at the guest physical addresses the cursor names; no consumer or translation is implemented.
 
+### Decode the PFIFO DMA object
+
+`submission-probe.mjs` now decodes the DMA object from the observed aperture entries using the pinned xemu semantics: `NV_PFIFO_CACHE1_DMA_INSTANCE` at `0xFD00322C`, object address `(value & 0xFFFF) << 4`, and the RAMIN object's flags/limit/frame at `0xFD700000 + objectAddress`. Tests cover complete, missing, incomplete and masked objects.
+
+Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b`). In the run:
+
+- instance register `0x11C` → object address `0x11C0`;
+- flags `0xB002` (class 2, target NVM/VRAM, adjust 0), base `0`, limit `0x3FFAFFF`;
+- DMA_PUT `0x03B7D000` and DMA_GET `0` are offsets into that ~64 MiB VRAM-target object;
+- the 256-byte guest-RAM windows at the raw cursor and allocation base remain zero and are not the mapped buffer;
+- the run still has 261 routines / 402 kernel operations, stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-34.json` (local/ignored). The proof has no VRAM target buffer, so no queue bytes are decoded and no consumer is implemented.
+
 ## Next task
 
-Establish the DMA object/base/limit and the guest-physical-to-device-aperture translation from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register map and the bounded submission windows. The captured line/quad reference comparison and browser prepass also remain private.
+Decide whether to add a bounded VRAM target model and PFIFO object mapping, then define a synchronous consumer contract (supported packets, downstream effects, work limits, fail-closed behavior). This is an open architecture decision and should receive architect escalation before implementation. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map and the bounded submission windows; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

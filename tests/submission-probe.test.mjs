@@ -24,7 +24,7 @@ test('a status-13 snapshot returns the bounded window before the put cursor', ()
   assert.equal(probe.words.length, SUBMISSION_PROBE_BYTES / 4);
   assert.equal(probe.words[0], 0x10000000 + probe.base);
   assert.equal(probe.words.at(-1), 0x10000000 + probe.base + SUBMISSION_PROBE_BYTES - 4);
-  assert.match(probe.note, /not decoded commands/);
+  assert.match(probe.note, /mapped buffer is not modeled/);
   assert.equal(view.getUint32(probe.base, true), probe.words[0]);
   assert.equal(probe.allocation.available, false);
   assert.equal(probe.allocation.reason, 'no observed GPU-instance allocation');
@@ -46,6 +46,50 @@ test('an observed allocation base adds a bounded read-only second window', () =>
   const outside = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x1000, bytes: 256 } });
   assert.equal(outside.allocation.available, false);
   assert.equal(outside.allocation.reason, 'window outside aligned guest memory');
+});
+
+test('the PFIFO DMA object decodes from the instance register and RAMIN entries', () => {
+  const { view, ramBytes, entries, status } = fixture();
+  entries.push({ address: 0xFD00322C, value: 0x11C });
+  entries.push({ address: 0xFD7011C0, value: 0xB002 });
+  entries.push({ address: 0xFD7011C4, value: 0x3FFAFFF });
+  entries.push({ address: 0xFD7011C8, value: 3 });
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.dmaObject.available, true);
+  assert.equal(probe.dmaObject.instanceRegister, 0x11C);
+  assert.equal(probe.dmaObject.objectAddress, 0x11C0);
+  assert.equal(probe.dmaObject.flags, 0xB002);
+  assert.equal(probe.dmaObject.dmaClass, 2);
+  assert.equal(probe.dmaObject.target, 0);
+  assert.equal(probe.dmaObject.targetName, 'NVM/VRAM');
+  assert.equal(probe.dmaObject.adjust, 0);
+  assert.equal(probe.dmaObject.base, 0);
+  assert.equal(probe.dmaObject.limit, 0x3FFAFFF);
+  assert.match(probe.dmaObject.note, /offsets into the DMA object/);
+});
+
+test('the DMA object decoder reports missing or incomplete state', () => {
+  const { view, ramBytes, entries, status } = fixture();
+  assert.deepEqual(createSubmissionProbe({ status, entries, view, ramBytes }).dmaObject,
+    { available: false, reason: 'no observed PFIFO DMA instance register' });
+  entries.push({ address: 0xFD00322C, value: 0x11C });
+  assert.deepEqual(createSubmissionProbe({ status, entries, view, ramBytes }).dmaObject,
+    { available: false, reason: 'no complete DMA object in the observed RAMIN entries' });
+});
+
+test('the DMA object decoder applies target and adjust masks', () => {
+  const { view, ramBytes, entries, status } = fixture();
+  entries.push({ address: 0xFD00322C, value: 0x10 });
+  entries.push({ address: 0xFD700100, value: 0x00330205 });
+  entries.push({ address: 0xFD700104, value: 0x00100000 });
+  entries.push({ address: 0xFD700108, value: 0x00200000 });
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.dmaObject.available, true);
+  assert.equal(probe.dmaObject.objectAddress, 0x100);
+  assert.equal(probe.dmaObject.dmaClass, 0x205);
+  assert.equal(probe.dmaObject.targetName, 'AGP');
+  assert.equal(probe.dmaObject.adjust, 0x00300000);
+  assert.equal(probe.dmaObject.base, 0x00300000);
 });
 
 test('the snapshot is read-only and reports missing get as zero', () => {

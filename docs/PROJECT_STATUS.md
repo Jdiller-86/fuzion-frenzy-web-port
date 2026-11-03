@@ -1,14 +1,14 @@
-# Submission snapshot finds the command data in the device aperture, not guest RAM
+# PFIFO DMA object decoded: the pushbuffer is a VRAM-target offset, not a guest address
 
-November 3: the bounded submission probe now captures the 256 bytes before DMA_PUT and the 256 bytes at the observed GPU-instance allocation base. Both guest-RAM windows are entirely zero, while the same run's aperture retains 5,120 entries at `0xFD700000`–`0xFD704FFC` with 559 nonzero. The instance/command data is represented in the separate synthetic device backing, not at the guest physical addresses the DMA cursor names; address translation and buffer ownership remain unestablished, and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the reached PFIFO stall now has an evidence-backed DMA object. The PFIFO instance register at `0xFD00322C` holds `0x11C`, selecting the RAMIN object at `0x11C0`: flags `0xB002` (class 2, target NVM/VRAM, adjust 0), frame 3, base 0, limit `0x3FFAFFF`. DMA_PUT `0x03B7D000` and DMA_GET `0` are offsets into that ~64 MiB VRAM-target object, not guest addresses. The proof models no VRAM target buffer, so the queue contents are unavailable and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the aperture logs 5,302 entries / 12,524 events. The report is `post-memory-browser-20261103-33.json`.
+The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-34.json`.
 
-Source change: `src/runtime/submission-probe.mjs` accepts the observed ordinal-168 allocation and adds a second bounded read-only window at its base; the worker passes the claim. Tests cover both windows, short captures, out-of-range bases and read-only behavior. This is observation only: no get pointer, command decoding, FIFO progress, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `src/runtime/submission-probe.mjs` decodes the DMA object from the aperture entries (instance register, RAMIN flags/limit/frame, class/target/adjust/base/limit) with explicit notes that PUT/GET are offsets; tests cover complete, missing, incomplete and masked cases. No consumer, GET advance, command decoding, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests (8), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: first submission snapshot
+## Prior: allocation-base snapshot
 
-Module `recomp-post-memory-build-48` captured the pre-PUT window only; it was entirely zero and the consumer was deferred. Report `post-memory-browser-20261103-32.json`.
+The probe added a second window at the observed GPU-instance allocation base; both guest windows were zero while the device aperture held 5,120 nonzero-capable entries. Report `post-memory-browser-20261103-33.json`.
 
 ## Prior: 0x200f59
 

@@ -1,20 +1,18 @@
-# Continue from the zero guest-RAM windows at the PFIFO submission cursor
+# Continue from the decoded PFIFO DMA object (VRAM-target offsets)
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The bounded submission probe now captures the 256 bytes before DMA_PUT and the 256 bytes at the observed GPU-instance allocation base. Both guest-RAM windows are entirely zero, while the same run's aperture retains 5,120 entries at `0xFD700000`–`0xFD704FFC` with 559 nonzero. The instance/command data therefore lives in the separate synthetic device backing, not at the guest physical addresses the DMA cursor names. No consumer, DMA_GET advance, method execution, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+The reached PFIFO stall now has an evidence-backed DMA object: the instance register at `0xFD00322C` holds `0x11C`, selecting the RAMIN object at `0x11C0` with flags `0xB002` (class 2, target NVM/VRAM, adjust 0), base `0`, limit `0x3FFAFFF`. DMA_PUT `0x03B7D000` and DMA_GET `0` are offsets into that ~64 MiB VRAM-target object, not guest addresses. The proof models no VRAM target buffer, so the queue contents are unavailable and no consumer, DMA_GET advance, command decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-33.json`. `submissionProbe` reports PUT `0x03B7D000`, GET `0`, before-window base `0x03B7CF00` (0 nonzero words) and allocation base `0x03B78000` (0 nonzero words).
+The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-34.json`. `src/runtime/submission-probe.mjs` decodes the DMA object from the aperture entries (instance, RAMIN flags/limit/frame, class/target/adjust/base/limit); tests cover complete, missing, incomplete and masked cases.
 
-`src/runtime/submission-probe.mjs` now accepts the observed ordinal-168 allocation and adds the second bounded read-only window; the worker extracts the claim; `tests/submission-probe.test.mjs` covers both windows, short captures, out-of-range bases and read-only behavior.
+Validation: submission-probe tests (8), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+**Next task:** decide whether to add a bounded VRAM target model and PFIFO object mapping, then define a synchronous consumer contract (supported packets, downstream effects, work limits, fail-closed behavior). This is an open architecture decision and should receive architect escalation before implementation; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-**Next task:** establish the DMA object/base/limit and the guest-physical-to-device-aperture translation from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+## Prior: allocation-base snapshot
 
-## Prior: first submission snapshot
-
-Module `recomp-post-memory-build-48` captured the pre-PUT window only; it was entirely zero and the consumer was deferred. Report `post-memory-browser-20261103-32.json`.
+`submissionProbe` added a second window at the observed GPU-instance allocation base; both guest windows were zero while the device aperture held 5,120 entries. Report `post-memory-browser-20261103-33.json`.
 
 ## Prior: 0x200f59
 

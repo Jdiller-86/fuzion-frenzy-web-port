@@ -4,6 +4,45 @@
 // explicit so a cursor or allocation base is not mistaken for a verified
 // command start.
 export const SUBMISSION_PROBE_BYTES = 256;
+const PFIFO_INSTANCE = 0xFD00322C;
+const RAMIN_BASE = 0xFD700000;
+const DMA_CLASS = 0x00000FFF;
+const DMA_TARGET = 0x00030000;
+const DMA_ADJUST = 0xFFF00000;
+const DMA_ADDRESS = 0xFFFFF000;
+const targetName = target =>
+  target === 0x00000000 ? 'NVM/VRAM' : target === 0x00010000 ? 'NVM tiled'
+  : target === 0x00020000 ? 'PCI' : target === 0x00030000 ? 'AGP' : 'unknown';
+
+// The reached PFIFO DMA object: a RAMIN object selected by the instance
+// register. PUT/GET are offsets into this object, not guest addresses.
+function dmaObject(entries) {
+  const value = address => entries.find(entry => entry.address === address)?.value;
+  const instanceRegister = value(PFIFO_INSTANCE);
+  if (!Number.isInteger(instanceRegister)) return { available: false, reason: 'no observed PFIFO DMA instance register' };
+  const objectAddress = ((instanceRegister & 0xFFFF) << 4) >>> 0;
+  const flags = value(RAMIN_BASE + objectAddress);
+  const limit = value(RAMIN_BASE + objectAddress + 4);
+  const frame = value(RAMIN_BASE + objectAddress + 8);
+  if (![flags, limit, frame].every(Number.isInteger))
+    return { available: false, reason: 'no complete DMA object in the observed RAMIN entries' };
+  const target = (flags & DMA_TARGET) >>> 0;
+  const adjust = (flags & DMA_ADJUST) >>> 0;
+  const base = (((frame & DMA_ADDRESS) | adjust) & 0x07FFFFFF) >>> 0;
+  return {
+    available: true,
+    instanceRegister: instanceRegister >>> 0,
+    objectAddress,
+    flags: flags >>> 0,
+    dmaClass: (flags & DMA_CLASS) >>> 0,
+    target,
+    targetName: targetName(target),
+    adjust,
+    base,
+    limit: limit >>> 0,
+    note: 'PUT/GET are offsets into the DMA object; the mapped target buffer is not modeled',
+  };
+}
 
 function snapshot(view, ramBytes, base, bytes) {
   if (!view || !Number.isInteger(ramBytes) || ramBytes < 4)
@@ -44,6 +83,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     bytes: before.bytes,
     words: before.words,
     allocation: allocationWindow,
-    note: 'checked guest-memory snapshots at the DMA submission cursor and observed allocation base; not decoded commands',
+    dmaObject: dmaObject(entries),
+    note: 'checked guest-memory snapshots at the raw cursor and allocation addresses; PUT/GET are DMA-object offsets and the mapped buffer is not modeled',
   };
 }
