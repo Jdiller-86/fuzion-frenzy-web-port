@@ -53,6 +53,14 @@ static uint32_t disk_ready;
 static ff_fatx_volume fatx_volume;
 static uint32_t fatx_ready;
 #endif
+#ifdef FF_MEMORY_STATISTICS_PROOF
+#if !defined(FF_FATX_PROOF) || !defined(FF_SECTION_PROOF)
+#error Memory statistics retain the current checked startup and filesystem ABI
+#endif
+#include "../../src/runtime/memory_statistics.h"
+static ff_memory_statistics memory_statistics;
+static uint32_t memory_statistics_ready;
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -560,6 +568,43 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_MEMORY_STATISTICS_PROOF
+uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_pages)
+{
+    /* The modeled physical capacity must equal the bounded guest RAM. A smaller
+     * explicit value would understate the pages this runtime actually owns. */
+    if(!vm_ready || !image_sections.ready || memory_statistics_ready ||
+       physical_pages!=FF_GUEST_BYTES/FF_VM_PAGE)return FF_BOOT_INVALID;
+    const ff_memory_profile profile={physical_pages,baseline_pool_pages};
+    uint32_t status=ff_memory_statistics_init(&memory_statistics,&virtual_memory,&profile);
+    if(!status) {
+        const ff_vm_region *image=&virtual_memory.regions[image_sections.owner-1];
+        status=ff_memory_statistics_classify(&memory_statistics,image->base,image->bytes,FF_MEMORY_IMAGE);
+    }
+    if(!status)status=ff_memory_statistics_classify(&memory_statistics,0x03c00000u,0x00400000u,FF_MEMORY_POOL);
+    if(!status)memory_statistics_ready=1;
+    return status;
+}
+uint32_t ff_probe_memory_word(uint32_t field)
+{
+    if(field==0)return memory_statistics_ready;
+    if(field==1)return memory_statistics.profile.physical_pages;
+    if(field==2)return memory_statistics.profile.baseline_pool_pages;
+    uint32_t words[FF_MEMORY_STATISTICS_WORDS];
+    uint32_t status=memory_statistics_ready?ff_memory_statistics_snapshot(&memory_statistics,words):FF_BOOT_INVALID;
+    if(field==3)return status;
+    return !status && field>=4 && field<13?words[field-4]:UINT32_MAX;
+}
+static void query_memory_statistics(void)
+{
+    uint32_t *row=kernel_record(181,1);row[1]=FF_BOOT_UNSUPPORTED;
+    if(!memory_statistics_ready)stop(9,row[1],181);
+    row[1]=ff_memory_statistics_query(&memory_statistics,row[2]);
+    if(row[1])stop(9,row[1],181);
+    for(unsigned i=0;i<FF_MEMORY_STATISTICS_WORDS;++i)row[3+i]=MEM32(row[2]+i*4);
+    g_eax=0;g_esp+=8;
+}
+#endif
 #ifdef FF_FATX_PROOF
 static int fatx_parent_handle(uint32_t attributes)
 {
@@ -605,6 +650,11 @@ static void create_thread(void)
     if (!recomp_lookup(row[7]) || !recomp_lookup(row[11])) stop(9, row[11], 255);
     row[1] = ff_boot_create(&boot, row + 2);
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 255);
+#ifdef FF_MEMORY_STATISTICS_PROOF
+    const ff_boot_thread *created=&boot.threads[boot.count-1];
+    if(!memory_statistics_ready || ff_memory_statistics_classify(&memory_statistics,created->stack_low,
+        created->stack_top-created->stack_low,FF_MEMORY_STACK))stop(9,FF_BOOT_INVALID,255);
+#endif
     g_eax = row[1]; g_esp += 44; /* NTAPI return address and ten arguments. */
 }
 static void close_handle(void)
@@ -1190,6 +1240,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
+#ifdef FF_MEMORY_STATISTICS_PROOF
+        if (ordinal == 181) return query_memory_statistics;
+#endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 128) return query_system_time;
 #endif
@@ -1236,7 +1289,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_FATX_PROOF
+#ifdef FF_MEMORY_STATISTICS_PROOF
+    return 23;
+#elif defined(FF_FATX_PROOF)
     return 22;
 #elif defined(FF_DISK_DISMOUNT_PROOF)
     return 21;
@@ -1362,6 +1417,9 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_FATX_PROOF
     memset(&fatx_volume,0,sizeof fatx_volume);fatx_ready=0;
+#endif
+#ifdef FF_MEMORY_STATISTICS_PROOF
+    memset(&memory_statistics,0,sizeof memory_statistics);memory_statistics_ready=0;
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();

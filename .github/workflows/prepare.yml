@@ -110,5 +110,10 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/fatx_volume_test.c src/runtime/fatx_volume.c src/runtime/local_disk.c src/runtime/object_namespace.c src/runtime/file_namespace.c src/runtime/local_volume.c src/runtime/local_directories.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/fatx-root-check"
           "$RUNNER_TEMP/fatx-root-check"
+      - name: Check owned memory statistics (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/memory_statistics_test.c src/runtime/memory_statistics.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-statistics-check"
+          "$RUNNER_TEMP/memory-statistics-check"
       - run: npm run check:environment
       - run: git diff --exit-code

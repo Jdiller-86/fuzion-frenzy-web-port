@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -90,6 +90,17 @@ test('RAW attachment profile must name every configured cache partition explicit
   for(const value of [undefined,[],[3],[3,3],[3,5],[3,'4']])assert.throws(()=>parseLocalRawDiskVolumes(bytes(value)),/explicit fresh RAW/);
   assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>21}),4096);
   assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>21}),512);
+});
+
+test('memory statistics require explicit capacity, baseline and support-arena ownership',()=>{
+  const profile={kind:'local-memory-profile',synthetic:true,physicalPages:16384,baselinePoolPages:0,fixedArena:'committed-runtime-pool'};
+  const bytes=memory=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,memory})).buffer;
+  assert.deepEqual(parseLocalMemoryProfile(bytes(profile)),profile);
+  for(const edit of [{physicalPages:0},{physicalPages:16385},{physicalPages:'16384'},{baselinePoolPages:-1},
+    {baselinePoolPages:16385},{baselinePoolPages:undefined},{fixedArena:undefined},{synthetic:false}]) {
+    assert.throws(()=>parseLocalMemoryProfile(bytes({...profile,...edit})),/explicit modeled physical/);
+  }
+  assert.throws(()=>parseLocalMemoryProfile(bytes(undefined)),/explicit modeled physical/);
 });
 
 function ownedSectionRequest() {
