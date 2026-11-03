@@ -1,18 +1,18 @@
-# Continue from the UMA-backed but empty queue region
+# Continue from the guest write-page map and the unwritten queue claim
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The pinned xemu model confirms Xbox UMA (`d->vram = ram`, "xbox is UMA - vram *is* ram"; `nv_dma_map` returns `vram_ptr + address`). The DMA object's NVM target therefore aliases guest physical RAM, and `submissionProbe` now marks PUT `0x03B7D000` and GET `0` as verified guest addresses. However, the 4 KiB window before PUT (`0x03B7C000`) and all five 4 KiB pages of the observed `0x03B78000`/`0x5000` claim are zero. Producer-written queue bytes and initial GET provenance remain unestablished; no consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A bounded source-owned guest write-page map now records which 4 KiB guest-RAM pages the translated code writes. In this run **48 pages** were written, and **none** of the five pages covering the observed GPU-instance claim (`0x03B78000`–`0x03B7CFFF`, pages 15224–15228) was among them. The UMA-backed PUT `0x03B7D000`/GET `0` therefore point into guest RAM the CPU never wrote; producer provenance and initial GET=0 remain unresolved. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-36.json`. The probe raises the bounded snapshot to 4 KiB and adds a per-page nonzero-dword summary (counts, not bytes); tests cover the verified resolution, bounds and page summary.
+The module is now `recomp-post-memory-build-49` (525,566 bytes, SHA-256 `05887417…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-37.json`. The write map is `src/runtime/guest_write_map.c/.h` (page bits only, never bytes); the probe marks translated writes and exports size/word/count; the worker reports `guestWritePages`; `tests/guest_write_map_test.c` covers it.
 
-Validation: submission-probe tests (11), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: write-map tests optimized/ASan/UBSan, submission-probe tests (11), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** locate the producer's queue writes and the initial GET provenance from static and runtime evidence: which original routines write the DMA ring, what base/offset they use, and whether GET=0 is a real ring start or an uninitialized value. A bounded write-observation or targeted static trace is the next evidence step; do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** identify the expected queue producer: inspect the original routines around the DMA submission and the `0xFD700000` instance writes, and determine whether the queue is written through the device aperture, a copy engine, or a not-yet-reached CPU path. A bounded site-level device-aperture write observation or a targeted static trace is the next evidence step; do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: unverified candidate resolver
+## Prior: UMA backing verified
 
-The resolver reported candidate guest addresses with backing unverified. Report `post-memory-browser-20261103-35.json`.
+`d->vram = ram` confirms UMA identity; the 4 KiB pre-PUT window and five claim pages were zero. Report `post-memory-browser-20261103-36.json`.
 
 ## Prior: 0x200f59
 

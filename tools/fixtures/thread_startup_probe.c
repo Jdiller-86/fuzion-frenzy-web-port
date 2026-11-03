@@ -12,6 +12,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
 #include "../../src/runtime/guest_mirror.h"
+#include "../../src/runtime/guest_write_map.h"
 #include "../../src/runtime/interrupt_vector.h"
 #include "../../src/runtime/gpu_instance.h"
 #include "../../src/runtime/time_fields.h"
@@ -179,6 +180,7 @@ static uint32_t namespace_ready;
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
 static ff_guest_mirror guest_mirror;
+static ff_guest_write_map guest_write_map;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
@@ -309,6 +311,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
         stop(10, address, access);
     }
     ++vm_access_count;
+    if ((access & FF_VM_WRITE) && bytes) (void)ff_guest_write_map_mark(&guest_write_map, address, (uint32_t)bytes);
     /* Zero-count string operations access no guest address. Return a harmless
      * in-array pointer even if their unused register is outside this window. */
     return guest_ram + (bytes ? address : 0);
@@ -352,6 +355,9 @@ uint32_t ff_probe_vm_page_word(uint32_t address, uint32_t field)
     switch (field) { case 0: return virtual_memory.owner[p]; case 1: return virtual_memory.committed[p]; case 2: return virtual_memory.permission[p]; default: return 0; }
 }
 uint32_t ff_probe_vm_access_count(void) { return vm_access_count; }
+uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
+uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
+uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
 uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 4 ? vm_fault[index] : 0; }
 uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
 {
@@ -1607,6 +1613,7 @@ void ff_probe_reset(void)
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
     ff_guest_mirror_init(&guest_mirror);
+    ff_guest_write_map_init(&guest_write_map);
     vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);
 #endif
 #ifdef FF_TIMER_PROOF

@@ -523,6 +523,20 @@ Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff3
 
 The report is `research/verification/post-memory-browser-20261103-36.json` (local/ignored). The backing is established, but the queue contents and initial GET provenance are not; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
 
+### Observe guest write pages
+
+`src/runtime/guest_write_map.c/.h` records a 64 MiB / 4 KiB page bitmap of translated guest writes (bits only, never bytes). The probe marks each successful write and exports size/word/count; the worker reports `guestWritePages`.
+
+Module `recomp-post-memory-build-49` is 525,566 bytes, SHA-256 `05887417db7b7b06e6848e2210da8b103761ceb41fe51bc3083b117115557f97`. In the run:
+
+- 48 guest pages were written (examples 515–818 and 15359–16382);
+- **none** of pages 15224–15228 (`0x03B78000`–`0x03B7CFFF`, the observed claim) was written;
+- the 4 KiB before PUT and the five claim pages remain zero;
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-37.json` (local/ignored). The published queue points into guest RAM the CPU never wrote; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Locate the producer's queue writes and the initial GET provenance from static and runtime evidence: which original routines write the DMA ring, what base/offset they use, and whether GET=0 is a real ring start or an uninitialized value. A bounded write-observation or targeted static trace is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver and the bounded submission windows/page summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Identify the expected queue producer: inspect the original routines around the DMA submission and the `0xFD700000` instance writes, and determine whether the queue is written through the device aperture, a copy engine, or a not-yet-reached CPU path. A bounded site-level device-aperture write observation or a targeted static trace is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary and the guest write-page map; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

@@ -889,6 +889,15 @@ self.onmessage = async event => {
       status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
       allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
     }) : { available: false, reason: 'no observed device aperture' };
+    let guestWritePages;
+    if (typeof api.ff_probe_write_map_size === 'function') {
+      const words = api.ff_probe_write_map_size() >>> 0, pages = [];
+      for (let wordIndex = 0; wordIndex < words; ++wordIndex) {
+        const bits = api.ff_probe_write_map_word(wordIndex) >>> 0;
+        for (let bit = 0; bit < 32; ++bit) if (bits & (1 << bit)) pages.push(wordIndex * 32 + bit);
+      }
+      guestWritePages = { pageBytes: 4096, count: api.ff_probe_write_map_count() >>> 0, pages };
+    }
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {
       const pointer=state[6];
@@ -925,7 +934,7 @@ self.onmessage = async event => {
     self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
