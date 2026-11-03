@@ -102,7 +102,7 @@ static void read_modify_write_records_both_halves(void)
     unchanged();
 }
 
-static void sub_dword_reads_use_the_containing_register(void)
+static void sub_dword_access_uses_the_containing_register(void)
 {
     reset();
     uint32_t value = 0x11223344u;
@@ -122,8 +122,25 @@ static void sub_dword_reads_use_the_containing_register(void)
     assert(device.event_count == before_events + 2);
     assert(device.events[before_events + 1].value == 0x1122);
     assert(device.entries[0].reads == 2);
+    uint8_t *byte_stage = (uint8_t *)ff_device_registers_access_width(
+        &device, 0xFD001805u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u);
+    assert(byte_stage && device.pending);
+    *byte_stage = 0xAA;
+    assert(ff_device_registers_commit(&device) == 0);
+    assert(device.entries[0].value == 0x1122AA44u && device.entries[0].writes == 2);
+    assert(device.events[before_events + 2].address == 0xFD001805u);
+    assert(device.events[before_events + 2].direction == FF_DEVICE_WRITE);
+    assert(device.events[before_events + 2].value == 0xAA);
+    assert(device.events[before_events + 2].before_known == 1);
+    uint16_t *half_stage = (uint16_t *)ff_device_registers_access_width(
+        &device, 0xFD001806u, 2, FF_DEVICE_ACCESS_WRITE, 0x00100020u);
+    assert(half_stage && device.pending);
+    *half_stage = 0xBBCC;
+    assert(ff_device_registers_commit(&device) == 0);
+    assert(device.entries[0].value == 0xBBCCAA44u && device.entries[0].writes == 3);
+    assert(device.events[before_events + 3].value == 0xBBCC);
     save();
-    assert(ff_device_registers_access_width(&device, 0xFD001805u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u) == NULL);
+    assert(ff_device_registers_access_width(&device, 0xFD009141u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u) == NULL);
     unchanged();
     assert(ff_device_registers_access_width(&device, 0xFD009241u, 1, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
     unchanged();
@@ -217,7 +234,7 @@ static void initial_registers_are_explicit_and_bounded(void)
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
-    read_modify_write_records_both_halves(); sub_dword_reads_use_the_containing_register();
+    read_modify_write_records_both_halves(); sub_dword_access_uses_the_containing_register();
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities and atomicity passed");

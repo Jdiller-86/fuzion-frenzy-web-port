@@ -25,7 +25,7 @@ typedef struct {
     uint32_t base, bytes, ready, count, event_count;
     /* A generated store writes through a returned lvalue after the host call.
      * Keep one staged write so the event can record the actual stored value. */
-    uint32_t pending, pending_address, pending_site, pending_value;
+    uint32_t pending, pending_address, pending_site, pending_value, pending_bytes, pending_offset;
     ff_device_entry entries[FF_DEVICE_ENTRIES];
     ff_device_event events[FF_DEVICE_EVENTS];
 } ff_device_registers;
@@ -54,10 +54,10 @@ uint32_t ff_device_registers_commit(ff_device_registers *);
  * storage. READWRITE records the read immediately and stages the write. */
 uint32_t *ff_device_registers_access(ff_device_registers *, uint32_t address, uint32_t access,
                                      uint32_t site);
-/* Width-aware access for reachable sub-dword register reads. Entries remain
- * dword-valued profile registers; a 1/2-byte read maps into the containing
- * dword. Sub-dword writes fail closed because no original write of that width
- * has been observed and the staged-write contract is dword-based. */
+/* Width-aware access for reachable sub-dword register reads and writes.
+ * Entries remain dword-valued profile registers; a 1/2-byte access maps into
+ * the containing dword. A sub-dword write requires that dword to be known and
+ * records the written byte/halfword value while preserving the other bytes. */
 uint32_t *ff_device_registers_access_width(ff_device_registers *, uint32_t address, uint32_t bytes,
                                            uint32_t access, uint32_t site);
 #endif

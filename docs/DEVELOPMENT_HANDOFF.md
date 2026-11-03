@@ -1,18 +1,18 @@
-# Continue from the completed 0x1FDF70 helper at 0x1FFF25
+# Continue from the completed 0x1FFF25 helper at 0x1FDF83
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x001fdf70` executed and returned through `0x001ffe27` to `0x001fe0c6`, which continues and calls untranslated **`0x1FFF25`** (return `0x1FE1A0`, status 2). All 83 initialization callbacks return; 239 distinct original routines execute and 400 kernel operations complete.
+Original `0x001fff25` executed through its sub-dword device-register sequence and returned to `0x001fe1a0`; `0x001fe0c6` continued and called untranslated **`0x1FDF83`** (return `0x1FE1A9`, status 2). All 83 initialization callbacks return; 240 distinct original routines execute and 400 kernel operations complete.
 
-Selection `recomp-title-post-memory-13` is 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` is SHA-256 `240b0bcd…` (467,100 bytes). The local report is `post-memory-browser-20261103-08.json`. The device aperture remains at 5,142 entries / 5,152 events and memory statistics are unchanged. A bounded read-only export reports the reached callee `0x1FFF25` as 207 bytes / 49 instructions with no direct calls (`recomp-post-memory-next-10`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-14` is 350 functions / 13,240 instructions; module `recomp-post-memory-build-27` is SHA-256 `5c3f8433…` (469,345 bytes). The local report is `post-memory-browser-20261103-09.json`. The aperture now stages byte/halfword writes into known dword registers, merges the written bytes and records the written value; unknown containing registers still fail closed. The run logged 5,148 entries / 5,176 events. A bounded read-only export reports the reached callee `0x1FDF83` as 64 bytes / 22 instructions with no direct calls (`recomp-post-memory-next-11`); it is static export evidence, not admitted translation or observed execution.
 
-Validation: GPU-instance and device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x1FFF25` from the retained `recomp-post-memory-next-10` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, device reads/writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x1FDF83` from the retained `recomp-post-memory-next-11` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, sub-dword writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: GPU instance claim and 0x5000-byte clear
+## Prior: 0x1fdf70
 
-Ordinal 168 `MmClaimGpuInstanceMemory` returned a bounded source-owned base `0x03B78000` for the 0x5000-byte request, the original 5,120 dword stores cleared `0xFD700000`–`0xFD704FFC`, and `0x001ffe27` reached `0x1FDF70`. Module `recomp-post-memory-build-25` was 466,517 bytes, SHA-256 `ee7c9a2e…`. Report `post-memory-browser-20261103-07.json`.
+Original `0x001fdf70` executed and returned through `0x001ffe27` to `0x001fe0c6`, which called `0x1FFF25` (return `0x1FE1A0`, status 2). Selection `recomp-title-post-memory-13` was 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` was 467,100 bytes, SHA-256 `240b0bcd…`. Report `post-memory-browser-20261103-08.json`.
 
 ## Prior: 0x1ffcc0
 

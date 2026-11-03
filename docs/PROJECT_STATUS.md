@@ -1,10 +1,14 @@
-# Original execution completes 0x1FDF70 and reaches 0x1FFF25
+# Original execution completes 0x1FFF25 and reaches 0x1FDF83
 
-November 3: original `0x001fdf70` now executes and returns through `0x001ffe27` to `0x001fe0c6`, which continues and calls untranslated **`0x1FFF25`** (return `0x1FE1A0`, status 2). All 83 initialization callbacks return; 239 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
+November 3: original `0x001fff25` executes its sub-dword device-register sequence and returns to `0x001fe0c6`, which continues and calls untranslated **`0x1FDF83`** (return `0x1FE1A9`, status 2). All 83 initialization callbacks return; 240 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-13` is 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` is 467,100 bytes, SHA-256 `240b0bcd…`. The device aperture remains at 5,142 entries / 5,152 events and statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-08.json`.
+Selection `recomp-title-post-memory-14` is 350 functions / 13,240 instructions; module `recomp-post-memory-build-27` is 469,345 bytes, SHA-256 `5c3f8433…`. The aperture logged 5,148 entries and 5,176 events. The source-owned aperture now stages byte/halfword writes into known dword registers, merges the written bytes, records the written value, and still fails closed for unknown containing registers. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-09.json`.
 
-A bounded read-only export reports the reached callee `0x1FFF25` as 207 bytes / 49 instructions with no direct calls; it is not yet admitted or observed. Validation: GPU-instance and device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x1FDF83` as 64 bytes / 22 instructions with no direct calls; it is not yet admitted or observed. Validation: device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x1fdf70
+
+Original `0x001fdf70` executed and returned through `0x001ffe27` to `0x001fe0c6`, which called `0x1FFF25` (return `0x1FE1A0`, status 2). Selection `recomp-title-post-memory-13` was 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` was 467,100 bytes, SHA-256 `240b0bcd…`. Report `post-memory-browser-20261103-08.json`.
 
 ## Prior: GPU instance claim and 0x5000-byte clear
 

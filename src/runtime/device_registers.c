@@ -96,8 +96,24 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     if (!device) return FF_BOOT_INVALID;
     if (!device->pending) return 0;
     uint32_t address = device->pending_address, site = device->pending_site, value = device->pending_value;
+    uint32_t bytes = device->pending_bytes ? device->pending_bytes : 4u;
+    uint32_t offset = device->pending_offset;
     device->pending = 0;
-    return record(device, address, FF_DEVICE_WRITE, site, &value);
+    if (bytes == 4u) return record(device, address, FF_DEVICE_WRITE, site, &value);
+    /* Sub-dword writes merge into a known containing dword; unknown registers
+     * remain fail-closed because their other bytes have no supplied value. */
+    ff_device_entry *entry = find(device, address & ~3u);
+    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS)
+        return FF_BOOT_UNSUPPORTED;
+    uint32_t shift = offset * 8u, mask = bytes == 1u ? 0xFFu : 0xFFFFu;
+    uint32_t written = (value >> shift) & mask;
+    uint32_t merged = (entry->value & ~(mask << shift)) | (written << shift);
+    device->events[device->event_count++] =
+        (ff_device_event){address, site, FF_DEVICE_WRITE, written, entry->known};
+    ++entry->writes;
+    entry->value = merged;
+    entry->known = 1;
+    return 0;
 }
 
 uint32_t ff_device_registers_touch(ff_device_registers *device, uint32_t address, uint32_t direction,
@@ -119,7 +135,26 @@ uint32_t *ff_device_registers_stage_write(ff_device_registers *device, uint32_t 
     device->pending_address = address;
     device->pending_site = site;
     device->pending_value = 0;
+    device->pending_bytes = 4;
+    device->pending_offset = 0;
     return &device->pending_value;
+}
+
+static uint32_t *stage_write_width(ff_device_registers *device, uint32_t address, uint32_t bytes,
+                                   uint32_t site)
+{
+    if (!device || !site || (bytes != 1u && bytes != 2u)) return NULL;
+    if (ff_device_registers_contains(device, address, bytes)) return NULL;
+    if (ff_device_registers_commit(device)) return NULL;
+    ff_device_entry *entry = find(device, address & ~3u);
+    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS) return NULL;
+    device->pending = 1;
+    device->pending_address = address;
+    device->pending_site = site;
+    device->pending_value = 0;
+    device->pending_bytes = bytes;
+    device->pending_offset = address & 3u;
+    return (uint32_t *)((uint8_t *)&device->pending_value + device->pending_offset);
 }
 
 uint32_t *ff_device_registers_access(ff_device_registers *device, uint32_t address, uint32_t access,
@@ -149,18 +184,24 @@ uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t
 {
     if (!device || !site || (bytes != 1u && bytes != 2u && bytes != 4u)) return NULL;
     if (bytes == 4u) return ff_device_registers_access(device, address, access, site);
-    /* Only reads are modeled below dword width. No original sub-dword write has
-     * been observed, and the staged-write path records a dword value. */
-    if (access != FF_DEVICE_ACCESS_READ) return NULL;
+    if (access == FF_DEVICE_ACCESS_WRITE) return stage_write_width(device, address, bytes, site);
+    if (access != FF_DEVICE_ACCESS_READ && access != FF_DEVICE_ACCESS_READWRITE) return NULL;
     if (ff_device_registers_contains(device, address, bytes) ||
         ff_device_registers_commit(device)) return NULL;
     ff_device_entry *entry = find(device, address & ~3u);
-    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS) return NULL;
+    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS ||
+        (access == FF_DEVICE_ACCESS_READWRITE && device->event_count >= FF_DEVICE_EVENTS - 1u))
+        return NULL;
     uint32_t shift = (address & 3u) * 8u;
     uint32_t mask = bytes == 1u ? 0xFFu : 0xFFFFu;
     uint32_t value = (entry->value >> shift) & mask;
     device->events[device->event_count++] =
         (ff_device_event){address, site, FF_DEVICE_READ, value, entry->known};
     ++entry->reads;
-    return (uint32_t *)((uint8_t *)&entry->value + (address & 3u));
+    if (access == FF_DEVICE_ACCESS_READ) return (uint32_t *)((uint8_t *)&entry->value + (address & 3u));
+    uint32_t *stage = stage_write_width(device, address, bytes, site);
+    if (!stage) return NULL;
+    for (uint32_t i = 0; i < bytes; ++i)
+        ((uint8_t *)stage)[i] = (uint8_t)(value >> (i * 8u));
+    return stage;
 }
