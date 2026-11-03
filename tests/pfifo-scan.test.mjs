@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { scanPushbuffer, PFIFO_SCAN_MAX_WORDS } from '../src/runtime/pfifo-scan.mjs';
+import { scanPushbuffer, PFIFO_SCAN_MAX_WORDS, PFIFO_SCAN_ABSOLUTE_WORDS } from '../src/runtime/pfifo-scan.mjs';
 
 function words(values) {
   const buffer = new ArrayBuffer(Math.max(4, values.length * 4));
@@ -26,6 +26,9 @@ test('the scanner inventories increasing, non-increasing and flow headers', () =
   assert.equal(scan.scannedWords, 9);
   assert.equal(scan.truncated, false);
   assert.equal(scan.pendingParams, 0);
+  assert.ok(scan.nonZeroWords >= 5);
+  assert.equal(scan.firstNonZero, 0);
+  assert.equal(scan.lastNonZero, 32);
   assert.equal(scan.unknown, 1);
   assert.equal(scan.jumps, 1);
   assert.equal(scan.calls, 1);
@@ -65,5 +68,15 @@ test('the scanner fails closed on invalid ranges and budgets', () => {
   assert.deepEqual(scanPushbuffer(view, 0, 0x04000004), { available: false, reason: 'invalid pushbuffer range' });
   assert.deepEqual(scanPushbuffer(view, 0, 0x100), { available: false, reason: 'range outside modeled memory' });
   assert.deepEqual(scanPushbuffer(view, 0, 4, { maxWords: 0 }), { available: false, reason: 'invalid scan budget' });
-  assert.deepEqual(scanPushbuffer(view, 0, 4, { maxWords: PFIFO_SCAN_MAX_WORDS + 1 }), { available: false, reason: 'invalid scan budget' });
+  assert.deepEqual(scanPushbuffer(view, 0, 4, { maxWords: PFIFO_SCAN_ABSOLUTE_WORDS + 1 }), { available: false, reason: 'invalid scan budget' });
+});
+
+test('an explicit budget above the default scans a larger range', () => {
+  const values = Array.from({ length: 5000 }, () => 0);
+  const view = words(values);
+  assert.equal(scanPushbuffer(view, 0, view.byteLength).truncated, true);
+  assert.equal(scanPushbuffer(view, 0, view.byteLength).scannedWords, PFIFO_SCAN_MAX_WORDS);
+  const full = scanPushbuffer(view, 0, view.byteLength, { maxWords: 8192 });
+  assert.equal(full.scannedWords, 5000);
+  assert.equal(full.truncated, false);
 });

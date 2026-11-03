@@ -1,18 +1,18 @@
-# Continue from the write-page survey: retain the boundary and pick an independent prerequisite
+# Continue after the full-range scan: the GET..PUT span is image/heap, not a queue
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A read-only per-page header survey now scans each page the translated code wrote. Of 49 written pages, 16 contain command-like sequences under a bounded heuristic; the queue claim pages are still unwritten and the submitted `GET..PUT` range still starts zeroed apart from the flush word. The PFIFO wait cannot complete, GET never advances, and no consumer is implemented. This is the last evidence probe before retaining the boundary and selecting an independent prerequisite. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+The read-only header scanner now walks the full `GET..PUT` span instead of a 4,096-word prefix. The 15,594,496-word range contains 661,203 nonzero words up to `0x3328AC` and decodes as 1,481 method kinds, 9,138 calls, 10,994 jumps, 164 returns and 28,230 unknown words. That is the game image/heap being read as command headers, not a coherent submitted queue. `GET=0` spans all low memory to `PUT=0x03B7D000`, so it is not a usable ring start. The PFIFO wait cannot complete and no consumer is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-45.json`. `submissionProbe.writePageScan` runs the read-only header scanner over up to 64 written pages and reports per-page method kinds/unknowns/jumps/calls and up to 16 interesting rows; tests cover it (17 cases).
+The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-46.json`. `pfifo-scan.mjs` adds an absolute 16 Mi-word budget plus nonzero/first/last metadata; `pushbufferScan` scans the full range; tests cover the larger budget and metadata.
 
-Validation: submission tests, device-register/scanner/mirror tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: scanner/submission tests (22 combined), device-register/mirror/runtime-suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** choose and execute one independent bounded startup/feature prerequisite, preserving the PFIFO boundary and all evidence. Do not treat command-like pages as a queue, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** retain the fail-closed PFIFO boundary and select an independent bounded startup/feature prerequisite. Do not treat image/heap decode patterns as a queue, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: 64 MiB contiguous alias
+## Prior: written-page survey
 
-The contiguous window now maps to guest RAM; the cache-flush write reaches physical 0, but the queue claim is unwritten. Report `post-memory-browser-20261103-44.json`.
+49 pages written, 16 with command-like patterns; none is the queue claim. Report `post-memory-browser-20261103-45.json`.
 
 ## Prior: 0x200f59
 

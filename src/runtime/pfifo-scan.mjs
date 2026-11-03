@@ -2,6 +2,7 @@
 // command encoding to inventory what a submitted range contains; it never
 // executes a method, writes guest memory or advances DMA_GET.
 export const PFIFO_SCAN_MAX_WORDS = 4096;
+export const PFIFO_SCAN_ABSOLUTE_WORDS = 16 * 1024 * 1024;
 
 export function scanPushbuffer(view, start, end, { maxWords = PFIFO_SCAN_MAX_WORDS } = {}) {
   const unavailable = reason => ({ available: false, reason });
@@ -11,15 +12,22 @@ export function scanPushbuffer(view, start, end, { maxWords = PFIFO_SCAN_MAX_WOR
     return unavailable('unaligned pushbuffer range');
   if (end < start || end - start > 0x04000000) return unavailable('invalid pushbuffer range');
   if (start > view.byteLength - 4 || end > view.byteLength) return unavailable('range outside modeled memory');
-  if (!Number.isInteger(maxWords) || maxWords < 1 || maxWords > PFIFO_SCAN_MAX_WORDS)
+  if (!Number.isInteger(maxWords) || maxWords < 1 || maxWords > PFIFO_SCAN_ABSOLUTE_WORDS)
     return unavailable('invalid scan budget');
   const totalWords = (end - start) / 4;
   const methods = new Map();
   let address = start, scannedWords = 0, pending = 0, unknown = 0, jumps = 0, calls = 0, returns = 0;
+  let firstNonZero = null, lastNonZero = null, nonZeroWords = 0;
   while (scannedWords < maxWords && address + 4 <= end) {
+    const at = address;
     const word = view.getUint32(address, true);
     scannedWords++;
     address += 4;
+    if (word) {
+      nonZeroWords++;
+      if (firstNonZero === null) firstNonZero = at;
+      lastNonZero = at;
+    }
     if (pending) { pending--; continue; }
     if ((word & 3) === 1) { jumps++; continue; }
     if ((word & 3) === 2) { calls++; continue; }
@@ -42,6 +50,9 @@ export function scanPushbuffer(view, start, end, { maxWords = PFIFO_SCAN_MAX_WOR
     totalWords,
     scannedWords,
     truncated: scannedWords < totalWords,
+    nonZeroWords,
+    firstNonZero,
+    lastNonZero,
     pendingParams: pending,
     unknown,
     jumps,
