@@ -1,14 +1,12 @@
-# Full-range scan: the GET..PUT span includes the game image/heap, not a queue
+# Bounded Xbox controller packet component; PFIFO boundary unchanged
 
-November 3: the read-only header scanner now walks the full `GET..PUT` span instead of a 4,096-word prefix. The 15,594,496-word range contains 661,203 nonzero words up to `0x3328AC` and decodes as 1,481 method kinds, 9,138 calls, 10,994 jumps, 164 returns and 28,230 unknown words. That is the game image/heap being read as command headers, not a coherent submitted queue. `GET=0` spans the whole low memory to `PUT=0x03B7D000`, so it is not a usable ring start. The PFIFO wait cannot complete and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: following architect guidance, the next bounded milestone is an independent runtime prerequisite rather than a speculative PFIFO consumer: a source-owned Xbox controller state and guest-facing packet encoder based on the pinned compatibility layout. It covers connection state, digital buttons, eight analog buttons and signed stick axes, with explicit packet-change accounting and checked 24-byte encoding. Rumble, host gamepad mapping, async requests, multiplayer remapping and boot-path integration are excluded. The PFIFO fail-closed boundary and all prior evidence are unchanged. **There is no playable original screen.**
 
-The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-46.json`.
+The pinned `xinput_xbox.h` defines `XBOX_GAMEPAD` as `WORD wButtons`, `BYTE bAnalogButtons[8]`, four `SHORT` thumb axes, plus a leading `dwPacketNumber`. `src/runtime/controller_packet.h/.c` implements the bounded state and encoder; `tests/controller_packet_test.c` covers neutral/button/axis-extreme states, packet changes, disconnect and invalid-argument rejection. The guest layout is explicit at 24 bytes (packet 0, buttons 4, analog 6–13, axes 14/16/18/20, two zero alignment bytes). Validation: controller fixture optimized/ASan/UBSan passes; the PFIFO run still stops at status 13 with 261 routines and 402 operations. No consumer, GET advance, interrupt, DMA or rendering is added. See [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md).
 
-Source change: `pfifo-scan.mjs` adds an absolute 16 Mi-word budget plus nonzero/first/last metadata; `pushbufferScan` scans the full range; tests cover the larger budget and metadata. The full scan shows image/heap decode patterns, not a queue. No consumer, GET advance, packet execution, interrupt, DMA or rendering is fabricated. Validation: scanner/submission tests (22 combined), device-register/mirror/runtime-suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+## Prior: full GET..PUT scan
 
-## Prior: written-page survey
-
-49 pages written, 16 with command-like patterns; none is the queue claim. Report `post-memory-browser-20261103-45.json`.
+The full submitted span decodes as image/heap, not a queue. Report `post-memory-browser-20261103-46.json`.
 
 ## Prior: 0x200f59
 

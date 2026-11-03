@@ -1,18 +1,18 @@
-# Continue after the full-range scan: the GET..PUT span is image/heap, not a queue
+# Continue from the bounded controller packet component
 
-Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+Read [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The read-only header scanner now walks the full `GET..PUT` span instead of a 4,096-word prefix. The 15,594,496-word range contains 661,203 nonzero words up to `0x3328AC` and decodes as 1,481 method kinds, 9,138 calls, 10,994 jumps, 164 returns and 28,230 unknown words. That is the game image/heap being read as command headers, not a coherent submitted queue. `GET=0` spans all low memory to `PUT=0x03B7D000`, so it is not a usable ring start. The PFIFO wait cannot complete and no consumer is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+Following architect guidance, the latest bounded milestone is an independent runtime prerequisite: a source-owned Xbox controller state and guest-facing packet encoder based on the pinned `xinput_xbox.h` layout. It covers connection state, digital buttons, eight analog buttons and signed stick axes with explicit packet-change accounting and a checked 24-byte encoding; rumble, host gamepad mapping, async requests, multiplayer remapping and boot-path integration are excluded. The PFIFO fail-closed boundary is unchanged (status 13 at `0xFD800044`; 261 routines, 402 kernel operations).
 
-The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-46.json`. `pfifo-scan.mjs` adds an absolute 16 Mi-word budget plus nonzero/first/last metadata; `pushbufferScan` scans the full range; tests cover the larger budget and metadata.
+`src/runtime/controller_packet.h/.c` and `tests/controller_packet_test.c` implement and validate the component; the guest layout is explicit at 24 bytes. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
 
-Validation: scanner/submission tests (22 combined), device-register/mirror/runtime-suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: controller fixture optimized/ASan/UBSan, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** retain the fail-closed PFIFO boundary and select an independent bounded startup/feature prerequisite. Do not treat image/heap decode patterns as a queue, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** continue independent runtime prerequisites (for example a bounded host gamepad-to-state adapter from the same pinned mapping rules, still without claiming input fidelity), or return to PFIFO only if evidence establishes the channel initialization or an actual submitted command range. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: written-page survey
+## Prior: full GET..PUT scan
 
-49 pages written, 16 with command-like patterns; none is the queue claim. Report `post-memory-browser-20261103-45.json`.
+The full submitted span decodes as image/heap, not a queue. Report `post-memory-browser-20261103-46.json`.
 
 ## Prior: 0x200f59
 
