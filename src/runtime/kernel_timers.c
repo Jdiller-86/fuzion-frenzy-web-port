@@ -65,6 +65,55 @@ static uint32_t dpc_valid(const ff_timer_queue *q, uint32_t address)
         !read32(q, address + 12)) return FF_BOOT_INVALID;
     return q->ram[address + 2] == (dpc_index(q, address) >= 0) ? FF_BOOT_OK : FF_BOOT_UNSUPPORTED;
 }
+static uint32_t relink_status(const ff_timer_queue *q)
+{
+    if (!q) return 1;
+    for (uint32_t i = 0; i < q->timer_count; ++i) {
+        const ff_timer_entry *t = &q->timers[i];
+        if (q->ram[t->object + 3] != 1 || q->ram[t->object + 1] != t->absolute ||
+            read64(q, t->object + 16) != t->deadline || read32(q, t->object + 32) != t->dpc ||
+            (i && q->timers[i - 1].deadline > t->deadline)) return 4;
+        if (t->dpc) {
+            uint32_t status = dpc_valid(q, t->dpc);
+            if (status == FF_BOOT_INVALID) return 5;
+            if (status != FF_BOOT_OK) return 6;
+        }
+        uint32_t next = i + 1 < q->timer_count ? q->timers[i + 1].object + 24 : q->timer_head;
+        uint32_t previous = i ? q->timers[i - 1].object + 24 : q->timer_head;
+        if (read32(q, t->object + 24) != next || read32(q, t->object + 28) != previous) return 7;
+        for (uint32_t j = 0; j < i; ++j) if (q->timers[j].object == t->object) return 8;
+    }
+    for (uint32_t i = 0; i < q->dpc_count; ++i) {
+        uint32_t next = i + 1 < q->dpc_count ? q->dpcs[i + 1] + 4 : q->dpc_head;
+        uint32_t previous = i ? q->dpcs[i - 1] + 4 : q->dpc_head;
+        if (read32(q, q->dpcs[i] + 4) != next || read32(q, q->dpcs[i] + 8) != previous) return 11;
+        for (uint32_t j = 0; j < i; ++j) if (q->dpcs[j] == q->dpcs[i]) return 12;
+    }
+    if (read32(q, q->timer_head) != (q->timer_count ? q->timers[0].object + 24 : q->timer_head)) return 13;
+    if (read32(q, q->timer_head + 4) != (q->timer_count ? q->timers[q->timer_count - 1].object + 24 : q->timer_head)) return 14;
+    if (read32(q, q->dpc_head) != (q->dpc_count ? q->dpcs[0] + 4 : q->dpc_head)) return 15;
+    if (read32(q, q->dpc_head + 4) != (q->dpc_count ? q->dpcs[q->dpc_count - 1] + 4 : q->dpc_head)) return 16;
+    return 0;
+}
+
+uint32_t ff_timers_check(const ff_timer_queue *q)
+{
+    if (!q || q->timer_count > FF_TIMER_CAPACITY || q->dpc_count > FF_DPC_CAPACITY ||
+        !fits(q, q->timer_head, 8) || !fits(q, q->dpc_head, 8) ||
+        overlaps(q->timer_head, 8, q->dpc_head, 8)) return 1;
+    for (uint32_t i = 0; i < q->timer_count; ++i) {
+        uint32_t status = timer_valid(q, q->timers[i].object);
+        if (status == FF_BOOT_INVALID) return 2;
+        if (status != FF_BOOT_OK) return 3;
+    }
+    for (uint32_t i = 0; i < q->dpc_count; ++i) {
+        uint32_t status = dpc_valid(q, q->dpcs[i]);
+        if (status == FF_BOOT_INVALID) return 9;
+        if (status != FF_BOOT_OK) return 10;
+    }
+    return relink_status(q);
+}
+
 static uint32_t validate(const ff_timer_queue *q)
 {
     if (!q || q->timer_count > FF_TIMER_CAPACITY || q->dpc_count > FF_DPC_CAPACITY ||

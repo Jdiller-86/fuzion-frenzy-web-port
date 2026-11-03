@@ -945,7 +945,7 @@ self.onmessage = async event => {
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,

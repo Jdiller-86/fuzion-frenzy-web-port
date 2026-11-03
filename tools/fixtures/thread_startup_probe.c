@@ -219,7 +219,7 @@ static struct { uint32_t words[21]; uint8_t format[256], output[520], input[3][2
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
 static ff_dpc_frame dpc_frame;
-static uint32_t timers_ready, dpc_delivered, clock_words[4];
+static uint32_t timers_ready, dpc_delivered, clock_words[4], timer_check;
 __attribute__((import_module("env"), import_name("ff_host_clock")))
 extern void ff_host_clock(uint32_t output);
 void ff_probe_poll(void);
@@ -615,7 +615,7 @@ static void sample_clock(void)
     uint64_t interrupt = clock_words[0] | (uint64_t)clock_words[1] << 32;
     uint64_t system = clock_words[2] | (uint64_t)clock_words[3] << 32;
     uint32_t status = ff_timers_advance(&timers, interrupt, system);
-    if (status != FF_BOOT_OK) stop(9, status, 149);
+    if (status != FF_BOOT_OK) { timer_check = ff_timers_check(&timers); stop(9, status, 149); }
 }
 void ff_probe_dpc_recover(void)
 {
@@ -1627,6 +1627,7 @@ uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
 uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
 uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
+uint32_t ff_probe_timer_check(void) { return timer_check; }
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
     return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }

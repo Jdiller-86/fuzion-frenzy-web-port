@@ -1,8 +1,12 @@
-# Bounded 0x80C0 port input and 0xFD002080 zero range; next stop is the timer service
+# Timer diagnostic identifies the DPC-list head mismatch at the ordinal-149 stop
 
-November 4: the reached D3D path reads x86 port `0x80C0`; the source-owned port surface now models the pinned bridge's field-pin read (bit 5 toggles per read) and the probe defines `xbox_PortIn`. The explicit profile gained a `0xFD002080` zero range; the source-owned zero-range capacity is raised to eight and the initializer trace capacity to 8,192, with tests. Private module `recomp-post-memory-build-68` (637,395 bytes, SHA-256 `75f66f41…`) advances to **277** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 9 (`unsupported Xbox service`) with target `0xC00000BB`, ordinal 149, return `0x200F73`. The timer queue still has one active six-hour timer; the new blocker is the timer/clock service path, not the register read. **There is no playable original screen.**
+November 4: the ordinal-149 stop at `0xC00000BB` is now diagnosed. `ff_timers_check` returns the first structural/timer/DPC/link failure without mutating the queue; the probe records it before stopping and the worker reports `timerCheck`. The result is **15**: the guest DPC list head is not the expected empty/self value while the modeled DPC count is zero. The active six-hour timer remains valid. Private module `recomp-post-memory-build-68` (638,768 bytes, SHA-256 `05e26e13…`) still reaches **277** distinct routines, 83/83 initializers and 403 kernel operations. The next step is to inspect the guest DPC head/object and model the enqueue path with evidence, not to force the list empty. **There is no playable original screen.**
 
-Validation: port surface, device-register capacity and startup/mmio tests pass; runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the port-input checkpoint](PORT_INPUT_CHECKPOINT.md).
+Validation: kernel-timer diagnostic tests optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the timer-diagnostic checkpoint](TIMER_DPC_DIAGNOSTIC_CHECKPOINT.md).
+
+## Prior: 0xFD002080 zero range and capacity extensions
+
+The read of PFIFO address `0xFD002080` is served by an explicit synthetic zero range. The source-owned zero-range capacity is raised to eight and the initializer trace capacity to 8,192, with tests. Execution advanced to 277 distinct routines and stopped at the timer-service status.
 
 ## Prior: explicit translation budget extended to 32,768
 
