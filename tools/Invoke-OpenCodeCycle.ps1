@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $worktree = Join-Path $repo '.worktrees\opencode-source'
 $statePath = Join-Path $repo '.worktrees\opencode-cycle-state.json'
+$sessionPath = Join-Path $repo '.worktrees\opencode-cycle-session.txt'
 $logPath = Join-Path $repo '.worktrees\opencode-cycle.log'
 $lockPath = Join-Path $repo '.worktrees\opencode-cycle.lock'
 
@@ -20,8 +21,13 @@ try {
     $mainHead = (git -C $repo rev-parse main).Trim()
     $head = (git -C $worktree rev-parse HEAD).Trim()
     $dirty = (git -C $worktree status --porcelain).Count -gt 0
+    $sessionId = $null
+    if (Test-Path -LiteralPath $sessionPath) {
+        $sessionId = (Get-Content -LiteralPath $sessionPath -Raw).Trim()
+        if ($sessionId -notmatch '^ses_[A-Za-z0-9]+$') { throw 'Invalid pinned OpenCode session ID.' }
+    }
     if ($DryRun) {
-        Write-Output ("Ready: worktree=$worktree head=$head dirty=$dirty")
+        Write-Output ("Ready: worktree=$worktree head=$head dirty=$dirty session=$sessionId")
         return
     }
     $base = (git -C $worktree merge-base HEAD main).Trim()
@@ -39,12 +45,12 @@ try {
     }
 
     $failures = if ($previous -and $previous.outcome -ne 'progressed') { [int]$previous.failures + 1 } else { 0 }
-    $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures }
+    $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures; sessionId = $sessionId }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     $prompt = 'Work in this dedicated source-only worktree. Read AGENTS.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md and docs/OPENCODE_GOAL.md. Execute one bounded unowned milestone toward original-game browser execution; do not stop at a plan. Preserve existing edits. If ignored private evidence is unavailable here, choose a source-owned prerequisite instead of inventing an original-runtime proof. Use the model escalation and evidence rules. Run targeted checks, update status/decisions, review staged paths, and commit a verified source-only result. Never push or merge to main.'
     if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
-    if ($previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
+    if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
     $output = @()
     $exitCode = 1
     try {
@@ -57,7 +63,11 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
-                $output = & opencode run --standalone --auto --agent builder --model opencode-go/deepseek-v4.1-flash $prompt 2>&1
+                if ($sessionId) {
+                    $output = & opencode run --auto --session $sessionId --agent builder --model opencode-go/deepseek-v4.1-flash $prompt 2>&1
+                } else {
+                    $output = & opencode run --auto --agent builder --model opencode-go/deepseek-v4.1-flash $prompt 2>&1
+                }
                 $exitCode = $LASTEXITCODE
             } finally { $ErrorActionPreference = $oldPreference }
         } finally { Pop-Location }
