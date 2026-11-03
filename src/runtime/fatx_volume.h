@@ -4,7 +4,9 @@
 #include "object_namespace.h"
 
 /* Read-only FATX mounts over owned block backing. No prefilled tree, host disk
- * or original default geometry. File operations beyond root/size stop. */
+ * or original default geometry. Guest file operations beyond root/size stop;
+ * the root directory/file reader below is an owned component, not a guest
+ * service. */
 #define FF_FATX_MOUNTS 4u
 #define FF_FATX_FILES 16u
 #define FF_FATX_SCAN_CLUSTERS 262144u
@@ -13,6 +15,13 @@
 #define FF_FATX_HANDLE_LIMIT 0x00080000u
 #define FF_FATX_FILE_BASE 0x50000000u
 #define FF_FATX_FILE_LIMIT 0x50010000u
+#define FF_FATX_NAME 42u
+#define FF_FATX_ATTR_DIRECTORY 0x10u
+
+typedef struct {
+    char name[FF_FATX_NAME + 1];
+    uint32_t attributes, first_cluster, size;
+} ff_fatx_directory_entry;
 
 typedef struct {
     uint32_t id,partition,device,serial,sectors_per_cluster,cluster_bytes,entry_bytes;
@@ -34,5 +43,13 @@ uint32_t ff_fatx_query_size(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_close(ff_fatx_volume *,uint32_t handle);
 uint32_t ff_fatx_reference_handle(ff_fatx_volume *,uint32_t handle,uint32_t *file);
 uint32_t ff_fatx_release_file(ff_fatx_volume *,uint32_t file);
+/* Read-only directory/file access over the validated mount. These are
+ * source-owned components, not guest services; unsupported layouts stop.
+ * The directory entry passed to ff_fatx_read_entry must come from
+ * ff_fatx_root_entry, not from untrusted guest bytes. */
+uint32_t ff_fatx_root_count(ff_fatx_volume *,uint32_t mount,uint32_t *count);
+uint32_t ff_fatx_root_entry(ff_fatx_volume *,uint32_t mount,uint32_t index,ff_fatx_directory_entry *entry);
+uint32_t ff_fatx_read_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
+                            uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
 int ff_fatx_owns_handle(uint32_t);
 #endif

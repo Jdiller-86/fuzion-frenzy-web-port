@@ -1,4 +1,14 @@
-# Modeled device writes now record the stored value
+# Read-only FATX directory/file component added
+
+Source-only milestone (November 3): the validated FATX mount now has a read-only root-directory enumerator and file reader. It parses the public 64-byte FATX directory-entry layout, follows FAT16/FAT32 cluster chains with cycle, bounds and short-chain checks, and copies bytes only after a successful preflight. It is **not guest-integrated**: original `NtOpenFile`/read operations beyond the reached root/size path still stop.
+
+Evidence: the entry layout, 42-byte name limit, `0x00`/`0xFF` end markers, `0xE5` deleted marker and directory attribute come from the public XboxDev FATX source (`libfatx/fatx_internal.h`, SHA-256 `5ab93cb7…`; `libfatx/fatx_dir.c`, SHA-256 `0d162299…`). The component joins that public format to this project's already-validated mount geometry; it does not infer retail directory contents.
+
+Validation: the owned FATX test now covers root enumeration over a two-cluster root, deleted/end entries, empty and multi-cluster files, partial/later-cluster/cross-cluster reads, FAT16 and FAT32 chains, malformed name lengths, zero first clusters, short/cyclic chains, oversized entry sizes and stale backing revisions. Optimized and ASan/UBSan WSL runs pass, as do Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` (221 files) and whitespace checks. No public CI result is claimed.
+
+Boundary: read-only root only; no subdirectory traversal, guest file open/read service, writes, remount or durable persistence. The directory-entry API is source-owned and must receive entries from `ff_fatx_root_entry`, never untrusted guest bytes. No original module was rebuilt or run, so this is **not a new original-runtime observation**; ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`.
+
+## Modeled device writes now record the stored value
 
 Source-only milestone (November 3): the explicit synthetic aperture now stages each device write until the generated store has run, then records the actual value in one ordered write event. A read-modify-write records its read immediately and stages its write, so the log holds both halves. `ff_device_registers_access` centralizes read/write/read-write routing; unknown reads, zero sites, invalid masks or widths, and capacity exhaustion still fail before a guest result. This removes the prior event-value limitation for future modules.
 

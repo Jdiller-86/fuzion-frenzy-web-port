@@ -212,3 +212,107 @@ uint32_t ff_fatx_release_file(ff_fatx_volume *fs,uint32_t token)
     }
     return FF_BOOT_BAD_HANDLE;
 }
+static uint32_t current_mount(ff_fatx_volume *fs,uint32_t id,ff_fatx_mount **mount)
+{
+    ff_fatx_mount *m=mount_id(fs,id);
+    if(!m || !current(fs,m))return FF_BOOT_UNSUPPORTED;
+    *mount=m;return 0;
+}
+static uint32_t fat_next(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t cluster,uint32_t *next)
+{
+    const uint32_t last=mount->entry_bytes==2?0xffffu:UINT32_MAX;
+    if(!cluster || cluster>mount->cluster_count)return FF_BOOT_UNSUPPORTED;
+    const uint32_t value=disk_word(fs,mount->offset+4096+(uint64_t)cluster*mount->entry_bytes,mount->entry_bytes);
+    if(value!=last && (!value || value>mount->cluster_count))return FF_BOOT_UNSUPPORTED;
+    *next=value;return 0;
+}
+static uint32_t root_scan(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t target,
+                          ff_fatx_directory_entry *entry,uint32_t *count)
+{
+    uint32_t cluster=mount->root_cluster,steps=0,seen=0;
+    if(count)*count=0;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_ROOT_CHAIN)return FF_BOOT_UNSUPPORTED;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
+        for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
+            const uint64_t address=base+offset;
+            const uint32_t length=ff_disk_byte(fs->disk,address);
+            if(length==0u || length==0xffu) { if(count)*count=seen;return entry?FF_BOOT_UNSUPPORTED:0; }
+            if(length==0xe5u)continue;
+            if(length>FF_FATX_NAME)return FF_BOOT_UNSUPPORTED;
+            const uint32_t attributes=ff_disk_byte(fs->disk,address+1);
+            const uint32_t first=disk_word(fs,address+44,4),size=disk_word(fs,address+48,4);
+            if(first>mount->cluster_count || ((attributes&FF_FATX_ATTR_DIRECTORY)&&!first) || (size&&!first))
+                return FF_BOOT_UNSUPPORTED;
+            char name[FF_FATX_NAME+1];
+            for(uint32_t i=0;i<length;++i) {
+                const uint32_t value=ff_disk_byte(fs->disk,address+2+i);
+                if(!value)return FF_BOOT_UNSUPPORTED;
+                name[i]=(char)value;
+            }
+            name[length]=0;
+            if(entry && seen==target) {
+                memcpy(entry->name,name,length+1u);
+                entry->attributes=attributes;entry->first_cluster=first;entry->size=size;
+                if(count)*count=seen+1u;
+                return 0;
+            }
+            ++seen;
+        }
+        uint32_t next;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX)) { if(count)*count=seen;return entry?FF_BOOT_UNSUPPORTED:0; }
+        cluster=next;
+    }
+}
+uint32_t ff_fatx_root_count(ff_fatx_volume *fs,uint32_t id,uint32_t *count)
+{
+    ff_fatx_mount *mount;
+    if(!fs || !count)return FF_BOOT_INVALID;
+    uint32_t status=current_mount(fs,id,&mount);if(status)return status;
+    return root_scan(fs,mount,0,NULL,count);
+}
+uint32_t ff_fatx_root_entry(ff_fatx_volume *fs,uint32_t id,uint32_t index,ff_fatx_directory_entry *entry)
+{
+    ff_fatx_mount *mount;
+    if(!fs || !entry)return FF_BOOT_INVALID;
+    uint32_t status=current_mount(fs,id,&mount);if(status)return status;
+    return root_scan(fs,mount,index,entry,NULL);
+}
+uint32_t ff_fatx_read_entry(ff_fatx_volume *fs,uint32_t id,const ff_fatx_directory_entry *entry,
+                            uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes)
+{
+    ff_fatx_mount *mount;
+    if(!fs || !entry || !bytes)return FF_BOOT_INVALID;
+    *bytes=0;
+    uint32_t status=current_mount(fs,id,&mount);if(status)return status;
+    if(entry->attributes&FF_FATX_ATTR_DIRECTORY)return FF_BOOT_UNSUPPORTED;
+    if(offset>entry->size)return FF_BOOT_INVALID;
+    uint32_t remaining=entry->size-offset,size=remaining<capacity?remaining:capacity;
+    if(!size)return 0;
+    if(!output || !entry->first_cluster || entry->first_cluster>mount->cluster_count)return FF_BOOT_UNSUPPORTED;
+    const uint32_t skip=offset/mount->cluster_bytes,intra=offset%mount->cluster_bytes;
+    const uint64_t span=(uint64_t)intra+size;
+    const uint32_t need=skip+(uint32_t)((span+mount->cluster_bytes-1u)/mount->cluster_bytes);
+    uint32_t cluster=entry->first_cluster,length=0,next;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || ++length>mount->cluster_count)return FF_BOOT_UNSUPPORTED;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX))break;
+        cluster=next;
+    }
+    if(length<need)return FF_BOOT_UNSUPPORTED;
+    cluster=entry->first_cluster;
+    for(uint32_t i=0;i<skip;++i) { if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;cluster=next; }
+    uint32_t written=0,fragment=intra;
+    while(written<size) {
+        uint32_t chunk=size-written;
+        const uint32_t available=mount->cluster_bytes-fragment;
+        if(chunk>available)chunk=available;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes+fragment;
+        for(uint32_t i=0;i<chunk;++i)output[written+i]=ff_disk_byte(fs->disk,base+i);
+        written+=chunk;fragment=0;
+        if(written<size) { if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;cluster=next; }
+    }
+    *bytes=written;return 0;
+}
