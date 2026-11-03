@@ -2,6 +2,8 @@
 
 The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers one post-vertex geometry component, not the complete NV2A renderer or original-game fidelity.
 
+Directive status, November 3 (integration head `d31e071a3202024574af997d14f8251b3537acec`): new topology expansion is held. The retained-reference comparison contract and integration gate are recorded below. No component is integration-approved; independent commit-level review is unavailable under this lane's free-model-only constraint and is handed to the primary lane/architect.
+
 Next-task update, November 1: the user confirmed no local boot firmware and asked about a native web port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) now scopes an original initialization-function proof. A native line/quad reference has been captured; its browser prepass remains pending. Preserve this triangle component and both references for either runtime route.
 
 ## Observations
@@ -89,10 +91,66 @@ The stream assemblers now form strip/fan triangles; the caller still supplies th
 
 Review status (November 3, free-model-only cycle): the stream assembly was checked against the pinned public generator source and analytic native tests without a separate GLM or Sol review, per the current runner directive. Remaining correctness inputs for primary-lane review: the caller must supply host-measured winding orders, the stream must begin at the draw's primitive 0 for strip parity, and strip/fan primitive-restart, degenerate-triangle and draw-origin behavior is not compared with a captured reference. No captured strip/fan reference or browser prepass exists here, and GLSL division rounding is assumed correctly rounded because the fused/separate profiles cover only the determinant terms.
 
+## Retained-reference comparison contract
+
+Directive update (integration head `d31e071a3202024574af997d14f8251b3537acec`): new topology expansion is on hold until this contract and a commit-level review are satisfied. This section records the contract and the current gate; it adds no geometry behavior.
+
+### Admission of a retained reference
+
+A reference is admissible only when all of the following are recorded with it:
+
+- the pinned xemu commit (currently `dc10b4cea96e403d30c17ed53551fdaf023bc17f`), checked by the comparator against `tools/original-execution-toolchain.json`;
+- the generator inputs and their digests (source shader and varying headers) and the isolated-generator build identity;
+- the capture environment: GL implementation, driver and version, the transform-feedback procedure, and the exact arithmetic behavior the capture represents;
+- the reference `kind`, input/output strides, a nonzero record count and the case/seed inventory, including degenerate and zero-`w` cases;
+- a SHA-256 of the reference bytes, retained in every comparison report;
+- no original game or franchise content.
+
+References stay in ignored local storage (`.tools/emulation/**`, reports under `research/**`). They are never committed, uploaded, relabeled or overwritten. A new capture uses a new path.
+
+### Record schema and current comparator scope
+
+Each filled-triangle record carries 126 raw float32 input words, four state words and 153 expected output words. State words 0-2 must be 0 or 1 and word 3 must be 0-2. Output is compared as raw bits; depth slope is word 50 of each 51-word record. The reference file is capped at 16 MiB and 4096 records.
+
+`tools/compare-nv2a-geometry.mjs` currently drives only the `_ff_nv2a_expand_triangle` export with that four-word state. Comparing any other primitive or mode requires an equivalent bounded export, state layout and reference schema before it can be called a reference comparison.
+
+### Comparison procedure and rules
+
+Run:
+
+```powershell
+node tools/compare-nv2a-geometry.mjs <compiled.cjs> <reference.json> <new-research-report.json> <fused|separate>
+```
+
+The tool requires the compiled module and its `.wasm` inside `.tools/emulation`, requires a new JSON report inside ignored `research/` opened exclusively (`wx`), verifies the pinned commit, schema and limits before loading tool code, allocates the bounded buffers, calls the export with the explicit arithmetic profile, compares every word, and writes digests plus mismatch counts and a `status` of `exact-match` or `differences-found`. It exits nonzero on any mismatch.
+
+- The arithmetic profile is part of the evidence. A fused result is checked against the native fused model, not against a separate-operation software-shader capture; the fused profile cannot excuse differences from a separate-profile reference.
+- No tolerance is added to make a comparison pass. A mismatch is retained as a failed report.
+- Analytic tests are not a reference comparison. A component without an admissible reference makes no fidelity claim.
+
+### Integration gate and commit-level review
+
+A geometry component may enter the original-execution/renderer path only after:
+
+1. an admissible retained reference exists for that primitive and mode;
+2. the comparator reports `exact-match` for the component's supported surface under a stated profile, or every difference has a recorded explanation accepted by the primary lane;
+3. a commit-level review records the changed paths, the primitive/mode covered, the reference identity and digest, the resulting report, the checks actually run, the untested surface, and the remaining correctness inputs (winding orders, draw origin, division rounding, host adaptation);
+4. the primary lane confirms the component is not presented as original rendering or complete renderer coverage.
+
+The free-model-only geometry directive forbids delegating to paid or other-model agents, so this lane cannot itself obtain the independent commit-level review. That review is a material blocker for the primary lane/architect; this lane must not claim it occurred. Self-review of staged source-only paths still applies but does not satisfy item 3.
+
+### Current reference status
+
+| Component | Retained reference | Comparison state |
+| --- | --- | --- |
+| Filled triangle (`ff_nv2a_expand_triangle`) | `.tools/emulation/geom-reference-01/reference.json`, SHA-256 `474497d8fb629580352390ec7705b4ed0ea47aa635b8064e9ad2f393d7b530e5` (960 records) | exact under the separate profile; fused checked separately against the native-libm model |
+| Line and quad | captured locally, private and unavailable in this worktree | not compared here; browser prepass pending |
+| Triangle strip/fan fill/line/point, polygon fill/line, quad line/point, quad-strip, stream assembly | none | analytic tests only |
+
 ## Inference, unknowns and next task
 
 The evidence supports a CPU prepass followed by WebGL2 as a candidate replacement for this filled-triangle geometry stage. It does not select the final graphics architecture or establish original-hardware fidelity. The source-owned C component is not integrated into xemu yet.
 
 Unknown/unimplemented: primitive assembly from vertex streams for quad strips (triangle strip/fan and line strip/loop assembly are now source-owned), vertex-program/fixed-function translation, original fragment/texture/depth/blend behavior, shared-context/thread integration, complete GL host adaptation, performance, release-browser coverage and original-title execution. The synthetic forwarded positions are post-vertex inputs, not a substitute for that missing vertex path. An Xbox test/capture would still be needed to establish original behavior; no game/firmware download or native-game streaming is authorized.
 
-Next concrete task: compare the source-owned triangle/line/quad/quad-strip/polygon candidates, including line-strip/loop and triangle-strip/fan stream assembly, against the captured native references and browser prepass, preserving the triangle regression. The captured references are private and unavailable in the source-only worktree, so these comparisons were not performed here. If no reference becomes available, the next source-owned candidate is quad-strip stream assembly with its adjacency parity. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
+Next concrete task: new topology expansion is held by the integration-head directive. The lane's next step is to satisfy the retained-reference contract for one existing component, which requires the admissible private reference to be available and an equivalent comparator export; neither exists in this source-only worktree. Commit-level review before integration is also outstanding because this lane may not delegate to another model. The primary lane/architect must supply the reference access, the commit-level review and the integration decision; until then, quad-strip stream assembly and the other listed candidates stay unstarted. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
