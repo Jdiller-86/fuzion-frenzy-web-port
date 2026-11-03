@@ -874,7 +874,7 @@ self.onmessage = async event => {
     }
     let deviceRegisters;
     if(api.ff_probe_abi()===24) {
-      deviceRegisters=createDeviceReport(api);
+      deviceRegisters=createDeviceReport(api, mmioProfile);
     }
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {

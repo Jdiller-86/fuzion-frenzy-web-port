@@ -1,4 +1,12 @@
-# Explicit multi-register device profiles
+# Device reports preserve supplied register profiles
+
+Source-only milestone (November 3): the device report now records the explicit multi-register profile input separately from the observed aperture state. `device-report.mjs` accepts the parsed profile, normalizes its window and 2–64 supplied address/initial entries into a `supplied` field, and leaves `entries`/`log` as the post-run observations. The worker passes `mmioProfile`, so a private run can distinguish supplied values from writes and reads without consulting a separate settings file.
+
+Validation: Node tests cover supplied-profile preservation, separation from observed entries, 2/3/64-entry profiles and malformed profiles; `npm run test:runtime` 47/47, Python 10/10, title-seed 25/25, `npm run check` (230 files) and whitespace checks pass.
+
+Boundary: no original module was rebuilt or run, so there is no new original-runtime observation. ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`; the private export is unavailable here.
+
+## Explicit multi-register device profiles
 
 Source-only milestone (November 3): the synthetic aperture now accepts 2–64 explicit initial register entries instead of exactly two. `ff_device_registers_init_many` validates distinct aligned in-window addresses before mutation; `ff_device_registers_add_initial` seeds additional entries only before any access or staged write. The probe exports `ff_probe_mmio_add`, and the worker seeds profile extras after the two required reached addresses. The profile parser accepts 2–64 distinct entries and still requires `0xfd001804` and `0xfd600140`; no register value is guessed.
 

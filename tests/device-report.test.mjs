@@ -29,6 +29,23 @@ test('device reports retain every bounded entry and event', () => {
   assert.equal(report.log.length, 9);
   assert.deepEqual(report.log[0], { address: 0xFD000000, direction: 1, value: 0x20, beforeKnown: 0, site: 0x00100020 });
   assert.deepEqual(report.log[1], { address: 0xFD000004, direction: 2, value: 0x21, beforeKnown: 1, site: 0x00100020 });
+  assert.equal(report.supplied, null);
+});
+
+test('device reports preserve the explicit supplied profile separately from observed entries', () => {
+  const profile = {
+    window: { base: 0xFD000000, size: 0x00800000 },
+    registers: [
+      { address: 0xFD001804, initial: 0x10 },
+      { address: 0xFD600140, initial: 0x20 },
+      { address: 0xFD009140, initial: 0x30 },
+    ],
+  };
+  const report = createDeviceReport(fake(2, 1), profile);
+  assert.deepEqual(report.supplied, profile);
+  assert.equal(report.entries.length, 2);
+  assert.notEqual(report.supplied.registers, profile.registers);
+  assert.deepEqual(report.entries[0], { address: 0xFD000000, value: 0x10, reads: 1, writes: 2 });
 });
 
 test('an older module without event site provenance reports null', () => {

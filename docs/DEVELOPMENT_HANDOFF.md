@@ -1,4 +1,16 @@
-# Continue from explicit multi-register device profiles
+# Continue from supplied-profile device reporting
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The device report now records the explicit multi-register profile input separately from observed entries and events. `device-report.mjs` normalizes the supplied window and 2–64 address/initial entries; the worker passes the parsed profile, so a private run can distinguish supplied values from reads/writes without a separate settings file. Profile validation and the two-entry fallback are unchanged.
+
+Validation: Node tests cover supplied-profile preservation and separation, 2/3/64-entry and malformed profiles; runtime 47/47, Python 10/10, title-seed 25/25, `npm run check` for 230 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained export is unavailable. In a private cycle, rebuild with `ff_probe_mmio_add` exported, admit the next export, and use an explicit multi-register profile only for values the next run actually requires. The captured line/quad reference comparison and browser prepass also remain private. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior multi-register handoff
+
+## Explicit multi-register device profiles
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 

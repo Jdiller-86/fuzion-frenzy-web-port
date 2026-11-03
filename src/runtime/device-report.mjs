@@ -6,7 +6,7 @@
 export const DEVICE_ENTRIES = 1024;
 export const DEVICE_EVENTS = 4096;
 
-export function createDeviceReport(api) {
+export function createDeviceReport(api, profile = null) {
   if (!api || typeof api.ff_probe_mmio_word !== 'function' ||
       typeof api.ff_probe_mmio_event !== 'function') {
     throw new Error('Missing bounded device-aperture accessors');
@@ -44,5 +44,9 @@ export function createDeviceReport(api) {
     events,
     entries,
     log,
+    supplied: profile ? {
+      window: { base: profile.window.base, size: profile.window.size },
+      registers: profile.registers.map(entry => ({ address: entry.address, initial: entry.initial })),
+    } : null,
   };
 }
