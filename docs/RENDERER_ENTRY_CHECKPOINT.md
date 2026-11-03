@@ -110,8 +110,22 @@ One explicit synthetic profile supplied zero as the test value for three newly o
 
 The next reached services were modeled from the pinned public xboxrecomp bridge/ordinal table: ordinal 44 `HalGetInterruptVector`, ordinal 109 `KeInitializeInterrupt`, ordinal 98 `KeConnectInterrupt` and ordinal 47 `HalRegisterShutdownNotification`. The first returned vector 3 and wrote the IRQL byte; the second wrote a zeroed 44-byte KINTERRUPT with routine/context/vector at offsets 0/4/8; the third returned TRUE; the fourth accepted registration and dropped it. **No interrupt is delivered and no NV2A interrupt behavior is modeled.**
 
-Execution then stopped at untranslated original routine **`0x1FE0C6`** (return `0x1FE616`, status 2) after 399 kernel operations. The report is `research/verification/post-memory-browser-20261103-02.json` (local/ignored). There is no playable screen.
+Execution then stopped at untranslated original routine **`0x1FE0C6`** (return `0x1FE616`, status 2) after 399 kernel operations. The report is `research/verification/post-memory-browser-20261103-02.json` (local/ignored).
+
+### Execute 0x1FE0C6
+
+Using the retained 23-seed selection plus `recomp-post-memory-next-06/seed.json`, translation `recomp-title-post-memory-10` contains **346 functions / 12,997 instructions**, including `ff_title_001FE0C6`. Module `recomp-post-memory-build-22` is 459,451 bytes, SHA-256 `ab28b542f277a3a1ca2b16c74dbaaba8a18a580f9e61b04c9caf3560226d832f`.
+
+In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 236 distinct original routines executed and 399 kernel operations completed;
+- `0x001fe0c6` executed its prologue and two stores, then called untranslated `0x001ffcc0`;
+- the aperture logged nine events across eight addresses, with sites `2089050`, `2089093` and `2089158`; the two new writes were `0xFD001830` = `0` and `0xFD00180C` = `0xF800`, both unknown-before;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FFCC0`** (return `0x1FE0E7`, status 2). The report is `research/verification/post-memory-browser-20261103-03.json` (local/ignored). There is no playable screen.
 
 ## Next task
 
-Admit and translate `0x1FE0C6` from a bounded read-only export, then follow the next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FFCC0` from the retained bounded read-only export (`recomp-post-memory-next-07`: 359 bytes / 116 instructions, no direct calls), then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.

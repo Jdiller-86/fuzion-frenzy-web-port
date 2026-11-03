@@ -1,14 +1,22 @@
-# Continue from original execution at 0x1FE0C6
+# Continue from the executed 0x1FE0C6 helper at 0x1FFCC0
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x001fe085` executed and returned to `0x1FE5CE`. All 83 initialization callbacks return; 235 distinct original routines execute and 399 kernel operations complete. The reached interrupt-initialization services (ordinals 44, 109, 98, 47) are modeled from the pinned public bridge. Execution stops at untranslated **`0x1FE0C6`** (return `0x1FE616`).
+Original `0x001fe0c6` executed its prologue and two stores, then called untranslated **`0x1FFCC0`** (return `0x1FE0E7`, status 2). All 83 initialization callbacks return; 236 distinct original routines execute and 399 kernel operations complete. The helper stops at its first callee before reaching a kernel service. The two synthetic device writes are `0xFD001830` = `0` and `0xFD00180C` = `0xF800`, both with unknown-before provenance.
 
-Selection `recomp-title-post-memory-09` is 345 functions / 12,892 instructions; module `recomp-post-memory-build-21` is SHA-256 `5fc6d100…` (459,080 bytes). An explicit synthetic profile supplied zero for the newly observed device reads `0xFD001800`, `0xFD001808`, `0xFD10020C`; these are test inputs, not original defaults.
+Selection `recomp-title-post-memory-10` is 346 functions / 12,997 instructions; module `recomp-post-memory-build-22` is SHA-256 `ab28b542…` (459,451 bytes). No new supplied register value was required. The local report is `post-memory-browser-20261103-03.json`. A bounded read-only export reports the reached callee `0x1FFCC0` as 359 bytes / 116 instructions with no direct calls (`recomp-post-memory-next-07`); it is static export evidence, not admitted translation or observed execution.
 
-Validation: interrupt fixtures optimized/ASan/UBSan, Python 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x1FE0C6` from a bounded read-only export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x1FFCC0` from the retained read-only export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic device writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: continue from original execution at 0x1FE0C6
+
+Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+Original `0x001fe085` executed and returned to `0x1FE5CE`. All 83 initialization callbacks return; 235 distinct original routines execute and 399 kernel operations complete. The reached interrupt-initialization services (ordinals 44, 109, 98, 47) are modeled from the pinned public bridge. Execution stops at untranslated `0x1FE0C6` (return `0x1FE616`).
+
+Selection `recomp-title-post-memory-09` is 345 functions / 12,892 instructions; module `recomp-post-memory-build-21` is SHA-256 `5fc6d100…` (459,080 bytes). An explicit synthetic profile supplied zero for the newly observed device reads `0xFD001800`, `0xFD001808`, `0xFD10020C`; these are test inputs, not original defaults. The modeled services do not deliver interrupts or establish NV2A behavior.
 
 ## Prior supplied-profile handoff
 
