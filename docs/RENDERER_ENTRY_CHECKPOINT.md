@@ -217,6 +217,19 @@ Execution stopped at **`0x1FFFF4`** (return `0x1FE1B0`, status 2). The report is
 
 The aperture now tracks per-byte knownness for sub-dword writes, allowing an unknown dword entry to be extended without fabricating untouched bytes; reads still require every accessed byte to be known. Device-register tests pass optimized and ASan/UBSan.
 
+### Execute 0x1FFFF4
+
+Using the retained 29-seed selection plus `recomp-post-memory-next-12/seed.json`, translation `recomp-title-post-memory-16` contains **352 functions / 13,280 instructions**, including `ff_title_001FFFF4`. Module `recomp-post-memory-build-29` is 471,053 bytes, SHA-256 `be6a6d13729484552f7a96ab7c6fc22584792670ed18f18c157652da1eff77b7`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 242 distinct original routines executed and 400 kernel operations completed;
+- `0x001ffff4` programmed twelve device-register dwords and returned to `0x001fe1b0`;
+- `0x001fe0c6` set `[ESI+0x134]=2` and called `0x0020002a`;
+- the aperture retained 5,160 entries / 5,188 events, with new writes at `0xFD008910`–`0xFD008944`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x20002A`** (return `0x1FE1C1`, status 2). The report is `research/verification/post-memory-browser-20261103-11.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x1FFFF4` (54 bytes / 18 instructions, no direct calls) from the retained `recomp-post-memory-next-12` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or sub-dword writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x20002A` (48 bytes / 15 instructions, no direct calls) from the retained `recomp-post-memory-next-13` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or device writes. The captured line/quad reference comparison and browser prepass also remain private.
