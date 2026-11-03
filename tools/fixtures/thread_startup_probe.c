@@ -13,6 +13,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/virtual_memory.h"
 #include "../../src/runtime/interrupt_vector.h"
 #include "../../src/runtime/gpu_instance.h"
+#include "../../src/runtime/time_fields.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -1323,6 +1324,20 @@ static void claim_gpu_instance_memory(void)
     row[4] = base;
     g_eax = base; g_esp += 12;
 }
+static void rtl_time_to_fields(void)
+{
+    uint32_t *row = kernel_record(305, 2);
+    if (!row[2] || (row[2] & 3u) || ff_vm_check(&virtual_memory, row[2], 8, FF_VM_READ))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    if (!row[3] || (row[3] & 1u) || ff_vm_check(&virtual_memory, row[3], 16, FF_VM_WRITE))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    uint64_t time = (uint64_t)MEM32(row[2]) | ((uint64_t)MEM32(row[2] + 4) << 32);
+    uint16_t fields[8] = {0};
+    row[1] = ff_time_to_fields(time, fields);
+    if (row[1]) stop(9, row[1], 305);
+    for (unsigned i = 0; i < 8; ++i) { MEM16(row[3] + i * 2u) = fields[i]; row[4 + i] = fields[i]; }
+    g_eax = 0; g_esp += 12;
+}
 #endif
 #ifdef FF_TIMER_PROOF
 static void set_timer(void)
@@ -1372,6 +1387,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 181) return query_memory_statistics;
         if (ordinal == 166) return allocate_contiguous_memory;
         if (ordinal == 168) return claim_gpu_instance_memory;
+        if (ordinal == 305) return rtl_time_to_fields;
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 128) return query_system_time;

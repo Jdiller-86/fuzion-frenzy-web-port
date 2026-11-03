@@ -145,5 +145,10 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/port_io_test.c src/runtime/port_io.c -o "$RUNNER_TEMP/port-io-check"
           "$RUNNER_TEMP/port-io-check"
+      - name: Check TIME_FIELDS conversion (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/time_fields_test.c src/runtime/time_fields.c -o "$RUNNER_TEMP/time-fields-check"
+          "$RUNNER_TEMP/time-fields-check"
       - run: npm run check:environment
       - run: git diff --exit-code

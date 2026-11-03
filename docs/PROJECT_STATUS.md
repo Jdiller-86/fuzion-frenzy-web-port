@@ -1,10 +1,14 @@
-# Original execution enters 0x1FE1D0 and reaches 0x200340
+# Original execution completes 0x200340, converts system time, and reaches 0x2010FD
 
-November 3: original `0x001fe1d0` reads and modifies `0xFD00184C`, then calls untranslated **`0x200340`** (return `0x1FE210`, status 2). All 83 initialization callbacks return; 245 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
+November 3: original `0x00200340` writes `1` to `0xFD600100`/`0xFD600140`; `KeQuerySystemTime` and the new source-owned `RtlTimeToTimeFields` return `2026-11-03 16:02:49.719`; `0x001fe1d0` continues to untranslated **`0x2010FD`** (return `0x1FE2D2`, status 2). All 83 initialization callbacks return; 246 distinct original routines execute and **402** kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-19` is 355 functions / 13,401 instructions; module `recomp-post-memory-build-32` is 473,896 bytes, SHA-256 `6ceba6b6…`. The aperture logged 5,174 entries / 5,208 events. The synthetic profile supplies `0xFD00184C` = `0` as a test input. The retained next-14/15 functions were combined into one private seed to stay within the 32-export admission limit; the new ordinal-305 binding is admitted but not reached. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-14.json`.
+Selection `recomp-title-post-memory-20` is 356 functions / 13,407 instructions; module `recomp-post-memory-build-33` is 476,718 bytes, SHA-256 `b1c8c186…`. The aperture logged 5,178 entries / 5,213 events. The retained next-14/15/16 functions are combined into one private seed to stay within the 32-export admission limit. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-15.json`.
 
-A bounded read-only export reports the reached callee `0x200340` as 18 bytes / 6 instructions with no direct calls; it is not yet admitted or observed. Validation: port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x2010FD` as 659 bytes / 141 instructions with calls to `0x2000CB` and `0x200F59`; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x1fe1d0
+
+Original `0x001fe1d0` read and modified `0xFD00184C` and called `0x200340`. Selection `recomp-title-post-memory-19` was 355 functions / 13,401 instructions; module `recomp-post-memory-build-32` was 473,896 bytes, SHA-256 `6ceba6b6…`. Report `post-memory-browser-20261103-14.json`.
 
 ## Prior: 0x20005a
 

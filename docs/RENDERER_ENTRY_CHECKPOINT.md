@@ -272,6 +272,23 @@ Execution stopped at **`0x200340`** (return `0x1FE210`, status 2). The report is
 
 The ordinal-305 kernel binding is admitted but not reached. The helper's remaining static path still contains `0x2010FD`, `0x20107C`, `KeQuerySystemTime` and `RtlTimeToTimeFields`.
 
+### Execute 0x200340 and convert system time
+
+The retained next-14/15/16 functions are combined into one private seed to stay within the 32-export admission limit. Translation `recomp-title-post-memory-20` contains **356 functions / 13,407 instructions**, including `ff_title_00200340`. Module `recomp-post-memory-build-33` is 476,718 bytes, SHA-256 `b1c8c1867c3caaf62007557d91a5e08db5c282567ba2d2f70b64b664a9256670`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 246 distinct original routines executed and 402 kernel operations completed;
+- `0x00200340` wrote `1` to `0xFD600100` and `0xFD600140`;
+- ordinal 128 returned system ticks `134381953697190000`;
+- ordinal 305 returned `[2026, 11, 3, 16, 2, 49, 719, 2]`;
+- `0x001fe1d0` continued and called `0x002010fd`;
+- the aperture retained 5,178 entries / 5,213 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x2010FD`** (return `0x1FE2D2`, status 2). The report is `research/verification/post-memory-browser-20261103-15.json` (local/ignored). There is no playable screen.
+
+The source-owned `time_fields` conversion is deterministic and uses no host timezone, locale or wall clock. Tests cover the 1601/1970 epochs, the 2024 leap day, the non-leap 1900 boundary, out-of-range input and null rejection.
+
 ## Next task
 
-Admit and translate `0x200340` (18 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-16` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic port/device writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x2010FD` (659 bytes / 141 instructions) from the retained `recomp-post-memory-next-17` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/port/device writes. The captured line/quad reference comparison and browser prepass also remain private.
