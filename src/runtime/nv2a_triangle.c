@@ -71,7 +71,7 @@ static void calc_triz(const FFNv2aPostVertex input[3], const unsigned indices[3]
 }
 
 /* Shader emit_vertex with a caller-supplied position row set. */
-static void emit_vertex(const FFNv2aPostVertex input[3], unsigned index,
+static void emit_vertex(const FFNv2aPostVertex *input, unsigned index,
                         unsigned color_index, const float rows[3][4],
                         float depth_slope, FFNv2aRasterVertex *output)
 {
@@ -86,6 +86,17 @@ static void emit_vertex(const FFNv2aPostVertex input[3], unsigned index,
     output->depth_slope = depth_slope;
 }
 
+/* Shader emit_line's 90-degree rotated interpolation helper row. */
+static void rotated_row(const float *v0, const float *v1, float out[4])
+{
+    const float delta_x = v1[0] - v0[0];
+    const float delta_y = v1[1] - v0[1];
+    out[0] = -delta_y + v0[0];
+    out[1] = delta_x + v0[1];
+    out[2] = v0[2];
+    out[3] = v0[3];
+}
+
 /* Shader emit_line for polygon LINE modes: two vertices sharing the rotated
  * interpolation helper row and the triangle's depth slope. */
 static void emit_line(const FFNv2aPostVertex input[3], unsigned i0, unsigned i1,
@@ -94,13 +105,10 @@ static void emit_line(const FFNv2aPostVertex input[3], unsigned i0, unsigned i1,
 {
     const float *v0 = input[i0].position;
     const float *v1 = input[i1].position;
-    const float delta_x = v1[0] - v0[0];
-    const float delta_y = v1[1] - v0[1];
-    const float rotated[4] = { -delta_y + v0[0], delta_x + v0[1], v0[2], v0[3] };
     float rows[3][4];
     memcpy(rows[0], v0, sizeof(rows[0]));
     memcpy(rows[1], v1, sizeof(rows[1]));
-    memcpy(rows[2], rotated, sizeof(rows[2]));
+    rotated_row(v0, v1, rows[2]);
     const unsigned indices[2] = { i0, i1 };
     for (unsigned i = 0; i < 2; ++i) {
         const unsigned index = indices[i];
@@ -127,6 +135,54 @@ int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
         const unsigned index = indices[i];
         emit_vertex(input, index, state->smooth ? index : flat_color,
                     (const float (*)[4])rows, slope, &expanded[i]);
+    }
+    memcpy(output, expanded, sizeof(expanded));
+    return 0;
+}
+
+int ff_nv2a_expand_polygon_fill(const FFNv2aPostVertex input[3],
+                                const FFNv2aPolygonState *state,
+                                FFNv2aRasterVertex output[3], uint32_t arithmetic)
+{
+    if (!input || !output || !state || state->smooth > 1 ||
+        state->perspective_depth > 1 || state->rotation > 2 ||
+        arithmetic > FF_NV2A_SEPARATE) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    float rows[3][4], slope;
+    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
+    /* The pinned polygon fill branch always takes the rotated third vertex. */
+    const unsigned flat_color = indices[2];
+
+    FFNv2aRasterVertex expanded[3];
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = indices[i];
+        emit_vertex(input, index, state->smooth ? index : flat_color, rows,
+                    slope, &expanded[i]);
+    }
+    memcpy(output, expanded, sizeof(expanded));
+    return 0;
+}
+
+int ff_nv2a_expand_polygon_line(const FFNv2aPostVertex input[2],
+                                const FFNv2aPolygonState *state,
+                                FFNv2aRasterVertex output[2])
+{
+    if (!input || !state || !output || state->smooth > 1 ||
+        state->perspective_depth > 1 || state->rotation > 2) {
+        return -1;
+    }
+    float rows[3][4];
+    memcpy(rows[0], input[0].position, sizeof(rows[0]));
+    memcpy(rows[1], input[1].position, sizeof(rows[1]));
+    rotated_row(input[0].position, input[1].position, rows[2]);
+
+    FFNv2aRasterVertex expanded[2];
+    for (unsigned i = 0; i < 2; ++i) {
+        /* The line branch fixes the flat provoking vertex to index 0. */
+        emit_vertex(input, i, state->smooth ? i : 0u, rows, 0.0f, &expanded[i]);
     }
     memcpy(output, expanded, sizeof(expanded));
     return 0;

@@ -122,6 +122,102 @@ static void triangle_polygon_modes(void)
     assert(!memcmp(points, saved_points, sizeof(saved_points)));
 }
 
+static void polygon_primitive_modes(void)
+{
+    const float positions[3][4] = { {0,0,1,1}, {1,0,2,2}, {0,1,3,4} };
+    FFNv2aPostVertex input[3];
+    triangle_inputs(input, positions);
+    FFNv2aPolygonState state = {0,0,0};
+    FFNv2aRasterVertex fill[3];
+
+    /* POLYGON fill: always provoking at the rotated third vertex. */
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == 0);
+    for (unsigned i = 0; i < 3; ++i) {
+        assert(fill[i].clip[0] == (float)i);
+        assert(!memcmp(fill[i].color, input[2].color, sizeof(fill[i].color)));
+        assert(!memcmp(fill[i].triangle_position[0], positions[0], sizeof(positions[0])));
+        assert(!memcmp(fill[i].triangle_position[1], positions[1], sizeof(positions[1])));
+        assert(!memcmp(fill[i].triangle_position[2], positions[2], sizeof(positions[2])));
+        assert(fill[i].depth_slope == 2.0f);
+    }
+    state.smooth = 1;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == 0);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(fill[i].color, input[i].color, sizeof(fill[i].color)));
+    state.smooth = 0; state.rotation = 1;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == 0);
+    assert(fill[0].clip[0] == 2 && fill[1].clip[0] == 0 && fill[2].clip[0] == 1);
+    for (unsigned i = 0; i < 3; ++i)
+        assert(!memcmp(fill[i].color, input[1].color, sizeof(fill[i].color)));
+    state.rotation = 0; state.perspective_depth = 1;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == 0);
+    assert(fill[0].depth_slope == 0.75f);
+
+    /* POLYGON line: two-vertex segment, zero slope, provoking at index 0. */
+    FFNv2aPostVertex line_input[2];
+    memcpy(&line_input[0], &input[0], sizeof(line_input[0]));
+    memcpy(&line_input[1], &input[1], sizeof(line_input[1]));
+    const float *v0 = line_input[0].position;
+    const float *v1 = line_input[1].position;
+    const float rotated[4] = {
+        -(v1[1] - v0[1]) + v0[0], (v1[0] - v0[0]) + v0[1], v0[2], v0[3]
+    };
+    state = (FFNv2aPolygonState){0,0,0};
+    FFNv2aRasterVertex line[2];
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == 0);
+    for (unsigned i = 0; i < 2; ++i) {
+        assert(line[i].clip[0] == line_input[i].clip[0]);
+        assert(line[i].point_size == line_input[i].point_size);
+        assert(line[i].fog == line_input[i].fog);
+        assert(!memcmp(line[i].color, line_input[0].color, sizeof(line[i].color)));
+        assert(!memcmp(line[i].texcoord, line_input[i].texcoord, sizeof(line[i].texcoord)));
+        assert(!memcmp(line[i].triangle_position[0], v0, sizeof(positions[0])));
+        assert(!memcmp(line[i].triangle_position[1], v1, sizeof(positions[0])));
+        assert(!memcmp(line[i].triangle_position[2], rotated, sizeof(rotated)));
+        assert(line[i].depth_slope == 0.0f);
+    }
+    /* The line branch has no triangle input: rotation and perspective state must
+     * not reorder vertices or create a slope. */
+    FFNv2aRasterVertex baseline_line[2];
+    memcpy(baseline_line, line, sizeof(baseline_line));
+    state.rotation = 1; state.perspective_depth = 1;
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == 0);
+    assert(!memcmp(line, baseline_line, sizeof(baseline_line)));
+    state.rotation = 0; state.perspective_depth = 0;
+    state.smooth = 1;
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == 0);
+    for (unsigned i = 0; i < 2; ++i)
+        assert(!memcmp(line[i].color, line_input[i].color, sizeof(line[i].color)));
+
+    /* Rejection must leave every output byte unchanged. */
+    FFNv2aRasterVertex saved_fill[3], saved_line[2];
+    memcpy(saved_fill, fill, sizeof(saved_fill));
+    memcpy(saved_line, line, sizeof(saved_line));
+    state = (FFNv2aPolygonState){0,0,0};
+    assert(ff_nv2a_expand_polygon_fill(NULL, &state, fill, FF_NV2A_FUSED) == -1);
+    assert(ff_nv2a_expand_polygon_fill(input, NULL, fill, FF_NV2A_FUSED) == -1);
+    assert(ff_nv2a_expand_polygon_fill(input, &state, NULL, FF_NV2A_FUSED) == -1);
+    state.smooth = 2;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == -1);
+    state.smooth = 0; state.rotation = 3;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == -1);
+    state.rotation = 0; state.perspective_depth = 2;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, FF_NV2A_FUSED) == -1);
+    state.perspective_depth = 0;
+    assert(ff_nv2a_expand_polygon_fill(input, &state, fill, 2) == -1);
+    assert(!memcmp(fill, saved_fill, sizeof(saved_fill)));
+    state.smooth = 2;
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == -1);
+    state.smooth = 0; state.rotation = 3;
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == -1);
+    state.rotation = 0; state.perspective_depth = 2;
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, line) == -1);
+    assert(ff_nv2a_expand_polygon_line(NULL, &state, line) == -1);
+    assert(ff_nv2a_expand_polygon_line(line_input, NULL, line) == -1);
+    assert(ff_nv2a_expand_polygon_line(line_input, &state, NULL) == -1);
+    assert(!memcmp(line, saved_line, sizeof(saved_line)));
+}
+
 int main(void)
 {
     FFNv2aPostVertex input[3] = {0};
@@ -191,6 +287,7 @@ int main(void)
     assert(ff_nv2a_expand_triangle(input, &state, output, 2) == -1);
     assert(!memcmp(before, output, sizeof(before)));
     triangle_polygon_modes();
-    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode cases passed");
+    polygon_primitive_modes();
+    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon cases passed");
     return 0;
 }

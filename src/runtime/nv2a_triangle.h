@@ -34,6 +34,17 @@ typedef struct FFNv2aTriangleState {
     uint32_t rotation;
 } FFNv2aTriangleState;
 
+/* PRIM_TYPE_POLYGON state. The pinned fill branch always uses the rotated third
+ * vertex as the flat provoking vertex, so there is no first/last selection.
+ * The line branch receives two-vertex line segments from the host and ignores
+ * rotation.
+ */
+typedef struct FFNv2aPolygonState {
+    uint32_t smooth;
+    uint32_t perspective_depth;
+    uint32_t rotation;
+} FFNv2aPolygonState;
+
 /* Host shader implementations can fuse or separate multiply-add operations.
  * The caller must explicitly select its measured reference profile.
  */
@@ -68,6 +79,27 @@ int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
 int ff_nv2a_expand_triangle_points(const FFNv2aPostVertex input[3],
                                    const FFNv2aTriangleState *state,
                                    FFNv2aRasterVertex output[3], uint32_t arithmetic);
+
+/* PRIM_TYPE_POLYGON fill: emits the three rotated vertices with the triangle
+ * depth slope. The pinned branch always takes the rotated third vertex as the
+ * flat provoking color; smooth color follows each emitted input.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_polygon_fill(const FFNv2aPostVertex input[3],
+                                const FFNv2aPolygonState *state,
+                                FFNv2aRasterVertex output[3], uint32_t arithmetic);
+
+/* PRIM_TYPE_POLYGON line: one two-vertex segment with the rotated helper row,
+ * a zero depth slope and flat provoking color 0. The generator documents that
+ * its line input has no triangle plane, so no slope is computed. `rotation` and
+ * `perspective_depth` are validated but unused.
+ * Returns 0 on success, -1 for null pointers/invalid state without writing
+ * output.
+ */
+int ff_nv2a_expand_polygon_line(const FFNv2aPostVertex input[2],
+                                const FFNv2aPolygonState *state,
+                                FFNv2aRasterVertex output[2]);
 
 #ifdef __cplusplus
 }
