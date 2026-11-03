@@ -9,6 +9,9 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
 #include "../../src/runtime/port_io.h"
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+#include "../../src/runtime/pfifo_channel.h"
+#endif
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
 #include "../../src/runtime/guest_mirror.h"
@@ -268,6 +271,27 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+static ff_pfifo_channel pfifo_ring;
+static uint32_t pfifo_ring_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+static void pfifo_ring_sync(void)
+{
+    uint32_t context = pfifo_ring_word(0x00206720u);
+    if (!context || context > FF_GUEST_BYTES - 0x20u) return;
+    uint32_t base = pfifo_ring_word(context + 0x10u);
+    uint32_t end = pfifo_ring_word(context + 0x14u);
+    uint32_t put = pfifo_ring_word(context + 0x18u);
+    if (!pfifo_ring.ready && ff_pfifo_channel_configure(&pfifo_ring, base, end)) return;
+    if (ff_pfifo_channel_set_get(&pfifo_ring, 0)) return;
+    if (ff_pfifo_channel_set_put(&pfifo_ring, put)) return;
+    (void)ff_pfifo_channel_enable(&pfifo_ring);
+}
+#endif
 #ifdef FF_VM_PROOF
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
@@ -284,6 +308,15 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
          * The opt-in FF_ALLOW_DMA_GET_READ diagnostic serves the observed GET
          * instead, letting the original comparison decide; it is not the
          * default fail-closed contract. */
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+        if (access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            pfifo_ring_sync();
+            if (pfifo_ring.enabled && ff_pfifo_channel_empty(&pfifo_ring)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) *get = ff_pfifo_channel_read_get(&pfifo_ring);
+            }
+        }
+#endif
 #ifndef FF_ALLOW_DMA_GET_READ
         if (access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
             uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);

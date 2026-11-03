@@ -1,8 +1,12 @@
-# Device-context observation: the ring is 512 KB at 0x03B7D000; the title waits for GET=base
+# Empty-ring initialization passes the PFIFO wait; execution reaches 0x1FB5B0
 
-November 4: a bounded diagnostic read the original device context after the GET-read run. `D3D_g_pDevice` at `0x00206720` points to `0x00203B90`; its context gives ring base `0x03B7D000`, ring end `0x03BFD000` (512 KB), current push/PUT at the base (empty), and a wait for GET to reach `0x03B7D000`. The observed GET is still 0, so the wait polls to the limit. This corrects the earlier full-range interpretation: GET=0 is a software reset, not the ring base; the actual ring is the empty 512 KB buffer, not a 59 MB span. An opt-in `FF_CONTEXT_PROBE` export and optional `contextWords` report make the values observable; the default source is unchanged and a control build is byte-identical to `cd0bf176…` (526,955 bytes). The runtime stays fail-closed at status 13 until a bounded empty-ring initialization is implemented and verified. **There is no playable original screen.**
+November 4: a bounded empty-ring channel model was implemented and tested. `src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at an untranslated original routine `0x1FB5B0` (return `0x1FB63D`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This is the first observed original-code progress past the wait. The model does not consume a non-empty ring or execute methods; the next dependency is `0x1FB5B0`. The default build remains fail-closed at status 13 until the model is reviewed and adopted. **There is no playable original screen.**
 
-Validation: private diagnostic run and byte-identical control build; runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the context checkpoint](PFIFO_CONTEXT_CHECKPOINT.md).
+Validation: pfifo-channel optimized/ASan/UBSan, private diagnostic run, and a byte-identical control build (`cd0bf176…`, 526,955 bytes); runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the empty-ring checkpoint](PFIFO_EMPTY_RING_CHECKPOINT.md).
+
+## Prior: device-context ring observation
+
+A bounded diagnostic read the original device context. `D3D_g_pDevice` at `0x00206720` points to `0x00203B90`; the context gives ring base `0x03B7D000`, ring end `0x03BFD000` (512 KB), current push/PUT at the base (empty), and a wait for GET to reach `0x03B7D000`. The observed GET was 0, so the wait polled to the limit. This corrected the earlier full-range interpretation: GET=0 is a software reset, not the ring base; the actual ring is the empty 512 KB buffer, not a 59 MB span.
 
 ## Prior: DMA_GET diagnostic
 

@@ -1,5 +1,7 @@
 # Device-context observation: the ring is 512 KB at 0x03B7D000; the title waits for GET=base
 
+**Later evidence (November 4):** [the empty-ring checkpoint](PFIFO_EMPTY_RING_CHECKPOINT.md) implements the bounded empty-ring model; with this profile the original PFIFO wait passed and execution reached untranslated `0x1FB5B0`. The default build remains fail-closed until the model is reviewed.
+
 November 4, 2026. A bounded diagnostic read the original device context after the diagnostic GET-read run. The context holds the pushbuffer ring base and end, the current push pointer and the expected GET. **The ring is not the 0..PUT span**: it is a 512 KB buffer at `0x03B7D000`..`0x03BFD000`, and PUT is at the base because the buffer is empty. The title waits for GET to become the base; the observed GET is still 0. **No consumer is implemented and there is no playable screen.**
 
 ## Method
