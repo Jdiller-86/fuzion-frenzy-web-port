@@ -370,6 +370,19 @@ Translation `recomp-title-post-memory-27` contains **363 functions / 13,956 inst
 
 In the first `0x200143` attempt the aperture stopped at unsupplied `0xFD003204`; the selected synthetic profile now declares a third zero range at `0xFD003200` (0x100 bytes). The second bulk clear in `0x00200352` then filled the fixed 8,192-event log, so `FF_DEVICE_EVENTS` and `DEVICE_EVENTS` were raised to 32,768 ordered events. Reports `post-memory-browser-20261103-21.json` … `-24.json` (local/ignored). There is no playable screen.
 
+### Execute 0x2004DF
+
+Translation `recomp-title-post-memory-28` contains **364 functions / 13,976 instructions**, including `ff_title_002004DF`. Module `recomp-post-memory-build-42` is 501,401 bytes, SHA-256 `0e13a564d67cd16e0c332545e8b8aba97f70ec6c1ab067e8570829425a1ff3ec`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 258 distinct original routines executed and 402 kernel operations completed;
+- `0x002004DF` wrote 22 index/value dwords into `0xFD700010`–`0xFD700064`;
+- `0x001FE43A` then executed without device accesses and called `0x0020057A`;
+- the aperture retained 5,300 entries / 9,152 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x20057A`** (return `0x1FE499`, status 2). The report is `research/verification/post-memory-browser-20261103-25.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x2004DF` (57 bytes / 20 instructions, no direct calls) from the retained `recomp-post-memory-next-24` export, then follow its next dependency. Preserve the explicit synthetic register values, the 32,768-event aperture and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x20057A` (2,527 body bytes / 568 instructions, no direct calls) from the retained `recomp-post-memory-next-25` export, measure its device entry/event growth, then follow its next dependency. Preserve the explicit synthetic register values, the 32,768-event aperture and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.

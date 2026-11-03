@@ -1,10 +1,14 @@
-# Original execution completes 0x200143, 0x1FE30B and 0x200352 and reaches 0x2004DF
+# Original execution completes 0x2004DF and reaches 0x20057A
 
-November 3: three previously untranslated helpers now execute, and the next caller requests untranslated **`0x2004DF`** (return `0x1FE053`, status 2). All 83 initialization callbacks return; 256 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the previously exported leaf `0x002004DF` now executes and its caller `0x001FE43A` completes. The next call requests untranslated **`0x20057A`** (return `0x1FE499`, status 2). All 83 initialization callbacks return; 258 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-27` is 363 functions / 13,956 instructions; module `recomp-post-memory-build-41` is 499,386 bytes, SHA-256 `1f38b342…`. `0x00200143` now saves and restores its PGRAPH context, `0x001FE30B` classifies a mapping value, and `0x00200352` clears 0xDFB dwords before programming its device fields. The second bulk clear filled the fixed 8,192-event log, so the bounded synthetic aperture now retains 32,768 ordered events (`FF_DEVICE_EVENTS` and `DEVICE_EVENTS`); the run logs 5,300 entries / 9,130 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local reports are `post-memory-browser-20261103-21.json` … `-24.json`; the final run is `-24.json`.
+Selection `recomp-title-post-memory-28` is 364 functions / 13,976 instructions; module `recomp-post-memory-build-42` is 501,401 bytes, SHA-256 `0e13a564…`. `0x002004DF` wrote 22 dwords into `0xFD700010`–`0xFD700064`, pairing an index with an encoded value; `0x001FE43A` then executed without device accesses. The aperture logged 5,300 entries / 9,152 events; the writes reused the existing `0xFD700000` region. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-25.json`.
 
-`0x00200143` needed a third explicit synthetic zero range at `0xFD003200` (0x100 bytes) because its first read of `0xFD003204` faulted. A bounded read-only export reports the reached callee `0x2004DF` as 57 bytes / 20 instructions with no direct calls; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x20057A` as an established 2,527-body-byte / 568-instruction function with no direct calls; it is not yet admitted or observed and is expected to program large device register/context blocks with writes only. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x200143, 0x1FE30B and 0x200352
+
+Three previously untranslated helpers executed and the run reached `0x2004DF`. Translation `recomp-title-post-memory-27` was 363 functions / 13,956 instructions; module `recomp-post-memory-build-41` was 499,386 bytes, SHA-256 `1f38b342…`. The second bulk clear exhausted the fixed 8,192-event log, so the bounded synthetic aperture now retains 32,768 events. Final report `post-memory-browser-20261103-24.json`.
 
 ## Prior: 0x200f59
 

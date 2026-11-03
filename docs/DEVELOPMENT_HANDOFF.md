@@ -1,18 +1,18 @@
-# Continue from the completed 0x200352 helper at 0x2004DF
+# Continue from the completed 0x2004DF leaf at 0x20057A
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-`0x00200143`, `0x001FE30B` and `0x00200352` now execute. The next caller requests untranslated **`0x2004DF`** (return `0x1FE053`, status 2). All 83 initialization callbacks return; 256 distinct original routines execute and 402 kernel operations complete.
+`0x002004DF` and its caller `0x001FE43A` now execute. The next call requests untranslated **`0x20057A`** (return `0x1FE499`, status 2). All 83 initialization callbacks return; 258 distinct original routines execute and 402 kernel operations complete.
 
-Selection `recomp-title-post-memory-27` is 363 functions / 13,956 instructions; module `recomp-post-memory-build-41` is SHA-256 `1f38b342…` (499,386 bytes). The local reports are `post-memory-browser-20261103-21.json` … `-24.json`; the final run is `-24.json`, logging 5,300 entries / 9,130 events. The second original bulk clear exhausted the fixed 8,192-event log, so the bounded synthetic aperture now retains 32,768 events (`FF_DEVICE_EVENTS` and `DEVICE_EVENTS`). `0x00200143` also required a third explicit synthetic zero range at `0xFD003200` (0x100 bytes) in profile `settings-mmio-19.json`. A bounded read-only export reports the reached callee `0x2004DF` as 57 bytes / 20 instructions with no direct calls (`recomp-post-memory-next-24`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-28` is 364 functions / 13,976 instructions; module `recomp-post-memory-build-42` is SHA-256 `0e13a564…` (501,401 bytes). The local report is `post-memory-browser-20261103-25.json`, logging 5,300 entries / 9,152 events. `0x002004DF` wrote 22 index/value dwords into `0xFD700010`–`0xFD700064`; `0x001FE43A` executed without device accesses. A bounded read-only export reports the reached callee `0x20057A` as an established 2,527-body-byte / 568-instruction function with no direct calls (`recomp-post-memory-next-25`); it is static export evidence, not admitted translation or observed execution.
 
 Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x2004DF` from the retained `recomp-post-memory-next-24` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/zero-range/device reads or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x20057A` from the retained `recomp-post-memory-next-25` export, measure its device entry/event growth, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/zero-range/device reads or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: 0x200143 and 0x20107C
+## Prior: 0x200143, 0x1FE30B and 0x200352
 
-`0x0020107c` programmed device fields and called `0x200143`; after that helper completed, execution returned through `0x001FE1D0`/`0x001FE365` to `0x200352`. Selection `recomp-title-post-memory-24` was 360 functions / 13,682 instructions; module `recomp-post-memory-build-37` was 485,351 bytes, SHA-256 `e6407043…`. Report `post-memory-browser-20261103-20.json`.
+Those three helpers executed before this milestone; the run reached `0x2004DF`. Selection `recomp-title-post-memory-27` was 363 functions / 13,956 instructions; module `recomp-post-memory-build-41` was 499,386 bytes, SHA-256 `1f38b342…`. The second bulk clear exhausted the fixed 8,192-event log, so the aperture now retains 32,768 events. Report `post-memory-browser-20261103-24.json`.
 
 ## Prior: 0x200f59
 
