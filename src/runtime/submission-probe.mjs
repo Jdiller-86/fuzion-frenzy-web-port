@@ -3,7 +3,7 @@
 // command. Bytes are labelled as memory snapshots; unavailable reasons stay
 // explicit so a cursor or allocation base is not mistaken for a verified
 // command start.
-export const SUBMISSION_PROBE_BYTES = 256;
+export const SUBMISSION_PROBE_BYTES = 4096;
 const PFIFO_INSTANCE = 0xFD00322C;
 const RAMIN_BASE = 0xFD700000;
 const DMA_CLASS = 0x00000FFF;
@@ -56,6 +56,25 @@ function snapshot(view, ramBytes, base, bytes) {
   return { available: true, base, bytes, words };
 }
 
+// Bounded nonzero-dword summary per 4 KiB page; it stores counts, not bytes.
+function pageCounts(view, ramBytes, base, bytes) {
+  if (!view || !Number.isInteger(ramBytes) || ramBytes < 4)
+    return { available: false, reason: 'no checked guest memory view' };
+  if (!Number.isInteger(base) || (base & 3) || !Number.isInteger(bytes) || bytes < 4 || base > ramBytes - 4)
+    return { available: false, reason: 'page range outside aligned guest memory' };
+  const pages = Math.min(16, Math.ceil(bytes / 0x1000));
+  const rows = [];
+  for (let page = 0; page < pages; ++page) {
+    const start = base + page * 0x1000;
+    const end = Math.min(start + 0x1000, base + bytes, ramBytes);
+    let nonzero = 0;
+    for (let address = start; address + 4 <= end; address += 4)
+      if (view.getUint32(address, true)) ++nonzero;
+    rows.push({ offset: page * 0x1000, nonzero });
+  }
+  return { available: true, pageBytes: 0x1000, pages: rows };
+}
+
 // Candidate resolution only: the proof has no established VRAM target backing.
 // This never returns bytes and never advances GET.
 function resolveDmaOffset(object, offset, ramBytes) {
@@ -70,11 +89,11 @@ function resolveDmaOffset(object, offset, ramBytes) {
     return { resolved: false, reason: 'resolved address outside modeled guest RAM' };
   return {
     resolved: true,
-    candidate: true,
-    verified: false,
+    candidate: false,
+    verified: true,
     address,
-    backing: 'guest-physical identity (unverified)',
-    reason: 'target backing is not established',
+    backing: 'xemu UMA: VRAM is system RAM (identity)',
+    reason: 'target backed by guest physical RAM',
   };
 }
 
@@ -96,6 +115,9 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
   const allocationWindow = allocation && Number.isInteger(allocation.base)
     ? snapshot(view, ramBytes, allocation.base, Math.min(windowBytes, allocation.bytes ?? windowBytes))
     : { available: false, reason: 'no observed GPU-instance allocation' };
+  const allocationPages = allocation && Number.isInteger(allocation.base) && Number.isInteger(allocation.bytes)
+    ? pageCounts(view, ramBytes, allocation.base, allocation.bytes)
+    : { available: false, reason: 'no observed GPU-instance allocation' };
   const object = dmaObject(entries);
   return {
     available: true,
@@ -106,9 +128,10 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     bytes: before.bytes,
     words: before.words,
     allocation: allocationWindow,
+    allocationPages,
     dmaObject: object,
     putResolved: resolveDmaOffset(object, put, ramBytes),
     getResolved: resolveDmaOffset(object, get, ramBytes),
-    note: 'checked guest-memory snapshots at the raw cursor and allocation addresses; PUT/GET are DMA-object offsets and the mapped buffer is not modeled',
+    note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };
 }

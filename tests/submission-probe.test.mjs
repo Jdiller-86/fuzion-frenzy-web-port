@@ -19,12 +19,12 @@ test('a status-13 snapshot returns the bounded window before the put cursor', ()
   assert.equal(probe.channel, 0);
   assert.equal(probe.put, 0x800);
   assert.equal(probe.get, 0x1234);
-  assert.equal(probe.base, 0x800 - SUBMISSION_PROBE_BYTES);
+  assert.equal(probe.base, Math.max(0, 0x800 - SUBMISSION_PROBE_BYTES));
   assert.equal(probe.bytes, SUBMISSION_PROBE_BYTES);
   assert.equal(probe.words.length, SUBMISSION_PROBE_BYTES / 4);
   assert.equal(probe.words[0], 0x10000000 + probe.base);
   assert.equal(probe.words.at(-1), 0x10000000 + probe.base + SUBMISSION_PROBE_BYTES - 4);
-  assert.match(probe.note, /mapped buffer is not modeled/);
+  assert.match(probe.note, /UMA identity mapping/);
   assert.equal(view.getUint32(probe.base, true), probe.words[0]);
   assert.equal(probe.allocation.available, false);
   assert.equal(probe.allocation.reason, 'no observed GPU-instance allocation');
@@ -100,8 +100,8 @@ test('the DMA resolver reports a candidate guest address without claiming backin
   entries.push({ address: 0xFD7011C8, value: 3 });
   const probe = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x400, bytes: 256 } });
   assert.deepEqual(probe.putResolved, {
-    resolved: true, candidate: true, verified: false, address: 0x800,
-    backing: 'guest-physical identity (unverified)', reason: 'target backing is not established',
+    resolved: true, candidate: false, verified: true, address: 0x800,
+    backing: 'xemu UMA: VRAM is system RAM (identity)', reason: 'target backed by guest physical RAM',
   });
   assert.equal(probe.getResolved.address, 0);
   const noObject = createSubmissionProbe({ status, entries: [], view, ramBytes });
@@ -129,6 +129,16 @@ test('the DMA resolver fails closed on target, limit and RAM bounds', () => {
   assert.equal(probe.putResolved.reason, 'resolved address outside modeled guest RAM');
 });
 
+test('the allocation page summary counts nonzero dwords without storing bytes', () => {
+  const { view, ramBytes, entries, status } = fixture();
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0, bytes: 4096 } });
+  assert.equal(probe.allocationPages.available, true);
+  assert.deepEqual(probe.allocationPages.pages, [{ offset: 0, nonzero: 1024 }]);
+  new Uint8Array(view.buffer).fill(0);
+  const zero = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0, bytes: 4096 } });
+  assert.deepEqual(zero.allocationPages.pages, [{ offset: 0, nonzero: 0 }]);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();
@@ -144,8 +154,8 @@ test('the snapshot fails closed outside the submission boundary or memory', () =
   assert.deepEqual(createSubmissionProbe({ ...fixture({ put: 0x802 }) }), { available: false, reason: 'DMA_PUT outside aligned guest memory' });
   assert.deepEqual(createSubmissionProbe({ ...fixture({ put: 0x1000 }) }), { available: false, reason: 'DMA_PUT outside aligned guest memory' });
   assert.deepEqual(createSubmissionProbe({ ...base, view: null }), { available: false, reason: 'no checked guest memory view' });
-  assert.deepEqual(createSubmissionProbe({ ...base, windowBytes: 260 }), { available: false, reason: 'invalid snapshot size' });
-  assert.deepEqual(createSubmissionProbe({ ...base, windowBytes: 512 }), { available: false, reason: 'invalid snapshot size' });
+  assert.deepEqual(createSubmissionProbe({ ...base, windowBytes: 0 }), { available: false, reason: 'invalid snapshot size' });
+  assert.deepEqual(createSubmissionProbe({ ...base, windowBytes: 4100 }), { available: false, reason: 'invalid snapshot size' });
 });
 
 test('a low put cursor clamps the snapshot base to zero', () => {

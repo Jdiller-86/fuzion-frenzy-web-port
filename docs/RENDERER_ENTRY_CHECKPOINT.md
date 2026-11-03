@@ -509,6 +509,20 @@ Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff3
 
 The report is `research/verification/post-memory-browser-20261103-35.json` (local/ignored). No VRAM was allocated, no consumer was added and no get pointer, packet, interrupt, DMA or rendering is fabricated.
 
+### Verify UMA backing and scan the queue region
+
+The pinned xemu model confirms Xbox UMA: `nv2a_init_memory` sets `d->vram = ram` ("xbox is UMA - vram *is* ram"), and `nv_dma_map` returns `vram_ptr + address`. The resolver now reports PUT `0x03B7D000` and GET `0` as verified guest addresses. The bounded snapshot rises to 4 KiB, and a per-4 KiB nonzero-dword summary covers the observed `0x03B78000`/`0x5000` claim.
+
+Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b`). In the run:
+
+- `putResolved` / `getResolved`: verified, backing `xemu UMA: VRAM is system RAM (identity)`;
+- 4 KiB before PUT (`0x03B7C000`): 0 nonzero words;
+- all five claim pages (`0x03B78000` + 0x0..0x4000): 0 nonzero words each;
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-36.json` (local/ignored). The backing is established, but the queue contents and initial GET provenance are not; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Verify the NVM/VRAM target backing and initial GET provenance against pinned sources and the physical-memory contract: whether the target aliases guest physical RAM, where the producer wrote the queue, and what initial GET means. If backing cannot be established, record the unresolved mapping and re-plan only on explicit evidence. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the bounded submission windows and the fail-closed resolver; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Locate the producer's queue writes and the initial GET provenance from static and runtime evidence: which original routines write the DMA ring, what base/offset they use, and whether GET=0 is a real ring start or an uninitialized value. A bounded write-observation or targeted static trace is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver and the bounded submission windows/page summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

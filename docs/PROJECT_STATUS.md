@@ -1,14 +1,14 @@
-# DMA offsets resolve to candidate guest addresses, but target backing stays unverified
+# UMA backing verified; the observed queue region and 4 KiB before PUT are zero
 
-November 3: following architect escalation, the project did **not** allocate a separate VRAM buffer or implement a consumer. An observation-only DMA resolver maps the decoded object's PUT `0x03B7D000` and GET `0` to candidate guest-physical addresses under an unverified identity assumption; the guest bytes there remain zero, so producer provenance is unestablished. The PFIFO boundary stays fail-closed. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the pinned xemu model confirms Xbox UMA (`d->vram = ram`, "xbox is UMA - vram *is* ram"; `nv_dma_map` returns `vram_ptr + address`). The DMA object's NVM target therefore aliases guest physical RAM, and the resolver now marks PUT `0x03B7D000` and GET `0` as verified guest addresses. However, a 4 KiB window before PUT (base `0x03B7C000`) and all five 4 KiB pages of the observed `0x03B78000`/`0x5000` claim are zero. Producer-written queue bytes and initial GET provenance remain unestablished, and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-35.json`.
+The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-36.json`.
 
-Source change: `src/runtime/submission-probe.mjs` adds a fail-closed `resolveDmaOffset` (NVM/VRAM only, aligned, within object limit and guest RAM) that always reports `verified:false` / backing unverified, plus `putResolved`/`getResolved`; tests cover candidate resolution, non-NVM targets, limit and RAM bounds and read-only behavior. This is observation only: no VRAM allocation, consumer, GET advance, packet execution, interrupt, DMA or rendering. Validation: submission-probe tests (10), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `submission-probe.mjs` marks the UMA-backed resolution verified, raises the bounded snapshot to 4 KiB and adds a per-4 KiB nonzero-dword summary of the claim (counts, not bytes). Tests cover the verified resolution, target/limit/RAM failures and the page summary (11 cases). No consumer, GET advance, packet decoding, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: DMA object decode
+## Prior: unverified candidate resolver
 
-The instance/object decode established class 2, NVM/VRAM target, base 0 and limit `0x3FFAFFF`; PUT/GET are offsets. Report `post-memory-browser-20261103-34.json`.
+The resolver reported candidate guest addresses with backing unverified. Report `post-memory-browser-20261103-35.json`.
 
 ## Prior: 0x200f59
 

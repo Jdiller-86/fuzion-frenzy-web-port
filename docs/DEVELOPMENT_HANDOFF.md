@@ -1,20 +1,18 @@
-# Continue from the unverified DMA target backing at PUT 0x03B7D000
+# Continue from the UMA-backed but empty queue region
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Following architect escalation, the project did **not** allocate a separate VRAM buffer or implement a consumer. The decoded DMA object (class 2, target NVM/VRAM, base 0, limit `0x3FFAFFF`) maps PUT `0x03B7D000` and GET `0` to candidate guest-physical addresses only under an unverified identity assumption; the guest bytes at those addresses are zero, so producer provenance and the initial GET are unestablished. The PFIFO boundary stays fail-closed with status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+The pinned xemu model confirms Xbox UMA (`d->vram = ram`, "xbox is UMA - vram *is* ram"; `nv_dma_map` returns `vram_ptr + address`). The DMA object's NVM target therefore aliases guest physical RAM, and `submissionProbe` now marks PUT `0x03B7D000` and GET `0` as verified guest addresses. However, the 4 KiB window before PUT (`0x03B7C000`) and all five 4 KiB pages of the observed `0x03B78000`/`0x5000` claim are zero. Producer-written queue bytes and initial GET provenance remain unestablished; no consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-35.json`. `submissionProbe` now reports `putResolved`/`getResolved` as candidates with `verified:false` and backing unverified; no bytes, GET advance or consumer are produced.
+The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-36.json`. The probe raises the bounded snapshot to 4 KiB and adds a per-page nonzero-dword summary (counts, not bytes); tests cover the verified resolution, bounds and page summary.
 
-`src/runtime/submission-probe.mjs` adds the fail-closed resolver; `tests/submission-probe.test.mjs` covers candidate resolution, non-NVM targets, object-limit and RAM bounds and read-only behavior (10 cases).
+Validation: submission-probe tests (11), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+**Next task:** locate the producer's queue writes and the initial GET provenance from static and runtime evidence: which original routines write the DMA ring, what base/offset they use, and whether GET=0 is a real ring start or an uninitialized value. A bounded write-observation or targeted static trace is the next evidence step; do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-**Next task:** verify the NVM/VRAM target backing and initial GET provenance against pinned sources and the physical-memory contract: whether the target aliases guest physical RAM, where the producer wrote the queue, and what initial GET means. If backing cannot be established, record the unresolved mapping and re-plan only on explicit evidence. Do not fabricate the get pointer, command data, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+## Prior: unverified candidate resolver
 
-## Prior: DMA object decode
-
-The instance/object decode established class 2, NVM/VRAM target, base 0 and limit `0x3FFAFFF`; PUT/GET are offsets. Report `post-memory-browser-20261103-34.json`.
+The resolver reported candidate guest addresses with backing unverified. Report `post-memory-browser-20261103-35.json`.
 
 ## Prior: 0x200f59
 
