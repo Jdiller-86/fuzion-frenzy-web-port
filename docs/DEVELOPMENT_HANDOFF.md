@@ -1,14 +1,14 @@
-# Continue from the bounded controller packet component
+# Continue from the bounded controller packet and host adapter components
 
 Read [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Following architect guidance, the latest bounded milestone is an independent runtime prerequisite: a source-owned Xbox controller state and guest-facing packet encoder based on the pinned `xinput_xbox.h` layout. It covers connection state, digital buttons, eight analog buttons and signed stick axes with explicit packet-change accounting and a checked 24-byte encoding; rumble, host gamepad mapping, async requests, multiplayer remapping and boot-path integration are excluded. The PFIFO fail-closed boundary is unchanged (status 13 at `0xFD800044`; 261 routines, 402 kernel operations).
+The latest bounded milestones are independent runtime prerequisites: a source-owned Xbox controller state/packet encoder based on the pinned `xinput_xbox.h` layout, and a pure host gamepad adapter based on the pinned `input_map.c` rules. The adapter maps an explicit standard-mapping snapshot to Xbox state with a 15% radial stick deadzone, 5% trigger threshold, 50% digital-button threshold, analog face/shoulder buttons and Y positive upwards; it requires checked 16-button/4-axis snapshots and fails closed on malformed input. Neither component reads the browser Gamepad API, host devices or a clock, and neither is integrated into the worker or boot path. The PFIFO fail-closed boundary is unchanged (status 13 at `0xFD800044`; 261 routines, 402 kernel operations).
 
-`src/runtime/controller_packet.h/.c` and `tests/controller_packet_test.c` implement and validate the component; the guest layout is explicit at 24 bytes. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
+`src/runtime/controller_packet.h/.c`, `src/runtime/gamepad-adapter.mjs` and their tests implement and validate the components. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
 
-Validation: controller fixture optimized/ASan/UBSan, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: controller packet optimized/ASan/UBSan, gamepad adapter Node tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** continue independent runtime prerequisites (for example a bounded host gamepad-to-state adapter from the same pinned mapping rules, still without claiming input fidelity), or return to PFIFO only if evidence establishes the channel initialization or an actual submitted command range. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** integrate the adapter/packet encoder only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
 ## Prior: full GET..PUT scan
 

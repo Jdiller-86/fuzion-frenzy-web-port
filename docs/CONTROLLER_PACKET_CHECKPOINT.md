@@ -26,9 +26,13 @@ No module rebuild is required; the component is not yet integrated into the boot
 
 `tests/controller_packet_test.c` passes optimized and ASan/UBSan WSL GCC runs. The PFIFO boundary remains fail-closed with status 13 at `0xFD800044`; no consumer, GET advance, interrupt, DMA or rendering is added. The controller component is not connected to the browser/worker and does not establish host input mapping or latency.
 
+## Host gamepad adapter
+
+`src/runtime/gamepad-adapter.mjs` adds a pure, bounded adapter from an explicit standard-mapping snapshot to the controller state above. It follows the pinned `input_map.c` rules: 15% radial stick deadzone with rescale, 5% trigger threshold, 50% digital-button threshold, analog face/shoulder buttons at 255, and Y positive upwards. It requires checked 16-button/4-axis snapshots, maps D-pad/Start/Back/thumb bits, keeps the two extra analog slots at zero, and fails closed on malformed input. It does not read the browser Gamepad API, host devices or a clock, and is not integrated into the worker or boot path. `tests/gamepad-adapter.test.mjs` covers neutral, buttons, triggers, deadzone, Y inversion, disconnection and malformed snapshots; it is wired into `npm run test:runtime`. This is adapter-component progress, not input or title fidelity.
+
 ## Next task
 
-Continue independent runtime prerequisites or return to PFIFO only if evidence establishes the channel initialization or an actual submitted command range. A bounded host gamepad-to-state adapter can follow from the same pinned mapping rules, still without claiming original-game input fidelity.
+Integrate the adapter and packet encoder only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence.
 
 ## Prior milestone: full GET..PUT scan
 
