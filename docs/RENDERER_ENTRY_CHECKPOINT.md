@@ -143,6 +143,22 @@ Execution stopped at **`0x1FFE27`** (return `0x1FE199`, status 2). The report is
 
 The byte reads required a source-owned aperture extension: 1/2/4-byte reads inside the window now map into the containing dword, while sub-dword writes fail closed. Device-register tests pass optimized and ASan/UBSan.
 
+### Execute 0x1FFE27
+
+Using the retained 25-seed selection plus `recomp-post-memory-next-08/seed.json`, translation `recomp-title-post-memory-12` contains **348 functions / 13,185 instructions**, including `ff_title_001FFE27`. Module `recomp-post-memory-build-24` is 465,978 bytes, SHA-256 `67e7c9a5a560db00e8f3984e7561ed512555b5168f116dd6fb3ddcc8e390f72d`.
+
+The explicit synthetic profile also supplied zero for `0xFD100200`, `0xFD100204` and `0xFD001218`; these are test inputs, not console defaults. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 238 distinct original routines executed and 399 kernel operations completed;
+- `0x001ffe27` executed through its three device reads and reached its first kernel call;
+- the aperture logged 28 events across 19 addresses; the new reads were `0xFD100200`, `0xFD100204` and `0xFD001218` at site `2096679`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at ordinal **168 `MmClaimGpuInstanceMemory`** (status 1, return `0x1FFE76`, request `[0x5000, padding pointer]`). The report is `research/verification/post-memory-browser-20261103-06.json` (local/ignored). There is no playable screen.
+
+The pinned public bridge models ordinal 168 as returning the top of the contiguous window minus the requested bytes and writing zero to the padding output; its 64 MiB window at `0x80000000` is not this project's window. The static path after the call clears 0x5000 bytes at `0xFD700000` plus the padding value; that clear has not executed, and the aperture's 1,024-entry / 4,096-event capacity needs an explicit decision.
+
 ## Next task
 
-Admit and translate `0x1FFE27` from the retained bounded read-only export (`recomp-post-memory-next-08`: 254 bytes / 72 instructions, one kernel-import call and one direct call to `0x1FDF70`), then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.
+Implement and verify the bounded `MmClaimGpuInstanceMemory` service and the reached 0x5000-byte clear under an explicit capacity/bulk-write model, preserving the project's contiguous window and memory accounting. Then continue to `0x1FDF70`. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.
