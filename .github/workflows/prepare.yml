@@ -61,7 +61,7 @@ jobs:
           python tools/recomp_memory_access.py "$RUNNER_TEMP/owned-memory.inc"
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/virtual_memory_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/virtual-memory-check"
           "$RUNNER_TEMP/virtual-memory-check"
-          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-access-check"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c src/runtime/device_registers.c -o "$RUNNER_TEMP/memory-access-check"
           "$RUNNER_TEMP/memory-access-check"
       - run: npm run test:gameplay
       - name: Check local volume services (Linux)

@@ -1,4 +1,16 @@
-# Continue from the contiguous-memory request in renderer initialization
+# Continue from the checked basic-block access contract
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The in-flight checked-memory change is complete. Every emitted scalar guest access now carries the guest address of its translated basic block, the host forwards it into modeled device events, and a zero-site device access stops. The `loc_%08X:` label convention and entry/successor labelling were checked against the pinned public emitter source (`sp00nznet/xboxrecomp` commit `f0f8a46`). `ff_probe_mmio_event(..., 4)` exposes the site additively; ABI 24 and D060 are unchanged.
+
+Validation: Python memory-access tests 8/8, title-seed tests 25/25, runtime tests 40/40, `npm run check` for 221 files, whitespace checks, and optimized plus ASan/UBSan WSL GCC runs of the owned transformed fixture with three labelled blocks (integer and float widths), device-site assertions and a rejected zero-site device access. No original module was rebuilt or run; there is no new original-runtime observation.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency. Independently, fix device write-event fidelity with a staged write so the event `value` is the stored value rather than the pre-store placeholder. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior renderer-entry handoff
+
+## Continue from the contiguous-memory request in renderer initialization
 
 OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md); the [continuous development goal](OPENCODE_GOAL.md) defines the bounded advancement loop. This changes development coordination, not the runtime checkpoint below.
 

@@ -871,9 +871,9 @@ self.onmessage = async event => {
         base:api.ff_probe_mmio_word(1)>>>0,size:api.ff_probe_mmio_word(2)>>>0,count,events:events,
         entries:Array.from({length:Math.min(count,16)},(_,i)=>({address:api.ff_probe_mmio_word(5+i*4)>>>0,
           value:api.ff_probe_mmio_word(6+i*4)>>>0,reads:api.ff_probe_mmio_word(7+i*4)>>>0,writes:api.ff_probe_mmio_word(8+i*4)>>>0})),
-        log:Array.from({length:Math.min(events,8)},(_,i)=>({address:api.ff_probe_mmio_event(i,0)>>>0,
+        log:Array.from({length:Math.min(events,8)},(_,i)=>{const site=api.ff_probe_mmio_event(i,4)>>>0;return {address:api.ff_probe_mmio_event(i,0)>>>0,
           direction:api.ff_probe_mmio_event(i,1)>>>0,value:api.ff_probe_mmio_event(i,2)>>>0,
-          beforeKnown:api.ff_probe_mmio_event(i,3)>>>0}))};
+          beforeKnown:api.ff_probe_mmio_event(i,3)>>>0,site:site===0xFFFFFFFF?null:site};})};
     }
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {

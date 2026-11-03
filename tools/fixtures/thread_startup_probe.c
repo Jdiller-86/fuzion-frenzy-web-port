@@ -168,7 +168,7 @@ static uint32_t namespace_ready;
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
@@ -249,13 +249,17 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
 #ifdef FF_VM_PROOF
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
+    (void)site;
 #ifdef FF_MMIO_PROOF
     if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
         uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
         uint32_t value = 0;
-        if (ff_device_registers_touch(&device_registers, address, direction, 0x001FE05Au, &value))
+        /* A device access must name its translated block. Zero is reserved for
+         * the RAM-only stack and bulk helpers, so it cannot become a fake site. */
+        if (!site) stop(10, address, access);
+        if (ff_device_registers_touch(&device_registers, address, direction, site, &value))
             stop(10, address, access);
         ++vm_access_count;
         return ff_device_registers_slot(&device_registers, address);
@@ -452,7 +456,7 @@ static void trace(uint32_t kind, uint32_t address)
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE);
+    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -462,7 +466,7 @@ void recomp_trace_enter(const char *name, uint32_t address) {
 void recomp_trace_exit(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ, 0u);
 #endif
     trace(2, address);
 }
@@ -582,7 +586,7 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -634,7 +638,7 @@ uint32_t ff_probe_mmio_event(uint32_t index,uint32_t field)
 {
     if(index>=device_registers.event_count)return UINT32_MAX;
     const ff_device_event *e=&device_registers.events[index];
-    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:UINT32_MAX;
+    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:field==4?e->site:UINT32_MAX;
 }
 #endif
 uint32_t ff_probe_memory_word(uint32_t field)
@@ -1237,7 +1241,7 @@ static void status_to_dos_error(void)
 static void initialize_critical(void)
 {
     uint32_t *row = kernel_record(291, 1);
-    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE);
+    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE, 0u);
     row[1] = ff_initialize_critical(guest_ram, FF_GUEST_BYTES, row[2]);
     if (row[1]) stop(9, row[1], 291);
     g_esp += 8;
