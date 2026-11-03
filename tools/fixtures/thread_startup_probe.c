@@ -280,13 +280,18 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
         /* The reached PFIFO submission writes DMA_PUT and waits for the device
          * GET to catch up. Without a FIFO consumer model that match cannot
-         * occur, so report the boundary instead of spinning to the poll limit. */
+         * occur, so report the boundary instead of spinning to the poll limit.
+         * The opt-in FF_ALLOW_DMA_GET_READ diagnostic serves the observed GET
+         * instead, letting the original comparison decide; it is not the
+         * default fail-closed contract. */
+#ifndef FF_ALLOW_DMA_GET_READ
         if (access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
             uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
             uint32_t *get = ff_device_registers_slot(&device_registers, address);
             uint32_t get_value = get ? *get : 0;
             if (put && get_value != *put) stop(13, address, access);
         }
+#endif
         uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
                                : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
                                : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;

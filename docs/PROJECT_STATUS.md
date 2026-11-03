@@ -1,8 +1,12 @@
-# Pushbuffer ring pointer model; ring base/end and command source still unresolved
+# Serving the observed DMA_GET makes the original wait poll to its limit
 
-November 4: the command-source pass continued from the corrected channel setup. The title's D3D code builds commands at a current push pointer, writes a wrap jump `(base & 0x0FFFFFFF) + 1` when space is short, restarts at the context base, and writes `DMA_PUT` as `pointer & 0x03FFFFFF`. `src/runtime/pfifo-ring.mjs` now validates and describes explicit ring base/end/put/get values, encodes the observed jump word and physical masks, and reports whether each pointer is inside the ring; it deliberately does not infer empty/wrap semantics, read guest memory, follow jumps or advance GET. The context ring base/end are not established, and `GET=0` remains outside the observed candidate range, so the command source and buffer ownership stay unresolved. The PFIFO boundary remains fail-closed at status 13 (`0xFD800044`; 261 routines, 402 kernel operations). **There is no playable original screen.**
+November 4: a bounded diagnostic tested whether the status-13 PFIFO gate was masking a false boundary. An opt-in `FF_ALLOW_DMA_GET_READ` in the probe serves the observed GET (`0`) instead of stopping; the original code then spins on the same read until the device poll limit (status 12), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This rules out the false-boundary explanation and confirms the wait expects a different GET value. The default source is unchanged and a control build reproduces the known fail-closed module byte-for-byte (`cd0bf176…`, 526,955 bytes). The ring base/end and command source remain unresolved, so the runtime stays fail-closed at status 13. **There is no playable original screen.**
 
-Validation: pfifo-ring 5/5, runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. Module `recomp-post-memory-build-51` is unchanged (526,955 bytes, SHA-256 `cd0bf176…`). See [the ring checkpoint](PFIFO_RING_CHECKPOINT.md).
+Validation: private diagnostic run and byte-identical control build; runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the GET-read checkpoint](PFIFO_GET_READ_CHECKPOINT.md).
+
+## Prior: pushbuffer ring pointer model
+
+The command-source pass continued from the corrected channel setup. The title's D3D code builds commands at a current push pointer, writes a wrap jump `(base & 0x0FFFFFFF) + 1` when space is short, restarts at the context base, and writes `DMA_PUT` as `pointer & 0x03FFFFFF`. `src/runtime/pfifo-ring.mjs` validates and describes explicit ring base/end/put/get values, encodes the observed jump word and physical masks, and reports whether each pointer is inside the ring; it deliberately does not infer empty/wrap semantics, read guest memory, follow jumps or advance GET. The context ring base/end are not established, and `GET=0` remains outside the observed candidate range.
 
 ## Prior: PFIFO channel setup writes GET=0
 
