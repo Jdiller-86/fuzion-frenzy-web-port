@@ -18,14 +18,19 @@ November 4, 2026. The ordinal-149 stop at `0xC00000BB` (`FF_BOOT_UNSUPPORTED`) i
 - Profile run: **277** distinct routines, 83/83 initializers, 403 kernel operations; stop status 9 at `0xC00000BB`, ordinal 149, return `0x200F73`, `timerCheck = 15`.
 - The timer queue still has one active timer (`3248512`, DPC `3248480`, deadline `216000308224`).
 
-## Interpretation
+## Head-placement correction
 
-- The failure is not a timer flag, deadline/order or DPC-object validity error: those codes were not returned. The guest DPC list head points at a non-empty list while the modeled `dpc_count` is zero. The reached code has enqueued a DPC through a path the model does not observe, or wrote the guest list directly.
-- Do not synthesize the DPC or force the head empty. The next step is to inspect the guest DPC head/object and identify the enqueue path/service with evidence, then model it within the bounded timer/DPC contract.
+The first diagnostic (`timerCheck = 15`) showed the chosen DPC head, `thread->fs + 0x50`, held `0x205E98` — a code/return address, not a DPC object; its first word was `0xFD000000`, not type `0x13`. That address overlaps a live TLS field the reached code writes. The model-owned heads were moved to the reserved synthetic queue area: timer head `0x03E00000`, DPC head `0x03E00008`. The rebuilt module reports `timerCheck = 0`, `dpcHead = 0x03E00008`, `dpcHeadValue = 0x03E00008` (self-loop) and a valid timer head.
+
+## Further evidence: trace capacity
+
+- Private module `recomp-post-memory-build-68`: 639,037 bytes, SHA-256 `583bc2f6545c348065687851938d3ae2ee3b6e8efc6e6ac16b76d30309104eea`.
+- Profile run: 277 distinct routines, 83/83 initializers, 403 kernel operations; the timer diagnostic passes (`timerCheck = 0`), then the run stops at status 5 (`diagnostic capacity reached`) at target `0x201199`, return `0x1FDBE0`.
+- The 8,192-entry initializer trace is now full; the next step is an explicit trace-capacity or tracing-scope decision.
 
 ## Limits
 
-The timer/DPC model still covers one-shot timers and bounded DPC delivery only. No rendering, audio, fidelity or playability is established; no non-empty ring, raw-pointer bypass, host matrix substitute or original content is fabricated or committed. The module is private.
+No rendering, audio, fidelity or playability is established. The timer/DPC model still covers one-shot timers and bounded DPC delivery only. The list heads are model-owned synthetic queue storage; the `0xFD002080` zero range is explicit synthetic storage; no original value is invented. The module is private.
 
 ## Validation
 
@@ -33,4 +38,4 @@ The timer/DPC model still covers one-shot timers and bounded DPC delivery only. 
 
 ## Next task
 
-Inspect the guest DPC list head/object at the ordinal-149 stop, identify the enqueue path and model it with explicit evidence. Then rebuild and rerun. Do not force the list empty or invent the DPC state.
+Decide whether to extend the explicit initializer trace capacity beyond 8,192 or narrow tracing, then rerun. Do not force the DPC list empty, invent the timer/DPC state or claim rendering/fidelity without evidence.

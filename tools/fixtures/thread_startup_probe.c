@@ -1628,6 +1628,16 @@ uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
 uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
 uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
 uint32_t ff_probe_timer_check(void) { return timer_check; }
+uint32_t ff_probe_dpc_head(void) { return timers.dpc_head; }
+uint32_t ff_probe_dpc_head_value(void) { return guest_ram[timers.dpc_head] | (uint32_t)guest_ram[timers.dpc_head + 1] << 8 | (uint32_t)guest_ram[timers.dpc_head + 2] << 16 | (uint32_t)guest_ram[timers.dpc_head + 3] << 24; }
+uint32_t ff_probe_timer_head(void) { return timers.timer_head; }
+uint32_t ff_probe_timer_head_value(void) { return guest_ram[timers.timer_head] | (uint32_t)guest_ram[timers.timer_head + 1] << 8 | (uint32_t)guest_ram[timers.timer_head + 2] << 16 | (uint32_t)guest_ram[timers.timer_head + 3] << 24; }
+uint32_t ff_probe_guest_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
     return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }
@@ -1748,7 +1758,9 @@ void ff_probe_run(void)
     g_eax = g_ecx = g_edx = g_ebx = g_esi = g_edi = g_ebp = g_seh_ebp = 0;
     g_esp = thread->initial_sp; g_fs_base = thread->fs; g_eflags = 0x202; g_df = 0;
 #ifdef FF_TIMER_PROOF
-    if (ff_timers_init(&timers, guest_ram, FF_GUEST_BYTES, 0x03e00000u, thread->fs + 0x50u) != FF_BOOT_OK) stop(9, 0, 149);
+    /* Model-owned list heads live in the reserved synthetic queue area. The
+     * reached code writes TLS+0x50, so that address must not double as a head. */
+    if (ff_timers_init(&timers, guest_ram, FF_GUEST_BYTES, 0x03e00000u, 0x03e00008u) != FF_BOOT_OK) stop(9, 0, 149);
     timers_ready = 1;
 #endif
     recomp_func_t entry = recomp_lookup(thread->system);

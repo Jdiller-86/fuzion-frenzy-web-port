@@ -1,8 +1,12 @@
-# Timer diagnostic identifies the DPC-list head mismatch at the ordinal-149 stop
+# DPC-head placement corrected; timer diagnostic passes and the trace capacity is the next stop
 
-November 4: the ordinal-149 stop at `0xC00000BB` is now diagnosed. `ff_timers_check` returns the first structural/timer/DPC/link failure without mutating the queue; the probe records it before stopping and the worker reports `timerCheck`. The result is **15**: the guest DPC list head is not the expected empty/self value while the modeled DPC count is zero. The active six-hour timer remains valid. Private module `recomp-post-memory-build-68` (638,768 bytes, SHA-256 `05e26e13…`) still reaches **277** distinct routines, 83/83 initializers and 403 kernel operations. The next step is to inspect the guest DPC head/object and model the enqueue path with evidence, not to force the list empty. **There is no playable original screen.**
+November 4: the timer/DPC diagnostic identified that the chosen DPC head, `thread->fs + 0x50`, overlapped a live TLS field; its value was a code/return address, not a DPC object. The model-owned heads are now in the reserved queue area (`0x03E00000` timer, `0x03E00008` DPC), and the rebuilt module reports `timerCheck = 0` with a self-loop DPC head. Private module `recomp-post-memory-build-68` (639,037 bytes, SHA-256 `583bc2f6…`) still reaches **277** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 5 (`diagnostic capacity reached`) at target `0x201199`, return `0x1FDBE0`, because the 8,192-entry initializer trace is full. **There is no playable original screen.**
 
 Validation: kernel-timer diagnostic tests optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the timer-diagnostic checkpoint](TIMER_DPC_DIAGNOSTIC_CHECKPOINT.md).
+
+## Prior: timer diagnostic identified the DPC-list mismatch
+
+`ff_timers_check` returned 15 for the guest DPC head mismatch; the probe and worker now expose the check code plus timer/DPC head and object words. The active six-hour timer remains valid.
 
 ## Prior: 0xFD002080 zero range and capacity extensions
 
