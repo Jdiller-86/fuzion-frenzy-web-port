@@ -1,6 +1,6 @@
-# Guest write-page map: the published queue pages were never CPU-written
+# PFIFO state observer: DMA channel 0, but USER and CACHE1 DMA registers do not alias
 
-November 3, 2026. A bounded source-owned guest write-page map now records which 4 KiB guest-RAM pages the translated code writes. In this run **48 pages** were written, and **none** of the five pages covering the observed GPU-instance claim (`0x03B78000`–`0x03B7CFFF`, pages 15224–15228) was among them. The published DMA queue therefore points into guest RAM that the CPU never wrote, so producer provenance and the meaning of initial GET=0 remain unresolved. No consumer is implemented. **There is no playable original screen and no renderer/device model.**
+November 3, 2026. A bounded source-owned PFIFO state observer now reports the reached channel state. The channel is in DMA mode with channel 0 and DMA instance `0x11C`, but the USER DMA registers and the PFIFO CACHE1 copies disagree: USER PUT/GET are `0x03B7D000`/`0`, while CACHE1 PUT/GET are `0`/`0`. The proof keeps those two apertures as separate synthetic storage, so the observed channel state is internally inconsistent; a real device mirrors USER writes into the CACHE1 DMA registers. The queue-producer question and the consumer remain unresolved. **There is no playable original screen and no renderer/device model.**
 
 ## Selection and build
 
@@ -12,44 +12,42 @@ November 3, 2026. A bounded source-owned guest write-page map now records which 
 | Module bytes | 525,566 |
 | Module SHA-256 | `05887417db7b7b06e6848e2210da8b103761ceb41fe51bc3083b117115557f97` |
 | Original executable SHA-256 | `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9` |
-| Report | `research/verification/post-memory-browser-20261103-37.json` (local/ignored) |
+| Report | `research/verification/post-memory-browser-20261103-38.json` (local/ignored) |
 | Synthetic profile | `research/verification/memory-statistics-inputs-01/settings-mmio-20.json` (local/ignored) |
 
-The translation is unchanged; only the write-observer component and its exports were added. ABI 24, the sole clock import and all prior synthetic boundaries are unchanged.
+The module is unchanged. ABI 24 and all prior synthetic boundaries are unchanged.
 
 ## Source-owned change
 
-- `src/runtime/guest_write_map.c` / `.h`: a 64 MiB / 4 KiB page bitmap with init, clipped range marking, word access and popcount. It stores page bits, never guest bytes.
-- `tools/fixtures/thread_startup_probe.c`: marks every translated guest write after the checked access succeeds, and exports `ff_probe_write_map_size`, `ff_probe_write_map_word` and `ff_probe_write_map_count`; reset reinitializes the map.
-- `src/runtime/thread-proof-worker.mjs`: reports `guestWritePages` (page size, count, marked page indices) when the exports exist.
-- `tests/guest_write_map_test.c`: covers init, single/crossing marks, clipping, duplicates, out-of-range, bounds and count.
-- The private build adds the source and three exports; module ABI stays 24.
+- `src/runtime/submission-probe.mjs`: adds `pfifoState` decoded from the aperture entries — PUSH1 (`0xFD003204`: mode/channel), DMA_INSTANCE (`0xFD00322C`), CACHE1 DMA_PUT/GET (`0xFD003240`/`0xFD003244`), and the USER DMA_PUT/GET. It reports whether the USER and CACHE1 copies agree and notes that a real device aliases them.
+- `tests/submission-probe.test.mjs`: covers DMA mode/channel, instance, inconsistent and consistent PUT values, and missing PUSH1 (12 cases).
 
 ## Observed values
 
-- UMA-backed PUT `0x03B7D000` and GET `0` remain verified guest addresses.
-- Marked write pages: **48**; range examples 515–818 (image/heap) and 15359–16382 (stack).
-- Claim pages 15224–15228 (`0x03B78000`–`0x03B7CFFF`): **0 marked**.
-- The 4 KiB before PUT and the five claim pages remain zero.
+- `push1 = 0x100`: **DMA mode, channel 0**.
+- `instanceRegister = 0x11C` → object `0x11C0`.
+- `cachePut = 0`, `cacheGet = 0`; `userPut = 0x03B7D000`, `userGet = 0`.
+- `aliasConsistent = false`.
+- Guest write map: 48 pages written; none in the claim pages 15224–15228.
 - Run: 83/83 initializers, 261 routines, 402 kernel operations; stop status 13 (`pushbuffer consumption required`) at `0xFD800044`.
 - Memory statistics unchanged: `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
 
 ## Interpretation
 
-The CPU did not write the published queue pages on this path. The queue may be produced by a different agent or mapping (for example a GPU-visible instance window, a copy engine, or a path not yet reached), or the initial GET/PUT values do not describe a CPU-produced ring. Decoding at the cursor or advancing GET would be unsupported.
+The title is in a valid PFIFO DMA channel and writes the USER DMA_PUT, but the synthetic aperture does not mirror it into the PFIFO CACHE1 register that a device-side consumer would read. The proof therefore cannot establish a coherent queue state, on top of the previously observed absence of CPU-written queue bytes. A consumer would need both the USER/CACHE1 alias and a verified queue producer.
 
 ## Next task
 
-Identify the expected queue producer: inspect the original routines around the DMA submission and the `0xFD700000` instance writes, and determine whether the queue is written through the device aperture, a copy engine, or a not-yet-reached CPU path. A bounded site-level write observation for the device aperture or a targeted static trace is the next evidence step; do not fabricate packets, a get pointer, interrupts, DMA or rendering.
+Add the evidence-backed USER↔PFIFO CACHE1 DMA alias (PUT `0xFD800040`↔`0xFD003240`, GET `0xFD800044`↔`0xFD003244`, REF `0xFD800048`↔`0xFD003248`) to the synthetic aperture, with bounded tests, then re-observe the channel state. This is still a modeling prerequisite: no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated. Separately, the queue producer remains unidentified.
 
 ## Validation
 
-`tests/guest_write_map_test.c` passes optimized and ASan/UBSan. `tests/submission-probe.test.mjs` passes (11 cases). The runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-37.json` (4,017,373 bytes).
+`tests/submission-probe.test.mjs` passes (12 cases). The runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-38.json` (4,017,766 bytes).
 
-## Prior milestone: UMA backing verified
+## Prior milestone: guest write-page map
 
-`d->vram = ram` confirms UMA identity; the 4 KiB pre-PUT window and five claim pages were zero. Report `post-memory-browser-20261103-36.json`.
+48 pages written; none in the published queue claim. Report `post-memory-browser-20261103-37.json`.
 
 ## Limits and next task
 
-No renderer, audio, controller, disc read, playable screen or complete runtime. The write map is a diagnostic, not a producer model or consumer. Next: identify the expected queue producer from static and runtime evidence.
+No renderer, audio, controller, disc read, playable screen or complete runtime. The observer is a diagnostic, not an alias model or consumer. Next: add the USER/CACHE1 alias and continue producer/queue evidence.

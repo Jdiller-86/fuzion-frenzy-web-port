@@ -1,14 +1,14 @@
-# Guest write-page map: the published queue pages were never CPU-written
+# PFIFO state observer: DMA channel 0, but USER and CACHE1 DMA registers do not alias
 
-November 3: a bounded source-owned guest write-page map now records which 4 KiB guest-RAM pages the translated code writes. In this run 48 pages were written, and none of the five pages covering the observed GPU-instance claim (`0x03B78000`–`0x03B7CFFF`, pages 15224–15228) was among them. The published DMA queue therefore points into guest RAM the CPU never wrote, so producer provenance and initial GET=0 remain unresolved, and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: a bounded source-owned PFIFO state observer now reports the reached channel state. The channel is in DMA mode with channel 0 and DMA instance `0x11C`, but USER PUT/GET (`0x03B7D000`/`0`) and the PFIFO CACHE1 copies (`0`/`0`) disagree. The proof keeps those apertures as separate synthetic storage, so the observed state is internally inconsistent; a real device mirrors USER writes into CACHE1. The queue producer and consumer remain unresolved. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-49` is 525,566 bytes, SHA-256 `05887417…`. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-37.json`.
+The module is `recomp-post-memory-build-49` (525,566 bytes, SHA-256 `05887417…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-38.json`.
 
-Source change: `src/runtime/guest_write_map.c/.h` (64 MiB / 4 KiB page bitmap with init, clipped marking, word access and popcount), probe marking plus three exports, worker `guestWritePages`, and `tests/guest_write_map_test.c`. Only page bits are stored, never guest bytes. Validation: write-map tests optimized/ASan/UBSan, submission-probe tests (11), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. No consumer, GET advance, packet decoding, interrupt, DMA or rendering is fabricated. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `submission-probe.mjs` adds `pfifoState` (PUSH1 mode/channel, DMA instance, CACHE1 and USER PUT/GET, alias consistency, explanatory note); `tests/submission-probe.test.mjs` covers it (12 cases). The guest write map still shows 48 pages written with none in the claim. No consumer, GET advance, packet decoding, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: UMA backing verified
+## Prior: guest write-page map
 
-`d->vram = ram` confirms UMA identity; the 4 KiB pre-PUT window and five claim pages were zero. Report `post-memory-browser-20261103-36.json`.
+48 pages written; none in the published queue claim. Report `post-memory-browser-20261103-37.json`.
 
 ## Prior: 0x200f59
 

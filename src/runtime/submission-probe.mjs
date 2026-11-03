@@ -97,6 +97,32 @@ function resolveDmaOffset(object, offset, ramBytes) {
   };
 }
 
+// Reached PFIFO channel state and the USER/PFIFO register aliases. The proof
+// keeps USER and PFIFO CACHE1 storage separate; a real device updates the
+// CACHE1 DMA registers from USER writes, so report the inconsistency.
+function pfifoState(entries, userPut, userGet) {
+  const value = address => entries.find(entry => entry.address === address)?.value;
+  const push1 = value(0xFD003204);
+  if (!Number.isInteger(push1)) return { available: false, reason: 'no observed PFIFO PUSH1 register' };
+  const instanceRegister = value(0xFD00322C);
+  const cachePut = value(0xFD003240);
+  const cacheGet = value(0xFD003244);
+  return {
+    available: true,
+    push1: push1 >>> 0,
+    mode: (push1 & 0x100) ? 'DMA' : 'PIO',
+    channel: push1 & 0x1F,
+    instanceRegister: Number.isInteger(instanceRegister) ? instanceRegister >>> 0 : null,
+    cachePut: Number.isInteger(cachePut) ? cachePut >>> 0 : null,
+    cacheGet: Number.isInteger(cacheGet) ? cacheGet >>> 0 : null,
+    userPut: userPut >>> 0,
+    userGet: userGet >>> 0,
+    aliasConsistent: Number.isInteger(cachePut) && cachePut >>> 0 === userPut >>> 0 &&
+                     Number.isInteger(cacheGet) && cacheGet >>> 0 === userGet >>> 0,
+    note: 'USER and PFIFO CACHE1 DMA registers are separate storage in this proof; a real device aliases them',
+  };
+}
+
 export function createSubmissionProbe({ status, entries, view, ramBytes, windowBytes = SUBMISSION_PROBE_BYTES, allocation } = {}) {
   const unavailable = reason => ({ available: false, reason });
   if (status !== 13) return unavailable('not stopped at the PFIFO DMA submission boundary');
@@ -132,6 +158,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     dmaObject: object,
     putResolved: resolveDmaOffset(object, put, ramBytes),
     getResolved: resolveDmaOffset(object, get, ramBytes),
+    pfifoState: pfifoState(entries, put, get),
     note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };
 }

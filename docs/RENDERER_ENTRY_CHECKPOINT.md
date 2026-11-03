@@ -537,6 +537,20 @@ Module `recomp-post-memory-build-49` is 525,566 bytes, SHA-256 `05887417db7b7b06
 
 The report is `research/verification/post-memory-browser-20261103-37.json` (local/ignored). The published queue points into guest RAM the CPU never wrote; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
 
+### Observe PFIFO channel state and the alias gap
+
+`submission-probe.mjs` now reports `pfifoState`: PUSH1 mode/channel, DMA instance, CACHE1 DMA_PUT/GET, USER DMA_PUT/GET and whether the copies agree. Tests cover DMA mode/channel, instance, inconsistent/consistent values and missing PUSH1 (12 cases).
+
+Module `recomp-post-memory-build-49` is unchanged (525,566 bytes, SHA-256 `05887417db7b7b06e6848e2210da8b103761ceb41fe51bc3083b117115557f97`). In the run:
+
+- the channel is in DMA mode, channel 0, instance `0x11C`;
+- USER PUT/GET are `0x03B7D000`/`0`, CACHE1 PUT/GET are `0`/`0`, so `aliasConsistent` is false;
+- the guest write map still shows 48 pages, none in the claim;
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-38.json` (local/ignored). The USER/CACHE1 registers are separate synthetic storage, so the reached channel state is internally inconsistent; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Identify the expected queue producer: inspect the original routines around the DMA submission and the `0xFD700000` instance writes, and determine whether the queue is written through the device aperture, a copy engine, or a not-yet-reached CPU path. A bounded site-level device-aperture write observation or a targeted static trace is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary and the guest write-page map; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Add the evidence-backed USER↔PFIFO CACHE1 DMA alias (PUT `0xFD800040`↔`0xFD003240`, GET `0xFD800044`↔`0xFD003244`, REF `0xFD800048`↔`0xFD003248`) to the synthetic aperture with bounded tests, then re-observe the channel state. This is a modeling prerequisite only; the queue producer remains unidentified and must be established separately. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map and the PFIFO state observer; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

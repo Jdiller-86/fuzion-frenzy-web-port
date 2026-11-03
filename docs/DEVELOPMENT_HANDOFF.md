@@ -1,18 +1,18 @@
-# Continue from the guest write-page map and the unwritten queue claim
+# Continue from the PFIFO state observer and the USER/CACHE1 alias gap
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A bounded source-owned guest write-page map now records which 4 KiB guest-RAM pages the translated code writes. In this run **48 pages** were written, and **none** of the five pages covering the observed GPU-instance claim (`0x03B78000`–`0x03B7CFFF`, pages 15224–15228) was among them. The UMA-backed PUT `0x03B7D000`/GET `0` therefore point into guest RAM the CPU never wrote; producer provenance and initial GET=0 remain unresolved. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A bounded source-owned PFIFO state observer now reports the reached channel state. The channel is in DMA mode with channel 0 and DMA instance `0x11C`, but USER PUT/GET (`0x03B7D000`/`0`) and the PFIFO CACHE1 copies (`0`/`0`) disagree. The proof keeps those apertures as separate synthetic storage, so the state is internally inconsistent; a real device mirrors USER writes into CACHE1. Separately, the guest write-page map shows 48 pages written and none in the published queue claim, so the queue producer is still unidentified. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is now `recomp-post-memory-build-49` (525,566 bytes, SHA-256 `05887417…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-37.json`. The write map is `src/runtime/guest_write_map.c/.h` (page bits only, never bytes); the probe marks translated writes and exports size/word/count; the worker reports `guestWritePages`; `tests/guest_write_map_test.c` covers it.
+The module is `recomp-post-memory-build-49` (525,566 bytes, SHA-256 `05887417…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-38.json`. `submission-probe.mjs` reports `pfifoState` (PUSH1 mode/channel, instance, CACHE1 and USER PUT/GET, alias consistency); tests cover it (12 cases).
 
-Validation: write-map tests optimized/ASan/UBSan, submission-probe tests (11), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** identify the expected queue producer: inspect the original routines around the DMA submission and the `0xFD700000` instance writes, and determine whether the queue is written through the device aperture, a copy engine, or a not-yet-reached CPU path. A bounded site-level device-aperture write observation or a targeted static trace is the next evidence step; do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** add the evidence-backed USER↔PFIFO CACHE1 DMA alias (PUT `0xFD800040`↔`0xFD003240`, GET `0xFD800044`↔`0xFD003244`, REF `0xFD800048`↔`0xFD003248`) to the synthetic aperture with bounded tests, then re-observe the channel state. This is a modeling prerequisite only: no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated. The queue producer remains unidentified and must be established separately. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: UMA backing verified
+## Prior: guest write-page map
 
-`d->vram = ram` confirms UMA identity; the 4 KiB pre-PUT window and five claim pages were zero. Report `post-memory-browser-20261103-36.json`.
+48 pages written; none in the published queue claim. Report `post-memory-browser-20261103-37.json`.
 
 ## Prior: 0x200f59
 

@@ -139,6 +139,27 @@ test('the allocation page summary counts nonzero dwords without storing bytes', 
   assert.deepEqual(zero.allocationPages.pages, [{ offset: 0, nonzero: 0 }]);
 });
 
+test('the PFIFO state reports DMA mode and the USER/CACHE1 alias gap', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  entries.push({ address: 0xFD003204, value: 0x100 });
+  entries.push({ address: 0xFD00322C, value: 0x11C });
+  entries.push({ address: 0xFD003240, value: 0 });
+  entries.push({ address: 0xFD003244, value: 0 });
+  let probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.pfifoState.available, true);
+  assert.equal(probe.pfifoState.mode, 'DMA');
+  assert.equal(probe.pfifoState.channel, 0);
+  assert.equal(probe.pfifoState.instanceRegister, 0x11C);
+  assert.equal(probe.pfifoState.cachePut, 0);
+  assert.equal(probe.pfifoState.userPut, 0x800);
+  assert.equal(probe.pfifoState.aliasConsistent, false);
+  entries.find(entry => entry.address === 0xFD003240).value = 0x800;
+  probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.pfifoState.aliasConsistent, true);
+  const noPush = createSubmissionProbe({ status, entries: [], view, ramBytes });
+  assert.equal(noPush.available, false);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();
