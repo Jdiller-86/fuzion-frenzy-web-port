@@ -140,12 +140,36 @@ static void sub_dword_access_uses_the_containing_register(void)
     assert(device.entries[0].value == 0xBBCCAA44u && device.entries[0].writes == 3);
     assert(device.events[before_events + 3].value == 0xBBCC);
     save();
-    assert(ff_device_registers_access_width(&device, 0xFD009141u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u) == NULL);
-    unchanged();
     assert(ff_device_registers_access_width(&device, 0xFD009241u, 1, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
     unchanged();
     assert(ff_device_registers_access_width(&device, 0xFD001805u, 3, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
     unchanged();
+}
+
+static void sub_dword_writes_extend_unknown_registers(void)
+{
+    reset();
+    uint32_t before_events = device.event_count;
+    uint8_t *byte = (uint8_t *)ff_device_registers_access_width(
+        &device, 0xFD009140u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u);
+    assert(byte && device.pending);
+    *byte = 0x11;
+    assert(ff_device_registers_commit(&device) == 0);
+    assert(device.count == 3 && device.entries[2].address == 0xFD009140u);
+    assert(device.entries[2].value == 0x11u && device.entries[2].known == 0 && device.entries[2].known_bytes == 1u);
+    assert(device.events[before_events].before_known == 0);
+    assert(ff_device_registers_access_width(&device, 0xFD009141u, 1, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
+    for (uint32_t offset = 1; offset < 4; ++offset) {
+        byte = (uint8_t *)ff_device_registers_access_width(
+            &device, 0xFD009140u + offset, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u);
+        assert(byte && device.pending);
+        *byte = (uint8_t)(0x11u * (offset + 1u));
+        assert(ff_device_registers_commit(&device) == 0);
+    }
+    assert(device.entries[2].value == 0x44332211u && device.entries[2].known == 1 && device.entries[2].known_bytes == 0xFu);
+    uint32_t *dword = (uint32_t *)ff_device_registers_access_width(
+        &device, 0xFD009140u, 4, FF_DEVICE_ACCESS_READ, 0x00100020u);
+    assert(dword && *dword == 0x44332211u);
 }
 
 static void access_masks_sites_and_widths_fail_closed(void)
@@ -235,7 +259,7 @@ int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
     read_modify_write_records_both_halves(); sub_dword_access_uses_the_containing_register();
-    access_masks_sites_and_widths_fail_closed();
+    sub_dword_writes_extend_unknown_registers(); access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities and atomicity passed");
     return 0;

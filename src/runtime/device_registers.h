@@ -16,7 +16,7 @@
 #define FF_DEVICE_ACCESS_READWRITE 3u
 
 typedef struct {
-    uint32_t address, value, reads, writes, known;
+    uint32_t address, value, reads, writes, known, known_bytes;
 } ff_device_entry;
 typedef struct {
     uint32_t address, site, direction, value, before_known;
@@ -56,8 +56,9 @@ uint32_t *ff_device_registers_access(ff_device_registers *, uint32_t address, ui
                                      uint32_t site);
 /* Width-aware access for reachable sub-dword register reads and writes.
  * Entries remain dword-valued profile registers; a 1/2-byte access maps into
- * the containing dword. A sub-dword write requires that dword to be known and
- * records the written byte/halfword value while preserving the other bytes. */
+ * the containing dword. Sub-dword writes may create or extend an entry, track
+ * which bytes are known, and record the written byte/halfword value. Reads
+ * require every accessed byte to be known. */
 uint32_t *ff_device_registers_access_width(ff_device_registers *, uint32_t address, uint32_t bytes,
                                            uint32_t access, uint32_t site);
 #endif

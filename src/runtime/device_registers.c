@@ -12,7 +12,7 @@ static uint32_t seed(ff_device_registers *device, uint32_t address, uint32_t val
 {
     if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
     for (uint32_t i = 0; i < device->count; ++i) if (device->entries[i].address == address) return FF_BOOT_INVALID;
-    device->entries[device->count++] = (ff_device_entry){address, value, 0, 0, 1};
+    device->entries[device->count++] = (ff_device_entry){address, value, 0, 0, 1, 0xFu};
     return 0;
 }
 
@@ -25,16 +25,17 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
     if (direction != FF_DEVICE_READ && direction != FF_DEVICE_WRITE) return FF_BOOT_INVALID;
     if (device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_NO_MEMORY;
     ff_device_entry *entry = find(device, address);
-    if (direction == FF_DEVICE_READ && (!entry || !entry->known)) return FF_BOOT_UNSUPPORTED;
+    if (direction == FF_DEVICE_READ && (!entry || !entry->known || entry->known_bytes != 0xFu))
+        return FF_BOOT_UNSUPPORTED;
     if (!entry) {
         if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
         entry = &device->entries[device->count++];
-        *entry = (ff_device_entry){address, 0, 0, 0, 0};
+        *entry = (ff_device_entry){address, 0, 0, 0, 0, 0};
     }
     device->events[device->event_count++] =
         (ff_device_event){address, site, direction, direction == FF_DEVICE_WRITE ? *value : entry->value, entry->known};
     if (direction == FF_DEVICE_READ) { ++entry->reads; *value = entry->value; }
-    else { ++entry->writes; entry->value = *value; entry->known = 1; }
+    else { ++entry->writes; entry->value = *value; entry->known = 1; entry->known_bytes = 0xFu; }
     return 0;
 }
 
@@ -100,19 +101,26 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     uint32_t offset = device->pending_offset;
     device->pending = 0;
     if (bytes == 4u) return record(device, address, FF_DEVICE_WRITE, site, &value);
-    /* Sub-dword writes merge into a known containing dword; unknown registers
-     * remain fail-closed because their other bytes have no supplied value. */
-    ff_device_entry *entry = find(device, address & ~3u);
-    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS)
-        return FF_BOOT_UNSUPPORTED;
+    /* Sub-dword writes may create or extend the containing dword. Untouched
+     * bytes stay unknown, so a later read still fails until they are written. */
+    uint32_t base = address & ~3u;
+    ff_device_entry *entry = find(device, base);
+    if (device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_NO_MEMORY;
+    if (!entry) {
+        if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
+        entry = &device->entries[device->count++];
+        *entry = (ff_device_entry){base, 0, 0, 0, 0, 0};
+    }
+    uint32_t before = entry->known;
     uint32_t shift = offset * 8u, mask = bytes == 1u ? 0xFFu : 0xFFFFu;
     uint32_t written = (value >> shift) & mask;
     uint32_t merged = (entry->value & ~(mask << shift)) | (written << shift);
     device->events[device->event_count++] =
-        (ff_device_event){address, site, FF_DEVICE_WRITE, written, entry->known};
+        (ff_device_event){address, site, FF_DEVICE_WRITE, written, before};
     ++entry->writes;
     entry->value = merged;
-    entry->known = 1;
+    entry->known_bytes |= (bytes == 1u ? 1u : 3u) << offset;
+    entry->known = entry->known_bytes == 0xFu;
     return 0;
 }
 
@@ -147,7 +155,8 @@ static uint32_t *stage_write_width(ff_device_registers *device, uint32_t address
     if (ff_device_registers_contains(device, address, bytes)) return NULL;
     if (ff_device_registers_commit(device)) return NULL;
     ff_device_entry *entry = find(device, address & ~3u);
-    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS) return NULL;
+    if (device->event_count >= FF_DEVICE_EVENTS ||
+        (!entry && device->count >= FF_DEVICE_ENTRIES)) return NULL;
     device->pending = 1;
     device->pending_address = address;
     device->pending_site = site;
@@ -189,7 +198,9 @@ uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t
     if (ff_device_registers_contains(device, address, bytes) ||
         ff_device_registers_commit(device)) return NULL;
     ff_device_entry *entry = find(device, address & ~3u);
-    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS ||
+    uint32_t byte_bits = (bytes == 1u ? 1u : 3u) << (address & 3u);
+    if (!entry || (entry->known_bytes & byte_bits) != byte_bits ||
+        device->event_count >= FF_DEVICE_EVENTS ||
         (access == FF_DEVICE_ACCESS_READWRITE && device->event_count >= FF_DEVICE_EVENTS - 1u))
         return NULL;
     uint32_t shift = (address & 3u) * 8u;

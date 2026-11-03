@@ -202,6 +202,21 @@ Execution stopped at **`0x1FDF83`** (return `0x1FE1A9`, status 2). The report is
 
 The aperture now stages 1/2-byte writes into known dword registers, merges the bytes, records the written sub-dword value and fails closed for unknown containing registers. Device-register tests pass optimized and ASan/UBSan.
 
+### Execute 0x1FDF83
+
+Using the retained 28-seed selection plus `recomp-post-memory-next-11/seed.json`, translation `recomp-title-post-memory-15` contains **351 functions / 13,262 instructions**, including `ff_title_001FDF83`. Module `recomp-post-memory-build-28` is 470,384 bytes, SHA-256 `7882a2557f9dd38eead06643b913fc739c23f7f60d8b1855bef267ae4862e495`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 241 distinct original routines executed and 400 kernel operations completed;
+- `0x001fdf83` initialized its 0x300-byte guest-memory table and returned to `0x001fe1a9`;
+- `0x001fe0c6` continued and called `0x001ffff4`;
+- the aperture remained at 5,148 entries / 5,176 events because the table writes went to guest RAM;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FFFF4`** (return `0x1FE1B0`, status 2). The report is `research/verification/post-memory-browser-20261103-10.json` (local/ignored). There is no playable screen.
+
+The aperture now tracks per-byte knownness for sub-dword writes, allowing an unknown dword entry to be extended without fabricating untouched bytes; reads still require every accessed byte to be known. Device-register tests pass optimized and ASan/UBSan.
+
 ## Next task
 
-Admit and translate `0x1FDF83` (64 bytes / 22 instructions, no direct calls) from the retained `recomp-post-memory-next-11` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or sub-dword writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FFFF4` (54 bytes / 18 instructions, no direct calls) from the retained `recomp-post-memory-next-12` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or sub-dword writes. The captured line/quad reference comparison and browser prepass also remain private.
