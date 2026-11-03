@@ -177,6 +177,20 @@ static void subdirectory_lookup_and_reads(void)
     assert(ff_fatx_read_path(&fs,1,(const uint8_t*)"SUBDIR",6,0,0,output,sizeof output,&bytes)==FF_BOOT_UNSUPPORTED);
     assert(!ff_fatx_close(&fs,handle));
 }
+static void directory_enumeration_by_path(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root(),count;ff_fatx_directory_entry entry;
+    assert(!ff_fatx_directory_count(&fs,1,NULL,0,0,&count) && count==4);
+    assert(!ff_fatx_directory_at(&fs,1,NULL,0,0,0,&entry) && !strcmp(entry.name,"HELLO.TXT"));
+    assert(!ff_fatx_directory_count(&fs,1,(const uint8_t*)"SUBDIR",6,0,&count) && count==1);
+    assert(!ff_fatx_directory_at(&fs,1,(const uint8_t*)"SUBDIR",6,0,0,&entry) && !strcmp(entry.name,"NESTED"));
+    assert(!ff_fatx_directory_count(&fs,1,(const uint8_t*)"SUBDIR\\NESTED",13,0,&count) && count==1);
+    assert(!ff_fatx_directory_at(&fs,1,(const uint8_t*)"SUBDIR\\NESTED",13,0,0,&entry) && !strcmp(entry.name,"DEEP.TXT"));
+    assert(ff_fatx_directory_at(&fs,1,(const uint8_t*)"SUBDIR",6,0,1,&entry)==FF_BOOT_UNSUPPORTED);
+    assert(ff_fatx_directory_count(&fs,1,(const uint8_t*)"HELLO.TXT",9,0,&count)==FF_BOOT_UNSUPPORTED);
+    assert(ff_fatx_directory_count(&fs,1,(const uint8_t*)"SUBDIR",6,0x80,&count)==FF_BOOT_INVALID);
+    assert(!ff_fatx_close(&fs,handle));
+}
 static void multi_cluster_root_and_fat16_reads(void)
 {
     setup_two_cluster_root();uint32_t handle=open_root(),count;ff_fatx_directory_entry entry;
@@ -272,6 +286,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();
     puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounds and mutation checks passed");return 0;
 }

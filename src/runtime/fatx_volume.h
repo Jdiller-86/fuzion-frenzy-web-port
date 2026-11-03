@@ -54,6 +54,12 @@ uint32_t ff_fatx_root_count(ff_fatx_volume *,uint32_t mount,uint32_t *count);
 uint32_t ff_fatx_root_entry(ff_fatx_volume *,uint32_t mount,uint32_t index,ff_fatx_directory_entry *entry);
 uint32_t ff_fatx_read_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
                             uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Enumerate an arbitrary directory reachable by a relative path; an empty path
+ * selects the root. These are source-owned read-only helpers. */
+uint32_t ff_fatx_directory_count(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                                 uint32_t flags,uint32_t *count);
+uint32_t ff_fatx_directory_at(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                              uint32_t flags,uint32_t index,ff_fatx_directory_entry *entry);
 /* Resolve a relative path of up to eight components and read a file. The path
  * uses '\\' or '/' separators; flags 0x40 selects case-insensitive matching.
  * These remain source-owned helpers, not guest services. */
