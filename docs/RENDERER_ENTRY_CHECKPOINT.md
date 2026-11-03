@@ -64,6 +64,19 @@ Admitting `0x001fe05a` (43 bytes / 9 instructions, no calls) advanced execution 
 
 Reports: `post-memory-browser-20261102-11.json`, `-12.json`; audit: `gpu-boundary-checkpoint-20261102-01.json` (zero source-identity mismatches, matching module digest, identical profiles).
 
+## Synthetic register storage (D063)
+
+The original helper `0x001fe05a` is a GPU register bit-set: it reads `0xfd001804`, ORs 4, writes it back, then writes zero to `0xfd600140`. A single read-only window is therefore insufficient. Following an independent architect decision, the proof now provides a strictly bounded **two-entry synthetic register file** rather than a device model:
+
+- both addresses and both initial values come from the explicit settings profile (`device.kind = "synthetic-register-storage"`), are parsed and validated in JS, and are recorded in the report;
+- `src/runtime/device_registers.c` stores values, counts reads/writes and records exactly three events; any other address, width, direction or a fourth access fails without mutation;
+- the probe routes only those two addresses inside `ff_probe_guest_memory`, so ordinary RAM checks, permissions and memory statistics are untouched;
+- device storage is separate from RAM and accounting: statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Both profiles ran `recomp-post-memory-build-15` (module `79959560…`, 498,253 bytes): register `0xfd001804` read once and written once (0 → 4), register `0xfd600140` written once (0), three events, 234 routines / 396 kernel operations / 3,632 events. Execution then leaves the admitted window and stops with a checked write fault at **`0xfd009140`**, which is the next genuine device address to decide on. The planned "stop at the helper return" did not fire because the helper returned through different generated framing; the checked window stop is the real boundary.
+
+Reports: `post-memory-browser-20261102-13.json`, `-14.json`; audit `mmio-checkpoint-20261102-01.json` (zero source-identity mismatches, matching module digest, identical profiles).
+
 ## Next task
 
-Model the reached NV2A register read deliberately: decide whether the bounded proof admits a documented read-only register window (with explicit values or a checked "unknown register" failure) or must stop here, then continue `0x001fe05a`'s caller. No host WebGL call may be substituted for the guest device read, and no register value may be invented without a project decision. Reuse `recomp-title-post-memory-06`, the new build and the retained analysis project.
+Decide the next device address (`0xfd009140`, a write) under the same evidence rules: either extend the explicit synthetic register file through a recorded decision, or stop there. Do not infer NV2A behavior, DMA, interrupts or rendering from these stores; the WBINVD admission (D060) remains conditioned on there being no device model beyond this storage abstraction.

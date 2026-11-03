@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
@@ -9,10 +9,10 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
-    const statisticsAbi=api.ff_probe_abi()===23,fatxAbi=statisticsAbi || api.ff_probe_abi()===22,dismountAbi=fatxAbi || api.ff_probe_abi()===21,informationAbi=dismountAbi || api.ff_probe_abi()===20,geometryAbi=informationAbi || api.ff_probe_abi()===19,partitionAbi=geometryAbi || api.ff_probe_abi()===18,diskAbi=partitionAbi || api.ff_probe_abi()===17,initializerAbi=diskAbi || api.ff_probe_abi()===16;
+    const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
@@ -22,7 +22,7 @@ self.onmessage = async event => {
     if (timerAbi && ['timer_count','timer_word','dpc_count','dpc_delivered','poll','dpc_recover'].some(name =>
       typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing timer proof ABI');
     let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk;
-    let memoryProfile;
+    let memoryProfile, mmioProfile;
     if (api.ff_probe_abi() >= 3) {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
@@ -33,6 +33,12 @@ self.onmessage = async event => {
         api.ff_probe_parental_games(consoleSettings.parentalControlGames);
       }
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
+    if(api.ff_probe_abi()===24) {
+      mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
+      if(api.ff_probe_mmio_profile(mmioProfile.registers[0].initial,mmioProfile.registers[1].initial)) {
+        throw new Error('Cannot admit explicit synthetic register storage');
+      }
+    }
     if(statisticsAbi) {
       memoryProfile=parseLocalMemoryProfile(event.data.settingsBytes);
       if(api.ff_probe_memory_profile(memoryProfile.physicalPages,memoryProfile.baselinePoolPages)) {
@@ -857,6 +863,15 @@ self.onmessage = async event => {
       memoryAccounting={status,profile:memoryProfile,scope:'modeled guest pages; no retail-console equivalence',
         ...(status===0?{words:Array.from({length:9},(_,n)=>api.ff_probe_memory_word(n+4)>>>0)}:{})};
     }
+    let deviceRegisters;
+    if(api.ff_probe_abi()===24) {
+      if(api.ff_probe_mmio_word(0)!==1)throw new Error('Synthetic register storage is not ready');
+      deviceRegisters={scope:'explicit synthetic register storage; no NV2A or device behavior',
+        registers:[0,1].map(i=>({address:api.ff_probe_mmio_word(1+i*5)>>>0,initial:api.ff_probe_mmio_word(2+i*5)>>>0,
+          value:api.ff_probe_mmio_word(3+i*5)>>>0,reads:api.ff_probe_mmio_word(4+i*5)>>>0,writes:api.ff_probe_mmio_word(5+i*5)>>>0})),
+        events:Array.from({length:api.ff_probe_mmio_word(11)>>>0},(_,e)=>({address:api.ff_probe_mmio_word(12+e*3)>>>0,
+          direction:api.ff_probe_mmio_word(13+e*3)>>>0,oldValue:api.ff_probe_mmio_word(14+e*3)>>>0}))};
+    }
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {
       const pointer=state[6];
@@ -893,7 +908,7 @@ self.onmessage = async event => {
     self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,

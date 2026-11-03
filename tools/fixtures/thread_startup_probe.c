@@ -61,6 +61,13 @@ static uint32_t fatx_ready;
 static ff_memory_statistics memory_statistics;
 static uint32_t memory_statistics_ready;
 #endif
+#ifdef FF_MMIO_PROOF
+#if !defined(FF_MEMORY_STATISTICS_PROOF)
+#error Device register storage retains the modeled memory statistics
+#endif
+#include "../../src/runtime/device_registers.h"
+static ff_device_registers device_registers;
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -209,12 +216,19 @@ void ff_probe_copy_recover(void);
 static const char source_digest[] = FF_SOURCE_SHA256;
 static const struct { uint32_t slot, ordinal; } bindings[] = FF_KERNEL_BINDINGS;
 
+#ifdef FF_MMIO_PROOF
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
+#endif
 static void ff_probe_return_frame(uint32_t address, uint32_t frame)
 {
 #ifdef FF_COPY_PROOF
     if (copy_checking && address == copy_target) { copy_return_frame = frame; ++copy_return_seen; }
 #else
     (void)address; (void)frame;
+#endif
+#ifdef FF_MMIO_PROOF
+    /* Stop at the reached device helper's return, before its caller continues. */
+    if (device_registers.ready && address == 0x001FE05Au) stop(11, address, device_registers.event_count);
 #endif
 }
 
@@ -237,6 +251,19 @@ static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0)
 #ifdef FF_VM_PROOF
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
 {
+#ifdef FF_MMIO_PROOF
+    if (device_registers.ready && bytes == 4u) {
+        uint32_t index = ff_device_registers_lookup(&device_registers, address, 4u);
+        if (index < FF_DEVICE_REGISTERS) {
+            uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
+            uint32_t value = device_registers.registers[index].value;
+            if (ff_device_registers_touch(&device_registers, address, direction, 0x001FE05Au, &value))
+                stop(10, address, access);
+            ++vm_access_count;
+            return &device_registers.registers[index].value;
+        }
+    }
+#endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
         vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access;
         stop(10, address, access);
@@ -585,9 +612,35 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     if(!status)memory_statistics_ready=1;
     return status;
 }
-uint32_t ff_probe_memory_word(uint32_t field)
+#ifdef FF_MMIO_PROOF
+uint32_t ff_probe_mmio_profile(uint32_t first_value,uint32_t second_value)
 {
-    if(field==0)return memory_statistics_ready;
+    if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
+    return ff_device_registers_init(&device_registers,0xFD001804u,first_value,0xFD600140u,second_value);
+}
+uint32_t ff_probe_mmio_word(uint32_t field)
+{
+    if(field==0)return device_registers.ready;
+    if(field==1)return device_registers.registers[0].address;
+    if(field==2)return device_registers.registers[0].initial;
+    if(field==3)return device_registers.registers[0].value;
+    if(field==4)return device_registers.registers[0].reads;
+    if(field==5)return device_registers.registers[0].writes;
+    if(field==6)return device_registers.registers[1].address;
+    if(field==7)return device_registers.registers[1].initial;
+    if(field==8)return device_registers.registers[1].value;
+    if(field==9)return device_registers.registers[1].reads;
+    if(field==10)return device_registers.registers[1].writes;
+    if(field==11)return device_registers.event_count;
+    if(field>=12 && field<12+FF_DEVICE_EVENTS*3){
+        uint32_t e=(field-12)/3u,k=(field-12)%3u;
+        return k==0?device_registers.events[e].address:k==1?(uint32_t)device_registers.events[e].direction:device_registers.events[e].old_value;
+    }
+    return UINT32_MAX;
+}
+#endif
+uint32_t ff_probe_memory_word(uint32_t field)
+{    if(field==0)return memory_statistics_ready;
     if(field==1)return memory_statistics.profile.physical_pages;
     if(field==2)return memory_statistics.profile.baseline_pool_pages;
     uint32_t words[FF_MEMORY_STATISTICS_WORDS];
@@ -1298,7 +1351,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_MEMORY_STATISTICS_PROOF
+#ifdef FF_MMIO_PROOF
+    return 24;
+#elif defined(FF_MEMORY_STATISTICS_PROOF)
     return 23;
 #elif defined(FF_FATX_PROOF)
     return 22;
@@ -1429,6 +1484,9 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_MEMORY_STATISTICS_PROOF
     memset(&memory_statistics,0,sizeof memory_statistics);memory_statistics_ready=0;
+#endif
+#ifdef FF_MMIO_PROOF
+    memset(&device_registers,0,sizeof device_registers);
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();

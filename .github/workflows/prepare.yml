@@ -115,5 +115,10 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/memory_statistics_test.c src/runtime/memory_statistics.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-statistics-check"
           "$RUNNER_TEMP/memory-statistics-check"
+      - name: Check owned synthetic register storage (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/device_registers_test.c src/runtime/device_registers.c -o "$RUNNER_TEMP/device-registers-check"
+          "$RUNNER_TEMP/device-registers-check"
       - run: npm run check:environment
       - run: git diff --exit-code
