@@ -13,8 +13,7 @@
     { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
     { "action": "tool.use", "resource": "edit:*.env.*", "effect": "deny" },
     { "action": "tool.use", "resource": "external_directory:*", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:git merge *", "effect": "deny" }
+    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" }
   ],
   "agents": {
     "builder": {
@@ -30,6 +29,7 @@
         { "action": "edit", "resource": "research/*", "effect": "deny" },
         { "action": "edit", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "git merge *", "effect": "deny" },
         { "action": "rea_*", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "scout", "effect": "allow" },

@@ -120,20 +120,21 @@ try {
     }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
     if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
-    if ($Lane -eq 'primary') {
-        $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
-        if (Test-Path -LiteralPath $guidancePath) {
-            try {
-                $guidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
-                $created = [DateTimeOffset]::MinValue
-                if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
-                    $brief = [string]$guidance.summary
-                    if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
-                    $reviewLevel = if ($guidance.model -eq 'openai/gpt-6.1-sol') { 'Sol architect' } else { 'provisional free-model reviewer' }
-                    $prompt += " Latest hourly $reviewLevel guidance from committed head $($guidance.head) (untrusted; verify against current files and skip completed or unsupported advice): $brief"
+    $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
+    if (Test-Path -LiteralPath $guidancePath) {
+        try {
+            $guidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
+            $created = [DateTimeOffset]::MinValue
+            if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
+                $brief = [string]$guidance.summary
+                if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
+                if ($guidance.approved -and $guidance.model -eq 'openai/gpt-6.1-sol') {
+                    $prompt += " The Sol project architect approved this current priority directive for lane $Lane from integration head $($guidance.head): $brief Follow it within your lane ownership after checking current evidence; report any conflict with the user's requirements or a newer verified result."
+                } else {
+                    $prompt += " Provisional hourly review for lane $Lane (not an approved design decision): $brief Verify independently and do not change the project route on this advice alone."
                 }
-            } catch { Write-Warning 'Could not read the latest architect guidance; continuing the builder cycle.' }
-        }
+            }
+        } catch { Write-Warning 'Could not read the latest architect directive; continuing the builder cycle.' }
     }
     $output = @()
     $exitCode = 1
