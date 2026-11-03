@@ -243,6 +243,21 @@ Using the retained 30-seed selection plus `recomp-post-memory-next-13/seed.json`
 
 Execution stopped at **`0x20005A`** (return `0x1FE1C8`, status 2). The report is `research/verification/post-memory-browser-20261103-12.json` (local/ignored). There is no playable screen.
 
+### Execute 0x20005A
+
+Using the retained 31-seed selection plus `recomp-post-memory-next-14/seed.json`, translation `recomp-title-post-memory-18` contains **354 functions / 13,314 instructions**, including `ff_title_0020005A`. Module `recomp-post-memory-build-31` is 473,226 bytes, SHA-256 `ec7a4d9c39d7cf61413198cd8ab25b43a50a40caf7d79625362aa8bb7e92a4ca`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 244 distinct original routines executed and 400 kernel operations completed;
+- `0x0020005a` programmed object/device fields and returned to `0x001fe1c8`;
+- `0x001fe0c6` returned to its caller at `0x1FE616`, which reached `0x001fe1d0`;
+- the aperture retained 5,173 entries / 5,203 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FE1D0`** (return `0x1FE6ED`, status 2). The report is `research/verification/post-memory-browser-20261103-13.json` (local/ignored). There is no playable screen.
+
+The link required a source-owned bounded port-output log (`src/runtime/port_io.c`), which records and ignores OUT writes; it is not a port device model. Its optimized and ASan/UBSan tests pass.
+
 ## Next task
 
-Admit and translate `0x20005A` (113 bytes / 19 instructions, no direct calls) from the retained `recomp-post-memory-next-14` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or device writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FE1D0` (315 bytes / 87 instructions) from the retained `recomp-post-memory-next-15` export, resolving the new kernel-slot binding at `0x25346C`, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic port/device writes. The captured line/quad reference comparison and browser prepass also remain private.

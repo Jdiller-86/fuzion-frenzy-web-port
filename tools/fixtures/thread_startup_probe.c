@@ -8,6 +8,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#include "../../src/runtime/port_io.h"
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
 #include "../../src/runtime/interrupt_vector.h"
@@ -127,6 +128,11 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+static ff_port_io port_io;
+void xbox_PortOut(uint32_t port, uint32_t value, int width)
+{
+    (void)ff_port_io_write(&port_io, port, value, (uint32_t)width);
+}
 #ifdef FF_DISK_GEOMETRY_PROOF
 static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif
@@ -1511,6 +1517,7 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+    ff_port_io_init(&port_io);
 #ifdef FF_DISK_GEOMETRY_PROOF
     memset(disk_control_information,0,sizeof disk_control_information);
 #endif

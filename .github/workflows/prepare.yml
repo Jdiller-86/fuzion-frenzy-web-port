@@ -140,5 +140,10 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/gpu_instance_test.c src/runtime/gpu_instance.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/gpu-instance-check"
           "$RUNNER_TEMP/gpu-instance-check"
+      - name: Check port-output log (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/port_io_test.c src/runtime/port_io.c -o "$RUNNER_TEMP/port-io-check"
+          "$RUNNER_TEMP/port-io-check"
       - run: npm run check:environment
       - run: git diff --exit-code

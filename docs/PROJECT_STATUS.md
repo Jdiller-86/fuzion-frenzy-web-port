@@ -1,10 +1,14 @@
-# Original execution completes 0x20002A and reaches 0x20005A
+# Original execution completes 0x20005A and reaches 0x1FE1D0
 
-November 3: original `0x0020002a` writes `0xFD400780` and clears `0xFD700000`/`0xFD700004`, returns to `0x001fe0c6`, which continues and calls untranslated **`0x20005A`** (return `0x1FE1C8`, status 2). All 83 initialization callbacks return; 243 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
+November 3: original `0x0020005a` programs object/device fields and returns through `0x001fe0c6` to its caller, which reaches untranslated **`0x1FE1D0`** (return `0x1FE6ED`, status 2). All 83 initialization callbacks return; 244 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-17` is 353 functions / 13,295 instructions; module `recomp-post-memory-build-30` is 471,504 bytes, SHA-256 `50985a00…`. The aperture logged 5,161 entries / 5,191 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-12.json`.
+Selection `recomp-title-post-memory-18` is 354 functions / 13,314 instructions; module `recomp-post-memory-build-31` is 473,226 bytes, SHA-256 `ec7a4d9c…`. The aperture logged 5,173 entries / 5,203 events. A source-owned bounded port-output log records and ignores OUT writes; it is a link/build prerequisite, not a port device model. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-13.json`.
 
-A bounded read-only export reports the reached callee `0x20005A` as 113 bytes / 19 instructions with no direct calls; it is not yet admitted or observed. Validation: device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x1FE1D0` as 315 bytes / 87 instructions with calls to `0x200340`, `0x2010FD`, `0x20107C` and kernel slots `0x2533B0` (ordinal 128) and `0x25346C` (a new binding); it is not yet admitted or observed. Validation: port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x20002A
+
+Original `0x0020002a` wrote `0xFD400780` and cleared `0xFD700000`/`0xFD700004`, returned to `0x001fe0c6`, which called `0x20005A`. Selection `recomp-title-post-memory-17` was 353 functions / 13,295 instructions; module `recomp-post-memory-build-30` was 471,504 bytes, SHA-256 `50985a00…`. Report `post-memory-browser-20261103-12.json`.
 
 ## Prior: 0x1ffff4
 
