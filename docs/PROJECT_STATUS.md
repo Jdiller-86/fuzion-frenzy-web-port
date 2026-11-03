@@ -1,8 +1,8 @@
-# Bounded 0x80C0 port input; execution reaches a new register read at 0xFD002080
+# Bounded 0x80C0 port input and 0xFD002080 zero range; next stop is the timer service
 
-November 4: the reached D3D path reads x86 port `0x80C0`, which the build did not define. The source-owned port surface now models the pinned bridge's field-pin read (bit 5 toggles per read), and the probe defines `xbox_PortIn`. `src/runtime/port_io.h/.c` adds a bounded `ff_port_io_read`; `tests/port_io_test.c` covers it. Translation with the `0x1F6240` closure is 415 functions / 17,284 instructions; private module `recomp-post-memory-build-68` (637,321 bytes, SHA-256 `e83b8986…`) advances to **276** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 10 on a read of undeclared PFIFO address `0xFD002080` (return `0x205E98`). No value for that register is invented. **There is no playable original screen.**
+November 4: the reached D3D path reads x86 port `0x80C0`; the source-owned port surface now models the pinned bridge's field-pin read (bit 5 toggles per read) and the probe defines `xbox_PortIn`. The explicit profile gained a `0xFD002080` zero range; the source-owned zero-range capacity is raised to eight and the initializer trace capacity to 8,192, with tests. Private module `recomp-post-memory-build-68` (637,395 bytes, SHA-256 `75f66f41…`) advances to **277** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 9 (`unsupported Xbox service`) with target `0xC00000BB`, ordinal 149, return `0x200F73`. The timer queue still has one active six-hour timer; the new blocker is the timer/clock service path, not the register read. **There is no playable original screen.**
 
-Validation: port surface optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the port-input checkpoint](PORT_INPUT_CHECKPOINT.md).
+Validation: port surface, device-register capacity and startup/mmio tests pass; runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the port-input checkpoint](PORT_INPUT_CHECKPOINT.md).
 
 ## Prior: explicit translation budget extended to 32,768
 

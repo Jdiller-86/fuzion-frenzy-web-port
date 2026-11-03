@@ -94,7 +94,7 @@ static ff_device_registers device_registers;
 #ifndef FF_STARTUP_EXPANSION_PROOF
 #error Initializer batches retain the expanded checked startup contract
 #endif
-#define FF_TRACE_CAPACITY 4096u
+#define FF_TRACE_CAPACITY 8192u
 #elif defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
 #ifndef FF_REGULAR_FILE_PROOF
 #error Expanded metadata traces retain the explicit fresh regular-file contract

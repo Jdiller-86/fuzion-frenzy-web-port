@@ -34,7 +34,9 @@ export function parseLocalNvConsoleSettings(buffer) {
 
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024,4096,8192].includes(capacity) ||
+      (capacity===4096 || capacity===8192) && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.()))
+    throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
@@ -165,8 +167,8 @@ export function parseLocalMmioProfile(buffer) {
     throw new Error('Register storage must declare distinct reached device addresses');
   }
   const rawRanges = device.zeroRanges ?? [];
-  if (!Array.isArray(rawRanges) || rawRanges.length > 4)
-    throw new Error('Use at most four explicit synthetic zero ranges');
+  if (!Array.isArray(rawRanges) || rawRanges.length > 8)
+    throw new Error('Use at most eight explicit synthetic zero ranges');
   const zeroRanges = [];
   for (const range of rawRanges) {
     if (!Number.isInteger(range?.address) || (range.address & 3) || !Number.isInteger(range?.bytes) ||

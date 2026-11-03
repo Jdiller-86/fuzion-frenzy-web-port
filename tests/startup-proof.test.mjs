@@ -330,6 +330,8 @@ test('title execution loader rejects non-browser-worker execution before compili
 
 test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
   assert.equal(proofTraceCapacity({}),64);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>8192,ff_probe_abi:()=>24}),8192);
+  assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>8192,ff_probe_abi:()=>15}),/bounded trace capacity/);
   for (const capacity of [64,128,1024]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
   assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>16}),4096);
   for(const abi of [undefined,14,15]) assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>abi}),/bounded trace capacity/);

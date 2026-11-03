@@ -15,7 +15,7 @@
  * at the same site instead of exhausting the event log with no new evidence. */
 #define FF_DEVICE_POLL_LIMIT 16u
 #define FF_DEVICE_INITIAL 64u
-#define FF_DEVICE_ZERO_RANGES 4u
+#define FF_DEVICE_ZERO_RANGES 8u
 #define FF_DEVICE_SELF_CLEARING 4u
 #define FF_DEVICE_ALIASES 4u
 #define FF_DEVICE_READ 1u

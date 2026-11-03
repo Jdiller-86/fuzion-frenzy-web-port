@@ -175,6 +175,10 @@ static void sub_dword_writes_extend_unknown_registers(void)
 static void zero_ranges_serve_reads_and_yield_to_writes(void)
 {
     reset();
+    for (uint32_t i = 0; i < FF_DEVICE_ZERO_RANGES; ++i)
+        assert(ff_device_registers_add_zero_range(&device, 0xFD100000u + i * 0x100u, 0x10u) == 0);
+    assert(ff_device_registers_add_zero_range(&device, 0xFD100800u, 0x10u) == FF_BOOT_INVALID);
+    reset();
     assert(ff_device_registers_add_zero_range(&device, 0xFD100200u, 0x100u) == 0);
     uint32_t *word = (uint32_t *)ff_device_registers_access_width(
         &device, 0xFD100204u, 4, FF_DEVICE_ACCESS_READ, 0x00100020u);

@@ -21,14 +21,21 @@ November 4, 2026. The reached D3D path reads x86 port `0x80C0`, which the build 
 
 `0xFD002080` is a PFIFO-aperture address not covered by the 64 explicit register entries or the four explicit zero ranges (the nearest zero range starts at `0xFD003200`). It is a read, not a write; no value can be invented. The next step is to add an explicit synthetic register or zero-range entry for `0xFD002080` (within the bounded profile), then rerun. Extending the zero-range bound or replacing an unused explicit entry is a source/profile decision that needs the same explicit-input discipline.
 
+## Further evidence: zero range and trace capacity
+
+- An explicit synthetic zero range at `0xFD002080` (4 bytes) was added to the private profile. The source-owned zero-range capacity is raised from four to eight (with a device-register capacity test), and the initializer proof trace capacity from 4,096 to 8,192 (with startup-proof tests).
+- Rebuilt module `recomp-post-memory-build-68`: 637,395 bytes, SHA-256 `75f66f4103d427dc0c9f789af2a1d314859db507d2a7d2aaa504fd0a773b71f8`.
+- Profile run: **277** distinct routines, 83/83 initializers, 403 kernel operations; stop status 9 (`unsupported Xbox service`) at target `0xC00000BB`, ordinal 149, return `0x200F73`. The read of `0xFD002080` is served.
+- The timer queue still contains one active six-hour timer (deadline `216000311733`); the new stop is in the timer/clock service path (ordinal 149 is its diagnostic label), not the register read.
+
 ## Limits
 
-No rendering, audio, fidelity or playability is established. The `0x80C0` model is a pinned-bridge field pin, not original timing; other ports read zero. The translation and modules are private; only the port source and test are published.
+No rendering, audio, fidelity or playability is established. The `0x80C0` model is a pinned-bridge field pin, not original timing; other ports read zero. The `0xFD002080` zero range is explicit synthetic storage, not an original value. The translation and modules are private; only the port source and tests are published.
 
 ## Validation
 
-`tests/port_io_test.c` optimized and ASan/UBSan; runtime suite 110/110; Python memory-access 10/10; title-seed 25/25; `npm run check` and whitespace checks pass.
+`tests/port_io_test.c`, `tests/device_registers_test.c` and the startup/mmio-profile tests pass; runtime suite 110/110; Python memory-access 10/10; title-seed 25/25; `npm run check` and whitespace checks pass.
 
 ## Next task
 
-Add the explicit `0xFD002080` synthetic register/zero-range input, rebuild and rerun; then follow the next reached dependency. Do not invent the register's original value or claim rendering/fidelity without evidence.
+Inspect the ordinal-149/timer call shape at return `0x200F73`: identify whether the new timer's object/flags or due time is rejected, and add a bounded diagnostic or model only with explicit evidence. Do not invent the timer's original state or claim rendering/fidelity without evidence.
