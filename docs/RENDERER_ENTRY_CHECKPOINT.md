@@ -174,6 +174,19 @@ Execution stopped at **`0x1FDF70`** (return `0x1FFF1A`, status 2). The report is
 
 The service claims the topmost free span through the bounded contiguous allocator rather than copying the bridge's `0x80000000` window; it validates padding before allocation and writes zero only after a successful claim. GPU-instance and device-register tests pass optimized and ASan/UBSan.
 
+### Execute 0x1FDF70
+
+Using the retained 26-seed selection plus `recomp-post-memory-next-09/seed.json`, translation `recomp-title-post-memory-13` contains **349 functions / 13,191 instructions**, including `ff_title_001FDF70`. Module `recomp-post-memory-build-26` is 467,100 bytes, SHA-256 `240b0bcd859b5c834b48059052a947b85e824c5633fefde93afd571db7ea0012`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 239 distinct original routines executed and 400 kernel operations completed;
+- `0x001fdf70` executed and returned to `0x001fff1a`;
+- `0x001ffe27` returned to `0x001fe0c6`, which called `0x001fff25`;
+- the aperture remained at 5,142 entries / 5,152 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FFF25`** (return `0x1FE1A0`, status 2). The report is `research/verification/post-memory-browser-20261103-08.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x1FDF70` (19 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-09` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FFF25` (207 bytes / 49 instructions, no direct calls) from the retained `recomp-post-memory-next-10` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or writes. The captured line/quad reference comparison and browser prepass also remain private.

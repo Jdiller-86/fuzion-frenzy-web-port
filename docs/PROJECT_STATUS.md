@@ -1,10 +1,14 @@
-# Original execution claims GPU instance memory and reaches 0x1FDF70
+# Original execution completes 0x1FDF70 and reaches 0x1FFF25
 
-November 3: ordinal **168 `MmClaimGpuInstanceMemory`** now returns a bounded source-owned base for the 0x5000-byte request, the original 0x5000-byte device clear executes, and `0x001ffe27` reaches untranslated **`0x1FDF70`** (return `0x1FFF1A`, status 2). All 83 initialization callbacks return; 238 distinct original routines execute and **400** kernel operations complete. **There is no playable original screen.**
+November 3: original `0x001fdf70` now executes and returns through `0x001ffe27` to `0x001fe0c6`, which continues and calls untranslated **`0x1FFF25`** (return `0x1FE1A0`, status 2). All 83 initialization callbacks return; 239 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
 
-Module `recomp-post-memory-build-25` is 466,517 bytes, SHA-256 `ee7c9a2e…`; the translation remains 348 functions / 13,185 instructions. The source-owned `gpu_instance` service claims the topmost free span (base `0x03B78000`) rather than copying the pinned bridge's `0x80000000` window, validates and zeros the padding output, and uses the expanded 8,192-entry / 8,192-event aperture so the 0x5000-byte clear is retained rather than truncated. The run logged 5,142 device entries and 5,152 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-07.json`.
+Selection `recomp-title-post-memory-13` is 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` is 467,100 bytes, SHA-256 `240b0bcd…`. The device aperture remains at 5,142 entries / 5,152 events and statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-08.json`.
 
-Validation: `tests/gpu_instance_test.c` and `tests/device_registers_test.c` optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x1FFF25` as 207 bytes / 49 instructions with no direct calls; it is not yet admitted or observed. Validation: GPU-instance and device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: GPU instance claim and 0x5000-byte clear
+
+Ordinal 168 `MmClaimGpuInstanceMemory` returned a bounded source-owned base `0x03B78000` for the 0x5000-byte request, the original 5,120 dword stores cleared `0xFD700000`–`0xFD704FFC`, and `0x001ffe27` reached `0x1FDF70`. Module `recomp-post-memory-build-25` was 466,517 bytes, SHA-256 `ee7c9a2e…`. Report `post-memory-browser-20261103-07.json`.
 
 ## Prior: MmClaimGpuInstanceMemory request
 

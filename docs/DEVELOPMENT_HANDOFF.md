@@ -1,18 +1,18 @@
-# Continue from the GPU instance claim at 0x1FDF70
+# Continue from the completed 0x1FDF70 helper at 0x1FFF25
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x001ffe27` now receives a bounded source-owned result for ordinal **168 `MmClaimGpuInstanceMemory`**, executes the original 0x5000-byte clear, and reaches untranslated **`0x1FDF70`** (return `0x1FFF1A`, status 2). All 83 initialization callbacks return; 238 distinct original routines execute and **400** kernel operations complete. The explicit synthetic profile includes `0xFD100214` plus the earlier entries; all values are test inputs, not original defaults.
+Original `0x001fdf70` executed and returned through `0x001ffe27` to `0x001fe0c6`, which continues and calls untranslated **`0x1FFF25`** (return `0x1FE1A0`, status 2). All 83 initialization callbacks return; 239 distinct original routines execute and 400 kernel operations complete.
 
-Module `recomp-post-memory-build-25` is SHA-256 `ee7c9a2e…` (466,517 bytes); the translation remains 348 functions / 13,185 instructions. The source-owned `gpu_instance` service claims the topmost free span (base `0x03B78000`), validates and zeros the padding output, and the aperture now retains 8,192 entries / 8,192 events so the 5,120-store clear is recorded rather than truncated. The local report is `post-memory-browser-20261103-07.json`.
+Selection `recomp-title-post-memory-13` is 349 functions / 13,191 instructions; module `recomp-post-memory-build-26` is SHA-256 `240b0bcd…` (467,100 bytes). The local report is `post-memory-browser-20261103-08.json`. The device aperture remains at 5,142 entries / 5,152 events and memory statistics are unchanged. A bounded read-only export reports the reached callee `0x1FFF25` as 207 bytes / 49 instructions with no direct calls (`recomp-post-memory-next-10`); it is static export evidence, not admitted translation or observed execution.
 
-Validation: `tests/gpu_instance_test.c` and `tests/device_registers_test.c` optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: GPU-instance and device-register fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x1FDF70` (19 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-09` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, device reads/writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x1FFF25` from the retained `recomp-post-memory-next-10` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, device reads/writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: MmClaimGpuInstanceMemory request
+## Prior: GPU instance claim and 0x5000-byte clear
 
-Original `0x001ffe27` executed through its three device reads and stopped at ordinal 168 with a 0x5000-byte request and padding pointer. Selection `recomp-title-post-memory-12` was 348 functions / 13,185 instructions; module `recomp-post-memory-build-24` was 465,978 bytes, SHA-256 `67e7c9a5…`. The run reached 238 routines, 399 kernel operations and 28 device events. Report `post-memory-browser-20261103-06.json`.
+Ordinal 168 `MmClaimGpuInstanceMemory` returned a bounded source-owned base `0x03B78000` for the 0x5000-byte request, the original 5,120 dword stores cleared `0xFD700000`–`0xFD704FFC`, and `0x001ffe27` reached `0x1FDF70`. Module `recomp-post-memory-build-25` was 466,517 bytes, SHA-256 `ee7c9a2e…`. Report `post-memory-browser-20261103-07.json`.
 
 ## Prior: 0x1ffcc0
 
