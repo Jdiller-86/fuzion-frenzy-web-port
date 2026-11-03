@@ -200,6 +200,14 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source b0ca634 and geometry 0682328
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A004 | Recognize the repaired direct vector/port cases but keep A001 open | Source D143 now rejects direct vector stores and mixed-case helpers and stops unknown port reads rather than returning zero. Exact committed-source probes confirm those repairs, but `(XMM_MEM(eax)) = xmm0` still emits a store with read intent. The added stub deny-write flag does not compile generated vector operations or test real VM permissions. Require a structural non-lvalue read or strict admitted grammar and the existing bounded compiled acceptance cases before source integration; do not chase each parenthesis spelling with another regex patch. No observed title instruction is alleged to use the adversarial forms. |
+| A005 | Accept the model-owned DPC-head relocation as the bounded collision correction, not general DPC compatibility | Curated D141/D142 evidence identifies the former TLS+0x50 head as guest live state containing a code/return address, not a queued DPC. Moving only the model-owned head to the reserved arena next to the existing timer head is consistent with model ownership; keep the TLS bytes untouched and queue validation enabled. Candidate reports timerCheck=0. This accepts the correction's rationale, not the unmerged source chain, original callback delivery or complete interrupt behavior. |
+| A006 | Keep inferred PGRAPH write-clearing experimental and the PMC boundary fail-closed | Candidate D144 infers write-1-to-clear from a guest acknowledge/drain sequence and installs it unconditionally during MMIO-profile setup. This is a useful hypothesis, not independent hardware confirmation or an explicit profile-selected rule. Before adoption require an opt-in recorded synthetic policy with the plain-storage control retained, or an independent pinned reference plus review. Unknown initial status must not become fully known merely through acknowledgement. Do not raise PMC/PFIFO interrupt bits, force return, serve implicit zero or increase trace capacity to manufacture forward progress. Identify the causal event and original submission dependency first. Geometry 0682328's offset guards do not close its whole-chain/reference gate; hold more topology work until that review or a concrete original renderer dependency. |
+
 Architect correction: source candidate D133 identifies both old labels `0x1FB5B0` and `0x1FB600` as conversion errors. The original initial stop was `2077616 = 0x1FB3B0`, followed by `2077696 = 0x1FB400`. Old rows retain their historical wording; do not treat the old labels as different integrated-versus-candidate runtime observations.
 
 | ID | Decision | Basis / limits |

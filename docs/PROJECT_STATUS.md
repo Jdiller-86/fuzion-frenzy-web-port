@@ -1,4 +1,12 @@
-# Architect review: candidate timer stop; integration withheld for admission gaps
+# Architect review: timer collision localized; interrupt hypothesis remains experimental
+
+This cycle reviews fixed refs source `b0ca6342eadfc8a94cc3e706867c974cacc4d66d` and geometry `068232865f1026c83703fbd73422717b9296bdbd` against clean integration `b11a742a9c8934f801686dd8e7627857bd9b035a`. Local main `6d8cc2d` is already integrated through `838f825`. Neither builder head is merged or approved for promotion. No private inputs were read and no original module was executed by the architect.
+
+Source D141–D144 report a read-only timer diagnostic, identification of a model DPC head overlapping TLS, relocation to the reserved model arena, repaired direct-vector/helper and port rejection, then an inferred PGRAPH write-clearing rule that ends a register-driven recurrence. The canonical private result is now build-68 SHA-256 `bd5f5c62…` (639,690 bytes), 276 routines, 83 initializer returns, 403 operations, timerCheck=0, status 10 at unknown PMC read `0xFD000100`. A different private profile serving PMC as zero reaches a later write; it is exploratory, not completion or fidelity evidence.
+
+Direct committed-source probes verify the old direct-store and mixed-case-helper forms now reject, but `(XMM_MEM(eax)) = xmm0` still emits a store through read intent. The C vector test remains a probe stub despite adding a deny-write flag. A001 therefore remains open; require compiled generated vector operations with real VM permission tests and a structural solution to writable read expressions. PGRAPH write-clearing is currently installed unconditionally during MMIO-profile setup; it needs explicit experimental selection/control or an independent reference before semantic adoption. No PMC/PFIFO interrupt is approved merely to exit the wait. Geometry's latest delta adds layout-offset assertions and review scope, not new reference or renderer evidence. See A004–A006 and [the updated checkpoint](ARCHITECT_INTEGRATION_CHECKPOINT.md). Full fidelity, local conversion, controllable output and online/social authority remain unfinished.
+
+## Prior architect review
 
 Reviewed refs: integration `838f825dfaa8cc6592bd1065fffbe8d4b2b2da5e`, source `f54e411f51348bc6315e9c0dbc3f713dd1b9440e`, geometry `0fd820a23f8e91b60fb20ef68ab8ab31a7e85fe4`, local main `6d8cc2d30b3a13b4217e5a1233b852b972ed443e`. Git confirms local main is the second parent of `838f825`; no unfinished merge exists. The only leftover review patch was preserved outside the repository in the approved temporary directory. Neither builder head is merged; no promotion or push is requested.
 

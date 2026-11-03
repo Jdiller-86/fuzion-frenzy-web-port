@@ -1,4 +1,31 @@
-# Architect integration checkpoint: candidate admission gaps block integration
+# Architect integration checkpoint: vector coverage and interrupt-policy gates remain
+
+## Latest review: source b0ca634 and geometry 0682328
+
+Starting integration `b11a742a9c8934f801686dd8e7627857bd9b035a` is clean, with local main `6d8cc2d` already integrated via `838f825`. The reviewed fixed candidate heads are source `b0ca6342eadfc8a94cc3e706867c974cacc4d66d` and geometry `068232865f1026c83703fbd73422717b9296bdbd`; neither is merged. No original module or ignored private research was accessed or executed.
+
+### Source evidence and disposition
+
+- D141/D142 localize the timer rejection to the model DPC head at TLS+0x50, overwritten by guest live state. The candidate moves that model-owned head to reserved arena address `0x03E00008`, adjacent to timer head `0x03E00000`, preserving validation. Accept this bounded collision correction in principle; no original DPC enqueue, delivery or full interrupt compatibility follows from timerCheck=0.
+- D143 repairs the direct vector-store and mixed-case-helper probes and makes unknown port reads return failure, with `xbox_PortIn` stopping at status 14. These specific repairs are verified from committed source. However, a new probe of the same unresolved write-intent contract, `(XMM_MEM(eax)) = xmm0;`, emits `((*(RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, site))) = xmm0;`, counted as a read with zero writes. Preserve A001 until generated reads are structurally non-writable or the admitted grammar rejects unsupported contexts, and generated vector operations compile/run against real VM permissions. The modified C fixture remains a stub, merely adding `deny_write`; it is not the requested end-to-end owned test. Such tests can use synthetic emitted code and an independently authored compatible type, without game files or copied upstream definitions.
+- D144 adds bounded write-1-to-clear support and hardcodes `0xFD400100` into `ff_probe_mmio_profile`; the JSON profile does not select this policy. Its checkpoint explicitly says hardware semantics are inferred and the available local reference is only a store stub. The rule is therefore experimental: require explicit recorded opt-in and the plain-storage control, or independent pinned reference evidence and review before adoption. Preserve unknown status as unknown rather than deriving a complete value from an acknowledging store.
+- Under that inferred rule, the canonical private build-68 report (639,690 bytes, SHA-256 `bd5f5c62…`) reaches 276 routines, 83 initializer returns and 403 operations, timerCheck=0, then stops at an unmodeled PMC read `0xFD000100` from the drain/wait loop at `0x1FE4D5`. The recurrence is absent and the trace has 3,839 entries; this is changed synthetic CPU startup, not independently reproduced rendering. Serving PMC as zero in a separate private profile reaches a later write `0xFD002100`; that run is exploratory and does not authorize a zero value, completion bit or interrupt event.
+
+Next primary milestone: close the same bounded vector/real-VM acceptance gate and make the experimental device policy explicit, then use the retained evidence to identify the original PMC/PFIFO event and submission dependency. Do not expand trace capacity to hide a recurrence, seed static interrupt bit 24, force a return or implement a speculative general consumer. A004–A006 record this disposition; no route change, scope reduction or approximation is approved.
+
+### Geometry and full-goal limits
+
+The latest geometry delta from `0fd820a` adds member-offset assertions for the 42/51-float layouts and four/five-word state contract, plus a whole-chain review checklist. It adds no topology, reference result or original renderer execution. These are appropriately scoped ABI guards, but the complete unmerged chain still awaits review and retained-reference comparison. Hold further expansion and do not occupy the lane with unrelated fixtures while no original-renderer dependency or admissible reference task exists. The architect is not authorizing private content to be copied into this source-only worktree.
+
+The full original browser-execution route remains active. Full catalog/detail fidelity, audio/video/controllers, disc reads, durable saves, browser-local conversion, performance and every online/social/control/server-authority requirement remain unaccepted. Original-containing code, assets, RAM and saves stay local; a relay is not server authority. Neither builder head is approved for integration or main promotion on current evidence.
+
+### Latest review checks
+
+The architect directly verified the emitter probes and inspected the candidate port, timer diagnostic/head relocation, write-clearing diff and geometry offsets against the corresponding struct fields. The independent GLM review confirmed the remaining parenthesized read-as-write hole and the compiled-vector/real-VM acceptance gap; it is not a completed review of either entire branch. Scout returned the prior acceptance-gate/type-ownership lookup; its relevant findings were checked against the actual checkpoint and AGENTS text. No upstream type duplication is requested.
+
+Integration checks pass: `npm run check` (291 source files), `npm run test:runtime` (110/110), and `git diff --check`. These checks do not execute the original game. A separate bounded validator was assigned exact committed snapshots for the changed C/Python fixtures and geometry offset guard; only returned results may be treated as validation evidence, and none can substitute for the missing generated-vector/real-VM test.
+
+## Previous review: retained history
 
 ## Current reviewed disposition
 
