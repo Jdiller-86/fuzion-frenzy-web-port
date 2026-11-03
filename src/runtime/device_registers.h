@@ -12,8 +12,12 @@
 #define FF_DEVICE_EVENTS 32768u
 /* A translated loop can poll one device register for a hardware transition the
  * synthetic aperture cannot provide. Stop after a small run of identical reads
- * at the same site instead of exhausting the event log with no new evidence. */
+ * at the same site, and after a larger run of identical reads of the same
+ * register even when the loop body touches other registers in between. A store
+ * to the register restarts its count. */
 #define FF_DEVICE_POLL_LIMIT 16u
+#define FF_DEVICE_WAIT_LIMIT 64u
+#define FF_DEVICE_WAITS 8u
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_ZERO_RANGES 8u
 #define FF_DEVICE_SELF_CLEARING 4u
@@ -35,6 +39,11 @@ typedef struct {
 typedef struct {
     uint32_t base, bytes;
 } ff_device_zero_range;
+/* One register the guest keeps re-reading with the same value: a wait for a
+ * hardware transition this model cannot raise. */
+typedef struct {
+    uint32_t address, value, count, active;
+} ff_device_wait;
 /* One evidence-backed self-completing register bit: a write is recorded, then
  * the masked bits read back clear (for example NV_PFB_WBC_FLUSH). */
 typedef struct {
@@ -58,8 +67,12 @@ typedef struct {
     /* Consecutive identical reads at one site: a device transition this model
      * cannot supply. poll_count above FF_DEVICE_POLL_LIMIT stops the proof. */
     uint32_t poll_address, poll_value, poll_site, poll_count;
+    /* Registers re-read with an unchanged value, and the one that exhausted the
+     * bounded wait limit. */
+    uint32_t wait_count, wait_address, wait_limited;
     uint32_t self_clearing_count, alias_count, write_clearing_count;
     uint32_t zero_word;
+    ff_device_wait waits[FF_DEVICE_WAITS];
     ff_device_alias aliases[FF_DEVICE_ALIASES];
     ff_device_self_clearing self_clearing[FF_DEVICE_SELF_CLEARING];
     ff_device_write_clearing write_clearing[FF_DEVICE_WRITE_CLEARING];
@@ -102,8 +115,14 @@ uint32_t ff_device_registers_touch(ff_device_registers *, uint32_t address, uint
  * the stored value; touch, access and the event readers commit first. */
 uint32_t *ff_device_registers_stage_write(ff_device_registers *, uint32_t address, uint32_t site);
 uint32_t ff_device_registers_commit(ff_device_registers *);
-/* True once a read loop exceeded the bounded identical-read limit. */
+/* True once a read loop exceeded the bounded identical-read limit, either at one
+ * site or across interleaved accesses to the same register. */
 uint32_t ff_device_registers_poll_limited(const ff_device_registers *);
+/* The register whose repeated read exhausted the wait limit, or 0. */
+uint32_t ff_device_registers_wait_address(const ff_device_registers *);
+/* True once the ordered event log or the live entry table is full, so the next
+ * access fails for storage rather than for an unmodeled or denied address. */
+uint32_t ff_device_registers_capacity_reached(const ff_device_registers *);
 /* Map one checked guest access to a readable lvalue. NULL means the aperture
  * must stop: unknown read, invalid width/address/site, bad access mask or full
  * storage. READWRITE records the read immediately and stages the write. */

@@ -29,9 +29,29 @@ static int in_zero_range(const ff_device_registers *device, uint32_t address, ui
 }
 
 /* Consecutive identical reads at one site model a wait for a hardware
- * transition this synthetic aperture cannot provide. */
+ * transition this synthetic aperture cannot provide. The same register
+ * returning the same value across interleaved accesses is the same wait seen
+ * through a loop body that also reads other registers, so track both shapes. */
 static uint32_t note_read(ff_device_registers *device, uint32_t address, uint32_t site, uint32_t value)
 {
+    address = canonical_address(device, address);
+    ff_device_wait *wait = NULL;
+    for (uint32_t i = 0; i < device->wait_count; ++i)
+        if (device->waits[i].active && device->waits[i].address == address) { wait = &device->waits[i]; break; }
+    if (!wait && device->wait_count < FF_DEVICE_WAITS) {
+        wait = &device->waits[device->wait_count++];
+        *wait = (ff_device_wait){address, value, 1, 1};
+    } else if (!wait) {
+        /* The bounded table is full of other registers: fall back to the
+         * single-site detector rather than evicting live evidence. */
+    } else if (wait->value == value) {
+        if (++wait->count > FF_DEVICE_WAIT_LIMIT) {
+            device->wait_limited = 1; device->wait_address = address;
+            return FF_BOOT_UNSUPPORTED;
+        }
+    } else {
+        wait->value = value; wait->count = 1;
+    }
     if (device->poll_count && device->poll_address == address &&
         device->poll_site == site && device->poll_value == value)
         return ++device->poll_count > FF_DEVICE_POLL_LIMIT ? FF_BOOT_UNSUPPORTED : 0;
@@ -40,9 +60,29 @@ static uint32_t note_read(ff_device_registers *device, uint32_t address, uint32_
     return 0;
 }
 
+/* A store to a register changes the state a wait is watching. */
+static void note_write(ff_device_registers *device, uint32_t address)
+{
+    address = canonical_address(device, address);
+    for (uint32_t i = 0; i < device->wait_count; ++i)
+        if (device->waits[i].active && device->waits[i].address == address) {
+            device->waits[i].value = 0; device->waits[i].count = 0;
+        }
+}
+
 uint32_t ff_device_registers_poll_limited(const ff_device_registers *device)
 {
-    return device && device->poll_count > FF_DEVICE_POLL_LIMIT;
+    return device && (device->poll_count > FF_DEVICE_POLL_LIMIT || device->wait_limited);
+}
+/* The register whose repeated read exhausted the wait limit, or 0. */
+uint32_t ff_device_registers_wait_address(const ff_device_registers *device)
+{
+    return device ? device->wait_address : 0;
+}
+
+uint32_t ff_device_registers_capacity_reached(const ff_device_registers *device)
+{
+    return device && (device->event_count >= FF_DEVICE_EVENTS || device->count >= FF_DEVICE_ENTRIES);
 }
 
 static uint32_t record_zero_read(ff_device_registers *device, uint32_t address, uint32_t site)
@@ -95,6 +135,7 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
          * stay set so the guest's drain loop observes them. */
         uint32_t stored = write_clearing_index(device, address) >= 0 ? entry->value & ~*value : *value;
         ++entry->writes; entry->value = stored; entry->known = 1; entry->known_bytes = 0xFu;
+        note_write(device, address);
         self_clear(device, address); }
     return 0;
 }
@@ -249,6 +290,7 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     entry->value = merged;
     entry->known_bytes |= (bytes == 1u ? 1u : 3u) << offset;
     entry->known = entry->known_bytes == 0xFu;
+    note_write(device, stored);
     self_clear(device, base);
     return 0;
 }

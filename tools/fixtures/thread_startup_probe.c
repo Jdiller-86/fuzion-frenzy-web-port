@@ -360,7 +360,8 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                                : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
                                : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
         uint32_t *slot = device_access ? ff_device_registers_access_width(&device_registers, address, (uint32_t)bytes, device_access, site) : NULL;
-        if (!slot) stop(ff_device_registers_poll_limited(&device_registers) ? 12 : 10, address, access);
+        if (!slot) stop(ff_device_registers_poll_limited(&device_registers) ? 12 :
+                        ff_device_registers_capacity_reached(&device_registers) ? 15 : 10, address, access);
         ++vm_access_count;
         return slot;
     }
@@ -772,7 +773,13 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
      * The predicted hardware clear is not independently verified here; the local
      * xemu-derived PGRAPH reference stores writes as a stub, so it cannot confirm
      * it. Sub-dword stores to this register are rejected rather than half-applied. */
-    return ff_device_registers_add_write_clearing(&device_registers,0xFD400100u);
+    if((status=ff_device_registers_add_write_clearing(&device_registers,0xFD400100u)))return status;
+    /* NV_PFIFO_INTR_0 at NV2A offset 0x2100 shows the same guest shape: 0x1FDC30
+     * reads it, stores exactly the observed bits 0x100000 and 0x1000000 back,
+     * re-reads it and acts on the remaining low byte, and its caller repeats the
+     * whole block while the phantom bits stay set. Same acknowledge rule, same
+     * limits: only this declared register and only 4-byte stores. */
+    return ff_device_registers_add_write_clearing(&device_registers,0xFD002100u);
 }
 uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 {

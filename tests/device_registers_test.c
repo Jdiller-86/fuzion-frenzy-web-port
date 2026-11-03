@@ -307,6 +307,45 @@ static void repeated_identical_reads_stop_at_the_poll_limit(void)
     assert(!ff_device_registers_poll_limited(&device));
 }
 
+static void interleaved_reads_of_one_register_stop_at_the_wait_limit(void)
+{
+    reset();
+    uint32_t status = 0x2u, other = 0x3u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &status) == 0);
+    assert(ff_device_registers_touch(&device, 0xFD009180u, FF_DEVICE_WRITE, 0x1FE05Au, &other) == 0);
+    /* A loop body that reads the watched register at one site and another
+     * register at a different site each pass defeats the single-site detector;
+     * the per-register counter still names the wait. */
+    uint32_t stopped = 0;
+    for (uint32_t i = 0; i < FF_DEVICE_WAIT_LIMIT + 2u && !stopped; ++i) {
+        if (!ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u)) { stopped = 1; break; }
+        if (!ff_device_registers_access(&device, 0xFD009180u, FF_DEVICE_ACCESS_READ, 0x00100024u)) { stopped = 1; break; }
+    }
+    assert(stopped && ff_device_registers_poll_limited(&device));
+    assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
+    /* A store to the watched register restarts its count. */
+    uint32_t changed = 0x4u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &changed) == 0);
+    uint32_t readback = 0;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_READ, 0x00100028u, &readback) == 0 && readback == 0x4u);
+    assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
+}
+
+static void capacity_exhaustion_is_reported_separately_from_a_denied_access(void)
+{
+    reset();
+    assert(!ff_device_registers_capacity_reached(&device));
+    uint32_t value = 0x5u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u) != NULL);
+    /* The ordered log is the bounded resource: once full, the next access fails
+     * for storage reasons instead of for an unmodeled address. */
+    device.event_count = FF_DEVICE_EVENTS;
+    assert(ff_device_registers_capacity_reached(&device));
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) != 0);
+}
+
 static void self_clearing_bits_complete_after_the_write(void)
 {
     reset();
@@ -387,6 +426,7 @@ int main(void)
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
+    interleaved_reads_of_one_register_stop_at_the_wait_limit(); capacity_exhaustion_is_reported_separately_from_a_denied_access();
     write_clearing_registers_acknowledge_only_the_stored_bits();
     aliases_share_storage_and_keep_event_addresses();
     puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, write-clearing acknowledgement, aliases and atomicity passed");

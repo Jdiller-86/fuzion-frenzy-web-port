@@ -1,5 +1,7 @@
 # Acknowledged PGRAPH interrupt store clears the recurrence; the next stop is an unmodeled PMC interrupt-status read
 
+**Continued in [the PFIFO interrupt acknowledge checkpoint](PFIFO_INTERRUPT_ACKNOWLEDGE_CHECKPOINT.md):** the same acknowledge rule now covers `NV_PFIFO_INTR_0`, and the run advances to a PFIFO engine-state wait that fills the bounded device log.
+
 November 4, 2026. Model-visible PGRAPH interrupt status is now acknowledged by the guest's own store instead of being latched by it. The enter-only recurrence described in [the PGRAPH recurrence checkpoint](PGRAPH_INTERRUPT_RECURRENCE_CHECKPOINT.md) is gone: `0x1FDAC0` is no longer entered at all, `0x200F59` runs and returns, and execution proceeds to the next reached boundary — an unmodeled read of `0xFD000100` (`NV_PMC_INTR_0`) from the original wait loop at `0x1FE4D5`. **There is no playable screen, renderer or device model.**
 
 ## Observed guest sequence that the model now follows
