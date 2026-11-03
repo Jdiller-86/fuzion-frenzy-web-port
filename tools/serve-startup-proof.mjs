@@ -14,6 +14,7 @@ const files = new Map([
   ['/src/runtime/file-request.mjs', ['src/runtime/file-request.mjs', 'text/javascript']],
   ['/src/runtime/device-report.mjs', ['src/runtime/device-report.mjs', 'text/javascript']],
   ['/src/runtime/submission-probe.mjs', ['src/runtime/submission-probe.mjs', 'text/javascript']],
+  ['/src/runtime/pfifo-scan.mjs', ['src/runtime/pfifo-scan.mjs', 'text/javascript']],
   ['/src/runtime/thread-proof-worker.mjs', ['src/runtime/thread-proof-worker.mjs', 'text/javascript']],
   ['/src/runtime/wasm-proof.mjs', ['src/runtime/wasm-proof.mjs', 'text/javascript']],
   ['/src/runtime/startup-proof-worker.mjs', ['src/runtime/startup-proof-worker.mjs', 'text/javascript']]

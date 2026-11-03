@@ -198,6 +198,20 @@ test('the submission summary records the put write site and claim-end alignment'
   assert.match(probe.submissionSummary.note, /backing is not established/);
 });
 
+test('the submission probe scans the submitted range read-only', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  const before = new Uint8Array(view.buffer).slice();
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.pushbufferScan.available, true);
+  assert.equal(probe.pushbufferScan.start, 0);
+  assert.equal(probe.pushbufferScan.end, 0x800);
+  assert.equal(probe.pushbufferScan.totalWords, 512);
+  assert.equal(probe.pushbufferScan.scannedWords, 512);
+  assert.equal(probe.pushbufferScan.truncated, false);
+  assert.match(probe.pushbufferScan.note, /GET not advanced/);
+  assert.deepEqual(new Uint8Array(view.buffer), before);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();

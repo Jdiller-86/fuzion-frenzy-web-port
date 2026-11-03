@@ -597,6 +597,21 @@ Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0ac
 
 The report is `research/verification/post-memory-browser-20261103-41.json` (local/ignored). The initial GET/ring base and queue producer remain unestablished; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented. The fail-closed boundary is retained.
 
+### Scan the submitted pushbuffer headers
+
+`src/runtime/pfifo-scan.mjs` decodes NV2A/NV20 method headers, parameter words, jump/call/return and unknown words with a 4,096-word budget and fail-closed bounds. It never executes a command, writes memory or advances GET. `submissionProbe.pushbufferScan` reports the inventory for `GET..PUT`; the proof host serves the new module; tests cover the decoder and field.
+
+Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0acb033fcf0e9b6c768ef56a9b802225652099f6d1b797cb71e2f8cc996646`). In the run:
+
+- range GET `0` → PUT `0x03B7D000`, total 15,594,496 words;
+- scanned 4,096 words, truncated; 0 pending, 0 jumps, 0 calls, 0 returns, 0 unknown;
+- inventory: one method kind, `{subchannel 0, method 0, count 4096}` — the zero header repeated;
+- PFIFO views alias-consistent (PUT `0x03B7D000`, GET 0);
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-42.json` (local/ignored). The submitted range's prefix is zero-filled, not a command stream; no consumer, GET advance, packet execution, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Choose the next bounded independent startup prerequisite, preserving the PFIFO boundary and all evidence. A kernel/PFIFO channel-setup model is justified only if pinned evidence establishes the intended initial GET and ring base; otherwise pursue a different reached subsystem/service. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs and the submission summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Choose the next bounded independent startup prerequisite or a producer-provenance step, preserving the fail-closed boundary. Do not treat the zero header inventory as an empty-queue completion or fabricate packets, a get pointer, interrupts, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs, the submission summary and the read-only scanner. The captured line/quad reference comparison and browser prepass also remain private.

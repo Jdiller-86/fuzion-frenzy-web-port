@@ -3,6 +3,7 @@
 // command. Bytes are labelled as memory snapshots; unavailable reasons stay
 // explicit so a cursor or allocation base is not mistaken for a verified
 // command start.
+import { scanPushbuffer } from './pfifo-scan.mjs';
 export const SUBMISSION_PROBE_BYTES = 4096;
 const PFIFO_INSTANCE = 0xFD00322C;
 const RAMIN_BASE = 0xFD700000;
@@ -191,6 +192,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     getResolved: resolveDmaOffset(object, get, ramBytes),
     pfifoState: pfifoState(entries, put, get, aliases),
     submissionSummary: submissionSummary(entries, events, put, get, allocation),
+    pushbufferScan: scanPushbuffer(view, get, put),
     note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };
 }

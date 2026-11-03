@@ -1,18 +1,18 @@
-# Continue after the PFIFO provenance pass: choose an independent prerequisite
+# Continue from the zero-header PFIFO scan and choose the next prerequisite
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A bounded provenance pass following architect guidance traced the reached PUT/GET pair. `0x001FAED0` derives PUT from context state (`[ctx+0x400]` when `[ctx+0xC]&4`, else `[ctx]`, masked `0x3FFFFFF`) and writes it once at `0x1FAF1C`; PUT `0x03B7D000` equals the GPU-instance claim end. GET is zero and its zero writes come from context initialization/restore sites `0x20005A`, `0x20027C`, `0x20047F`, not a channel/ring setup. The wait compares a context field with GET. No initial GET/ring base or queue producer is established, so the fail-closed status 13 boundary is retained and no consumer is implemented. The instance aperture has 5,120 entries / 559 nonzero, the guest claim pages are untouched, and the PFIFO views are alias-consistent.
+A source-owned read-only NV2A pushbuffer scanner now inventories the submitted `DMA_GET..DMA_PUT` range without executing anything or advancing GET. From GET 0 to PUT `0x03B7D000` (15,594,496 words), the first 4,096 words all decode as the zero header (`method 0`, `subchannel 0`, `count 0`) with no jumps, calls, returns or unknown words. The scan is budget-limited and truncated; the submitted range's prefix is zero-filled, not a command stream. No consumer, GET advance, packet execution, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-41.json`. `submissionSummary` now lists the zero-write sites for CACHE1 PUT/GET/REF; tests cover them (14 cases).
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-42.json`. `src/runtime/pfifo-scan.mjs` decodes headers/parameters/flow with a 4,096-word budget and fail-closed bounds; `submissionProbe.pushbufferScan` reports the inventory; the proof host serves it; tests cover the decoder and field.
 
-Validation: submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: scanner/submission tests (19 combined), device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** choose the next bounded independent startup prerequisite, preserving the PFIFO boundary and all evidence. A kernel/PFIFO channel-setup model is justified only if pinned evidence establishes the intended initial GET and ring base; otherwise pursue a different reached subsystem/service. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** choose the next bounded independent startup prerequisite or a producer-provenance step, preserving the fail-closed boundary. Do not treat the zero header inventory as an empty-queue completion or fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: submission provenance
+## Prior: PFIFO provenance pass
 
-USER PUT write site/value, claim-end alignment and instance counts were first recorded. Report `post-memory-browser-20261103-40.json`.
+PUT derives from context state and equals the claim end; GET=0 comes from context clears. Report `post-memory-browser-20261103-41.json`.
 
 ## Prior: 0x200f59
 
