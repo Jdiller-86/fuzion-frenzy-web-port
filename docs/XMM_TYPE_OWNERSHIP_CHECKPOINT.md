@@ -25,6 +25,14 @@ The architect directive asked to establish `0x1FB600`. Current verified evidence
 - No-profile run: status 13 at `0xFD800044`, 261 routines, 402 operations.
 - The stop is unchanged from build-63, so the repair did not change observed execution.
 
+## Further translation
+
+- A bounded closure for `0x1FCB30` added 1 function / 17 instructions; the guarded recomposition is 400 functions / 16,283 instructions.
+- Private module `recomp-post-memory-build-65`: 596,162 bytes, SHA-256 `e9220469d9a4c09a182b2001fa11dc34a55a5d0e9a7a116404dad24385d00516`.
+- Profile run: status 2 at `0x1FD200` (return `0x1FB856`), **269** distinct routines, 83/83 initializers, 402 kernel operations.
+- No-profile run: status 13 at `0xFD800044`, 261 routines, 402 operations.
+- `0x1FD200` is a larger surface-size/format helper calling `FUN_001FCA10`; it is the next export.
+
 ## Limits
 
 No rendering, audio, fidelity or playability is established. The XMM surface admits 16-byte accesses only; it does not model general vector aliasing, half-vector helpers or device memory. The translation and modules are private; only the source-owned header, emitter and tests are published.
@@ -35,4 +43,4 @@ No rendering, audio, fidelity or playability is established. The XMM surface adm
 
 ## Next task
 
-Establish the actual reached helper `0x1FCB30` from exact evidence (not `0x1FB600`), export its closure, recompose with `--guard-memory`, build and rerun. Do not bypass guard-memory or claim rendering/fidelity without evidence.
+Establish the actual reached helper `0x1FD200` from exact evidence (not `0x1FB600`), export its closure, recompose with `--guard-memory`, build and rerun. Do not bypass guard-memory or claim rendering/fidelity without evidence.
