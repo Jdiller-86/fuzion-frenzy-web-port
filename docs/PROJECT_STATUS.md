@@ -1,8 +1,12 @@
-# Empty-ring override guarded against changed PUT; profile path still reaches 0x1FB5B0
+# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FB600
 
-November 4: the empty-ring override now checks the current DMA_PUT before serving the base as DMA_GET. `ff_pfifo_channel_should_serve_empty_get` requires a ready/enabled channel, an aligned in-range PUT equal to the channel's current PUT, and that PUT equal to the base. The probe reads the current USER PUT slot; a changed PUT no longer receives the empty-ring value, and the normal fail-closed path applies. Build `recomp-post-memory-build-60` (527,474 bytes, SHA-256 `e6aab945…`) still reaches `0x1FB5B0` with `settings-pfifo.json` (262 routines) and still stops at status 13 without it (261 routines). The next substantive blocker remains the guard-memory admission of the raw matrix helper at `0x1FA460`; the override guard does not translate new code. **There is no playable original screen.**
+November 4: the guard-memory emitter now supports checked 16-byte XMM loads/stores and allows pure SSE arithmetic. This admitted `0x1FA460`; the recomposed translation (395 functions / 16,092 instructions) builds and the adopted profile advances past `0x1FB5B0` to `0x1FB600` with **263** distinct original routines (83/83 initializers, 402 kernel operations). Private module `recomp-post-memory-build-61` is 587,595 bytes, SHA-256 `6d64dd23…`. Without the profile it still stops at status 13 with 261 routines. `0x1FB600` is an internal callee merged into `FUN_001FB580`, not yet established as a separate function; that is the next task. **There is no playable original screen.**
 
-Validation: pfifo-channel optimized/ASan/UBSan, startup-proof 40/40, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the override-guard checkpoint](PFIFO_OVERRIDE_GUARD_CHECKPOINT.md).
+Validation: recomp memory-access 11/11, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the XMM checkpoint](XMM_MEMORY_SURFACE_CHECKPOINT.md).
+
+## Prior: empty-ring override guarded against changed PUT
+
+The empty-ring override now checks the current DMA_PUT before serving the base as DMA_GET. `ff_pfifo_channel_should_serve_empty_get` requires a ready/enabled channel, an aligned in-range PUT equal to the channel's current PUT, and that PUT equal to the base. The probe reads the current USER PUT slot; a changed PUT no longer receives the empty-ring value, and the normal fail-closed path applies.
 
 ## Prior: 0x1FB5B0 closure and guard-memory blocker
 

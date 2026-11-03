@@ -122,8 +122,20 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertIn('FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)', result)
         self.assertEqual(counts['sites'], 1)
 
+    def test_checked_xmm_loads_are_rewritten_and_pure_sse_is_allowed(self):
+        result, counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm2 = XMM_MUL(xmm2, XMM_MEM(eax));', SITE, 0x00100030)
+        self.assertIn('FF_MEMORY_SITE_XMM((eax), 1u, 0x00100000u)', result)
+        self.assertIn('XMM_MUL', result)
+        self.assertEqual(counts['reads'], 1)
+        self.assertEqual(counts['sites'], 1)
+        stored, store_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nXMM_STORE(eax, xmm0);', SITE, 0x00100030)
+        self.assertIn('FF_MEMORY_SITE_XMM((eax), 2u, 0x00100000u) = (xmm0)', stored)
+        self.assertEqual(store_counts['writes'], 1)
+
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
-        for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_MEM(eax)', 'MMX_STORE(eax, value)',
+        for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'MMX_STORE(eax, value)',
                        '__atomic_fetch_add(XBOX_PTR(eax), 1, 0)', 'MEM80(eax)', 'MEM32(', 'MEM32()', 'MEM32;',
                        '/* unclosed', '"unclosed',
                        'uint8_t *_d = (uint8_t*)XBOX_PTR(edi), *_s = (uint8_t*)XBOX_PTR(esi);']:

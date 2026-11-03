@@ -1,5 +1,7 @@
 # Empty-ring override guarded against a changed PUT; profile path still reaches 0x1FB5B0
 
+**Later evidence (November 4):** [the XMM checkpoint](XMM_MEMORY_SURFACE_CHECKPOINT.md) adds the checked 16-byte XMM surface, admits `0x1FA460`, and advances execution to `0x1FB600`.
+
 November 4, 2026. The adopted empty-ring override now checks the current DMA_PUT before serving the base as DMA_GET. If the original code changes PUT, the override stops serving and the normal fail-closed read/stop path applies. The profile path still reaches `0x1FB5B0`; the no-profile path still stops at status 13. **There is no playable screen, renderer or device model.**
 
 ## Source-owned change

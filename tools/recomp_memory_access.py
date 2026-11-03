@@ -21,12 +21,12 @@ import re
 
 ACCESSORS = {"MEM8": "U8", "MEM16": "U16", "MEM32": "U32", "MEM64": "U64",
              "SMEM8": "I8", "SMEM16": "I16", "SMEM32": "I32", "SMEM64": "I64",
-             "MEMF": "F32", "MEMD": "F64"}
+             "MEMF": "F32", "MEMD": "F64", "XMM_MEM": "XMM", "XMM_LOAD": "XMM"}
 TEMP_TYPES = {"U8": "uint8_t", "U16": "uint16_t", "U32": "uint32_t", "U64": "uint64_t",
               "I8": "int8_t", "I16": "int16_t", "I32": "int32_t", "I64": "int64_t",
-              "F32": "float", "F64": "double"}
+              "F32": "float", "F64": "double", "XMM": "RecompXmm"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
-MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32)\b")
+MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b")
 
 
 def statement_end(mask, start):
@@ -132,7 +132,7 @@ def instrument_memory_accesses(text, site, limit=None):
 
     def rewrite(source, base):
         mask = code_mask(source); pieces, cursor, scan = [], 0, 0
-        while match := re.search(r"\b(?:S?MEM\w*|PUSH32|POP32)\b", mask[scan:]):
+        while match := re.search(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b", mask[scan:]):
             begin, end = scan + match.start(), scan + match.end()
             name = source[begin:end]
             opening = end
@@ -142,11 +142,28 @@ def instrument_memory_accesses(text, site, limit=None):
             if name in ("PUSH32", "POP32"):
                 pieces += [source[cursor:begin], "FF_MEMORY_PUSH" if name == "PUSH32" else "FF_MEMORY_POP"]
                 cursor = scan = end; stats["stack"] += 1; continue
-            if name not in ACCESSORS: raise ValueError("Unsupported generated memory width")
             depth, closing = 1, opening + 1
             while closing < len(mask) and depth:
                 depth += (mask[closing] == '(') - (mask[closing] == ')'); closing += 1
             if depth: raise ValueError("Unclosed generated memory expression")
+            if name == "XMM_STORE":
+                inner_start, inner = opening + 1, mask[opening + 1:closing - 1]
+                depth = 0; split = None
+                for index, char in enumerate(inner):
+                    if char == '(': depth += 1
+                    elif char == ')': depth -= 1
+                    elif char == ',' and depth == 0: split = index; break
+                if split is None: raise ValueError("Malformed generated vector store")
+                address = rewrite(source[inner_start:inner_start + split], base + inner_start).strip()
+                value_start = inner_start + split + 1
+                value = rewrite(source[value_start:closing - 1], base + value_start).strip()
+                if not address.strip() or not value.strip(): raise ValueError("Empty generated vector store")
+                block = site_at(base + begin)
+                pieces += [source[cursor:begin],
+                           f"FF_MEMORY_SITE_XMM(({address}), 2u, 0x{block:08X}u) = ({value})"]
+                stats["writes"] += 1; used_sites.add(block); cursor = scan = closing
+                continue
+            if name not in ACCESSORS: raise ValueError("Unsupported generated memory width")
             before, after = mask[:begin].rstrip(), mask[closing:].lstrip()
             if before.endswith('&'):
                 # The pinned integer AND lifter emits "eax = eax & MEM32(...)".
@@ -195,7 +212,7 @@ def instrument_memory_accesses(text, site, limit=None):
     if limit is not None and scalar and not labels:
         raise ValueError("Generated function lacks checked basic-block labels")
     stats["sites"] = len(used_sites)
-    if re.search(r"\b(?:XBOX_PTR|XMM_\w+|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
+    if re.search(r"\b(?:XBOX_PTR|XMM_(?:MEM|LOAD|STORE|LOADU|STOREU)\w*|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
         raise ValueError("Unadmitted raw guest pointer or memory helper")
     return converted, stats
 
