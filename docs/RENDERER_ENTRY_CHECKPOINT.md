@@ -258,6 +258,20 @@ Execution stopped at **`0x1FE1D0`** (return `0x1FE6ED`, status 2). The report is
 
 The link required a source-owned bounded port-output log (`src/runtime/port_io.c`), which records and ignores OUT writes; it is not a port device model. Its optimized and ASan/UBSan tests pass.
 
+### Enter 0x1FE1D0
+
+The retained next-14/15 exports were combined into one private seed to stay within the 32-export admission limit. Translation `recomp-title-post-memory-19` contains **355 functions / 13,401 instructions**, including `ff_title_001FE1D0`. Module `recomp-post-memory-build-32` is 473,896 bytes, SHA-256 `6ceba6b62364277056056fb6103ec723c7f26a8a5a53c0c2b3bcf0dbd30dc459`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 245 distinct original routines executed and 400 kernel operations completed;
+- `0x001fe1d0` read/modified `0xFD00184C` and called `0x00200340`;
+- the aperture retained 5,174 entries / 5,208 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x200340`** (return `0x1FE210`, status 2). The report is `research/verification/post-memory-browser-20261103-14.json` (local/ignored). There is no playable screen.
+
+The ordinal-305 kernel binding is admitted but not reached. The helper's remaining static path still contains `0x2010FD`, `0x20107C`, `KeQuerySystemTime` and `RtlTimeToTimeFields`.
+
 ## Next task
 
-Admit and translate `0x1FE1D0` (315 bytes / 87 instructions) from the retained `recomp-post-memory-next-15` export, resolving the new kernel-slot binding at `0x25346C`, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic port/device writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x200340` (18 bytes / 6 instructions, no direct calls) from the retained `recomp-post-memory-next-16` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic port/device writes. The captured line/quad reference comparison and browser prepass also remain private.

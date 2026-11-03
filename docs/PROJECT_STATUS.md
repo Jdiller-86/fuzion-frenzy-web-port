@@ -1,10 +1,14 @@
-# Original execution completes 0x20005A and reaches 0x1FE1D0
+# Original execution enters 0x1FE1D0 and reaches 0x200340
 
-November 3: original `0x0020005a` programs object/device fields and returns through `0x001fe0c6` to its caller, which reaches untranslated **`0x1FE1D0`** (return `0x1FE6ED`, status 2). All 83 initialization callbacks return; 244 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
+November 3: original `0x001fe1d0` reads and modifies `0xFD00184C`, then calls untranslated **`0x200340`** (return `0x1FE210`, status 2). All 83 initialization callbacks return; 245 distinct original routines execute and 400 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-18` is 354 functions / 13,314 instructions; module `recomp-post-memory-build-31` is 473,226 bytes, SHA-256 `ec7a4d9c…`. The aperture logged 5,173 entries / 5,203 events. A source-owned bounded port-output log records and ignores OUT writes; it is a link/build prerequisite, not a port device model. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-13.json`.
+Selection `recomp-title-post-memory-19` is 355 functions / 13,401 instructions; module `recomp-post-memory-build-32` is 473,896 bytes, SHA-256 `6ceba6b6…`. The aperture logged 5,174 entries / 5,208 events. The synthetic profile supplies `0xFD00184C` = `0` as a test input. The retained next-14/15 functions were combined into one private seed to stay within the 32-export admission limit; the new ordinal-305 binding is admitted but not reached. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-14.json`.
 
-A bounded read-only export reports the reached callee `0x1FE1D0` as 315 bytes / 87 instructions with calls to `0x200340`, `0x2010FD`, `0x20107C` and kernel slots `0x2533B0` (ordinal 128) and `0x25346C` (a new binding); it is not yet admitted or observed. Validation: port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x200340` as 18 bytes / 6 instructions with no direct calls; it is not yet admitted or observed. Validation: port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x20005a
+
+Original `0x0020005a` programmed object/device fields and returned through `0x001fe0c6` to its caller, which reached `0x1FE1D0`. Selection `recomp-title-post-memory-18` was 354 functions / 13,314 instructions; module `recomp-post-memory-build-31` was 473,226 bytes, SHA-256 `ec7a4d9c…`. Report `post-memory-browser-20261103-13.json`.
 
 ## Prior: 0x20002A
 
