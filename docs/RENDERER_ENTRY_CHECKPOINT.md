@@ -58,6 +58,12 @@ Both profiles against `recomp-post-memory-build-07` (module `00c1b2ed…`, 1,019
 
 Execution then stops at **`0x001fe05a`** (status 2, untranslated original routine) with return `0x001fe5ab`, having re-entered the graphics cluster. Reports: `post-memory-browser-20261102-09.json` and `-10.json`; audit: `contiguous-memory-checkpoint-20261102-01.json` (zero source-identity mismatches, module file matches the build record, both profiles identical).
 
+## GPU register access boundary
+
+Admitting `0x001fe05a` (43 bytes / 9 instructions, no calls) advanced execution to the first real device access. `recomp-title-post-memory-06` (344 functions / 12,878 instructions) and `recomp-post-memory-build-08` (module `f97390b4…`, 1,021,385 bytes) run both profiles to **234** routines / **396** kernel operations / 3,632 events, then stop with status 10 (checked guest-memory access violation) reading **4 bytes at `0xfd001804`** — the NV2A graphics register window, outside the modeled 64 MiB RAM. `ordinal` is 1 (the read access type) and the return address is `0x001fe5ab`. Memory statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Reports: `post-memory-browser-20261102-11.json`, `-12.json`; audit: `gpu-boundary-checkpoint-20261102-01.json` (zero source-identity mismatches, matching module digest, identical profiles).
+
 ## Next task
 
-Admit and translate the reached `0x001fe05a` from a bounded read-only export, then observe its next genuine kernel or translation dependency. Preserve byte/decoder/layout/memory admission and the existing budgets; do not substitute a graphics/D3D result. The ordinal-166 service is bounded to this identity-mapped window and still has no physical-address space separate from guest VA; record any new address/permission semantics explicitly.
+Model the reached NV2A register read deliberately: decide whether the bounded proof admits a documented read-only register window (with explicit values or a checked "unknown register" failure) or must stop here, then continue `0x001fe05a`'s caller. No host WebGL call may be substituted for the guest device read, and no register value may be invented without a project decision. Reuse `recomp-title-post-memory-06`, the new build and the retained analysis project.
