@@ -1,18 +1,18 @@
-# Continue from the completed 0x200340 helper at 0x2010FD
+# Continue from the entered 0x2010FD helper at 0x2000CB
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x00200340` wrote `1` to `0xFD600100` and `0xFD600140`; `KeQuerySystemTime` and the new source-owned `RtlTimeToTimeFields` returned `2026-11-03 16:02:49.719`; `0x001fe1d0` continued to untranslated **`0x2010FD`** (return `0x1FE2D2`, status 2). All 83 initialization callbacks return; 246 distinct original routines execute and **402** kernel operations complete.
+Original `0x002010fd` programmed its device-register block and called untranslated **`0x2000CB`** (return `0x201235`, status 2). All 83 initialization callbacks return; 247 distinct original routines execute and 402 kernel operations complete.
 
-Selection `recomp-title-post-memory-20` is 356 functions / 13,407 instructions; module `recomp-post-memory-build-33` is SHA-256 `b1c8c186…` (476,718 bytes). The local report is `post-memory-browser-20261103-15.json`. The aperture logged 5,178 entries / 5,213 events. The retained next-14/15/16 functions are combined into one private seed to stay within the 32-export admission limit. The source-owned `time_fields` conversion is deterministic and uses no host timezone, locale or wall clock; its optimized and ASan/UBSan tests pass. A bounded read-only export reports the reached callee `0x2010FD` as 659 bytes / 141 instructions with calls to `0x2000CB` and `0x200F59` (`recomp-post-memory-next-17`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-21` is 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` is SHA-256 `2de72595…` (478,501 bytes). The local report is `post-memory-browser-20261103-16.json`. The aperture logged 5,189 entries / 5,230 events. The retained next-14–17 functions are combined into one private seed to stay within the 32-export admission limit. A bounded read-only export reports the reached callee `0x2000CB` as 63 bytes / 23 instructions with calls to `0x1FDAC0` and `0x1FD700` (`recomp-post-memory-next-18`); it is static export evidence, not admitted translation or observed execution.
 
 Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x2010FD` from the retained `recomp-post-memory-next-17` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/port/device writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x2000CB` from the retained `recomp-post-memory-next-18` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/port/device writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: 0x1fe1d0
+## Prior: 0x200340 and system time
 
-Original `0x001fe1d0` read and modified `0xFD00184C` and called `0x200340`. Selection `recomp-title-post-memory-19` was 355 functions / 13,401 instructions; module `recomp-post-memory-build-32` was 473,896 bytes, SHA-256 `6ceba6b6…`. Report `post-memory-browser-20261103-14.json`.
+`0x00200340` wrote `1` to `0xFD600100`/`0xFD600140`; `KeQuerySystemTime` and the source-owned `RtlTimeToTimeFields` returned `2026-11-03 16:02:49.719`; `0x001fe1d0` reached `0x2010FD`. Selection `recomp-title-post-memory-20` was 356 functions / 13,407 instructions; module `recomp-post-memory-build-33` was 476,718 bytes, SHA-256 `b1c8c186…`. Report `post-memory-browser-20261103-15.json`.
 
 ## Prior: 0x1ffcc0
 

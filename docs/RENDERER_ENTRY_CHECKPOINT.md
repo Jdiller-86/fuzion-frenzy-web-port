@@ -289,6 +289,18 @@ Execution stopped at **`0x2010FD`** (return `0x1FE2D2`, status 2). The report is
 
 The source-owned `time_fields` conversion is deterministic and uses no host timezone, locale or wall clock. Tests cover the 1601/1970 epochs, the 2024 leap day, the non-leap 1900 boundary, out-of-range input and null rejection.
 
+### Enter 0x2010FD
+
+The retained next-14–17 functions are combined into one private seed to stay within the 32-export admission limit. Translation `recomp-title-post-memory-21` contains **357 functions / 13,548 instructions**, including `ff_title_002010FD`. Module `recomp-post-memory-build-34` is 478,501 bytes, SHA-256 `2de725959fb619a572328bf89ef0374952bd8ef1233e81b67bb5dfae7b38a40d`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 247 distinct original routines executed and 402 kernel operations completed;
+- `0x002010fd` programmed its device-register block and called `0x002000cb`;
+- the aperture retained 5,189 entries / 5,230 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x2000CB`** (return `0x201235`, status 2). The report is `research/verification/post-memory-browser-20261103-16.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x2010FD` (659 bytes / 141 instructions) from the retained `recomp-post-memory-next-17` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/port/device writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x2000CB` (63 bytes / 23 instructions) from the retained `recomp-post-memory-next-18` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/port/device writes. The captured line/quad reference comparison and browser prepass also remain private.
