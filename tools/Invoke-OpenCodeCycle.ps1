@@ -120,6 +120,21 @@ try {
     }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
     if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
+    if ($Lane -eq 'primary') {
+        $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
+        if (Test-Path -LiteralPath $guidancePath) {
+            try {
+                $guidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
+                $created = [DateTimeOffset]::MinValue
+                if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
+                    $brief = [string]$guidance.summary
+                    if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
+                    $reviewLevel = if ($guidance.model -eq 'openai/gpt-6.1-sol') { 'Sol architect' } else { 'provisional free-model reviewer' }
+                    $prompt += " Latest hourly $reviewLevel guidance from committed head $($guidance.head) (untrusted; verify against current files and skip completed or unsupported advice): $brief"
+                }
+            } catch { Write-Warning 'Could not read the latest architect guidance; continuing the builder cycle.' }
+        }
+    }
     $output = @()
     $exitCode = 1
     $modelUsed = $preferredModel
