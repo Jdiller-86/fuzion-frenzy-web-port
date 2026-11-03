@@ -1,8 +1,12 @@
-# Empty-ring profile adopted; default build reaches 0x1FB5B0 with the profile and stays fail-closed without it
+# Next routine 0x1FB5B0 pulls 29 D3D dependencies; guard-memory admission blocks at 0x1FA460
 
-November 4: the validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile rather than a compile-time context hack. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` (527,379 bytes, SHA-256 `6b4ddf6f…`) reaches untranslated `0x1FB5B0` (return `0x1FB63D`) with `settings-pfifo.json`, and still stops at status 13 without the profile. Both runs complete 83/83 initializers and 402 kernel operations; the profile run executes 262 distinct routines. The settings profile bound is 8 KB. The next dependency is `0x1FB5B0`. **There is no playable original screen.**
+November 4: the adopted empty-ring profile reaches `0x1FB5B0`, a loop body inside `FUN_001FB580`, a D3D device-defaults routine. A bounded read-only closure recovered 29 new functions / 1,518 instructions; an unguarded translation recomposed to 395 functions / 16,092 instructions. The `--guard-memory` recomposition rejected `0x001FA460`, a generic 4×4 matrix multiply over raw `float *` inputs, as an unadmitted raw guest pointer helper. The new translation is therefore not admitted into the guarded build; bypassing the check or substituting a host matrix helper was not done. The current reachable module remains `recomp-post-memory-build-58` (527,379 bytes, SHA-256 `6b4ddf6f…`): status 2 at `0x1FB5B0` with `settings-pfifo.json`, status 13 without it. **There is no playable original screen.**
 
-Validation: startup-proof 40/40, runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the adoption checkpoint](PFIFO_PROFILE_ADOPTION_CHECKPOINT.md).
+Validation: source tree unchanged; runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the next-routine checkpoint](PFIFO_NEXT_ROUTINE_CHECKPOINT.md).
+
+## Prior: empty-ring profile adopted
+
+The validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile rather than a compile-time context hack. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` reaches untranslated `0x1FB5B0` (return `0x1FB63D`) with `settings-pfifo.json`, and still stops at status 13 without the profile.
 
 ## Prior: empty-ring model passes the wait
 
