@@ -22,6 +22,26 @@ function Get-WorktreeFingerprint([string]$path) {
     } finally { $hash.Dispose() }
 }
 
+function Publish-VerifiedBranch([string]$path) {
+    $branch = (git -C $path branch --show-current).Trim()
+    if ($LASTEXITCODE -ne 0 -or $branch -ne 'codex/opencode-source') { throw 'Refusing to publish an unexpected branch.' }
+    $changedPaths = @(git -C $path log --format= --name-only origin/main..HEAD | Where-Object { $_ })
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect publication history.' }
+    $forbidden = '(^|/)(research|\.tools|node_modules|\.venv|Fuzion Frenzy \(USA\))(/|$)|\.(7z|zip|iso|xbe|xbp|zro|xpr|xwb|xsb|dds|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$|(^|/)\.env(\.|$)'
+    foreach ($changedPath in $changedPaths) {
+        if ($changedPath -match $forbidden) { throw "Refusing to publish forbidden path: $changedPath" }
+    }
+    Push-Location -LiteralPath $path
+    try {
+        & npm run check | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Source publication check failed.' }
+        git diff --check origin/main..HEAD | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Committed source has whitespace errors.' }
+        git push origin HEAD:refs/heads/codex/opencode-source | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Development branch push failed.' }
+    } finally { Pop-Location }
+}
+
 if (-not (Test-Path -LiteralPath $worktree)) { throw 'Clean OpenCode worktree is missing.' }
 $lock = $null
 try {
@@ -110,6 +130,18 @@ try {
     $summary = ($output | Out-String).Trim()
     if ($summary.Length -gt 2000) { $summary = $summary.Substring($summary.Length - 2000) }
     $state.lastSummary = $summary
+    if ($exitCode -eq 0) {
+        try {
+            Publish-VerifiedBranch $worktree
+            $state.publication = 'published'
+        } catch {
+            $state.publication = 'retry'
+            $state.publicationError = $_.Exception.Message
+            Write-Warning ('Source branch publication deferred: ' + $state.publicationError)
+        }
+    } else {
+        $state.publication = 'deferred'
+    }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('OpenCode cycle: ' + $state.outcome)
 } finally {
