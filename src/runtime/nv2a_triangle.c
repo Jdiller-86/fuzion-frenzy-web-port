@@ -6,6 +6,7 @@
 #include "nv2a_triangle.h"
 #include <float.h>
 #include <math.h>
+#include <stddef.h>
 #include <string.h>
 
 #ifdef __FAST_MATH__
@@ -16,6 +17,32 @@ _Static_assert(sizeof(float) == 4 && FLT_RADIX == 2 && FLT_MANT_DIG == 24 &&
                FLT_MAX_EXP == 128, "The geometry ABI requires binary32");
 _Static_assert(sizeof(FFNv2aPostVertex) == 42 * sizeof(float), "Post-vertex layout changed");
 _Static_assert(sizeof(FFNv2aRasterVertex) == 51 * sizeof(float), "Raster-vertex layout changed");
+/* Total-size checks alone permit same-size reordering; the Wasm comparator and
+ * the next renderer stage address these fields by offset. */
+_Static_assert(offsetof(FFNv2aPostVertex, clip) == 0, "Post-vertex clip offset changed");
+_Static_assert(offsetof(FFNv2aPostVertex, point_size) == 16, "Post-vertex point size offset changed");
+_Static_assert(offsetof(FFNv2aPostVertex, color) == 20, "Post-vertex color offset changed");
+_Static_assert(offsetof(FFNv2aPostVertex, fog) == 84, "Post-vertex fog offset changed");
+_Static_assert(offsetof(FFNv2aPostVertex, texcoord) == 88, "Post-vertex texcoord offset changed");
+_Static_assert(offsetof(FFNv2aPostVertex, position) == 152, "Post-vertex position offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, clip) == 0, "Raster-vertex clip offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, point_size) == 16, "Raster-vertex point size offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, color) == 20, "Raster-vertex color offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, fog) == 84, "Raster-vertex fog offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, texcoord) == 88, "Raster-vertex texcoord offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, triangle_position) == 152,
+               "Raster-vertex position rows offset changed");
+_Static_assert(offsetof(FFNv2aRasterVertex, depth_slope) == 200,
+               "Raster-vertex depth slope offset changed");
+/* The retained-reference comparator supplies only the first four words. */
+_Static_assert(offsetof(FFNv2aTriangleState, smooth) == 0, "State smooth offset changed");
+_Static_assert(offsetof(FFNv2aTriangleState, first_provoking) == 4,
+               "State first-provoking offset changed");
+_Static_assert(offsetof(FFNv2aTriangleState, perspective_depth) == 8,
+               "State perspective offset changed");
+_Static_assert(offsetof(FFNv2aTriangleState, rotation) == 12, "State rotation offset changed");
+_Static_assert(offsetof(FFNv2aTriangleState, rotation_odd) == 16,
+               "State strip rotation offset changed");
 
 static float multiply_add(float a, float b, float c, uint32_t arithmetic)
 {
