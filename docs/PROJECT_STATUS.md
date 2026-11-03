@@ -1,4 +1,12 @@
-# Device reports retain every bounded aperture entry and event
+# Source-owned line geometry expansion added
+
+Source-only milestone (November 3): `src/runtime/nv2a_line.c` implements the pinned public xemu line geometry shader's two-vertex expansion. It forwards clip, point size, fog and texture coordinates, selects flat/smooth provoking colors, builds the shader's 90-degree rotated interpolation position row, and sets zero depth slope for a standalone line. This is a source-owned candidate, not a captured-reference or original-hardware comparison.
+
+Validation: analytic native tests cover attribute forwarding, first/last provoking colors, smooth colors, the rotated helper row, negative deltas and invalid-state rejection; optimized and ASan/UBSan WSL runs pass. `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. CI adds a Linux line-geometry compile/run.
+
+Boundary: no captured line/quad reference comparison, browser prepass or renderer integration was performed. There is no quad expansion, vertex-program execution, rasterization or original image. No original module was rebuilt or run; ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`.
+
+## Device reports retain every bounded aperture entry and event
 
 Source-only milestone (November 3): the browser proof worker no longer truncates the modeled device-aperture report to 16 entries / 8 events. A new source-owned mapper validates the module's counts against the 1,024-entry / 4,096-event aperture capacities, copies every recorded entry and event, and maps the additive site field (`UINT32_MAX` to `null` for older modules). This is observational support for the next original device sequence, not an original-runtime advance.
 

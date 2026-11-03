@@ -1,4 +1,16 @@
-# Continue from complete device-aperture reporting
+# Continue from the source-owned line geometry component
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_line.c` now expands a two-vertex line using the pinned public xemu `geom.c` formula: forwarded attributes, flat/smooth provoking colors, the rotated interpolation position row and zero standalone-line depth slope. It is a source-owned candidate, not a captured-reference or original-hardware comparison.
+
+Validation: analytic line tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare the line candidate against the captured reference, then add quad/assembly support; separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior device-report handoff
+
+## Device reports retain every bounded aperture entry and event
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
