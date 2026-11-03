@@ -551,6 +551,21 @@ Module `recomp-post-memory-build-49` is unchanged (525,566 bytes, SHA-256 `05887
 
 The report is `research/verification/post-memory-browser-20261103-38.json` (local/ignored). The USER/CACHE1 registers are separate synthetic storage, so the reached channel state is internally inconsistent; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
 
+### Add USER/CACHE1 DMA aliases
+
+`device_registers.c/.h` now supports bounded alias pairs (shared canonical entry; events keep the accessed address). The probe declares the three reached USER↔PFIFO CACHE1 DMA pairs from xemu's `user.c`, and exposes the pairs through the device report; `pfifoState` resolves them. Tests cover shared storage, duplicate/unaligned/out-of-window/overlap rejection, declaration-after-access and alias-aware PFIFO state.
+
+Module `recomp-post-memory-build-50` is 526,712 bytes, SHA-256 `bd0acb033fcf0e9b6c768ef56a9b802225652099f6d1b797cb71e2f8cc996646`. In the run:
+
+- three alias pairs are reported;
+- canonical entries `0xFD800040` = `0x03B7D000` and `0xFD800044` = `0`;
+- `pfifoState`: DMA mode, channel 0, instance `0x11C`, cachePut = userPut = `0x03B7D000`, cacheGet = userGet = `0`, `aliasConsistent = true`;
+- the guest write map still shows 48 pages, none in the claim;
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-39.json` (local/ignored). The register views agree, but GET never advances and no queue bytes exist; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Add the evidence-backed USER↔PFIFO CACHE1 DMA alias (PUT `0xFD800040`↔`0xFD003240`, GET `0xFD800044`↔`0xFD003244`, REF `0xFD800048`↔`0xFD003248`) to the synthetic aperture with bounded tests, then re-observe the channel state. This is a modeling prerequisite only; the queue producer remains unidentified and must be established separately. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map and the PFIFO state observer; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Identify the expected queue producer from static and runtime evidence, or establish that initial GET=0 is not a valid ring start. A targeted static trace of the routines that compute the PUB value and the ring base, or a bounded write-observation around the instance/queue region, is the next evidence step. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer and the alias pairs; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

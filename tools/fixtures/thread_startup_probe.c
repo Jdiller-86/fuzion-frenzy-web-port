@@ -667,7 +667,12 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     /* NV_PFB_WBC at NV2A offset 0x410: the reached wait sets NV_PFB_WBC_FLUSH
      * (1 << 16) and polls until it clears. xemu's PFB model reads 0 because a
      * flush is not pending, so model only that self-clearing bit here. */
-    return ff_device_registers_add_self_clearing(&device_registers,0xFD100410u,0x10000u);
+    status = ff_device_registers_add_self_clearing(&device_registers,0xFD100410u,0x10000u);
+    if(status)return status;
+    /* xemu user.c mirrors USER DMA_PUT/GET/REF into the PFIFO CACHE1 copies. */
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
+    return ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u);
 }
 uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 {
@@ -676,6 +681,12 @@ uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 uint32_t ff_probe_mmio_zero(uint32_t base,uint32_t bytes)
 {
     return ff_device_registers_add_zero_range(&device_registers,base,bytes);
+}
+uint32_t ff_probe_mmio_alias_count(void) { return device_registers.alias_count; }
+uint32_t ff_probe_mmio_alias_word(uint32_t index, uint32_t field)
+{
+    if(index >= device_registers.alias_count)return UINT32_MAX;
+    return field ? device_registers.aliases[index].second : device_registers.aliases[index].first;
 }
 uint32_t ff_probe_mmio_word(uint32_t field)
 {

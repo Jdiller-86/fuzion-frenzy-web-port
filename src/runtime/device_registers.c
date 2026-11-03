@@ -2,8 +2,18 @@
 #include "thread_bootstrap.h"
 #include <string.h>
 
+static uint32_t canonical_address(const ff_device_registers *device, uint32_t address)
+{
+    for (uint32_t i = 0; i < device->alias_count; ++i) {
+        if (device->aliases[i].first == address) return device->aliases[i].first;
+        if (device->aliases[i].second == address) return device->aliases[i].first;
+    }
+    return address;
+}
+
 static ff_device_entry *find(ff_device_registers *device, uint32_t address)
 {
+    address = canonical_address(device, address);
     for (uint32_t i = 0; i < device->count; ++i) if (device->entries[i].address == address) return &device->entries[i];
     return NULL;
 }
@@ -45,6 +55,7 @@ static uint32_t record_zero_read(ff_device_registers *device, uint32_t address, 
 
 static uint32_t seed(ff_device_registers *device, uint32_t address, uint32_t value)
 {
+    address = canonical_address(device, address);
     if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
     for (uint32_t i = 0; i < device->count; ++i) if (device->entries[i].address == address) return FF_BOOT_INVALID;
     device->entries[device->count++] = (ff_device_entry){address, value, 0, 0, 1, 0xFu};
@@ -67,7 +78,7 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
     if (!entry) {
         if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
         entry = &device->entries[device->count++];
-        *entry = (ff_device_entry){address, 0, 0, 0, 0, 0};
+        *entry = (ff_device_entry){canonical_address(device, address), 0, 0, 0, 0, 0};
     }
     device->events[device->event_count++] =
         (ff_device_event){address, site, direction, direction == FF_DEVICE_WRITE ? *value : entry->value, entry->known};
@@ -136,6 +147,22 @@ uint32_t ff_device_registers_add_self_clearing(ff_device_registers *device, uint
     return 0;
 }
 
+uint32_t ff_device_registers_add_alias(ff_device_registers *device, uint32_t first, uint32_t second)
+{
+    if (!device || !device->ready || device->event_count || device->pending ||
+        (first & 3u) || (second & 3u) || first == second ||
+        first < device->base || first - device->base >= device->bytes ||
+        second < device->base || second - device->base >= device->bytes)
+        return FF_BOOT_INVALID;
+    if (device->alias_count >= FF_DEVICE_ALIASES) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->alias_count; ++i)
+        if (device->aliases[i].first == first || device->aliases[i].second == first ||
+            device->aliases[i].first == second || device->aliases[i].second == second)
+            return FF_BOOT_INVALID;
+    device->aliases[device->alias_count++] = (ff_device_alias){first, second};
+    return 0;
+}
+
 uint32_t ff_device_registers_contains(const ff_device_registers *device, uint32_t address, uint32_t bytes)
 {
     if (!device || !device->ready || (bytes != 1u && bytes != 2u && bytes != 4u))
@@ -177,12 +204,13 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     /* Sub-dword writes may create or extend the containing dword. Untouched
      * bytes stay unknown, so a later read still fails until they are written. */
     uint32_t base = address & ~3u;
-    ff_device_entry *entry = find(device, base);
+    uint32_t stored = canonical_address(device, base);
+    ff_device_entry *entry = find(device, stored);
     if (device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_NO_MEMORY;
     if (!entry) {
         if (device->count >= FF_DEVICE_ENTRIES) return FF_BOOT_NO_MEMORY;
         entry = &device->entries[device->count++];
-        *entry = (ff_device_entry){base, 0, 0, 0, 0, 0};
+        *entry = (ff_device_entry){stored, 0, 0, 0, 0, 0};
     }
     uint32_t before = entry->known;
     uint32_t shift = offset * 8u, mask = bytes == 1u ? 0xFFu : 0xFFFFu;

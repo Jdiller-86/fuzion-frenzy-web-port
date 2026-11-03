@@ -322,6 +322,29 @@ static void self_clearing_bits_complete_after_the_write(void)
     assert(slot && *slot == 0x40000u);
 }
 
+static void aliases_share_storage_and_keep_event_addresses(void)
+{
+    reset();
+    assert(ff_device_registers_add_alias(&device, 0xFD009200u, 0xFD009240u) == 0);
+    assert(ff_device_registers_add_alias(&device, 0xFD009200u, 0xFD009280u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_alias(&device, 0xFD009202u, 0xFD0092C0u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_alias(&device, 0xFD009200u, 0xFD009200u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_alias(&device, 0xFD800000u, 0xFD0092C0u) == FF_BOOT_INVALID);
+    uint32_t value = 0x11223344u;
+    assert(ff_device_registers_touch(&device, 0xFD009240u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    uint32_t read = 0;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100020u, &read) == 0);
+    assert(read == 0x11223344u);
+    assert(device.count == 3);
+    assert(device.events[0].address == 0xFD009240u && device.events[0].value == 0x11223344u);
+    assert(device.events[1].address == 0xFD009200u && device.events[1].value == 0x11223344u);
+    value = 0x55667788u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    assert(ff_device_registers_touch(&device, 0xFD009240u, FF_DEVICE_READ, 0x00100020u, &read) == 0);
+    assert(read == 0x55667788u);
+    assert(ff_device_registers_add_alias(&device, 0xFD009280u, 0xFD0092C0u) == FF_BOOT_INVALID);
+}
+
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
@@ -330,6 +353,7 @@ int main(void)
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits and atomicity passed");
+    aliases_share_storage_and_keep_event_addresses();
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, aliases and atomicity passed");
     return 0;
 }

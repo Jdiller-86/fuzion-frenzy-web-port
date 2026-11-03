@@ -36,6 +36,16 @@ export function createDeviceReport(api, profile = null) {
       site: site === 0xFFFFFFFF ? null : site,
     });
   }
+  const aliases = [];
+  if (typeof api.ff_probe_mmio_alias_count === 'function' &&
+      typeof api.ff_probe_mmio_alias_word === 'function') {
+    const count = api.ff_probe_mmio_alias_count() >>> 0;
+    if (count > 4) throw new Error('Device report exceeds the bounded alias capacity');
+    for (let i = 0; i < count; ++i) aliases.push({
+      first: api.ff_probe_mmio_alias_word(i, 0) >>> 0,
+      second: api.ff_probe_mmio_alias_word(i, 1) >>> 0,
+    });
+  }
   return {
     scope: 'explicit synthetic aperture; unknown reads fail; one modeled self-clearing flush bit; no general NV2A or device behaviour',
     base: api.ff_probe_mmio_word(1) >>> 0,
@@ -44,6 +54,7 @@ export function createDeviceReport(api, profile = null) {
     events,
     entries,
     log,
+    aliases,
     supplied: profile ? {
       window: { base: profile.window.base, size: profile.window.size },
       registers: profile.registers.map(entry => ({ address: entry.address, initial: entry.initial })),

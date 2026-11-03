@@ -1,18 +1,18 @@
-# Continue from the PFIFO state observer and the USER/CACHE1 alias gap
+# Continue from the coherent PFIFO alias state with an unwritten queue
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A bounded source-owned PFIFO state observer now reports the reached channel state. The channel is in DMA mode with channel 0 and DMA instance `0x11C`, but USER PUT/GET (`0x03B7D000`/`0`) and the PFIFO CACHE1 copies (`0`/`0`) disagree. The proof keeps those apertures as separate synthetic storage, so the state is internally inconsistent; a real device mirrors USER writes into CACHE1. Separately, the guest write-page map shows 48 pages written and none in the published queue claim, so the queue producer is still unidentified. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+The synthetic aperture now supports evidence-backed address aliases, and the probe declares the three reached USER↔PFIFO CACHE1 DMA pairs (PUT, GET, REF). The channel state is coherent: DMA mode, channel 0, instance `0x11C`, CACHE1/USER PUT `0x03B7D000`, GET `0`. The wait still cannot complete because GET never advances, and the guest write-page map still shows 48 pages with none in the published queue claim. No consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-49` (525,566 bytes, SHA-256 `05887417…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-38.json`. `submission-probe.mjs` reports `pfifoState` (PUSH1 mode/channel, instance, CACHE1 and USER PUT/GET, alias consistency); tests cover it (12 cases).
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-39.json`. Bounded alias pairs live in `device_registers.c/.h` (shared canonical entry, events keep the accessed address); the probe declares the three DMA pairs; the report/worker pass the alias list; `pfifoState` resolves it; tests cover shared storage, guards and alias-aware state.
 
-Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: device-register tests optimized/ASan/UBSan, submission tests (13), runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** add the evidence-backed USER↔PFIFO CACHE1 DMA alias (PUT `0xFD800040`↔`0xFD003240`, GET `0xFD800044`↔`0xFD003244`, REF `0xFD800048`↔`0xFD003248`) to the synthetic aperture with bounded tests, then re-observe the channel state. This is a modeling prerequisite only: no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated. The queue producer remains unidentified and must be established separately. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** identify the expected queue producer from static and runtime evidence, or establish that initial GET=0 is not a valid ring start. A targeted static trace of the routines that compute the PUB value and the ring base, or a bounded write-observation around the instance/queue region, is the next evidence step. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: guest write-page map
+## Prior: PFIFO state observer
 
-48 pages written; none in the published queue claim. Report `post-memory-browser-20261103-37.json`.
+DMA mode/channel 0/instance `0x11C`; USER PUT/GET `0x03B7D000`/0 vs CACHE1 0/0, alias inconsistent. Report `post-memory-browser-20261103-38.json`.
 
 ## Prior: 0x200f59
 

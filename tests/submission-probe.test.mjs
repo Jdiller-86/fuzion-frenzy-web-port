@@ -160,6 +160,19 @@ test('the PFIFO state reports DMA mode and the USER/CACHE1 alias gap', () => {
   assert.equal(noPush.available, false);
 });
 
+test('the PFIFO state resolves declared aliases to the shared entry', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0, includeGet: true });
+  entries.push({ address: 0xFD003204, value: 0x100 });
+  const probe = createSubmissionProbe({
+    status, entries, view, ramBytes,
+    aliases: [{ first: 0xFD800040, second: 0xFD003240 }, { first: 0xFD800044, second: 0xFD003244 }],
+  });
+  assert.equal(probe.pfifoState.cachePut, 0x800);
+  assert.equal(probe.pfifoState.cacheGet, 0);
+  assert.equal(probe.pfifoState.userPut, 0x800);
+  assert.equal(probe.pfifoState.aliasConsistent, true);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();
