@@ -222,6 +222,41 @@ int ff_nv2a_expand_polygon_line(const FFNv2aPostVertex input[2],
     return 0;
 }
 
+/* Shared shader LINE body for triangle, strip and fan polygon modes. */
+static void expand_line_mode(const FFNv2aPostVertex input[3], const unsigned *indices,
+                             unsigned flat_color, uint32_t smooth,
+                             uint32_t perspective_depth, uint32_t arithmetic,
+                             FFNv2aRasterVertex output[6])
+{
+    float rows[3][4], slope;
+    calc_triz(input, indices, perspective_depth, arithmetic, rows, &slope);
+    static const unsigned edges[3][2] = { {0, 1}, {1, 2}, {2, 0} };
+    for (unsigned i = 0; i < 3; ++i) {
+        emit_line(input, indices[edges[i][0]], indices[edges[i][1]], flat_color,
+                  smooth, slope, &output[i * 2]);
+    }
+}
+
+/* Shared shader POINT body for triangle, strip and fan polygon modes. */
+static void expand_point_mode(const FFNv2aPostVertex input[3], const unsigned *indices,
+                              unsigned flat_color, uint32_t smooth,
+                              uint32_t perspective_depth, uint32_t arithmetic,
+                              FFNv2aRasterVertex output[3])
+{
+    float rows[3][4], slope;
+    calc_triz(input, indices, perspective_depth, arithmetic, rows, &slope);
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = indices[i];
+        const float point_rows[3][4] = {
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+        };
+        emit_vertex(input, index, smooth ? index : flat_color, point_rows, slope,
+                    &output[i]);
+    }
+}
+
 int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
                                   const FFNv2aTriangleState *state,
                                   FFNv2aRasterVertex output[6], uint32_t arithmetic)
@@ -231,17 +266,9 @@ int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
     }
     static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
     const unsigned *indices = order[state->rotation];
-    float rows[3][4], slope;
-    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
     const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
-
-    FFNv2aRasterVertex expanded[6];
-    static const unsigned edges[3][2] = { {0, 1}, {1, 2}, {2, 0} };
-    for (unsigned i = 0; i < 3; ++i) {
-        emit_line(input, indices[edges[i][0]], indices[edges[i][1]], flat_color,
-                  state->smooth, slope, &expanded[i * 2]);
-    }
-    memcpy(output, expanded, sizeof(expanded));
+    expand_line_mode(input, indices, flat_color, state->smooth,
+                     state->perspective_depth, arithmetic, output);
     return 0;
 }
 
@@ -254,21 +281,76 @@ int ff_nv2a_expand_triangle_points(const FFNv2aPostVertex input[3],
     }
     static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
     const unsigned *indices = order[state->rotation];
-    float rows[3][4], slope;
-    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
     const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
+    expand_point_mode(input, indices, flat_color, state->smooth,
+                      state->perspective_depth, arithmetic, output);
+    return 0;
+}
 
-    FFNv2aRasterVertex expanded[3];
-    for (unsigned i = 0; i < 3; ++i) {
-        const unsigned index = indices[i];
-        const float point_rows[3][4] = {
-            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
-            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
-            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
-        };
-        emit_vertex(input, index, state->smooth ? index : flat_color, point_rows,
-                    slope, &expanded[i]);
+int ff_nv2a_expand_triangle_strip_lines(const FFNv2aPostVertex input[3],
+                                        const FFNv2aTriangleState *state,
+                                        FFNv2aRasterVertex output[6], uint32_t arithmetic,
+                                        uint32_t primitive_id)
+{
+    if (!input || !output || invalid_state(state, arithmetic) ||
+        state->rotation_odd > 2) {
+        return -1;
     }
-    memcpy(output, expanded, sizeof(expanded));
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const uint32_t parity = primitive_id & 1u;
+    const unsigned *indices = order[parity ? state->rotation_odd : state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0]
+                                                       : indices[2 - parity];
+    expand_line_mode(input, indices, flat_color, state->smooth,
+                     state->perspective_depth, arithmetic, output);
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_strip_points(const FFNv2aPostVertex input[3],
+                                         const FFNv2aTriangleState *state,
+                                         FFNv2aRasterVertex output[3], uint32_t arithmetic,
+                                         uint32_t primitive_id)
+{
+    if (!input || !output || invalid_state(state, arithmetic) ||
+        state->rotation_odd > 2) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const uint32_t parity = primitive_id & 1u;
+    const unsigned *indices = order[parity ? state->rotation_odd : state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0]
+                                                       : indices[2 - parity];
+    expand_point_mode(input, indices, flat_color, state->smooth,
+                      state->perspective_depth, arithmetic, output);
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_fan_lines(const FFNv2aPostVertex input[3],
+                                      const FFNv2aTriangleState *state,
+                                      FFNv2aRasterVertex output[6], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[1];
+    expand_line_mode(input, indices, flat_color, state->smooth,
+                     state->perspective_depth, arithmetic, output);
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_fan_points(const FFNv2aPostVertex input[3],
+                                       const FFNv2aTriangleState *state,
+                                       FFNv2aRasterVertex output[3], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[1];
+    expand_point_mode(input, indices, flat_color, state->smooth,
+                      state->perspective_depth, arithmetic, output);
     return 0;
 }

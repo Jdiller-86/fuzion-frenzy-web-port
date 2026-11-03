@@ -108,6 +108,45 @@ int ff_nv2a_expand_triangle_fan(const FFNv2aPostVertex input[3],
                                 const FFNv2aTriangleState *state,
                                 FFNv2aRasterVertex output[3], uint32_t arithmetic);
 
+/* Polygon LINE mode for PRIM_TYPE_TRIANGLE_STRIP. Uses the same even/odd
+ * rotation and provoking selection as the strip fill, then emits the three
+ * rotated edges sharing the triangle's depth slope.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_strip_lines(const FFNv2aPostVertex input[3],
+                                        const FFNv2aTriangleState *state,
+                                        FFNv2aRasterVertex output[6], uint32_t arithmetic,
+                                        uint32_t primitive_id);
+
+/* Polygon POINT mode for PRIM_TYPE_TRIANGLE_STRIP: one point per rotated strip
+ * vertex with the position row repeated, using the strip's provoking color.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_strip_points(const FFNv2aPostVertex input[3],
+                                         const FFNv2aTriangleState *state,
+                                         FFNv2aRasterVertex output[3], uint32_t arithmetic,
+                                         uint32_t primitive_id);
+
+/* Polygon LINE mode for PRIM_TYPE_TRIANGLE_FAN: three rotated edges sharing the
+ * fan triangle's depth slope, with the fan provoking color.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_fan_lines(const FFNv2aPostVertex input[3],
+                                      const FFNv2aTriangleState *state,
+                                      FFNv2aRasterVertex output[6], uint32_t arithmetic);
+
+/* Polygon POINT mode for PRIM_TYPE_TRIANGLE_FAN: one point per rotated fan
+ * vertex with the position row repeated, using the fan provoking color.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_fan_points(const FFNv2aPostVertex input[3],
+                                       const FFNv2aTriangleState *state,
+                                       FFNv2aRasterVertex output[3], uint32_t arithmetic);
+
 /* PRIM_TYPE_POLYGON fill: emits the three rotated vertices with the triangle
  * depth slope. The pinned branch always takes the rotated third vertex as the
  * flat provoking color; smooth color follows each emitted input.
