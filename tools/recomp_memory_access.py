@@ -21,10 +21,19 @@ import re
 
 ACCESSORS = {"MEM8": "U8", "MEM16": "U16", "MEM32": "U32", "MEM64": "U64",
              "SMEM8": "I8", "SMEM16": "I16", "SMEM32": "I32", "SMEM64": "I64",
-             "MEMF": "F32", "MEMD": "F64", "XMM_MEM": "XMM", "XMM_LOAD": "XMM"}
+             "MEMF": "F32", "MEMD": "F64"}
 TEMP_TYPES = {"U8": "uint8_t", "U16": "uint16_t", "U32": "uint32_t", "U64": "uint64_t",
               "I8": "int8_t", "I16": "int16_t", "I32": "int32_t", "I64": "int64_t",
-              "F32": "float", "F64": "double", "XMM": "RecompXmm"}
+              "F32": "float", "F64": "double"}
+# Pure SSE helpers never touch guest memory. Anything else matching XMM_* is
+# rejected unless the memory branches above rewrote it. Keep this explicit.
+PURE_XMM = {"XMM_ZERO", "XMM_SCALAR", "XMM_SCALAR_DOUBLE", "XMM_SCALAR_BITS",
+            "XMM_MOVE_LOW_TO_HIGH", "XMM_MOVE_HIGH_TO_LOW", "XMM_CMP_PRED",
+            "XMM_MOVEMASK", "XMM_SHUFFLE", "XMM_UNPACK_LOW", "XMM_UNPACK_HIGH",
+            "XMM_CVT_PS2DQ", "XMM_FROM_PI", "XMM_ADD", "XMM_SUB", "XMM_MUL",
+            "XMM_DIV", "XMM_MIN", "XMM_MAX", "XMM_SQRT", "XMM_RSQRT", "XMM_RCP",
+            "XMM_AND", "XMM_OR", "XMM_XOR", "XMM_ANDN", "XMM_CMP_EQ",
+            "XMM_CMP_LT", "XMM_CMP_LE", "XMM_CMP_NEQ"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
 MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b")
 
@@ -120,6 +129,7 @@ def instrument_memory_accesses(text, site, limit=None):
     label_offsets = [offset for offset, _ in labels]
     used_sites = set()
     write_temps = [0]
+    xmm_temps = [0]
 
     def site_at(offset):
         index = bisect.bisect_right(label_offsets, offset) - 1
@@ -146,6 +156,14 @@ def instrument_memory_accesses(text, site, limit=None):
             while closing < len(mask) and depth:
                 depth += (mask[closing] == '(') - (mask[closing] == ')'); closing += 1
             if depth: raise ValueError("Unclosed generated memory expression")
+            if name in ("XMM_MEM", "XMM_LOAD"):
+                address = rewrite(source[opening + 1:closing - 1], base + opening + 1).strip()
+                if not address: raise ValueError("Empty generated vector address")
+                block = site_at(base + begin)
+                pieces += [source[cursor:begin],
+                           f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 1u, 0x{block:08X}u))"]
+                stats["reads"] += 1; used_sites.add(block); cursor = scan = closing
+                continue
             if name == "XMM_STORE":
                 inner_start, inner = opening + 1, mask[opening + 1:closing - 1]
                 depth = 0; split = None
@@ -157,10 +175,15 @@ def instrument_memory_accesses(text, site, limit=None):
                 address = rewrite(source[inner_start:inner_start + split], base + inner_start).strip()
                 value_start = inner_start + split + 1
                 value = rewrite(source[value_start:closing - 1], base + value_start).strip()
-                if not address.strip() or not value.strip(): raise ValueError("Empty generated vector store")
+                if not address or not value: raise ValueError("Empty generated vector store")
                 block = site_at(base + begin)
-                pieces += [source[cursor:begin],
-                           f"FF_MEMORY_SITE_XMM(({address}), 2u, 0x{block:08X}u) = ({value})"]
+                lhs = f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 2u, 0x{block:08X}u))"
+                if "FF_MEMORY_SITE_POINTER" in value or MEMORY_TOKEN.search(value):
+                    temp = f"_ff_xmmtmp{xmm_temps[0]}"; xmm_temps[0] += 1
+                    pieces += [source[cursor:begin],
+                               f"{{ RecompXmm {temp} = {value}; {lhs} = {temp}; }}"]
+                else:
+                    pieces += [source[cursor:begin], f"{lhs} = ({value})"]
                 stats["writes"] += 1; used_sites.add(block); cursor = scan = closing
                 continue
             if name not in ACCESSORS: raise ValueError("Unsupported generated memory width")
@@ -212,7 +235,10 @@ def instrument_memory_accesses(text, site, limit=None):
     if limit is not None and scalar and not labels:
         raise ValueError("Generated function lacks checked basic-block labels")
     stats["sites"] = len(used_sites)
-    if re.search(r"\b(?:XBOX_PTR|XMM_(?:MEM|LOAD|STORE|LOADU|STOREU)\w*|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
+    for match in re.finditer(r"\b(XMM_[A-Z0-9_]+)\s*\(", code_mask(converted)):
+        if match.group(1) not in PURE_XMM:
+            raise ValueError("Unadmitted raw guest pointer or memory helper")
+    if re.search(r"\b(?:XBOX_PTR|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
         raise ValueError("Unadmitted raw guest pointer or memory helper")
     return converted, stats
 

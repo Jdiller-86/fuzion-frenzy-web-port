@@ -1,5 +1,7 @@
 # Checked XMM memory surface admits the matrix helper; execution reaches 0x1FCB30
 
+**Later evidence (November 4):** [the XMM type-ownership checkpoint](XMM_TYPE_OWNERSHIP_CHECKPOINT.md) removes the pinned type from the memory header, makes helper admission fail-closed and adds the owned 16-byte boundary test; the refactored build reproduces the same stop.
+
 November 4, 2026. The guard-memory emitter now supports checked 16-byte XMM loads and stores and allows pure SSE arithmetic. This admitted the raw matrix helper at `0x1FA460`; the recomposed translation built and the adopted profile advanced through `0x1FB3B0`, `0x1FB400` and `0x1FCA20` to `0x1FCB30`, with 268 distinct original routines. The no-profile path still stops at status 13. **There is no playable screen, renderer or device model.**
 
 **Address correction.** Earlier notes used `0x1FB5B0` and `0x1FB600`; those were decimal-to-hex slips. The actual stops were `2077616 = 0x1FB3B0` (`XMETAL_StartPush`) and `2077696 = 0x1FB400` (`FUN_001FB400`), with return `0x1FB4FD` and `0x1FBEF5` respectively. The current stop is `2083360 = 0x1FCA20` (`FUN_001FCA20`, a small switch helper) with return `0x1FB76A`.

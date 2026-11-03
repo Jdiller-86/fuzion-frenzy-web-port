@@ -1,8 +1,12 @@
-# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FCB30
+# XMM type ownership repaired; fail-closed helper admission and owned 16-byte boundary test
 
-November 4: the guard-memory emitter now supports checked 16-byte XMM loads/stores and allows pure SSE arithmetic. This admitted `0x1FA460`; the guarded translation advanced through `0x1FB3B0` (`XMETAL_StartPush`), `0x1FB400` (`FUN_001FB400`) and `0x1FCA20` to `0x1FCB30` with **268** distinct original routines (83/83 initializers, 402 kernel operations). A closure for `0x1FCA20` added 1 function / 24 instructions, producing 399 functions / 16,266 instructions and private module `recomp-post-memory-build-63` (595,736 bytes, SHA-256 `9644fdc9…`). Without the profile it still stops at status 13 with 261 routines. `0x1FCB30` is a small lookup/rounding helper and is the next export. **There is no playable original screen.**
+November 4: the checked 16-byte XMM path no longer owns the pinned `RecompXmm` type. `src/runtime/recomp_memory_access.h` exposes only the checked pointer range, and `tools/recomp_memory_access.py` casts it to `RecompXmm` at the generated use. Helper admission is an explicit pure-SSE allowlist; unknown vector helpers, half-vector memory helpers and unrewritten `XMM_MEM`/`XMM_LOAD`/`XMM_STORE` fail closed. Nested probing stores are evaluated into a temporary before the checked store. The owned C test compiles the header without `RecompXmm` and checks 16-byte permission, size, alignment, site and bounds. The refactored guarded translation (399 functions / 16,266 instructions) builds as `recomp-post-memory-build-64` (595,242 bytes, SHA-256 `e6a2bbdd…`) and reproduces the same stop at `0x1FCB30` with 268 routines; without the profile it still stops at status 13 with 261 routines. The architect directive's `0x1FB600` is stale; the verified progression is `0x1FB3B0` → `0x1FB400` → `0x1FCA20` → `0x1FCB30`. **There is no playable original screen.**
 
-Validation: recomp memory-access 11/11, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the XMM checkpoint](XMM_MEMORY_SURFACE_CHECKPOINT.md).
+Validation: recomp memory-access 11/11, owned XMM boundary test optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the XMM type-ownership checkpoint](XMM_TYPE_OWNERSHIP_CHECKPOINT.md).
+
+## Prior: checked XMM memory surface
+
+The guard-memory emitter supports checked 16-byte XMM loads/stores and pure SSE arithmetic. This admitted `0x1FA460`; the guarded translation advanced through `0x1FB3B0` (`XMETAL_StartPush`), `0x1FB400` (`FUN_001FB400`) and `0x1FCA20` to `0x1FCB30` with 268 distinct original routines (83/83 initializers, 402 kernel operations). A closure for `0x1FCA20` added 1 function / 24 instructions, producing 399 functions / 16,266 instructions and private module `recomp-post-memory-build-63`.
 
 ## Prior: empty-ring override guarded against changed PUT
 
