@@ -331,6 +331,20 @@ Execution stopped at **`0x200F59`** (return `0x201389`, status 2). The report is
 
 Reads inside the zero range return zero without creating an entry, writes override the range, and out-of-range reads still fault. C, parser and report tests cover the model.
 
+### Execute 0x200F59
+
+Translation `recomp-title-post-memory-23` contains **359 functions / 13,649 instructions**, including `ff_title_00200F59`. Module `recomp-post-memory-build-36` is 484,657 bytes, SHA-256 `91afe5cb2fd8a6a79196e96b2b30b9db4f1a72c7c4bed64dfca569e9fee03d66`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 249 distinct original routines executed and 402 kernel operations completed;
+- `0x00200f59` read `0xFD400100` = `0` and skipped `0x1FDAC0`;
+- it called `0x2000CB` twice; each call read `0xFD400700` = `0` and returned;
+- the `0x20010A` branch was not taken;
+- the aperture retained 5,277 entries / 5,386 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x20107C`** (return `0x1FE2ED`, status 2). The report is `research/verification/post-memory-browser-20261103-19.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x200F59` (291 bytes / 78 instructions) from the retained `recomp-post-memory-next-19` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x20107C` (129 bytes / 33 instructions) from the retained `recomp-post-memory-next-20` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.

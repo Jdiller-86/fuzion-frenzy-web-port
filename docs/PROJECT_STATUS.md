@@ -1,10 +1,14 @@
-# Original execution serves the device table through a zero range and reaches 0x200F59
+# Original execution completes 0x200F59 and reaches 0x20107C
 
-November 3: `0x002000cb` completes; `0x002010fd` serves its device-table reads through an explicit bounded zero range and calls untranslated **`0x200F59`** (return `0x201389`, status 2). All 83 initialization callbacks return; 248 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: `0x00200f59` reads `0xFD400100` = `0`, skips `0x1FDAC0`, calls `0x2000CB` twice, and returns; the caller continues to untranslated **`0x20107C`** (return `0x1FE2ED`, status 2). All 83 initialization callbacks return; 249 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-22` remains 358 functions / 13,571 instructions; module `recomp-post-memory-build-35` was rebuilt with zero-range support and is 481,870 bytes, SHA-256 `bc77a4ce…`. The aperture logged 5,275 entries / 5,377 events. The synthetic profile supplies a 0x1000-byte zero range at `0xFD100200`; reads return zero, writes override the range, and out-of-range reads still fault. The source-owned parser, worker and report expose the range. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-18.json`.
+Selection `recomp-title-post-memory-23` is 359 functions / 13,649 instructions; module `recomp-post-memory-build-36` is 484,657 bytes, SHA-256 `91afe5cb…`. The aperture logged 5,277 entries / 5,386 events. The synthetic profile adds a 0x1000-byte zero range at `0xFD400000`, so the conditional first call and the `0x20010A` branch are not taken. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-19.json`.
 
-A bounded read-only export reports the reached callee `0x200F59` as 291 bytes / 78 instructions with calls to `0x1FDAC0`, `0x2000CB` (twice) and `0x20010A`; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A bounded read-only export reports the reached callee `0x20107C` as 129 bytes / 33 instructions with a call to `0x200143`; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: zero-range device table and 0x200F59
+
+`0x002010fd` served its device-table reads through an explicit 0x1000-byte zero range at `0xFD100200` and called `0x200F59`. Selection `recomp-title-post-memory-22` was 358 functions / 13,571 instructions; module `recomp-post-memory-build-35` was rebuilt with zero-range support and was 481,870 bytes, SHA-256 `bc77a4ce…`. Report `post-memory-browser-20261103-18.json`.
 
 ## Prior: 0x2000cb
 
