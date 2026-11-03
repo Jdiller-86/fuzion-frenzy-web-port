@@ -1,6 +1,6 @@
-# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FB600
+# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FCA20
 
-November 4: the guard-memory emitter now supports checked 16-byte XMM loads/stores and allows pure SSE arithmetic. This admitted `0x1FA460`; the recomposed translation (395 functions / 16,092 instructions) builds and the adopted profile advances past `0x1FB5B0` to `0x1FB600` with **263** distinct original routines (83/83 initializers, 402 kernel operations). Private module `recomp-post-memory-build-61` is 587,595 bytes, SHA-256 `6d64dd23…`. Without the profile it still stops at status 13 with 261 routines. `0x1FB600` is an internal callee merged into `FUN_001FB580`, not yet established as a separate function; that is the next task. **There is no playable original screen.**
+November 4: the guard-memory emitter now supports checked 16-byte XMM loads/stores and allows pure SSE arithmetic. This admitted `0x1FA460`; the recomposed translation (395 functions / 16,092 instructions) built and the adopted profile advanced through `0x1FB3B0` (`XMETAL_StartPush`) and `0x1FB400` (`FUN_001FB400`) to `0x1FCA20` with **267** distinct original routines (83/83 initializers, 402 kernel operations). A closure for `0x1FB400` added 3 functions / 150 instructions, producing 398 functions / 16,242 instructions and private module `recomp-post-memory-build-62` (593,096 bytes, SHA-256 `a9ce85ef…`). Without the profile it still stops at status 13 with 261 routines. `0x1FCA20` is the established small switch helper `FUN_001FCA20`; that is the next export. **There is no playable original screen.**
 
 Validation: recomp memory-access 11/11, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the XMM checkpoint](XMM_MEMORY_SURFACE_CHECKPOINT.md).
 
@@ -8,17 +8,17 @@ Validation: recomp memory-access 11/11, runtime suite 110/110, Python memory-acc
 
 The empty-ring override now checks the current DMA_PUT before serving the base as DMA_GET. `ff_pfifo_channel_should_serve_empty_get` requires a ready/enabled channel, an aligned in-range PUT equal to the channel's current PUT, and that PUT equal to the base. The probe reads the current USER PUT slot; a changed PUT no longer receives the empty-ring value, and the normal fail-closed path applies.
 
-## Prior: 0x1FB5B0 closure and guard-memory blocker
+## Prior: 0x1FB3B0 closure and guard-memory blocker
 
-The adopted empty-ring profile reaches `0x1FB5B0`, a loop body inside `FUN_001FB580`, a D3D device-defaults routine. A bounded read-only closure recovered 29 new functions / 1,518 instructions; an unguarded translation recomposed to 395 functions / 16,092 instructions. The `--guard-memory` recomposition rejected `0x001FA460`, a generic 4×4 matrix multiply over raw `float *` inputs, as an unadmitted raw guest pointer helper. The new translation is not admitted into the guarded build; bypassing the check or substituting a host matrix helper was not done.
+The adopted empty-ring profile reaches `0x1FB3B0`, a loop body inside `FUN_001FB580`, a D3D device-defaults routine. A bounded read-only closure recovered 29 new functions / 1,518 instructions; an unguarded translation recomposed to 395 functions / 16,092 instructions. The `--guard-memory` recomposition rejected `0x001FA460`, a generic 4×4 matrix multiply over raw `float *` inputs, as an unadmitted raw guest pointer helper. The new translation is not admitted into the guarded build; bypassing the check or substituting a host matrix helper was not done.
 
 ## Prior: empty-ring profile adopted
 
-The validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile rather than a compile-time context hack. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` reaches untranslated `0x1FB5B0` (return `0x1FB63D`) with `settings-pfifo.json`, and still stops at status 13 without the profile.
+The validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile rather than a compile-time context hack. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` reaches untranslated `0x1FB3B0` (return `0x1FB4FD`) with `settings-pfifo.json`, and still stops at status 13 without the profile.
 
 ## Prior: empty-ring model passes the wait
 
-`src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at untranslated `0x1FB5B0` (return `0x1FB63D`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. The model does not consume a non-empty ring or execute methods.
+`src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at untranslated `0x1FB3B0` (return `0x1FB4FD`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. The model does not consume a non-empty ring or execute methods.
 
 ## Prior: device-context ring observation
 

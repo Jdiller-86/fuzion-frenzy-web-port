@@ -1,6 +1,8 @@
-# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FB600
+# Checked XMM memory surface admits the matrix helper; execution reaches 0x1FCA20
 
-November 4, 2026. The guard-memory emitter now supports checked 16-byte XMM loads and stores and allows pure SSE arithmetic. This admitted the raw matrix helper at `0x1FA460`; the recomposed translation builds and the adopted profile advances past `0x1FB5B0` to `0x1FB600`, with 263 distinct original routines. The no-profile path still stops at status 13. **There is no playable screen, renderer or device model.**
+November 4, 2026. The guard-memory emitter now supports checked 16-byte XMM loads and stores and allows pure SSE arithmetic. This admitted the raw matrix helper at `0x1FA460`; the recomposed translation built and the adopted profile advanced through `0x1FB3B0` and `0x1FB400` to `0x1FCA20`, with 267 distinct original routines. The no-profile path still stops at status 13. **There is no playable screen, renderer or device model.**
+
+**Address correction.** Earlier notes used `0x1FB5B0` and `0x1FB600`; those were decimal-to-hex slips. The actual stops were `2077616 = 0x1FB3B0` (`XMETAL_StartPush`) and `2077696 = 0x1FB400` (`FUN_001FB400`), with return `0x1FB4FD` and `0x1FBEF5` respectively. The current stop is `2083360 = 0x1FCA20` (`FUN_001FCA20`, a small switch helper) with return `0x1FB76A`.
 
 ## Source-owned change
 
@@ -12,27 +14,29 @@ November 4, 2026. The guard-memory emitter now supports checked 16-byte XMM load
   - allows pure SSE helpers (`XMM_MUL`, `XMM_ADD`, `XMM_SHUFFLE`, etc.) because they do not touch guest memory.
 - `tests/recomp_memory_access_test.py` covers checked XMM loads, checked stores, pure SSE arithmetic and the remaining rejection cases.
 
-## Recompose and run
+## Recompose and runs
 
-- `prepare-title-recomp.py --guard-memory` now succeeds: 395 functions / 16,092 instructions.
-- Private module `recomp-post-memory-build-61`: 587,595 bytes, SHA-256 `6d64dd235f8506975f6dc2b9e5ac110cab8943c974087857883ca66d6942d45a`.
-- With `settings-pfifo.json`: status 2 at `0x1FB600` (return `0x1FBF35`), **263** distinct routines, 83/83 initializers, 402 kernel operations.
+- First guarded recomposition: 395 functions / 16,092 instructions; module `recomp-post-memory-build-61` (587,595 bytes, SHA-256 `6d64dd23…`); profile run status 2 at `0x1FB400` (return `0x1FBEF5`), 263 routines.
+- Closure for `0x1FB400`: 3 functions / 150 instructions; second guarded recomposition: 398 functions / 16,242 instructions.
+- Private module `recomp-post-memory-build-62`: 593,096 bytes, SHA-256 `a9ce85ef6bf409de774de24d6f62d398d6d78cd819b993895dea82229d1ba78f`.
+- With `settings-pfifo.json`: status 2 at `0x1FCA20` (return `0x1FB76A`), **267** distinct routines, 83/83 initializers, 402 kernel operations.
 - Without the profile: status 13 at `0xFD800044`, 261 routines, 402 operations.
 
 ## Interpretation
 
 - The XMM surface is a checked memory admission, not a bypass: the matrix helper's vector loads and stores go through the same guest-memory probe and site accounting as scalar accesses.
-- `0x1FB600` is an internal callee that Ghidra merged into `FUN_001FB580`; it is not established as a separate function, so the translation stops there. The next step is to establish/split `0x1FB600`, export it, and continue.
-- The default source tree still has the prior 366-function translation; build-61 is a private generated module. Builds 60, 58 and 51 remain preserved.
+- `0x1FB3B0` is `XMETAL_StartPush`; `0x1FB400` is `FUN_001FB400`, which builds command words through `XMETAL_StartPush` and calls the shader-constant-mode setter. Neither is a loop body inside `FUN_001FB580`.
+- The next stop, `0x1FCA20`, is an established small switch helper (`FUN_001FCA20`). It can be exported directly; no function split is needed.
+- The default source tree still has the prior 366-function translation; builds 61, 62 and earlier modules are private generated modules. The source-owned XMM surface and tests are published.
 
 ## Limits
 
-No rendering, audio, fidelity or playability is established. The translation and module are private; only the emitter/header/test changes are published. The XMM surface admits 16-byte accesses only and does not model general vector aliasing or device memory.
+No rendering, audio, fidelity or playability is established. The translation and modules are private; only the emitter/header/test changes are published. The XMM surface admits 16-byte accesses only and does not model general vector aliasing or device memory.
 
 ## Validation
 
-`tests/recomp_memory_access_test.py` 11/11; runtime suite 110/110; Python memory-access 10/10; title-seed 25/25; `npm run check` and whitespace checks pass. The build-61 module compiled with `--guard-memory` and ran through the existing worker.
+`tests/recomp_memory_access_test.py` 11/11; runtime suite 110/110; Python memory-access 10/10; title-seed 25/25; `npm run check` and whitespace checks pass. Both modules compiled with `--guard-memory` and ran through the existing worker.
 
 ## Next task
 
-Establish `0x1FB600` as a separate function in the read-only project, export its closure, recompose with `--guard-memory`, build and rerun the adopted profile. Do not bypass guard-memory or claim rendering/fidelity without evidence.
+Export the established `FUN_001FCA20` closure, recompose with `--guard-memory`, build and rerun the adopted profile. Do not bypass guard-memory or claim rendering/fidelity without evidence.
