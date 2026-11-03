@@ -32,52 +32,152 @@ static float difference_of_products(float a, float b, float c, float d, uint32_t
     return difference + residual;
 }
 
-int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
-                            const FFNv2aTriangleState *state,
-                            FFNv2aRasterVertex output[3], uint32_t arithmetic)
+static int invalid_state(const FFNv2aTriangleState *state, uint32_t arithmetic)
 {
-    if (!input || !state || !output || state->smooth > 1 ||
-        state->first_provoking > 1 || state->perspective_depth > 1 || state->rotation > 2 ||
-        arithmetic > FF_NV2A_SEPARATE) {
-        return -1;
-    }
-    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
-    const unsigned *indices = order[state->rotation];
+    return !state || state->smooth > 1 || state->first_provoking > 1 ||
+           state->perspective_depth > 1 || state->rotation > 2 ||
+           arithmetic > FF_NV2A_SEPARATE;
+}
+
+/* Shader calc_triz: shared by the fill, line and point polygon modes. */
+static void calc_triz(const FFNv2aPostVertex input[3], const unsigned indices[3],
+                      uint32_t perspective_depth, uint32_t arithmetic,
+                      float rows[3][4], float *slope)
+{
     const float *a = input[indices[0]].position;
     const float *b = input[indices[1]].position;
     const float *c = input[indices[2]].position;
-    float ux = b[0] - a[0], uy = b[1] - a[1];
-    float vx = c[0] - a[0], vy = c[1] - a[1];
+    const float ux = b[0] - a[0], uy = b[1] - a[1];
+    const float vx = c[0] - a[0], vy = c[1] - a[1];
     float bx, by;
-    if (state->perspective_depth) {
+    if (perspective_depth) {
         bx = (a[3] - b[3]) / (b[3] * a[3]);
         by = (a[3] - c[3]) / (c[3] * a[3]);
     } else {
         bx = b[2] - a[2];
         by = c[2] - a[2];
     }
-    float determinant = difference_of_products(ux, vy, vx, uy, arithmetic);
+    const float determinant = difference_of_products(ux, vy, vx, uy, arithmetic);
     float dx = difference_of_products(bx, vy, by, uy, arithmetic) / determinant;
     float dy = difference_of_products(by, ux, bx, vx, arithmetic) / determinant;
     dx = fabsf(dx);
     dy = fabsf(dy);
-    float slope = dx < dy ? dy : dx;
-    if (!isfinite(slope)) slope = 0.0f;
+    float result = dx < dy ? dy : dx;
+    if (!isfinite(result)) result = 0.0f;
+    memcpy(rows[0], a, sizeof(rows[0]));
+    memcpy(rows[1], b, sizeof(rows[1]));
+    memcpy(rows[2], c, sizeof(rows[2]));
+    *slope = result;
+}
+
+/* Shader emit_vertex with a caller-supplied position row set. */
+static void emit_vertex(const FFNv2aPostVertex input[3], unsigned index,
+                        unsigned color_index, const float rows[3][4],
+                        float depth_slope, FFNv2aRasterVertex *output)
+{
+    memcpy(output->clip, input[index].clip, sizeof(output->clip));
+    output->point_size = input[index].point_size;
+    memcpy(output->color, input[color_index].color, sizeof(output->color));
+    output->fog = input[index].fog;
+    memcpy(output->texcoord, input[index].texcoord, sizeof(output->texcoord));
+    for (unsigned j = 0; j < 3; ++j) {
+        memcpy(output->triangle_position[j], rows[j], sizeof(output->triangle_position[j]));
+    }
+    output->depth_slope = depth_slope;
+}
+
+/* Shader emit_line for polygon LINE modes: two vertices sharing the rotated
+ * interpolation helper row and the triangle's depth slope. */
+static void emit_line(const FFNv2aPostVertex input[3], unsigned i0, unsigned i1,
+                      unsigned flat_color, uint32_t smooth, float depth_slope,
+                      FFNv2aRasterVertex *output)
+{
+    const float *v0 = input[i0].position;
+    const float *v1 = input[i1].position;
+    const float delta_x = v1[0] - v0[0];
+    const float delta_y = v1[1] - v0[1];
+    const float rotated[4] = { -delta_y + v0[0], delta_x + v0[1], v0[2], v0[3] };
+    float rows[3][4];
+    memcpy(rows[0], v0, sizeof(rows[0]));
+    memcpy(rows[1], v1, sizeof(rows[1]));
+    memcpy(rows[2], rotated, sizeof(rows[2]));
+    const unsigned indices[2] = { i0, i1 };
+    for (unsigned i = 0; i < 2; ++i) {
+        const unsigned index = indices[i];
+        emit_vertex(input, index, smooth ? index : flat_color, rows,
+                    depth_slope, &output[i]);
+    }
+}
+
+int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
+                            const FFNv2aTriangleState *state,
+                            FFNv2aRasterVertex output[3], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    float rows[3][4], slope;
+    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
 
     FFNv2aRasterVertex expanded[3];
     for (unsigned i = 0; i < 3; ++i) {
-        unsigned index = indices[i];
-        unsigned color_index = state->smooth ? index : indices[state->first_provoking ? 0 : 2];
-        memcpy(expanded[i].clip, input[index].clip, sizeof(expanded[i].clip));
-        expanded[i].point_size = input[index].point_size;
-        memcpy(expanded[i].color, input[color_index].color, sizeof(expanded[i].color));
-        expanded[i].fog = input[index].fog;
-        memcpy(expanded[i].texcoord, input[index].texcoord, sizeof(expanded[i].texcoord));
-        for (unsigned j = 0; j < 3; ++j) {
-            memcpy(expanded[i].triangle_position[j], input[indices[j]].position,
-                   sizeof(expanded[i].triangle_position[j]));
-        }
-        expanded[i].depth_slope = slope;
+        const unsigned index = indices[i];
+        emit_vertex(input, index, state->smooth ? index : flat_color,
+                    (const float (*)[4])rows, slope, &expanded[i]);
+    }
+    memcpy(output, expanded, sizeof(expanded));
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
+                                  const FFNv2aTriangleState *state,
+                                  FFNv2aRasterVertex output[6], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    float rows[3][4], slope;
+    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
+
+    FFNv2aRasterVertex expanded[6];
+    static const unsigned edges[3][2] = { {0, 1}, {1, 2}, {2, 0} };
+    for (unsigned i = 0; i < 3; ++i) {
+        emit_line(input, indices[edges[i][0]], indices[edges[i][1]], flat_color,
+                  state->smooth, slope, &expanded[i * 2]);
+    }
+    memcpy(output, expanded, sizeof(expanded));
+    return 0;
+}
+
+int ff_nv2a_expand_triangle_points(const FFNv2aPostVertex input[3],
+                                   const FFNv2aTriangleState *state,
+                                   FFNv2aRasterVertex output[3], uint32_t arithmetic)
+{
+    if (!input || !output || invalid_state(state, arithmetic)) {
+        return -1;
+    }
+    static const unsigned order[3][3] = { {0, 1, 2}, {2, 0, 1}, {1, 2, 0} };
+    const unsigned *indices = order[state->rotation];
+    float rows[3][4], slope;
+    calc_triz(input, indices, state->perspective_depth, arithmetic, rows, &slope);
+    const unsigned flat_color = state->first_provoking ? indices[0] : indices[2];
+
+    FFNv2aRasterVertex expanded[3];
+    for (unsigned i = 0; i < 3; ++i) {
+        const unsigned index = indices[i];
+        const float point_rows[3][4] = {
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+            { rows[i][0], rows[i][1], rows[i][2], rows[i][3] },
+        };
+        emit_vertex(input, index, state->smooth ? index : flat_color, point_rows,
+                    slope, &expanded[i]);
     }
     memcpy(output, expanded, sizeof(expanded));
     return 0;

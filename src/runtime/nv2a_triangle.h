@@ -49,6 +49,26 @@ int ff_nv2a_expand_triangle(const FFNv2aPostVertex input[3],
                             const FFNv2aTriangleState *state,
                             FFNv2aRasterVertex output[3], uint32_t arithmetic);
 
+/* Polygon LINE mode: three line primitives (0-1, 1-2, 2-0 in the selected
+ * rotation) sharing the triangle's depth slope. Emits six raster vertices in
+ * that order, each line carrying the shader's rotated helper row. Flat color
+ * uses the triangle's provoking index, smooth color follows each input.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_lines(const FFNv2aPostVertex input[3],
+                                  const FFNv2aTriangleState *state,
+                                  FFNv2aRasterVertex output[6], uint32_t arithmetic);
+
+/* Polygon POINT mode: one point per rotated triangle vertex, each repeating its
+ * position row three times and carrying the triangle's depth slope.
+ * Returns 0 on success, -1 for null pointers/invalid state/profile without
+ * writing output.
+ */
+int ff_nv2a_expand_triangle_points(const FFNv2aPostVertex input[3],
+                                   const FFNv2aTriangleState *state,
+                                   FFNv2aRasterVertex output[3], uint32_t arithmetic);
+
 #ifdef __cplusplus
 }
 #endif
