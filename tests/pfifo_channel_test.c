@@ -25,10 +25,17 @@ int main(void)
     assert(ff_pfifo_channel_set_put(&channel, 0x03B7D400u) == 0);
     assert(!ff_pfifo_channel_empty(&channel));
     assert(ff_pfifo_channel_read_get(&channel) == 0x03B7D000u);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03B7D000u) == 0);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03B7D400u) == 0);
 
     assert(ff_pfifo_channel_set_put(&channel, 0x03B7D000u) == 0);
     assert(ff_pfifo_channel_empty(&channel));
     assert(ff_pfifo_channel_read_get(&channel) == 0x03B7D000u);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03B7D000u) == 1);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03B7D002u) == 0);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03B7CFFCu) == 0);
+    assert(ff_pfifo_channel_should_serve_empty_get(&channel, 0x03C00000u) == 0);
+    assert(ff_pfifo_channel_should_serve_empty_get(NULL, 0x03B7D000u) == 0);
 
     ff_pfifo_channel_init(&channel);
     assert(ff_pfifo_channel_configure(&channel, 0x1000u, 0x2000u) == 0);

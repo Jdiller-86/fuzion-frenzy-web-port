@@ -325,8 +325,11 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
         int pfifo_served = 0;
 #ifdef FF_PFIFO_PROOF
         if (pfifo_profile_ready && access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
-            uint32_t *get = ff_device_registers_slot(&device_registers, address);
-            if (get) { *get = ff_pfifo_channel_read_get(&pfifo_profile_channel); pfifo_served = 1; }
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            if (put && ff_pfifo_channel_should_serve_empty_get(&pfifo_profile_channel, *put)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) { *get = ff_pfifo_channel_read_get(&pfifo_profile_channel); pfifo_served = 1; }
+            }
         }
 #endif
 #ifdef FF_PFIFO_EMPTY_RING_PROBE

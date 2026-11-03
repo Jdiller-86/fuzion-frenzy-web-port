@@ -23,4 +23,7 @@ uint32_t ff_pfifo_channel_set_put(ff_pfifo_channel *, uint32_t put);
 uint32_t ff_pfifo_channel_set_get(ff_pfifo_channel *, uint32_t get);
 uint32_t ff_pfifo_channel_read_get(const ff_pfifo_channel *);
 uint32_t ff_pfifo_channel_empty(const ff_pfifo_channel *);
+/* True only when a ready, enabled channel is still empty at the supplied PUT.
+ * Does not mutate state and rejects a changed, unaligned or out-of-range PUT. */
+uint32_t ff_pfifo_channel_should_serve_empty_get(const ff_pfifo_channel *, uint32_t put);
 #endif
