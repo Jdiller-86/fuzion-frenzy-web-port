@@ -97,14 +97,14 @@ try {
         $parsedFallback = [DateTimeOffset]::MinValue
         if ([DateTimeOffset]::TryParse([string]$previous.fallbackUntil, [ref]$parsedFallback)) { $fallbackUntil = $parsedFallback }
     }
-    $preferredModel = if ($fallbackUntil -gt [DateTimeOffset]::Now) { $freeModel } else { $goModel }
+    $preferredModel = if ($Lane -eq 'geometry') { $freeModel } elseif ($fallbackUntil -gt [DateTimeOffset]::Now) { $freeModel } else { $goModel }
     $state.model = $preferredModel
-    if ($fallbackUntil -gt [DateTimeOffset]::Now) { $state.fallbackUntil = $fallbackUntil.ToString('o') }
+    if ($Lane -eq 'primary' -and $fallbackUntil -gt [DateTimeOffset]::Now) { $state.fallbackUntil = $fallbackUntil.ToString('o') }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     if ($Lane -eq 'geometry' -and $dirty -and $sessionId) {
-        $prompt = 'Continue the unfinished source-owned NV2A geometry milestone in this same geometry session. Inspect the diff and last result, complete one bounded component task, targeted checks, status updates, source-only staged-path review and commit. Work only on src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not edit original-startup, memory, FATX, device, or main project status files. Do not access private game/research inputs. Never push or merge to main.'
+        $prompt = 'Continue the unfinished source-owned NV2A geometry milestone in this same geometry session using only opencode/deepseek-v4.1-flash-free. Inspect the diff and last result, complete one bounded component task, targeted checks, status updates, source-only staged-path review and commit. Work only on src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not edit original-startup, memory, FATX, device, or main project status files. Do not delegate to paid or other-model agents. Record a material correctness blocker for the primary lane instead. Do not access private game/research inputs. Never push or merge to main.'
     } elseif ($Lane -eq 'geometry') {
-        $prompt = 'Work in the dedicated geometry worktree on one bounded source-owned NV2A geometry component task. Read AGENTS.md, docs/OPENCODE_WORKFLOW.md, docs/NV2A_GEOMETRY_CHECKPOINT.md and docs/OPENCODE_GOAL.md. Own only src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md. The primary lane owns original startup, device, memory, FATX, broad status and route decisions; do not edit those files or duplicate its work. Use source-owned fixtures and targeted checks; never access ignored game/research inputs or claim original rendering from a component fixture. Ask GLM for one bounded correctness review when needed and Sol only under the existing escalation rules. Review staged source-only paths and commit one verified result on codex/opencode-geometry. Never push or merge to main.'
+        $prompt = 'Work in the dedicated geometry worktree using only opencode/deepseek-v4.1-flash-free on one bounded source-owned NV2A geometry component task. Read AGENTS.md, docs/OPENCODE_WORKFLOW.md, docs/NV2A_GEOMETRY_CHECKPOINT.md and docs/OPENCODE_GOAL.md. Own only src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md. The primary lane owns original startup, device, memory, FATX, broad status and route decisions; do not edit those files or duplicate its work. Use source-owned fixtures and targeted checks; never access ignored game/research inputs or claim original rendering from a component fixture. Do not delegate to paid or other-model agents. Record a material correctness blocker for the primary lane instead. Review staged source-only paths and commit one verified result on codex/opencode-geometry. Never push or merge to main.'
         if ($dirty) { $prompt += ' Preserve and finish existing worktree edits before selecting another task.' }
     } elseif ($dirty -and $sessionId) {
         $prompt = 'Continue the unfinished Fuzion Frenzy milestone in this same project session. Inspect the current diff and the previous cycle result, then complete the pending implementation, targeted checks, status/decision updates, source-only staged-path review and bounded commit. Preserve all worktree edits. Do not restart discovery or switch tasks unless the current task is demonstrably blocked. Never push or merge to main.'
@@ -113,7 +113,11 @@ try {
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
-    $prompt += ' If a provider allowance is exhausted, preserve edits and resume with the free fallback selected by this runner. Do not use paid Console balance. If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.'
+    if ($Lane -eq 'geometry') {
+        $prompt += ' If the free model is unavailable, preserve edits and retry at the next scheduled geometry cycle; do not change providers or consume Go or Codex allowance.'
+    } else {
+        $prompt += ' If a provider allowance is exhausted, preserve edits and resume with the free fallback selected by this runner. Do not use paid Console balance. If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.'
+    }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
     if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
     $output = @()
@@ -129,7 +133,7 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
-                $candidates = if ($preferredModel -eq $goModel) { @($goModel, $freeModel, $freeBackup) } else { @($freeModel, $freeBackup) }
+                $candidates = if ($Lane -eq 'geometry') { @($freeModel) } elseif ($preferredModel -eq $goModel) { @($goModel, $freeModel, $freeBackup) } else { @($freeModel, $freeBackup) }
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
                     $runPrompt = if ($candidate -eq $preferredModel) { $prompt } else { 'Resume the same bounded task after a model allowance/availability failure. Inspect current worktree changes and the prior session state before acting; do not repeat completed work. ' + $prompt }

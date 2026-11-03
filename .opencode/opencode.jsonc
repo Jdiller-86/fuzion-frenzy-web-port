@@ -1,13 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode-go/deepseek-v4.1-flash",
+  "model": "opencode/deepseek-v4.1-flash-free",
   "default_agent": "builder",
+  "subagent_depth": 0,
   "policies": [
     { "action": "tool.use", "resource": "subagent:*", "effect": "deny" },
-    { "action": "tool.use", "resource": "subagent:builder", "effect": "allow" },
-    { "action": "tool.use", "resource": "subagent:scout", "effect": "allow" },
-    { "action": "tool.use", "resource": "subagent:reviewer", "effect": "allow" },
-    { "action": "tool.use", "resource": "subagent:architect", "effect": "allow" },
     { "action": "tool.use", "resource": "read:*.env", "effect": "deny" },
     { "action": "tool.use", "resource": "read:*.env.*", "effect": "deny" },
     { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
@@ -20,7 +17,7 @@
     "builder": {
       "description": "Everyday coding and bounded task coordination using OpenCode Go DeepSeek Flash.",
       "mode": "all",
-      "model": "opencode-go/deepseek-v4.1-flash",
+      "model": "opencode/deepseek-v4.1-flash-free",
       "steps": 48,
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
@@ -31,10 +28,7 @@
         { "action": "edit", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "ask" },
         { "action": "rea_*", "resource": "*", "effect": "deny" },
-        { "action": "subagent", "resource": "*", "effect": "deny" },
-        { "action": "subagent", "resource": "scout", "effect": "allow" },
-        { "action": "subagent", "resource": "reviewer", "effect": "allow" },
-        { "action": "subagent", "resource": "architect", "effect": "allow" }
+        { "action": "subagent", "resource": "*", "effect": "deny" }
       ]
     },
     "scout": {
