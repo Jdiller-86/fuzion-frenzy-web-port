@@ -1,8 +1,12 @@
-# Empty-ring initialization passes the PFIFO wait; execution reaches 0x1FB5B0
+# Empty-ring profile adopted; default build reaches 0x1FB5B0 with the profile and stays fail-closed without it
 
-November 4: a bounded empty-ring channel model was implemented and tested. `src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at an untranslated original routine `0x1FB5B0` (return `0x1FB63D`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This is the first observed original-code progress past the wait. The model does not consume a non-empty ring or execute methods; the next dependency is `0x1FB5B0`. The default build remains fail-closed at status 13 until the model is reviewed and adopted. **There is no playable original screen.**
+November 4: the validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile rather than a compile-time context hack. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` (527,379 bytes, SHA-256 `6b4ddf6f…`) reaches untranslated `0x1FB5B0` (return `0x1FB63D`) with `settings-pfifo.json`, and still stops at status 13 without the profile. Both runs complete 83/83 initializers and 402 kernel operations; the profile run executes 262 distinct routines. The settings profile bound is 8 KB. The next dependency is `0x1FB5B0`. **There is no playable original screen.**
 
-Validation: pfifo-channel optimized/ASan/UBSan, private diagnostic run, and a byte-identical control build (`cd0bf176…`, 526,955 bytes); runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the empty-ring checkpoint](PFIFO_EMPTY_RING_CHECKPOINT.md).
+Validation: startup-proof 40/40, runtime suite 109/109, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the adoption checkpoint](PFIFO_PROFILE_ADOPTION_CHECKPOINT.md).
+
+## Prior: empty-ring model passes the wait
+
+`src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at untranslated `0x1FB5B0` (return `0x1FB63D`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. The model does not consume a non-empty ring or execute methods.
 
 ## Prior: device-context ring observation
 

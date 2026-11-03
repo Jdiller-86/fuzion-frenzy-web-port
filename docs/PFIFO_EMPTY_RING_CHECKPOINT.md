@@ -1,5 +1,7 @@
 # Empty-ring initialization passes the PFIFO wait; execution reaches 0x1FB5B0
 
+**Later evidence (November 4):** [the adoption checkpoint](PFIFO_PROFILE_ADOPTION_CHECKPOINT.md) makes the model an explicit profile-driven default. Build `recomp-post-memory-build-58` reaches `0x1FB5B0` with the profile and stays fail-closed without it.
+
 November 4, 2026. A bounded empty-ring channel model was implemented and tested. With the observed ring profile (base `0x03B7D000`, end `0x03BFD000`, PUT at the base), the model initializes GET to the base when the channel is enabled with an empty ring. In the diagnostic build this satisfied the original wait at `0xFD800044`: the startup advanced past the PFIFO boundary and stopped at an untranslated original routine at `0x1FB5B0`. This is the first observed original-code progress past the wait. **There is no playable screen, renderer or device model.**
 
 ## Source-owned change

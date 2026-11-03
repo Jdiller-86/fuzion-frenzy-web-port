@@ -60,7 +60,7 @@ run.onclick = async () => {
     if (moduleFile.size > 4 * 1024 * 1024 || xbeFile.size > 16 * 1024 * 1024) throw new Error('A selected file exceeds this bounded proof');
     const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
     const settingsFile = settingsInput.files[0];
-    if (settingsFile && settingsFile.size > 4096) throw new Error('A settings profile exceeds this bounded proof');
+    if (settingsFile && settingsFile.size > 8192) throw new Error('A settings profile exceeds this bounded proof');
     const settingsBytes = settingsFile ? await settingsFile.arrayBuffer() : undefined;
     if (generation !== current) return;
     worker = new Worker('/src/runtime/thread-proof-worker.mjs', { type: 'module' });

@@ -14,7 +14,7 @@ const sha256 = async buffer => [...new Uint8Array(await crypto.subtle.digest('SH
   .map(n => n.toString(16).padStart(2, '0')).join('');
 
 export function parseLocalConsoleSettings(buffer) {
-  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > 4096) throw new Error('Invalid local settings profile size');
+  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > 8192) throw new Error('Invalid local settings profile size');
   const profile = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer));
   if (profile?.kind !== 'local-console-settings' || profile.synthetic !== true ||
       !Number.isInteger(profile.miscFlags) || profile.miscFlags < 0 || profile.miscFlags > 0xffffffff) {
@@ -191,6 +191,21 @@ export function parseLocalMemoryProfile(buffer) {
   }
   return {kind:memory.kind,synthetic:true,physicalPages:memory.physicalPages,baselinePoolPages:memory.baselinePoolPages,
     fixedArena:memory.fixedArena};
+}
+
+export function parseLocalPfifoProfile(buffer) {
+  if (!buffer) return undefined;
+  const root = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer));
+  const pfifo = root.pfifo;
+  if (!pfifo) return undefined;
+  const u32 = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value >>> 0 : null;
+  const base = u32(pfifo.base), end = u32(pfifo.end), put = u32(pfifo.put);
+  if (pfifo.kind !== 'local-pfifo-profile' || pfifo.synthetic !== true ||
+      base === null || end === null || put === null || (base & 3) || (end & 3) || (put & 3) ||
+      end <= base || put !== base) {
+    throw new Error('Select an explicit synthetic empty PFIFO ring profile');
+  }
+  return { kind: pfifo.kind, synthetic: true, base, end, put };
 }
 
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {

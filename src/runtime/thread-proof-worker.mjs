@@ -1,4 +1,4 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
@@ -53,6 +53,12 @@ self.onmessage = async event => {
           throw new Error('The private module cannot seed the explicit zero range');
         }
       }
+    }
+    let pfifoProfile;
+    if (typeof api.ff_probe_pfifo_profile === 'function') {
+      pfifoProfile = parseLocalPfifoProfile(event.data.settingsBytes);
+      if (pfifoProfile && api.ff_probe_pfifo_profile(pfifoProfile.base, pfifoProfile.end, pfifoProfile.put))
+        throw new Error('Cannot admit the explicit synthetic empty PFIFO ring profile');
     }
     if(statisticsAbi) {
       memoryProfile=parseLocalMemoryProfile(event.data.settingsBytes);
@@ -939,7 +945,7 @@ self.onmessage = async event => {
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
