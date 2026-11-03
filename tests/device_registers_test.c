@@ -21,7 +21,14 @@ static void known_values_and_unknown_reads(void)
     assert(ff_device_registers_contains(&device, 0xFD7FFFFCu, 4) == 0);
     assert(ff_device_registers_contains(&device, 0xFD800000u, 4) == FF_BOOT_UNSUPPORTED);
     assert(ff_device_registers_contains(&device, 0xFD000002u, 4) == FF_BOOT_UNSUPPORTED);
-    assert(ff_device_registers_contains(&device, 0xFD000000u, 2) == FF_BOOT_UNSUPPORTED);
+    assert(ff_device_registers_contains(&device, 0xFD000000u, 1) == 0);
+    assert(ff_device_registers_contains(&device, 0xFD000003u, 1) == 0);
+    assert(ff_device_registers_contains(&device, 0xFD000000u, 2) == 0);
+    assert(ff_device_registers_contains(&device, 0xFD000002u, 2) == 0);
+    assert(ff_device_registers_contains(&device, 0xFD000003u, 2) == FF_BOOT_UNSUPPORTED);
+    assert(ff_device_registers_contains(&device, 0xFD000000u, 3) == FF_BOOT_UNSUPPORTED);
+    assert(ff_device_registers_contains(&device, 0xFD7FFFFFu, 1) == 0);
+    assert(ff_device_registers_contains(&device, 0xFD800000u, 1) == FF_BOOT_UNSUPPORTED);
     assert(ff_device_registers_touch(&device, 0xFD001804u, FF_DEVICE_READ, 0x1FE05Au, &value) == 0 && value == 0x10);
     value = 0x14;
     assert(ff_device_registers_touch(&device, 0xFD001804u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
@@ -92,6 +99,35 @@ static void read_modify_write_records_both_halves(void)
     /* An unknown read half fails before a write is staged or an event added. */
     save();
     assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READWRITE, 0x00100010u) == NULL);
+    unchanged();
+}
+
+static void sub_dword_reads_use_the_containing_register(void)
+{
+    reset();
+    uint32_t value = 0x11223344u;
+    assert(ff_device_registers_touch(&device, 0xFD001804u, FF_DEVICE_WRITE, 0x00100020u, &value) == 0);
+    uint32_t before_events = device.event_count;
+    uint8_t *byte = (uint8_t *)ff_device_registers_access_width(
+        &device, 0xFD001805u, 1, FF_DEVICE_ACCESS_READ, 0x00100020u);
+    assert(byte && *byte == 0x33);
+    assert(device.event_count == before_events + 1);
+    assert(device.events[before_events].address == 0xFD001805u);
+    assert(device.events[before_events].direction == FF_DEVICE_READ);
+    assert(device.events[before_events].value == 0x33);
+    assert(device.events[before_events].before_known == 1);
+    uint16_t *half = (uint16_t *)ff_device_registers_access_width(
+        &device, 0xFD001806u, 2, FF_DEVICE_ACCESS_READ, 0x00100020u);
+    assert(half && *half == 0x1122);
+    assert(device.event_count == before_events + 2);
+    assert(device.events[before_events + 1].value == 0x1122);
+    assert(device.entries[0].reads == 2);
+    save();
+    assert(ff_device_registers_access_width(&device, 0xFD001805u, 1, FF_DEVICE_ACCESS_WRITE, 0x00100020u) == NULL);
+    unchanged();
+    assert(ff_device_registers_access_width(&device, 0xFD009241u, 1, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
+    unchanged();
+    assert(ff_device_registers_access_width(&device, 0xFD001805u, 3, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
     unchanged();
 }
 
@@ -181,7 +217,8 @@ static void initial_registers_are_explicit_and_bounded(void)
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
-    read_modify_write_records_both_halves(); access_masks_sites_and_widths_fail_closed();
+    read_modify_write_records_both_halves(); sub_dword_reads_use_the_containing_register();
+    access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities and atomicity passed");
     return 0;

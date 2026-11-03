@@ -75,9 +75,13 @@ uint32_t ff_device_registers_add_initial(ff_device_registers *device, uint32_t a
 
 uint32_t ff_device_registers_contains(const ff_device_registers *device, uint32_t address, uint32_t bytes)
 {
-    if (!device || !device->ready || bytes != 4u || (address & 3u)) return FF_BOOT_UNSUPPORTED;
-    uint64_t end = (uint64_t)address + 4u;
+    if (!device || !device->ready || (bytes != 1u && bytes != 2u && bytes != 4u))
+        return FF_BOOT_UNSUPPORTED;
+    uint64_t end = (uint64_t)address + bytes;
     if (address < device->base || end > (uint64_t)device->base + device->bytes) return FF_BOOT_UNSUPPORTED;
+    if (bytes == 4u && (address & 3u)) return FF_BOOT_UNSUPPORTED;
+    /* A sub-dword access must stay inside one dword register. */
+    if (bytes == 2u && (address & 3u) > 2u) return FF_BOOT_UNSUPPORTED;
     return 0;
 }
 
@@ -138,4 +142,25 @@ uint32_t *ff_device_registers_access(ff_device_registers *device, uint32_t addre
         return stage;
     }
     return NULL;
+}
+
+uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t address, uint32_t bytes,
+                                           uint32_t access, uint32_t site)
+{
+    if (!device || !site || (bytes != 1u && bytes != 2u && bytes != 4u)) return NULL;
+    if (bytes == 4u) return ff_device_registers_access(device, address, access, site);
+    /* Only reads are modeled below dword width. No original sub-dword write has
+     * been observed, and the staged-write path records a dword value. */
+    if (access != FF_DEVICE_ACCESS_READ) return NULL;
+    if (ff_device_registers_contains(device, address, bytes) ||
+        ff_device_registers_commit(device)) return NULL;
+    ff_device_entry *entry = find(device, address & ~3u);
+    if (!entry || !entry->known || device->event_count >= FF_DEVICE_EVENTS) return NULL;
+    uint32_t shift = (address & 3u) * 8u;
+    uint32_t mask = bytes == 1u ? 0xFFu : 0xFFFFu;
+    uint32_t value = (entry->value >> shift) & mask;
+    device->events[device->event_count++] =
+        (ff_device_event){address, site, FF_DEVICE_READ, value, entry->known};
+    ++entry->reads;
+    return (uint32_t *)((uint8_t *)&entry->value + (address & 3u));
 }

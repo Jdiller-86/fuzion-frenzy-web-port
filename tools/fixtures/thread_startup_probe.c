@@ -268,7 +268,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
         uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
                                : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
                                : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
-        uint32_t *slot = device_access ? ff_device_registers_access(&device_registers, address, device_access, site) : NULL;
+        uint32_t *slot = device_access ? ff_device_registers_access_width(&device_registers, address, (uint32_t)bytes, device_access, site) : NULL;
         if (!slot) stop(10, address, access);
         ++vm_access_count;
         return slot;

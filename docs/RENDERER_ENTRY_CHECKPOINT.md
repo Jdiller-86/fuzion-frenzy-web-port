@@ -126,6 +126,23 @@ In the browser worker:
 
 Execution stopped at **`0x1FFCC0`** (return `0x1FE0E7`, status 2). The report is `research/verification/post-memory-browser-20261103-03.json` (local/ignored). There is no playable screen.
 
+### Execute 0x1FFCC0
+
+Using the retained 24-seed selection plus `recomp-post-memory-next-07/seed.json`, translation `recomp-title-post-memory-11` contains **347 functions / 13,113 instructions**, including `ff_title_001FFCC0`. Module `recomp-post-memory-build-23` is 464,158 bytes, SHA-256 `76eab6bd21c7656cad623f9f50fd8d702544d3755a6a74488132e50511a2c29d`.
+
+The explicit synthetic profile also supplied zero for `0xFD000200`, `0xFD000140`, `0xFD680500`, `0xFD680504` and `0xFD680508`; these are test inputs, not console defaults. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 237 distinct original routines executed and 399 kernel operations completed;
+- `0x001ffcc0` executed to completion and returned to `0x001fe0c6`;
+- `0x001fe0c6` continued and called untranslated `0x001ffe27`;
+- the aperture logged 25 events across 16 addresses, including sub-dword reads at `0xFD680505`/`0xFD680509`/`0xFD680501` and stores `0xFD009200` = `0`, `0xFD009210` = `1`, `0xFD009420` = `0xFFFFFFFF`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x1FFE27`** (return `0x1FE199`, status 2). The report is `research/verification/post-memory-browser-20261103-05.json` (local/ignored). There is no playable screen.
+
+The byte reads required a source-owned aperture extension: 1/2/4-byte reads inside the window now map into the containing dword, while sub-dword writes fail closed. Device-register tests pass optimized and ASan/UBSan.
+
 ## Next task
 
-Admit and translate `0x1FFCC0` from the retained bounded read-only export (`recomp-post-memory-next-07`: 359 bytes / 116 instructions, no direct calls), then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x1FFE27` from the retained bounded read-only export (`recomp-post-memory-next-08`: 254 bytes / 72 instructions, one kernel-import call and one direct call to `0x1FDF70`), then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic writes. The captured line/quad reference comparison and browser prepass also remain private.
