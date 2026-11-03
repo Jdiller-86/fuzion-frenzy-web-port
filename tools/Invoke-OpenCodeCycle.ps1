@@ -40,7 +40,17 @@ try {
 
     if (Test-Path -LiteralPath $statePath) {
         $previous = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-        if ($previous.attemptedHead -eq $head -and $previous.outcome -ne 'progressed') {
+        # A run that was killed (machine sleep, crash, forced stop) leaves
+        # outcome=running. Treat an old running record as recoverable so the
+        # loop does not stay wedged forever; a recent one still blocks.
+        $staleRunning = $false
+        if ($previous.outcome -eq 'running') {
+            try { $staleRunning = ((Get-Date) - [datetime]::Parse($previous.started)).TotalMinutes -ge 45 }
+            catch { $staleRunning = $true }
+        }
+        if ($staleRunning) {
+            Write-Output 'Recovered: stale running record from an interrupted attempt.'
+        } elseif ($previous.attemptedHead -eq $head -and $previous.outcome -ne 'progressed') {
             Write-Output 'Paused: no new commit or input since the last attempt.'
             return
         }
