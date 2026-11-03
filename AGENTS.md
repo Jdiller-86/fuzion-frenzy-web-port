@@ -1,6 +1,6 @@
 # Project instructions
 
-Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.md`, and the relevant part of `DEVELOPMENT_PLAN.md`. This repository's primary implementation model is **GPT-6.1 Terra** (`gpt-6.1-terra`). Keep work reviewable in bounded tasks with explicit acceptance criteria. Do not silently change the selected model or global Codex settings.
+Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.md`, and the relevant part of `DEVELOPMENT_PLAN.md`. In OpenCode, the project default is **OpenCode Go DeepSeek V4.1 Flash** (`opencode-go/deepseek-v4.1-flash`); manually select **GPT-6.1 Sol** (`openai/gpt-6.1-sol`) through the linked ChatGPT/Codex account for architecture and difficult decisions. Local Qwen and OpenCode Go GLM 5.3 are bounded subagents. Read `docs/OPENCODE_WORKFLOW.md` before using this routing. Existing Codex sessions retain their selected model and project-local `.codex/config.toml`; do not silently change global settings or an active session's model. Keep work reviewable in bounded tasks with explicit acceptance criteria.
 
 ## Current stage and goal
 
@@ -74,4 +74,4 @@ Use the reverse-engineer-anything skill for shipped artifact/native evidence. Se
 
 ## Collaboration
 
-Terra is the primary executor; no standing instruction requires multiple agents. Use delegation only when the current user request or an applicable skill explicitly calls for it. Do not create extra user chats for internal work. Preserve in-flight user changes and keep task status current across sessions.
+The OpenCode builder may delegate narrow read-only exploration to local Qwen and independent correctness review to OpenCode Go GLM 5.3. Sol is a manually selected primary architect and must never be launched automatically as a subagent; when selected, it may hand bounded implementation to DeepSeek. Delegation remains optional and task-scoped. Do not create extra user chats for internal work. Preserve in-flight user changes and keep task status current across sessions.

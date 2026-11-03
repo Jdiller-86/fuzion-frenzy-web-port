@@ -12,7 +12,7 @@ The `private` flag in `package.json` prevents npm-package publication; it does n
 
 **Historical artifact: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). Earlier approximate partial-pack acceptance was superseded by the exact-original browser requirement. Mobile touch support remains later work.
 
-Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The [OpenCode workflow](docs/OPENCODE_WORKFLOW.md) defines the project model routing and source-only worktree. The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
 Players will supply their own compatible game files for local browser conversion. No ROMs or original assets are hosted, uploaded, or shared between players. An experimental local conversion proof exists; it supports only the specific verified reference build and is not a finished importer. See [player-supplied content](docs/PLAYER_SUPPLIED_CONTENT.md) and the [scope/fidelity baseline](docs/SCOPE_AND_FIDELITY.md). The visual goal is to mirror or reuse locally imported originals with optional modernization, while preserving original game feel.
 

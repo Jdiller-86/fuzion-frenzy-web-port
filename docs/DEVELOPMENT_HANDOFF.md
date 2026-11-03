@@ -1,5 +1,7 @@
 # Continue from mounted Z: and the original memory-statistics request
 
+OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md). This changes development coordination, not the runtime checkpoint below. Do not overwrite the in-progress memory-statistics work.
+
 Read [the current utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
 Original code now opens its formatted FATX root, queries allocation size, closes the root handle and creates `Z:` for partition 5. `XMountUtilityDrive` returns one, with stack/FS/exception head restored. Both explicit synthetic profiles complete 83 initialization callbacks, execute 227 routines and complete 392 kernel operations across 3,622 events. Cache mount/device/root identities are separate from userdata and the retired RAW attachment. Mounted geometry is derived from actual backing: four-byte FAT entries, 266,240 table bytes, data offset 270,336, 65,519 usable / 65,518 free clusters. General FATX file operations/remount/persistence remain unsupported.
