@@ -130,6 +130,23 @@ function pfifoState(entries, userPut, userGet, aliases = []) {
   };
 }
 
+// Read-only view of the observed RAMIN aperture as a candidate command range.
+function raminScan(entries) {
+  const rows = (entries || []).filter(entry => entry.address >= RAMIN_BASE && entry.address < RAMIN_BASE + 0x5000);
+  if (!rows.length) return { available: false, reason: 'no observed RAMIN aperture entries' };
+  const buffer = new ArrayBuffer(0x5000);
+  const view = new DataView(buffer);
+  for (const entry of rows) view.setUint32(entry.address - RAMIN_BASE, entry.value >>> 0, true);
+  return {
+    available: true,
+    base: RAMIN_BASE,
+    bytes: 0x5000,
+    entries: rows.length,
+    nonzero: rows.filter(entry => entry.value).length,
+    scan: scanPushbuffer(view, 0, 0x5000),
+  };
+}
+
 function submissionSummary(entries, events, put, get, allocation) {
   const putWrites = (events || []).filter(event => event.address === 0xFD800040 && event.direction === 2);
   const last = putWrites.length ? putWrites[putWrites.length - 1] : null;
@@ -192,6 +209,7 @@ export function createSubmissionProbe({ status, entries, view, ramBytes, windowB
     getResolved: resolveDmaOffset(object, get, ramBytes),
     pfifoState: pfifoState(entries, put, get, aliases),
     submissionSummary: submissionSummary(entries, events, put, get, allocation),
+    raminScan: raminScan(entries),
     pushbufferScan: scanPushbuffer(view, get, put),
     note: 'checked guest-memory snapshots at DMA-object offsets resolved through the xemu UMA identity mapping; not decoded commands',
   };

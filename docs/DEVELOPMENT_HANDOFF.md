@@ -1,18 +1,18 @@
-# Continue from the zero-header PFIFO scan and choose the next prerequisite
+# Continue from the mixed RAMIN scan and choose an independent prerequisite
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A source-owned read-only NV2A pushbuffer scanner now inventories the submitted `DMA_GET..DMA_PUT` range without executing anything or advancing GET. From GET 0 to PUT `0x03B7D000` (15,594,496 words), the first 4,096 words all decode as the zero header (`method 0`, `subchannel 0`, `count 0`) with no jumps, calls, returns or unknown words. The scan is budget-limited and truncated; the submitted range's prefix is zero-filled, not a command stream. No consumer, GET advance, packet execution, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A read-only scan of the observed `0xFD700000` RAMIN aperture confirms it is not the missing pushbuffer. Reconstructing the 0x5000-byte aperture from its 5,120 entries and running the NV2A header scanner yields 2,589 zero headers, only seven method kinds, 150 jumps, 8 calls, 317 unknown words and no returns. The submitted guest range remains zero at its start. The queue producer is still absent; no consumer, GET advance, packet execution, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-42.json`. `src/runtime/pfifo-scan.mjs` decodes headers/parameters/flow with a 4,096-word budget and fail-closed bounds; `submissionProbe.pushbufferScan` reports the inventory; the proof host serves it; tests cover the decoder and field.
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-43.json`. `submissionProbe.raminScan` reconstructs the observed aperture and runs the read-only scanner; tests cover a synthetic RAMIN stream, counts, read-only behavior and missing entries.
 
-Validation: scanner/submission tests (19 combined), device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: submission/scanner tests (20 combined), device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** choose the next bounded independent startup prerequisite or a producer-provenance step, preserving the fail-closed boundary. Do not treat the zero header inventory as an empty-queue completion or fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** choose the next bounded independent startup prerequisite or producer-provenance step, preserving the fail-closed boundary. The PFIFO consumer remains blocked; do not treat zero headers or mixed RAMIN data as an empty-queue completion, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: PFIFO provenance pass
+## Prior: zero-header submission scan
 
-PUT derives from context state and equals the claim end; GET=0 comes from context clears. Report `post-memory-browser-20261103-41.json`.
+The submitted guest range's first 4,096 words decode as the zero header. Report `post-memory-browser-20261103-42.json`.
 
 ## Prior: 0x200f59
 

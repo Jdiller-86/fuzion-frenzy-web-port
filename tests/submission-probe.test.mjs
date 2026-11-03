@@ -212,6 +212,23 @@ test('the submission probe scans the submitted range read-only', () => {
   assert.deepEqual(new Uint8Array(view.buffer), before);
 });
 
+test('the RAMIN aperture scan inventories observed entries read-only', () => {
+  const { view, ramBytes, entries, status } = fixture({ put: 0x800, get: 0 });
+  entries.push({ address: 0xFD700000, value: 0 });
+  entries.push({ address: 0xFD700004, value: (1 << 18) | (1 << 13) | 0x100 });
+  entries.push({ address: 0xFD700008, value: 0x12345678 });
+  const before = new Uint8Array(view.buffer).slice();
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes });
+  assert.equal(probe.raminScan.available, true);
+  assert.equal(probe.raminScan.entries, 3);
+  assert.equal(probe.raminScan.nonzero, 2);
+  assert.equal(probe.raminScan.scan.available, true);
+  assert.ok(probe.raminScan.scan.methods.some(row => row.subchannel === 1 && row.method === 0x100));
+  assert.deepEqual(new Uint8Array(view.buffer), before);
+  const none = createSubmissionProbe({ status, entries: [], view, ramBytes });
+  assert.equal(none.available, false);
+});
+
 test('the snapshot is read-only and reports missing get as zero', () => {
   const { view, ramBytes, entries, status } = fixture();
   const before = new Uint8Array(view.buffer).slice();
