@@ -64,6 +64,27 @@ static void calc_triz(const FFNv2aPostVertex input[4], unsigned i0, unsigned i1,
     *slope = result;
 }
 
+static void emit_fill(const FFNv2aPostVertex input[4], const float pz[3][4], const float pz2[3][4],
+                      float dz, float dz2, uint32_t smooth, const unsigned order[6],
+                      FFNv2aRasterVertex output[6])
+{
+    FFNv2aRasterVertex expanded[6];
+    for (unsigned i = 0; i < 6; ++i) {
+        const unsigned index = order[i];
+        const unsigned color_index = smooth ? index : 3u;
+        const float (*rows)[4] = i < 3 ? (const float (*)[4])pz : (const float (*)[4])pz2;
+        memcpy(expanded[i].clip, input[index].clip, sizeof(expanded[i].clip));
+        expanded[i].point_size = input[index].point_size;
+        memcpy(expanded[i].color, input[color_index].color, sizeof(expanded[i].color));
+        expanded[i].fog = input[index].fog;
+        memcpy(expanded[i].texcoord, input[index].texcoord, sizeof(expanded[i].texcoord));
+        for (unsigned j = 0; j < 3; ++j)
+            memcpy(expanded[i].triangle_position[j], rows[j], sizeof(expanded[i].triangle_position[j]));
+        expanded[i].depth_slope = i < 3 ? dz : dz2;
+    }
+    memcpy(output, expanded, sizeof(expanded));
+}
+
 int ff_nv2a_expand_quad(const FFNv2aPostVertex input[4],
                         const FFNv2aQuadState *state,
                         FFNv2aRasterVertex output[6], uint32_t arithmetic)
@@ -76,22 +97,28 @@ int ff_nv2a_expand_quad(const FFNv2aPostVertex input[4],
     float dz, dz2;
     calc_triz(input, 0, 1, 2, state->perspective_depth, arithmetic, pz, &dz);
     calc_triz(input, 0, 2, 3, state->perspective_depth, arithmetic, pz2, &dz2);
-    static const unsigned emit[6] = { 1, 2, 0, 2, 3, 0 };
+    static const unsigned order[6] = { 1, 2, 0, 2, 3, 0 };
+    emit_fill(input, pz, pz2, dz, dz2, state->smooth, order, output);
+    return 0;
+}
 
-    FFNv2aRasterVertex expanded[6];
-    for (unsigned i = 0; i < 6; ++i) {
-        const unsigned index = emit[i];
-        const unsigned color_index = state->smooth ? index : 3u;
-        const float (*rows)[4] = i < 3 ? (const float (*)[4])pz : (const float (*)[4])pz2;
-        memcpy(expanded[i].clip, input[index].clip, sizeof(expanded[i].clip));
-        expanded[i].point_size = input[index].point_size;
-        memcpy(expanded[i].color, input[color_index].color, sizeof(expanded[i].color));
-        expanded[i].fog = input[index].fog;
-        memcpy(expanded[i].texcoord, input[index].texcoord, sizeof(expanded[i].texcoord));
-        for (unsigned j = 0; j < 3; ++j)
-            memcpy(expanded[i].triangle_position[j], rows[j], sizeof(expanded[i].triangle_position[j]));
-        expanded[i].depth_slope = i < 3 ? dz : dz2;
+int ff_nv2a_expand_quad_strip(const FFNv2aPostVertex input[4],
+                              const FFNv2aQuadState *state,
+                              FFNv2aRasterVertex output[6], uint32_t arithmetic,
+                              uint32_t primitive_id, uint32_t *emitted)
+{
+    if (!input || !state || !output || !emitted || state->smooth > 1 ||
+        state->perspective_depth > 1 || arithmetic > FF_NV2A_SEPARATE) {
+        return -1;
     }
-    memcpy(output, expanded, sizeof(expanded));
+    *emitted = 0;
+    if (primitive_id & 1u) return 0;
+    float pz[3][4], pz2[3][4];
+    float dz, dz2;
+    calc_triz(input, 2, 0, 1, state->perspective_depth, arithmetic, pz, &dz);
+    calc_triz(input, 2, 1, 3, state->perspective_depth, arithmetic, pz2, &dz2);
+    static const unsigned order[6] = { 0, 1, 2, 2, 1, 3 };
+    emit_fill(input, pz, pz2, dz, dz2, state->smooth, order, output);
+    *emitted = 6;
     return 0;
 }

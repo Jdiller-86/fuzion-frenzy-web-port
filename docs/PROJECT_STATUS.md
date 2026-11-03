@@ -1,4 +1,12 @@
-# Source-owned quad-fill geometry candidate added
+# Source-owned quad-strip fill candidate added
+
+Source-only milestone (November 3): `nv2a_quad.c` now also expands an even quad-strip adjacency primitive into the pinned public xemu `geom.c` triangle-strip fills `0,1,2` and `2,1,3` using `calc_triz(2,0,1)` and `calc_triz(2,1,3)`. Odd primitive IDs emit nothing, matching the shader's `gl_PrimitiveIDIn & 1` skip. Attributes, provoking/smooth colors, both triangle position row sets and per-triangle depth slope are preserved.
+
+Validation: analytic native tests cover even/odd strip parity, attribute forwarding, provoking/smooth colors, both row sets, depth slopes and invalid-state rejection without output writes; optimized and ASan/UBSan WSL runs pass. `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks pass.
+
+Boundary: this remains a source-owned candidate, not the captured native line/quad reference comparison or a browser prepass. Polygon line/point modes, further primitive assembly, vertex programs, rasterization and renderer integration remain unimplemented. No original module was rebuilt or run; ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`.
+
+## Source-owned quad-fill geometry candidate added
 
 Source-only milestone (November 3): `src/runtime/nv2a_quad.c` expands one four-vertex quad into the two triangle-strip triangles emitted by the pinned public xemu `geom.c` (`calc_quadz`/`calc_triz`/`emit_vertex`): vertices `1,2,0` and `2,3,0`. It forwards clip/point/fog/texcoords, uses the quad's provoking color or smooth per-emitted-vertex colors, preserves the two triangle position row sets, and computes each triangle's depth slope under an explicit fused/separate arithmetic profile.
 

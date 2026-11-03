@@ -1,4 +1,16 @@
-# Continue from the source-owned quad-fill geometry candidate
+# Continue from the source-owned quad-strip geometry candidate
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_quad.c` now expands both a standalone quad and an even quad-strip adjacency primitive using the pinned public xemu `geom.c` fill orders: `1,2,0`/`2,3,0` for a quad and `0,1,2`/`2,1,3` for a quad strip. Odd strip primitives emit nothing. Attributes, provoking/smooth colors, position rows and per-triangle depth slope are preserved. All remain source-owned candidates, not captured-reference or original-hardware comparisons.
+
+Validation: quad/quad-strip tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare the line/quad/quad-strip candidates against the captured references, add polygon line/point modes and remaining assembly, and separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior quad-fill handoff
+
+## Source-owned quad-fill geometry candidate added
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 

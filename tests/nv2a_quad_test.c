@@ -76,10 +76,51 @@ static void invalid_state_and_null_inputs(void)
     for (unsigned i = 0; i < 6; ++i) assert(output[i].depth_slope == 0.0f);
 }
 
+static void quad_strip_cases(void)
+{
+    static const unsigned emit[6] = { 0, 1, 2, 2, 1, 3 };
+    FFNv2aPostVertex input[4]; quad_inputs(input);
+    FFNv2aRasterVertex output[6];
+    FFNv2aQuadState state = { .smooth = 0, .perspective_depth = 0 };
+    uint32_t emitted = 0;
+    assert(ff_nv2a_expand_quad_strip(input, &state, output, FF_NV2A_SEPARATE, 0, &emitted) == 0 && emitted == 6);
+    const float *expected[6][3] = {
+        { input[2].position, input[0].position, input[1].position },
+        { input[2].position, input[0].position, input[1].position },
+        { input[2].position, input[0].position, input[1].position },
+        { input[2].position, input[1].position, input[3].position },
+        { input[2].position, input[1].position, input[3].position },
+        { input[2].position, input[1].position, input[3].position },
+    };
+    for (unsigned i = 0; i < 6; ++i) {
+        const unsigned index = emit[i];
+        assert(!memcmp(output[i].clip, input[index].clip, sizeof(output[i].clip)));
+        assert(output[i].point_size == input[index].point_size);
+        assert(output[i].fog == input[index].fog);
+        assert(!memcmp(output[i].texcoord, input[index].texcoord, sizeof(output[i].texcoord)));
+        assert(!memcmp(output[i].color, input[3].color, sizeof(output[i].color)));
+        assert(output[i].depth_slope == 1.0f);
+        for (unsigned j = 0; j < 3; ++j)
+            assert(!memcmp(output[i].triangle_position[j], expected[i][j], sizeof(output[i].triangle_position[j])));
+    }
+    state.smooth = 1;
+    assert(ff_nv2a_expand_quad_strip(input, &state, output, FF_NV2A_FUSED, 0, &emitted) == 0);
+    for (unsigned i = 0; i < 6; ++i)
+        assert(!memcmp(output[i].color, input[emit[i]].color, sizeof(output[i].color)));
+    FFNv2aRasterVertex saved[6]; memcpy(saved, output, sizeof(saved));
+    assert(ff_nv2a_expand_quad_strip(input, &state, output, FF_NV2A_SEPARATE, 1, &emitted) == 0 && emitted == 0);
+    assert(!memcmp(output, saved, sizeof(saved)));
+    assert(ff_nv2a_expand_quad_strip(input, &state, output, FF_NV2A_SEPARATE, 0, NULL) == -1);
+    state.smooth = 2;
+    assert(ff_nv2a_expand_quad_strip(input, &state, output, FF_NV2A_SEPARATE, 0, &emitted) == -1);
+    assert(!memcmp(output, saved, sizeof(saved)));
+}
+
 int main(void)
 {
     forwarding_colors_and_depth();
     invalid_state_and_null_inputs();
-    puts("Owned quad geometry forwarding, provoking colors, two triangles, depth and state rejection passed");
+    quad_strip_cases();
+    puts("Owned quad geometry forwarding, provoking colors, two triangles, depth, strip parity and state rejection passed");
     return 0;
 }
