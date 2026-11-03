@@ -760,7 +760,19 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     /* xemu user.c mirrors USER DMA_PUT/GET/REF into the PFIFO CACHE1 copies. */
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
-    return ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u);
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u)))return status;
+    /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
+     * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it
+     * observed back to 0x100 and then re-reads it from another routine that
+     * re-enters the handler while the value is nonzero. Storing the written
+     * value therefore latches a phantom interrupt that only that store could
+     * have raised, and the drain loop cannot terminate. Acknowledge the stored
+     * bits instead: the guest's store clears what it carries, so with no pending
+     * status in this synthetic profile the register reads 0 and the loop exits.
+     * The predicted hardware clear is not independently verified here; the local
+     * xemu-derived PGRAPH reference stores writes as a stub, so it cannot confirm
+     * it. Sub-dword stores to this register are rejected rather than half-applied. */
+    return ff_device_registers_add_write_clearing(&device_registers,0xFD400100u);
 }
 uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 {

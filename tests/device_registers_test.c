@@ -326,6 +326,36 @@ static void self_clearing_bits_complete_after_the_write(void)
     assert(slot && *slot == 0x40000u);
 }
 
+static void write_clearing_registers_acknowledge_only_the_stored_bits(void)
+{
+    reset();
+    /* Pending status is a hardware state, so seed it before traffic starts. */
+    assert(ff_device_registers_add_initial(&device, 0xFD009200u, 0x3000u) == 0);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009200u) == 0);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009200u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009202u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD800000u) == FF_BOOT_INVALID);
+    uint32_t acknowledge = 0x1000u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x00100024u, &acknowledge) == 0);
+    assert(device.events[0].direction == FF_DEVICE_WRITE && device.events[0].value == 0x1000u);
+    uint32_t readback = 0xffffffffu;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100028u, &readback) == 0);
+    assert(readback == 0x2000u);
+    /* A store that acknowledges nothing leaves the remaining status set, and a
+     * status bit can never be latched by the guest writing it. */
+    acknowledge = 0;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x00100024u, &acknowledge) == 0);
+    acknowledge = 0x4000u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x0010002Cu, &acknowledge) == 0);
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100028u, &readback) == 0);
+    assert(readback == 0x2000u);
+    /* A partial store cannot express an exclusive acknowledge mask. */
+    uint32_t *half = ff_device_registers_access_width(&device, 0xFD009200u, 2u, FF_DEVICE_ACCESS_WRITE, 0x00100030u);
+    assert(half != NULL);
+    *half = 0x2000u;
+    assert(ff_device_registers_commit(&device) == FF_BOOT_UNSUPPORTED);
+}
+
 static void aliases_share_storage_and_keep_event_addresses(void)
 {
     reset();
@@ -357,7 +387,8 @@ int main(void)
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
+    write_clearing_registers_acknowledge_only_the_stored_bits();
     aliases_share_storage_and_keep_event_addresses();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, aliases and atomicity passed");
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, write-clearing acknowledgement, aliases and atomicity passed");
     return 0;
 }

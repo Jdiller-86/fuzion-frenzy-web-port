@@ -17,6 +17,7 @@
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_ZERO_RANGES 8u
 #define FF_DEVICE_SELF_CLEARING 4u
+#define FF_DEVICE_WRITE_CLEARING 4u
 #define FF_DEVICE_ALIASES 4u
 #define FF_DEVICE_READ 1u
 #define FF_DEVICE_WRITE 2u
@@ -39,6 +40,11 @@ typedef struct {
 typedef struct {
     uint32_t address, mask;
 } ff_device_self_clearing;
+/* One write-1-to-clear status register: a write acknowledges (clears) the bits
+ * it stores instead of replacing the stored value. */
+typedef struct {
+    uint32_t address;
+} ff_device_write_clearing;
 /* Two register addresses that share one storage entry (for example USER and
  * PFIFO CACHE1 views of the same DMA cursor). */
 typedef struct {
@@ -52,10 +58,11 @@ typedef struct {
     /* Consecutive identical reads at one site: a device transition this model
      * cannot supply. poll_count above FF_DEVICE_POLL_LIMIT stops the proof. */
     uint32_t poll_address, poll_value, poll_site, poll_count;
-    uint32_t self_clearing_count, alias_count;
+    uint32_t self_clearing_count, alias_count, write_clearing_count;
     uint32_t zero_word;
     ff_device_alias aliases[FF_DEVICE_ALIASES];
     ff_device_self_clearing self_clearing[FF_DEVICE_SELF_CLEARING];
+    ff_device_write_clearing write_clearing[FF_DEVICE_WRITE_CLEARING];
     ff_device_zero_range zero_ranges[FF_DEVICE_ZERO_RANGES];
     ff_device_entry entries[FF_DEVICE_ENTRIES];
     ff_device_event events[FF_DEVICE_EVENTS];
@@ -77,6 +84,11 @@ uint32_t ff_device_registers_add_zero_range(ff_device_registers *, uint32_t base
 /* Declare a register whose masked bits complete immediately: the write event is
  * retained, but the stored value reads back with the mask cleared. */
 uint32_t ff_device_registers_add_self_clearing(ff_device_registers *, uint32_t address, uint32_t mask);
+/* Declare a write-1-to-clear status register: a store acknowledges (clears) the
+ * bits it carries instead of replacing the stored value, so the register reads
+ * back the remaining status. The write event keeps the value the guest stored. A
+ * sub-dword store to such a register is rejected rather than partially applied. */
+uint32_t ff_device_registers_add_write_clearing(ff_device_registers *, uint32_t address);
 /* Declare two addresses that share one stored value; events keep the address
  * the translated block actually used. */
 uint32_t ff_device_registers_add_alias(ff_device_registers *, uint32_t first, uint32_t second);

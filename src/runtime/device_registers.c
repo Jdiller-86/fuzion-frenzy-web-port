@@ -63,6 +63,13 @@ static uint32_t seed(ff_device_registers *device, uint32_t address, uint32_t val
 }
 
 static void self_clear(ff_device_registers *device, uint32_t address);
+static int32_t write_clearing_index(const ff_device_registers *device, uint32_t address)
+{
+    address = canonical_address(device, address);
+    for (uint32_t i = 0; i < device->write_clearing_count; ++i)
+        if (device->write_clearing[i].address == address) return (int32_t)i;
+    return -1;
+}
 
 /* Append one ordered event. A zero site is not a translated block and is
  * rejected so it can never be mistaken for provenance. */
@@ -83,8 +90,12 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
     device->events[device->event_count++] =
         (ff_device_event){address, site, direction, direction == FF_DEVICE_WRITE ? *value : entry->value, entry->known};
     if (direction == FF_DEVICE_READ) { ++entry->reads; *value = entry->value; }
-    else { ++entry->writes; entry->value = *value; entry->known = 1; entry->known_bytes = 0xFu;
-           self_clear(device, address); }
+    else {
+        /* An acknowledging store clears the bits it carries; other status bits
+         * stay set so the guest's drain loop observes them. */
+        uint32_t stored = write_clearing_index(device, address) >= 0 ? entry->value & ~*value : *value;
+        ++entry->writes; entry->value = stored; entry->known = 1; entry->known_bytes = 0xFu;
+        self_clear(device, address); }
     return 0;
 }
 
@@ -147,6 +158,20 @@ uint32_t ff_device_registers_add_self_clearing(ff_device_registers *device, uint
     return 0;
 }
 
+uint32_t ff_device_registers_add_write_clearing(ff_device_registers *device, uint32_t address)
+{
+    if (!device || !device->ready || device->event_count || device->pending ||
+        (address & 3u) || address < device->base || address - device->base >= device->bytes)
+        return FF_BOOT_INVALID;
+    if (device->write_clearing_count >= FF_DEVICE_WRITE_CLEARING) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->write_clearing_count; ++i)
+        if (device->write_clearing[i].address == address) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->self_clearing_count; ++i)
+        if (device->self_clearing[i].address == address) return FF_BOOT_INVALID;
+    device->write_clearing[device->write_clearing_count++] = (ff_device_write_clearing){address};
+    return 0;
+}
+
 uint32_t ff_device_registers_add_alias(ff_device_registers *device, uint32_t first, uint32_t second)
 {
     if (!device || !device->ready || device->event_count || device->pending ||
@@ -201,6 +226,8 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     uint32_t offset = device->pending_offset;
     device->pending = 0;
     if (bytes == 4u) return record(device, address, FF_DEVICE_WRITE, site, &value);
+    /* A partial store cannot express an exclusive acknowledge bit mask. */
+    if (write_clearing_index(device, address) >= 0) return FF_BOOT_UNSUPPORTED;
     /* Sub-dword writes may create or extend the containing dword. Untouched
      * bytes stay unknown, so a later read still fails until they are written. */
     uint32_t base = address & ~3u;

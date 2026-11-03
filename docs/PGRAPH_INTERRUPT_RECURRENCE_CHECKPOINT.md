@@ -1,5 +1,7 @@
 # Vector/port hardening is accepted; the next stop is a PGRAPH interrupt read-back recurrence
 
+**Resolved in [the PGRAPH interrupt acknowledge checkpoint](PGRAPH_INTERRUPT_ACKNOWLEDGE_CHECKPOINT.md):** the reached profile now declares `0xFD400100` as write-1-to-clear, the recurrence is gone, and execution stops later on an unmodeled `NV_PMC_INTR_0` read. The analysis below records the pre-model evidence.
+
 November 4, 2026. The guarded emitter now rejects vector loads used as stores or escaped pointers and fails closed on mixed-case helper names, the port surface stops on an unmodeled port instead of fabricating zero, and the reached original code compiles and runs unchanged under those rules. With the corrected DPC head the ordinal-149 timer/clock rejection no longer occurs; the same call chain now enters a PGRAPH register path and recurses without returning until the diagnostic trace fills. **There is no playable screen, renderer, device model or fidelity result.**
 
 ## Source-owned hardening
