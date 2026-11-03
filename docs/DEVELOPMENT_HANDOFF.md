@@ -1,4 +1,16 @@
-# Continue from the bounded controller packet, host adapter, port query, browser source and four-port device components
+# Continue from the bounded fixed-step host loop pacing component
+
+Read [the host-step checkpoint](HOST_STEP_CHECKPOINT.md), [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The latest bounded milestone is a pure fixed-step host-loop accumulator, `src/runtime/host-step.mjs`. It carries time in units of `1/hz` microseconds so a whole step is exact even when `1e6` is not divisible by `hz`, reports whole/pending/dropped steps, caps catch-up, and supports explicit pause/resume/reset. It does not read a clock, execute guest code, sample input or render, and is not wired into the worker or boot path. The retained report shows the 4 KB before `PUT` is entirely zero and the 20 KB claim unwritten, so the GPU has nothing to consume and the missing initial GET belongs to unobserved kernel/D3D channel setup; the PFIFO fail-closed boundary (status 13 at `0xFD800044`; 261 routines, 402 kernel operations) is unchanged.
+
+`src/runtime/host-step.mjs` and `tests/host-step.test.mjs` implement and validate the accumulator. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
+
+Validation: host-step 7/7, runtime suite 94/94, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+
+**Next task:** integrate the accumulator only when a bounded original runtime loop is reached, or continue another independent runtime prerequisite. Do not claim frame rate, input latency, timing, original-game compatibility or playability without evidence, and do not fabricate a GPU consumer, packet, get pointer, interrupt, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: bounded controller packet, host adapter, port query, browser source and four-port device
 
 Read [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
