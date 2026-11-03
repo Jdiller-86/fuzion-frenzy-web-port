@@ -1,10 +1,14 @@
-# Original execution enters 0x2010FD and reaches 0x2000CB
+# Original execution completes 0x2000CB and stops at device register 0xFD100284
 
-November 3: original `0x002010fd` programs its device-register block and calls untranslated **`0x2000CB`** (return `0x201235`, status 2). All 83 initialization callbacks return; 247 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: original `0x002000cb` reads `0xFD400700` = `0` and returns; `0x002010fd` continues its device-register table and stops at the next unsupplied register **`0xFD100284`** (status 10). All 83 initialization callbacks return; 248 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-21` is 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` is 478,501 bytes, SHA-256 `2de72595…`. The aperture logged 5,189 entries / 5,230 events. The retained next-14–17 functions are combined into one private seed to stay within the 32-export admission limit. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-16.json`.
+Selection `recomp-title-post-memory-22` is 358 functions / 13,571 instructions; module `recomp-post-memory-build-35` is 481,279 bytes, SHA-256 `3dc7bfd7…`. The aperture logged 5,232 entries / 5,279 events. The synthetic profile supplies `0xFD400700` = `0` and a zero block covering `0xFD100200`–`0xFD10027C`; the stop is one register beyond that block. The retained next-14–18 functions are combined into one private seed to stay within the 32-export admission limit. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-17.json`.
 
-A bounded read-only export reports the reached callee `0x2000CB` as 63 bytes / 23 instructions with calls to `0x1FDAC0` and `0x1FD700`; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. The modeled interrupt services do not deliver interrupts or establish NV2A behavior. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+The next access is a device read in `0x2010FD`, not a new original routine. `0x200F59` on the `0x2010FD` path and `0x1FDAC0`/`0x1FD700` on the `0x2000CB` non-zero branch remain static dependencies. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+
+## Prior: 0x2010fd
+
+`0x002010fd` programmed its device-register block and called `0x2000CB`. Selection `recomp-title-post-memory-21` was 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` was 478,501 bytes, SHA-256 `2de72595…`. Report `post-memory-browser-20261103-16.json`.
 
 ## Prior: 0x200340 and system time
 

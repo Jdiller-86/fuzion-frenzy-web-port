@@ -1,14 +1,18 @@
-# Continue from the entered 0x2010FD helper at 0x2000CB
+# Continue from the completed 0x2000CB helper at 0xFD100284
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x002010fd` programmed its device-register block and called untranslated **`0x2000CB`** (return `0x201235`, status 2). All 83 initialization callbacks return; 247 distinct original routines execute and 402 kernel operations complete.
+Original `0x002000cb` read `0xFD400700` = `0` and returned without taking its optional calls; `0x002010fd` continued its device-register table and stopped at unsupplied **`0xFD100284`** (status 10). All 83 initialization callbacks return; 248 distinct original routines execute and 402 kernel operations complete.
 
-Selection `recomp-title-post-memory-21` is 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` is SHA-256 `2de72595…` (478,501 bytes). The local report is `post-memory-browser-20261103-16.json`. The aperture logged 5,189 entries / 5,230 events. The retained next-14–17 functions are combined into one private seed to stay within the 32-export admission limit. A bounded read-only export reports the reached callee `0x2000CB` as 63 bytes / 23 instructions with calls to `0x1FDAC0` and `0x1FD700` (`recomp-post-memory-next-18`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-22` is 358 functions / 13,571 instructions; module `recomp-post-memory-build-35` is SHA-256 `3dc7bfd7…` (481,279 bytes). The local report is `post-memory-browser-20261103-17.json`. The aperture logged 5,232 entries / 5,279 events. The synthetic profile supplies `0xFD400700` = `0` and a zero block covering `0xFD100200`–`0xFD10027C`; the stop is one register beyond that block. The retained next-14–18 functions are combined into one private seed to stay within the 32-export admission limit.
 
-Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+The next access is a device read in `0x2010FD`, not a new original routine. `0x200F59` on the `0x2010FD` path and `0x1FDAC0`/`0x1FD700` on the `0x2000CB` non-zero branch remain static dependencies.
 
-**Next task:** admit and translate `0x2000CB` from the retained `recomp-post-memory-next-18` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/port/device writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** decide a bounded explicit device-table input model for the `0xFD100200` region (or extend the current zero block), continue `0x2010FD`, and then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic time/port/device reads or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: 0x2010fd
+
+`0x002010fd` programmed its device-register block and called `0x2000CB`. Selection `recomp-title-post-memory-21` was 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` was 478,501 bytes, SHA-256 `2de72595…`. Report `post-memory-browser-20261103-16.json`.
 
 ## Prior: 0x200340 and system time
 
