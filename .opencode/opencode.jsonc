@@ -21,7 +21,7 @@
       "description": "Everyday coding and bounded task coordination using OpenCode Go DeepSeek Flash.",
       "mode": "all",
       "model": "opencode-go/deepseek-v4.1-flash",
-      "steps": 24,
+      "steps": 48,
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
         { "action": "read", "resource": "research/*", "effect": "deny" },

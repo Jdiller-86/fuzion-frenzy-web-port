@@ -41,14 +41,18 @@ try {
     $failures = if ($previous -and $previous.outcome -ne 'progressed') { [int]$previous.failures + 1 } else { 0 }
     $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
-    $prompt = 'Work in this dedicated source-only worktree. Read AGENTS.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md and docs/OPENCODE_GOAL.md. Advance one bounded unowned milestone toward original-game browser execution. Preserve existing edits. Use the model escalation and evidence rules. Run targeted checks, update status/decisions, review staged paths, and commit a verified source-only result. Never push or merge to main.'
+    $prompt = 'Work in this dedicated source-only worktree. Read AGENTS.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md and docs/OPENCODE_GOAL.md. Execute one bounded unowned milestone toward original-game browser execution; do not stop at a plan. Preserve existing edits. If ignored private evidence is unavailable here, choose a source-owned prerequisite instead of inventing an original-runtime proof. Use the model escalation and evidence rules. Run targeted checks, update status/decisions, review staged paths, and commit a verified source-only result. Never push or merge to main.'
     if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
+    if ($previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
     $output = @()
     $exitCode = 1
     try {
         Push-Location -LiteralPath $worktree
         try {
+            if ((Get-Location).Path -ne (Resolve-Path -LiteralPath $worktree).Path -or -not (Test-Path -LiteralPath '.opencode/opencode.jsonc')) {
+                throw 'OpenCode project configuration is not visible from the worktree.'
+            }
             $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User')
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
@@ -72,6 +76,9 @@ try {
     $state.exitCode = $exitCode
     $state.finishedHead = $after
     $state.outcome = if ($exitCode -ne 0) { 'retry' } elseif ($dirty) { 'resume' } elseif ($after -eq $head) { 'no_progress' } else { 'progressed' }
+    $summary = ($output | Out-String).Trim()
+    if ($summary.Length -gt 2000) { $summary = $summary.Substring($summary.Length - 2000) }
+    $state.lastSummary = $summary
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('OpenCode cycle: ' + $state.outcome)
 } finally {

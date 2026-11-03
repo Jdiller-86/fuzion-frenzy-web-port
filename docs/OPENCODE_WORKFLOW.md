@@ -1,6 +1,6 @@
 # OpenCode model routing and development workflow
 
-The continuous target and local 15-minute scheduled cycle are in [the OpenCode goal](OPENCODE_GOAL.md).
+The continuous target and local five-minute scheduled cycle are in [the OpenCode goal](OPENCODE_GOAL.md).
 
 This repository uses [the project OpenCode V2 configuration](../.opencode/opencode.jsonc). It leaves the working global OpenCode Go, OpenAI OAuth, Unsloth and REA connections intact. OpenCode 2.2.5 discovers the project config when started in this repository. A fresh session defaults to `builder` with `opencode-go/deepseek-v4.1-flash`; existing sessions retain their own selected agent and model until changed explicitly.
 
@@ -21,7 +21,7 @@ Project policy allows only `builder`, `scout`, `reviewer` and `architect` child 
 4. Escalate automatically to `architect` when a decision changes the project route or multiple subsystems, two targeted attempts fail, or a GLM review leaves a material CPU, memory, ABI or GPU correctness question unresolved. Send: objective; observed behavior; exact evidence/checks; attempts; remaining hypotheses; decision needed. Use one bounded Sol call per decision; return implementation to DeepSeek. Stop and report if that call cannot resolve the decision.
 5. Finish with changed files, checks actually run, observed original-runtime behavior, remaining gaps and next task. Update `PROJECT_STATUS.md`; record consequential choices in `DECISIONS.md`. Do not claim a playable game from translated-function counts or component fixtures.
 
-Agent step caps (builder 24, scout 8, reviewer 12, architect 8) stop a single prompt sequence; a new user input resets the cap. They are usage brakes, not billing limits. The project policy blocks environment-file reads/edits, external-directory tool access and direct Git push/merge commands. Shell commands and plugin code are **not** contained by these project rules, so do cloud-model work in a clean source-only worktree and inspect tool prompts. Do not put original game files, converted assets, pseudocode, credentials or raw research logs in prompts, issues, PRs or model attachments. Local Qwen can analyze local evidence; send cloud models only curated findings.
+Agent step caps (builder 48, scout 8, reviewer 12, architect 8) stop a single prompt sequence; a new user input resets the cap. They are usage brakes, not billing limits. The project policy blocks environment-file reads/edits, external-directory tool access and direct Git push/merge commands. Shell commands and plugin code are **not** contained by these project rules, so do cloud-model work in a clean source-only worktree and inspect tool prompts. Do not put original game files, converted assets, pseudocode, credentials or raw research logs in prompts, issues, PRs or model attachments. Local Qwen can analyze local evidence; send cloud models only curated findings.
 
 OpenCode Go's **Extra Usage** setting can fall back to pay-as-you-go balance after the included limit. The Personal workspace currently shows Extra Usage **Off**, so requests pause at a limit. This repository cannot enforce that account setting; verify it again if billing preferences change. If a model is unavailable or a quota is reached, stop and report it; do not silently switch provider or model.
 
