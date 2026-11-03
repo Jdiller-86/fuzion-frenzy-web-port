@@ -1,4 +1,4 @@
-# Bounded Xbox controller packet component; PFIFO boundary unchanged
+# Bounded Xbox controller packet, adapter, port and browser source; PFIFO boundary unchanged
 
 November 3, 2026. Following architect guidance, the next bounded milestone is an independent runtime prerequisite rather than a speculative PFIFO consumer: a source-owned Xbox controller state and guest-facing packet encoder based on the pinned compatibility layout. It covers connection state, digital buttons, eight analog buttons and signed stick axes, with explicit packet-change accounting and checked 24-byte encoding. Rumble, host gamepad mapping, async requests, multiplayer remapping and boot-path integration are excluded. The PFIFO fail-closed boundary and all prior evidence are unchanged. **There is no playable original screen and no renderer/device model.**
 
@@ -36,9 +36,13 @@ No module rebuild is required; the component is not yet integrated into the boot
 
 `tests/controller_port_test.c` covers the disconnected query with a byte-identical untouched buffer, connect, packet-number advance only on change, port independence and null/short rejection. It passes optimized and ASan/UBSan WSL GCC runs. The port remains unintegrated with the worker/boot path.
 
+## Browser gamepad source
+
+`src/runtime/controller-source.mjs` adds the browser-side link above the adapter. It consumes an explicit list shaped like `navigator.getGamepads()` and assigns four positional seats: a missing entry or `connected: false` is a disconnected port; a present pad must declare `mapping === 'standard'` and an integer `index` equal to its seat, otherwise that port fails closed with a reason. Each accepted pad is adapted through `adaptStandardGamepad`, and ports stay independent. The module never calls a browser API, reads a device or uses a clock; the caller supplies the list. `tests/controller-source.test.mjs` covers four disconnected seats, positional assignment, per-port button isolation, non-standard mapping, index mismatch, malformed pad data, explicit disconnection, ports beyond the requested count and invalid list/port-count rejection; it is wired into `npm run test:runtime`. This is source-component progress, not host input or title fidelity.
+
 ## Next task
 
-Integrate the adapter, packet encoder and port query only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence.
+Integrate the source, adapter, packet encoder and port query only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence.
 
 ## Prior milestone: full GET..PUT scan
 
