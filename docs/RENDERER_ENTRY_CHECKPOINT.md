@@ -437,6 +437,21 @@ Execution stopped at **`0xFD800040`** (status 10, `guest memory access stopped`,
 
 Execution stopped at **`0xFD800044`** with status 12 (`device poll limit reached`). The report is `research/verification/post-memory-browser-20261103-30.json` (local/ignored). There is no playable screen.
 
+### Identify the PFIFO DMA submission boundary
+
+`src/runtime/pfifo_dma.c`/`.h` classify the reached channel-0 USER-region PFIFO registers from the pinned xemu model: `NV_USER_DMA_PUT` (`0xFD800040`), `NV_USER_DMA_GET` (`0xFD800044`) and `NV_USER_REF` (`0xFD800048`). The probe compares a GET read with the aperture's PUT and stops with a dedicated status instead of waiting for a FIFO consumer.
+
+Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 instructions**. Module `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 261 distinct original routines executed and 402 kernel operations completed;
+- `0x001FAED0` wrote DMA_PUT = `0x03B7D000` at `0xFD800040`;
+- the first DMA_GET read at `0xFD800044` returned `0`, so the put/get comparison could not match;
+- the aperture retained 5,302 entries / 12,524 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0xFD800044`** with status 13 (`pushbuffer consumption required`). The report is `research/verification/post-memory-browser-20261103-31.json` (local/ignored). No get pointer, FIFO progress, interrupt, DMA or rendering is fabricated. There is no playable screen.
+
 ## Next task
 
-Analyze `0x001FACA0` and the `0xFD800040`/`0xFD800044` pair from static and pinned-emulator evidence, then decide whether a bounded pushbuffer-consumption model is justified. The loop waits for the USER-region get/put comparison to match, which needs real device progress. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit and the single self-clearing flush bit; do not fabricate the awaited value, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Analyze the queued pushbuffer at `0x03B7D000` and the `0x001FACA0`/`0xFD800044` wait from static and pinned-emulator evidence, then decide whether a bounded PFIFO consumer is the right next investment. This affects the device/runtime boundary and may need architect escalation before implementation. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit and the PFIFO register map; do not fabricate the get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

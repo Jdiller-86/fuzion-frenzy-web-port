@@ -1,14 +1,14 @@
-# Original execution reaches the NV2A USER region and waits on pushbuffer progress
+# Original execution reaches a precise PFIFO DMA submission boundary
 
-November 3: the explicit aperture window ceiling was raised from 8 MiB to the 16 MiB NV2A MMIO span, and the profile supplies a bounded USER page at `0xFD800000`. Execution wrote `0xFD800040`, entered `0x001FACA0`, and then compared the context value with `0xFD800044` in a loop, waiting for the device to consume the pushbuffer. The 16-read poll limit stopped the run with explicit evidence rather than fabricating device progress. All 83 initialization callbacks return; 262 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the USER-region wait is identified as NV2A PFIFO DMA submission. `0x001FAED0` writes DMA_PUT = `0x03B7D000` to `0xFD800040`, and `0x001FBB00` reads DMA_GET at `0xFD800044`, waiting for the device to consume the pushbuffer. A source-owned PFIFO classifier and a dedicated status now report **pushbuffer consumption required** (status 13) instead of spinning to the generic poll limit. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is unchanged: `recomp-post-memory-build-47` is 524,891 bytes, SHA-256 `efb0fbea…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The aperture logged 5,302 entries / 12,542 events; statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The report is `post-memory-browser-20261103-30.json`.
+Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`. The aperture logged 5,302 entries / 12,524 events; statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The report is `post-memory-browser-20261103-31.json`.
 
-Source change: `local-title-proof.mjs` now admits an explicit window of at most `0x1000000` bytes (the NV2A span), with unchanged alignment/entry/range bounds; `tests/mmio-profile.test.mjs` covers a 16 MiB window with the `0xFD800040` entry and `0xFD800000` zero page, and rejects a larger window. Validation: mmio-profile tests pass, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+`src/runtime/pfifo_dma.c/.h` classifies channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` from the pinned xemu USER map and register definitions; the probe compares GET with the aperture's PUT and fails closed when they differ. No FIFO consumer, value, interrupt, DMA or rendering is fabricated. Validation: PFIFO classifier optimized/ASan/UBSan, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: NV_PFB_WBC flush bit
+## Prior: 16 MiB aperture window
 
-Module `recomp-post-memory-build-47` completed the `NV_PFB_WBC_FLUSH` wait after one poll and reached `0xFD800040`. Report `post-memory-browser-20261103-29.json`.
+The parser admitted a 16 MiB NV2A window and a bounded USER page; the run reached the pushbuffer wait after 262 routines. Module `recomp-post-memory-build-47` was unchanged (524,891 bytes, SHA-256 `efb0fbea…`). Report `post-memory-browser-20261103-30.json`.
 
 ## Prior: 0x200f59
 

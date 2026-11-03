@@ -1,18 +1,18 @@
-# Continue from the NV2A USER-region pushbuffer wait at 0xFD800044
+# Continue from the PFIFO DMA submission boundary at 0xFD800044
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-The explicit aperture window ceiling was raised from 8 MiB to the 16 MiB NV2A MMIO span, and the profile now supplies a bounded USER page at `0xFD800000`. Execution wrote `0xFD800040`, entered `0x001FACA0`, and then compared the context value with `0xFD800044` in a loop, waiting for the device to consume the pushbuffer. The 16-read poll limit stopped the run with status 12 (`device poll limit reached`). All 83 initialization callbacks return; 262 distinct original routines execute and 402 kernel operations complete.
+The USER-region wait is identified as NV2A PFIFO DMA submission: `0x001FAED0` writes DMA_PUT = `0x03B7D000` to `0xFD800040`, and `0x001FBB00` reads DMA_GET at `0xFD800044`, waiting for the device to consume the pushbuffer. A source-owned PFIFO classifier and a dedicated status now report **pushbuffer consumption required** (status 13) instead of spinning to the generic poll limit. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-47` is SHA-256 `efb0fbea…` (524,891 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The local report is `post-memory-browser-20261103-30.json`, logging 5,302 entries / 12,542 events. `local-title-proof.mjs` now admits an explicit window up to `0x1000000` bytes with unchanged alignment/entry/range bounds; `tests/mmio-profile.test.mjs` covers the 16 MiB window and rejects larger ones.
+Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes). The local report is `post-memory-browser-20261103-31.json`, logging 5,302 entries / 12,524 events. `src/runtime/pfifo_dma.c/.h` classifies the channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` registers from the pinned xemu USER map; the probe compares GET with the aperture's PUT and fails closed on a mismatch. No FIFO consumer, value, interrupt, DMA or rendering is fabricated.
 
-Validation: mmio-profile tests, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: PFIFO classifier optimized/ASan/UBSan, runtime 49/49, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** analyze `0x001FACA0` and the `0xFD800040`/`0xFD800044` pair from static and pinned-emulator evidence, then decide whether a bounded pushbuffer-consumption model is justified. Do not fabricate the awaited value, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** analyze the queued pushbuffer at `0x03B7D000` and the `0x001FACA0`/`0xFD800044` wait from static and pinned-emulator evidence, then decide whether a bounded PFIFO consumer is the right next investment. This affects the device/runtime boundary and may need architect escalation before implementation; do not fabricate the get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: NV_PFB_WBC flush bit
+## Prior: 16 MiB aperture window
 
-Module `recomp-post-memory-build-47` completed the `NV_PFB_WBC_FLUSH` wait after one poll and reached `0xFD800040`. Selection `recomp-title-post-memory-30` was 366 functions / 14,572 instructions. Report `post-memory-browser-20261103-29.json`.
+The parser admitted a 16 MiB NV2A window and a bounded USER page; the run reached the pushbuffer wait after 262 routines. Module `recomp-post-memory-build-47` was unchanged (524,891 bytes, SHA-256 `efb0fbea…`). Report `post-memory-browser-20261103-30.json`.
 
 ## Prior: 0x200f59
 
