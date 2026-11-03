@@ -1,4 +1,12 @@
-# Source-owned quad-strip fill candidate added
+# Explicit multi-register device profiles
+
+Source-only milestone (November 3): the synthetic aperture now accepts 2–64 explicit initial register entries instead of exactly two. `ff_device_registers_init_many` validates distinct aligned in-window addresses before mutation; `ff_device_registers_add_initial` seeds additional entries only before any access or staged write. The probe exports `ff_probe_mmio_add`, and the worker seeds profile extras after the two required reached addresses. The profile parser accepts 2–64 distinct entries and still requires `0xfd001804` and `0xfd600140`; no register value is guessed.
+
+Validation: owned C tests cover multi-entry initialization, additional seeding, duplicate/unaligned/out-of-window/too-many rejection, and rejection after a recorded access or staged write. Node tests cover 2/3/64-entry profiles and invalid/missing/duplicate/out-of-window/overflow cases. `npm run test:runtime` 46/46, Python 10/10, title-seed 25/25, `npm run check` (230 files) and whitespace checks pass.
+
+Boundary: no original module was rebuilt or run, so there is no new original-runtime observation. The private build must export `ff_probe_mmio_add` to use more than two initial entries; older ABI-24 modules still support exactly the two reached entries, and a larger profile fails explicitly. ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`.
+
+## Source-owned quad-strip fill candidate added
 
 Source-only milestone (November 3): `nv2a_quad.c` now also expands an even quad-strip adjacency primitive into the pinned public xemu `geom.c` triangle-strip fills `0,1,2` and `2,1,3` using `calc_triz(2,0,1)` and `calc_triz(2,1,3)`. Odd primitive IDs emit nothing, matching the shader's `gl_PrimitiveIDIn & 1` skip. Attributes, provoking/smooth colors, both triangle position row sets and per-triangle depth slope are preserved.
 

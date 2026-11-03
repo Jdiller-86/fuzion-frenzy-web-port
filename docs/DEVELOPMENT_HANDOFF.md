@@ -1,4 +1,16 @@
-# Continue from the source-owned quad-strip geometry candidate
+# Continue from explicit multi-register device profiles
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The synthetic aperture now accepts 2–64 explicit initial register entries. `ff_device_registers_init_many` validates distinct aligned in-window addresses before mutation; `ff_device_registers_add_initial` seeds extras only before any access or staged write. The probe exports `ff_probe_mmio_add`, and the worker seeds profile extras after the two required reached addresses. The profile parser accepts 2–64 distinct entries and requires `0xfd001804` and `0xfd600140`; no value is guessed.
+
+Validation: C multi-entry/add/rejection tests, Node 2/3/64-entry profile tests (runtime 46/46), Python 10/10, title-seed 25/25, `npm run check` for 230 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is unavailable. In a private cycle, rebuild with `ff_probe_mmio_add` exported, admit the next export, and use an explicit multi-register profile only for values the next run actually requires. The captured line/quad reference comparison and browser prepass also remain private. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior quad-strip handoff
+
+## Source-owned quad-strip fill candidate added
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 

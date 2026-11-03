@@ -149,8 +149,8 @@ export function parseLocalMmioProfile(buffer) {
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x800000 || (window.size & 3) ||
-      !Array.isArray(entries) || entries.length !== 2) {
-    throw new Error('Select an explicit synthetic register window with two supplied entries');
+      !Array.isArray(entries) || entries.length < 2 || entries.length > 64) {
+    throw new Error('Select an explicit synthetic register window with 2-64 supplied entries');
   }
   const seen = new Set();
   for (const entry of entries) {
@@ -161,8 +161,8 @@ export function parseLocalMmioProfile(buffer) {
     }
     seen.add(entry.address);
   }
-  if (seen.size !== 2 || !seen.has(0xfd001804) || !seen.has(0xfd600140)) {
-    throw new Error('Register storage must declare the reached device addresses');
+  if (seen.size !== entries.length || !seen.has(0xfd001804) || !seen.has(0xfd600140)) {
+    throw new Error('Register storage must declare distinct reached device addresses');
   }
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })) };

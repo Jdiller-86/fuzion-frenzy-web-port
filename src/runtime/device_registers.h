@@ -7,6 +7,7 @@
  * supplies a value; unknown reads fault instead of returning a fabricated 0. */
 #define FF_DEVICE_ENTRIES 1024u
 #define FF_DEVICE_EVENTS 4096u
+#define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_READ 1u
 #define FF_DEVICE_WRITE 2u
 /* Access masks mirror the translated memory intent: read, write, read-write. */
@@ -28,11 +29,16 @@ typedef struct {
     ff_device_entry entries[FF_DEVICE_ENTRIES];
     ff_device_event events[FF_DEVICE_EVENTS];
 } ff_device_registers;
+typedef struct { uint32_t address, value; } ff_device_init_entry;
 
-/* The window and the two explicitly supplied initial values are profile inputs. */
+/* The window and the explicitly supplied initial values are profile inputs. */
 uint32_t ff_device_registers_init(ff_device_registers *, uint32_t base, uint32_t bytes,
                                   uint32_t first_address, uint32_t first_value,
                                   uint32_t second_address, uint32_t second_value);
+uint32_t ff_device_registers_init_many(ff_device_registers *, uint32_t base, uint32_t bytes,
+                                       const ff_device_init_entry *, uint32_t count);
+/* Seed one additional explicit initial value before any access is recorded. */
+uint32_t ff_device_registers_add_initial(ff_device_registers *, uint32_t address, uint32_t value);
 uint32_t ff_device_registers_contains(const ff_device_registers *, uint32_t address, uint32_t bytes);
 /* Reads fail atomically when the address was never written or supplied. */
 uint32_t *ff_device_registers_slot(ff_device_registers *, uint32_t address);

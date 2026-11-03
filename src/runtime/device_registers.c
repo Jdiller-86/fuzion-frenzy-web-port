@@ -38,19 +38,39 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
     return 0;
 }
 
+uint32_t ff_device_registers_init_many(ff_device_registers *device, uint32_t base, uint32_t bytes,
+                                       const ff_device_init_entry *entries, uint32_t count)
+{
+    if (!device || !entries || !count || count > FF_DEVICE_INITIAL || !bytes ||
+        (base & 3u) || (bytes & 3u) || (uint64_t)base + bytes > 0x100000000ull) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < count; ++i) {
+        if ((entries[i].address & 3u) || entries[i].address < base ||
+            entries[i].address - base >= bytes) return FF_BOOT_INVALID;
+        for (uint32_t j = 0; j < i; ++j)
+            if (entries[j].address == entries[i].address) return FF_BOOT_INVALID;
+    }
+    memset(device, 0, sizeof *device);
+    device->base = base; device->bytes = bytes;
+    for (uint32_t i = 0; i < count; ++i)
+        if (seed(device, entries[i].address, entries[i].value)) return FF_BOOT_INVALID;
+    device->ready = 1;
+    return 0;
+}
+
 uint32_t ff_device_registers_init(ff_device_registers *device, uint32_t base, uint32_t bytes,
                                   uint32_t first_address, uint32_t first_value,
                                   uint32_t second_address, uint32_t second_value)
 {
-    if (!device || !bytes || (base & 3u) || (bytes & 3u) || (uint64_t)base + bytes > 0x100000000ull ||
-        (first_address & 3u) || (second_address & 3u) || first_address == second_address ||
-        first_address - base >= bytes || second_address - base >= bytes) return FF_BOOT_INVALID;
-    memset(device, 0, sizeof *device);
-    device->base = base; device->bytes = bytes;
-    if (seed(device, first_address, first_value)) return FF_BOOT_INVALID;
-    if (seed(device, second_address, second_value)) return FF_BOOT_INVALID;
-    device->ready = 1;
-    return 0;
+    const ff_device_init_entry entries[2] = { { first_address, first_value }, { second_address, second_value } };
+    return ff_device_registers_init_many(device, base, bytes, entries, 2);
+}
+
+uint32_t ff_device_registers_add_initial(ff_device_registers *device, uint32_t address, uint32_t value)
+{
+    if (!device || !device->ready || device->event_count || device->pending ||
+        device->count >= FF_DEVICE_INITIAL || (address & 3u) || address < device->base ||
+        address - device->base >= device->bytes) return FF_BOOT_INVALID;
+    return seed(device, address, value);
 }
 
 uint32_t ff_device_registers_contains(const ff_device_registers *device, uint32_t address, uint32_t bytes)

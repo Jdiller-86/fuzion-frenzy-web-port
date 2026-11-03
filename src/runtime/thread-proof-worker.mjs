@@ -36,9 +36,16 @@ self.onmessage = async event => {
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
     if(api.ff_probe_abi()===24) {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
+      const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
+      const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
-        mmioProfile.registers[0].initial,mmioProfile.registers[1].initial)) {
+        primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
+      }
+      for(const entry of mmioProfile.registers.filter(entry=>entry.address!==0xfd001804 && entry.address!==0xfd600140)) {
+        if(typeof api.ff_probe_mmio_add!=='function' || api.ff_probe_mmio_add(entry.address,entry.initial)) {
+          throw new Error('The private module cannot seed the explicit extra register profile');
+        }
       }
     }
     if(statisticsAbi) {

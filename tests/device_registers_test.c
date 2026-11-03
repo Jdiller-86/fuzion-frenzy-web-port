@@ -141,11 +141,48 @@ static void invalid_configuration_is_rejected(void)
     assert(ff_device_registers_init(&device, 0xFD000000u, 0x800000u, 0xFD001804u, 0, 0xFD001804u, 0) == FF_BOOT_INVALID);
 }
 
+static void initial_registers_are_explicit_and_bounded(void)
+{
+    ff_device_init_entry entries[3] = {
+        { 0xFD001804u, 0x10 }, { 0xFD600140u, 0x20 }, { 0xFD009140u, 0x30 }
+    };
+    assert(!ff_device_registers_init_many(&device, 0xFD000000u, 0x00800000u, entries, 3));
+    assert(device.ready && device.count == 3 && device.entries[2].address == 0xFD009140u &&
+           device.entries[2].value == 0x30);
+    reset();
+    assert(!ff_device_registers_add_initial(&device, 0xFD009140u, 0x44));
+    uint32_t value = 0;
+    assert(!ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_READ, 0x00100020u, &value) && value == 0x44);
+    save();
+    assert(ff_device_registers_add_initial(&device, 0xFD001804u, 0x55) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_initial(&device, 0xFD000002u, 0x55) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_initial(&device, 0xFC000000u, 0x55) == FF_BOOT_INVALID);
+    unchanged();
+    reset();
+    uint32_t *stage = ff_device_registers_stage_write(&device, 0xFD009140u, 0x00100020u);
+    assert(stage);
+    save();
+    assert(ff_device_registers_add_initial(&device, 0xFD009240u, 0x66) == FF_BOOT_INVALID);
+    unchanged();
+    assert(!ff_device_registers_commit(&device));
+    ff_device_init_entry duplicate[2] = { { 0xFD001804u, 1 }, { 0xFD001804u, 2 } };
+    save();
+    assert(ff_device_registers_init_many(&device, 0xFD000000u, 0x00800000u, duplicate, 2) == FF_BOOT_INVALID);
+    unchanged();
+    ff_device_init_entry many[FF_DEVICE_INITIAL + 1];
+    for (uint32_t i = 0; i < FF_DEVICE_INITIAL + 1; ++i) many[i] = (ff_device_init_entry){ 0xFD000000u + i * 4u, i };
+    assert(ff_device_registers_init_many(&device, 0xFD000000u, 0x00800000u, many, FF_DEVICE_INITIAL + 1) == FF_BOOT_INVALID);
+    unchanged();
+    ff_device_init_entry unaligned[1] = { { 0xFD000002u, 1 } };
+    assert(ff_device_registers_init_many(&device, 0xFD000000u, 0x00800000u, unaligned, 1) == FF_BOOT_INVALID);
+    unchanged();
+}
+
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
     read_modify_write_records_both_halves(); access_masks_sites_and_widths_fail_closed();
-    capacity_limits_are_atomic(); invalid_configuration_is_rejected();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, bounds, capacities and atomicity passed");
+    capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities and atomicity passed");
     return 0;
 }

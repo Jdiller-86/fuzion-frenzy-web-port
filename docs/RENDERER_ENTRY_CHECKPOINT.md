@@ -92,6 +92,10 @@ No original module was rebuilt or run, so build-16's recorded write values remai
 
 The proof worker previously copied only 16 aperture entries and 8 ordered events into its report, which could hide the next original register sequence. `src/runtime/device-report.mjs` now validates the module's counts against the 1,024-entry / 4,096-event capacities, copies every recorded entry and event, and maps the additive site field (`UINT32_MAX` to `null` for older modules). Node tests cover 17 entries / 9 events (beyond the old caps), site/null mapping, capacity rejection and missing accessors; `npm run test:runtime` is 44/44. This is an observer capability only: no original module was rebuilt or run, and ABI 24/D060 are unchanged.
 
+### Explicit multi-register initial profiles
+
+The aperture profile now accepts 2–64 distinct explicit initial entries, not only the two reached addresses. `ff_device_registers_init_many` validates base/width, alignment, window bounds and distinct addresses before mutation. `ff_device_registers_add_initial` seeds further values only while no access or staged write has been recorded. The probe exports `ff_probe_mmio_add`; the worker seeds entries beyond `0xfd001804`/`0xfd600140` and fails explicitly if the private module lacks that export. The parser still requires the two reached addresses and rejects duplicates, unaligned/out-of-window values and more than 64 entries. Owned C and Node tests pass; `npm run test:runtime` is 46/46. Older ABI-24 modules remain compatible for exactly two entries; no module was rebuilt or run, and no register value is inferred.
+
 ## Next task
 
 Decide the next device address (`0xfd009140`, a write) under the same evidence rules: either extend the explicit synthetic register file through a recorded decision, or stop there. Do not infer NV2A behavior, DMA, interrupts or rendering from these stores; the WBINVD admission (D060) remains conditioned on there being no device model beyond this storage abstraction.

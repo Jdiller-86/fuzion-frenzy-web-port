@@ -627,6 +627,10 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
     return ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
 }
+uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
+{
+    return ff_device_registers_add_initial(&device_registers,address,value);
+}
 uint32_t ff_probe_mmio_word(uint32_t field)
 {
     if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
