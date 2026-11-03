@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $env:UNSLOTH_API_KEY) { $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User') }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $laneName = if ($Lane -eq 'geometry') { 'opencode-geometry' } else { 'opencode-source' }
 $branchName = if ($Lane -eq 'geometry') { 'codex/opencode-geometry' } else { 'codex/opencode-source' }
