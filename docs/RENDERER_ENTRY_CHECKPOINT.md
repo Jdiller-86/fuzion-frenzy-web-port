@@ -627,6 +627,20 @@ Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0ac
 
 The report is `research/verification/post-memory-browser-20261103-43.json` (local/ignored). The RAMIN data decodes as context-like data with many zeros and desynchronising words, not a coherent command stream; the aperture-as-queue hypothesis is ruled out and no consumer, GET advance, packet execution, interrupt, DMA or rendering is implemented.
 
+### Map the 64 MiB contiguous window
+
+The pinned bridge documents `0x80000000 + P` as the physical view and `GET | 0x80000000` as the read-back. The proof now maps the full 64 MiB window directly onto modeled guest RAM instead of a separate 4 KiB page.
+
+Module `recomp-post-memory-build-51` is 526,955 bytes, SHA-256 `cd0bf176d65407f08bf9409b1fd45d6efafde0c7aa3cc31000d2af49c7ba26bb`. In the run:
+
+- guest write pages rise to 49 (the cache-flush write now reaches physical 0); the claim pages remain unwritten;
+- the submitted range scanner sees the flush word at guest address 0 (1 jump, 4,095 method-0 headers);
+- PFIFO views alias-consistent (PUT `0x03B7D000`, GET 0);
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-44.json` (local/ignored). The window is functional and more faithful, but no CPU write reaches the queue claim; no consumer, GET advance, packet execution, interrupt, DMA or rendering is implemented.
+
 ## Next task
 
-Choose the next bounded independent startup prerequisite or producer-provenance step, preserving the fail-closed boundary. The PFIFO consumer remains blocked; do not treat zero headers or mixed RAMIN data as an empty-queue completion, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs, the submission summary, the read-only scanner and the RAMIN scan. The captured line/quad reference comparison and browser prepass also remain private.
+Choose the next bounded independent startup prerequisite or producer-provenance step, preserving the fail-closed boundary. The PFIFO consumer remains blocked; do not treat the contiguous window, zero headers or mixed RAMIN data as an empty-queue completion, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the 64 MiB contiguous alias, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs, the submission summary, the read-only scanner and the RAMIN scan. The captured line/quad reference comparison and browser prepass also remain private.

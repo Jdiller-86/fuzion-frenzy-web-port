@@ -2,24 +2,22 @@
 #define FF_GUEST_MIRROR_H
 #include <stdint.h>
 
-/* Bounded guest-visible physical-mirror page reached by original cache-flush
- * code. The pinned public bridge documents that physical P is visible at
- * 0x80000000 + P on hardware and keeps the window as separate storage because
- * it does not model physical aliasing. This proof does the same for one page:
- * accesses inside the page round-trip through this storage and are counted by
- * the caller; anything outside still fails the identity-window check. This is
- * not a general 0x80000000 window or a true physical alias. */
+/* Bounded guest-visible contiguous window. The pinned public bridge documents
+ * that physical P is visible at 0x80000000 + P and that D3D stores a physical
+ * address while reading the GPU position back as `GET | 0x80000000`. This
+ * proof maps the 64 MiB window directly onto the modeled guest physical RAM:
+ * accesses are bounds-checked here and the caller returns guest_ram + offset.
+ * It is not a general virtual-memory mapping or permission model. */
 #define FF_GUEST_MIRROR_BASE 0x80000000u
-#define FF_GUEST_MIRROR_BYTES 0x1000u
+#define FF_GUEST_MIRROR_BYTES 0x04000000u
 
 typedef struct {
-    uint8_t bytes[FF_GUEST_MIRROR_BYTES];
+    uint32_t base, bytes;
 } ff_guest_mirror;
 
 void ff_guest_mirror_init(ff_guest_mirror *);
-/* True only when the whole non-empty access lies inside the bounded page. */
+/* True only when the whole non-empty access lies inside the window. */
 int ff_guest_mirror_contains(const ff_guest_mirror *, uint32_t address, uint32_t bytes);
-/* Pointer to the same offset in the mirror; the caller must have checked
- * contains for the exact access first. */
-uint8_t *ff_guest_mirror_pointer(ff_guest_mirror *, uint32_t address);
+/* Physical offset in the mirrored RAM; the caller must have checked contains. */
+uint32_t ff_guest_mirror_offset(uint32_t address);
 #endif

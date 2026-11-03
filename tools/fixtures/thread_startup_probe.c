@@ -303,7 +303,10 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     if (access && (access & ~(FF_VM_READ | FF_VM_WRITE)) == 0 && bytes <= FF_GUEST_MIRROR_BYTES &&
         ff_guest_mirror_contains(&guest_mirror, address, (uint32_t)bytes)) {
         ++vm_access_count;
-        return ff_guest_mirror_pointer(&guest_mirror, address);
+        uint32_t offset = ff_guest_mirror_offset(address);
+        if ((access & FF_VM_WRITE) && bytes)
+            (void)ff_guest_write_map_mark(&guest_write_map, offset, (uint32_t)bytes);
+        return guest_ram + offset;
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {

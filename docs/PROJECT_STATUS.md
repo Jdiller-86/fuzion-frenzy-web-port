@@ -1,14 +1,14 @@
-# RAMIN aperture scan: the instance data is not a coherent command stream
+# Contiguous 0x80000000 window now aliases guest RAM; the queue producer still does not run
 
-November 3: a read-only scan of the observed `0xFD700000` RAMIN aperture confirms it is not the missing pushbuffer. Reconstructing the 0x5000-byte aperture from its 5,120 entries and running the NV2A header scanner yields 2,589 zero headers, only seven method kinds, 150 jumps, 8 calls, 317 unknown words and no returns. The submitted guest range remains zero at its start. The queue producer is still absent; no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the pinned bridge documents that physical `P` is visible at `0x80000000 + P` and that D3D stores a physical address while reading the GPU position back as `GET | 0x80000000`. The proof previously modeled only one separate 4 KiB mirror page there; it now maps the full 64 MiB contiguous window directly onto modeled guest RAM. The cache-flush write at `0x80000000` now lands in guest physical 0 (one more written page, and the scanner sees its non-zero word), but no CPU write reaches the GPU-instance claim pages and the PFIFO wait still cannot complete. No consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-43.json`.
+The module is `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the report is `post-memory-browser-20261103-44.json`.
 
-Source change: `submission-probe.mjs` adds `raminScan`, reconstructing the observed `0xFD700000` region from aperture entries and running the read-only header scanner; tests cover a synthetic RAMIN stream, counts, read-only behavior and missing entries. The scan does not read MMIO, execute commands or advance GET. Validation: submission/scanner tests (20 combined), device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `guest_mirror.h/.c` becomes a 64 MiB contiguous-window descriptor (`0x80000000`..`0x84000000`) with bounds and offset calculation; the probe returns `guest_ram + offset` for data accesses inside it and marks writes in the guest write-page map; the separate 4 KiB storage is removed. Tests cover the window and offsets. The claim pages remain unwritten and the submitted guest range is zero apart from the flush word. No consumer, GET advance, packet execution, interrupt, DMA or rendering is fabricated. Validation: mirror tests optimized/ASan/UBSan, scanner/submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: zero-header submission scan
+## Prior: RAMIN scan
 
-The submitted guest range's first 4,096 words decode as the zero header. Report `post-memory-browser-20261103-42.json`.
+The RAMIN aperture decodes as mixed context data, not a command stream. Report `post-memory-browser-20261103-43.json`.
 
 ## Prior: 0x200f59
 
