@@ -1,14 +1,14 @@
-# Original execution clears the 0x80000000 mirror write and stops at a device poll
+# Original execution completes the NV_PFB_WBC flush and reaches the NV2A USER region
 
-November 3: `0x00200518` executed and the run advanced into `0x001FAED0`. The reached cache-flush write to `0x80000000` now completes through a bounded source-owned physical-mirror page. `0x001FAED0` then polls device register `0xFD100410` (value `0x10000`) for a hardware transition the synthetic aperture cannot supply, so a new 16-read poll limit stops the proof at `0x1FAF10` with status 12 (`device poll limit reached`). All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the reached `0x001FAED0` wait now completes. `NV_PFB_WBC` (NV2A offset `0x410`, flush bit `1 << 16`) is modeled as a single self-clearing bit from the pinned xemu PFB model, so the guest's write/poll sequence sees the flush finish. Execution then writes `0xFD800040`, the start of the NV2A USER region, which is just outside the current 8 MiB aperture window; the run stops there with status 10 (`guest memory access stopped`). All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-46` is 524,523 bytes, SHA-256 `cc4d7c74…`. The mirror page is one 0x1000-byte separate-storage page at `0x80000000` (not a true physical alias or a general window); execute, partial-overlap and out-of-page accesses still fail closed. The aperture logged 5,301 entries / 12,539 events and 74,065 checked guest accesses. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-28.json`.
+Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-47` is 524,891 bytes, SHA-256 `efb0fbea…`. The aperture logged 5,301 entries / 12,523 events and did not trigger the 16-read poll limit this run. The report is `post-memory-browser-20261103-29.json`. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
 
-A prior run without the poll limit produced 20,246 identical reads, exhausted the 32,768-event log and exceeded the browser's local report save path. The limit keeps the ordered evidence bounded and reports the wait instead of fabricating a device result. Validation: guest-mirror and device-register fixtures (including the poll limit) optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+The self-clearing model is narrow and evidence-based: the write event retains `0x10000`, the read-back is `0`, and unmasked bits still store normally. Only `NV_PFB_WBC_FLUSH` is modeled; no general NV2A behavior is claimed. Validation: device-register (including self-clearing and the poll limit), guest-mirror, port-output, time-field and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: 0x20057A
+## Prior: mirror page and poll limit
 
-`0x0020057A` programmed large device register/context blocks and reached `0x200518`. Translation `recomp-title-post-memory-29` was 365 functions / 14,544 instructions; module `recomp-post-memory-build-43` was 520,818 bytes, SHA-256 `2752487f…`. Report `post-memory-browser-20261103-26.json`.
+Module `recomp-post-memory-build-46` (524,523 bytes, SHA-256 `cc4d7c74…`) completed the `MOV [0x80000000], EDX; WBINVD` write through a bounded mirror page and stopped after 16 identical reads of `0xFD100410`. Report `post-memory-browser-20261103-28.json`.
 
 ## Prior: 0x200f59
 

@@ -37,7 +37,7 @@ export function createDeviceReport(api, profile = null) {
     });
   }
   return {
-    scope: 'explicit synthetic aperture; unknown reads fail; no NV2A or device behaviour',
+    scope: 'explicit synthetic aperture; unknown reads fail; one modeled self-clearing flush bit; no general NV2A or device behaviour',
     base: api.ff_probe_mmio_word(1) >>> 0,
     size: api.ff_probe_mmio_word(2) >>> 0,
     count,

@@ -410,6 +410,19 @@ Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 inst
 
 Execution stopped at device address **`0xFD100410`** with status 12 (`device poll limit reached`), return `0x203B90`. The report is `research/verification/post-memory-browser-20261103-28.json` (local/ignored). A prior run without the limit produced 20,246 identical reads, exhausted the 32,768-event log and exceeded the browser report save path. There is no playable screen.
 
+### Model NV_PFB_WBC and reach the NV2A USER region
+
+Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 instructions**. Module `recomp-post-memory-build-47` is 524,891 bytes, SHA-256 `efb0fbea1c67c44c3a904b0da9294120cdf3f3439909e639e3f0866b7b76e27e`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 261 distinct original routines executed and 402 kernel operations completed;
+- `0x001FAED0` read `0xFD100410` = `0`, wrote `0x10000` (`NV_PFB_WBC_FLUSH`), and its poll read back `0`, so the flush completed after one iteration;
+- the aperture retained 5,301 entries / 12,523 events;
+- execution then wrote `0xFD800040`, outside the current 8 MiB window;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0xFD800040`** (status 10, `guest memory access stopped`, return `0x203B90`). The report is `research/verification/post-memory-browser-20261103-29.json` (local/ignored). The self-clearing model follows the pinned xemu `NV_PFB_WBC` read/write behavior and covers only the flush bit. There is no playable screen.
+
 ## Next task
 
-Analyze the `0xFD100410` wait in `0x001FAED0` from static evidence and decide whether a narrow, evidence-based modeled completion is justified. Preserve the explicit synthetic register values, the 8,192-entry / 32,768-event aperture, the 0x1000-byte mirror page and the 16-read poll limit; do not fabricate the awaited device value or infer NV2A interrupt delivery, DMA, device behavior or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Choose a bounded way to reach `0xFD800040`: the pinned xemu map places the NV2A USER region at offset `0x800000` (size `0x800000`), beyond the profile parser's 8 MiB aperture ceiling. Extend the explicit aperture ceiling and/or supply the USER page with tests, without inventing pushbuffer submission behavior or fabricating device results. Preserve the explicit synthetic register values, the 8,192-entry / 32,768-event aperture, the 0x1000-byte mirror page, the 16-read poll limit and the single self-clearing flush bit. The captured line/quad reference comparison and browser prepass also remain private.

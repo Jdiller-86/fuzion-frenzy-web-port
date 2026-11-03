@@ -51,6 +51,8 @@ static uint32_t seed(ff_device_registers *device, uint32_t address, uint32_t val
     return 0;
 }
 
+static void self_clear(ff_device_registers *device, uint32_t address);
+
 /* Append one ordered event. A zero site is not a translated block and is
  * rejected so it can never be mistaken for provenance. */
 static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t direction,
@@ -70,7 +72,8 @@ static uint32_t record(ff_device_registers *device, uint32_t address, uint32_t d
     device->events[device->event_count++] =
         (ff_device_event){address, site, direction, direction == FF_DEVICE_WRITE ? *value : entry->value, entry->known};
     if (direction == FF_DEVICE_READ) { ++entry->reads; *value = entry->value; }
-    else { ++entry->writes; entry->value = *value; entry->known = 1; entry->known_bytes = 0xFu; }
+    else { ++entry->writes; entry->value = *value; entry->known = 1; entry->known_bytes = 0xFu;
+           self_clear(device, address); }
     return 0;
 }
 
@@ -121,6 +124,18 @@ uint32_t ff_device_registers_add_zero_range(ff_device_registers *device, uint32_
     return 0;
 }
 
+uint32_t ff_device_registers_add_self_clearing(ff_device_registers *device, uint32_t address, uint32_t mask)
+{
+    if (!device || !device->ready || device->event_count || device->pending || !mask ||
+        (address & 3u) || address < device->base || address - device->base >= device->bytes)
+        return FF_BOOT_INVALID;
+    if (device->self_clearing_count >= FF_DEVICE_SELF_CLEARING) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->self_clearing_count; ++i)
+        if (device->self_clearing[i].address == address) return FF_BOOT_INVALID;
+    device->self_clearing[device->self_clearing_count++] = (ff_device_self_clearing){address, mask};
+    return 0;
+}
+
 uint32_t ff_device_registers_contains(const ff_device_registers *device, uint32_t address, uint32_t bytes)
 {
     if (!device || !device->ready || (bytes != 1u && bytes != 2u && bytes != 4u))
@@ -137,6 +152,17 @@ uint32_t *ff_device_registers_slot(ff_device_registers *device, uint32_t address
 {
     ff_device_entry *entry = device ? find(device, address) : NULL;
     return entry ? &entry->value : NULL;
+}
+
+/* A modeled write-completion bit reads back clear after its completed write.
+ * The event keeps the value the guest actually stored. */
+static void self_clear(ff_device_registers *device, uint32_t address)
+{
+    for (uint32_t i = 0; i < device->self_clearing_count; ++i)
+        if (device->self_clearing[i].address == address) {
+            ff_device_entry *entry = find(device, address);
+            if (entry) entry->value &= ~device->self_clearing[i].mask;
+        }
 }
 
 uint32_t ff_device_registers_commit(ff_device_registers *device)
@@ -168,6 +194,7 @@ uint32_t ff_device_registers_commit(ff_device_registers *device)
     entry->value = merged;
     entry->known_bytes |= (bytes == 1u ? 1u : 3u) << offset;
     entry->known = entry->known_bytes == 0xFu;
+    self_clear(device, base);
     return 0;
 }
 

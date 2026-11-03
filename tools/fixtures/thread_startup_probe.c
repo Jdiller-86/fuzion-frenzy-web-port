@@ -646,7 +646,12 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
-    return ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
+    uint32_t status = ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
+    if(status)return status;
+    /* NV_PFB_WBC at NV2A offset 0x410: the reached wait sets NV_PFB_WBC_FLUSH
+     * (1 << 16) and polls until it clears. xemu's PFB model reads 0 because a
+     * flush is not pending, so model only that self-clearing bit here. */
+    return ff_device_registers_add_self_clearing(&device_registers,0xFD100410u,0x10000u);
 }
 uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
 {

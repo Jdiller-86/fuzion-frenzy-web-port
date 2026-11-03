@@ -303,6 +303,25 @@ static void repeated_identical_reads_stop_at_the_poll_limit(void)
     assert(!ff_device_registers_poll_limited(&device));
 }
 
+static void self_clearing_bits_complete_after_the_write(void)
+{
+    reset();
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD009200u, 0x10000u) == 0);
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD009200u, 0x20000u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD009202u, 0x1u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD009200u, 0) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD800000u, 1) == FF_BOOT_INVALID);
+    uint32_t value = 0x50000u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    uint32_t readback = 0xffffffffu;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100020u, &readback) == 0);
+    assert(readback == 0x40000u);
+    assert(device.events[0].direction == FF_DEVICE_WRITE && device.events[0].value == 0x50000u);
+    assert(ff_device_registers_add_self_clearing(&device, 0xFD009204u, 0x10u) == FF_BOOT_INVALID);
+    uint32_t *slot = ff_device_registers_access(&device, 0xFD009200u, FF_DEVICE_ACCESS_READ, 0x00100020u);
+    assert(slot && *slot == 0x40000u);
+}
+
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
@@ -310,7 +329,7 @@ int main(void)
     sub_dword_writes_extend_unknown_registers(); zero_ranges_serve_reads_and_yield_to_writes();
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
-    repeated_identical_reads_stop_at_the_poll_limit();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling and atomicity passed");
+    repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits and atomicity passed");
     return 0;
 }
