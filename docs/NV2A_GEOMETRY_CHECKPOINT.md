@@ -114,6 +114,8 @@ Each filled-triangle record carries 126 raw float32 input words, four state word
 
 `tools/compare-nv2a-geometry.mjs` currently drives only the `_ff_nv2a_expand_triangle` export with that four-word state. Comparing any other primitive or mode requires an equivalent bounded export, state layout and reference schema before it can be called a reference comparison.
 
+The reference-compatible state is exactly the four 32-bit words `smooth`, `first_provoking`, `perspective_depth` and `rotation`. `FFNv2aTriangleState` appends `rotation_odd` as a fifth word for strip/stream parity; the list fill/line/point paths do not read it, which keeps the current four-word allocation safe. Any adapter that drives strip, fan or stream exports must allocate the full struct or a five-word state and define how the fifth word is encoded.
+
 ### Comparison procedure and rules
 
 Run:
@@ -146,6 +148,8 @@ The free-model-only geometry directive forbids delegating to paid or other-model
 | Filled triangle (`ff_nv2a_expand_triangle`) | `.tools/emulation/geom-reference-01/reference.json`, SHA-256 `474497d8fb629580352390ec7705b4ed0ea47aa635b8064e9ad2f393d7b530e5` (960 records) | exact under the separate profile; fused checked separately against the native-libm model |
 | Line and quad | captured locally, private and unavailable in this worktree | not compared here; browser prepass pending |
 | Triangle strip/fan fill/line/point, polygon fill/line, quad line/point, quad-strip, stream assembly | none | analytic tests only |
+
+A source-owned ABI guard in `tests/nv2a_triangle_test.c` allocates the four-word reference state on the heap and exercises the list fill/line/point paths under ASan, so a future read of the strip-only extension fails the boundary check rather than silently changing the comparator contract.
 
 ## Inference, unknowns and next task
 

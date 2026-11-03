@@ -1,6 +1,7 @@
 /* Analytic source-owned cases; broader coverage uses the actual shader oracle. */
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../src/runtime/nv2a_triangle.h"
 
@@ -609,6 +610,40 @@ static void triangle_stream_assembly(void)
     assert(!memcmp(lines, saved, sizeof(saved)));
 }
 
+static void reference_state_abi(void)
+{
+    /* The private comparator allocates four state words and writes only the
+     * reference ABI fields. The list fill/line/point paths must not read the
+     * strip-only fifth word; ASan catches a regression at this heap boundary.
+     */
+    const float positions[3][4] = { {0,0,1,1}, {1,0,2,2}, {0,1,3,4} };
+    FFNv2aPostVertex input[3];
+    triangle_inputs(input, positions);
+    uint32_t *words = malloc(4 * sizeof *words);
+    assert(words);
+    words[0] = 0; /* smooth */
+    words[1] = 0; /* first_provoking */
+    words[2] = 0; /* perspective_depth */
+    words[3] = 1; /* rotation */
+    const FFNv2aTriangleState *state = (const FFNv2aTriangleState *)words;
+    FFNv2aRasterVertex output[6];
+    assert(sizeof(FFNv2aTriangleState) == 5 * sizeof(uint32_t));
+
+    assert(ff_nv2a_expand_triangle(input, state, output, FF_NV2A_FUSED) == 0);
+    assert(output[0].clip[0] == 2.0f && output[1].clip[0] == 0.0f &&
+           output[2].clip[0] == 1.0f);
+    assert(!memcmp(output[0].color, input[1].color, sizeof(output[0].color)));
+    assert(ff_nv2a_expand_triangle_lines(input, state, output, FF_NV2A_FUSED) == 0);
+    assert(output[0].clip[0] == 2.0f && output[1].clip[0] == 0.0f &&
+           output[2].clip[0] == 0.0f && output[3].clip[0] == 1.0f &&
+           output[4].clip[0] == 1.0f && output[5].clip[0] == 2.0f);
+    assert(ff_nv2a_expand_triangle_points(input, state, output, FF_NV2A_FUSED) == 0);
+    assert(output[0].clip[0] == 2.0f && output[1].clip[0] == 0.0f &&
+           output[2].clip[0] == 1.0f);
+    assert(!memcmp(output[0].color, input[1].color, sizeof(output[0].color)));
+    free(words);
+}
+
 int main(void)
 {
     FFNv2aPostVertex input[3] = {0};
@@ -682,6 +717,7 @@ int main(void)
     triangle_strip_and_fan_modes();
     triangle_strip_fan_line_point_modes();
     triangle_stream_assembly();
-    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point/assembly cases passed");
+    reference_state_abi();
+    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point/assembly/reference-abi cases passed");
     return 0;
 }
