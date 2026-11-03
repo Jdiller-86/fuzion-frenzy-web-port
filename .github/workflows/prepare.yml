@@ -35,6 +35,11 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_line_test.c src/runtime/nv2a_line.c -lm -o "$RUNNER_TEMP/nv2a-line-check"
           "$RUNNER_TEMP/nv2a-line-check"
+      - name: Check quad geometry (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_quad_test.c src/runtime/nv2a_quad.c -lm -o "$RUNNER_TEMP/nv2a-quad-check"
+          "$RUNNER_TEMP/nv2a-quad-check"
       - name: Check boot-thread contexts (Linux)
         if: runner.os == 'Linux'
         run: |

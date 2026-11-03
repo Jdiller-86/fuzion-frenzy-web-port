@@ -1,4 +1,12 @@
-# Source-owned line geometry expansion added
+# Source-owned quad-fill geometry candidate added
+
+Source-only milestone (November 3): `src/runtime/nv2a_quad.c` expands one four-vertex quad into the two triangle-strip triangles emitted by the pinned public xemu `geom.c` (`calc_quadz`/`calc_triz`/`emit_vertex`): vertices `1,2,0` and `2,3,0`. It forwards clip/point/fog/texcoords, uses the quad's provoking color or smooth per-emitted-vertex colors, preserves the two triangle position row sets, and computes each triangle's depth slope under an explicit fused/separate arithmetic profile.
+
+Validation: analytic native tests cover attribute forwarding, provoking/smooth colors, both triangle row sets, tilted/planar/perspective depth and invalid-state rejection without output writes; optimized and ASan/UBSan WSL runs pass. `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. CI adds a Linux quad compile/run.
+
+Boundary: this is a source-owned candidate, not the captured native line/quad reference comparison or a browser prepass. Quad strips, polygon line/point modes, vertex programs, rasterization and renderer integration remain unimplemented. No original module was rebuilt or run; ABI 24 and D060 are unchanged. The reached original boundary remains `0x1fe085`.
+
+## Source-owned line geometry expansion added
 
 Source-only milestone (November 3): `src/runtime/nv2a_line.c` implements the pinned public xemu line geometry shader's two-vertex expansion. It forwards clip, point size, fog and texture coordinates, selects flat/smooth provoking colors, builds the shader's 90-degree rotated interpolation position row, and sets zero depth slope for a standalone line. This is a source-owned candidate, not a captured-reference or original-hardware comparison.
 

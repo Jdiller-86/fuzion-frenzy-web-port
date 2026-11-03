@@ -51,10 +51,16 @@ Analytic tests cover attribute forwarding, first/last provoking colors, smooth c
 
 The captured native line/quad reference and browser comparison remain private and unavailable in this source-only worktree. Do not treat the analytic line tests as original-hardware or reference parity.
 
+## Source-owned quad-fill component
+
+`src/runtime/nv2a_quad.c/.h` expands one four-vertex quad into the pinned public xemu `geom.c` fill order `1,2,0` and `2,3,0` using `calc_quadz`/`calc_triz`/`emit_vertex`. It forwards clip/point/fog/texcoords, uses the quad's provoking color (input 3) or per-emitted-vertex smooth colors, copies the two triangle position row sets, and computes each triangle's depth slope with the explicit fused/separate arithmetic profile. The 42/51-float layouts are reused.
+
+Analytic tests cover attribute forwarding, provoking/smooth colors, both row sets, tilted/planar/perspective depth and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux quad compile/run. This is a candidate implementation, not the captured native quad reference comparison or a browser prepass. Quad strips, polygon line/point modes, original arithmetic calibration and renderer integration remain unimplemented; the captured reference is private and unavailable here.
+
 ## Inference, unknowns and next task
 
 The evidence supports a CPU prepass followed by WebGL2 as a candidate replacement for this filled-triangle geometry stage. It does not select the final graphics architecture or establish original-hardware fidelity. The source-owned C component is not integrated into xemu yet.
 
 Unknown/unimplemented: other primitives and polygon modes, primitive assembly, vertex-program/fixed-function translation, original fragment/texture/depth/blend behavior, shared-context/thread integration, complete GL host adaptation, performance, release-browser coverage and original-title execution. The synthetic forwarded positions are post-vertex inputs, not a substitute for that missing vertex path. An Xbox test/capture would still be needed to establish original behavior; no game/firmware download or native-game streaming is authorized.
 
-Next concrete task: compare the source-owned line candidate against the captured native line reference and browser prepass, then extend the same actual-generator/reference comparison to quad geometry output and the remaining assembly rules, preserving the triangle regression. The captured line/quad reference is private and unavailable in the source-only worktree, so this comparison was not performed here. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
+Next concrete task: compare the source-owned line and quad candidates against the captured native line/quad references and browser prepass, then extend the same actual-generator/reference comparison to quad-strip and remaining assembly rules, preserving the triangle regression. The captured line/quad references are private and unavailable in the source-only worktree, so these comparisons were not performed here. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.

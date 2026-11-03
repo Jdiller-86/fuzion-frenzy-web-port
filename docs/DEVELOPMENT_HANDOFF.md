@@ -1,4 +1,16 @@
-# Continue from the source-owned line geometry component
+# Continue from the source-owned quad-fill geometry candidate
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_quad.c` now expands a four-vertex quad into the pinned public xemu `geom.c` two-triangle fill order (`1,2,0` and `2,3,0`), forwarding attributes, provoking/smooth colors, both triangle position row sets and per-triangle depth slope. It joins the line and triangle candidates. All remain source-owned candidates, not captured-reference or original-hardware comparisons.
+
+Validation: line and quad tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare both candidates against the captured references and add quad-strip/assembly behavior; separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior line-geometry handoff
+
+## Source-owned line geometry expansion added
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
