@@ -1,14 +1,14 @@
-# Bounded submission snapshot at the PFIFO boundary; consumer deferred
+# Submission snapshot finds the command data in the device aperture, not guest RAM
 
-November 3: an architect escalation approved **observation only** at the PFIFO DMA stall. A bounded, read-only submission snapshot now records at most 256 bytes of checked guest memory at the submitted cursor, with explicit availability reasons, and adds no FIFO consumer or DMA_GET advance. The first snapshot at `0x03B7D000` covers `0x03B7CF00`–`0x03B7CFFF` and is entirely zero, confirming that the cursor alone does not identify queued commands. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: the bounded submission probe now captures the 256 bytes before DMA_PUT and the 256 bytes at the observed GPU-instance allocation base. Both guest-RAM windows are entirely zero, while the same run's aperture retains 5,120 entries at `0xFD700000`–`0xFD704FFC` with 559 nonzero. The instance/command data is represented in the separate synthetic device backing, not at the guest physical addresses the DMA cursor names; address translation and buffer ownership remain unestablished, and no consumer is implemented. All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the aperture logs 5,302 entries / 12,524 events. The report is `post-memory-browser-20261103-32.json`.
+The module is unchanged: `recomp-post-memory-build-48` is 525,113 bytes, SHA-256 `19ff3275…`, from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; the aperture logs 5,302 entries / 12,524 events. The report is `post-memory-browser-20261103-33.json`.
 
-Source change: `src/runtime/submission-probe.mjs` builds the bounded snapshot (availability, channel, PUT/GET/base, little-endian words, memory-snapshot label); the worker adds it as `submissionProbe`; the source-only proof host serves it; `tests/submission-probe.test.mjs` covers bounds, read-only behavior and unavailable reasons. This is observation only: no get pointer, FIFO progress, interrupt, DMA or rendering is fabricated. Validation: runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+Source change: `src/runtime/submission-probe.mjs` accepts the observed ordinal-168 allocation and adds a second bounded read-only window at its base; the worker passes the claim. Tests cover both windows, short captures, out-of-range bases and read-only behavior. This is observation only: no get pointer, command decoding, FIFO progress, interrupt, DMA or rendering is fabricated. Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: PFIFO DMA map
+## Prior: first submission snapshot
 
-Module `recomp-post-memory-build-48` classified channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` and added status 13; the run stopped at the first GET read with PUT = `0x03B7D000`. Report `post-memory-browser-20261103-31.json`.
+Module `recomp-post-memory-build-48` captured the pre-PUT window only; it was entirely zero and the consumer was deferred. Report `post-memory-browser-20261103-32.json`.
 
 ## Prior: 0x200f59
 

@@ -1,20 +1,20 @@
-# Continue from the bounded PFIFO submission snapshot
+# Continue from the zero guest-RAM windows at the PFIFO submission cursor
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-An architect escalation approved **observation only** at the PFIFO DMA stall. A bounded, read-only submission snapshot now records at most 256 bytes of checked guest memory ending at the submitted cursor, with explicit availability reasons. No FIFO consumer, DMA_GET advance, method execution, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 distinct original routines execute and 402 kernel operations complete.
+The bounded submission probe now captures the 256 bytes before DMA_PUT and the 256 bytes at the observed GPU-instance allocation base. Both guest-RAM windows are entirely zero, while the same run's aperture retains 5,120 entries at `0xFD700000`–`0xFD704FFC` with 559 nonzero. The instance/command data therefore lives in the separate synthetic device backing, not at the guest physical addresses the DMA cursor names. No consumer, DMA_GET advance, method execution, interrupt or rendering is implemented. The run still stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
 
-The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-32.json`. The first snapshot covers `0x03B7CF00`–`0x03B7CFFF` for PUT `0x03B7D000` and GET `0`, and all 64 captured words are zero; the cursor alone does not identify queued commands.
+The module is unchanged: `recomp-post-memory-build-48` is SHA-256 `19ff3275…` (525,113 bytes), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-33.json`. `submissionProbe` reports PUT `0x03B7D000`, GET `0`, before-window base `0x03B7CF00` (0 nonzero words) and allocation base `0x03B78000` (0 nonzero words).
 
-`src/runtime/submission-probe.mjs` builds the snapshot; the worker adds `submissionProbe`; `tools/serve-startup-proof.mjs` serves the new module; `tests/submission-probe.test.mjs` covers the bounded window, read-only behavior and unavailable reasons.
+`src/runtime/submission-probe.mjs` now accepts the observed ordinal-168 allocation and adds the second bounded read-only window; the worker extracts the claim; `tests/submission-probe.test.mjs` covers both windows, short captures, out-of-range bases and read-only behavior.
 
-Validation: runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+Validation: submission-probe tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** establish the PFIFO DMA object/base/limit, cursor units, address mapping, initial GET, packet/control-flow forms and reached method dependencies from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** establish the DMA object/base/limit and the guest-physical-to-device-aperture translation from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: PFIFO DMA map
+## Prior: first submission snapshot
 
-Module `recomp-post-memory-build-48` classified channel-0 `NV_USER_DMA_PUT`/`GET`/`REF` and added status 13; the run stopped at the first GET read with PUT = `0x03B7D000`. Report `post-memory-browser-20261103-31.json`.
+Module `recomp-post-memory-build-48` captured the pre-PUT window only; it was entirely zero and the consumer was deferred. Report `post-memory-browser-20261103-32.json`.
 
 ## Prior: 0x200f59
 

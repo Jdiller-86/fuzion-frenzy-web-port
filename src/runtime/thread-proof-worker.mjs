@@ -884,8 +884,10 @@ self.onmessage = async event => {
     if(api.ff_probe_abi()===24) {
       deviceRegisters=createDeviceReport(api, mmioProfile);
     }
+    const claim = calls.find(call => call.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
     const submissionProbe = deviceRegisters ? createSubmissionProbe({
       status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
+      allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
     }) : { available: false, reason: 'no observed device aperture' };
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {

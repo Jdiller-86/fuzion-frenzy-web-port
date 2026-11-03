@@ -26,6 +26,26 @@ test('a status-13 snapshot returns the bounded window before the put cursor', ()
   assert.equal(probe.words.at(-1), 0x10000000 + probe.base + SUBMISSION_PROBE_BYTES - 4);
   assert.match(probe.note, /not decoded commands/);
   assert.equal(view.getUint32(probe.base, true), probe.words[0]);
+  assert.equal(probe.allocation.available, false);
+  assert.equal(probe.allocation.reason, 'no observed GPU-instance allocation');
+});
+
+test('an observed allocation base adds a bounded read-only second window', () => {
+  const { view, ramBytes, entries, status } = fixture();
+  const before = new Uint8Array(view.buffer).slice();
+  const probe = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x400, bytes: 256 } });
+  assert.equal(probe.allocation.available, true);
+  assert.equal(probe.allocation.base, 0x400);
+  assert.equal(probe.allocation.bytes, 256);
+  assert.equal(probe.allocation.words[0], 0x10000000 + 0x400);
+  assert.equal(probe.allocation.words.at(-1), 0x10000000 + 0x400 + 252);
+  assert.deepEqual(new Uint8Array(view.buffer), before);
+  const short = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x400, bytes: 4 } });
+  assert.equal(short.allocation.available, true);
+  assert.equal(short.allocation.bytes, 4);
+  const outside = createSubmissionProbe({ status, entries, view, ramBytes, allocation: { base: 0x1000, bytes: 256 } });
+  assert.equal(outside.allocation.available, false);
+  assert.equal(outside.allocation.reason, 'window outside aligned guest memory');
 });
 
 test('the snapshot is read-only and reports missing get as zero', () => {

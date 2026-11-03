@@ -467,6 +467,20 @@ Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff3
 
 Execution still stops at **`0xFD800044`** with status 13. The report is `research/verification/post-memory-browser-20261103-32.json` (local/ignored). The snapshot is a memory view, not decoded commands, and does not advance DMA_GET.
 
+### Add the observed allocation-base window
+
+`submission-probe.mjs` now also accepts the observed ordinal-168 GPU-instance claim and captures a second bounded read-only window at that base. `thread-proof-worker.mjs` extracts the claim; tests cover both windows, short captures, out-of-range bases and read-only behavior.
+
+Module `recomp-post-memory-build-48` is unchanged (525,113 bytes, SHA-256 `19ff32755d85e8db53ed6cb1829b82fb3f2b56f0061655f9146d92ce61156b2b`). In the run:
+
+- all 83 initialization callbacks returned; 261 routines and 402 kernel operations;
+- `submissionProbe` reports PUT `0x03B7D000`, GET `0`, before-window base `0x03B7CF00` and allocation base `0x03B78000`, each 256 bytes with **0 nonzero words**;
+- the same run's device aperture retains 5,120 entries at `0xFD700000`–`0xFD704FFC`, **559 nonzero**;
+- the aperture overall logged 5,302 entries / 12,524 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution still stops at **`0xFD800044`** with status 13. The report is `research/verification/post-memory-browser-20261103-33.json` (local/ignored). The command/context data is in the separate device-aperture backing, not at the guest physical addresses the cursor names; no consumer or translation is implemented.
+
 ## Next task
 
-Establish the PFIFO DMA object/base/limit, cursor units, address mapping, initial GET, packet/control-flow forms and reached method dependencies from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit and the PFIFO register map. The captured line/quad reference comparison and browser prepass also remain private.
+Establish the DMA object/base/limit and the guest-physical-to-device-aperture translation from pinned evidence, then decide a bounded synchronous PFIFO contract. This remains an open architecture decision; do not fabricate the get pointer, command decoding, interrupt delivery, DMA or rendering. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register map and the bounded submission windows. The captured line/quad reference comparison and browser prepass also remain private.
