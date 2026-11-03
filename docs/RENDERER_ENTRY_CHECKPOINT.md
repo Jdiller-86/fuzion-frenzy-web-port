@@ -80,7 +80,13 @@ Reports: `post-memory-browser-20261102-15.json`, `-16.json`; audit `aperture-che
 
 Validation: `python tests/recomp_memory_access_test.py` 8/8, `python tests/title_seed_test.py` 25/25, `npm run test:runtime` 40/40, `npm run check` (221 files) and whitespace checks pass. The owned transformed fixture passes optimized and ASan/UBSan native GCC in WSL, covering three labelled blocks with integer and float widths, a device read/write site, and rejection of a zero-site device access. **No original module was rebuilt or executed; this is not a new original-runtime observation.** The reached original boundary remains `0x1fe085`.
 
-Limitation: the device event `value` field is still recorded before the generated store, so a write event carries the host's pre-store placeholder (zero) rather than the stored value; the entry snapshot holds the stored value. Site provenance does not change that. Capturing the stored write value requires a staged write and is not claimed here.
+### Staged device writes
+
+The aperture no longer records a write before the generated store. `ff_device_registers_stage_write` returns the lvalue that the store fills; `ff_device_registers_commit` records one write event with the stored value. `ff_device_registers_touch` and `ff_device_registers_access` commit a pending write first, so a later read observes it and event order is preserved. `ff_device_registers_access` maps READ, WRITE and READWRITE; the read half of a read-modify-write is recorded immediately and its write is staged. `ff_probe_guest_memory` commits before any later access, and the helper-return stop plus the event readers commit before reading counts.
+
+`tests/device_registers_test.c` covers staged writes, consecutive writes, auto-commit before a following read, read-modify-write, unknown read halves, zero-site/invalid-mask rejection, and capacity atomicity. `tests/memory_access_test.c` exercises the same path through transformed guest accessors, including the split `movsd` form. `tools/recomp_memory_access.py` splits the pinned lifter's exact `movs` mem-to-mem forms into a temporary read plus store, and rejects any other scalar write whose value expression contains another memory access, because the staged lvalue must be followed only by its store; the Python memory-access suite is 10/10. The guard covers the lifter's memory tokens; its stores otherwise use register/immediate values, so no other probe is emitted between the staged lvalue and the store. A future form that calls a probing helper in a store value expression would need its own split or fail-closed rule. Optimized and ASan/UBSan WSL runs pass.
+
+No original module was rebuilt or run, so build-16's recorded write values remain the old probe's pre-store placeholders; no new browser observation is claimed. ABI 24 and D060 are unchanged.
 
 ## Next task
 

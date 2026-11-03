@@ -12,7 +12,9 @@ hard-coded routine or a caller return address. A leading access before the first
 label belongs to the function entry block. Emitting that site lets the device
 aperture record which original code performed an access instead of claiming one
 routine for every access. Stack and bulk helpers deliberately pass zero; the
-host admits zero only against owned RAM, never a device window.
+host admits zero only against owned RAM, never a device window. A scalar write
+may not combine another memory access in its value expression: the staged
+lvalue must be followed only by its store, so that form fails closed.
 """
 import bisect
 import re
@@ -21,6 +23,23 @@ ACCESSORS = {"MEM8": "U8", "MEM16": "U16", "MEM32": "U32", "MEM64": "U64",
              "SMEM8": "I8", "SMEM16": "I16", "SMEM32": "I32", "SMEM64": "I64",
              "MEMF": "F32", "MEMD": "F64"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
+MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32)\b")
+
+
+def statement_end(mask, start):
+    """Return the offset of the statement terminator after a checked access."""
+    depth = 0
+    for index in range(start, len(mask)):
+        char = mask[index]
+        if char in "({[":
+            depth += 1
+        elif char in ")}]":
+            if not depth:
+                return index
+            depth -= 1
+        elif char == ";" and not depth:
+            return index
+    return len(mask)
 
 
 def code_mask(text):
@@ -73,6 +92,12 @@ def instrument_memory_accesses(text, site, limit=None):
     if type(site) is not int or not 0 < site <= 0xFFFFFFFF:
         raise ValueError("A checked guest block site is required")
     stats = {"reads": 0, "writes": 0, "readWrites": 0, "stack": 0, "bulkRanges": 0, "sites": 0}
+    # The pinned lifter emits movs as one mem-to-mem statement. Split the read
+    # and write so the staged write is followed only by its own store.
+    for width, ctype in (("8", "uint8_t"), ("16", "uint16_t"), ("32", "uint32_t")):
+        text = text.replace(
+            f"MEM{width}(edi) = MEM{width}(esi);",
+            f"{{ {ctype} _ff_copy{width} = MEM{width}(esi); MEM{width}(edi) = _ff_copy{width}; }}")
     # These two native bulk paths are emitted by the pinned string lifter.
     # Validate the full extent before it obtains either host pointer.
     pair = "uint8_t *_d = (uint8_t*)XBOX_PTR(edi), *_s = (uint8_t*)XBOX_PTR(esi);"
@@ -131,6 +156,11 @@ def instrument_memory_accesses(text, site, limit=None):
             elif after.startswith('=') and not after.startswith('=='):
                 access, key = 2, "writes"
             else: access, key = 1, "reads"
+            if key in ("writes", "readWrites") and MEMORY_TOKEN.search(mask[closing:statement_end(mask, closing)]):
+                # The generated store must be the only probe after its staged
+                # lvalue. A nested access in the value expression would commit
+                # the staged write before the store and lose the stored value.
+                raise ValueError("Generated write combines another memory access")
             argument = rewrite(source[opening + 1:closing - 1], base + opening + 1)
             if not argument.strip(): raise ValueError("Empty generated memory address")
             block = site_at(base + begin)

@@ -1,4 +1,16 @@
-# Continue from the checked basic-block access contract
+# Continue from staged device-write events
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The explicit synthetic aperture now stages every device write until the generated store has run and records the stored value in one ordered event. Read-modify-write records the read immediately and stages the write; `ff_device_registers_access` centralizes the three access masks. `ff_probe_guest_memory` commits a pending write before any later access, and the return-frame stop/event readers commit before reading counts, so event order and values are final.
+
+Validation: WSL GCC optimized plus ASan/UBSan runs of `tests/device_registers_test.c` and the transformed `tests/memory_access_test.c`, Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` for 221 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior basic-block access handoff
+
+## Continue from the checked basic-block access contract
 
 Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
@@ -6,7 +18,7 @@ The in-flight checked-memory change is complete. Every emitted scalar guest acce
 
 Validation: Python memory-access tests 8/8, title-seed tests 25/25, runtime tests 40/40, `npm run check` for 221 files, whitespace checks, and optimized plus ASan/UBSan WSL GCC runs of the owned transformed fixture with three labelled blocks (integer and float widths), device-site assertions and a rejected zero-site device access. No original module was rebuilt or run; there is no new original-runtime observation.
 
-**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency. Independently, fix device write-event fidelity with a staged write so the event `value` is the stored value rather than the pre-store placeholder. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency, then rebuild a module to observe the staged device write values. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
 
 ## Prior renderer-entry handoff
 

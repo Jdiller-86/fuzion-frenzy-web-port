@@ -19,6 +19,12 @@ static void owned_memory_bulk(uint32_t edi, uint32_t esi, uint32_t ecx)
     uint8_t *_d = (uint8_t*)XBOX_PTR(edi), *_s = (uint8_t*)XBOX_PTR(esi);
     memcpy(_d, _s, (size_t)_n);
 }
+/* Mirrors the pinned lifter's movsd form; instrumentation must split the
+ * mem-to-mem read and write before staging. */
+static void owned_memory_move(uint32_t edi, uint32_t esi)
+{
+    MEM32(edi) = MEM32(esi); esi += 4; edi += 4; /* movsd */
+}
 /* Two labelled blocks exercise site attribution. The gotos keep both labels
  * used under -Wall -Wextra -Werror; they do not model original control flow. */
 static uint32_t owned_memory_site(uint32_t choose, uint32_t edi)

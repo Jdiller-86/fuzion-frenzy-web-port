@@ -228,12 +228,18 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame)
 #endif
 #ifdef FF_MMIO_PROOF
     /* Stop at the reached device helper's return, before its caller continues. */
-    if (device_registers.ready && address == 0x001FE05Au) stop(11, address, device_registers.event_count);
+    if (device_registers.ready && address == 0x001FE05Au) {
+        (void)ff_device_registers_commit(&device_registers);
+        stop(11, address, device_registers.event_count);
+    }
 #endif
 }
 
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 {
+#ifdef FF_MMIO_PROOF
+    (void)ff_device_registers_commit(&device_registers);
+#endif
     probe_state[0] = status; probe_state[1] = target; probe_state[2] = ordinal; probe_state[3] = g_esp;
     if (g_esp <= FF_GUEST_BYTES - 44u && !(g_esp & 3u)) {
         probe_state[4] = 10; probe_state[5] = MEM32(g_esp);
@@ -253,16 +259,18 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
 {
     (void)site;
 #ifdef FF_MMIO_PROOF
+    /* A staged device write is committed before any later access, so event
+     * order and the stored value are both final. */
+    if (device_registers.ready && ff_device_registers_commit(&device_registers))
+        stop(10, address, access);
     if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
-        uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
-        uint32_t value = 0;
-        /* A device access must name its translated block. Zero is reserved for
-         * the RAM-only stack and bulk helpers, so it cannot become a fake site. */
-        if (!site) stop(10, address, access);
-        if (ff_device_registers_touch(&device_registers, address, direction, site, &value))
-            stop(10, address, access);
+        uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
+                               : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
+                               : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
+        uint32_t *slot = device_access ? ff_device_registers_access(&device_registers, address, device_access, site) : NULL;
+        if (!slot) stop(10, address, access);
         ++vm_access_count;
-        return ff_device_registers_slot(&device_registers, address);
+        return slot;
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
@@ -621,6 +629,7 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
 }
 uint32_t ff_probe_mmio_word(uint32_t field)
 {
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
     if(field==0)return device_registers.ready;
     if(field==1)return device_registers.base;
     if(field==2)return device_registers.bytes;
@@ -636,6 +645,7 @@ uint32_t ff_probe_mmio_word(uint32_t field)
 }
 uint32_t ff_probe_mmio_event(uint32_t index,uint32_t field)
 {
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
     if(index>=device_registers.event_count)return UINT32_MAX;
     const ff_device_event *e=&device_registers.events[index];
     return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:field==4?e->site:UINT32_MAX;

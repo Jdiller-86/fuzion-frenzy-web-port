@@ -1,4 +1,12 @@
-# Checked guest accesses now name the translated basic block
+# Modeled device writes now record the stored value
+
+Source-only milestone (November 3): the explicit synthetic aperture now stages each device write until the generated store has run, then records the actual value in one ordered write event. A read-modify-write records its read immediately and stages its write, so the log holds both halves. `ff_device_registers_access` centralizes read/write/read-write routing; unknown reads, zero sites, invalid masks or widths, and capacity exhaustion still fail before a guest result. This removes the prior event-value limitation for future modules.
+
+Validation: `tests/device_registers_test.c` covers staged writes, consecutive writes, auto-commit before a following read, read-modify-write, unknown read halves, zero-site/invalid-mask rejection, and capacity atomicity; `tests/memory_access_test.c` exercises the same path through transformed guest accessors. WSL GCC optimized and ASan/UBSan runs pass, as do Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` (221 files) and whitespace checks. No public CI result is claimed.
+
+Boundary: no original module was rebuilt or executed, so there is no new browser or original-runtime observation; the prior build-16 write-event values remain the old probe's pre-store placeholders. ABI 24 and D060 are unchanged. The staged path becomes observable only after a private module rebuild. The reached original boundary remains `0x1fe085`; the private export is unavailable here.
+
+## Checked guest accesses now name the translated basic block
 
 Source-only milestone (November 3): the in-flight checked-memory contract is complete and verified. Every emitted scalar guest access now carries the guest address of its translated basic block; the host forwards that site into modeled device events, and a device access without a site stops instead of claiming the reached helper routine. This is a prerequisite for deciding device behavior, not an original-runtime advance.
 
@@ -6,7 +14,7 @@ Evidence: the label convention `loc_%08X:` and the entry/successor labelling wer
 
 Validation: `python tests/recomp_memory_access_test.py` 8/8, `python tests/title_seed_test.py` 25/25, `npm run test:runtime` 40/40, `npm run check` for 221 source files, `git diff --check`, and WSL native GCC optimized plus ASan/UBSan runs of the transformed owned fixture with three labelled blocks (integer and float widths), device read/write sites and a rejected zero-site device access. No public CI result is claimed.
 
-Boundary: no original module was rebuilt or executed; there is no new original-runtime observation, ABI 24 is unchanged, and D060's WBINVD conditions are unchanged. The device event `value` field still records the pre-store placeholder for writes, while the entry snapshot holds the stored value; that limitation is recorded in `RENDERER_ENTRY_CHECKPOINT.md` and `PROJECT_CONCERNS.md`. The reached original boundary remains untranslated `0x1fe085`; the private read-only export needed to advance it is unavailable in this worktree.
+Boundary: no original module was rebuilt or executed; there is no new original-runtime observation, ABI 24 is unchanged, and D060's WBINVD conditions are unchanged. The later staged-write milestone supersedes the former device write-value limitation. The reached original boundary remains untranslated `0x1fe085`; the private read-only export needed to advance it is unavailable in this worktree.
 
 ## Prior renderer-entry checkpoint
 

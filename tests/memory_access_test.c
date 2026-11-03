@@ -16,14 +16,18 @@ static uint32_t fault_address, fault_access;
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
     host_last_site = site; host_last_address = address;
-    if (device.ready && !ff_device_registers_contains(&device, address, (uint32_t)bytes)) {
-        /* A device access must name its translated block; zero is reserved for
-         * RAM-only stack/bulk helpers. */
-        if (!site || ff_device_registers_touch(&device, address,
-                access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE, site, &(uint32_t){0})) {
+    if (device.ready) {
+        if (ff_device_registers_commit(&device)) {
             fault_address = address; fault_access = access; longjmp(fault_return, 1);
         }
-        return ff_device_registers_slot(&device, address);
+        if (!ff_device_registers_contains(&device, address, (uint32_t)bytes)) {
+            uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
+                                   : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
+                                   : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
+            uint32_t *slot = device_access ? ff_device_registers_access(&device, address, device_access, site) : NULL;
+            if (!slot) { fault_address = address; fault_access = access; longjmp(fault_return, 1); }
+            return slot;
+        }
     }
     if (ff_vm_check(&vm, address, bytes, access)) { fault_address = address; fault_access = access; longjmp(fault_return, 1); }
     return ram + (bytes ? address : 0);
@@ -57,6 +61,9 @@ int main(void)
     assert(!memcmp(ram + 0x10200, ram + 0x10000, 8));
     owned_memory_bulk(UINT32_MAX, UINT32_MAX, 0);
     assert(!memcmp(ram + 0x10200, ram + 0x10000, 8));
+    FF_MEMORY_U32(0x10100, 2u) = 0xabcdef01;
+    owned_memory_move(0x10200, 0x10100);
+    assert(FF_MEMORY_U32(0x10200, 1u) == 0xabcdef01);
     /* The nearest emitted block label, not the function or the previous
      * function, identifies each transformed scalar access. */
     assert(owned_memory_site(0, 0x10001) == 0x12345678);
@@ -68,12 +75,37 @@ int main(void)
     assert(FF_MEMORY_SITE_U32(0xFD000000u, 1u, 0x00100010u) == 0x55u);
     assert(device.event_count == 1 && device.events[0].address == 0xFD000000u &&
            device.events[0].site == 0x00100010u && device.events[0].direction == FF_DEVICE_READ);
+    /* A generated store fills the staged slot; commit records its actual value. */
     FF_MEMORY_SITE_U32(0xFD000008u, 2u, 0x00100000u) = 0x77u;
+    assert(device.pending && device.event_count == 1);
+    assert(ff_device_registers_commit(&device) == 0);
     assert(device.event_count == 2 && device.events[1].address == 0xFD000008u &&
-           device.events[1].site == 0x00100000u && device.events[1].direction == FF_DEVICE_WRITE);
+           device.events[1].site == 0x00100000u && device.events[1].direction == FF_DEVICE_WRITE &&
+           device.events[1].value == 0x77u);
     assert(*ff_device_registers_slot(&device, 0xFD000008u) == 0x77u);
+    /* A second write to the same address keeps its own event value. */
+    FF_MEMORY_SITE_U32(0xFD000008u, 2u, 0x00100010u) = 0x78u;
+    assert(ff_device_registers_commit(&device) == 0);
+    assert(device.event_count == 3 && device.events[2].value == 0x78u && device.events[2].site == 0x00100010u);
+    /* Read-modify-write records the read and the actual stored write. */
+    FF_MEMORY_SITE_U32(0xFD000000u, 3u, 0x00100020u) += 1u;
+    assert(ff_device_registers_commit(&device) == 0);
+    assert(device.event_count == 5);
+    assert(device.events[3].direction == FF_DEVICE_READ && device.events[3].value == 0x55u);
+    assert(device.events[4].direction == FF_DEVICE_WRITE && device.events[4].value == 0x56u);
+    assert(*ff_device_registers_slot(&device, 0xFD000000u) == 0x56u);
+    /* A following access commits the staged write before its own event. */
+    FF_MEMORY_SITE_U32(0xFD00000Cu, 2u, 0x00100000u) = 0x9u;
+    assert(device.pending && device.event_count == 5);
+    assert(FF_MEMORY_SITE_U32(0xFD00000Cu, 1u, 0x00100010u) == 0x9u);
+    assert(device.event_count == 7 && device.events[5].direction == FF_DEVICE_WRITE &&
+           device.events[5].value == 0x9u && device.events[6].direction == FF_DEVICE_READ &&
+           device.events[6].value == 0x9u);
+    /* An unknown read half fails before a write is staged or an event added. */
+    if (!setjmp(fault_return)) { FF_MEMORY_SITE_U32(0xFD000010u, 3u, 0x00100020u) += 1u; assert(0); }
+    assert(fault_address == 0xFD000010u && fault_access == (FF_VM_READ | FF_VM_WRITE) && device.event_count == 7);
     if (!setjmp(fault_return)) { (void)FF_MEMORY_U32(0xFD000000u, 1u); assert(0); }
-    assert(fault_address == 0xFD000000u && fault_access == FF_VM_READ && device.event_count == 2);
+    assert(fault_address == 0xFD000000u && fault_access == FF_VM_READ && device.event_count == 7);
     puts("Owned transformed scalar/unaligned/stack/bulk permission and block-site checks passed");
     return 0;
 }

@@ -53,13 +53,31 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertEqual(counts['sites'], 3)
 
     def test_nested_accesses_use_the_block_base_in_a_later_label(self):
-        source = ('loc_00100000: ;\nMEM32(edi) = 1;\n'
-                  'loc_00100010: ;\nMEM16(edx) = SMEM32(MEM32(ebp));')
+        source = ('loc_00100000: ;\neax = MEM32(edi);\n'
+                  'loc_00100010: ;\neax = SMEM32(MEM32(ebp));')
         result, counts = guard.instrument_memory_accesses(source, SITE, 0x00100030)
-        self.assertIn('FF_MEMORY_SITE_U32((edi), 2u, 0x00100000u)', result)
+        self.assertIn('FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)', result)
         self.assertIn('FF_MEMORY_SITE_I32((FF_MEMORY_SITE_U32((ebp), 1u, 0x00100010u)), 1u, 0x00100010u)', result)
-        self.assertIn('FF_MEMORY_SITE_U16((edx), 2u, 0x00100010u)', result)
         self.assertEqual(counts['sites'], 2)
+
+    def test_string_moves_are_split_before_staging(self):
+        for width, ctype, step in (("8", "uint8_t", 1), ("16", "uint16_t", 2), ("32", "uint32_t", 4)):
+            source = (f"MEM{width}(edi) = MEM{width}(esi); esi += RECOMP_DF_STEP({step});"
+                      f" edi += RECOMP_DF_STEP({step});")
+            result, counts = guard.instrument_memory_accesses(source, SITE)
+            self.assertIn(f"{{ {ctype} _ff_copy{width} = FF_MEMORY_SITE_U{width}((esi), 1u, 0x00100000u);", result)
+            self.assertIn(f"FF_MEMORY_SITE_U{width}((edi), 2u, 0x00100000u) = _ff_copy{width}; }}", result)
+            self.assertEqual((counts['reads'], counts['writes']), (1, 1))
+
+    def test_write_value_expressions_cannot_probe_memory(self):
+        for source in ['MEM32(edx) = MEM32(esi);', 'MEM32(edi) += MEM16(esi);',
+                       'MEM32(edi) = (MEM32(esi) + 1);', 'MEM32(edi) = PUSH32(esi, eax);']:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                guard.instrument_memory_accesses(source, SITE)
+        result, counts = guard.instrument_memory_accesses('MEM32(MEM32(edi)) = 1;', SITE)
+        self.assertIn('FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)', result)
+        self.assertIn('FF_MEMORY_SITE_U32((FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)), 2u, 0x00100000u)', result)
+        self.assertEqual(counts['writes'], 1)
 
     def test_labels_in_comments_and_literals_are_ignored(self):
         source = '/* loc_00100010: */ const char *s = "loc_00100020:";\nloc_00100000: ;\neax = MEM32(edi);'

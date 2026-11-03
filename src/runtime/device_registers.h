@@ -9,6 +9,10 @@
 #define FF_DEVICE_EVENTS 4096u
 #define FF_DEVICE_READ 1u
 #define FF_DEVICE_WRITE 2u
+/* Access masks mirror the translated memory intent: read, write, read-write. */
+#define FF_DEVICE_ACCESS_READ 1u
+#define FF_DEVICE_ACCESS_WRITE 2u
+#define FF_DEVICE_ACCESS_READWRITE 3u
 
 typedef struct {
     uint32_t address, value, reads, writes, known;
@@ -18,6 +22,9 @@ typedef struct {
 } ff_device_event;
 typedef struct {
     uint32_t base, bytes, ready, count, event_count;
+    /* A generated store writes through a returned lvalue after the host call.
+     * Keep one staged write so the event can record the actual stored value. */
+    uint32_t pending, pending_address, pending_site, pending_value;
     ff_device_entry entries[FF_DEVICE_ENTRIES];
     ff_device_event events[FF_DEVICE_EVENTS];
 } ff_device_registers;
@@ -31,4 +38,14 @@ uint32_t ff_device_registers_contains(const ff_device_registers *, uint32_t addr
 uint32_t *ff_device_registers_slot(ff_device_registers *, uint32_t address);
 uint32_t ff_device_registers_touch(ff_device_registers *, uint32_t address, uint32_t direction,
                                    uint32_t site, uint32_t *value);
+/* Stage one write (or the write half of a read-modify-write) and return the
+ * lvalue the generated store fills. commit records it as one write event with
+ * the stored value; touch, access and the event readers commit first. */
+uint32_t *ff_device_registers_stage_write(ff_device_registers *, uint32_t address, uint32_t site);
+uint32_t ff_device_registers_commit(ff_device_registers *);
+/* Map one checked guest access to a readable lvalue. NULL means the aperture
+ * must stop: unknown read, invalid width/address/site, bad access mask or full
+ * storage. READWRITE records the read immediately and stages the write. */
+uint32_t *ff_device_registers_access(ff_device_registers *, uint32_t address, uint32_t access,
+                                     uint32_t site);
 #endif
