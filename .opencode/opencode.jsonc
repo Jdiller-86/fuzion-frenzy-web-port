@@ -29,6 +29,7 @@
         { "action": "edit", "resource": "research/*", "effect": "deny" },
         { "action": "edit", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "git merge *", "effect": "deny" },
         { "action": "rea_*", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "scout", "effect": "allow" },
