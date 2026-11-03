@@ -11,6 +11,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/port_io.h"
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
+#include "../../src/runtime/guest_mirror.h"
 #include "../../src/runtime/interrupt_vector.h"
 #include "../../src/runtime/gpu_instance.h"
 #include "../../src/runtime/time_fields.h"
@@ -176,6 +177,7 @@ static uint32_t namespace_ready;
 #endif
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
+static ff_guest_mirror guest_mirror;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
@@ -277,9 +279,19 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                                : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
                                : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
         uint32_t *slot = device_access ? ff_device_registers_access_width(&device_registers, address, (uint32_t)bytes, device_access, site) : NULL;
-        if (!slot) stop(10, address, access);
+        if (!slot) stop(ff_device_registers_poll_limited(&device_registers) ? 12 : 10, address, access);
         ++vm_access_count;
         return slot;
+    }
+#endif
+#ifdef FF_VM_PROOF
+    /* The reached cache-flush write targets the physical-mirror base. Only a
+     * bounded data page is modeled; outside it the identity window still
+     * decides, and execute access is never served from this storage. */
+    if (access && (access & ~(FF_VM_READ | FF_VM_WRITE)) == 0 && bytes <= FF_GUEST_MIRROR_BYTES &&
+        ff_guest_mirror_contains(&guest_mirror, address, (uint32_t)bytes)) {
+        ++vm_access_count;
+        return ff_guest_mirror_pointer(&guest_mirror, address);
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
@@ -1579,6 +1591,7 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
+    ff_guest_mirror_init(&guest_mirror);
     vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);
 #endif
 #ifdef FF_TIMER_PROOF

@@ -396,6 +396,20 @@ Translation `recomp-title-post-memory-29` contains **365 functions / 14,544 inst
 
 Execution stopped at **`0x200518`** (return `0x1FE4A4`, status 2). The report is `research/verification/post-memory-browser-20261103-26.json` (local/ignored). There is no playable screen.
 
+### Execute 0x200518, model the 0x80000000 mirror write, and bound the 0xFD100410 poll
+
+Translation `recomp-title-post-memory-30` contains **366 functions / 14,572 instructions**, including `ff_title_00200518`. Module `recomp-post-memory-build-46` is 524,523 bytes, SHA-256 `cc4d7c74358a354ca3b44641aa2bc8731eda96fe9ce6c82cb942f9c9dc4d318b`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 261 distinct original routines executed and 402 kernel operations completed;
+- `0x00200518` wrote its four device dwords, then execution entered `0x001FAED0` and block `0x1FAF10`;
+- the original `MOV dword ptr [0x80000000], EDX` followed by `WBINVD` completed through the bounded 0x1000-byte mirror page; the virtual-memory fault slot is clear;
+- `0x001FAED0` read `0xFD100410` (value `0x10000`) 16 times, then the new poll limit stopped the run;
+- the aperture retained 5,301 entries / 12,539 events and 74,065 checked guest accesses;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at device address **`0xFD100410`** with status 12 (`device poll limit reached`), return `0x203B90`. The report is `research/verification/post-memory-browser-20261103-28.json` (local/ignored). A prior run without the limit produced 20,246 identical reads, exhausted the 32,768-event log and exceeded the browser report save path. There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x200518` (98 body bytes / 28 instructions, no direct calls) from the retained `recomp-post-memory-next-26` export, then follow its next dependency. Preserve the explicit synthetic register values, the 8,192-entry / 32,768-event aperture and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic time/zero-range/device reads. The captured line/quad reference comparison and browser prepass also remain private.
+Analyze the `0xFD100410` wait in `0x001FAED0` from static evidence and decide whether a narrow, evidence-based modeled completion is justified. Preserve the explicit synthetic register values, the 8,192-entry / 32,768-event aperture, the 0x1000-byte mirror page and the 16-read poll limit; do not fabricate the awaited device value or infer NV2A interrupt delivery, DMA, device behavior or rendering. The captured line/quad reference comparison and browser prepass also remain private.

@@ -1,14 +1,14 @@
-# Original execution completes 0x20057A and reaches 0x200518
+# Original execution clears the 0x80000000 mirror write and stops at a device poll
 
-November 3: the large device-initialization function `0x0020057A` now executes. The next call requests untranslated **`0x200518`** (return `0x1FE4A4`, status 2). All 83 initialization callbacks return; 259 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: `0x00200518` executed and the run advanced into `0x001FAED0`. The reached cache-flush write to `0x80000000` now completes through a bounded source-owned physical-mirror page. `0x001FAED0` then polls device register `0xFD100410` (value `0x10000`) for a hardware transition the synthetic aperture cannot supply, so a new 16-read poll limit stops the proof at `0x1FAF10` with status 12 (`device poll limit reached`). All 83 initialization callbacks return; 261 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-29` is 365 functions / 14,544 instructions; module `recomp-post-memory-build-43` is 520,818 bytes, SHA-256 `2752487f…`. `0x0020057A` programmed large `0xFDxxxxxx` register/context blocks with immediate constants and counted loops, contributing 3,344 ordered device writes. Every write reused the existing `0xFD700000`–`0xFD704FFC` region, so the aperture kept 5,300 entries / 12,496 events without reaching a capacity limit. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-26.json`.
+Selection `recomp-title-post-memory-30` is 366 functions / 14,572 instructions; module `recomp-post-memory-build-46` is 524,523 bytes, SHA-256 `cc4d7c74…`. The mirror page is one 0x1000-byte separate-storage page at `0x80000000` (not a true physical alias or a general window); execute, partial-overlap and out-of-page accesses still fail closed. The aperture logged 5,301 entries / 12,539 events and 74,065 checked guest accesses. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-28.json`.
 
-A bounded read-only export reports the reached callee `0x200518` as an established 98-body-byte / 28-instruction leaf with no direct calls; it writes four device dwords and special-cases mode bytes `0x39`, `0x62` and `0x97`. It is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+A prior run without the poll limit produced 20,246 identical reads, exhausted the 32,768-event log and exceeded the browser's local report save path. The limit keeps the ordered evidence bounded and reports the wait instead of fabricating a device result. Validation: guest-mirror and device-register fixtures (including the poll limit) optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
-## Prior: 0x2004DF
+## Prior: 0x20057A
 
-Translation `recomp-title-post-memory-28` was 364 functions / 13,976 instructions; module `recomp-post-memory-build-42` was 501,401 bytes, SHA-256 `0e13a564…`. `0x002004DF` executed and the run reached `0x20057A`. Report `post-memory-browser-20261103-25.json`.
+`0x0020057A` programmed large device register/context blocks and reached `0x200518`. Translation `recomp-title-post-memory-29` was 365 functions / 14,544 instructions; module `recomp-post-memory-build-43` was 520,818 bytes, SHA-256 `2752487f…`. Report `post-memory-browser-20261103-26.json`.
 
 ## Prior: 0x200f59
 

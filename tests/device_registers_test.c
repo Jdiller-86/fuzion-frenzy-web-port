@@ -283,6 +283,26 @@ static void initial_registers_are_explicit_and_bounded(void)
     unchanged();
 }
 
+static void repeated_identical_reads_stop_at_the_poll_limit(void)
+{
+    reset();
+    uint32_t value = 0x11;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    for (uint32_t i = 0; i < FF_DEVICE_POLL_LIMIT; ++i) {
+        uint32_t *slot = ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u);
+        assert(slot && *slot == 0x11);
+        assert(!ff_device_registers_poll_limited(&device));
+    }
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
+    assert(ff_device_registers_poll_limited(&device));
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100024u) != NULL);
+    assert(!ff_device_registers_poll_limited(&device));
+    value = 0x12;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100024u) != NULL);
+    assert(!ff_device_registers_poll_limited(&device));
+}
+
 int main(void)
 {
     known_values_and_unknown_reads(); staged_writes_record_the_stored_value();
@@ -290,6 +310,7 @@ int main(void)
     sub_dword_writes_extend_unknown_registers(); zero_ranges_serve_reads_and_yield_to_writes();
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities and atomicity passed");
+    repeated_identical_reads_stop_at_the_poll_limit();
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling and atomicity passed");
     return 0;
 }

@@ -18,6 +18,23 @@ static int in_zero_range(const ff_device_registers *device, uint32_t address, ui
     return 0;
 }
 
+/* Consecutive identical reads at one site model a wait for a hardware
+ * transition this synthetic aperture cannot provide. */
+static uint32_t note_read(ff_device_registers *device, uint32_t address, uint32_t site, uint32_t value)
+{
+    if (device->poll_count && device->poll_address == address &&
+        device->poll_site == site && device->poll_value == value)
+        return ++device->poll_count > FF_DEVICE_POLL_LIMIT ? FF_BOOT_UNSUPPORTED : 0;
+    device->poll_address = address; device->poll_site = site;
+    device->poll_value = value; device->poll_count = 1;
+    return 0;
+}
+
+uint32_t ff_device_registers_poll_limited(const ff_device_registers *device)
+{
+    return device && device->poll_count > FF_DEVICE_POLL_LIMIT;
+}
+
 static uint32_t record_zero_read(ff_device_registers *device, uint32_t address, uint32_t site)
 {
     if (!device || !site || device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_UNSUPPORTED;
@@ -203,10 +220,12 @@ uint32_t *ff_device_registers_access(ff_device_registers *device, uint32_t addre
     if (access == FF_DEVICE_ACCESS_READ) {
         if (!find(device, address) && in_zero_range(device, address, 4u)) {
             if (ff_device_registers_commit(device) || record_zero_read(device, address, site)) return NULL;
+            if (note_read(device, address, site, 0)) return NULL;
             return &device->zero_word;
         }
         uint32_t value = 0;
         if (ff_device_registers_touch(device, address, FF_DEVICE_READ, site, &value)) return NULL;
+        if (note_read(device, address, site, value)) return NULL;
         return ff_device_registers_slot(device, address);
     }
     if (access == FF_DEVICE_ACCESS_WRITE)
@@ -217,6 +236,7 @@ uint32_t *ff_device_registers_access(ff_device_registers *device, uint32_t addre
         uint32_t *stage = ff_device_registers_stage_write(device, address, site);
         if (!stage) return NULL;
         *stage = value;
+        if (note_read(device, address, site, value)) return NULL;
         return stage;
     }
     return NULL;
@@ -234,6 +254,7 @@ uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t
     ff_device_entry *entry = find(device, address & ~3u);
     if (access == FF_DEVICE_ACCESS_READ && !entry && in_zero_range(device, address, bytes)) {
         if (record_zero_read(device, address, site)) return NULL;
+        if (note_read(device, address, site, 0)) return NULL;
         return (uint32_t *)((uint8_t *)&device->zero_word + (address & 3u));
     }
     uint32_t byte_bits = (bytes == 1u ? 1u : 3u) << (address & 3u);
@@ -247,6 +268,7 @@ uint32_t *ff_device_registers_access_width(ff_device_registers *device, uint32_t
     device->events[device->event_count++] =
         (ff_device_event){address, site, FF_DEVICE_READ, value, entry->known};
     ++entry->reads;
+    if (note_read(device, address, site, value)) return NULL;
     if (access == FF_DEVICE_ACCESS_READ) return (uint32_t *)((uint8_t *)&entry->value + (address & 3u));
     uint32_t *stage = stage_write_width(device, address, bytes, site);
     if (!stage) return NULL;

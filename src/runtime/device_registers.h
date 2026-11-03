@@ -10,6 +10,10 @@
  * first 5,120-store clear had already filled most of the log. Keep more ordered
  * events so original register traffic is retained rather than truncated. */
 #define FF_DEVICE_EVENTS 32768u
+/* A translated loop can poll one device register for a hardware transition the
+ * synthetic aperture cannot provide. Stop after a small run of identical reads
+ * at the same site instead of exhausting the event log with no new evidence. */
+#define FF_DEVICE_POLL_LIMIT 16u
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_ZERO_RANGES 4u
 #define FF_DEVICE_READ 1u
@@ -33,6 +37,9 @@ typedef struct {
     /* A generated store writes through a returned lvalue after the host call.
      * Keep one staged write so the event can record the actual stored value. */
     uint32_t pending, pending_address, pending_site, pending_value, pending_bytes, pending_offset;
+    /* Consecutive identical reads at one site: a device transition this model
+     * cannot supply. poll_count above FF_DEVICE_POLL_LIMIT stops the proof. */
+    uint32_t poll_address, poll_value, poll_site, poll_count;
     uint32_t zero_word;
     ff_device_zero_range zero_ranges[FF_DEVICE_ZERO_RANGES];
     ff_device_entry entries[FF_DEVICE_ENTRIES];
@@ -62,6 +69,8 @@ uint32_t ff_device_registers_touch(ff_device_registers *, uint32_t address, uint
  * the stored value; touch, access and the event readers commit first. */
 uint32_t *ff_device_registers_stage_write(ff_device_registers *, uint32_t address, uint32_t site);
 uint32_t ff_device_registers_commit(ff_device_registers *);
+/* True once a read loop exceeded the bounded identical-read limit. */
+uint32_t ff_device_registers_poll_limited(const ff_device_registers *);
 /* Map one checked guest access to a readable lvalue. NULL means the aperture
  * must stop: unknown read, invalid width/address/site, bad access mask or full
  * storage. READWRITE records the read immediately and stages the write. */
