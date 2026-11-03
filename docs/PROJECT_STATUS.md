@@ -1,12 +1,12 @@
-# DPC-head placement corrected; timer diagnostic passes and the trace capacity is the next stop
+# Vector/port hardening accepted; the next stop is a PGRAPH interrupt read-back recurrence
 
-November 4: the timer/DPC diagnostic identified that the chosen DPC head, `thread->fs + 0x50`, overlapped a live TLS field; its value was a code/return address, not a DPC object. The model-owned heads are now in the reserved queue area (`0x03E00000` timer, `0x03E00008` DPC), and the rebuilt module reports `timerCheck = 0` with a self-loop DPC head. Private module `recomp-post-memory-build-68` (639,037 bytes, SHA-256 `583bc2f6…`) still reaches **277** distinct routines, 83/83 initializers and 403 kernel operations, then stops at status 5 (`diagnostic capacity reached`) at target `0x201199`, return `0x1FDBE0`, because the 8,192-entry initializer trace is full. **There is no playable original screen.**
+November 4: the guarded emitter now rejects vector loads used as stores or escaped pointers and fails closed on mixed-case helper names, and the port surface stops on an unmodeled port instead of fabricating zero. The reached original code compiles and runs unchanged under those rules. With the corrected DPC head the ordinal-149 timer/clock rejection no longer occurs; the same chain now enters a PGRAPH register path and recurses without returning until the diagnostic trace fills. Private module `recomp-post-memory-build-68` rebuilt from this source (639,160 bytes, SHA-256 `6dc47708…`) still reaches **277** distinct routines, 83/83 initializers and 403 kernel operations with `timerCheck = 0`, then stops at status 5 (`diagnostic capacity reached`) at target `0x200F59`, return `0x1FDB20`. The trace shows 4,352 consecutive `enter` events with no `exit`: `0x200F59` alternating with `0x1FDAC0` on device base `0xFD000000`, consuming 56 bytes of guest stack per cycle, because the reached code writes `0x1000` to `0xFD400100` and reads it back from synthetic register storage. **There is no playable original screen.** An earlier note decoded this stop as `0x201199` / `0x1FDBE0`; those were decimal-for-hex misreadings (`2087712 = 0x1FDB20` is the instruction after `call 0x001FDAC0` at `0x1FDB1A`).
 
-Validation: kernel-timer diagnostic tests optimized/ASan/UBSan, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks pass. See [the timer-diagnostic checkpoint](TIMER_DPC_DIAGNOSTIC_CHECKPOINT.md).
+Validation: kernel-timer and port tests plus the 16-byte checked-pointer test pass optimized and under ASan/UBSan, Python memory-access 11/11, runtime suite 110/110, title-seed 25/25, `npm run check` and whitespace checks pass. See [the PGRAPH recurrence checkpoint](PGRAPH_INTERRUPT_RECURRENCE_CHECKPOINT.md) and [the timer-diagnostic checkpoint](TIMER_DPC_DIAGNOSTIC_CHECKPOINT.md).
 
-## Prior: timer diagnostic identified the DPC-list mismatch
+## Prior: DPC-head placement corrected and the timer diagnostic passes
 
-`ff_timers_check` returned 15 for the guest DPC head mismatch; the probe and worker now expose the check code plus timer/DPC head and object words. The active six-hour timer remains valid.
+The DPC head at `thread->fs + 0x50` overlapped live TLS; the model-owned heads moved to `0x03E00000` (timer) and `0x03E00008` (DPC), and `timerCheck` returned 0 with a self-loop DPC head.
 
 ## Prior: 0xFD002080 zero range and capacity extensions
 

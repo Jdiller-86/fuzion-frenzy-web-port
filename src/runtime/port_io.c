@@ -14,11 +14,12 @@ uint32_t ff_port_io_write(ff_port_io *io, uint32_t port, uint32_t value, uint32_
     return 0;
 }
 
-uint32_t ff_port_io_read(ff_port_io *io, uint32_t port, uint32_t width)
+uint32_t ff_port_io_read(ff_port_io *io, uint32_t port, uint32_t width, uint32_t *value)
 {
-    if (!io || (width != 1u && width != 2u && width != 4u)) return 0;
+    if (!io || !value || (width != 1u && width != 2u && width != 4u)) return 1;
     port &= 0xFFFFu;
-    if (port != 0x80C0u) return 0;
+    if (port != 0x80C0u) return 1;
     ++io->reads;
-    return (io->reads & 1u) << 5;
+    *value = (io->reads & 1u) << 5;
+    return 0;
 }

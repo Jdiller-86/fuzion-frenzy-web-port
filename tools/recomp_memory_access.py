@@ -157,6 +157,13 @@ def instrument_memory_accesses(text, site, limit=None):
                 depth += (mask[closing] == '(') - (mask[closing] == ')'); closing += 1
             if depth: raise ValueError("Unclosed generated memory expression")
             if name in ("XMM_MEM", "XMM_LOAD"):
+                before, after = mask[:begin].rstrip(), mask[closing:].lstrip()
+                write_or_escape = (
+                    (after.startswith(('+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '++', '--')) or
+                     (after.startswith('=') and not after.startswith('==')) or
+                     before.endswith(('++', '--', '&'))))
+                if write_or_escape:
+                    raise ValueError("Vector load used in a write or escaped-pointer context")
                 address = rewrite(source[opening + 1:closing - 1], base + opening + 1).strip()
                 if not address: raise ValueError("Empty generated vector address")
                 block = site_at(base + begin)
@@ -235,7 +242,7 @@ def instrument_memory_accesses(text, site, limit=None):
     if limit is not None and scalar and not labels:
         raise ValueError("Generated function lacks checked basic-block labels")
     stats["sites"] = len(used_sites)
-    for match in re.finditer(r"\b(XMM_[A-Z0-9_]+)\s*\(", code_mask(converted)):
+    for match in re.finditer(r"\b([Xx][Mm][Mm]_[A-Za-z0-9_]+)\s*\(", code_mask(converted)):
         if match.group(1) not in PURE_XMM:
             raise ValueError("Unadmitted raw guest pointer or memory helper")
     if re.search(r"\b(?:XBOX_PTR|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):

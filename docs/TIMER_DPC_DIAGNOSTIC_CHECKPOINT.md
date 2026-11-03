@@ -25,8 +25,8 @@ The first diagnostic (`timerCheck = 15`) showed the chosen DPC head, `thread->fs
 ## Further evidence: trace capacity
 
 - Private module `recomp-post-memory-build-68`: 639,037 bytes, SHA-256 `583bc2f6545c348065687851938d3ae2ee3b6e8efc6e6ac16b76d30309104eea`.
-- Profile run: 277 distinct routines, 83/83 initializers, 403 kernel operations; the timer diagnostic passes (`timerCheck = 0`), then the run stops at status 5 (`diagnostic capacity reached`) at target `0x201199`, return `0x1FDBE0`.
-- The 8,192-entry initializer trace is now full; the next step is an explicit trace-capacity or tracing-scope decision.
+- Profile run: 277 distinct routines, 83/83 initializers, 403 kernel operations; the timer diagnostic passes (`timerCheck = 0`), then the run stops at status 5 (`diagnostic capacity reached`) at target `0x200F59`, return `0x1FDB20`. (An earlier version of this note reported `0x201199` / `0x1FDBE0`; those were decimal-for-hex misreadings. `2087712 = 0x1FDB20` is exactly the instruction after `call 0x001FDAC0` at `0x1FDB1A`.)
+- The 8,192-entry initializer trace is full because the reached PGRAPH path recurses without returning; see [the PGRAPH recurrence checkpoint](PGRAPH_INTERRUPT_RECURRENCE_CHECKPOINT.md). Extending capacity does not help a non-terminating recurrence.
 
 ## Limits
 
@@ -38,4 +38,4 @@ No rendering, audio, fidelity or playability is established. The timer/DPC model
 
 ## Next task
 
-Decide whether to extend the explicit initializer trace capacity beyond 8,192 or narrow tracing, then rerun. Do not force the DPC list empty, invent the timer/DPC state or claim rendering/fidelity without evidence.
+The timer/DPC contract now holds at this boundary; the blocker moved to the PGRAPH register read-back. Continue in [the PGRAPH recurrence checkpoint](PGRAPH_INTERRUPT_RECURRENCE_CHECKPOINT.md). Do not force the DPC list empty, invent the timer/DPC state or claim rendering/fidelity without evidence.

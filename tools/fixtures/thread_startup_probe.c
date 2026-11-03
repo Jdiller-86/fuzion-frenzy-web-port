@@ -136,13 +136,16 @@ static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 static ff_port_io port_io;
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 void xbox_PortOut(uint32_t port, uint32_t value, int width)
 {
     (void)ff_port_io_write(&port_io, port, value, (uint32_t)width);
 }
 uint32_t xbox_PortIn(uint32_t port, int width)
 {
-    return ff_port_io_read(&port_io, port, (uint32_t)width);
+    uint32_t value = 0;
+    if (ff_port_io_read(&port_io, port, (uint32_t)width, &value)) stop(14, port & 0xFFFFu, (uint32_t)width);
+    return value;
 }
 #ifdef FF_DISK_GEOMETRY_PROOF
 static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];

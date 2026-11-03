@@ -139,6 +139,10 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertIn('FF_MEMORY_SITE_POINTER((ebx), 16u, 1u', nested)
         self.assertEqual(nested_counts['reads'], 1)
         self.assertEqual(nested_counts['writes'], 1)
+        for source in ['XMM_MEM(eax) = xmm0;', 'eax = &XMM_MEM(edi);', 'Xmm_Mul(xmm0);', 'xmm_add(xmm0);',
+                       'XMM_MEM(eax)++;']:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                guard.instrument_memory_accesses(source, SITE)
 
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
         for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'XMM_LOAD_LOW(xmm0, eax)',
