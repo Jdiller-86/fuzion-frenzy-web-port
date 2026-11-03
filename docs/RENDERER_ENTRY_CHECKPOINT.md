@@ -230,6 +230,19 @@ Using the retained 29-seed selection plus `recomp-post-memory-next-12/seed.json`
 
 Execution stopped at **`0x20002A`** (return `0x1FE1C1`, status 2). The report is `research/verification/post-memory-browser-20261103-11.json` (local/ignored). There is no playable screen.
 
+### Execute 0x20002A
+
+Using the retained 30-seed selection plus `recomp-post-memory-next-13/seed.json`, translation `recomp-title-post-memory-17` contains **353 functions / 13,295 instructions**, including `ff_title_0020002A`. Module `recomp-post-memory-build-30` is 471,504 bytes, SHA-256 `50985a0066a3055eb74dbc986679fa0b331701e59559653cb5a169a2e8f9516c`. In the browser worker:
+
+- all 83 initialization callbacks returned;
+- 243 distinct original routines executed and 400 kernel operations completed;
+- `0x0020002a` wrote `0xFD400780` and cleared `0xFD700000`/`0xFD700004`, then returned to `0x001fe1c1`;
+- `0x001fe0c6` continued and called `0x0020005a`;
+- the aperture retained 5,161 entries / 5,191 events;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+Execution stopped at **`0x20005A`** (return `0x1FE1C8`, status 2). The report is `research/verification/post-memory-browser-20261103-12.json` (local/ignored). There is no playable screen.
+
 ## Next task
 
-Admit and translate `0x20002A` (48 bytes / 15 instructions, no direct calls) from the retained `recomp-post-memory-next-13` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or device writes. The captured line/quad reference comparison and browser prepass also remain private.
+Admit and translate `0x20005A` (113 bytes / 19 instructions, no direct calls) from the retained `recomp-post-memory-next-14` export, then follow its next dependency. Preserve the explicit synthetic register values and the modeled interrupt initialization limits; do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the synthetic GPU claim or device writes. The captured line/quad reference comparison and browser prepass also remain private.

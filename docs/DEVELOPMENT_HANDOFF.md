@@ -1,18 +1,18 @@
-# Continue from the completed 0x1FFFF4 helper at 0x20002A
+# Continue from the completed 0x20002A helper at 0x20005A
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-Original `0x001ffff4` programmed twelve device-register dwords and returned to `0x001fe0c6`, which set `[ESI+0x134]=2` and called untranslated **`0x20002A`** (return `0x1FE1C1`, status 2). All 83 initialization callbacks return; 242 distinct original routines execute and 400 kernel operations complete.
+Original `0x0020002a` wrote `0xFD400780` and cleared `0xFD700000`/`0xFD700004`, returned to `0x001fe0c6`, which continues and calls untranslated **`0x20005A`** (return `0x1FE1C8`, status 2). All 83 initialization callbacks return; 243 distinct original routines execute and 400 kernel operations complete.
 
-Selection `recomp-title-post-memory-16` is 352 functions / 13,280 instructions; module `recomp-post-memory-build-29` is SHA-256 `be6a6d13…` (471,053 bytes). The local report is `post-memory-browser-20261103-11.json`. The device aperture logged 5,160 entries / 5,188 events; the new writes are at `0xFD008910`–`0xFD008944`. A bounded read-only export reports the reached callee `0x20002A` as 48 bytes / 15 instructions with no direct calls (`recomp-post-memory-next-13`); it is static export evidence, not admitted translation or observed execution.
+Selection `recomp-title-post-memory-17` is 353 functions / 13,295 instructions; module `recomp-post-memory-build-30` is SHA-256 `50985a00…` (471,504 bytes). The local report is `post-memory-browser-20261103-12.json`. The device aperture logged 5,161 entries / 5,191 events. A bounded read-only export reports the reached callee `0x20005A` as 113 bytes / 19 instructions with no direct calls (`recomp-post-memory-next-14`); it is static export evidence, not admitted translation or observed execution.
 
 Validation: device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** admit and translate `0x20002A` from the retained `recomp-post-memory-next-13` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, sub-dword writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** admit and translate `0x20005A` from the retained `recomp-post-memory-next-14` export, then follow its next genuine dependency. Do not infer interrupt delivery, NV2A behavior, DMA or rendering from the synthetic GPU claim, sub-dword writes or modeled initialization services. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: 0x1fdf83
+## Prior: 0x1ffff4
 
-Original `0x001fdf83` initialized its 0x300-byte guest-memory table and returned to `0x001fe0c6`, which called `0x1FFFF4`. Selection `recomp-title-post-memory-15` was 351 functions / 13,262 instructions; module `recomp-post-memory-build-28` was 470,384 bytes, SHA-256 `7882a255…`. Report `post-memory-browser-20261103-10.json`.
+Original `0x001ffff4` programmed twelve device-register dwords at `0xFD008910`–`0xFD008944`, returned to `0x001fe0c6`, which set `[ESI+0x134]=2` and called `0x20002A`. Selection `recomp-title-post-memory-16` was 352 functions / 13,280 instructions; module `recomp-post-memory-build-29` was 471,053 bytes, SHA-256 `be6a6d13…`. Report `post-memory-browser-20261103-11.json`.
 
 ## Prior: 0x1ffcc0
 
