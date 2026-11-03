@@ -354,3 +354,102 @@ int ff_nv2a_expand_triangle_fan_points(const FFNv2aPostVertex input[3],
                       state->perspective_depth, arithmetic, output);
     return 0;
 }
+
+/* Per-triangle raster-vertex count for a stream assembly mode. */
+static int assembly_bounds(uint32_t polygon_mode, uint32_t count, uint32_t capacity,
+                           uint32_t *per_triangle)
+{
+    switch (polygon_mode) {
+        case FF_NV2A_POLYGON_FILL: *per_triangle = 3; break;
+        case FF_NV2A_POLYGON_LINE: *per_triangle = 6; break;
+        case FF_NV2A_POLYGON_POINT: *per_triangle = 3; break;
+        default: return -1;
+    }
+    if (count < 3) {
+        return -1;
+    }
+    const uint64_t required = (uint64_t)*per_triangle * ((uint64_t)count - 2u);
+    if (required > capacity) {
+        return -1;
+    }
+#if SIZE_MAX <= UINT32_MAX
+    if ((uint64_t)count > SIZE_MAX / sizeof(FFNv2aPostVertex) ||
+        required > SIZE_MAX / sizeof(FFNv2aRasterVertex)) {
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+/* State was validated by the assembler, so the per-triangle calls cannot fail. */
+static void emit_assembled(uint32_t polygon_mode, int strip,
+                           const FFNv2aPostVertex input[3],
+                           const FFNv2aTriangleState *state,
+                           FFNv2aRasterVertex *output, uint32_t arithmetic,
+                           uint32_t primitive_id)
+{
+    switch (polygon_mode) {
+        case FF_NV2A_POLYGON_FILL:
+            if (strip) {
+                (void)ff_nv2a_expand_triangle_strip(input, state, output, arithmetic,
+                                                    primitive_id);
+            } else {
+                (void)ff_nv2a_expand_triangle_fan(input, state, output, arithmetic);
+            }
+            break;
+        case FF_NV2A_POLYGON_LINE:
+            if (strip) {
+                (void)ff_nv2a_expand_triangle_strip_lines(input, state, output, arithmetic,
+                                                          primitive_id);
+            } else {
+                (void)ff_nv2a_expand_triangle_fan_lines(input, state, output, arithmetic);
+            }
+            break;
+        case FF_NV2A_POLYGON_POINT:
+            if (strip) {
+                (void)ff_nv2a_expand_triangle_strip_points(input, state, output, arithmetic,
+                                                           primitive_id);
+            } else {
+                (void)ff_nv2a_expand_triangle_fan_points(input, state, output, arithmetic);
+            }
+            break;
+        default:
+            break; /* assembly_bounds rejected every other mode */
+    }
+}
+
+int ff_nv2a_assemble_triangle_strip(const FFNv2aPostVertex *input, uint32_t count,
+                                    const FFNv2aTriangleState *state,
+                                    FFNv2aRasterVertex *output, uint32_t capacity,
+                                    uint32_t arithmetic, uint32_t polygon_mode)
+{
+    uint32_t per_triangle;
+    if (!input || !output || invalid_state(state, arithmetic) ||
+        state->rotation_odd > 2 ||
+        assembly_bounds(polygon_mode, count, capacity, &per_triangle) < 0) {
+        return -1;
+    }
+    for (uint32_t i = 0; i + 2u < count; ++i) {
+        emit_assembled(polygon_mode, 1, input + i, state,
+                       output + (size_t)i * per_triangle, arithmetic, i);
+    }
+    return 0;
+}
+
+int ff_nv2a_assemble_triangle_fan(const FFNv2aPostVertex *input, uint32_t count,
+                                  const FFNv2aTriangleState *state,
+                                  FFNv2aRasterVertex *output, uint32_t capacity,
+                                  uint32_t arithmetic, uint32_t polygon_mode)
+{
+    uint32_t per_triangle;
+    if (!input || !output || invalid_state(state, arithmetic) ||
+        assembly_bounds(polygon_mode, count, capacity, &per_triangle) < 0) {
+        return -1;
+    }
+    for (uint32_t i = 0; i + 2u < count; ++i) {
+        const FFNv2aPostVertex triangle[3] = { input[0], input[i + 1u], input[i + 2u] };
+        emit_assembled(polygon_mode, 0, triangle, state,
+                       output + (size_t)i * per_triangle, arithmetic, 0);
+    }
+    return 0;
+}

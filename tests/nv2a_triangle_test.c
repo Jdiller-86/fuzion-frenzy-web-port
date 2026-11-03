@@ -460,6 +460,155 @@ static void triangle_strip_fan_line_point_modes(void)
     assert(!memcmp(points, saved_points, sizeof(saved_points)));
 }
 
+static void triangle_stream_assembly(void)
+{
+    const float positions[4][4] = { {0,0,1,1}, {1,0,2,2}, {0,1,3,4}, {1,1,5,6} };
+    FFNv2aPostVertex input[4];
+    memset(input, 0, sizeof(input));
+    for (unsigned i = 0; i < 4; ++i) {
+        memcpy(input[i].position, positions[i], sizeof(positions[i]));
+        input[i].clip[0] = (float)i;
+        input[i].point_size = (float)i + 1;
+        input[i].fog = (float)i + 10;
+        for (unsigned k = 0; k < 4; ++k) {
+            for (unsigned j = 0; j < 4; ++j) {
+                input[i].color[k][j] = (float)(100*i + 10*k + j);
+                input[i].texcoord[k][j] = (float)(100*i + 10*k + j + 1000);
+            }
+        }
+    }
+    FFNv2aRasterVertex fill[6], points[6], lines[12], expected[12];
+    FFNv2aTriangleState state = {0,0,0,0,1};
+
+    /* Strip fill: triangle t is the local window input[t..t+2], primitive t. */
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, fill, 6,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == 0);
+    assert(ff_nv2a_expand_triangle_strip(&input[0], &state, expected,
+                                         FF_NV2A_FUSED, 0) == 0);
+    assert(!memcmp(fill, expected, 3 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_strip(&input[1], &state, expected,
+                                         FF_NV2A_FUSED, 1) == 0);
+    assert(!memcmp(&fill[3], expected, 3 * sizeof expected[0]));
+    /* Odd parity selects rotation_odd 1, so local order 2,0,1 becomes 3,1,2 and
+     * the provoking vertex is local index 1 (global input 1). */
+    assert(fill[3].clip[0] == 3.0f && fill[4].clip[0] == 1.0f && fill[5].clip[0] == 2.0f);
+    assert(!memcmp(fill[0].color, input[2].color, sizeof(fill[0].color)));
+    assert(!memcmp(fill[3].color, input[1].color, sizeof(fill[3].color)));
+
+    /* Strip LINE and POINT counts and windows follow the same triangles. */
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_LINE) == 0);
+    assert(ff_nv2a_expand_triangle_strip_lines(&input[0], &state, expected,
+                                               FF_NV2A_FUSED, 0) == 0);
+    assert(!memcmp(lines, expected, 6 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_strip_lines(&input[1], &state, expected,
+                                               FF_NV2A_FUSED, 1) == 0);
+    assert(!memcmp(&lines[6], expected, 6 * sizeof expected[0]));
+    assert(lines[6].clip[0] == 3.0f && lines[7].clip[0] == 1.0f);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, points, 6,
+                                            FF_NV2A_FUSED, FF_NV2A_POLYGON_POINT) == 0);
+    assert(ff_nv2a_expand_triangle_strip_points(&input[0], &state, expected,
+                                                FF_NV2A_FUSED, 0) == 0);
+    assert(!memcmp(points, expected, 3 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_strip_points(&input[1], &state, expected,
+                                                FF_NV2A_FUSED, 1) == 0);
+    assert(!memcmp(&points[3], expected, 3 * sizeof expected[0]));
+    assert(points[3].clip[0] == 3.0f && points[4].clip[0] == 1.0f &&
+           points[5].clip[0] == 2.0f);
+    assert(!memcmp(points[3].color, input[1].color, sizeof(points[3].color)));
+
+    /* Fan: triangle t is input[0], input[t+1], input[t+2] with one rotation. */
+    state = (FFNv2aTriangleState){0,0,0,0,0};
+    FFNv2aPostVertex fan0[3] = { input[0], input[1], input[2] };
+    FFNv2aPostVertex fan1[3] = { input[0], input[2], input[3] };
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, fill, 6,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == 0);
+    assert(ff_nv2a_expand_triangle_fan(fan0, &state, expected, FF_NV2A_FUSED) == 0);
+    assert(!memcmp(fill, expected, 3 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_fan(fan1, &state, expected, FF_NV2A_FUSED) == 0);
+    assert(!memcmp(&fill[3], expected, 3 * sizeof expected[0]));
+    assert(fill[3].clip[0] == 0.0f && fill[4].clip[0] == 2.0f && fill[5].clip[0] == 3.0f);
+    assert(!memcmp(fill[0].color, input[1].color, sizeof(fill[0].color)));
+    assert(!memcmp(fill[3].color, input[2].color, sizeof(fill[3].color)));
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, lines, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_LINE) == 0);
+    assert(ff_nv2a_expand_triangle_fan_lines(fan0, &state, expected,
+                                             FF_NV2A_FUSED) == 0);
+    assert(!memcmp(lines, expected, 6 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_fan_lines(fan1, &state, expected,
+                                             FF_NV2A_FUSED) == 0);
+    assert(!memcmp(&lines[6], expected, 6 * sizeof expected[0]));
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, points, 6,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_POINT) == 0);
+    assert(ff_nv2a_expand_triangle_fan_points(fan0, &state, expected,
+                                              FF_NV2A_FUSED) == 0);
+    assert(!memcmp(points, expected, 3 * sizeof expected[0]));
+    assert(ff_nv2a_expand_triangle_fan_points(fan1, &state, expected,
+                                              FF_NV2A_FUSED) == 0);
+    assert(!memcmp(&points[3], expected, 3 * sizeof expected[0]));
+
+    /* The minimum three-vertex stream is exactly one triangle; the fan ignores
+     * the strip-only rotation_odd field. */
+    assert(ff_nv2a_assemble_triangle_strip(input, 3, &state, fill, 3,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == 0);
+    assert(ff_nv2a_assemble_triangle_fan(input, 3, &state, fill, 3,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == 0);
+    state.rotation_odd = 3;
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, fill, 6,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == 0);
+
+    /* Rejection must leave every output byte unchanged. */
+    state = (FFNv2aTriangleState){0,0,0,0,0};
+    memset(lines, 0x5a, sizeof(lines));
+    FFNv2aRasterVertex saved[12];
+    memcpy(saved, lines, sizeof(saved));
+    assert(ff_nv2a_assemble_triangle_strip(input, 0, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 2, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 2, &state, lines, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 5,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 11,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_LINE) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 5,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_POINT) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, lines, 5,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_LINE) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 12,
+                                           FF_NV2A_FUSED, 3) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, lines, 12,
+                                         FF_NV2A_FUSED, 3) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(NULL, 4, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, NULL, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, NULL, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(NULL, 4, &state, lines, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, NULL, lines, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, NULL, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    state.smooth = 2;
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    state.smooth = 0; state.rotation = 3;
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, lines, 12,
+                                         FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    state.rotation = 0; state.rotation_odd = 3;
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 12,
+                                           FF_NV2A_FUSED, FF_NV2A_POLYGON_FILL) == -1);
+    state.rotation_odd = 0;
+    assert(ff_nv2a_assemble_triangle_strip(input, 4, &state, lines, 12,
+                                           2, FF_NV2A_POLYGON_FILL) == -1);
+    assert(ff_nv2a_assemble_triangle_fan(input, 4, &state, lines, 12,
+                                         2, FF_NV2A_POLYGON_FILL) == -1);
+    assert(!memcmp(lines, saved, sizeof(saved)));
+}
+
 int main(void)
 {
     FFNv2aPostVertex input[3] = {0};
@@ -532,6 +681,7 @@ int main(void)
     polygon_primitive_modes();
     triangle_strip_and_fan_modes();
     triangle_strip_fan_line_point_modes();
-    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point cases passed");
+    triangle_stream_assembly();
+    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point/assembly cases passed");
     return 0;
 }
