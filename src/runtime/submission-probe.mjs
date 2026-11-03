@@ -135,6 +135,9 @@ function submissionSummary(entries, events, put, get, allocation) {
   const claimBase = allocation && Number.isInteger(allocation.base) ? allocation.base : null;
   const claimBytes = allocation && Number.isInteger(allocation.bytes) ? allocation.bytes : null;
   const instance = (entries || []).filter(entry => entry.address >= 0xFD700000 && entry.address < 0xFD705000);
+  const zeroSites = address => [...new Set((events || [])
+    .filter(event => event.address === address && event.direction === 2 && event.value === 0)
+    .map(event => event.site))];
   return {
     putWrites: putWrites.length,
     lastPutSite: last?.site ?? null,
@@ -144,6 +147,9 @@ function submissionSummary(entries, events, put, get, allocation) {
     putAtClaimEnd: claimBase !== null && claimBytes !== null && put === claimBase + claimBytes,
     instanceEntries: instance.length,
     instanceNonzero: instance.filter(entry => entry.value).length,
+    cachePutZeroSites: zeroSites(0xFD003240),
+    cacheGetZeroSites: zeroSites(0xFD003244),
+    cacheRefZeroSites: zeroSites(0xFD003248),
     note: 'observational provenance only; the queue backing is not established',
   };
 }

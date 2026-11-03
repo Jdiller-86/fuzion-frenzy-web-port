@@ -1,6 +1,6 @@
-# Submission provenance: PUT equals the GPU-instance claim end; the instance aperture holds nonzero data
+# PFIFO provenance pass: PUT comes from context state; GET=0 is a cleared value
 
-November 3, 2026. A bounded submission-provenance summary now records where the USER DMA_PUT write came from and how it relates to the observed GPU-instance claim. The single USER PUT write occurs at site `0x1FAF1C` with value `0x03B7D000`; the claim is `0x03B78000` + `0x5000`, so **PUT equals the claim end**. The device aperture's `0xFD700000`–`0xFD704FFC` region holds 5,120 entries, 559 nonzero, but the guest write map still shows no CPU writes to the claim pages. The queue producer and initial GET provenance remain unresolved, and no consumer is implemented. **There is no playable original screen and no renderer/device model.**
+November 3, 2026. A bounded provenance pass following architect guidance traced the reached PUT/GET pair and found no evidence of a produced queue. PUT is derived from context state in `0x001FAED0` and written once at `0x1FAF1C`; it equals the end of the observed GPU-instance claim. GET is zero and its zero writes come from context initialization/restore sites, not a channel/ring setup. The wait compares a context field with GET. No consumer is implemented, and the fail-closed status 13 boundary is retained. **There is no playable original screen and no renderer/device model.**
 
 ## Selection and build
 
@@ -12,43 +12,55 @@ November 3, 2026. A bounded submission-provenance summary now records where the 
 | Module bytes | 526,712 |
 | Module SHA-256 | `bd0acb033fcf0e9b6c768ef56a9b802225652099f6d1b797cb71e2f8cc996646` |
 | Original executable SHA-256 | `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9` |
-| Report | `research/verification/post-memory-browser-20261103-40.json` (local/ignored) |
+| Report | `research/verification/post-memory-browser-20261103-41.json` (local/ignored) |
 | Synthetic profile | `research/verification/memory-statistics-inputs-01/settings-mmio-20.json` (local/ignored) |
 
 The module is unchanged. ABI 24 and all prior synthetic boundaries are unchanged.
 
+## Provenance table
+
+| Item | Source / evidence | Address domain | State |
+| --- | --- | --- | --- |
+| PUT value `0x03B7D000` | `0x001FAED0`: `ECX = [ctx+0x400]` when `[ctx+0xC]&4`, else `[ctx]`; `PUT = ECX & 0x3FFFFFF`; store at `0x1FAF1C` | USER `0xFD800040` (alias CACHE1 `0xFD003240`) | observed |
+| PUT meaning | equals `0x03B78000` + `0x5000`, the GPU-instance claim end | guest physical / claim | observed |
+| Context write | `0x001FAED0`: `[ctx+0x18] = ECX` | guest context | observed |
+| GET | `0`; zero writes at `0x20005A`, `0x20027C`, `0x20047F` (context init/restore) | CACHE1 `0xFD003244` / USER alias | cleared value, not a ring initialization |
+| Wait | `0x001FBB00` compares `[ctx]` with GET under mask `0x0FFFFFFF` | guest context / device | observed |
+| DMA object | class 2, target NVM/VRAM, adjust 0, base 0, limit `0x3FFAFFF`; xemu UMA maps VRAM to system RAM | guest physical | decoded |
+| RAMIN `0xFD700000` | xemu keeps a separate 1 MiB RAMIN region; the proof has 5,120 entries / 559 nonzero context-like values | RAMIN | not the UMA target |
+| Queue bytes | 4 KiB before PUT and all claim pages zero; guest write map has no claim pages | guest RAM | absent |
+| Initial GET / ring base | no observed channel/ring setup; only context clears | unresolved | unresolved |
+| Producer | no CPU writes to the claim; RAMIN data is context, not production | unresolved | unresolved |
+
 ## Source-owned change
 
-- `src/runtime/submission-probe.mjs`: adds `submissionSummary` — count and last site/value of USER DMA_PUT writes, the observed claim base/bytes, whether PUT equals the claim end, and the count/nonzero count of the `0xFD700000`–`0xFD705000` aperture entries. It is explicitly observational and does not establish backing.
-- `src/runtime/thread-proof-worker.mjs`: passes the device event log so the summary can identify the write site.
-- `tests/submission-probe.test.mjs`: covers write-site/value selection, claim-end alignment, instance counts and the observational note (14 cases).
+- `src/runtime/submission-probe.mjs`: `submissionSummary` now lists the unique sites that write zero to the CACHE1 PUT/GET/REF registers, making the cleared-GET provenance explicit.
+- `tests/submission-probe.test.mjs`: covers the zero-site lists (14 cases).
 
 ## Observed values
 
-- USER DMA_PUT writes: **1**, at site `0x1FAF1C` (2076444), value `0x03B7D000`.
-- Claim: base `0x03B78000`, bytes `0x5000`; **PUT = claim end**.
-- Instance-aperture entries `0xFD700000`–`0xFD705000`: **5,120**, **559 nonzero**.
-- Guest write map: 48 pages; none in the claim.
-- PFIFO state: DMA mode, channel 0, instance `0x11C`; alias-consistent PUT `0x03B7D000`, GET `0`; GET never advances.
+- USER DMA_PUT: 1 write at `0x1FAF1C`, value `0x03B7D000`; PUT = claim end.
+- CACHE1/USER zero-write sites: PUT and GET `{0x20005A, 0x20027C, 0x20047F}`; REF `{0x20027C}`.
+- Instance aperture 5,120 entries / 559 nonzero; guest claim pages untouched.
 - Run: 83/83 initializers, 261 routines, 402 kernel operations; stop status 13 (`pushbuffer consumption required`) at `0xFD800044`.
 - Memory statistics unchanged: `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
 
-## Interpretation
+## Decision
 
-PUT is the physical end of the claimed GPU-instance allocation, and the corresponding device-aperture region contains 559 nonzero entries, while the guest claim pages are untouched. This is consistent with the instance/queue data living in the separate synthetic device aperture rather than guest RAM, but the translation between the claim/aperture and the DMA object's NVM target is still unverified. Decoding at the guest cursor or advancing GET remains unsupported.
+Per the architect recommendation, this single provenance pass is complete. The initial GET/ring base and queue producer remain unestablished, so no consumer or GET advance is authorized. Retain the fail-closed boundary and choose an independent startup prerequisite next (fallback B) rather than guessing PFIFO initialization.
 
 ## Next task
 
-Determine whether the `0xFD700000` instance-aperture content is the queue that the DMA object addresses: establish the aperture↔physical translation, inspect the method-like entries, and verify the initial GET. This is evidence work only; no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated.
+Choose the next bounded independent startup prerequisite, preserving the PFIFO boundary and all evidence. Candidates include a bounded kernel/PFIFO channel-setup model only if pinned evidence establishes the intended initial GET and ring base; otherwise pursue a different reached subsystem/service. Do not fabricate packets, a get pointer, interrupts, DMA or rendering.
 
 ## Validation
 
-`tests/submission-probe.test.mjs` passes (14 cases). The device-register tests, runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-40.json` (4,018,276 bytes).
+`tests/submission-probe.test.mjs` passes (14 cases). Device-register tests, the runtime suite, Python memory-access 10/10 and title-seed 25/25 pass, and `npm run check`/whitespace checks pass. The report saved as `post-memory-browser-20261103-41.json` (4,018,516 bytes).
 
-## Prior milestone: USER/CACHE1 alias
+## Prior milestone: submission provenance
 
-The three DMA register pairs now share storage; channel state is alias-consistent but GET stays 0. Report `post-memory-browser-20261103-39.json`.
+USER PUT write site/value, claim-end alignment and instance counts were first recorded. Report `post-memory-browser-20261103-40.json`.
 
 ## Limits and next task
 
-No renderer, audio, controller, disc read, playable screen or complete runtime. The summary is provenance evidence, not a producer, translation or consumer. Next: establish the aperture↔physical translation and inspect the method-like entries.
+No renderer, audio, controller, disc read, playable screen or complete runtime. The table is evidence, not a channel contract or consumer. Next: select an independent prerequisite.

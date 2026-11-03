@@ -1,18 +1,18 @@
-# Continue from the claim-end DMA_PUT and the nonzero instance aperture
+# Continue after the PFIFO provenance pass: choose an independent prerequisite
 
 Read [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
-A bounded submission-provenance summary now records that the single USER DMA_PUT write occurs at site `0x1FAF1C` with value `0x03B7D000`, which equals the end of the observed `0x03B78000` + `0x5000` GPU-instance claim. The device aperture's `0xFD700000`–`0xFD704FFC` region holds 5,120 entries, 559 nonzero, while the guest write map still shows 48 pages and none in the claim. PUT/GET are alias-consistent (PUT `0x03B7D000`, GET `0`), but GET never advances, and no consumer, GET advance, packet decoding, interrupt or rendering is implemented. The run stops at status 13 (`pushbuffer consumption required`) at `0xFD800044`; 83/83 initialization callbacks return, 261 routines execute and 402 kernel operations complete.
+A bounded provenance pass following architect guidance traced the reached PUT/GET pair. `0x001FAED0` derives PUT from context state (`[ctx+0x400]` when `[ctx+0xC]&4`, else `[ctx]`, masked `0x3FFFFFF`) and writes it once at `0x1FAF1C`; PUT `0x03B7D000` equals the GPU-instance claim end. GET is zero and its zero writes come from context initialization/restore sites `0x20005A`, `0x20027C`, `0x20047F`, not a channel/ring setup. The wait compares a context field with GET. No initial GET/ring base or queue producer is established, so the fail-closed status 13 boundary is retained and no consumer is implemented. The instance aperture has 5,120 entries / 559 nonzero, the guest claim pages are untouched, and the PFIFO views are alias-consistent.
 
-The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-40.json`. `submissionProbe.submissionSummary` reports the PUT write site/value, claim base/bytes, claim-end alignment and instance entry/nonzero counts; the worker passes the device event log; tests cover it (14 cases).
+The module is `recomp-post-memory-build-50` (526,712 bytes, SHA-256 `bd0acb03…`), from translation `recomp-title-post-memory-30` (366 functions / 14,572 instructions). The report is `post-memory-browser-20261103-41.json`. `submissionSummary` now lists the zero-write sites for CACHE1 PUT/GET/REF; tests cover them (14 cases).
 
 Validation: submission tests, device-register tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
 
-**Next task:** determine whether the `0xFD700000` instance-aperture content is the queue that the DMA object addresses: establish the aperture↔physical translation, inspect the method-like entries, and verify the initial GET. This is evidence work only; no consumer, GET advance, packet decoding, interrupt, DMA or rendering may be fabricated. The captured line/quad reference comparison and browser prepass also remain private.
+**Next task:** choose the next bounded independent startup prerequisite, preserving the PFIFO boundary and all evidence. A kernel/PFIFO channel-setup model is justified only if pinned evidence establishes the intended initial GET and ring base; otherwise pursue a different reached subsystem/service. Do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
 
-## Prior: USER/CACHE1 alias
+## Prior: submission provenance
 
-The three DMA register pairs now share storage; channel state is alias-consistent but GET stays 0. Report `post-memory-browser-20261103-39.json`.
+USER PUT write site/value, claim-end alignment and instance counts were first recorded. Report `post-memory-browser-20261103-40.json`.
 
 ## Prior: 0x200f59
 

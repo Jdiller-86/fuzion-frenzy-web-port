@@ -582,6 +582,21 @@ Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0ac
 
 The report is `research/verification/post-memory-browser-20261103-40.json` (local/ignored). The instance aperture contains nonzero data while the guest claim is untouched; the aperture↔physical translation is unverified, and no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented.
 
+### PFIFO provenance pass
+
+Following architect guidance, a single bounded provenance pass traced PUT and GET without modeling consumption. `0x001FAED0` derives PUT from context state (`[ctx+0x400]` when `[ctx+0xC]&4`, else `[ctx]`, masked `0x3FFFFFF`) and writes it once at `0x1FAF1C`; PUT `0x03B7D000` equals the claim end. GET is zero; its zero writes come from context init/restore sites `0x20005A`, `0x20027C`, `0x20047F`, not a channel/ring setup. `submissionSummary` now lists those zero-write sites.
+
+Module `recomp-post-memory-build-50` is unchanged (526,712 bytes, SHA-256 `bd0acb033fcf0e9b6c768ef56a9b802225652099f6d1b797cb71e2f8cc996646`). In the run:
+
+- USER PUT: 1 write at `0x1FAF1C`, value `0x03B7D000`; claim `0x03B78000` + `0x5000`, PUT = claim end;
+- CACHE1/USER zero-write sites: PUT/GET `{0x20005A, 0x20027C, 0x20047F}`, REF `{0x20027C}`;
+- instance aperture 5,120 entries / 559 nonzero; guest claim untouched;
+- PFIFO views alias-consistent (PUT `0x03B7D000`, GET 0);
+- 261 routines / 402 kernel operations; stop status 13 at `0xFD800044`;
+- memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+
+The report is `research/verification/post-memory-browser-20261103-41.json` (local/ignored). The initial GET/ring base and queue producer remain unestablished; no consumer, GET advance, packet decoding, interrupt, DMA or rendering is implemented. The fail-closed boundary is retained.
+
 ## Next task
 
-Determine whether the `0xFD700000` instance-aperture content is the queue that the DMA object addresses: establish the aperture↔physical translation, inspect the method-like entries, and verify the initial GET. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs and the submission summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+Choose the next bounded independent startup prerequisite, preserving the PFIFO boundary and all evidence. A kernel/PFIFO channel-setup model is justified only if pinned evidence establishes the intended initial GET and ring base; otherwise pursue a different reached subsystem/service. Preserve the explicit synthetic registers, the 16 MiB window with its four zero ranges, the 8,192-entry / 32,768-event aperture, the mirror page, the 16-read poll limit, the single self-clearing flush bit, the PFIFO register/object map, the UMA resolver, the bounded submission windows/page summary, the guest write-page map, the PFIFO state observer, the alias pairs and the submission summary; do not fabricate packets, a get pointer, interrupt delivery, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.

@@ -179,6 +179,10 @@ test('the submission summary records the put write site and claim-end alignment'
     { address: 0xFD800040, direction: 2, value: 0x700, site: 0x1000 },
     { address: 0xFD800040, direction: 2, value: 0x800, site: 0x2000 },
     { address: 0xFD800044, direction: 1, value: 0, site: 0x3000 },
+    { address: 0xFD003240, direction: 2, value: 0, site: 0x20005A },
+    { address: 0xFD003240, direction: 2, value: 0, site: 0x200143 },
+    { address: 0xFD003244, direction: 2, value: 0, site: 0x20005A },
+    { address: 0xFD003244, direction: 2, value: 0, site: 0x200143 },
   ];
   entries.push({ address: 0xFD700000, value: 0 }, { address: 0xFD700004, value: 0x80000118 });
   const probe = createSubmissionProbe({ status, entries, view, ramBytes, events, allocation: { base: 0x700, bytes: 0x100 } });
@@ -188,6 +192,9 @@ test('the submission summary records the put write site and claim-end alignment'
   assert.equal(probe.submissionSummary.putAtClaimEnd, true);
   assert.equal(probe.submissionSummary.instanceEntries, 2);
   assert.equal(probe.submissionSummary.instanceNonzero, 1);
+  assert.deepEqual(probe.submissionSummary.cachePutZeroSites, [0x20005A, 0x200143]);
+  assert.deepEqual(probe.submissionSummary.cacheGetZeroSites, [0x20005A, 0x200143]);
+  assert.deepEqual(probe.submissionSummary.cacheRefZeroSites, []);
   assert.match(probe.submissionSummary.note, /backing is not established/);
 });
 
