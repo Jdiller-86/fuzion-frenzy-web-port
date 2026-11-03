@@ -145,21 +145,27 @@ export function parseLocalRawDiskVolumes(buffer) {
 export function parseLocalMmioProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const device = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).device;
-  const entries = device?.registers;
-  if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true || !Array.isArray(entries) ||
-      entries.length !== 2) throw new Error('Select explicit synthetic register storage with two entries');
-  const addresses = new Set();
-  let values = [];
+  const entries = device?.registers, window = device?.window;
+  if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
+      !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
+      window.size < 4096 || window.size > 0x800000 || (window.size & 3) ||
+      !Array.isArray(entries) || entries.length !== 2) {
+    throw new Error('Select an explicit synthetic register window with two supplied entries');
+  }
+  const seen = new Set();
   for (const entry of entries) {
     if (!Number.isInteger(entry.address) || (entry.address & 3) || !Number.isInteger(entry.initial) ||
-        entry.initial < 0 || entry.initial > 0xffffffff) throw new Error('Register entries require an aligned address and explicit 32-bit value');
-    addresses.add(entry.address); values.push(entry.initial);
+        entry.initial < 0 || entry.initial > 0xffffffff || entry.address < window.base ||
+        entry.address - window.base >= window.size) {
+      throw new Error('Register entries require an aligned in-window address and explicit 32-bit value');
+    }
+    seen.add(entry.address);
   }
-  if (addresses.size !== 2 || !addresses.has(0xfd001804) || !addresses.has(0xfd600140))
+  if (seen.size !== 2 || !seen.has(0xfd001804) || !seen.has(0xfd600140)) {
     throw new Error('Register storage must declare the reached device addresses');
-  const first = entries.find(e => e.address === 0xfd001804).initial;
-  const second = entries.find(e => e.address === 0xfd600140).initial;
-  return { kind: device.kind, synthetic: true, registers: [{ address: 0xfd001804, initial: first }, { address: 0xfd600140, initial: second }] };
+  }
+  return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })) };
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);

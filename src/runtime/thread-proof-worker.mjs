@@ -35,8 +35,9 @@ self.onmessage = async event => {
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
     if(api.ff_probe_abi()===24) {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
-      if(api.ff_probe_mmio_profile(mmioProfile.registers[0].initial,mmioProfile.registers[1].initial)) {
-        throw new Error('Cannot admit explicit synthetic register storage');
+      if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
+        mmioProfile.registers[0].initial,mmioProfile.registers[1].initial)) {
+        throw new Error('Cannot admit the explicit synthetic register window');
       }
     }
     if(statisticsAbi) {
@@ -865,12 +866,14 @@ self.onmessage = async event => {
     }
     let deviceRegisters;
     if(api.ff_probe_abi()===24) {
-      if(api.ff_probe_mmio_word(0)!==1)throw new Error('Synthetic register storage is not ready');
-      deviceRegisters={scope:'explicit synthetic register storage; no NV2A or device behavior',
-        registers:[0,1].map(i=>({address:api.ff_probe_mmio_word(1+i*5)>>>0,initial:api.ff_probe_mmio_word(2+i*5)>>>0,
-          value:api.ff_probe_mmio_word(3+i*5)>>>0,reads:api.ff_probe_mmio_word(4+i*5)>>>0,writes:api.ff_probe_mmio_word(5+i*5)>>>0})),
-        events:Array.from({length:api.ff_probe_mmio_word(11)>>>0},(_,e)=>({address:api.ff_probe_mmio_word(12+e*3)>>>0,
-          direction:api.ff_probe_mmio_word(13+e*3)>>>0,oldValue:api.ff_probe_mmio_word(14+e*3)>>>0}))};
+      const count=api.ff_probe_mmio_word(3)>>>0, events=api.ff_probe_mmio_word(4)>>>0;
+      deviceRegisters={scope:'explicit synthetic aperture; unknown reads fail; no NV2A or device behaviour',
+        base:api.ff_probe_mmio_word(1)>>>0,size:api.ff_probe_mmio_word(2)>>>0,count,events:events,
+        entries:Array.from({length:Math.min(count,16)},(_,i)=>({address:api.ff_probe_mmio_word(5+i*4)>>>0,
+          value:api.ff_probe_mmio_word(6+i*4)>>>0,reads:api.ff_probe_mmio_word(7+i*4)>>>0,writes:api.ff_probe_mmio_word(8+i*4)>>>0})),
+        log:Array.from({length:Math.min(events,8)},(_,i)=>({address:api.ff_probe_mmio_event(i,0)>>>0,
+          direction:api.ff_probe_mmio_event(i,1)>>>0,value:api.ff_probe_mmio_event(i,2)>>>0,
+          beforeKnown:api.ff_probe_mmio_event(i,3)>>>0}))};
     }
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {

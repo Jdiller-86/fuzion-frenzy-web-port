@@ -252,16 +252,13 @@ static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0)
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
 {
 #ifdef FF_MMIO_PROOF
-    if (device_registers.ready && bytes == 4u) {
-        uint32_t index = ff_device_registers_lookup(&device_registers, address, 4u);
-        if (index < FF_DEVICE_REGISTERS) {
-            uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
-            uint32_t value = device_registers.registers[index].value;
-            if (ff_device_registers_touch(&device_registers, address, direction, 0x001FE05Au, &value))
-                stop(10, address, access);
-            ++vm_access_count;
-            return &device_registers.registers[index].value;
-        }
+    if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
+        uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
+        uint32_t value = 0;
+        if (ff_device_registers_touch(&device_registers, address, direction, 0x001FE05Au, &value))
+            stop(10, address, access);
+        ++vm_access_count;
+        return ff_device_registers_slot(&device_registers, address);
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
@@ -613,30 +610,31 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
-uint32_t ff_probe_mmio_profile(uint32_t first_value,uint32_t second_value)
+uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
-    return ff_device_registers_init(&device_registers,0xFD001804u,first_value,0xFD600140u,second_value);
+    return ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
 }
 uint32_t ff_probe_mmio_word(uint32_t field)
 {
     if(field==0)return device_registers.ready;
-    if(field==1)return device_registers.registers[0].address;
-    if(field==2)return device_registers.registers[0].initial;
-    if(field==3)return device_registers.registers[0].value;
-    if(field==4)return device_registers.registers[0].reads;
-    if(field==5)return device_registers.registers[0].writes;
-    if(field==6)return device_registers.registers[1].address;
-    if(field==7)return device_registers.registers[1].initial;
-    if(field==8)return device_registers.registers[1].value;
-    if(field==9)return device_registers.registers[1].reads;
-    if(field==10)return device_registers.registers[1].writes;
-    if(field==11)return device_registers.event_count;
-    if(field>=12 && field<12+FF_DEVICE_EVENTS*3){
-        uint32_t e=(field-12)/3u,k=(field-12)%3u;
-        return k==0?device_registers.events[e].address:k==1?(uint32_t)device_registers.events[e].direction:device_registers.events[e].old_value;
+    if(field==1)return device_registers.base;
+    if(field==2)return device_registers.bytes;
+    if(field==3)return device_registers.count;
+    if(field==4)return device_registers.event_count;
+    if(field>=5 && field<5+FF_DEVICE_ENTRIES*4){
+        uint32_t e=(field-5)/4u,k=(field-5)%4u;
+        if(e>=device_registers.count)return UINT32_MAX;
+        return k==0?device_registers.entries[e].address:k==1?device_registers.entries[e].value:
+               k==2?device_registers.entries[e].reads:device_registers.entries[e].writes;
     }
     return UINT32_MAX;
+}
+uint32_t ff_probe_mmio_event(uint32_t index,uint32_t field)
+{
+    if(index>=device_registers.event_count)return UINT32_MAX;
+    const ff_device_event *e=&device_registers.events[index];
+    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:UINT32_MAX;
 }
 #endif
 uint32_t ff_probe_memory_word(uint32_t field)

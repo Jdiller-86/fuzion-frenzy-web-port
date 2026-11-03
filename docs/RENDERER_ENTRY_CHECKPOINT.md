@@ -64,18 +64,13 @@ Admitting `0x001fe05a` (43 bytes / 9 instructions, no calls) advanced execution 
 
 Reports: `post-memory-browser-20261102-11.json`, `-12.json`; audit: `gpu-boundary-checkpoint-20261102-01.json` (zero source-identity mismatches, matching module digest, identical profiles).
 
-## Synthetic register storage (D063)
+## Synthetic register storage and the bounded aperture (D063/D064)
 
-The original helper `0x001fe05a` is a GPU register bit-set: it reads `0xfd001804`, ORs 4, writes it back, then writes zero to `0xfd600140`. A single read-only window is therefore insufficient. Following an independent architect decision, the proof now provides a strictly bounded **two-entry synthetic register file** rather than a device model:
+Helper `0x001fe05a` performs a read-modify-write of `0xfd001804` and writes zero to `0xfd600140`; the follow-on code writes further offsets derived from the device base. A fixed per-address list could not scale, so the proof now admits a bounded **aperture** [`0xFD000000`, `0xFD800000`) whose base and size are explicit profile inputs (D064). Storage is sparse (1,024 addresses) with a 4,096-event ordered log; only aligned 4-byte accesses inside the window are admitted, **unknown reads fault instead of returning a fabricated zero**, writes establish storage and record whether the previous value was known, and capacity exhaustion fails before the access takes effect. Every other address, width or direction still stops.
 
-- both addresses and both initial values come from the explicit settings profile (`device.kind = "synthetic-register-storage"`), are parsed and validated in JS, and are recorded in the report;
-- `src/runtime/device_registers.c` stores values, counts reads/writes and records exactly three events; any other address, width, direction or a fourth access fails without mutation;
-- the probe routes only those two addresses inside `ff_probe_guest_memory`, so ordinary RAM checks, permissions and memory statistics are untouched;
-- device storage is separate from RAM and accounting: statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
+Both profiles ran `recomp-post-memory-build-16` (module `d757d534…`, 424,106 bytes): four device events across three addresses (`0xfd001804` read 0 then written 4; `0xfd600140` written 0; `0xfd009140` first write, `beforeKnown = false`), 234 routines / 396 kernel operations / 3,633 events, memory statistics unchanged `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. Execution then advanced past the device window and stopped at **untranslated original routine `0x1fe085`** (return `0x1fe5bd`).
 
-Both profiles ran `recomp-post-memory-build-15` (module `79959560…`, 498,253 bytes): register `0xfd001804` read once and written once (0 → 4), register `0xfd600140` written once (0), three events, 234 routines / 396 kernel operations / 3,632 events. Execution then leaves the admitted window and stops with a checked write fault at **`0xfd009140`**, which is the next genuine device address to decide on. The planned "stop at the helper return" did not fire because the helper returned through different generated framing; the checked window stop is the real boundary.
-
-Reports: `post-memory-browser-20261102-13.json`, `-14.json`; audit `mmio-checkpoint-20261102-01.json` (zero source-identity mismatches, matching module digest, identical profiles).
+Reports: `post-memory-browser-20261102-15.json`, `-16.json`; audit `aperture-checkpoint-20261102-01.json` (zero source mismatches, matching module digest, identical profiles).
 
 ## Next task
 
