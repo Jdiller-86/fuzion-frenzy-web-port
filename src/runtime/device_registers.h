@@ -6,7 +6,10 @@
  * Not an NV2A model: every address starts unknown unless the selected profile
  * supplies a value; unknown reads fault instead of returning a fabricated 0. */
 #define FF_DEVICE_ENTRIES 8192u
-#define FF_DEVICE_EVENTS 8192u
+/* The second reached bulk clear (0xDFB dwords) exhausted 8,192 events after the
+ * first 5,120-store clear had already filled most of the log. Keep more ordered
+ * events so original register traffic is retained rather than truncated. */
+#define FF_DEVICE_EVENTS 32768u
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_ZERO_RANGES 4u
 #define FF_DEVICE_READ 1u

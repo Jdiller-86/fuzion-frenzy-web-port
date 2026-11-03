@@ -1,56 +1,53 @@
-# Original execution completes 0x20107C and reaches 0x200143
+# Original execution completes 0x200143, 0x1FE30B and 0x200352 and reaches 0x2004DF
 
-November 3, 2026. The previously untranslated helper at `0x0020107c` was admitted. It programmed device fields, called untranslated `0x00200143`, and stopped there. **There is no playable original screen and no renderer/device model.**
+November 3, 2026. Three previously untranslated helpers now execute in the browser. The aperture also had to retain a second original bulk clear: the fixed 8,192-event log filled during `0x00200352`, so the bounded synthetic capacity was raised to 32,768 events. **There is no playable original screen and no renderer/device model.**
 
-## Selection and build
+## Selection and builds
 
 | Item | Value |
 | --- | --- |
-| Translation | `research/verification/recomp-title-post-memory-24` (local/ignored) |
-| Functions / instructions | 360 / 13,682 |
-| Admitted helper | `0x0020107c`, 129 body bytes / 33 instructions |
-| Module | `research/verification/recomp-post-memory-build-37/startup.wasm` (local/ignored) |
-| Module bytes | 485,351 |
-| Module SHA-256 | `e64070431da915dc10e9e6e9c7fb37aebd58ee88bce12620c5e545c0229886de` |
+| Translation | `research/verification/recomp-title-post-memory-27` (local/ignored) |
+| Functions / instructions | 363 / 13,956 |
+| Admitted helpers | `0x00200143`, `0x001FE30B`, `0x00200352` |
+| Final module | `research/verification/recomp-post-memory-build-41/startup.wasm` (local/ignored) |
+| Final module bytes | 499,386 |
+| Final module SHA-256 | `1f38b342759b5f13bda9ca2da43380056308b0a2d34fec1a86484b1f5398b861` |
 | Original executable SHA-256 | `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9` |
-| Report | `research/verification/post-memory-browser-20261103-20.json` (local/ignored) |
+| Reports | `post-memory-browser-20261103-21.json` … `-24.json` (local/ignored) |
 
-The retained `next-14`–`next-20` functions are combined into one private seed to stay within the 32-export admission limit. The generated header retains the source digest, the 360-function lookup and the ordinal-305 kernel binding at `0x0025346c`. The module retains ABI 24, the sole `env.ff_host_clock` import and the source-owned GPU instance/port-output/TIME_FIELDS/zero-range components.
+Intermediate iterations: translation `recomp-title-post-memory-25` was 361 functions / 13,814 instructions (module `recomp-post-memory-build-38`, 490,040 bytes, SHA-256 `1521ea3a…`); translation `recomp-title-post-memory-26` was 362 / 13,841 (module `recomp-post-memory-build-39`, 495,674 bytes, SHA-256 `b2a77970…`); the capacity-only rebuild is `recomp-post-memory-build-41`. The retained `next-14`–`next-24` functions stay combined in one private seed to remain within the 32-export admission limit. ABI 24, the sole `env.ff_host_clock` import and the source-owned GPU instance/port-output/TIME_FIELDS components are unchanged. The event capacity change also updates `DEVICE_EVENTS` in `src/runtime/device-report.mjs` to match `FF_DEVICE_EVENTS`.
 
 ## Observed browser execution
 
-The same explicit synthetic profile as the preceding run was used. No new supplied device-register value was required.
+| Run | Result |
+| --- | --- |
+| build-38, profile mmio-18 | Stopped at unsupplied device read `0xFD003204` (status 10, "guest memory access stopped") inside `0x00200143`. |
+| build-38, profile mmio-19 | 252 routines, 402 kernel operations, 5,299 entries / 5,468 events; stop at **`0x1FE30B`** (return `0x1FE38A`). |
+| build-39 | 254 routines; stop at **`0x200352`** (return `0x1FE00B`); 5,299 entries / 5,512 events. |
+| build-40 | 255 routines; the fixed 8,192-event log filled during the second bulk clear at `0xFD703BA8` (status 10). |
+| build-41 | 256 routines; 5,300 entries / **9,130 events**; stop at **`0x2004DF`** (return `0x1FE053`). |
 
-Results:
+Execution details:
 
-- All **83/83** initialization callbacks returned.
-- **250** distinct original routines executed (up from 249).
-- **402** kernel operations completed.
-- `0x0020107c` programmed `0xFD002044`, `0xFD003224`, `0xFD002040`, `0xFD002500`, `0xFD003000`, `0xFD003050`, `0xFD003200`, `0xFD003250`, `0xFD003220`, `0xFD003210` and `0xFD003270`, then called **`0x00200143`**.
-- Device aperture: **5,286 entries** and **5,395 events**.
+- `0x00200143` saved `0xFD002500`, `0xFD003200` and `0xFD003250`, copied 13 PGRAPH state fields to `0xFD701000`–`0xFD701030`, wrote index `1` to `0xFD003204`, read the saved context back from `0xFD701040`–`0xFD701070`, and restored the three saved registers (34 device events).
+- `0x0020107c` completed, `0x001FE1D0` returned, and `0x001FE365` called `0x001FE30B`. `0x001FE30B` (90 body bytes / 27 instructions, no calls) classified a mapping value and wrote a resolved base plus a type of 1, 2 or 3 through caller pointers.
+- `0x001FE365` then wrote its packed values to the `0xFD700000` instance region and returned; the `0x001FDFC3` path called `0x00200352`.
+- `0x00200352` (397 body bytes / 115 instructions, no calls) cleared **0xDFB** dwords (3,580 device writes) in the `0xFD700000` region, then programmed `0xFD002504`, `0xFD003204`, `0xFD003220`, `0xFD003224`, `0xFD003228`, `0xFD00322C`, `0xFD003240`, `0xFD003244`, `0xFD003280`, `0xFD003250`, `0xFD003200` and `0xFD002500`.
+- `0x001FE026` executed and the next caller requested **`0x002004DF`**.
 - Memory statistics remained `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`.
-- Stop: status 2, untranslated original routine **`0x200143`**, return `0x2010D8`, ordinal 0.
+
+## Explicit synthetic inputs
+
+The selected profile `settings-mmio-19.json` keeps the 64 explicit registers and adds a third zero range at `0xFD003200` (0x100 bytes), so the state reads in `0x00200143` and `0x00200352` are supplied as explicit zeros; later writes override those entries. All three zero ranges (`0xFD100200`/0x1000, `0xFD400000`/0x1000, `0xFD003200`/0x100) are synthetic test inputs, not recovered console state. The 32,768-event aperture is an ordered evidence log, not an NV2A model.
+
+## Validation
+
+The raised capacity passes the owned device-register test at both optimization levels, including its full-capacity atomicity loop. `device_registers_test.c`, `port_io_test.c`, `time_fields_test.c` and `gpu_instance_test.c` pass optimized and ASan/UBSan WSL GCC runs; `recomp_memory_access_test.py` is 10/10, `title_seed_test.py` is 25/25, `npm run test:runtime` is 48/48, `npm run check` passes for 243 source files, and `git diff --check` plus LF-only checks are clean.
 
 ## Next dependency
 
-A bounded read-only export reports `0x00200143` as an established **509-byte / 132-instruction** function with **no direct calls** (`recomp-post-memory-next-21/seed.json`, local/ignored). This is static export evidence, not admitted translation or observed execution.
-
-## Prior milestone: 0x200F59
-
-`0x00200f59` read `0xFD400100` = `0`, skipped `0x1FDAC0`, called `0x2000CB` twice, and returned; the caller reached `0x20107C`. Translation `recomp-title-post-memory-23` was 359 functions / 13,649 instructions; module `recomp-post-memory-build-36` was 484,657 bytes, SHA-256 `91afe5cb2fd8a6a79196e96b2b30b9db4f1a72c7c4bed64dfca569e9fee03d66`. Report `post-memory-browser-20261103-19.json`.
-
-## Prior milestone: zero-range device table
-
-The device-table reads in `0x2010FD` were served through an explicit 0x1000-byte zero range at `0xFD100200`, and `0x2010FD` called `0x200F59`. Module `recomp-post-memory-build-35` was rebuilt with zero-range support and was 481,870 bytes, SHA-256 `bc77a4cede489adcafe427b099f0b17d9bcd85fe2c14c3b282ccd916a6218f75`. Report `post-memory-browser-20261103-18.json`.
-
-## Prior milestone: 0x2000CB device boundary
-
-`0x002000cb` read `0xFD400700` = `0` and returned; `0x002010fd` stopped at unsupplied `0xFD100284`. Module `recomp-post-memory-build-35` initially used individual entries and was 481,279 bytes, SHA-256 `3dc7bfd70e4cdffa43ee681d851339a74ab951658819d30df45cf7901173676f`. Report `post-memory-browser-20261103-17.json`.
-
-## Prior milestone: 0x200340 and system time
-
-`0x00200340` wrote `1` to `0xFD600100`/`0xFD600140`; `KeQuerySystemTime` and the source-owned `RtlTimeToTimeFields` returned `2026-11-03 16:02:49.719`; `0x001fe1d0` reached `0x2010FD`. Module `recomp-post-memory-build-33` was 476,718 bytes, SHA-256 `b1c8c1867c3caaf62007557d91a5e08db5c282567ba2d2f70b64b664a9256670`. Report `post-memory-browser-20261103-15.json`.
+A bounded read-only export reports `0x002004DF` as an established **57-byte / 20-instruction** leaf with **no direct calls** (`recomp-post-memory-next-24/seed.json`, local/ignored). It packs caller words into `[EAX]` and `[EAX+4]` at the context's `0x130` index. This is static export evidence, not admitted translation or observed execution.
 
 ## Limits and next task
 
-`0x200143` is untranslated. No renderer, audio, controller, disc read, playable screen or complete runtime is established. The device writes, zero ranges, time conversion, port-output log and GPU instance claim are synthetic test scaffolding, not recovered console state. Next: admit and translate `0x200143` from the retained read-only export, then follow its next genuine dependency. Preserve the explicit synthetic register values and do not infer NV2A interrupt delivery, DMA, device behavior or rendering.
+No renderer, audio, controller, disc read, playable screen or complete runtime is established. The device writes, zero ranges, time conversion, port-output log, GPU instance claim and event capacity are synthetic proof scaffolding. Next: admit and translate `0x002004DF` from the retained read-only export, then follow its next genuine dependency. Do not infer NV2A interrupt delivery, DMA, device behavior or rendering from the supplied synthetic reads.

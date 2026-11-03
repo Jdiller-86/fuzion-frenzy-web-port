@@ -1,10 +1,10 @@
-# Original execution completes 0x20107C and reaches 0x200143
+# Original execution completes 0x200143, 0x1FE30B and 0x200352 and reaches 0x2004DF
 
-November 3: `0x0020107c` writes device fields and calls untranslated **`0x200143`** (return `0x2010D8`, status 2). All 83 initialization callbacks return; 250 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
+November 3: three previously untranslated helpers now execute, and the next caller requests untranslated **`0x2004DF`** (return `0x1FE053`, status 2). All 83 initialization callbacks return; 256 distinct original routines execute and 402 kernel operations complete. **There is no playable original screen.**
 
-Selection `recomp-title-post-memory-24` is 360 functions / 13,682 instructions; module `recomp-post-memory-build-37` is 485,351 bytes, SHA-256 `e6407043…`. The aperture logged 5,286 entries / 5,395 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local report is `post-memory-browser-20261103-20.json`.
+Selection `recomp-title-post-memory-27` is 363 functions / 13,956 instructions; module `recomp-post-memory-build-41` is 499,386 bytes, SHA-256 `1f38b342…`. `0x00200143` now saves and restores its PGRAPH context, `0x001FE30B` classifies a mapping value, and `0x00200352` clears 0xDFB dwords before programming its device fields. The second bulk clear filled the fixed 8,192-event log, so the bounded synthetic aperture now retains 32,768 ordered events (`FF_DEVICE_EVENTS` and `DEVICE_EVENTS`); the run logs 5,300 entries / 9,130 events. Statistics remain `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`. The local reports are `post-memory-browser-20261103-21.json` … `-24.json`; the final run is `-24.json`.
 
-A bounded read-only export reports the reached callee `0x200143` as 509 bytes / 132 instructions with no direct calls; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 47/47, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
+`0x00200143` needed a third explicit synthetic zero range at `0xFD003200` (0x100 bytes) because its first read of `0xFD003204` faulted. A bounded read-only export reports the reached callee `0x2004DF` as 57 bytes / 20 instructions with no direct calls; it is not yet admitted or observed. Validation: TIME_FIELDS, port-output, device-register and GPU-instance fixtures optimized/ASan/UBSan, Python memory-access 10/10, title-seed 25/25, runtime 48/48, `npm run check` and whitespace checks pass. ABI 24 and D060 are unchanged. See [the post-memory checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md).
 
 ## Prior: 0x200f59
 

@@ -4,7 +4,7 @@
  * avoids silently hiding the next original device sequence behind an arbitrary
  * eight- or sixteen-item cap. */
 export const DEVICE_ENTRIES = 8192;
-export const DEVICE_EVENTS = 8192;
+export const DEVICE_EVENTS = 32768;
 
 export function createDeviceReport(api, profile = null) {
   if (!api || typeof api.ff_probe_mmio_word !== 'function' ||
