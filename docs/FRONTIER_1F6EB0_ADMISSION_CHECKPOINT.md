@@ -27,4 +27,4 @@ Module `recomp-post-memory-build-72`: **660,060 bytes**, SHA-256 `9d8689ff916dbe
 
 The next genuine stop is untranslated `0x1FC780` (status 2, return `0x1F56FD`). It is **not admitted or analyzed further**. Per the directive, the lane stops here.
 
-These are synthetic startup observations with a synthetic avQuery word. They are not console settings, fidelity, renderer, gameplay or original service semantics. Original content remains player supplied and local.
+These are synthetic startup observations with a synthetic avQuery word. They are not console settings, fidelity, renderer, gameplay or original service semantics. Original content remains player supplied and local. The next-stop report is also recorded in [the utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md).
