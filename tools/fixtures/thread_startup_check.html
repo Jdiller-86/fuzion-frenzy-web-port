@@ -74,7 +74,9 @@ run.onclick = async () => {
       if(result.phase==='original-initializer-bringup') {
         const progress=result.originalStartup;
         document.body.dataset.state='in-progress';
-        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}. The game has not booted.`;
+        const inputs=(result.experiments??[]).length?` Experimental inputs: ${result.experiments.join(', ')}.`:'';
+        const device=result.stop?.status===12?` Device wait at 0x${(result.stop.target>>>0).toString(16).toUpperCase()}.`:'';
+        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}.${device}${inputs} The game has not booted.`;
         return;
       }
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';

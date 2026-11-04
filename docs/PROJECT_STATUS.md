@@ -1,10 +1,12 @@
-# The translation frontier is now a repeatable measurement
+# The browser proof page now states the device wait and the active experimental inputs
 
-November 4: last cycle's one-off frontier analysis is now a source-owned tool. `tools/translation-frontier.mjs <translation-directory> [--json]` parses one prepared `title-functions.inc` and reports the admitted function count, the boundary placeholders the translator emitted for known-untranslated routines, how many of those are already call targets of admitted code, and the distinct call targets overall. It prints counts and addresses only — never original code, bytes or disassembly — and a missing directory is an explicit error, since translations are private, player-local artifacts. Against the current translation it reproduces the earlier numbers exactly: **517 functions, 102 placeholders, 101 referenced, 352 call targets**. `tests/translation-frontier.test.mjs` covers a synthetic translation, a placeholder-free one and per-function call attribution; it is wired into `npm run test:runtime`, which is now **123/123**.
+November 4: the local proof page reported only initializer progress and the stop reason, so a reader could not tell from the visible status whether a run used the canonical model or an experiment, nor whether it stopped on a device wait. `tools/fixtures/thread_startup_check.html` now appends two facts to the status line when present: the device-wait address when the report stops with status 12 (`Device wait at 0x…`) and the active experimental inputs from the report's `experiments` list (`Experimental inputs: writeClearing, pcrtcVblanks:8`). Both come from the validated report the worker already posts, so the page states provenance rather than inferring it, the sentence "The game has not booted." is unchanged, and nothing is claimed beyond what the report contains. The extracted page script passes `node --check`, and the runtime suite stays **123/123**. **There is no controllable original screen.**
 
-The PFIFO engine/consumer contract was assigned last cycle to a new engine workstream and handed off in `docs/PFIFO_ENGINE_HANDOFF.md`; this lane keeps its canonical profile fail-closed and adds no producer rules. Sol was not attempted this cycle, so its current availability was not checked. **There is no controllable original screen.**
+Validation: runtime suite 123/123, `npm run test:evidence` 3/3, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md) and [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
 
-Validation: runtime suite 123/123, `npm run test:evidence` 3/3, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md) and [the engine handoff](PFIFO_ENGINE_HANDOFF.md).
+## Prior: translation frontier is a repeatable measurement
+
+`tools/translation-frontier.mjs` reports admitted functions, boundary placeholders, referenced placeholders and call targets for a private prepared translation (517 / 102 / 101 / 352 on the current one).
 
 ## Prior: PFIFO engine contract handed off
 
