@@ -18,7 +18,7 @@ const report = (edit = {}) => ({
 test('a well-formed startup report validates and is returned unchanged', () => {
   const input = report();
   assert.equal(validateProofReport(input), input);
-  const withExperiments = report({ experiments: ['writeClearing', 'pcrtcVblanks:8', 'pfifoReset'] });
+  const withExperiments = report({ experiments: ['writeClearing', 'pcrtcVblanks:8'] });
   assert.equal(validateProofReport(withExperiments), withExperiments);
   const device = report({
     deviceRegisters: { count: 2, events: 1, entries: [{}, {}], log: [{}] },
@@ -27,18 +27,31 @@ test('a well-formed startup report validates and is returned unchanged', () => {
 });
 
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
-  const valid = report({ pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 } });
+  const valid = report({
+    experiments: ['pfifoReset'],
+    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+  });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({
+    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+  })), /requires the pfifoReset experiment/);
+  assert.throws(() => validateProofReport(report({ experiments: ['pfifoReset'] })),
+    /requires PFIFO reset state/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'],
     pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 1, resets: 1 },
   })), /consumer update/);
   assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'],
     pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 2 },
   })), /exactly once/);
   assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'],
     pfifoStatus: { cache1: 0, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
   })), /LOW_MARK/);
-  assert.throws(() => validateProofReport(report({ pfifoStatus: { cache1: 0x10 } })), /Malformed/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'], pfifoStatus: { cache1: 0x10 },
+  })), /Malformed/);
 });
 
 test('a worker-level error report is accepted without evidence fields', () => {

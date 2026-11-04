@@ -78,6 +78,15 @@ export function validateProofReport(report) {
         !bounded(pcrtc.events, DEVICE_STATUS_WAITS * 16))
       throw new Error('Malformed display-interrupt state');
   }
+  /* The reset state and its experiment declaration are a pair: a report must not
+   * show the proof without declaring the input, or claim the input without the
+   * proof. */
+  const experiments = report.experiments ?? [];
+  const claimsReset = experiments.includes('pfifoReset');
+  if (report.pfifoStatus !== undefined && !claimsReset)
+    throw new Error('PFIFO reset state requires the pfifoReset experiment');
+  if (claimsReset && report.pfifoStatus === undefined)
+    throw new Error('The pfifoReset experiment requires PFIFO reset state');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */

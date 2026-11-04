@@ -10,7 +10,7 @@ The prior handoff said the reference did not model the empty-cache reset state a
 
 - `src/runtime/pfifo_status.h/.c` adds `ff_pfifo_status_reference_reset`. It ORs `LOW_MARK` into `cache1_status` and `runout_status`, leaves `dma_push` and `consumer_updates` untouched, adds no capability and is idempotent. It is initialization-only: never called from a poll or a read.
 - `tools/fixtures/thread_startup_probe.c` adds the default-off `ff_probe_mmio_pfifo_reset` control. When selected, it applies the adapter once during aperture initialization and seeds `0xFD003214` and `0xFD002400` from the seam. The injection is at initialization, not from polling, and the adapter has no GET, PUT or guest-memory access.
-- `src/runtime/local-title-proof.mjs` accepts the literal `device.pfifoReset: true`; `describeMmioExperiments` reports `pfifoReset`; `proof-report.mjs` accepts the name; the worker sets the control before the aperture is admitted. The canonical profile leaves it off and remains fail-closed.
+- `src/runtime/local-title-proof.mjs` accepts the literal `device.pfifoReset: true`; `describeMmioExperiments` reports `pfifoReset`; `proof-report.mjs` accepts the name and requires `pfifoStatus` exactly when `pfifoReset` is declared, so the report cannot show the proof without the input or claim the input without the proof; the worker sets the control before the aperture is admitted. The canonical profile leaves it off and remains fail-closed.
 
 ## Proof requested by the architect
 
@@ -21,7 +21,7 @@ The prior handoff said the reference did not model the empty-cache reset state a
 | repeat initialization | The native test calls the adapter twice on the same seam and asserts identical values and still zero consumer updates. |
 | preserved controls | Canonical still stops at status 10 on `0xFD000100`; the `engineWait` control still stops at status 12 on `0xFD003214`. |
 | no injection from polling | The adapter is called once in `ff_probe_mmio_profile`, before the guest runs; no read or status-wait path calls it. |
-| end-to-end report | The reset run reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. `proof-report.mjs` rejects any report with a consumer update, more than one reset, or a missing `LOW_MARK`, so the invariant is checked before the report is shown. |
+| end-to-end report | The reset run reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. `proof-report.mjs` rejects any report with a consumer update, more than one reset, or a missing `LOW_MARK`, and requires `pfifoStatus` exactly when `pfifoReset` is declared, so the invariant and its declaration cannot diverge. |
 
 ## Retained profile comparison
 

@@ -170,7 +170,7 @@ Measured with module `recomp-post-memory-build-70` (SHA-256 `4b8c2688519cb4338c3
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
 | `pfifoReset` | **status 2 at `0x1FCB00`** (return `0x1FD4C4`) | 276 | 404 | 12,584 |
 
-The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, and reaches untranslated `0x1FCB00`. It reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, and reaches untranslated `0x1FCB00`. It reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The validator also requires `pfifoStatus` exactly when `pfifoReset` is declared, so the proof and its declaration cannot diverge. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
 
 No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-based next target.
 
