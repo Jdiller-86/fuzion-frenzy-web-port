@@ -1,4 +1,14 @@
-# Architect review: ordinal2 arguments captured, but option6 reference semantics conflict
+# Architect review: descriptor fixed; premature synthetic query binding rejected
+
+Fixed source `4c1f39f` removes static option/output/writable assertions correctly, but wires option6 through profile/worker/kernel resolver despite A018's unconnected-only scope. Reported0x1F79A0 (return0x1F83ED,280 routines/405 operations) is lane-reported startup under an **unapproved synthetic-binding experiment**, not the accepted original-execution frontier. The last accepted boundary remains unsupported ordinal2 at0xFE000094/return0x1FD429. No title artifact was replayed by the architect.
+
+A019 directs primary to restore unsupported binding in new commits without discarding history/evidence, preserve descriptor/capture fixes, and deliver one reusable unconnected numeric6 component for(0,6,0,Result), explicit full synthetic DWORD/no default. Test the actual component using real VM, two values/exact little-endian bytes/before-and-after neighbors and unchanged-state config/argument/protection/bounds/wrap denials; no guessed alignment fault or CPU/stack mutation. Current native fixture is a separate test-only writer and does not cover those branches or the connected handler. Reject withdrawn profile activation fail-closed. No further report/provenance framework, console prerequisite, kernel wiring or frontier batch. See [A019 acceptance](AV_ENCODER_BOUNDARY_REVIEW.md).
+
+Full public Cxbx pin585c49a50af1255ab155099e06f24505f9c5a800 re-fetched: the option6/9 names,0xF00 standard mask and SMC/factory/user composition discrepancy is verified, not provisional/unverified because no checkout is retained. Original-kernel truth/settings remain unresolved; synthetic input cannot be called measured player settings. A001 and PFIFO seam labeling remain accepted. Geometry `8ee92c1` changes one checkpoint line only, remains paused/reference/whole-chain-gated. Neither builder integrated.
+
+Exact candidate check334 files,runtime144/144,no skips,native16/16 plain+sanitizer passed (Node24.22.1,not exact24.14.0 pin). Passing current tests does not establish missing component coverage or binding permission. PR#1 clean/mergeable at starting3f982c7; fresh CI query unavailable502 (snapshot says green). Drafts#2/#3 already open/conflicted at requested heads, preparation green. No duplicate PR or main approval: source contract issues, accumulated runtime review/conflicts and changed-head checks block promotion. Local main remains integrated. No controlled original screen, full fidelity/browser-local conversion/performance or online/social/authority acceptance.
+
+## Retained A018 review
 
 Fixed source `ebb29e0` captures attempted ordinal2 `(0,6,0,0x203720)` at return0x1FD429, retains the explicit unsupported stop (279 routines/404 operations under the reported synthetic reset profile), and correctly renames PFIFO values as seam reset snapshot. No new title execution endpoint or encoder implementation is established. The architect has not replayed original/private title artifacts.
 

@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 4c1f39f and geometry 8ee92c1
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A019 | Reject the connected AV-pack experiment for integration; finish the A018 unconnected component before any binding | Source4c1f39f removes option/output/permission constants from the static descriptor (accepted correction), but da53c06 connects an option6 handler through the resolver, profile and worker without the required component review. Explicit opt-in and provenance labels do not supersede A018. Retain the reported0x1F79A0 run only as an unapproved synthetic-binding experiment, not an accepted frontier. Primary must restore ordinal2 to unsupported in a new source commit, preserving history/private evidence; no reset/discard is requested. Replace the duplicate test-only writer with one reusable unconnected numeric6 component using explicit raw synthetic DWORD configuration, restricted shape(0,6,0,Result), real-VM admission and exact-byte stores. Test two values, absent config/unsupported arguments, null/out-of-range/wrap/protection-crossing denial and unchanged RAM/CPU/stack. No guessed alignment faults. The existing fixture omits these contract branches and cannot validate the connected handler. Public Cxbx full pin585c49a50af1255ab155099e06f24505f9c5a800 was fetched again this cycle: the reference discrepancy is verified, original-kernel semantics remain unresolved. Lack of a local checkout does not turn this into an unverified provisional finding. Do not spend another cycle building provenance/report gates or demanding a console; submit the actual standalone component. No binding/frontier/encoder expansion or whole-branch/main approval. Geometry remains paused; A001 remains accepted. |
+
 ### Architect review of source ebb29e0 and geometry 8961ae5
 
 | ID | Decision | Basis / limits |

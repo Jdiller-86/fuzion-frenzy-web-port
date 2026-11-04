@@ -1,6 +1,22 @@
 # Ordinal 2: establish the reached call contract before emulating an encoder
 
-## Current review: numeric option 6 captured; reference semantics conflict (A018)
+## Current directive A019: repair the boundary, not the provenance report
+
+At source `4c1f39fb973106f2af97679cdb70ae3471b4abb5`, the static descriptor is now correctly limited to name/ABI. However `da53c06` already connected `ff_probe_av_pack` and `av_send_tv_encoder_option` through the profile, worker and kernel resolver. This violates A018's explicit unconnected-only scope; default-off does not satisfy that scope. The claimed stop at `0x1F79A0` (return `0x1F83ED`,280 routines/405 operations) is lane-reported evidence under an **unapproved synthetic query binding**, not an accepted new original-execution frontier. Do not translate it yet.
+
+The architect fetched the full public Cxbx pin linked below again this cycle. The name/mask/settings discrepancy is verified public-source evidence, not merely provisional advice; original-kernel truth is still unresolved. A local checkout is not necessary to use a full immutable URL and curated findings, and original/public third-party source must not be copied into our tracked component. Stop hardcoding `status:'unverified'` as if it adjudicated the discrepancy. Synthetic input is not a player's measured setting; use a raw DWORD rather than a pack/standard/refresh composer that excludes capability flags.
+
+**One bounded corrective source commit (or coherent series):**
+
+1. Disable/remove the new ordinal2 resolver binding and `device.avPack` activation/worker plumbing in source, preserving the useful static-descriptor fix and unsupported call capture. Use new commits, not history rewriting or discarding in-flight work. Preserve the prior experimental record privately and label its curated result unapproved/synthetic. Profiles requesting the withdrawn binding must fail closed, not silently ignore it. Do not merely add another provenance tag around the connected service.
+2. Provide one reusable source-owned **unconnected** numeric-option6 component. Take explicit configuration (present flag plus full synthetic DWORD), four query arguments and the existing VM boundary. Restrict the query to RegisterBase0, Option6, Param0; reject absent config and unsupported arguments before mutation. VM-check the whole four-byte span before explicit little-endian stores. Keep all CPU/stack state outside this component. No kernel resolver call, encoder state, settings interpretation or browser profile activation. Alignment is not an evidenced Xbox fault: admit safe unaligned spans or identify separately justified host-only policy without claiming hardware behavior.
+3. Test that very component, not a duplicate private writer in `tests/av_query_fixture_test.c`. Use two explicit distinct full DWORDs (including bits beyond the old three-field composer); verify the four expected bytes and neighbors before and after. Denials must cover absent config, nonzero RegisterBase/Param, unknown Option, null, unmapped, read-only, beyond backing extent, wrapping address, and a four-byte span crossing into denied memory. Snapshot memory/CPU/stack before denial; no partial writes or execution-state changes. Test safe unaligned writes if admitted. Run the real-VM native fixture plain and sanitizer; request review before a later opt-in ABI/browser binding task.
+
+Existing native fixture `query_write(pointer,word)` is just a test-local VM-check/memcpy example: it has one value, no configuration/option/parameter branch, checks only following neighbors and guesses alignment rejection. It is not acceptance of the actual connected handler. That handler also ignores RegisterBase/Param and performs `g_esp += 20`; leaving EAX alone does not satisfy the unconnected/no-CPU-mutation gate. Do not extend it while the binding is withdrawn.
+
+No new extraction, generic reporting, profile-composition framework, display cadence or frontier batch is requested. Hardware fidelity and exact-original settings remain unproved; physical-console access is not a blocker for this honest synthetic component.
+
+## Retained A018 review: numeric option 6 captured; reference semantics conflict
 
 Source `ebb29e0` records the attempted call as `(RegisterBase, Option, Param, Result) = (0,6,0,0x203720)` at return `0x1FD429`, while keeping ordinal2 unsupported. Its retained caller evidence supports a four-argument stdcall/void-style call and a 4-byte output consumed with masks `0xFF` and `0xFF00`. This is useful lane-reported evidence, not an architect replay. The PFIFO fields are now correctly named `pfifoResetState` with `scope:'seam'`; that snapshot is still not live aperture state.
 
