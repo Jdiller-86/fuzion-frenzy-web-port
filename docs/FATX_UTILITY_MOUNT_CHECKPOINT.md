@@ -20,7 +20,7 @@ The pending request points to `62983784`, supplies length 36 and has a writable 
 
 The FAT16/FAT32 choice uses partition-size-derived entries, including the reserved entry, before subtracting metadata. In the reached 1 GiB case, selecting width from usable data clusters would incorrectly choose FAT16. The resulting four-byte entries, 266,240-byte table and 270,336-byte data offset agree with the original formatter and its retained bytes. The [first-person format research](https://aerosoul94.github.io/blog/2020/02/25/fatx-reading-and-recovery.html) and [XboxDev reader calculation](https://github.com/XboxDev/fatx/blob/master/libfatx/fatx.c) corroborate this interpretation; the latter file's inspected Git blob is `26305e3d2dca3f84b94d25c8c6935b5c01f9e907`. This is independently authored browser code; no filesystem library was installed or vendored.
 
-Current scope is read-only root/size access over explicit fresh test partitions, plus the source-owned root/file reader. It permits four mounted filesystems, sixteen file instances, a 262,144-entry scan limit and root chains up to 64 clusters. It supports the validated 512-byte-sector FAT16/FAT32 subset; other formats stop. A successful raw write advances the backing revision; stale mounts stop before using cached metadata. Separate source-owned helpers overwrite an existing file's backed range, create an empty file entry and delete an empty file entry in an existing directory; none is a guest service and none allocates or frees data clusters. Guest directory/file operations, guest FATX writes, data-cluster allocation/extension, mounted-filesystem dismount/remount, durable storage, original kernel failure/locking behavior and retail equivalence remain unproved. Unsupported FATX operations stop instead of being routed to the unrelated userdata provider.
+Current scope is read-only root/size access over explicit fresh test partitions, plus the source-owned root/file reader. It permits four mounted filesystems, sixteen file instances, a 262,144-entry scan limit and root chains up to 64 clusters. It supports the validated 512-byte-sector FAT16/FAT32 subset; other formats stop. A successful raw write advances the backing revision; stale mounts stop before using cached metadata. Separate source-owned helpers overwrite an existing file's backed range, create an empty file entry, create a single-cluster file with data, and delete an empty file entry; none is a guest service and none creates directories or extends beyond one cluster. Guest directory/file operations, guest FATX writes, multi-cluster allocation/extension, mounted-filesystem dismount/remount, durable storage, original kernel failure/locking behavior and retail equivalence remain unproved. Unsupported FATX operations stop instead of being routed to the unrelated userdata provider.
 
 ABI 22 retains fixed 128 MiB Wasm / 64 MiB guest memory, 16 MiB immutable source staging, 4,096 trace events / 512 kernel records and the sole browser-clock import. The new helper was exported read-only from the existing Ghidra project, then admitted with original-byte, independent-decoder, layout and guarded-memory checks. The selection is now 317 functions / 10,612 instructions. These counts are not whole-game coverage. Original execution occurs only in browser workers; original/derived content remains local and ignored.
 
@@ -88,6 +88,20 @@ Limits: empty files only. Data clusters, extension, new directories, FAT allocat
 `tests/fatx_volume_test.c` covers non-empty/directory/missing rejection, root and subdirectory deletion, lookup failure after deletion, slot reuse by the next creation, unchanged failure state and a read-back of an untouched file. The `fatx_volume` fixture remains in optimized and ASan/UBSan native runs.
 
 Limits: empty files only. Cluster freeing, directory deletion, data-cluster allocation, extension, durable persistence across reloads, guest FATX services and original save-path behavior remain unsupported.
+
+## Bounded single-cluster file creation
+
+`ff_fatx_create_file` creates a non-empty file whose data fits in one FATX cluster:
+
+- it resolves the parent directory, rejects duplicates/invalid names and requires `1..cluster_bytes` of data;
+- it allocates exactly one free FAT cluster, sets it to the terminal value and records first cluster/size in the new directory entry;
+- it preflights the bounded page store through `ff_disk_store_allocate` and writes the data before the FAT and directory metadata; a capacity failure leaves no directory entry;
+- it decrements the mount's free-cluster count and refreshes the revision on success;
+- it does not create directories, extend beyond one cluster, free clusters or serve a guest request.
+
+`tests/fatx_volume_test.c` covers a five-byte file, a full 16,384-byte cluster, a zero-filled file, data beyond one cluster, duplicate/invalid names, null/zero data, and a FAT16 volume with no free cluster. Each success is read back and its FAT terminator is checked; each failure leaves the directory, FAT and disk unchanged.
+
+Limits: single-cluster, non-empty files only. Multi-cluster allocation, extension, cluster freeing, directory creation/deletion, durable persistence across reloads, guest FATX services and original save-path behavior remain unsupported.
 
 ## Next task
 

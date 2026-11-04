@@ -236,6 +236,46 @@ uint32_t ff_disk_store(ff_local_disk *disk,uint64_t offset,const uint8_t *data,u
     ++disk->revision;
     return 0;
 }
+uint32_t ff_disk_store_allocate(ff_local_disk *disk,uint64_t offset,const uint8_t *data,uint32_t bytes)
+{
+    if(!disk || !data || !bytes)return FF_BOOT_INVALID;
+    if(offset>disk->profile.bytes || bytes>disk->profile.bytes-offset)return FF_BOOT_INVALID;
+    if(disk->revision==UINT64_MAX)return FF_BOOT_UNSUPPORTED;
+    const uint64_t end=offset+bytes;
+    uint32_t needed=0;
+    for(uint64_t cursor=offset;cursor<end;) {
+        const uint64_t index=cursor/FF_DISK_PAGE_BYTES;
+        uint32_t chunk=FF_DISK_PAGE_BYTES-(uint32_t)(cursor-index*FF_DISK_PAGE_BYTES);
+        if(chunk>end-cursor)chunk=(uint32_t)(end-cursor);
+        int nonzero=0;
+        for(uint32_t i=0;i<chunk;++i)nonzero|=(uint32_t)data[(uint32_t)(cursor-offset)+i];
+        if(nonzero && !page(disk,index))++needed;
+        cursor+=chunk;
+    }
+    if(needed>FF_DISK_PAGES-disk->allocated_pages)return FF_DISK_FULL;
+    uint32_t copied=0;
+    for(uint64_t cursor=offset;cursor<end;) {
+        const uint64_t index=cursor/FF_DISK_PAGE_BYTES;
+        const uint32_t within=(uint32_t)(cursor-index*FF_DISK_PAGE_BYTES);
+        uint32_t chunk=FF_DISK_PAGE_BYTES-within;
+        if(chunk>end-cursor)chunk=(uint32_t)(end-cursor);
+        ff_disk_page *entry=page(disk,index);
+        int nonzero=0;
+        for(uint32_t i=0;i<chunk;++i)nonzero|=(uint32_t)data[copied+i];
+        if(!entry && nonzero) {
+            for(unsigned i=0;i<FF_DISK_PAGES;++i)if(!disk->pages[i].used) {
+                entry=&disk->pages[i];
+                memset(entry,0,sizeof *entry);
+                entry->used=1;entry->index=index;++disk->allocated_pages;
+                break;
+            }
+        }
+        if(entry)memcpy(entry->data+within,data+copied,chunk);
+        copied+=chunk;cursor+=chunk;
+    }
+    ++disk->revision;
+    return 0;
+}
 static uint32_t transfer(ff_local_disk *disk,const uint32_t args[8],int writing)
 {
     if(!disk || !disk->memory || !args)return FF_BOOT_INVALID;

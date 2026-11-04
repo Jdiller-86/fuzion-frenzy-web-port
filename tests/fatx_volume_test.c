@@ -19,6 +19,7 @@ static uint32_t args[6];
 static const uint64_t part_base=0x180000000ull;
 static void put(uint32_t p,uint64_t value,unsigned bytes){for(unsigned i=0;i<bytes;++i)ram[p+i]=(uint8_t)(value>>(8*i));}
 static uint64_t get(uint32_t p,unsigned bytes){uint64_t value=0;for(unsigned i=0;i<bytes;++i)value|=(uint64_t)ram[p+i]<<(8*i);return value;}
+static uint32_t disk_value(uint64_t offset,unsigned bytes){uint32_t value=0;for(unsigned i=0;i<bytes;++i)value|=(uint32_t)ff_disk_byte(&disk,offset+i)<<(8*i);return value;}
 static void name(const char *text){uint32_t bytes=(uint32_t)strlen(text);memcpy(ram+TEXT,text,bytes+1);put(NAME,bytes,2);put(NAME+2,bytes+1,2);put(NAME+4,TEXT,4);}
 static void string(uint32_t descriptor,uint32_t buffer,const char *text)
 {
@@ -255,6 +256,57 @@ static void fatx_create_empty_file(void)
     unchanged();
     assert(!ff_fatx_close(&fs,handle));
 }
+static void fatx_create_file_with_data(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
+    ff_fatx_directory_entry entry,created;
+    uint8_t out[4096];uint32_t got;
+    const uint8_t five[]={'D','A','T','A','!'};
+    assert(!ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"DATA.BIN",8,five,5,&created));
+    assert(created.size==5 && created.first_cluster);
+    const uint32_t first=created.first_cluster;
+    assert(disk_value(part_base+4096+(uint64_t)first*4,4)==UINT32_MAX);
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"DATA.BIN",8,0,&entry) &&
+           entry.size==5 && entry.first_cluster==first);
+    assert(!ff_fatx_read_path(&fs,1,(const uint8_t*)"DATA.BIN",8,0,0,out,sizeof out,&got) &&
+           got==5 && !memcmp(out,five,5));
+
+    memset(partial_data,'F',sizeof partial_data);
+    assert(!ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"FULL.BIN",8,partial_data,16384,&created));
+    assert(created.size==16384 && created.first_cluster);
+    assert(disk_value(part_base+4096+(uint64_t)created.first_cluster*4,4)==UINT32_MAX);
+    assert(!ff_fatx_read_path(&fs,1,(const uint8_t*)"FULL.BIN",8,0,0,out,8,&got) &&
+           got==8 && out[0]=='F' && out[7]=='F');
+    assert(!ff_fatx_read_path(&fs,1,(const uint8_t*)"FULL.BIN",8,0,16380,out,4,&got) &&
+           got==4 && out[0]=='F' && out[3]=='F');
+
+    memset(out,0,sizeof out);
+    assert(!ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"ZERO.BIN",8,out,4096,&created));
+    assert(created.size==4096 && created.first_cluster);
+    assert(disk_value(part_base+4096+(uint64_t)created.first_cluster*4,4)==UINT32_MAX);
+    memset(out,0xAA,sizeof out);
+    assert(!ff_fatx_read_path(&fs,1,(const uint8_t*)"ZERO.BIN",8,0,0,out,sizeof out,&got) && got==4096);
+    for(uint32_t i=0;i<sizeof out;++i)assert(out[i]==0);
+
+    save();assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"TOO.BIN",7,partial_data,16385,&created)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    save();assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"DATA.BIN",8,five,5,&created)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"BAD/NAME",8,five,5,&created)==FF_BOOT_INVALID);
+    assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"DATA.BIN",8,NULL,5,&created)==FF_BOOT_INVALID);
+    assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"DATA.BIN",8,five,0,&created)==FF_BOOT_INVALID);
+    assert(!ff_fatx_close(&fs,handle));
+
+    /* Fill every FAT16 data entry; creation must stop without a partial file. */
+    setup_fat16_file();
+    memset(ram+DATA,0,4096);put(DATA,0xfff8,2);put(DATA+2,0xffff,2);
+    for(uint32_t c=2;c<=511;++c)put(DATA+c*2,0xffff,2);
+    write_raw_page(part_base+4096);
+    handle=open_root();
+    save();assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"NEXT.BIN",8,five,5,&created)==FF_BOOT_NO_MEMORY);
+    unchanged();
+    assert(!ff_fatx_close(&fs,handle));
+}
 static void fatx_delete_empty_file(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
@@ -420,6 +472,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_create_file_with_data();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, bounds and mutation checks passed");return 0;
 }

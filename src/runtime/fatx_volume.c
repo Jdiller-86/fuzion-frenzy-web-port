@@ -489,23 +489,21 @@ uint32_t ff_fatx_directory_at(ff_fatx_volume *fs,uint32_t id,const uint8_t *path
     if(status)return status;
     return directory_scan(fs,mount,start,FF_FATX_DIRECTORY_CHAIN,index,entry,NULL);
 }
-uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
-                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
-                              const uint8_t *name,uint32_t name_bytes,
-                              ff_fatx_directory_entry *created)
+static int new_name_valid(const uint8_t *name,uint32_t bytes)
 {
-    if(!fs || !name || !name_bytes || name_bytes>FF_FATX_NAME || !created)return FF_BOOT_INVALID;
-    for(uint32_t i=0;i<name_bytes;++i)
-        if(!name[i] || name[i]=='\\' || name[i]=='/')return FF_BOOT_INVALID;
-    if((name_bytes==1 && name[0]=='.') ||
-       (name_bytes==2 && name[0]=='.' && name[1]=='.'))return FF_BOOT_INVALID;
-    ff_fatx_mount *mount;
-    uint32_t start;
-    uint32_t status=directory_start(fs,id,&mount,directory_path,path_bytes,flags,&start);
-    if(status)return status;
+    if(!name || !bytes || bytes>FF_FATX_NAME)return 0;
+    for(uint32_t i=0;i<bytes;++i)
+        if(!name[i] || name[i]=='\\' || name[i]=='/')return 0;
+    if((bytes==1 && name[0]=='.') || (bytes==2 && name[0]=='.' && name[1]=='.'))return 0;
+    return 1;
+}
+static uint32_t directory_free_slot(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t start,
+                                    const uint8_t *name,uint32_t name_bytes,uint32_t flags,
+                                    uint64_t *address)
+{
     uint32_t cluster=start,steps=0;
     int have_free=0,end=0;
-    uint64_t free_address=0;
+    uint64_t found_address=0;
     for(;;) {
         if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_DIRECTORY_CHAIN)return FF_BOOT_UNSUPPORTED;
         const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
@@ -513,11 +511,11 @@ uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
             ff_fatx_directory_entry candidate;
             const uint32_t parsed=parse_entry(fs,mount,base+offset,&candidate);
             if(parsed==FF_FATX_PARSE_END) {
-                if(!have_free){free_address=base+offset;have_free=1;}
+                if(!have_free){found_address=base+offset;have_free=1;}
                 end=1;break;
             }
             if(parsed==FF_FATX_PARSE_DELETED) {
-                if(!have_free){free_address=base+offset;have_free=1;}
+                if(!have_free){found_address=base+offset;have_free=1;}
                 continue;
             }
             if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
@@ -530,24 +528,96 @@ uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
         cluster=next;
     }
     if(!have_free)return FF_BOOT_NO_MEMORY;
-    if(!ff_disk_has(fs->disk,free_address,64u))return FF_BOOT_UNSUPPORTED;
+    *address=found_address;
+    return 0;
+}
+static uint32_t write_entry(ff_fatx_volume *fs,uint64_t address,const uint8_t *name,uint32_t name_bytes,
+                            uint32_t first_cluster,uint32_t size,ff_fatx_directory_entry *created)
+{
+    if(!ff_disk_has(fs->disk,address,64u))return FF_BOOT_UNSUPPORTED;
     uint8_t entry[64];
     memset(entry,0xFF,sizeof entry);
     entry[0]=(uint8_t)name_bytes;
     entry[1]=0x20u; /* archive */
     memcpy(entry+2,name,name_bytes);
-    memset(entry+44,0,4);
-    memset(entry+48,0,4);
-    status=ff_disk_store(fs->disk,free_address,entry,64u);
+    for(unsigned i=0;i<4;++i) {
+        entry[44+i]=(uint8_t)(first_cluster>>(8*i));
+        entry[48+i]=(uint8_t)(size>>(8*i));
+    }
+    uint32_t status=ff_disk_store(fs->disk,address,entry,64u);
     if(status)return status;
-    /* A metadata-only creation leaves the mount geometry valid. */
-    mount->revision=fs->disk->revision;
     created->name[0]=0;
     memcpy(created->name,name,name_bytes);
     created->name[name_bytes]=0;
     created->attributes=0x20u;
-    created->first_cluster=0;
-    created->size=0;
+    created->first_cluster=first_cluster;
+    created->size=size;
+    return 0;
+}
+static uint32_t fat_set(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t cluster,uint32_t value)
+{
+    const uint64_t address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
+    if(!ff_disk_has(fs->disk,address,mount->entry_bytes))return FF_BOOT_UNSUPPORTED;
+    uint8_t bytes[4];
+    for(uint32_t i=0;i<mount->entry_bytes;++i)bytes[i]=(uint8_t)(value>>(8*i));
+    return ff_disk_store(fs->disk,address,bytes,mount->entry_bytes);
+}
+static uint32_t find_free_cluster(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t *cluster)
+{
+    for(uint32_t c=2;c<=mount->cluster_count;++c)
+        if(!disk_word(fs,mount->offset+4096+(uint64_t)c*mount->entry_bytes,mount->entry_bytes)) {
+            *cluster=c;return 0;
+        }
+    return FF_BOOT_NO_MEMORY;
+}
+uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
+                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                              const uint8_t *name,uint32_t name_bytes,
+                              ff_fatx_directory_entry *created)
+{
+    if(!fs || !created || !new_name_valid(name,name_bytes))return FF_BOOT_INVALID;
+    ff_fatx_mount *mount;
+    uint32_t start;
+    uint32_t status=directory_start(fs,id,&mount,directory_path,path_bytes,flags,&start);
+    if(status)return status;
+    uint64_t address;
+    status=directory_free_slot(fs,mount,start,name,name_bytes,flags,&address);
+    if(status)return status;
+    status=write_entry(fs,address,name,name_bytes,0,0,created);
+    if(status)return status;
+    /* A metadata-only creation leaves the mount geometry valid. */
+    mount->revision=fs->disk->revision;
+    return 0;
+}
+uint32_t ff_fatx_create_file(ff_fatx_volume *fs,uint32_t id,
+                             const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                             const uint8_t *name,uint32_t name_bytes,
+                             const uint8_t *data,uint32_t bytes,
+                             ff_fatx_directory_entry *created)
+{
+    if(!fs || !created || !data || !bytes || !new_name_valid(name,name_bytes))return FF_BOOT_INVALID;
+    ff_fatx_mount *mount;
+    uint32_t start;
+    uint32_t status=directory_start(fs,id,&mount,directory_path,path_bytes,flags,&start);
+    if(status)return status;
+    if(bytes>mount->cluster_bytes)return FF_BOOT_UNSUPPORTED;
+    uint64_t address;
+    status=directory_free_slot(fs,mount,start,name,name_bytes,flags,&address);
+    if(status)return status;
+    uint32_t cluster;
+    status=find_free_cluster(fs,mount,&cluster);
+    if(status)return status;
+    if(fs->disk->revision>UINT64_MAX-3u)return FF_BOOT_UNSUPPORTED;
+    const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
+    status=ff_disk_store_allocate(fs->disk,data_address,data,bytes);
+    if(status)return status;
+    status=fat_set(fs,mount,cluster,mount->entry_bytes==2?0xffffu:UINT32_MAX);
+    if(status)return status;
+    status=write_entry(fs,address,name,name_bytes,cluster,bytes,created);
+    if(status)return status;
+    if(mount->free_clusters)--mount->free_clusters;
+    /* The data store, FAT update and directory entry are complete. */
+    mount->revision=fs->disk->revision;
     return 0;
 }
 uint32_t ff_fatx_delete_empty(ff_fatx_volume *fs,uint32_t id,
