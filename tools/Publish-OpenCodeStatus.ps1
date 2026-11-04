@@ -67,7 +67,7 @@ $comment = @"
 - Verification builder: $verificationStatus.
 - Delivery manager: $deliveryStatus.
 - Next checkpoint: $checkpoint
-- Main integration: [PR #1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1).
+- Main integration: MAIN_PR_LINK.
 
 Original-game browser playability is not established. You can reply here with project direction; replies are not yet imported into the architect's scheduled prompt.
 "@
@@ -82,14 +82,19 @@ Updated $updated by the local OpenCode scheduler. This page shows source-only pr
 - **Delivery manager:** $deliveryStatus.
 - **Architect:** $architectStatus. Latest integration commit: $architectCommit.
 - **Current checkpoint:** $checkpoint
-- **Main integration:** [PR #1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1). Review branches: [source PR #2](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/2), [geometry PR #3](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/3).
+- **Main integration:** MAIN_PR_LINK. Review branches: [source PR #2](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/2), [geometry PR #3](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/3).
 
 **Original-game browser playability:** not established. The original game files and derived private analysis remain local.
 
 This issue is updated in place after each architect cycle, including cycles stopped by model limits. The repository's branch commits and PR checks are the source of truth for published changes.
 "@
 
-if ($DryRun) { Write-Output $body; Write-Output $comment; return }
+if ($DryRun) {
+    $queue = '[pull request queue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pulls)'
+    Write-Output $body.Replace('MAIN_PR_LINK', $queue)
+    Write-Output $comment.Replace('MAIN_PR_LINK', $queue)
+    return
+}
 
 $credentialLines = @('protocol=https', 'host=github.com', '') | git credential fill
 if ($LASTEXITCODE -ne 0) { throw 'Git credential helper failed.' }
@@ -100,6 +105,11 @@ $headers = @{ Authorization = 'Bearer ' + $token; Accept = 'application/vnd.gith
 try {
     $issue = Invoke-RestMethod -Uri ($apiBase + '/issues/' + $IssueNumber) -Method Get -Headers $headers -TimeoutSec 25
     if ($issue.title -ne 'Fuzion Frenzy development status' -or $issue.pull_request) { throw 'Status issue identity did not match.' }
+    $openPulls = @(Invoke-RestMethod -Uri ($apiBase + '/pulls?state=open&per_page=100') -Method Get -Headers $headers -TimeoutSec 25)
+    $mainPull = $openPulls | Where-Object { $_.base.ref -eq 'main' -and $_.head.ref -eq 'codex/opencode-architect' } | Select-Object -First 1
+    $mainPrLink = if ($mainPull) { '[PR #' + $mainPull.number + '](' + $mainPull.html_url + ')' } else { '[pull request queue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pulls)' }
+    $body = $body.Replace('MAIN_PR_LINK', $mainPrLink)
+    $comment = $comment.Replace('MAIN_PR_LINK', $mainPrLink)
     $payload = @{ body = $body } | ConvertTo-Json -Compress
     $result = Invoke-RestMethod -Uri ($apiBase + '/issues/' + $IssueNumber) -Method Patch -Headers $headers -ContentType 'application/json' -Body $payload -TimeoutSec 25
     Write-Output ('Updated GitHub status issue: ' + $result.html_url)
