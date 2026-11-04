@@ -5,7 +5,6 @@ import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileReque
 import { createDeviceReport } from './device-report.mjs';
 import { validateProofReport } from './proof-report.mjs';
 import { describeKernelService } from './kernel-service.mjs';
-import { AV_PACK_PROVENANCE } from './av-pack.mjs';
 
 /* A boundary report is evidence for a human reader, so it is validated before it
  * is posted: a malformed or out-of-range report becomes an error message instead
@@ -75,11 +74,6 @@ self.onmessage = async event => {
         if(typeof api.ff_probe_mmio_pfifo_reset!=='function' ||
            api.ff_probe_mmio_pfifo_reset(1)) {
           throw new Error('The private module cannot set the experimental PFIFO reference-reset control');
-        }
-      }
-      if(mmioProfile.avPack !== undefined) {
-        if(typeof api.ff_probe_av_pack!=='function' || api.ff_probe_av_pack(mmioProfile.avPack)) {
-          throw new Error('The private module cannot set the declared AV pack input');
         }
       }
       if(mmioProfile.pcrtcVblanks) {
@@ -193,7 +187,6 @@ self.onmessage = async event => {
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
         scope:'modeled-guest-memory-statistics'};
-      if (call.ordinal === 2 && call.status === 0) call.output = { packWord: api.ff_probe_kernel_word(i, 6) >>> 0 };
       if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),        sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
         sampledSystemTicks: ((BigInt(api.ff_probe_kernel_word(i, 10) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 9) >>> 0)).toString() };
       if (call.ordinal === 184 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 7) >>> 0, regionBytes: api.ff_probe_kernel_word(i, 8) >>> 0 };
@@ -993,7 +986,7 @@ self.onmessage = async event => {
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: describeMmioExperiments(mmioProfile), pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, avPack: mmioProfile.avPack, avPackProvenance: mmioProfile.avPack === undefined ? undefined : { ...AV_PACK_PROVENANCE }, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: describeMmioExperiments(mmioProfile), pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16), service: state[0] === 1 ? describeKernelService(state[2]) : undefined },
       gameBooted: false, memoryBytes: memory.byteLength,

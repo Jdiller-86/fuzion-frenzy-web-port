@@ -1,6 +1,5 @@
 import { readXbeProfile } from '../xbe.mjs';
 import { inspectProofWasm } from './wasm-proof.mjs';
-import { composeAvPackWord } from './av-pack.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -151,7 +150,7 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'avPack'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
@@ -203,11 +202,9 @@ export function parseLocalMmioProfile(buffer) {
    * naming the blocking predicate. */
   if (pfifoReset && engineWait)
     throw new Error('The pfifoReset and engineWait diagnostics are mutually exclusive');
-  /* Explicit AV-pack input for the ordinal-2 query; no default is supplied. */
-  const avPack = device.avPack === undefined ? undefined : composeAvPackWord(device.avPack);
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait, pfifoReset, avPack };
+    pcrtcVblanks, engineWait, pfifoReset };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -220,7 +217,6 @@ export function describeMmioExperiments(profile) {
   if (profile.pcrtcVblanks) active.push(`pcrtcVblanks:${profile.pcrtcVblanks}`);
   if (profile.engineWait) active.push('engineWait');
   if (profile.pfifoReset) active.push('pfifoReset');
-  if (profile.avPack !== undefined) active.push('avPack');
   return active;
 }
 export function parseLocalMemoryProfile(buffer) {

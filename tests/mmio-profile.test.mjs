@@ -88,16 +88,6 @@ test('the PFIFO reset experiment is a default-off flag that leaves the register 
   assert.deepEqual(on.registers, reached);
 });
 
-test('the AV pack input is explicit and validated', () => {
-  assert.equal(parseLocalMmioProfile(bytes(reached)).avPack, undefined);
-  assert.equal(parseLocalMmioProfile(bytes(reached, {
-    avPack: { pack: 'hdtv', standard: 'ntsc-m', refresh: 60 },
-  })).avPack, 0x00400104);
-  const bad = [{}, { pack: 'hdtv' }, { pack: 'hdmi', standard: 'ntsc-m', refresh: 60 },
-    { pack: 'hdtv', standard: 'ntsc-m', refresh: 59 }];
-  for (const avPack of bad) assert.throws(() => parseLocalMmioProfile(bytes(reached, { avPack })));
-});
-
 test('unknown device profile keys fail closed', () => {
   assert.throws(() => parseLocalMmioProfile(bytes(reached, { pmcZer0: true })));
   assert.throws(() => parseLocalMmioProfile(bytes(reached, { writeClearing: true, engineWait: true, pmcZer0: true })));
@@ -106,14 +96,12 @@ test('unknown device profile keys fail closed', () => {
   const all = parseLocalMmioProfile(bytes(reached, {
     zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }],
     writeClearing: true, pmcZero: true, pcrtcVblanks: 4, pfifoReset: true,
-    avPack: { pack: 'hdtv', standard: 'ntsc-m', refresh: 60 },
   }));
   assert.equal(all.writeClearing, true);
   assert.equal(all.pmcZero, true);
   assert.equal(all.pcrtcVblanks, 4);
   assert.equal(all.engineWait, false);
   assert.equal(all.pfifoReset, true);
-  assert.equal(all.avPack, 0x00400104);
 });
 
 test('pfifoReset and engineWait are mutually exclusive', () => {
@@ -129,9 +117,8 @@ test('experimental device inputs are summarised for the report', () => {
   assert.deepEqual(describeMmioExperiments(null), []);
   const all = parseLocalMmioProfile(bytes(reached, {
     writeClearing: true, pmcZero: true, pcrtcVblanks: 4, pfifoReset: true,
-    avPack: { pack: 'hdtv', standard: 'ntsc-m', refresh: 60 },
   }));
-  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'pfifoReset', 'avPack']);
+  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'pfifoReset']);
   const one = parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: 2 }));
   assert.deepEqual(describeMmioExperiments(one), ['pcrtcVblanks:2']);
 });

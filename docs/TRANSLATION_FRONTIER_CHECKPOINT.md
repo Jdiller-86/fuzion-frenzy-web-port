@@ -1,19 +1,16 @@
-# The explicit AV-pack experiment enters 0x1F79A0
+# Ordinal 2 remains the frontier; the option-6 model is withdrawn
 
-November 4, 2026. With the explicit `device.avPack` profile, the reset run passes `AvSendTVEncoderOption` (ordinal 2) and stops at untranslated **`0x1F79A0`** (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations). The frontier reports **entered = 1** for `0x1F79A0` (called by `0x1F83C0`), 69 called by an executed caller and 28 with only unexecuted callers. Without the AV-pack profile the run still stops fail-closed at ordinal 2. No frontier expansion was performed this cycle.
+November 4, 2026. The reset run stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The frontier reports 99 placeholders (98 referenced) and the run enters **0** of them: 66 are called by an executed caller and 32 have only unexecuted callers. The next dependency is the kernel service, not a translation target.
 
-Module `recomp-post-memory-build-70`, SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`.
+Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
 
-## Modeled service
+## Withdrawn option-6 model
 
-- `device.avPack: { pack, standard, refresh }` is explicit and has no default; `composeAvPackWord` validates it.
-- The probe handler supports only option 6, writes the declared word to `0x203720`, and returns void with stdcall cleanup.
-- The call record is `{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
-- The private profile uses the pinned reference's HDTV/NTSC-M/60 Hz default explicitly; it is not a claim about the original console.
+The explicit AV-pack profile, its handler and its report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case and falls through to a default no-op, while the pinned `xboxrecomp-source` reference implements option 6. Neither reference establishes the original behavior, so option 6 is neutral and ordinal 2 is unsupported. Untranslated `0x1F79A0` is **not** reached, and no frontier expansion was performed. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
 
 ## Next task
 
-Export `0x1F79A0` (and only demonstrably necessary dependencies) from the retained project, recompose with the guard, build and rerun with the explicit AV-pack profile. Do not take a broad batch.
+Obtain original-console or otherwise authoritative evidence for ordinal-2 option-6 semantics, or a definitive adjudication of the reference conflict, before any service model. Do not export `0x1F79A0` as grounded progress, do not invent a default pack word, and do not take a broad batch.
 
 ## Prior: the 0x1FD42F admission reaches AvSendTVEncoderOption (ordinal 2)
 

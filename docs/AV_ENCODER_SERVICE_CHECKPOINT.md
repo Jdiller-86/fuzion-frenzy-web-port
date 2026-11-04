@@ -1,45 +1,25 @@
-# The explicit AV-pack experiment passes AvSendTVEncoderOption and reaches 0x1F79A0
+# The option-6 AV model is withdrawn; ordinal 2 remains unsupported
 
-November 4, 2026. The ordinal-2 contract is captured, and option 6 is modeled **only** under an explicit AV-pack profile. Without a declared pack the service stays fail-closed at `0xFE000094`; with `device.avPack` declaring pack, standard and refresh, the handler writes the word to `0x203720` and the run continues to untranslated `0x1F79A0` (return `0x1F83ED`, 280 routines, 405 kernel operations). The pack is player-declared; the pinned reference's HDTV/NTSC-M/60 Hz value is not a default. **There is no renderer, timing source or playable screen.**
+November 4, 2026. The modeled `AvSendTVEncoderOption` option-6 handler is withdrawn. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case in `AvSendTVEncoderOption` and falls through to a default no-op, while the pinned `xboxrecomp-source` reference implements option 6 as an AV-pack query. Neither reference establishes the original console's behavior, so no option-6 model is retained. Ordinal 2 stays unsupported and fail-closed: the reset run stops at **status 1**, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. **There is no renderer, timing source or playable screen.**
 
-## Narrow admission
+## Confirmed conflict
 
-- Translation `recomp-title-recomp-title-post-memory-49`: **418 functions / 17,353 instructions**.
-- Added `0x1FD42F` (49 instructions; calls `0x1FD410`) and `0x1FD410` (10 instructions; calls ordinal 2 through the IAT).
-- One merged seed within the existing 32-export budget, recomposed with `--guard-memory`.
-- `tools/verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
-- `tools/verify-translation.py`: 0 functions needing rewriting.
-- Module `recomp-post-memory-build-70`, SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`.
+- `xboxrecomp-source/src/kernel/kernel.h:1147-1157` names option `0x06` `AV_OPTION_QUERY_AVPACK`; `kernel_hal.c:1463-1479` returns HDTV/NTSC-M/60 Hz `0x00400104`.
+- Cxbx at the full cited commit (`src/core/kernel/exports/EmuKrnlAv.cpp`) implements `AvSendTVEncoderOption` as `VOID NTAPI`, but its switch has no option-6 case; option 6 falls to the default and does nothing.
+- The two references disagree on whether option 6 produces a result word. Neither is original-console execution, so the disagreement is not adjudicated by preferring one.
+- The Cxbx source was read from the public repository at the cited commit and is not stored locally; `tools/original-execution-toolchain.json` records the full commit, `retained: false`, and the conflict.
 
-## Measured stop
+## What was withdrawn
 
-| run | stop | routines | kernel ops | events |
-| --- | --- | --- | --- | --- |
-| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
-| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
-| `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
-| `pfifoReset` (no AV pack) | status 1 at `0xFE000094` (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
-| `pfifoReset` + `avPack` | **status 2 at `0x1F79A0`** (return `0x1F83ED`) | 280 | 405 | 12,584 |
+The AV-pack model is removed from every runtime path:
 
-The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. The stop record now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects one on any other stop, so the boundary cannot be reported as modeled or omitted. `src/runtime/kernel-service.mjs` is metadata only and implements nothing.
+- `src/runtime/av-pack.mjs` and `tests/av-pack.test.mjs` are deleted; no pack constants, composer or provenance field remain.
+- `device.avPack`, the `avPack` experiment name and the `ff_probe_av_pack` control are removed from the profile parser, worker, probe and report contract.
+- The probe no longer resolves ordinal 2 to a handler. The unsupported-import path records the attempted call and stops.
+- `src/runtime/kernel-service.mjs` keeps only the static service facts: `name`, `callingConvention: 'stdcall'`, `argumentBytes: 16` and `returns: 'void'`. It carries no option, result bits, output pointer or permissions, and `proof-report.mjs` rejects those facts in the static descriptor.
+- The canonical and experimental profiles remain fail-closed at ordinal 2.
 
-The report now also records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature, and no return value is supplied. The probe records the attempted call before the fail-closed stop, and the worker maps ordinal 2 to four arguments.
-
-## Modeled option-6 experiment
-
-- `device.avPack: { pack, standard, refresh }` is required; there is no default. `composeAvPackWord` validates the names against the pinned constants, and the worker calls `ff_probe_av_pack` before the run.
-- The probe handler supports only option 6 (`AV_OPTION_QUERY_AVPACK`), validates the 4-byte writable output pointer, writes the declared word, and returns void with stdcall cleanup (pops 16 bytes).
-- Without the profile, the resolver keeps the existing status-1 fail-closed stop.
-- The report records `avPack: 0x00400104` and `calls[ordinal 2] = { status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
-- The value used in the private profile is the pinned reference's HDTV/NTSC-M/60 Hz default, explicitly declared. It is not a claim about the original console, and the canonical profile remains fail-closed.
-
-- `proof-report.mjs` validates the observed call: ordinal 2 must carry four arguments; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output.
-- `tools/original-execution-toolchain.json` records the Cxbx `585c49a` reference prefix with `retained: false`; the conflict remains unverified.
-- The report carries `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present; `proof-report.mjs` requires it, so a modeled run cannot be read as settled provenance.
-
-### Unconnected query fixture
-
-`tests/av_query_fixture_test.c` models only the memory contract: a granted 4-byte write changes exactly four little-endian bytes, while read-only, unaligned, null and unmapped pointers are denied with no partial change. It is not linked to the probe, the service handler or any runtime path.
+No fixed AV-pack default, fake `NTSTATUS`/EAX success or guessed capability/mode/timing is retained.
 
 ## Ordinal-2 call contract (captured, not modeled)
 
@@ -50,40 +30,56 @@ From the retained translation `ff_title_001FD410` and the reset report:
 | target | IAT slot `0x00253450`, mapped to kernel ordinal 2 (`AvSendTVEncoderOption`) |
 | call site / return | `0x1FD423` / `0x1FD429` |
 | ABI | The call site pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the caller reads the 4-byte output at `0x203720`, not an NTSTATUS in EAX. |
-| arguments | `(0, 6, 0, 0x203720)`: first/register-base `0`, option `6`, value `0`, output pointer `0x203720` |
+| arguments | `(0, 6, 0, 0x203720)`: first/register-base `0`, numeric option `6`, value `0`, output pointer `0x203720` |
 | call gate | The wrapper calls only when `[0x203720] == 0`. |
-| output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). The pinned reference defines pack in `0xFF`, standard in `0xFF00` and refresh in `0xC00000`; the caller's observed masks cover pack and standard. The checkpoint records the observed output/permissions and the reference result bits; they are not asserted in the static service descriptor. |
+| output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). These are observed consumer facts; the numeric option is not assigned a meaning. |
 | required inputs | A 4-byte writable guest output word at `0x203720`; no encoder handle is passed (first argument `0`). |
 | other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; the pinned header names `0xB` `AV_OPTION_FLICKER_FILTER` and `9` `AV_OPTION_QUERY_AV_CAPABILITIES`, while `0xF` is not defined there. These are different call sites and do not define option 6. |
-| pinned reference | `xboxrecomp-source/src/kernel/kernel.h` and `kernel_hal.c` implement the export and option layout; xemu models the SMBus encoders and the machine's `video-encoder` property, not the kernel export. |
 
-### Pinned reference semantics
+The reset report records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature. No output word or return value is supplied. `proof-report.mjs` requires exactly four observed arguments and rejects any output on an unsupported ordinal-2 call.
+
+### Unconnected numeric-6 component
+
+`src/runtime/av_query.h/.c` is one reusable, unconnected component for the observed `(0, 6, 0, Result)` shape. It checks `RegisterBase == 0`, numeric option `6` and `Param == 0`, requires a complete caller-supplied synthetic DWORD with no default, and writes it only when `ff_vm_check` grants the whole four-byte span on a real `ff_virtual_memory` window. A denial leaves every byte unchanged. It supplies no guest return value and mutates no CPU or stack state.
+
+`tests/av_query_fixture_test.c` calls that component directly, not a duplicate writer. Two distinct DWORDs must appear verbatim in little-endian order; wrong option/base/param, read-only, unaligned, null, unmapped and page-crossing spans must be denied with the surrounding eight bytes unchanged. It is compiled in the native component suite but is not linked to the probe, a service handler or any runtime path.
+
+## Measured result
+
+Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
+
+| run | stop | routines | kernel ops | events |
+| --- | --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
+| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
+| `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
+| `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+
+The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the stop record carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`.
+
+## Reference facts (not adopted)
 
 - `src/kernel/kernel.h:1100` declares `VOID __stdcall AvSendTVEncoderOption(PVOID RegisterBase, ULONG Option, ULONG Param, PULONG Result)`.
-- `kernel.h:1147-1157` defines option 6 as `AV_OPTION_QUERY_AVPACK`, plus the other AV option codes.
-- `kernel.h:1124-1145` defines pack (`0xFF`), standard (`0xFF00`) and refresh (`0xC00000`); standard codes are NTSC-M/J and PAL-I, refresh is 60/50 Hz.
+- `kernel.h:1147-1157` defines option 6 as `AV_OPTION_QUERY_AVPACK` in that reference.
+- `kernel.h:1124-1145` defines pack (`0xFF`), standard (`0xFF00`) and refresh (`0xC00000`).
 - `kernel_hal.c:1463-1479` returns `AV_PACK_HDTV | (AV_STANDARD_NTSC_M << 8) | AV_REFRESH_60Hz` (`0x00400104`).
 
-That value is a **reference default** for a North-American HDTV/NTSC/60 Hz console, not this player's console. It is not adopted: the service remains unsupported until the player's pack/standard/refresh is grounded. No capability or mode is guessed.
-
-The service is unsupported by default and modeled only for option 6 when the profile declares an AV pack. The static `service` descriptor records only the facts that are not specific to one option: `name`, `callingConvention: 'stdcall'`, `argumentBytes: 16` and `returns: 'void'`. The option-6 result bits, the observed arguments, output pointer `0x203720`, masks and table remain call evidence in the run's call list, this checkpoint and the `avPackProvenance` field, not in the static descriptor. `proof-report.mjs` rejects option-6/result/output facts in the static descriptor.
-
-## Provenance conflict
-
-A provisional review cites a Cxbx-Reloaded pin `585c49a` conflict for option 6. That source is not retained in this worktree or the main analysis tools, so the conflict cannot be verified here. The option-6 naming in this note remains the pinned `xboxrecomp-source` fact (`kernel.h:1147-1157`), not an adjudicated cross-reference. The service stays explicit/default-off, and no default or EAX/NTSTATUS success is supplied.
+These remain a labeled reference implementation, not an original-runtime observation. No value or capability is adopted.
 
 ## What this establishes
 
 - The two admitted helpers execute in the original path; the PFIFO reset path is no longer the blocker for this branch.
 - The next dependency is a kernel service, not an untranslated original routine.
-- The service is modeled only under an explicit AV-pack profile and only for option 6; without the profile it stays fail-closed. The declared value is player input, not a claim about the original console.
+- The numeric-6 memory contract is captured in one reusable, unconnected component; the kernel semantics remain unresolved.
+- The service cannot be modeled from the current evidence: the pinned references conflict, and no original-console observation exists.
 
 ## Limits
 
-- No encoder capabilities, mode, timing or return values are guessed.
+- No encoder capabilities, mode, timing, refresh or return value are known.
 - No display timing, renderer, fidelity or playability is established.
-- One helper and its direct dependency were added; no broad closure or frontier batch.
+- The service stays unsupported; `0x1F79A0` is not grounded progress.
+- No frontier expansion was performed this cycle.
 
 ## Next task
 
-Retain the Cxbx pin `585c49a` (or an equivalent authoritative source) to resolve the option-6 provenance conflict before any further service claims. Until then keep the service explicit/default-off and do not admit `0x1F79A0` as grounded progress. No default AV pack, no EAX/NTSTATUS success, and no broad batch.
+Obtain original-console or otherwise authoritative evidence for the ordinal-2 option-6 semantics, or a definitive adjudication of the reference conflict, before modeling anything. Until then keep ordinal 2 unsupported and numeric option 6 neutral: no default, no fixed pack word, no EAX/NTSTATUS success, and no broad closure batch.

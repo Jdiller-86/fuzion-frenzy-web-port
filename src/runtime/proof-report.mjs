@@ -72,7 +72,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|avPack)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -109,21 +109,6 @@ export function validateProofReport(report) {
     throw new Error('PFIFO reset state requires the pfifoReset experiment');
   if (claimsReset && report.pfifoResetState === undefined)
     throw new Error('The pfifoReset experiment requires PFIFO reset state');
-  const claimsAvPack = experiments.includes('avPack');
-  if (report.avPack !== undefined && !claimsAvPack)
-    throw new Error('The AV pack input requires the avPack experiment');
-  if (claimsAvPack && report.avPack === undefined)
-    throw new Error('The avPack experiment requires the AV pack input');
-  if (report.avPack !== undefined && !integer(report.avPack))
-    throw new Error('Malformed AV pack input');
-  if (report.avPack !== undefined) {
-    const provenance = report.avPackProvenance;
-    if (!provenance || provenance.primary !== 'xboxrecomp-source' ||
-        provenance.conflict !== 'cxbx-585c49a' || provenance.status !== 'unverified')
-      throw new Error('The AV pack input must carry the unresolved Cxbx provenance');
-  } else if (report.avPackProvenance !== undefined) {
-    throw new Error('The AV pack provenance requires the AV pack input');
-  }
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */
@@ -137,10 +122,9 @@ export function validateProofReport(report) {
     if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
       throw new Error('PFIFO reset must set LOW_MARK on both status registers');
   }
-  /* The observed ordinal-2 call must agree with the declared AV-pack input:
-   * a modeled call carries exactly four arguments and its output word; an
-   * unsupported call carries no output. This keeps observed call facts out of
-   * the static service descriptor and prevents a mismatched result. */
+  /* Ordinal 2 is unsupported: the observed call carries four arguments and no
+   * output. The option-6 result is not asserted because the pinned references
+   * conflict on its meaning. */
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -152,16 +136,8 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
-      if (call.status === 0) {
-        if (report.avPack === undefined)
-          throw new Error('A modeled ordinal-2 call requires the declared AV pack');
-        if (!call.output || !bounded(call.output.packWord, 0xffffffff))
-          throw new Error('A modeled ordinal-2 call must carry its output word');
-        if (call.output.packWord !== report.avPack)
-          throw new Error('The modeled ordinal-2 output must match the declared AV pack');
-      } else if (call.output !== undefined) {
-        throw new Error('An unsupported ordinal-2 call must not carry an output word');
-      }
+      if (call.output !== undefined)
+        throw new Error('Unsupported ordinal-2 calls must not carry an output word');
     }
   }
   return report;

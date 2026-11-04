@@ -28,7 +28,7 @@ const fixtures = [
   { name: 'kernel_timers', sources: ['tests/kernel_timers_test.c', runtime('kernel_timers.c'), runtime('kernel_objects.c')] },
   { name: 'port_io', sources: ['tests/port_io_test.c', runtime('port_io.c')] },
   { name: 'pfifo_status', sources: ['tests/pfifo_status_test.c', runtime('pfifo_status.c')] },
-  { name: 'av_query_fixture', sources: ['tests/av_query_fixture_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
+  { name: 'av_query_fixture', sources: ['tests/av_query_fixture_test.c', runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'recomp_memory_access_xmm', sources: ['tests/recomp_memory_access_xmm_test.c'] },
   { name: 'recomp_memory_access_vm', sources: ['tests/recomp_memory_access_vm_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
 ];

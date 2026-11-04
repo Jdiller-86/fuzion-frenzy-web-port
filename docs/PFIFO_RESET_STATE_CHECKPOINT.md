@@ -26,9 +26,9 @@ Translation `recomp-title-recomp-title-post-memory-48` admits the reached helper
 
 Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for 418 functions / 17,353 instructions. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`. The reset run now stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The next dependency is the kernel service, not a translation target.
 
-## Later: explicit AV pack passes ordinal 2
+## Later: the option-6 AV model is withdrawn
 
-With an explicit `device.avPack` profile the modeled option-6 handler writes the declared word to `0x203720` and the reset run stops at untranslated **`0x1F79A0`** (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations). Without the profile it remains status 1 at `0xFE000094`. Module `recomp-post-memory-build-70`, SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`. The AV pack is player-declared and has no default.
+The explicit AV-pack profile, `composeAvPackWord`, the probe handler and the report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case in `AvSendTVEncoderOption` and falls through to a default no-op, conflicting with the pinned `xboxrecomp-source` option-6 implementation. Neither reference establishes the original behavior, so the reset run stays at **status 1**, target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
 
 ## Proof requested by the architect
 
@@ -66,4 +66,4 @@ The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once,
 
 ## Next task
 
-Export `0x1F79A0` (and only demonstrably necessary dependencies) from the analysis project, recompose with `--guard-memory`, build and rerun with the explicit AV-pack profile. Keep the canonical profile fail-closed, do not invent an AV pack default, and do not infer encoder behaviour or display timing from the call alone.
+Obtain original-console or otherwise authoritative evidence for the ordinal-2 option-6 semantics, or a definitive adjudication of the Cxbx/`xboxrecomp-source` conflict. Keep the canonical profile fail-closed, do not invent an AV pack default, and do not infer encoder behavior or display timing from the call alone.

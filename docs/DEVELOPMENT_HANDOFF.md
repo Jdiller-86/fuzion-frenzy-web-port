@@ -1,6 +1,14 @@
-# Continue from the option-neutral static service descriptor
+# Continue from the withdrawn option-6 model
 
-The latest bounded correction keeps the static service descriptor neutral. `src/runtime/kernel-service.mjs` now carries only the service name and the `stdcall`/16-byte/void ABI; the option-6 result bits, output pointer `0x203720`, masks and table are observed call evidence in the checkpoint and the `avPackProvenance` field. `proof-report.mjs` rejects option/result/output facts in the static descriptor. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2.
+The latest bounded correction withdraws the modeled ordinal-2 option-6 service. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case and falls through to a default no-op, conflicting with the pinned `xboxrecomp-source` implementation; neither grounds the original console, so the handler, `device.avPack`, `src/runtime/av-pack.mjs`, its test and the report fields are removed. Ordinal 2 stays unsupported: the reset run stops at status 1, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations; untranslated `0x1F79A0` is not reached. The static descriptor keeps only the name and `stdcall`/16-byte/void ABI, and the report requires four observed arguments and no output for the unsupported call. One reusable, unconnected numeric-6 component (`src/runtime/av_query.h/.c`) now captures only the memory contract: explicit caller-supplied DWORD with no default, real-VM whole-span checks, and two-value exact-write/unchanged-denial tests that call the component directly. It is not linked to the probe or any runtime path.
+
+Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T04:46:00.0944972-05:00; this cycle follows it within lane ownership.
+
+Next: obtain original-console or otherwise authoritative evidence for ordinal-2 option-6 semantics, or a definitive adjudication of the Cxbx/`xboxrecomp-source` conflict. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+
+## Prior: continue from the option-neutral static service descriptor
+
+The prior bounded correction keeps the static service descriptor neutral. `src/runtime/kernel-service.mjs` now carries only the service name and the `stdcall`/16-byte/void ABI; the option-6 result bits, output pointer `0x203720`, masks and table are observed call evidence in the checkpoint and the `avPackProvenance` field. `proof-report.mjs` rejects option/result/output facts in the static descriptor. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2.
 
 Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked.
 

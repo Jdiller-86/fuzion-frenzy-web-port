@@ -38,10 +38,10 @@
   },
   "cxbx": {
     "repository": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded",
-    "commitPrefix": "585c49a",
+    "commit": "585c49a50af1255ab155099e06f24505f9c5a800",
     "directory": null,
     "retained": false,
-    "note": "Provisional option-6 provenance conflict; the source is not retained locally, so the conflict is unverified. This entry records the missing reference and does not approve the modeled service."
+    "note": "Public source read at the cited commit. Its AvSendTVEncoderOption switch has no AV_OPTION_QUERY_AVPACK case and falls through to a default no-op, conflicting with the xboxrecomp option-6 implementation. Option 6 remains unsupported; no source is stored locally."
   },
   "compiler": {
     "emscriptenVersion": "3.1.50",

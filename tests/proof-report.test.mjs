@@ -14,9 +14,6 @@ const report = (edit = {}) => ({
   },
   ...edit,
 });
-const avPackProvenance = Object.freeze({
-  primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified',
-});
 
 test('a well-formed startup report validates and is returned unchanged', () => {
   const input = report();
@@ -61,45 +58,15 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
-test('the AV pack input is paired with its experiment and bounded', () => {
-  const valid = report({ experiments: ['avPack'], avPack: 0x00400104, avPackProvenance });
-  assert.equal(validateProofReport(valid), valid);
-  assert.throws(() => validateProofReport(report({ avPack: 0x00400104 })),
-    /requires the avPack experiment/);
-  assert.throws(() => validateProofReport(report({ experiments: ['avPack'] })),
-    /requires the AV pack input/);
-  assert.throws(() => validateProofReport(report({ experiments: ['avPack'], avPack: -1 })),
-    /Malformed/);
-  assert.throws(() => validateProofReport(report({
-    experiments: ['avPack'], avPack: 0x00400104,
-    avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'verified' },
-  })), /unresolved Cxbx provenance/);
-  assert.throws(() => validateProofReport(report({
-    experiments: ['avPack'], avPack: 0x00400104,
-  })), /unresolved Cxbx provenance/);
-});
-
-test('the observed ordinal-2 call must agree with the modeled AV pack', () => {
-  const valid = report({
-    experiments: ['avPack'], avPack: 0x00400104, avPackProvenance,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
-  });
+test('an unsupported ordinal-2 call carries four arguments and no output', () => {
+  const valid = report({ calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }] });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({
-    experiments: ['avPack'], avPack: 0x00400104, avPackProvenance,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400105 } }],
-  })), /match the declared AV pack/);
-  assert.throws(() => validateProofReport(report({
-    experiments: ['avPack'], avPack: 0x00400104, avPackProvenance,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0], output: { packWord: 0x00400104 } }],
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0] }],
   })), /four observed arguments/);
   assert.throws(() => validateProofReport(report({
-    experiments: ['avPack'], avPack: 0x00400104, avPackProvenance,
-    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { packWord: 0 } }],
   })), /must not carry an output/);
-  assert.throws(() => validateProofReport(report({
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
-  })), /requires the declared AV pack/);
 });
 
 test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
