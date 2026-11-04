@@ -1,6 +1,14 @@
-# Continue from the captured consumer AV mode domain
+# Continue from the external ordinal-2 observation request
 
-The latest bounded evidence step records the consumer side of the ordinal-2 query. The retained executable's table at `0x202C38` has 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel and **no standard-zero row**, so a zero/no-op result matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value is a D3D compatibility default, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported and no service model, default, binding or frontier admission is added.
+The latest bounded decision records that no local evidence can resolve the original `AvSendTVEncoderOption` option-6 response. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one original-hardware capture rather than another replacement-source or fixture-hardening cycle. The exact call, required fields, acceptance criteria and local-content rules are in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md). A raw EEPROM alone is insufficient, and the replacement-kernel values remain unadopted.
+
+Validation: docs-only; runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 336 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it.
+
+Next: request the capture once. If it cannot be provided, record the external prerequisite and stop; do not run another replacement-source survey or add another fixture. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+
+## Prior: continue from the captured consumer AV mode domain
+
+The prior bounded evidence step records the consumer side of the ordinal-2 query. The retained executable's table at `0x202C38` has 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel and **no standard-zero row**, so a zero/no-op result matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value is a D3D compatibility default, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported and no service model, default, binding or frontier admission is added.
 
 Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 335 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
 

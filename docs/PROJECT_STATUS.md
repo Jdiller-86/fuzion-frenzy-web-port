@@ -1,4 +1,10 @@
-# The consumer AV mode domain is captured; a zero result cannot match
+# The ordinal-2 blocker is now an external original-hardware observation
+
+November 4: the consumer table domain is known, but the original service's option-6 response is not. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one bounded original-hardware capture rather than another replacement-source or fixture-hardening cycle. The request is recorded in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md): capture the four arguments and the four `Result` bytes before and after the original ordinal-2 call, with game/kernel/console-configuration provenance and a confirming observation. A raw EEPROM alone is insufficient. No service model, runtime handler, default or frontier admission is added; ordinal 2 remains unsupported and `0x1F79A0` is not reached. **There is no controllable original screen.**
+
+Validation: docs-only; runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 336 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it.
+
+## Prior: The consumer AV mode domain is captured; a zero result cannot match
 
 November 4: read-only analysis of the retained executable's table at `0x202C38` found 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel row, and **no standard-zero row**. A zero/no-op result therefore matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value (`0x00400104`) is a D3D compatibility default chosen for mode-table matching, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported: the reset run stays at status 1, target `0xFE000094`, ordinal 2, return `0x1FD429`. No service model, default, binding or frontier admission is added, and `0x1F79A0` is not reached. **There is no controllable original screen.**
 
