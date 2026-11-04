@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { validateProofReport } from '../src/runtime/proof-report.mjs';
+import { validateSuppliedDeviceProfile } from '../src/runtime/device-report.mjs';
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const DWORD = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
@@ -51,22 +52,7 @@ function suppliedProfile(report) {
   const supplied = device.supplied;
   if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied))
     throw new Error('Each profile must carry its supplied device input profile');
-  const window = supplied.window;
-  if (!window || !DWORD(window.base) || !DWORD(window.size))
-    throw new Error('The supplied device window is malformed');
-  const registers = supplied.registers ?? [];
-  const zeroRanges = supplied.zeroRanges ?? [];
-  if (!Array.isArray(registers) || !Array.isArray(zeroRanges))
-    throw new Error('The supplied device input profile must carry register and zero-range lists');
-  for (const entry of registers) {
-    if (!entry || !DWORD(entry.address) || !DWORD(entry.initial))
-      throw new Error('A supplied device register is malformed');
-  }
-  for (const range of zeroRanges) {
-    if (!range || !DWORD(range.address) || !DWORD(range.bytes))
-      throw new Error('A supplied device zero range is malformed');
-  }
-  return supplied;
+  return validateSuppliedDeviceProfile(supplied);
 }
 
 /* Compare the whole supplied profile, including fields this tool does not know

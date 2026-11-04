@@ -17,6 +17,7 @@ The Sol architect approved this binding at `2026-11-04T06:45:32.8167397-05:00` a
 - The worker calls `ff_probe_av_query_word` before the run and fails closed if the module cannot set it. It records `avQueryWord` and `experiments: ..., 'avQuery'`, and records the completed call as `{ ordinal: 2, status: 0, arguments: [0,6,0,2111264], output: { rawWord, address, eaxBefore, espBefore, eaxAfter, espAfter } }`.
 - The probe resolves ordinal 2 to the adapter only when the control is ready. Without it, the existing status-1 unsupported path records the attempt and stops.
 - `proof-report.mjs` accepts `avQuery` and `avQueryWord` as a pair and requires at least one recorded ordinal-2 call. A `status: 0` call must use exactly the observed `(0, 6, 0, nonzero Result)` shape, carry `output.address` equal to the fourth argument, an `output.rawWord` equal to the declared word, an unchanged `eax`, a non-wrapping `espBefore` and `espAfter === espBefore + 20`. A configured profile may instead truthfully record a `status: 1` denial with no output, so a denied or pre-query report is preserved rather than presented as success; because that denial is the unsupported-service stop itself, a report with a status-1 ordinal-2 call and no completed call must stop at status 1 on ordinal 2. Without the field, status-0 or output-bearing ordinal-2 calls remain rejected. The static service descriptor stays neutral.
+- `device-report.mjs` exports one `validateSuppliedDeviceProfile` check used by both `proof-report.mjs` (when `deviceRegisters.supplied` is present) and `tools/compare-proof-profiles.mjs`. It mirrors the parser's bounds: aligned 4096..0x1000000 window, 2-64 distinct in-window registers including `0xfd001804`/`0xfd600140`, and at most eight distinct in-window zero ranges. A report may still omit the profile or carry `null`; the comparison requires it.
 
 ## Guest-run VOID/EAX/stack effect
 
@@ -57,4 +58,4 @@ The independent GLM review completed a partial static pass (the reviewer hit its
 
 ## Validation
 
-Runtime suite 174/174, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 352 source files and whitespace checks pass. Both reset reports validate on module `cd2fac97…` and the comparison tool reproduces them. Private profiles, module and reports remain local/ignored.
+Runtime suite 175/175, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 352 source files and whitespace checks pass. Both reset reports validate on module `cd2fac97…` and the comparison tool reproduces them. Private profiles, module and reports remain local/ignored.

@@ -8,6 +8,8 @@
  * unknown experimental claims. It validates shape only; it never reinterprets a
  * value or upgrades a run's meaning.
  */
+import { validateSuppliedDeviceProfile } from './device-report.mjs';
+
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
 export const DEVICE_ENTRY_LIMIT = 8192;
@@ -93,6 +95,10 @@ export function validateProofReport(report) {
           throw new Error('Malformed declared status wait');
       }
     }
+    /* The supplied input profile, when present, must be the same bounded
+     * window/register/zero-range shape the worker parsed. */
+    if (device.supplied !== undefined && device.supplied !== null)
+      validateSuppliedDeviceProfile(device.supplied);
   }
   /* Display-interrupt state, when the display path was exercised. */
   if (report.pcrtc !== undefined) {

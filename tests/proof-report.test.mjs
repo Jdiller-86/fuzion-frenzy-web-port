@@ -345,6 +345,33 @@ test('startup-boundary reports require consistent checks and honest flags', () =
   assert.throws(() => validateProofReport({ kind: 'unknown-boundary' }));
 });
 
+test('the supplied device input profile is validated when present', () => {
+  const supplied = () => ({
+    window: { base: 0xFD000000, size: 0x01000000 },
+    registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFD600140, initial: 0 }],
+    zeroRanges: [{ address: 0xFD001000, bytes: 16 }],
+  });
+  const withSupplied = value => report({
+    deviceRegisters: { count: 0, events: 0, entries: [], log: [], supplied: value },
+  });
+  const valid = withSupplied(supplied());
+  assert.equal(validateProofReport(valid), valid);
+  assert.equal(validateProofReport(withSupplied(null)).deviceRegisters.supplied, null);
+  const bad = [
+    [],
+    { ...supplied(), window: { base: 0xFD000001, size: 0x01000000 } },
+    { ...supplied(), window: { base: 0xFD000000, size: 0x100 } },
+    { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }] },
+    { ...supplied(), registers: [{ address: 0xFD001802, initial: 0 }, { address: 0xFD600140, initial: 0 }] },
+    { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFE000000, initial: 0 }] },
+    { ...supplied(), zeroRanges: [{ address: 0xFD001002, bytes: 16 }] },
+    { ...supplied(), zeroRanges: [{ address: 0xFD001000, bytes: 0x1000000 }] },
+    { ...supplied(), zeroRanges: [{ address: 0xFD001000, bytes: 16 }, { address: 0xFD001000, bytes: 16 }] },
+  ];
+  for (const value of bad)
+    assert.throws(() => validateProofReport(withSupplied(value)), /supplied device/);
+});
+
 test('declared status waits and display state are validated when present', () => {
   const waits = report({
     deviceRegisters: {

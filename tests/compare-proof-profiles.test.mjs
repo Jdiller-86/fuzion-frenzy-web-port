@@ -13,7 +13,7 @@ const startup = (routines, operations) => ({
 });
 const supplied = () => ({
   window: { base: 0xFD000000, size: 0x01000000 },
-  registers: [{ address: 0xFD001004, initial: 0 }, { address: 0xFD101800, initial: 0 }],
+  registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFD600140, initial: 0 }],
   zeroRanges: [{ address: 0xFD001000, bytes: 16 }],
 });
 const deviceRegisters = supplied => ({
@@ -102,7 +102,7 @@ test('the comparison requires the full supplied device input profile to match', 
     window: { base: 0xFD000000, size: 0x00F00000 },
   })), /different device inputs/);
   assert.throws(() => compareProofProfiles(control(), other({
-    registers: [{ address: 0xFD001004, initial: 1 }],
+    registers: [{ address: 0xFD001804, initial: 1 }, { address: 0xFD600140, initial: 0 }],
   })), /different device inputs/);
   assert.throws(() => compareProofProfiles(control(), other({ zeroRanges: [] })),
     /different device inputs/);

@@ -8,6 +8,50 @@ export const DEVICE_EVENTS = 32768;
 /* Must stay in sync with FF_DEVICE_STATUS_WAITS in device_registers.h. */
 export const DEVICE_STATUS_WAITS = 4;
 
+const DWORD = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
+
+/* Validate the supplied device-input profile carried in a proof report. It is
+ * the window/register/zero-range set the worker parsed, so a hand-written or
+ * truncated report cannot claim an input profile the runtime did not use. The
+ * bounds mirror parseLocalMmioProfile; the report contract and the controlled
+ * comparison share this one check so they cannot drift apart. */
+export function validateSuppliedDeviceProfile(supplied) {
+  if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied))
+    throw new Error('Malformed supplied device input profile');
+  const window = supplied.window;
+  if (!window || !DWORD(window.base) || !DWORD(window.size) ||
+      (window.base & 3) || (window.size & 3) ||
+      window.size < 4096 || window.size > 0x1000000)
+    throw new Error('Malformed supplied device window');
+  const registers = supplied.registers ?? [];
+  const zeroRanges = supplied.zeroRanges ?? [];
+  if (!Array.isArray(registers) || registers.length < 2 || registers.length > 64 ||
+      !Array.isArray(zeroRanges) || zeroRanges.length > 8)
+    throw new Error('Malformed supplied device input lists');
+  const seen = new Set();
+  for (const entry of registers) {
+    if (!entry || !DWORD(entry.address) || !DWORD(entry.initial) ||
+        (entry.address & 3) || entry.address < window.base ||
+        entry.address - window.base >= window.size || seen.has(entry.address))
+      throw new Error('Malformed supplied device register');
+    seen.add(entry.address);
+  }
+  /* The explicit profile requires the two reached device addresses. */
+  if (!seen.has(0xfd001804) || !seen.has(0xfd600140))
+    throw new Error('Malformed supplied device register');
+  const zeroSeen = new Set();
+  for (const range of zeroRanges) {
+    if (!range || !DWORD(range.address) || !DWORD(range.bytes) ||
+        (range.address & 3) || (range.bytes & 3) || range.bytes < 4 ||
+        range.address < window.base ||
+        range.bytes > window.size - (range.address - window.base) ||
+        zeroSeen.has(range.address))
+      throw new Error('Malformed supplied device zero range');
+    zeroSeen.add(range.address);
+  }
+  return supplied;
+}
+
 export function createDeviceReport(api, profile = null) {
   if (!api || typeof api.ff_probe_mmio_word !== 'function' ||
       typeof api.ff_probe_mmio_event !== 'function') {
