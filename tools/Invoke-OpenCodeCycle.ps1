@@ -35,6 +35,8 @@ function Get-WorktreeFingerprint([string]$path) {
 function Publish-VerifiedBranch([string]$path, [string]$expectedBranch) {
     $branch = (git -C $path branch --show-current).Trim()
     if ($LASTEXITCODE -ne 0 -or $branch -ne $expectedBranch) { throw 'Refusing to publish an unexpected branch.' }
+    $unfinished = @(git -C $path status --porcelain)
+    if ($LASTEXITCODE -ne 0 -or $unfinished.Count -ne 0) { throw 'Worktree has unfinished edits; publication waits for a reviewed commit.' }
     $changedPaths = @(git -C $path log --format= --name-only origin/main..HEAD | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect publication history.' }
     $forbidden = '(^|/)(research|\.tools|node_modules|\.venv|Fuzion Frenzy \(USA\))(/|$)|\.(7z|zip|iso|xbe|xbp|zro|xpr|xwb|xsb|dds|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$|(^|/)\.env(\.|$)'

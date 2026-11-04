@@ -22,10 +22,14 @@ try {
     try { $lock = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') }
     catch [IO.IOException] { Write-Output 'Manager cycle already running.'; return }
     $heads = @{}
+    $dirty = @{}
     foreach ($lane in @('primary', 'geometry', 'verification')) {
         $branch = if ($lane -eq 'primary') { 'codex/opencode-source' } else { 'codex/opencode-' + $lane }
         $heads[$lane] = (git -C $repo rev-parse $branch).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Missing builder branch: $branch" }
+        $path = if ($lane -eq 'primary') { Join-Path $repo '.worktrees\opencode-source' } else { Join-Path $repo ('.worktrees\opencode-' + $lane) }
+        $dirty[$lane] = @(git -C $path status --porcelain).Count -gt 0
+        if ($LASTEXITCODE -ne 0) { throw "Could not inspect builder worktree: $lane" }
     }
     $architectHead = (git -C $repo rev-parse codex/opencode-architect).Trim()
     $architect = $null
@@ -36,7 +40,7 @@ try {
     $verification = Read-Cycle 'opencode-verification'
     $prior = $null
     if (Test-Path -LiteralPath $statePath) { try { $prior = Get-Content $statePath -Raw | ConvertFrom-Json } catch {} }
-    $snapshot = "architect=$architectHead; primary=$($heads.primary) ($($source.outcome)); geometry=$($heads.geometry) ($($geometry.outcome)); verification=$($heads.verification) ($($verification.outcome))"
+    $snapshot = "architect=$architectHead; primary=$($heads.primary) ($($source.outcome), dirty=$($dirty.primary)); geometry=$($heads.geometry) ($($geometry.outcome), dirty=$($dirty.geometry)); verification=$($heads.verification) ($($verification.outcome), dirty=$($dirty.verification))"
     if ($DryRun) { Write-Output "Ready: manager=$model $snapshot"; return }
     $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; model = $model; snapshot = $snapshot }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
