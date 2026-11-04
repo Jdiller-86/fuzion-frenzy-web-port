@@ -129,6 +129,20 @@ test('the comparison requires the other declared inputs to match', () => {
   }
 });
 
+test('the comparison requires every declared input profile to be present', () => {
+  for (const field of ['consoleSettings', 'volumeProfile', 'directoryProfile',
+    'fileStorageProfile', 'diskProfile', 'pfifoProfile', 'memoryAccounting']) {
+    const missing = { ...experiment() };
+    delete missing[field];
+    assert.throws(() => compareProofProfiles(control(), missing),
+      /must carry its declared/);
+  }
+  const noControl = { ...control() }, noExperiment = { ...experiment() };
+  delete noControl.pfifoProfile; delete noExperiment.pfifoProfile;
+  assert.throws(() => compareProofProfiles(noControl, noExperiment),
+    /must carry its declared/);
+});
+
 test('the comparison requires the full supplied device input profile to match', () => {
   const other = edit => ({
     ...experiment(), deviceRegisters: deviceRegisters({ ...supplied(), ...edit }),

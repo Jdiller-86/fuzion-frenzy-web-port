@@ -207,8 +207,9 @@ export function validateProofReport(report) {
   if (claimsAvQuery && !avQueryCall && !avQueryAttempt)
     throw new Error('The avQuery experiment requires a recorded ordinal-2 call');
   /* An ordinal-2 denial is the unsupported-service stop itself. A report that
-   * records the denial but claims a later stop is not a truthful observation. */
-  if (avQueryDenied && !avQueryCall && (stop.status !== 1 || stop.ordinal !== 2))
+   * records the denial but claims a later stop is not a truthful observation,
+   * even if an earlier ordinal-2 call completed. */
+  if (avQueryDenied && (stop.status !== 1 || stop.ordinal !== 2))
     throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;
 }

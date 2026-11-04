@@ -71,7 +71,7 @@ const sameCanonical = (left, right) => JSON.stringify(canonical(left)) === JSON.
  * any of these are not a controlled comparison. Run state (local disk/volume,
  * FATX, clock window) is deliberately excluded. */
 function declaredInputs(report) {
-  return {
+  const inputs = {
     consoleSettings: report.consoleSettings,
     volumeProfile: report.volumeProfile,
     directoryProfile: report.directoryProfile,
@@ -80,6 +80,13 @@ function declaredInputs(report) {
     pfifoProfile: report.pfifoProfile,
     memoryProfile: report.memoryAccounting?.profile,
   };
+  /* Presence is part of the evidence: two reports that both omit a profile did
+   * not demonstrate that the input matched. */
+  for (const [name, value] of Object.entries(inputs)) {
+    if (value === undefined || value === null)
+      throw new Error(`Each profile must carry its declared ${name}`);
+  }
+  return inputs;
 }
 
 function ordinalTwoCalls(report) {

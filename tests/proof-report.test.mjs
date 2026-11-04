@@ -109,6 +109,22 @@ test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
   assert.equal(validateProofReport(completed), completed);
 });
 
+test('a denial after a completed avQuery call still requires the unsupported stop', () => {
+  const success = { ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) };
+  const denial = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
+  assert.throws(() => validateProofReport(report({
+    stop: { status: 2, target: 0x1F79A0, ordinal: 0 },
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [success, denial],
+  })), /must stop at the unsupported service/);
+  const paired = report({
+    stop: unsupportedOrdinal2(),
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [success, denial],
+  });
+  assert.equal(validateProofReport(paired), paired);
+});
+
 test('an explicit synthetic avQuery word completes ordinal 2 with its raw word', () => {
   const valid = report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
@@ -363,6 +379,8 @@ test('the supplied device input profile is validated when present', () => {
     { ...supplied(), window: { base: 0xFD000000, size: 0x100 } },
     { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }] },
     { ...supplied(), registers: [{ address: 0xFD001802, initial: 0 }, { address: 0xFD600140, initial: 0 }] },
+    { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFD001804, initial: 1 }] },
+    { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFD101800, initial: 0 }] },
     { ...supplied(), registers: [{ address: 0xFD001804, initial: 0 }, { address: 0xFE000000, initial: 0 }] },
     { ...supplied(), zeroRanges: [{ address: 0xFD001002, bytes: 16 }] },
     { ...supplied(), zeroRanges: [{ address: 0xFD001000, bytes: 0x1000000 }] },
