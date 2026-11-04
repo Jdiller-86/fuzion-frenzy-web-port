@@ -32,7 +32,7 @@ function Assert-Integration([string]$head) {
     if (@(git -C $integration status --porcelain).Count -ne 0) { throw 'Integration worktree has unfinished changes.' }
     if ((git -C $integration rev-parse HEAD).Trim() -ne $head) { throw 'Integration head changed.' }
     if ((Get-RemoteHead 'codex/opencode-architect') -ne $head) { throw 'Integration head is not published.' }
-    git -C $integration fetch origin main | Out-Null
+    git -C $integration fetch --quiet origin main | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not refresh GitHub main.' }
     git -C $integration merge-base --is-ancestor origin/main HEAD
     if ($LASTEXITCODE -ne 0) { throw 'GitHub main is not integrated.' }
