@@ -40,6 +40,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Explicit `browser-71-reset-avquery.json`: status 2 at `0x1F6EB0`, 281 / 405; `0x1F79A0` executed and returned; next frontier entry `0x1F6EB0` called by executed `0x1F83C0`.
 - Translation `recomp-title-recomp-title-post-memory-50`: 419 functions / 17,448 instructions from 32 retained seeds. `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing; `verify-translation.py` reports 517 functions, 0 needing rewriting, fully instrumented.
 - `0x1F6EB0` is **not** admitted or exported. No storage/framework/substitute work was added.
+- **Read-only `0x1F6EB0` characterization:** 110 instructions / 455 bytes in the `D3D` section, no direct calls, return sites `0x1F7033`/`0x1F7076`, no indirect or undecodable branch; unadmitted. See [the frontier characterization](FRONTIER_1F6EB0_CHECKPOINT.md).
 
 ## Main/PR integration state
 
