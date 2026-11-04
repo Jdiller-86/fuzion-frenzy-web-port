@@ -52,6 +52,17 @@ test('an explicit register profile admits the 16 MiB NV2A aperture window', () =
   assert.throws(() => parseLocalMmioProfile(bytes(reached, { window: { base: 0xFD000000, size: 0x1000004 } })));
 });
 
+test('experimental register controls default off and require an explicit true', () => {
+  assert.equal(parseLocalMmioProfile(bytes(reached)).writeClearing, false);
+  assert.equal(parseLocalMmioProfile(bytes(reached)).pmcZero, false);
+  assert.equal(parseLocalMmioProfile(bytes(reached, { writeClearing: true })).writeClearing, true);
+  assert.equal(parseLocalMmioProfile(bytes(reached, { pmcZero: true })).pmcZero, true);
+  for (const value of [1, 'true', {}, []]) {
+    assert.equal(parseLocalMmioProfile(bytes(reached, { writeClearing: value })).writeClearing, false);
+    assert.equal(parseLocalMmioProfile(bytes(reached, { pmcZero: value })).pmcZero, false);
+  }
+});
+
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {
   const bad = [
     [reached[0]],

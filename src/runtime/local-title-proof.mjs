@@ -180,8 +180,13 @@ export function parseLocalMmioProfile(buffer) {
     zeroRanges.push({ address: range.address, bytes: range.bytes });
   }
   const writeClearing = device.writeClearing === true;
+  /* Experimental only: serving NV_PMC_INTR_0 as a zero status register is a
+   * diagnostic, not evidence that the device delivers interrupts. The reached
+   * code never acknowledges this register (its only store is zero), so nothing
+   * here may be treated as a completion or acknowledge rule. */
+  const pmcZero = device.pmcZero === true;
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
-    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing };
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero };
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);

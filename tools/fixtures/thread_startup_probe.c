@@ -756,13 +756,24 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
-static uint32_t mmio_write_clearing;
+static uint32_t mmio_write_clearing, mmio_pmc_zero;
 /* Explicitly experimental: the selected profile must opt in to modelling an
  * acknowledging store, and the same profile without it is the control run. */
 uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
 {
     if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
     mmio_write_clearing = enable;
+    return 0;
+}
+/* Explicitly experimental: serve NV_PMC_INTR_0 as a zero status register. The
+ * reached code never acknowledges this register (its only store is zero), so
+ * this models "no device event has been delivered" for diagnosis; it is not
+ * evidence of interrupt delivery or a completion rule. Without it the read stays
+ * fail-closed. */
+uint32_t ff_probe_mmio_pmc_zero(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_pmc_zero = enable;
     return 0;
 }
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
@@ -779,6 +790,13 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u)))return status;
+    /* Experimental PMC zero status: the reached wait at 0x1FE50D polls bit 24 of
+     * NV_PMC_INTR_0, and the only store the original code makes to it is zero
+     * (0x1FDFC3), so this register is a status input rather than an acknowledge
+     * register. Serving it as zero is a diagnostic for "no device event has been
+     * delivered"; it is not evidence of interrupt delivery. Without this flag the
+     * read stays fail-closed. */
+    if(mmio_pmc_zero && (status=ff_device_registers_add_zero_range(&device_registers,0xFD000100u,4u)))return status;
     if(!mmio_write_clearing) return 0;
     /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
      * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it

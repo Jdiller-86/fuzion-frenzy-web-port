@@ -46,6 +46,10 @@ self.onmessage = async event => {
          api.ff_probe_mmio_write_clearing(mmioProfile.writeClearing?1:0)) {
         throw new Error('The private module cannot set the experimental write-clearing control');
       }
+      if(typeof api.ff_probe_mmio_pmc_zero!=='function' ||
+         api.ff_probe_mmio_pmc_zero(mmioProfile.pmcZero?1:0)) {
+        throw new Error('The private module cannot set the experimental PMC zero-status control');
+      }
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
         primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
