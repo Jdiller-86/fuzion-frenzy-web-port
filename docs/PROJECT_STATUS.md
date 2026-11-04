@@ -1,4 +1,14 @@
-# Architect review: synthetic adapter delivered; failure reporting and one-factor evidence need correction
+# Architect integration: local main and standalone component delivered; bounded helper next
+
+Integration now includes localmain385dae5 via reviewed merge7ca1174 and standalone numeric6 component/fixture/native CI viaac207ba. All three source blobs exactly match the acceptedbadecb4/12deaad slice; plain and ASan/UBSan runs passed against integration VM. No guest binding, profile activation, source-lane status history or whole builder branch was imported. The oldest unmergedee34a5c is not safe in isolation without later A001 vector/type/escape fixes, so a safe independent slice was integrated instead of waiting for the whole branch.
+
+A023 review of requested12deaad/live0ffb634 closes successful-shape/output-address/paired-call/denied-report and full declared-input comparison findings. One reproduced prequery/no-call declaration guard remains: fix it/test/revalidate retained pair, then primary may admit only reached0x1F79A0 and necessary bounded direct dependencies with retained seeds/all guards. Same-module controls/full input identity and next genuine stop are acceptance/stop. No broad closure/generic validation framework/storage expansion/default or fabricated service success. Current lane-reported synthetic query stop0x1F79A0 is still an unexecuted placeholder, not hardware settings/fidelity; no private module/report was replayed here.
+
+Geometryc12d17a unchanged, no actionable reference: GEOMETRY_CYCLE HOLD to save idle prompts/commits, not pause overall goal. Storage holds remain; A001/A020 closed. Existing main PR#1 atf8dd9c0 is independently clean/green/mergeable but **missing localmain385dae5 ancestry**. Builder conflicts do not themselves block that PR; this precise ancestry gate does. New integrated head requires coherent exact-head PR/CI review next hour. Existing drafts#2/#3 retained,source live0ffb634; no duplicate opening, push or main merge requested.
+
+Source-only validation:12deaad174 pass/1 private-XBE skip/0 fail of175;0ffb634175 pass/1 same skip/0 fail of176; publication352 files at both. Integrated fixture plain/sanitizer passed; source publication/runtime/ancestry and exact staged paths checked before final checkpoint. Node24.22.1 differs from24.14.0 pin. No controlled screen or full graphics/audio/controls/fidelity/browser-local conversion/performance/online/social/dedicated-authority acceptance.
+
+## Retained A022 review
 
 Fixed source6c4ec73 implements the A021 default-off raw-DWORD query adapter. Scoped mechanics and native/sanitizer tests accepted: component writes checked LE bytes, EAX stays unchanged, ESP advances20 only on success. Lane reports module588c0dd5 control status1/ordinal2/return0x1FD429,279/404 versus explicit0x00800303 status2/0x1F79A0/return0x1F83ED,280/405, with observed EAX0→0/ESP62983352→62983372. This is curated synthetic startup, not architect replay, original AV settings/hardware fidelity or execution of the stopped helper body. No new helper admission.
 

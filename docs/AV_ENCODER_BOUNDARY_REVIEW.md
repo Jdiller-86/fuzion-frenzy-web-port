@@ -1,6 +1,16 @@
 # Ordinal 2: establish the reached call contract before emulating an encoder
 
-## Current directive A022: adapter mechanics accepted; preserve truthful failures and prove the input pair
+## Current directive A023: close the final declaration guard; admit one reached helper
+
+Requested source12deaad and live0ffb634 now fix successful shape/output address, paired arguments, actual denied-call reporting/unsupported-stop pairing, and full declared-input comparison. Sol directly executed the baseline/counterexamples: close the console mismatch finding at0ffb634 and do not repeat fixed A020/A022 checks. The integrated branch now contains only the reviewed standalone numeric6 component/fixture (exact source blobs, commitac207ba) with plain/sanitizer CI; the source lane's ABI adapter/profile activation is still not integrated.
+
+One explicit A022 requirement is missed: `validateProofReport` still throws 'requires a recorded ordinal-2 call' on a configured report stopping before any query (e.g. status10, empty calls). **Primary: remove activation-as-attempt requirement**, add one focused prequery regression, and retain successful-call shape/CPU/output validation and real-denial/unsupported-stop pairing. Progress comparison may still require a completed call; report validity must not. No new validation layer, inventory or schema work.
+
+After that correction and revalidation of the retained successful full-input-matched pair, primary is authorized to admit **only reached0x1F79A0 plus demonstrably necessary bounded direct dependencies**. Reuse retained seeds/projects and fixed export/resource limits, guard every generated access, verify byte/decoder/layout identity, and run original code only in the browser with local player inputs. Compare same-module absent/configured query reset controls, keep canonical/engine/display boundaries honest and publish only curated module/profile/control/next-stop metadata. Stop at the next genuine unsupported service/device/translation/resource boundary; no broad closure, guessed return/mode/timing, default/composer or bypass to get farther. If bounded translation cannot pass admission/checks, report the exact blocker instead. No original0x1F79A0 body has yet executed in the reviewed evidence.
+
+Hardware/fidelity remains unproved and physical-console capture optional. Full builder/main merges are not implied. The architect will review the exact final report fix and bounded helper result next hour, separately from the already integrated component and the existing main PR.
+
+## Retained A022 directive: adapter mechanics accepted; preserve truthful failures and prove the input pair
 
 Fixed source `6c4ec73931f96d3db953d1d4dcb96f4b5bac576b` adds the explicit raw-DWORD binding around the accepted component. Direct code inspection and actual-adapter native/sanitized tests support its scoped mechanics: nullable config, exact shape, checked four-byte store, no EAX assignment, checked ESP+20 on success and unchanged denial. The lane reports module `588c0dd5fb4a85b534ded7074c8b0811c32892e96c1c19e3bd687223d367b5c7` with reset control status1/ordinal2/return0x1FD429 and explicit0x00800303 status2/0x1F79A0/return0x1F83ED. Reported EAX0 stays0 and ESP62983352 becomes62983372. This is conditional synthetic startup evidence, not original service fidelity or execution of the stopped placeholder body. No private module/report was replayed here.
 

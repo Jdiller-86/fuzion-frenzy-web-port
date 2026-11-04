@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect integration of local main and the standalone AV slice
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A023 | Integrate reviewed local-main governance and standalone component now; close the final prequery guard then resume one reached helper | Merge7ca1174 includes localmain385dae5 (reviewed one-line runner prompt, AST parse passed). Commitac207ba imports byte-identical av_query.c/.h and actual fixture from12deaad/badecb4, with Linux plain/sanitized CI; both checks passed against integration VM. No adapter/profile/runtime binding is integrated. Oldest unmergedee34a5c cannot stand alone: vector read/write/type/address-escape defects require later A001 fixes, so select the previously accepted independent AV component instead. Requested12deaad closes successful-shape/paired-argument/denied-report cases; live0ffb634 closes full declared-input comparison, confirmed by executed console-mismatch rejection. One residual reproduced guard still rejects configured prequery/no-call reports: fix it with a focused test, retaining actual-denial/unsupported-stop pairing and success-shape requirements. Then primary may admit only reached0x1F79A0 and demonstrably necessary bounded dependencies using retained seeds and all guards; same-module controls and next genuine stop are the acceptance/stop condition, no speculative closure or success stub. Geometry cycle HOLD to avoid idle prompts. Main PR#1 atf8dd9c0 is evaluated independently: green/clean but missing localmain385dae5, so fails ancestry regardless of builder conflicts; updated integrated head needs exact-head CI before merge approval. Next hour review this finite integrated slice/CI plus the corrected report/helper result, not the entire growing branch. |
+
 ### Architect review of source 6c4ec73, live e406cb3 and geometry c12d17a
 
 | ID | Decision | Basis / limits |

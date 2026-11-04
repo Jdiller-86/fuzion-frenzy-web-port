@@ -1,4 +1,16 @@
-# Architect handoff: preserve truthful failures; finish one-factor evidence for the synthetic binding
+# Architect handoff: final declaration fix, then one reached helper; bounded integration delivered
+
+Requested source12deaad, live0ffb634, unchanged geometryc12d17a. A023 closes successful shape/output-address/paired-argument/denied-call and full declared-input comparison findings after direct code/test review. One residual is reproduced: a configured report stopping before ordinal2 (status10/empty calls) still fails the recorded-call requirement. No further shared validator or schema work is needed.
+
+**Primary's bounded result:** remove the activation-as-attempt guard, add one prequery regression while retaining actual denial/unsupported-stop and successful shape/CPU/output checks, revalidate the retained pair; then admit only actually reached0x1F79A0 and provably necessary bounded direct dependencies from existing seeds/projects with every byte/decoder/layout/memory/local-content/resource guard. Compare same-module controls/full input identity, report the next genuine stop and stop. No speculative closure/default/fake return/encoder/timing or storage expansion. See [A023](AV_ENCODER_BOUNDARY_REVIEW.md). Current0x1F79A0 is a stopped placeholder under synthetic AV input, not an executed original body or hardware fidelity.
+
+**Integration delivered:** reviewed localmain385dae5 merged as7ca1174; exact three-file standalone AV component/fixture slice frombadecb4/12deaad imported asac207ba with Linux plain/sanitizer CI. Blob equality and tests against integration VM passed; no guest binding/profile activation imported. Oldestee34a5c was inspected but cannot stand alone without later A001 vector safety/type/escape corrections. Full builder branches remain unmerged, but are not a prerequisite for promoting the separately reviewed integration head.
+
+**Geometry: HOLD**—unchanged head, no actionable reference/dependency. Preserve components without idle prompts/audits/documentation commits. Held geometry is resource saving, not project pause. Disc/FATX expansion/guest wiring stays frozen until a reached dependency/review; A001/A020 remain accepted.
+
+Main PR#1 exactf8dd9c0 is clean/green but fails localmain385dae5 ancestry (exit1), independently of builder conflicts. New integration includes local main but requires updated exact-head PR/CI. Next hour architect reviews that finite local-main + component/CI + governance delta for guarded promotion, and the primary's corrected report/bounded-helper commit separately. Existing PRs#1–#3 retained, no duplicates/push/main merge now. Requested candidate tests174 pass/1 private-XBE skip of175; live0ffb634175 pass/1 same skip of176. No controllable original screen or full fidelity/local-conversion/performance/online/social/authority acceptance.
+
+## Retained A022 handoff
 
 Fixed source `6c4ec73931f96d3db953d1d4dcb96f4b5bac576b`, geometry `c12d17a53696bc3f2ad1dd17d3c170487702952d`; live PR#2 advanced toe406cb39d8460fef3c6bafdc2384cbf54ae6b761 during review. A022 accepts scoped adapter mechanics/native tests: explicit raw DWORD, exact component, VOID/EAX untouched, checked ESP+20/unchanged denial. Lane reports same-module588c0dd5 control ordinal2 versus configured0x1F79A0; not architect replay or original settings/fidelity, and the stopped helper body is unexecuted. No new helper admission.
 
