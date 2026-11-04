@@ -1,4 +1,19 @@
-# Ordinal 2 remains the frontier; the option-6 model is withdrawn
+# The binding advances the frontier to translation target 0x1F79A0
+
+November 4, 2026. The explicit synthetic ordinal-2 binding moves the frontier from the kernel service to a translation target. On module `recomp-post-memory-build-70` (`cd2fac97df95a4289b20742768555a080a995e2f16c774a36da25a856720a1a0`):
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F79A0`** | 280 | 405 |
+
+The retained translation `recomp-title-recomp-title-post-memory-49` has 517 `ff_title_*` definitions (418 non-placeholder functions), 99 placeholders (98 referenced) and 352 call targets. With the control run, 279 functions execute, the run enters 0 placeholders, 66 placeholders are called by an executed caller and 32 have only unexecuted callers. With the explicit-word run, 280 functions execute and the run enters exactly one placeholder: **`0x1F79A0`, called by executed original function `0x1F83C0`**. The frontier partition is 69 called-by-executed and 28 static-only.
+
+This is static reachability plus the retained run report; it does not prove the call edge was taken dynamically beyond the status-2 stop. `0x1F79A0` is **not** admitted, translated, exported or treated as progress. The next dependency is now a translation target rather than the kernel service; admitting it or its dependencies remains frozen pending the architect's decision. The canonical path still stops at ordinal 2, the geometry lane stays paused, and no default or fidelity claim is added.
+
+Reproduce with `node tools/translation-frontier.mjs research/verification/recomp-title-recomp-title-post-memory-49 --run research/verification/pfifo-setup-01/browser-70-reset-avquery.json`; the text output names `ENTERED 0x001F79A0 called by 0x001F83C0`.
+
+## Prior: Ordinal 2 remains the frontier; the option-6 model is withdrawn
 
 November 4, 2026. The reset run stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The frontier reports 99 placeholders (98 referenced) and the run enters **0** of them: 66 are called by an executed caller and 32 have only unexecuted callers. The next dependency is the kernel service, not a translation target.
 
