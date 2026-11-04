@@ -15,7 +15,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
   - `5e492e1` reject a no-call prequery that claims the ordinal-2 stop
 - Source files touched: `src/runtime/proof-report.mjs`, `src/runtime/device-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `tools/compare-proof-profiles.mjs`, `tools/fixtures/thread_startup_probe.c`, `tests/proof-report.test.mjs`, `tests/compare-proof-profiles.test.mjs`.
 - Targeted checks on this slice: runtime 178/178, evidence 4/4, native 20/20, `npm run check` 352 source files, `git diff --check` clean; pair comparison exits 0.
-- Narrow GLM review (`2026-11-04T09:15:22`, step-capped after the checks) found no material defect; the control stop target `0xFE000094` and the `0x1F79A0` enter/exit trace were confirmed from the retained reports.
+- Narrow GLM review (`2026-11-04T09:15:22`, step-capped after the checks) found no material defect; the control stop target `0xFE000094` and the `0x1F79A0` enter/exit trace were confirmed from the retained reports. A follow-up narrow review at `2026-11-04T10:05:11` of the no-call prequery guard also found no material defect; minor unexercised control-path cases are noted in the binding checkpoint.
 
 ## Retained admission evidence
 

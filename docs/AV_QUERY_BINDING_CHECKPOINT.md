@@ -53,6 +53,8 @@ The independent GLM review completed a narrow static pass at `2026-11-04T08:45:2
 
 A post-admission narrow GLM review (attempted `2026-11-04T09:15:22`, step-capped after completing the checks) found no material defect in the prequery branch or the admission evidence. The control stop target `0xFE000094`, the `0x1F79A0` enter/exit trace and the `0x1F6EB0` status-2 stop were confirmed directly from the retained reports.
 
+A follow-up narrow GLM review (attempted `2026-11-04T10:05:11`, step-capped after the checks) of the no-call prequery guard also found no material defect. It confirmed the guard is limited to the status-1/ordinal-2 service stop, truthful prequeries, denials and successes still pass, and `ordinalTwoRecorded` is set for every well-formed ordinal-2 record. It noted two minor unexercised control-path cases: an unconfigured ordinal-2 call with a status outside `{0,1}`, and an unconfigured no-call status-1/ordinal-2 stop; the comparison tool closes the latter for retained evidence.
+
 ## Limits and next stop
 
 - The binding supplies one synthetic raw DWORD only when explicitly selected; the canonical/default path remains unsupported and still stops at ordinal 2.
