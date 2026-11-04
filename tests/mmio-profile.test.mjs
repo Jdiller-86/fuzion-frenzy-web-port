@@ -74,6 +74,21 @@ test('experimental register controls default off and require an explicit true', 
   }
 });
 
+test('unknown device profile keys fail closed', () => {
+  assert.throws(() => parseLocalMmioProfile(bytes(reached, { pmcZer0: true })));
+  assert.throws(() => parseLocalMmioProfile(bytes(reached, { writeClearing: true, engineWait: true, pmcZer0: true })));
+  assert.throws(() => parseLocalMmioProfile(bytes(reached, { extra: 1 })));
+  /* Every supported key is accepted together. */
+  const all = parseLocalMmioProfile(bytes(reached, {
+    zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }],
+    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true,
+  }));
+  assert.equal(all.writeClearing, true);
+  assert.equal(all.pmcZero, true);
+  assert.equal(all.pcrtcVblanks, 4);
+  assert.equal(all.engineWait, true);
+});
+
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {
   const bad = [
     [reached[0]],

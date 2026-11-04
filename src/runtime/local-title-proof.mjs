@@ -147,6 +147,14 @@ export function parseLocalRawDiskVolumes(buffer) {
 export function parseLocalMmioProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const device = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).device;
+  /* A misspelled experimental flag would silently leave the run on a different
+   * model than the profile intends, so unknown device keys fail closed. */
+  const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait'];
+  if (device && typeof device === 'object' &&
+      Object.keys(device).some(key => !deviceKeys.includes(key))) {
+    throw new Error('Unknown synthetic register profile key');
+  }
   const entries = device?.registers, window = device?.window;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
