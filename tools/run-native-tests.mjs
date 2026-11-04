@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = (name) => `src/runtime/${name}`;
@@ -80,14 +80,30 @@ export function findCompiler(platform = process.platform) {
   return null;
 }
 
+/* Build the exact argv for one compile and one run. A non-WSL host compiles
+ * with the detected driver and executes the product directly; WSL needs the
+ * `gcc` program name only inside `wsl`, never as a native compiler argument. */
+export function commandPlan(compiler, options, sources, binary) {
+  const compileArgs = [...options, ...sources, '-o', binary];
+  if (compiler.wsl) {
+    return {
+      compile: { command: 'wsl', args: [...compiler.prefix, 'gcc', ...compileArgs] },
+      run: { command: 'wsl', args: [...compiler.prefix, binary] },
+    };
+  }
+  return {
+    compile: { command: compiler.command, args: compileArgs },
+    run: { command: binary, args: [] },
+  };
+}
+
 function run() {
   const compiler = findCompiler();
   if (!compiler) {
     console.error('No C compiler found. Set FF_CC or install cc/gcc/clang (WSL gcc is detected on Windows).');
     return 2;
   }
-  const invoke = (args) => execFileSync(compiler.wsl ? 'wsl' : compiler.command,
-    compiler.wsl ? [...compiler.prefix, args[0], ...args.slice(1)] : args,
+  const spawn = (command, args) => execFileSync(command, args,
     { cwd: root, stdio: 'pipe', timeout: 300000 });
   const scratch = scratchDirectory();
   const failures = [];
@@ -96,8 +112,9 @@ function run() {
       const binary = compilerPath(path.join(scratch,
         `${fixture.name}${mode ? '-san' : ''}${compiler.wsl ? '' : '.exe'}`), compiler.wsl);
       try {
-        invoke(['gcc', ...options, ...fixture.sources, '-o', binary]);
-        invoke([binary]);
+        const plan = commandPlan(compiler, options, fixture.sources, binary);
+        spawn(plan.compile.command, plan.compile.args);
+        spawn(plan.run.command, plan.run.args);
         console.log(`ok ${fixture.name}${mode}`);
       } catch (error) {
         const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.toString().trim();
@@ -112,4 +129,6 @@ function run() {
   return failures.length ? 1 : 0;
 }
 
-process.exitCode = run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = run();
+}
