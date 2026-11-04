@@ -1,4 +1,12 @@
-# Continue from single-cluster FATX file creation
+# Continue from the bounded local disc session
+
+A source-owned read-only disc session now opens one locally selected bare XISO in a dedicated browser worker. It identifies `default.xbe` by an explicit size/SHA-256, serves requested byte ranges only, limits each read to 65,536 bytes with one outstanding request, and terminates/invalidate the session on clear. It does not upload, serve, convert or preload the whole image, and it is not connected to the guest runtime. The generated-fixture browser run returned the expected data/executable bytes and rejected oversized, unsafe, busy and cleared requests; the network log contained only source modules and no content-bearing request.
+
+Validation: runtime suite 150/150, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 345 source files and whitespace checks pass; the browser fixture reported no console errors. Sol completed the bounded review at `2026-11-04T06:16:22.4039478-05:00`; this cycle follows it.
+
+Next: connect the session only when a reached original disc/file path or an explicit product decision requires it. Keep the selected image local, retain the explicit identity and 64 KiB/one-outstanding limits, and do not weaken production build identification for fixtures. Continue other unowned runtime prerequisites; do not treat this adapter as original execution. Ordinal 2 remains unsupported, `0x1F79A0` unadmitted, and the geometry lane stays paused.
+
+## Prior: continue from single-cluster FATX file creation
 
 `ff_fatx_create_file` creates a non-empty file whose data fits in one FATX cluster. It resolves the parent directory, rejects duplicates/invalid names, requires `1..cluster_bytes` of data, allocates exactly one free FAT cluster, sets its terminal FAT value, preflights the bounded page store, writes the data, records first cluster/size in the directory entry, decrements the free-cluster count and refreshes the mount revision. A capacity failure leaves no directory entry. It does not create directories, extend beyond one cluster, free clusters or serve a guest request. The `fatx_volume` fixture covers five-byte, full 16,384-byte and zero-filled files, over-cluster/duplicate/invalid/null/zero-data rejection and a FAT16 volume with no free cluster.
 
