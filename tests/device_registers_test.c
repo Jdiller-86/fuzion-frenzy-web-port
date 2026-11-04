@@ -331,6 +331,28 @@ static void interleaved_reads_of_one_register_stop_at_the_wait_limit(void)
     assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
 }
 
+static void externally_served_accesses_can_be_logged_without_storage(void)
+{
+    reset();
+    uint32_t entries = device.count;
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == 0);
+    assert(ff_device_registers_log(&device, 0xFD600140u, FF_DEVICE_WRITE, 1u, 0x00200340u) == 0);
+    assert(device.event_count == 2 && device.count == entries);
+    assert(device.events[0].address == 0xFD600100u && device.events[0].direction == FF_DEVICE_READ);
+    assert(device.events[0].site == 0x001FE4DBu && device.events[0].value == 0u);
+    assert(device.events[1].address == 0xFD600140u && device.events[1].direction == FF_DEVICE_WRITE);
+    assert(device.events[1].site == 0x00200340u && device.events[1].value == 1u);
+    /* Rejected inputs never consume a slot. */
+    assert(ff_device_registers_log(&device, 0xFD600100u, 3u, 0u, 0x001FE4DBu) == FF_BOOT_INVALID);
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0u) == FF_BOOT_UNSUPPORTED);
+    assert(ff_device_registers_log(&device, 0xFC000000u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == FF_BOOT_UNSUPPORTED);
+    assert(device.event_count == 2);
+    /* A logged access does not create a register entry, so reads stay fail-closed. */
+    assert(ff_device_registers_access(&device, 0xFD600100u, FF_DEVICE_ACCESS_READ, 0x001FE4DBu) == NULL);
+    device.event_count = FF_DEVICE_EVENTS;
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == FF_BOOT_NO_MEMORY);
+}
+
 static void capacity_exhaustion_is_reported_separately_from_a_denied_access(void)
 {
     reset();
@@ -449,7 +471,7 @@ int main(void)
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
-    interleaved_reads_of_one_register_stop_at_the_wait_limit(); capacity_exhaustion_is_reported_separately_from_a_denied_access();
+    interleaved_reads_of_one_register_stop_at_the_wait_limit(); externally_served_accesses_can_be_logged_without_storage(); capacity_exhaustion_is_reported_separately_from_a_denied_access();
     a_declared_status_wait_trips_despite_a_busy_register_file();
     write_clearing_registers_acknowledge_only_the_stored_bits();
     aliases_share_storage_and_keep_event_addresses();

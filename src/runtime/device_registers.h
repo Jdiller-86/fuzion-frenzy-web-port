@@ -121,6 +121,11 @@ uint32_t ff_device_registers_contains(const ff_device_registers *, uint32_t addr
 uint32_t *ff_device_registers_slot(ff_device_registers *, uint32_t address);
 uint32_t ff_device_registers_touch(ff_device_registers *, uint32_t address, uint32_t direction,
                                    uint32_t site, uint32_t *value);
+/* Append one ordered event for an access served outside this aperture (for
+ * example a modelled display register), without creating or changing storage.
+ * Keeps the report's traffic log complete; fails when the log is full. */
+uint32_t ff_device_registers_log(ff_device_registers *, uint32_t address, uint32_t direction,
+                                 uint32_t value, uint32_t site);
 /* Stage one write (or the write half of a read-modify-write) and return the
  * lvalue the generated store fills. commit records it as one write event with
  * the stored value; touch, access and the event readers commit first. */

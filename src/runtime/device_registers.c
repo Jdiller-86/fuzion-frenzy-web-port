@@ -333,6 +333,19 @@ uint32_t ff_device_registers_touch(ff_device_registers *device, uint32_t address
     return record(device, address, direction, site, value);
 }
 
+uint32_t ff_device_registers_log(ff_device_registers *device, uint32_t address, uint32_t direction,
+                                 uint32_t value, uint32_t site)
+{
+    if (!device || !device->ready || !site) return FF_BOOT_UNSUPPORTED;
+    if (direction != FF_DEVICE_READ && direction != FF_DEVICE_WRITE) return FF_BOOT_INVALID;
+    if (ff_device_registers_contains(device, address, 4u)) return FF_BOOT_UNSUPPORTED;
+    if (ff_device_registers_commit(device)) return FF_BOOT_UNSUPPORTED;
+    if (device->event_count >= FF_DEVICE_EVENTS) return FF_BOOT_NO_MEMORY;
+    device->events[device->event_count++] =
+        (ff_device_event){address, site, direction, value, 1};
+    return 0;
+}
+
 uint32_t *ff_device_registers_stage_write(ff_device_registers *device, uint32_t address, uint32_t site)
 {
     if (!device || !site || ff_device_registers_contains(device, address, 4u)) return NULL;

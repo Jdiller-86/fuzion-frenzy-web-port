@@ -141,9 +141,12 @@ static ff_port_io port_io;
  * register contract and PMC aggregation come from the retained NV2A reference;
  * no timing source exists here, so nothing is raised unless the profile says so. */
 static ff_pcrtc_state pcrtc;
-static uint32_t pcrtc_ready;
-static uint32_t pcrtc_shadow[3];
+static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site;
 static int32_t pcrtc_dirty = -1;
+static uint32_t pcrtc_offset(int32_t index)
+{
+    return index == 0 ? 0xFD600100u : index == 1 ? 0xFD600140u : 0xFD000100u;
+}
 static void pcrtc_flush(void)
 {
     if (pcrtc_dirty < 0) return;
@@ -152,8 +155,12 @@ static void pcrtc_flush(void)
     else if (index == 1) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_EN_0, pcrtc_shadow[1]);
     else if (pcrtc_shadow[2] & FF_PCRTC_PMC_IRQ)
         (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, FF_PCRTC_INTR_VBLANK);
+    /* Keep the report's device traffic complete for the modelled display path. */
+    if (device_registers.ready)
+        (void)ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                      FF_DEVICE_WRITE, pcrtc_shadow[index], pcrtc_site);
 }
-static uint32_t *pcrtc_access(uint32_t address, uint32_t access)
+static uint32_t *pcrtc_access(uint32_t address, uint32_t access, uint32_t site)
 {
     int32_t index = address == 0xFD600100u ? 0 : address == 0xFD600140u ? 1 :
                     address == 0xFD000100u ? 2 : -1;
@@ -162,7 +169,10 @@ static uint32_t *pcrtc_access(uint32_t address, uint32_t access)
     pcrtc_shadow[0] = pcrtc.pending;
     pcrtc_shadow[1] = pcrtc.enabled;
     pcrtc_shadow[2] = ff_pcrtc_pmc_irq(&pcrtc);
-    if (access & 2u) pcrtc_dirty = index;
+    if (device_registers.ready)
+        (void)ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                      FF_DEVICE_READ, pcrtc_shadow[index], site);
+    if (access & 2u) { pcrtc_dirty = index; pcrtc_site = site; }
     return &pcrtc_shadow[index];
 }
 /* The profile supplies a bounded number of vertical-blank events up front. */
@@ -375,7 +385,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
      * supplies display events; without that it falls through to the aperture and
      * ultimately to the fail-closed stop. */
     if (pcrtc_ready && bytes == 4u) {
-        uint32_t *slot = pcrtc_access(address, access);
+        uint32_t *slot = pcrtc_access(address, access, site);
         if (slot) { ++vm_access_count; return slot; }
     }
 #ifdef FF_MMIO_PROOF
