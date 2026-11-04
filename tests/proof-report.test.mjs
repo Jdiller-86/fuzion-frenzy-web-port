@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../src/runtime/proof-report.mjs';
+
+const report = (edit = {}) => ({
+  kind: 'thread-startup-boundary',
+  phase: 'original-initializer-bringup',
+  verified: false,
+  stop: { status: 10, target: 0xFD000100, ordinal: 1 },
+  trace: [{ kind: 'enter', address: 0x1FDC30, stack: 0x3C10C40 }],
+  originalStartup: {
+    totalInitializers: 83, completedInitializers: 83, distinctOriginalFunctions: 276,
+    completedKernelOperations: 403,
+  },
+  ...edit,
+});
+
+test('a well-formed startup report validates and is returned unchanged', () => {
+  const input = report();
+  assert.equal(validateProofReport(input), input);
+  const withExperiments = report({ experiments: ['writeClearing', 'pcrtcVblanks:8'] });
+  assert.equal(validateProofReport(withExperiments), withExperiments);
+  const device = report({
+    deviceRegisters: { count: 2, events: 1, entries: [{}, {}], log: [{}] },
+  });
+  assert.equal(validateProofReport(device), device);
+});
+
+test('a worker-level error report is accepted without evidence fields', () => {
+  const failure = { kind: 'error', message: 'Missing bounded device-aperture accessors' };
+  assert.equal(validateProofReport(failure), failure);
+});
+
+test('reports that claim verification or omit the stop record are rejected', () => {
+  assert.throws(() => validateProofReport(report({ verified: true })));
+  assert.throws(() => validateProofReport(report({ stop: null })));
+  assert.throws(() => validateProofReport(report({ stop: { status: 99, target: 0, ordinal: 0 } })));
+  assert.throws(() => validateProofReport(report({ stop: { status: 10, target: -1, ordinal: 0 } })));
+  assert.throws(() => validateProofReport(report({ phase: '' })));
+  assert.throws(() => validateProofReport(report({ kind: '' })));
+  assert.throws(() => validateProofReport(null));
+});
+
+test('trace entries and capacities are bounded', () => {
+  assert.throws(() => validateProofReport(report({ trace: [{ kind: 'enter', address: 1 }] })));
+  assert.throws(() => validateProofReport(report({ trace: new Array(TRACE_LIMIT + 1).fill({ kind: 'enter', address: 1, stack: 2 }) })));
+  const atLimit = report({
+    trace: new Array(TRACE_LIMIT).fill({ kind: 'enter', address: 1, stack: 2 }),
+  });
+  assert.equal(validateProofReport(atLimit), atLimit);
+});
+
+test('startup counters must stay in range and partial progress must be explained', () => {
+  assert.throws(() => validateProofReport(report({
+    originalStartup: { totalInitializers: 83, completedInitializers: 84, distinctOriginalFunctions: 1, completedKernelOperations: 1 },
+  })));
+  assert.throws(() => validateProofReport(report({
+    originalStartup: { totalInitializers: 83, completedInitializers: 82, distinctOriginalFunctions: 1, completedKernelOperations: 1 },
+  })));
+  const partial = report({
+    originalStartup: {
+      totalInitializers: 83, completedInitializers: 82, distinctOriginalFunctions: 1,
+      completedKernelOperations: 1, stopReason: 'unsupported Xbox service',
+    },
+  });
+  assert.equal(validateProofReport(partial), partial);
+  assert.throws(() => validateProofReport(report({
+    originalStartup: { totalInitializers: 83, completedInitializers: 83, distinctOriginalFunctions: 513, completedKernelOperations: 1 },
+  })));
+});
+
+test('experimental inputs and device capacities are validated', () => {
+  assert.throws(() => validateProofReport(report({ experiments: 'writeClearing' })));
+  assert.throws(() => validateProofReport(report({ experiments: ['pmcZer0'] })));
+  assert.throws(() => validateProofReport(report({
+    deviceRegisters: { count: 1, events: DEVICE_EVENT_LIMIT + 1, entries: [{}], log: [] },
+  })));
+  assert.throws(() => validateProofReport(report({
+    deviceRegisters: { count: 1, events: 1, entries: [{}], log: new Array(DEVICE_EVENT_LIMIT + 1).fill({}) },
+  })));
+});
