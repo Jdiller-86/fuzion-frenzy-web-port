@@ -37,6 +37,20 @@ These were the unknowns when the handoff was written; the section below resolves
 - `NV_PFIFO_RUNOUT_STATUS` defines `RANOUT (1<<0)`, `LOW_MARK (1<<4)`, `HIGH_MARK (1<<8)`, so bit `0x10` is `LOW_MARK` by name; who sets it is unknown.
 - The extracted reference in `.tools/emulation/xboxrecomp-source` models no FIFO consumer: `pfifo_read` returns raw storage except the two interrupt registers and `pfifo_write` only stores (`nv2a_core.c:612-659`).
 
+## Guest writes to the PFIFO registers (whole admitted translation)
+
+A scan of every admitted function, not only the reached path, settles whether the guest could produce the status bits itself:
+
+| register | reads | writes | write sites |
+| --- | --- | --- | --- |
+| `0xFD003214` `NV_PFIFO_CACHE1_STATUS` | 5 | **0** | none |
+| `0xFD002400` `NV_PFIFO_RUNOUT_STATUS` | 2 | **0** | none |
+| `0xFD003220` `NV_PFIFO_CACHE1_DMA_PUSH` | 4 | 5 | `0x1FDD79`, `0x1FE853`, `0x1FE915`, `0x2004BA`, `0x20107C` |
+| `0xFD003250` `NV_PFIFO_CACHE1_PULL0` | 3 | 9 | `0x1FDC72`, `0x1FDC9E`, `0x1FDD92`, `0x1FE9BE`, `0x1FE9E5`, `0x1FEA51` |
+| `0xFD002500` (`PFIFO + 0x500`) | 2 | 14 | including `0x1FDD92`, `0x1FDC72`, `0x1FDC9E`, `0x2010D8` |
+
+The two status registers are **read-only in the guest's own code**, so no admitted routine can set `CACHE1_STATUS.LOW_MARK` or `RUNOUT_STATUS.LOW_MARK`; any producer must be a modelled consumer, and the engine workstream owns that decision. The guest does write the DMA `ACCESS` bit and both pump registers, which is the input side a consumer would act on.
+
 ## Evidence gate for the engine workstream
 
 Before any producer rule is activated:
