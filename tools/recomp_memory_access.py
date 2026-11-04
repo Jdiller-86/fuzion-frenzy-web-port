@@ -25,8 +25,20 @@ ACCESSORS = {"MEM8": "U8", "MEM16": "U16", "MEM32": "U32", "MEM64": "U64",
 TEMP_TYPES = {"U8": "uint8_t", "U16": "uint16_t", "U32": "uint32_t", "U64": "uint64_t",
               "I8": "int8_t", "I16": "int16_t", "I32": "int32_t", "I64": "int64_t",
               "F32": "float", "F64": "double"}
+# Pure SSE helpers never touch guest memory. Anything else matching XMM_* is
+# rejected unless the memory branches above rewrote it. Keep this explicit.
+PURE_XMM = {"XMM_ZERO", "XMM_SCALAR", "XMM_SCALAR_DOUBLE", "XMM_SCALAR_BITS",
+            "XMM_MOVE_LOW_TO_HIGH", "XMM_MOVE_HIGH_TO_LOW", "XMM_CMP_PRED",
+            "XMM_MOVEMASK", "XMM_SHUFFLE", "XMM_UNPACK_LOW", "XMM_UNPACK_HIGH",
+            "XMM_CVT_PS2DQ", "XMM_FROM_PI", "XMM_ADD", "XMM_SUB", "XMM_MUL",
+            "XMM_DIV", "XMM_MIN", "XMM_MAX", "XMM_SQRT", "XMM_RSQRT", "XMM_RCP",
+            "XMM_AND", "XMM_OR", "XMM_XOR", "XMM_ANDN", "XMM_CMP_EQ",
+            "XMM_CMP_LT", "XMM_CMP_LE", "XMM_CMP_NEQ"}
+# Vector moves whose memory operand must be 16-byte aligned. Unaligned forms are
+# movups/movupd/movdqu (and lddqu) and keep the plain checked access.
+ALIGNED_XMM = {"movaps", "movapd", "movdqa", "movdqa64", "movntps", "movntpd", "movntdq"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
-MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32)\b")
+MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b")
 
 
 def statement_end(mask, start):
@@ -67,6 +79,21 @@ def code_mask(text):
             i += 1; continue
         result[start:i] = " " * (i - start)
     return "".join(result)
+
+
+def address_taken(prefix):
+    """True when a unary `&` applies to the expression that follows, even when the
+    operand is parenthesised (`&(XMM_MEM(x))`, `&((XMM_MEM(x)))`). A trailing `&&`
+    is a logical operator, not address-of."""
+    index = len(prefix) - 1
+    while index >= 0 and (prefix[index].isspace() or prefix[index] == '('):
+        index -= 1
+    if index < 0 or prefix[index] != '&':
+        return False
+    index -= 1
+    while index >= 0 and prefix[index].isspace():
+        index -= 1
+    return not (index >= 0 and prefix[index] == '&')
 
 
 def checked_block_sites(text, site, limit):
@@ -120,6 +147,7 @@ def instrument_memory_accesses(text, site, limit=None):
     label_offsets = [offset for offset, _ in labels]
     used_sites = set()
     write_temps = [0]
+    xmm_temps = [0]
 
     def site_at(offset):
         index = bisect.bisect_right(label_offsets, offset) - 1
@@ -132,7 +160,7 @@ def instrument_memory_accesses(text, site, limit=None):
 
     def rewrite(source, base):
         mask = code_mask(source); pieces, cursor, scan = [], 0, 0
-        while match := re.search(r"\b(?:S?MEM\w*|PUSH32|POP32)\b", mask[scan:]):
+        while match := re.search(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b", mask[scan:]):
             begin, end = scan + match.start(), scan + match.end()
             name = source[begin:end]
             opening = end
@@ -142,11 +170,68 @@ def instrument_memory_accesses(text, site, limit=None):
             if name in ("PUSH32", "POP32"):
                 pieces += [source[cursor:begin], "FF_MEMORY_PUSH" if name == "PUSH32" else "FF_MEMORY_POP"]
                 cursor = scan = end; stats["stack"] += 1; continue
-            if name not in ACCESSORS: raise ValueError("Unsupported generated memory width")
             depth, closing = 1, opening + 1
             while closing < len(mask) and depth:
                 depth += (mask[closing] == '(') - (mask[closing] == ')'); closing += 1
             if depth: raise ValueError("Unclosed generated memory expression")
+            if name in ("XMM_MEM", "XMM_LOAD"):
+                before, after = mask[:begin].rstrip(), mask[closing:].lstrip()
+                write_or_escape = (
+                    (after.startswith(('+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '++', '--')) or
+                     (after.startswith('=') and not after.startswith('==')) or
+                     before.endswith(('++', '--')) or
+                     address_taken(before)))
+                if write_or_escape:
+                    raise ValueError("Vector load used in a write or escaped-pointer context")
+                address = rewrite(source[opening + 1:closing - 1], base + opening + 1).strip()
+                if not address: raise ValueError("Empty generated vector address")
+                block = site_at(base + begin)
+                # The translator appends the original mnemonic as a trailing
+                # comment. Alignment-requiring moves (movaps/movapd/movdqa and the
+                # non-temporal stores) fault on a misaligned guest address, so they
+                # keep an explicit alignment guard; movups/movupd/movdqu do not.
+                line_end = source.find('\n', closing)
+                tail = source[closing:line_end if line_end >= 0 else len(source)]
+                mnemonic = re.search(r"/\*\s*([A-Za-z0-9_.]+)\s*\*/", tail)
+                aligned = bool(mnemonic and mnemonic.group(1).lower() in ALIGNED_XMM)
+                access = (f"FF_MEMORY_SITE_VECTOR(({address}), 1u, 0x{block:08X}u)" if aligned
+                          else f"FF_MEMORY_SITE_POINTER(({address}), 16u, 1u, 0x{block:08X}u)")
+                # A generated read must be structurally non-writable: the const
+                # lvalue makes any store through it a compile error instead of a
+                # silent mutation of guest memory from a read instruction.
+                pieces += [source[cursor:begin], f"(*(const RecompXmm*){access})"]
+                stats["aligned" if aligned else "unaligned"] = stats.get("aligned" if aligned else "unaligned", 0) + 1
+                stats["reads"] += 1; used_sites.add(block); cursor = scan = closing
+                continue
+            if name == "XMM_STORE":
+                inner_start, inner = opening + 1, mask[opening + 1:closing - 1]
+                depth = 0; split = None
+                for index, char in enumerate(inner):
+                    if char == '(': depth += 1
+                    elif char == ')': depth -= 1
+                    elif char == ',' and depth == 0: split = index; break
+                if split is None: raise ValueError("Malformed generated vector store")
+                address = rewrite(source[inner_start:inner_start + split], base + inner_start).strip()
+                value_start = inner_start + split + 1
+                value = rewrite(source[value_start:closing - 1], base + value_start).strip()
+                if not address or not value: raise ValueError("Empty generated vector store")
+                block = site_at(base + begin)
+                line_end = source.find('\n', closing)
+                tail = source[closing:line_end if line_end >= 0 else len(source)]
+                mnemonic = re.search(r"/\*\s*([A-Za-z0-9_.]+)\s*\*/", tail)
+                aligned = bool(mnemonic and mnemonic.group(1).lower() in ALIGNED_XMM)
+                lhs = (f"(*(RecompXmm*)FF_MEMORY_SITE_VECTOR(({address}), 2u, 0x{block:08X}u))" if aligned
+                       else f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 2u, 0x{block:08X}u))")
+                stats["aligned" if aligned else "unaligned"] = stats.get("aligned" if aligned else "unaligned", 0) + 1
+                if "FF_MEMORY_SITE_POINTER" in value or MEMORY_TOKEN.search(value):
+                    temp = f"_ff_xmmtmp{xmm_temps[0]}"; xmm_temps[0] += 1
+                    pieces += [source[cursor:begin],
+                               f"{{ RecompXmm {temp} = {value}; {lhs} = {temp}; }}"]
+                else:
+                    pieces += [source[cursor:begin], f"{lhs} = ({value})"]
+                stats["writes"] += 1; used_sites.add(block); cursor = scan = closing
+                continue
+            if name not in ACCESSORS: raise ValueError("Unsupported generated memory width")
             before, after = mask[:begin].rstrip(), mask[closing:].lstrip()
             if before.endswith('&'):
                 # The pinned integer AND lifter emits "eax = eax & MEM32(...)".
@@ -195,7 +280,10 @@ def instrument_memory_accesses(text, site, limit=None):
     if limit is not None and scalar and not labels:
         raise ValueError("Generated function lacks checked basic-block labels")
     stats["sites"] = len(used_sites)
-    if re.search(r"\b(?:XBOX_PTR|XMM_\w+|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
+    for match in re.finditer(r"\b([Xx][Mm][Mm]_[A-Za-z0-9_]+)\s*\(", code_mask(converted)):
+        if match.group(1) not in PURE_XMM:
+            raise ValueError("Unadmitted raw guest pointer or memory helper")
+    if re.search(r"\b(?:XBOX_PTR|MMX_\w+|__atomic_\w+|__sync_\w+)\s*\(", code_mask(converted)):
         raise ValueError("Unadmitted raw guest pointer or memory helper")
     return converted, stats
 

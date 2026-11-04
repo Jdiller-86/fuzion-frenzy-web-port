@@ -28,7 +28,7 @@ def digest(data):
 
 
 def validate_instruction_count(count, limit=8192):
-    if type(limit) is not int or limit not in (8192,16384) or type(count) is not int or not 0<count<=limit:
+    if type(limit) is not int or limit not in (8192,16384,32768) or type(count) is not int or not 0<count<=limit:
         raise ValueError('Instruction count exceeds the explicit supported budget')
 
 
@@ -380,7 +380,7 @@ def main():
     parser.add_argument("--profile", required=True, type=Path)
     parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for checked exports (8 functions each)")
     parser.add_argument("--function-limit", type=int, choices=(64, 128, 256, 512), default=64, help="Explicit aggregate startup limit; 256/512 admit up to 32 export groups")
-    parser.add_argument("--instruction-limit", type=int, choices=(8192,16384), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
+    parser.add_argument("--instruction-limit", type=int, choices=(8192,16384,32768), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     args = parser.parse_args()

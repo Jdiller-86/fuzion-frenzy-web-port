@@ -1,43 +1,69 @@
-# PFIFO LOW_MARK has a reset producer in the pinned full reference
+# The pinned reset state passes the PFIFO low-mark wait; execution reaches 0x1FCB00
 
-Latest boundary update (A017, source `ccb53cb`): the lane reports executing the narrow helpers and stopping at ordinal2 AvSendTVEncoderOption, return `0x1FD429`; see [the AV contract task](AV_ENCODER_BOUNDARY_REVIEW.md). The added `pfifoStatus` fields expose the initialization seam, **not** live aperture state. Snapshot schema pairing does not complete the reset/width/control evidence or prove later DMA_PUSH/consumer state. The earlier helper-admission task below is retained history, not a request for another translation batch.
+November 4, 2026. The reached loop `0x1FE4D5` waits for `NV_PFIFO_CACHE1_STATUS.LOW_MARK` and `NV_PFIFO_RUNOUT_STATUS.LOW_MARK` with `NV_PFIFO_CACHE1_DMA_PUSH.STATE` clear. The pinned reference already supplies that state for an empty, unsubmitted cache: `nv2a_reset` zeroes the PFIFO register block and then sets `CACHE1_STATUS.LOW_MARK` (`hw/xbox/nv2a/nv2a.c:307-317`), and `pfifo_read` returns `RUNOUT_STATUS.LOW_MARK` for every read (`pfifo.c:51-52`). The pusher clears `LOW_MARK` only before a dispatch (`pfifo.c:340`) and sets it after processing (`pfifo.c:242-243`). The synthetic aperture had seeded both registers as zero, so the wait could never pass. Seeding the pinned reset values lets the original wait leave and advance to untranslated `0x1FCB00`. **There is no engine, renderer, timing source or playable screen.**
 
-## Current progress: source 12f4cf6, A016
+## Correction to the earlier contract
 
-The builder has implemented the default-off `pfifoReset` initial-state experiment and reports passing the LOW_MARK wait to a status2 untranslated boundary at `0x1FCB00` (caller `0x1FD4A8`, return `0x1FD4C4`). Canonical PMC and the engine-wait control retain their prior stops. This is lane-reported same-module synthetic-profile startup, not an architect-run title test or execution of the untranslated body.
+The prior handoff said the reference did not model the empty-cache reset state and that only a consumer could produce `LOW_MARK`. That was incomplete: it read `pfifo.c` but missed `nv2a.c:307-317`. The reference does model it, as a reset initialization rule, not a consumer update. The corrected contract is in [the engine handoff](PFIFO_ENGINE_HANDOFF.md).
 
-Actual startup wiring initializes a fresh seam, applies the projection once and copies two initial values into the aperture. It does not read/advance GET or PUT or consume commands. GLM component review supports this scope, and the architect directly verified the probe ordering. The helper's OR semantics **must not be presented as a general reset of dirty state**: restrict its stated contract to immediately following zeroed `ff_pfifo_status_init`, and retain the separate reference RUNOUT read semantics. Before complete A015 acceptance, add the already-requested owned U8/U32 aperture consistency assertion and document all flags in a control pair differing only in `pfifoReset`. Identical call traces are not a general memory-equality proof. These are narrow contract/coverage corrections, not a request to build a reset subsystem.
+## Source-owned adapter
 
-Independent candidate checks pass: publication guard (328 files), runtime133/133 with no skips, native14/14 plain/sanitizer runs, evidence4/4 suites. Node24.22.1 differs from exact pin24.14.0. Full source branch is not integration-approved. Next admission is only the actually reached `0x1FCB00` and demonstrably necessary bounded dependencies from retained seeds/project; no speculative closure/frontier batch. Preserve the controls and every original-execution/local-content guard.
+- `src/runtime/pfifo_status.h/.c` adds `ff_pfifo_status_reference_reset`. It ORs `LOW_MARK` into `cache1_status` and `runout_status`, leaves `dma_push` and `consumer_updates` untouched, adds no capability and is idempotent. It is initialization-only: never called from a poll or a read.
+- `tools/fixtures/thread_startup_probe.c` adds the default-off `ff_probe_mmio_pfifo_reset` control. When selected, it applies the adapter once during aperture initialization and seeds `0xFD003214` and `0xFD002400` from the seam. The injection is at initialization, not from polling, and the adapter has no GET, PUT or guest-memory access.
+- `src/runtime/local-title-proof.mjs` accepts the literal `device.pfifoReset: true`; `describeMmioExperiments` reports `pfifoReset`; `proof-report.mjs` accepts the name and requires `pfifoResetState` exactly when `pfifoReset` is declared, so the report cannot show the proof without the input or claim the input without the proof; the worker sets the control before the aperture is admitted. The canonical profile leaves it off and remains fail-closed.
 
-## Retained reference evidence and A015 task
+## Scope, width and control
 
-November 4, 2026. Source review, not original execution. This corrects source `897e389`'s producer-free contract: a non-empty submission is **not** the only reference-supported route to `CACHE1_STATUS.LOW_MARK`. No adapter or runtime change is included here, and there is no controllable original screen.
+- **Scope**: the adapter writes only `CACHE1_STATUS` and `RUNOUT_STATUS`. `DMA_PUSH`, `DMA_GET`, `DMA_PUT` and guest memory are untouched; the report shows `dmaPush: 0` because the seam field was never written.
+- **Width**: only `LOW_MARK` (bit 4) in the low byte is set. The guest's U8 reads observe `0x10`, and the native test confirms unrelated bits are preserved. The aperture keeps the 32-bit store and serves the guest's byte access through its checked width path.
+- **Control**: default-off, one-shot (`resets === 1`), initialization-only, and never called from a poll or read. The profile parser rejects combining it with `engineWait`, because the wait would read the seeded `LOW_MARK` and stop naming the blocking predicate. Sub-dword reads and writes are covered by the device-register tests, and the reset run's log reads `CACHE1_STATUS = 0x10` through the guest's U8 access.
 
-## Independently verified reference path
+## Later: 0x1FCB00 is admitted
 
-Public xemu pin: `dc10b4cea96e403d30c17ed53551fdaf023bc17f`.
+Translation `recomp-title-recomp-title-post-memory-48` admits the reached helper `0x1FCB00` (10 instructions, no calls) for 416 functions / 17,294 instructions. Module `recomp-post-memory-build-70`, SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a8cc7f847fab3d9235f89ea0434dfb22`. The reset run now executes the helper and stops at the next reached helper, untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations). The table below remains the pre-admission measurement.
 
-- [`hw/xbox/nv2a/nv2a.c`](https://github.com/xemu-project/xemu/blob/dc10b4cea96e403d30c17ed53551fdaf023bc17f/hw/xbox/nv2a/nv2a.c#L289-L337): `nv2a_reset` clears the PFIFO register array at line 307, then sets `NV_PFIFO_CACHE1_STATUS_LOW_MARK` at line 317. Thus the reference's post-reset cache status is **0x10, not zero**, before processing any method. The OR operation at line 317 follows the array clear; it is not evidence that unrelated pre-reset register values survive reset.
-- Same file lines 387–390: `nv2a_reset_hold` calls `nv2a_reset`. Class initialization registers that callback in the reset hold phase at line 614. This establishes a reset implementation path, not a live reset observation.
-- [`hw/xbox/nv2a/pfifo.c`](https://github.com/xemu-project/xemu/blob/dc10b4cea96e403d30c17ed53551fdaf023bc17f/hw/xbox/nv2a/pfifo.c#L160-L245): lines 170–173 gate the puller on access and LOW_MARK; lines 242–245 set LOW_MARK after positive method progress. That latter write is **not the only producer**.
-- Same file lines 299–305: GET==PUT stops the pusher without reading a word; lines 339–341 clear LOW_MARK before dispatch. An empty queue does not erase the separately initialized reset status.
-- Same file lines 51–52 returns RUNOUT_STATUS.LOW_MARK. This is reference behavior, not a measured hardware reset value. DMA_PUSH.STATE is distinct from suspended STATUS and remains stored state in the reference.
+## Later: 0x1FD42F is admitted; the next stop is ordinal 2
 
-The architect fetched these exact public files and checked the reset body/callback/registration, and an independent GLM reviewer corroborated the pin and paths. No retained private artifact, title bytes or game-derived pseudocode was accessed.
+Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for 418 functions / 17,353 instructions. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`. The reset run now stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The next dependency is the kernel service, not a translation target.
 
-## Consequence for the source contract
+## Later: the option-6 AV model is withdrawn
 
-Source `897e389` correctly records an empty-ring profile and no demonstrated first dispatchable method, but its statements that the reference reset status is zero, that LOW_MARK only follows consumption, and that the reference must wait on this predicate with an empty ring are false. Its conclusion should distinguish **reset initialization**, **later consumption transitions**, and **unknown original hardware state**. The original title trace still does not prove an actual dispatch, and the reference reset does not establish hardware fidelity or a real display clock.
+The explicit AV-pack profile, `composeAvPackWord`, the probe handler and the report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`, while the pinned `xboxrecomp-source` maps it to `AV_OPTION_QUERY_AVPACK`. The replacement semantics differ, so neither establishes the original behavior; the reset run stays at **status 1**, target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
 
-The missing reset rule is a credible, source-supported explanation of the artificial wait. It justifies a bounded **opt-in reference-reset experiment**, not forcing completion during polling. A014's prohibition on arbitrary empty-ring completion stays intact; A015 permits only the specifically evidenced initial-state rule under explicit provenance and controls.
+## Proof requested by the architect
 
-## Authorized next task: primary lane, bounded adapter
+| property | evidence |
+| --- | --- |
+| initial `LOW_MARK` with zero consumer updates | `tests/pfifo_status_test.c` applies the adapter to an initialized seam: both status registers read `0x10`, `consumer_updates == 0`, and `satisfied` is nonzero with a clear `DMA_PUSH.STATE`. |
+| unchanged GET/PUT/command memory | The adapter only changes two status words. The canonical, `engineWait` and `pfifoReset` reports contain the same `DMA_PUT`/`DMA_GET` writes (`0` at `0x20005A`, `0x20027C`, `0x20047F`); the executed trace up to and including the first enter of the wait function `0x1FE4D5` is identical in the canonical and reset runs (3,837 events), so the command-building path before the wait is unchanged. No adapter code touches guest memory. |
+| repeat initialization | The native test calls the adapter twice on the same seam and asserts identical values and still zero consumer updates. |
+| preserved controls | Canonical still stops at status 10 on `0xFD000100`; the `engineWait` control still stops at status 12 on `0xFD003214`. |
+| no injection from polling | The adapter is called once in `ff_probe_mmio_profile`, before the guest runs; no read or status-wait path calls it. |
+| end-to-end report | The reset run reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. `proof-report.mjs` rejects any report with a consumer update, more than one reset, or a missing `LOW_MARK`, and requires `pfifoResetState` exactly when `pfifoReset` is declared, so the invariant and its declaration cannot diverge. |
 
-1. Correct `PFIFO_ENGINE_HANDOFF.md`, status and decision wording, including the stale claim that an unestablished third engine lane owns the work. Primary remains the owner.
-2. Reuse the existing PFIFO status seam. Add an explicit reference-reset configuration/initializer for only its owned state, with provenance to the public pin. Do not change the default zero/unsupported behavior or claim to implement full NV2A reset. Initialization happens before guest execution or at a separately evidenced reset event, never after a poll budget expires or because GET==PUT.
-3. Owned fixture acceptance: after explicit initialization, cache LOW_MARK is set, DMA_PUSH.STATE is clear, the reference runout read rule is separate and explicit, consumer-update count is zero, and GET/PUT and command memory are unchanged. Verify repeat initialization and the seam's reset scope; do not carry unrelated pre-reset register bits into a claimed reference reset. Byte/word observations of the modeled register must agree. Unsupported modes/addresses and resource limits remain fail-closed.
-4. Preserve the existing non-opt-in control. If retained local inputs are available to the primary lane, compare identical modules/profiles with only this reset option differing (the same declared display-event experiment, if needed, in both). Report whether the predicate releases and the next genuine stop, with transition provenance. No new original submission, method, consumer progress or GET advancement may be invented. Capacity stops are not engine progress.
-5. Keep canonical PMC fail-closed. Front-loaded PCRTC pending state, causal scanout timing, CPU IRQ delivery and rendering remain separate unproved contracts. Undefined PFIFO +0x500/+0x80 accesses gain no inferred semantics from this reset finding.
+## Retained profile comparison
 
-No frontier batch, additional generic evidence tools, full emulator, topology expansion or changes to global settings/runners are authorized. If the narrow reset experiment fails, retain its evidence and stop at the next named dependency instead of enlarging the model speculatively.
+Module `recomp-post-memory-build-70`, SHA-256 `4b8c2688519cb4338c32cf82479a909c41a4cb1d15d0bce7d1b25b54b5185874`.
+
+| profile | stop | routines | kernel ops | device events |
+| --- | --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
+| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
+| `pfifoReset` | **status 2 at `0x1FCB00`** (return `0x1FD4C4`) | 276 | 404 | 12,584 |
+
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, leaves the wait on the first iteration, and stops at untranslated `0x1FCB00`. The reachability filter reports `entered = 1` for `0x1FCB00` (called by `0x1FD4A8`), so the next admission is evidence-based rather than speculative.
+
+## Limits
+
+- The reset value is from the authorized reference, not an original-console capture.
+- It does not model a consumer, a non-empty submission, rendering, timing or fidelity.
+- The title still stops at the next untranslated routine, and no frontier expansion was performed this cycle.
+- `pfifoReset` and `engineWait` are separate experiments and should not be combined.
+
+## Validation
+
+`npm run test:native` 14/14 (status seam in optimized and ASan/UBSan); `npm run test:evidence` 4/4; runtime suite 134/134; title-seed 25/25; `npm run check` and whitespace checks pass. The private module, profiles and reports remain local and ignored.
+
+## Next task
+
+Obtain original-console or otherwise authoritative evidence for the ordinal-2 option-6 semantics, or a definitive adjudication of the Cxbx/`xboxrecomp-source` conflict. Keep the canonical profile fail-closed, do not invent an AV pack default, and do not infer encoder behavior or display timing from the call alone.

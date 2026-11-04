@@ -67,5 +67,40 @@ uint32_t ff_fatx_lookup(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint
                         uint32_t flags,ff_fatx_directory_entry *entry);
 uint32_t ff_fatx_read_path(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
                            uint32_t flags,uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Source-owned overwrite of an existing file's declared byte range. It writes
+ * only into already-backed clusters/pages; it does not allocate, extend,
+ * create, delete or remount. A preflight verifies the whole chain and every
+ * destination page before any byte is written, so an unsupported or missing
+ * backing leaves the file unchanged. The mount revision is refreshed on
+ * success. This is not a guest file service. */
+uint32_t ff_fatx_write_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
+                             uint32_t offset,const uint8_t *input,uint32_t bytes,uint32_t *written);
+/* Source-owned creation of an empty file (attribute 0x20) in an existing
+ * directory. It writes only the 64-byte directory entry; it does not allocate
+ * clusters, create directories or serve a guest request. A duplicate name,
+ * full directory, invalid name/path or missing backing page stops without a
+ * partial entry. */
+uint32_t ff_fatx_create_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                              const uint8_t *name,uint32_t name_bytes,
+                              ff_fatx_directory_entry *created);
+/* Source-owned creation of a single-cluster file (1..cluster_bytes) in an
+ * existing directory. It allocates exactly one free FAT cluster, preflights and
+ * writes the data through the bounded page store, sets the FAT terminator and
+ * records first cluster/size in the directory entry. It does not create
+ * directories, extend beyond one cluster, free clusters or serve a guest
+ * request. */
+uint32_t ff_fatx_create_file(ff_fatx_volume *,uint32_t mount,
+                             const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                             const uint8_t *name,uint32_t name_bytes,
+                             const uint8_t *data,uint32_t bytes,
+                             ff_fatx_directory_entry *created);
+/* Source-owned deletion of an empty file (size 0, first cluster 0) by path.
+ * It marks the matching directory entry deleted; it does not free clusters,
+ * delete directories, change the FAT or serve a guest request. Non-empty files,
+ * directories, missing paths and invalid requests are rejected without a
+ * partial write. */
+uint32_t ff_fatx_delete_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *path,uint32_t path_bytes,uint32_t flags);
 int ff_fatx_owns_handle(uint32_t);
 #endif

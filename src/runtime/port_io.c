@@ -13,3 +13,13 @@ uint32_t ff_port_io_write(ff_port_io *io, uint32_t port, uint32_t value, uint32_
         io->events[io->count++] = (ff_port_event){port & 0xFFFFu, value, width};
     return 0;
 }
+
+uint32_t ff_port_io_read(ff_port_io *io, uint32_t port, uint32_t width, uint32_t *value)
+{
+    if (!io || !value || (width != 1u && width != 2u && width != 4u)) return 1;
+    port &= 0xFFFFu;
+    if (port != 0x80C0u) return 1;
+    ++io->reads;
+    *value = (io->reads & 1u) << 5;
+    return 0;
+}

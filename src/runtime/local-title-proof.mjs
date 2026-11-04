@@ -3,6 +3,7 @@ import { inspectProofWasm } from './wasm-proof.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
+  size: 2834432,
   sha256: '45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9',
   entry: 0x30f7f, threadWrapper: 0x3439f, tlsSize: 0x3191b4,
   threadStart: 0x30f10, systemStart: 0x34307, kernelReturn: 0x343de, ordinal: 255
@@ -34,7 +35,9 @@ export function parseLocalNvConsoleSettings(buffer) {
 
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024,4096,8192].includes(capacity) ||
+      (capacity===4096 || capacity===8192) && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.()))
+    throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
@@ -145,7 +148,16 @@ export function parseLocalRawDiskVolumes(buffer) {
 export function parseLocalMmioProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const device = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).device;
+  /* A misspelled experimental flag would silently leave the run on a different
+   * model than the profile intends, so unknown device keys fail closed. */
+  const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'avQueryWord'];
+  if (device && typeof device === 'object' &&
+      Object.keys(device).some(key => !deviceKeys.includes(key))) {
+    throw new Error('Unknown synthetic register profile key');
+  }
   const entries = device?.registers, window = device?.window;
+  const pfifoReset = device?.pfifoReset === true;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
@@ -165,8 +177,8 @@ export function parseLocalMmioProfile(buffer) {
     throw new Error('Register storage must declare distinct reached device addresses');
   }
   const rawRanges = device.zeroRanges ?? [];
-  if (!Array.isArray(rawRanges) || rawRanges.length > 4)
-    throw new Error('Use at most four explicit synthetic zero ranges');
+  if (!Array.isArray(rawRanges) || rawRanges.length > 8)
+    throw new Error('Use at most eight explicit synthetic zero ranges');
   const zeroRanges = [];
   for (const range of rawRanges) {
     if (!Number.isInteger(range?.address) || (range.address & 3) || !Number.isInteger(range?.bytes) ||
@@ -177,8 +189,60 @@ export function parseLocalMmioProfile(buffer) {
     }
     zeroRanges.push({ address: range.address, bytes: range.bytes });
   }
+  const writeClearing = device.writeClearing === true;
+  /* Experimental only: serving NV_PMC_INTR_0 as a zero status register is a
+   * diagnostic, not evidence that the device delivers interrupts. The reached
+   * code never acknowledges this register (its only store is zero), so nothing
+   * here may be treated as a completion or acknowledge rule. */
+  const pmcZero = device.pmcZero === true;
+  const pcrtcVblanks = Number.isInteger(device.pcrtcVblanks) && device.pcrtcVblanks >= 0 &&
+    device.pcrtcVblanks <= 64 ? device.pcrtcVblanks : 0;
+  const engineWait = device.engineWait === true;
+  /* The reset seed and the engine-wait diagnostic observe the same registers and
+   * must not be combined: the wait would read the seeded LOW_MARK and stop
+   * naming the blocking predicate. */
+  if (pfifoReset && engineWait)
+    throw new Error('The pfifoReset and engineWait diagnostics are mutually exclusive');
+  /* Explicit synthetic raw DWORD for the observed ordinal-2 query. It is never
+   * composed from settings and has no default; an absent field leaves the
+   * service unsupported. */
+  const avQueryWord = device.avQueryWord;
+  if (avQueryWord !== undefined &&
+      (!Number.isInteger(avQueryWord) || avQueryWord < 0 || avQueryWord > 0xffffffff))
+    throw new Error('The synthetic AV query word must be an explicit 32-bit value');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
-    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges };
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
+    pcrtcVblanks, engineWait, pfifoReset, avQueryWord };
+}
+
+/* Every experimental device input the selected profile turns on, so a report can
+ * state what model produced it instead of leaving it implicit. */
+export function describeMmioExperiments(profile) {
+  if (!profile) return [];
+  const active = [];
+  if (profile.writeClearing) active.push('writeClearing');
+  if (profile.pmcZero) active.push('pmcZero');
+  if (profile.pcrtcVblanks) active.push(`pcrtcVblanks:${profile.pcrtcVblanks}`);
+  if (profile.engineWait) active.push('engineWait');
+  if (profile.pfifoReset) active.push('pfifoReset');
+  if (profile.avQueryWord !== undefined) active.push('avQuery');
+  return active;
+}
+
+/* Summarise the synthetic avQuery input from a startup report without upgrading
+ * the result: a completed call, a denial, or a configured prequery. */
+export function describeAvQueryOutcome(report) {
+  if (!report || !Array.isArray(report.experiments) || !report.experiments.includes('avQuery'))
+    return '';
+  const hex = value => Number.isInteger(value)
+    ? '0x' + (value >>> 0).toString(16).toUpperCase().padStart(8, '0') : '?';
+  const calls = Array.isArray(report.calls)
+    ? report.calls.filter(call => call && call.ordinal === 2) : [];
+  const success = calls.find(call => call.status === 0 && call.output && Number.isInteger(call.output.rawWord));
+  if (success) return ` AV query completed: ${hex(success.output.rawWord)} at ${hex(success.output.address)}.`;
+  if (calls.some(call => call.status === 1))
+    return ` AV query denied/unsupported at ordinal 2 (configured ${hex(report.avQueryWord)}).`;
+  return ` AV query configured (${hex(report.avQueryWord)}) but not reached (prequery).`;
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);
