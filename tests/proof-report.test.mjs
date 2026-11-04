@@ -65,6 +65,9 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0] }],
   })), /four observed arguments/);
   assert.throws(() => validateProofReport(report({
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264] }],
+  })), /must not report success/);
+  assert.throws(() => validateProofReport(report({
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { packWord: 0 } }],
   })), /must not carry an output/);
 });

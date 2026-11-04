@@ -15,6 +15,7 @@
 #define READ_WRITE_BASE 0x00020000u
 #define ONE_PAGE_BASE 0x00030000u
 #define UNMAPPED_BASE 0x00040000u
+#define VM_END_PAGE 0x0004F000u
 #define REGION_END 0x00050000u
 
 static uint8_t ram[REGION_END];
@@ -54,6 +55,7 @@ int main(void)
     assert(ff_vm_map_fixed(&vm, READ_ONLY_BASE, READ_WRITE_BASE - READ_ONLY_BASE, 0x02u) == 0);
     assert(ff_vm_map_fixed(&vm, READ_WRITE_BASE, ONE_PAGE_BASE - READ_WRITE_BASE, 0x04u) == 0);
     assert(ff_vm_map_fixed(&vm, ONE_PAGE_BASE, FF_VM_PAGE, 0x04u) == 0);
+    assert(ff_vm_map_fixed(&vm, VM_END_PAGE, FF_VM_PAGE, 0x04u) == 0);
 
     /* Two distinct synthetic DWORDs are written exactly in little-endian order,
      * and each granted write leaves its neighbours untouched. */
@@ -115,6 +117,12 @@ int main(void)
     fill(ONE_PAGE_BASE + FF_VM_PAGE - 4u, 0xAA);
     assert_denied(ONE_PAGE_BASE + FF_VM_PAGE - 2u, 0x00400104u);
     assert_span(ONE_PAGE_BASE + FF_VM_PAGE - 4u, 0xAA);
+
+    /* Two bytes fall inside the last committed page and two beyond the VM's
+     * declared size: the bounds check denies the whole span. */
+    fill(VM_END_PAGE + FF_VM_PAGE - 8u, 0xAA);
+    assert_denied(VM_END_PAGE + FF_VM_PAGE - 2u, 0x00400104u);
+    assert_span(VM_END_PAGE + FF_VM_PAGE - 8u, 0xAA);
 
     /* The same page still accepts a query wholly inside its committed span. */
     ff_av_query_arguments inside = query(ONE_PAGE_BASE + FF_VM_PAGE - 4u, 0x00800301u);

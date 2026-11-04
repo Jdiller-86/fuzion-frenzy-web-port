@@ -136,6 +136,8 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
+      if (call.status === 0)
+        throw new Error('An unsupported ordinal-2 call must not report success');
       if (call.output !== undefined)
         throw new Error('Unsupported ordinal-2 calls must not carry an output word');
     }

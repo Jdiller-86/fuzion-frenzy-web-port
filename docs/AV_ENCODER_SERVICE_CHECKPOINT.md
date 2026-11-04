@@ -36,13 +36,13 @@ From the retained translation `ff_title_001FD410` and the reset report:
 | required inputs | A 4-byte writable guest output word at `0x203720`; no encoder handle is passed (first argument `0`). |
 | other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; the pinned header names `0xB` `AV_OPTION_FLICKER_FILTER` and `9` `AV_OPTION_QUERY_AV_CAPABILITIES`, while `0xF` is not defined there. These are different call sites and do not define option 6. |
 
-The reset report records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature. No output word or return value is supplied. `proof-report.mjs` requires exactly four observed arguments and rejects any output on an unsupported ordinal-2 call.
+The reset report records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature. No output word or return value is supplied. `proof-report.mjs` requires exactly four observed arguments, rejects any output on an unsupported ordinal-2 call, and rejects a status-0 call so the unsupported service cannot be reported as successful.
 
 ### Unconnected numeric-6 component
 
 `src/runtime/av_query.h/.c` is one reusable, unconnected component for the observed `(0, 6, 0, Result)` shape. It checks `RegisterBase == 0`, numeric option `6` and `Param == 0`, requires a complete caller-supplied synthetic DWORD with no default, and writes it only when `ff_vm_check` grants the whole four-byte span on a real `ff_virtual_memory` window. A denial leaves every byte unchanged. It supplies no guest return value and mutates no CPU or stack state.
 
-`tests/av_query_fixture_test.c` calls that component directly, not a duplicate writer. Two distinct DWORDs must appear verbatim in little-endian order; wrong option/base/param, read-only, unaligned, null, unmapped and page-crossing spans must be denied with the surrounding eight bytes unchanged. It is compiled in the native component suite but is not linked to the probe, a service handler or any runtime path.
+`tests/av_query_fixture_test.c` calls that component directly, not a duplicate writer. Two distinct DWORDs must appear verbatim in little-endian order; wrong option/base/param, read-only, unaligned, null, unmapped, page-crossing and VM-end-crossing spans must be denied with the surrounding eight bytes unchanged. It is compiled in the native component suite but is not linked to the probe, a service handler or any runtime path.
 
 ## Measured result
 
