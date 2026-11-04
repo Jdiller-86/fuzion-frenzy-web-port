@@ -809,7 +809,7 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
-static uint32_t mmio_write_clearing, mmio_pmc_zero;
+static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait;
 /* Explicitly experimental: the selected profile must opt in to modelling an
  * acknowledging store, and the same profile without it is the control run. */
 uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
@@ -827,6 +827,15 @@ uint32_t ff_probe_mmio_pmc_zero(uint32_t enable)
 {
     if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
     mmio_pmc_zero = enable;
+    return 0;
+}
+/* Explicitly experimental: declare the three PFIFO status registers the reached
+ * loop tests as status inputs, so the report names the predicate that blocks the
+ * exit instead of ending at the bounded event log. Nothing is raised here. */
+uint32_t ff_probe_mmio_engine_wait(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_engine_wait = enable;
     return 0;
 }
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
@@ -854,6 +863,13 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
      * a status input means the polling loop is reported as a device wait instead
      * of silently consuming the bounded event log until it fills. */
     if(mmio_pmc_zero && (status=ff_device_registers_add_status_wait(&device_registers,0xFD000100u,0x01000000u)))return status;
+    /* The reached loop's exit also needs PFIFO engine status: CACHE1_STATUS and
+     * RUNOUT_STATUS bit 0x10 set, CACHE1_DMA_PUSH bit 0x10 clear. Declaring them
+     * names the blocking predicate; no bit is raised. */
+    if(mmio_engine_wait &&
+       ((status=ff_device_registers_add_status_wait(&device_registers,0xFD003214u,0x10u)) ||
+        (status=ff_device_registers_add_status_wait(&device_registers,0xFD002400u,0x10u)) ||
+        (status=ff_device_registers_add_status_wait(&device_registers,0xFD003220u,0x10u)))) return status;
     if(!mmio_write_clearing) return 0;
     /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
      * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it

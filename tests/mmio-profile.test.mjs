@@ -67,6 +67,11 @@ test('experimental register controls default off and require an explicit true', 
   for (const value of [0.5, -1, 65, '8', true, {}]) {
     assert.equal(parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: value })).pcrtcVblanks, 0);
   }
+  /* The engine-wait diagnostic is a literal opt-in as well. */
+  assert.equal(parseLocalMmioProfile(bytes(reached, { engineWait: true })).engineWait, true);
+  for (const value of [1, 'true', {}, []]) {
+    assert.equal(parseLocalMmioProfile(bytes(reached, { engineWait: value })).engineWait, false);
+  }
 });
 
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {

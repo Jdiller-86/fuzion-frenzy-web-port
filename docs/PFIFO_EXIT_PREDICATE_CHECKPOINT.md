@@ -36,16 +36,28 @@ So the interrupt half of the wait is now modelled and observed; the loop's exit 
 
 `ff_probe_pcrtc_word` exposes the component state (ready, pending, enabled, supplied events) and the worker reports it as `pcrtc` when present, so every run states whether the display path was exercised and what it left pending. The canonical run reports nothing, which is the fail-closed default.
 
+## Measured predicate order (engine-wait diagnostic)
+
+A new literal profile flag, `device.engineWait`, declares those three registers as status inputs through the existing `ff_device_registers_add_status_wait`, so a run names the blocking predicate instead of ending at the bounded log. With `pcrtcVblanks: 1` and `engineWait: true` the run stops at **status 12 on `0xFD003214`** (read) and the report shows:
+
+| declared input | mask | last value | reads | outcome |
+| --- | --- | --- | --- | --- |
+| `0xFD003214` `NV_PFIFO_CACHE1_STATUS` | `0x10` | `0` | 65 | **tripped first** |
+| `0xFD002400` `NV_PFIFO_RUNOUT_STATUS` | `0x10` | `0` | 0 | never reached |
+| `0xFD003220` `NV_PFIFO_CACHE1_DMA_PUSH` | `0x10` | `0` | 64 | polled, unchanged |
+
+`pcrtc` reports `{ pending: 0, enabled: 1, events: 1 }`, i.e. the display interrupt was acknowledged and the loop moved on to the engine predicate. So `CACHE1_STATUS` bit `0x10` is the first unmet condition, `DMA_PUSH` is polled too, and `RUNOUT_STATUS` is not even examined before the first predicate fails.
+
 ## Module and runs
 
-Module `recomp-post-memory-build-70`: SHA-256 `1e56dbbd74350e6b85a0c605c4fa8e3324bac33764bbe5353d07398a904f72c6`.
+Module `recomp-post-memory-build-70`: SHA-256 `f3ef45b3ae556d78338ec44ea1dbf2c77e8daaf2bbcb3fc4d41a9ba5e137e164`.
 
 | profile | stop | routines | trace | device events | `pcrtc` |
 | --- | --- | --- | --- | --- | --- |
 | canonical | status 10 on the unmodeled `0xFD000100` read | 276 | 3,839 | 12,535 | absent |
-| `pcrtcVblanks: 8` | status 15 on a write to `0xFD002500` | 276 | 7,886 | 32,768 | `{ pending: 0, enabled: 1, events: 8 }` |
+| `pcrtcVblanks: 1`, `engineWait` | **status 12 at `0xFD003214`** | 276 | 3,965 | 13,163 | `{ pending: 0, enabled: 1, events: 1 }` |
 
-Both report 83/83 initializers, 403 kernel operations and `timerCheck = 0`. The experiment ends at the bounded device-event log while the guest services PFIFO channel work; that is capacity, not progress.
+Both report 83/83 initializers, 403 kernel operations and `timerCheck = 0`. The engine-wait run stops on the predicate itself, well below the event-log bound, so the boundary no longer has to be inferred from capacity.
 
 ## Limits
 
@@ -54,6 +66,18 @@ No vblank timing, no PFIFO consumer, no engine, no pushbuffer consumption, no in
 ## Validation
 
 PCRTC component test optimized and ASan/UBSan; device-register, compiled real-VM vector, 16-byte checked-pointer, kernel-timer and port tests optimized; generator-to-compiled regression 2/2; Python memory-access 12/12; runtime suite 112/112; title-seed 25/25; `npm run check` and whitespace checks pass.
+
+## Measured predicate order
+
+A new literal profile flag, `device.engineWait`, declares those three registers as status inputs through the existing `ff_device_registers_add_status_wait`, so a run names the predicate that blocks the exit instead of ending at the bounded log. With `pcrtcVblanks: 1` and `engineWait: true` the run stops at **status 12 on `0xFD003214`** (read) and the report shows:
+
+| declared input | mask | last value | reads | outcome |
+| --- | --- | --- | --- | --- |
+| `0xFD003214` `NV_PFIFO_CACHE1_STATUS` | `0x10` | `0` | 65 | **tripped first** |
+| `0xFD002400` `NV_PFIFO_RUNOUT_STATUS` | `0x10` | `0` | 0 | never reached |
+| `0xFD003220` `NV_PFIFO_CACHE1_DMA_PUSH` | `0x10` | `0` | 64 | polled, unchanged |
+
+`pcrtc` reports `{ pending: 0, enabled: 1, events: 1 }`: the display interrupt was enabled, delivered and acknowledged, and the loop moved on to the engine predicate. The order is therefore measured, not inferred from the disassembly, and the boundary is reached below the event-log bound.
 
 ## Next task
 
