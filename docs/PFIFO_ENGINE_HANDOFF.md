@@ -162,7 +162,7 @@ The reset rule is wired through the existing `ff_pfifo_status` seam as a separat
 - `device.pfifoReset: true` selects it. The probe applies the adapter once during aperture initialization and seeds the two status registers from the seam; the canonical profile leaves it off and stays fail-closed.
 - The adapter has no GET, PUT or guest-memory access: it changes two status words only. The retained runs confirm the `DMA_PUT`/`DMA_GET` writes are byte-for-byte identical across the canonical, `engineWait` and `pfifoReset` profiles.
 
-Measured with module `recomp-post-memory-build-70` (SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`):
+Measured with module `recomp-post-memory-build-70` (SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`):
 
 | profile | stop | routines | kernel ops | device events |
 | --- | --- | --- | --- | --- |

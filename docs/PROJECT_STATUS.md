@@ -1,4 +1,10 @@
-# The AvSendTVEncoderOption stop is now self-describing and explicitly unmodeled
+# The attempted AvSendTVEncoderOption call is now recorded with its arguments
+
+November 4: the next bounded prerequisite captures the missing service evidence without modeling it. When an unsupported kernel import is reached, the probe records the attempted call and its four observed call-frame words before stopping; the worker maps ordinal 2 to four arguments. The reset report now carries `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }` alongside `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }` and the status-1 stop at `0xFE000094`. No return value or encoder behaviour is supplied. The module was rebuilt with the probe change (SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`). Controls are unchanged: canonical status 10 at `0xFD000100`, `engineWait` status 12 at `0xFD003214`, and `pcrtc` status 15 at `0xFD003214`. **There is no controllable original screen.**
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The AvSendTVEncoderOption stop is now self-describing and explicitly unmodeled
 
 November 4: the next bounded prerequisite makes the kernel-service boundary explicit. `src/runtime/kernel-service.mjs` names ordinal 2 as `AvSendTVEncoderOption` and implements nothing. A status-1 stop now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects a descriptor on any other stop, so the boundary cannot be reported as modeled or omitted. The retained reset report validates, and `tests/kernel-service.test.mjs` plus the new `proof-report` cases cover the descriptor and the rejections. No encoder behaviour, return value, timing or display state is invented. **There is no controllable original screen.**
 

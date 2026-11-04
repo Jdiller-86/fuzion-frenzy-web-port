@@ -24,7 +24,7 @@ Translation `recomp-title-recomp-title-post-memory-48` admits the reached helper
 
 ## Later: 0x1FD42F is admitted; the next stop is ordinal 2
 
-Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for 418 functions / 17,353 instructions. Module `recomp-post-memory-build-70`, SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`. The reset run now stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The next dependency is the kernel service, not a translation target.
+Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for 418 functions / 17,353 instructions. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`. The reset run now stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The next dependency is the kernel service, not a translation target.
 
 ## Proof requested by the architect
 

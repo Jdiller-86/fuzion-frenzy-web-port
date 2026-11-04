@@ -10,7 +10,7 @@ The frontier now has 99 placeholders (98 referenced), but the run enters **0** o
 - `0x1FD42F` calls `0x1FD410`; `0x1FD410` calls ordinal 2 through IAT `0x00253450`. No other dependency was added.
 - `tools/verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
 - `tools/verify-translation.py`: 0 functions needing rewriting.
-- Module `recomp-post-memory-build-70`, SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`.
+- Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
 
 ## Measured result
 

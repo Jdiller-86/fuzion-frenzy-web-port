@@ -1,4 +1,10 @@
-# Continue from the self-describing AvSendTVEncoderOption stop
+# Continue from the recorded AvSendTVEncoderOption call evidence
+
+The latest bounded prerequisite records the attempted unsupported call before the fail-closed stop. The probe writes `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }` into the standard call list; the worker maps ordinal 2 to four arguments. The report still stops with status 1 at `0xFE000094` and carries the non-modeled service descriptor; no return value or encoder behaviour is supplied. The module was rebuilt with the probe change (SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`). Controls are unchanged: canonical status 10 at `0xFD000100`, `engineWait` status 12 at `0xFD003214`, and `pcrtc` status 15 at `0xFD003214`. The next decision is whether to model the service from an authorized reference or take another prerequisite; do not guess.
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it.
+
+## Prior: the self-describing AvSendTVEncoderOption stop
 
 The latest bounded prerequisite makes the unsupported-service boundary explicit without implementing it. `src/runtime/kernel-service.mjs` names ordinal 2 as `AvSendTVEncoderOption` and never supplies a return value. The worker includes `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }` on a status-1 stop; `proof-report.mjs` requires that descriptor for every status-1 stop and rejects it on any other stop. The retained reset report validates. `tests/kernel-service.test.mjs` and the new `proof-report` cases cover the descriptor and the rejections; runtime suite 138/138. The next genuine stop remains ordinal 2 at `0xFE000094`; do not guess encoder behaviour.
 

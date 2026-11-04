@@ -1757,6 +1757,14 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_NAMESPACE_PROOF
         if (ordinal == 67) return create_symbolic_link;
 #endif
+        /* Record the attempted unsupported service with its observed call-frame
+         * arguments, then stop. No return value is supplied and nothing is
+         * modeled; the row makes the boundary inspectable in the report. */
+        {
+            uint32_t *row = kernel_record(ordinal, 4);
+            row[1] = 1;
+            for (uint32_t i = 0; i < 4; ++i) row[2 + i] = MEM32(g_esp + 4u + i * 4u);
+        }
         stop(1, address, ordinal);
     }
     return 0;
