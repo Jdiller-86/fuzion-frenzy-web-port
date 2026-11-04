@@ -185,6 +185,8 @@ Per the current directive the lane is paused for:
 
 Retained and unchanged: drafts #2 and #3, the existing source-owned components and the write-bounds checks. Draft #2 remains unapproved; this lane has not re-evaluated either draft. PR #1 has not been checked, reviewed or merged by this lane. The newest source/test change is `818380b` (write-bounds checks); subsequent lane changes have been documentation only.
 
+Provisional review status: a provisional hourly review (reported with Sol unavailable, remote-read verification only, nothing executed or merged) described geometry as documentation-only with the pause respected and assets/references preserved. That is not an approved design decision and does not change this lane's scope or resumption criteria; its primary-lane findings are outside this lane. Independently checked this cycle: the directive/PR head `a57b9780cb2e3e3214a376a58406338d2f2981c3` is not an ancestor of `main` (`ebd1ebf`), and this lane performed no PR check, review, merge or push.
+
 Resumption requires all of:
 
 1. an actionable retained reference admissible under the contract above and covering one existing component;
