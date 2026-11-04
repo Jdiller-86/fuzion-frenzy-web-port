@@ -20,7 +20,7 @@ The pending request points to `62983784`, supplies length 36 and has a writable 
 
 The FAT16/FAT32 choice uses partition-size-derived entries, including the reserved entry, before subtracting metadata. In the reached 1 GiB case, selecting width from usable data clusters would incorrectly choose FAT16. The resulting four-byte entries, 266,240-byte table and 270,336-byte data offset agree with the original formatter and its retained bytes. The [first-person format research](https://aerosoul94.github.io/blog/2020/02/25/fatx-reading-and-recovery.html) and [XboxDev reader calculation](https://github.com/XboxDev/fatx/blob/master/libfatx/fatx.c) corroborate this interpretation; the latter file's inspected Git blob is `26305e3d2dca3f84b94d25c8c6935b5c01f9e907`. This is independently authored browser code; no filesystem library was installed or vendored.
 
-Current scope is read-only root/size access over explicit fresh test partitions, plus the source-owned root/file reader. It permits four mounted filesystems, sixteen file instances, a 262,144-entry scan limit and root chains up to 64 clusters. It supports the validated 512-byte-sector FAT16/FAT32 subset; other formats stop. A successful raw write advances the backing revision; stale mounts stop before using cached metadata. A separate source-owned overwrite helper writes only within an existing file's declared range and already-backed clusters; it is not a guest service. Guest directory/file operations, guest FATX writes, new-file creation/allocation, mounted-filesystem dismount/remount, durable storage, original kernel failure/locking behavior and retail equivalence remain unproved. Unsupported FATX operations stop instead of being routed to the unrelated userdata provider.
+Current scope is read-only root/size access over explicit fresh test partitions, plus the source-owned root/file reader. It permits four mounted filesystems, sixteen file instances, a 262,144-entry scan limit and root chains up to 64 clusters. It supports the validated 512-byte-sector FAT16/FAT32 subset; other formats stop. A successful raw write advances the backing revision; stale mounts stop before using cached metadata. Separate source-owned helpers overwrite an existing file's backed range and create an empty file entry in an existing directory; neither is a guest service and neither allocates data clusters. Guest directory/file operations, guest FATX writes, data-cluster allocation/extension, mounted-filesystem dismount/remount, durable storage, original kernel failure/locking behavior and retail equivalence remain unproved. Unsupported FATX operations stop instead of being routed to the unrelated userdata provider.
 
 ABI 22 retains fixed 128 MiB Wasm / 64 MiB guest memory, 16 MiB immutable source staging, 4,096 trace events / 512 kernel records and the sole browser-clock import. The new helper was exported read-only from the existing Ghidra project, then admitted with original-byte, independent-decoder, layout and guarded-memory checks. The selection is now 317 functions / 10,612 instructions. These counts are not whole-game coverage. Original execution occurs only in browser workers; original/derived content remains local and ignored.
 
@@ -60,6 +60,20 @@ Validation: the owned FATX fixture now covers root and subdirectory enumeration,
 `tests/fatx_volume_test.c` covers one-cluster and cross-cluster overwrite/read-back, out-of-range/directory/null/zero-byte rejection, a single-cluster file whose cluster has no backing page, and a two-cluster atomic preflight whose second cluster has no backing page while the first cluster stays byte-identical. `npm run test:native` now includes the `fatx_volume` fixture in optimized and ASan/UBSan modes.
 
 Limits: this is overwrite-only. New-file creation, cluster allocation, extension, directory mutation, durable persistence across reloads, remount, guest file services and original save-path behavior remain unsupported. The existing canonical/read-only path is unchanged.
+
+## Bounded empty-file creation
+
+`ff_fatx_create_empty` adds metadata-only creation of a zero-length file (attribute `0x20`) in an existing directory:
+
+- it resolves the root or a relative directory path through the established lookup rules;
+- it scans the whole directory chain for a duplicate name and records the first deleted slot or end marker;
+- it writes only the 64-byte directory entry with first cluster `0` and size `0`; it does not change the FAT, allocate clusters or create directories;
+- invalid names/paths, duplicates, a full directory, stale mounts and missing backing pages stop without a partial entry;
+- it refreshes the mount revision on success; a metadata-only creation leaves the mount geometry valid.
+
+`tests/fatx_volume_test.c` covers root and subdirectory creation, lookup/read-back of the zero-length file, duplicate and invalid-name rejection, a full 256-slot root, and unchanged state on every failure. The `fatx_volume` fixture remains in optimized and ASan/UBSan native runs.
+
+Limits: empty files only. Data clusters, extension, new directories, FAT allocation, durable persistence across reloads, guest FATX services and original save-path behavior remain unsupported.
 
 ## Next task
 

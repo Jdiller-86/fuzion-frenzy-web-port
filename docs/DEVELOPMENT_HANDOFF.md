@@ -1,4 +1,12 @@
-# Continue from the finished numeric-6 component and corrected Cxbx mapping
+# Continue from metadata-only FATX file creation
+
+`ff_fatx_create_empty` adds metadata-only creation of a zero-length file (attribute `0x20`) in the root or a resolved subdirectory. It scans the whole directory chain for a duplicate name, records the first deleted slot or end marker, and writes only the 64-byte directory entry with first cluster `0` and size `0`. It does not change the FAT, allocate clusters or create directories; invalid names/paths, duplicates, a full 256-slot directory, stale mounts and missing backing pages stop without a partial entry; it refreshes the mount revision on success. The `fatx_volume` fixture covers root/subdirectory creation, zero-length read-back, duplicate/invalid-name rejection, a full directory and unchanged failure state.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
+
+Next: extend FATX to data-cluster allocation or extension only when a reached original save path or an explicit product decision requires it. Keep metadata-only creation and overwrite-only writes off the runtime path until then and do not claim save fidelity. Keep ordinal 2 unsupported, numeric option 6 neutral and `0x1F79A0` unadmitted; hardware capture remains optional fidelity evidence.
+
+## Prior: continue from the finished numeric-6 component and corrected Cxbx mapping
 
 `src/runtime/av_query.h/.c` now takes a nullable explicit `ff_av_query_config` pointer; a null pointer means the synthetic DWORD is absent and the query is denied, while an explicit zero word is written as zero. Stores are bytewise little-endian, unaligned guest pointers are safe, and the whole four-byte span is checked. The fixture covers two distinct values, zero/all-ones, aligned/unaligned writes, a committed two-page crossing, one-page and VM-end denial, 32-bit wrap denial, four-byte neighbors on both sides, argument-shape rejection and null config. Numeric option 6 in Cxbx is `AV_QUERY_AV_CAPABILITIES`, handled by `AvQueryAvCapabilities()`, not a no-op; the xboxrecomp replacement maps it to `AV_OPTION_QUERY_AVPACK`. Ordinal 2 remains unsupported and `0x1F79A0` is unadmitted.
 

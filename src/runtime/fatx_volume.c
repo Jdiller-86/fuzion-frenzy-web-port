@@ -489,3 +489,64 @@ uint32_t ff_fatx_directory_at(ff_fatx_volume *fs,uint32_t id,const uint8_t *path
     if(status)return status;
     return directory_scan(fs,mount,start,FF_FATX_DIRECTORY_CHAIN,index,entry,NULL);
 }
+uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
+                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                              const uint8_t *name,uint32_t name_bytes,
+                              ff_fatx_directory_entry *created)
+{
+    if(!fs || !name || !name_bytes || name_bytes>FF_FATX_NAME || !created)return FF_BOOT_INVALID;
+    for(uint32_t i=0;i<name_bytes;++i)
+        if(!name[i] || name[i]=='\\' || name[i]=='/')return FF_BOOT_INVALID;
+    if((name_bytes==1 && name[0]=='.') ||
+       (name_bytes==2 && name[0]=='.' && name[1]=='.'))return FF_BOOT_INVALID;
+    ff_fatx_mount *mount;
+    uint32_t start;
+    uint32_t status=directory_start(fs,id,&mount,directory_path,path_bytes,flags,&start);
+    if(status)return status;
+    uint32_t cluster=start,steps=0;
+    int have_free=0,end=0;
+    uint64_t free_address=0;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_DIRECTORY_CHAIN)return FF_BOOT_UNSUPPORTED;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
+        for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
+            ff_fatx_directory_entry candidate;
+            const uint32_t parsed=parse_entry(fs,mount,base+offset,&candidate);
+            if(parsed==FF_FATX_PARSE_END) {
+                if(!have_free){free_address=base+offset;have_free=1;}
+                end=1;break;
+            }
+            if(parsed==FF_FATX_PARSE_DELETED) {
+                if(!have_free){free_address=base+offset;have_free=1;}
+                continue;
+            }
+            if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
+            if(name_equal(candidate.name,name,name_bytes,flags))return FF_BOOT_UNSUPPORTED;
+        }
+        if(end)break;
+        uint32_t next;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX))break;
+        cluster=next;
+    }
+    if(!have_free)return FF_BOOT_NO_MEMORY;
+    if(!ff_disk_has(fs->disk,free_address,64u))return FF_BOOT_UNSUPPORTED;
+    uint8_t entry[64];
+    memset(entry,0xFF,sizeof entry);
+    entry[0]=(uint8_t)name_bytes;
+    entry[1]=0x20u; /* archive */
+    memcpy(entry+2,name,name_bytes);
+    memset(entry+44,0,4);
+    memset(entry+48,0,4);
+    status=ff_disk_store(fs->disk,free_address,entry,64u);
+    if(status)return status;
+    /* A metadata-only creation leaves the mount geometry valid. */
+    mount->revision=fs->disk->revision;
+    created->name[0]=0;
+    memcpy(created->name,name,name_bytes);
+    created->name[name_bytes]=0;
+    created->attributes=0x20u;
+    created->first_cluster=0;
+    created->size=0;
+    return 0;
+}

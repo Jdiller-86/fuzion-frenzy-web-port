@@ -75,5 +75,14 @@ uint32_t ff_fatx_read_path(ff_fatx_volume *,uint32_t mount,const uint8_t *path,u
  * success. This is not a guest file service. */
 uint32_t ff_fatx_write_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
                              uint32_t offset,const uint8_t *input,uint32_t bytes,uint32_t *written);
+/* Source-owned creation of an empty file (attribute 0x20) in an existing
+ * directory. It writes only the 64-byte directory entry; it does not allocate
+ * clusters, create directories or serve a guest request. A duplicate name,
+ * full directory, invalid name/path or missing backing page stops without a
+ * partial entry. */
+uint32_t ff_fatx_create_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                              const uint8_t *name,uint32_t name_bytes,
+                              ff_fatx_directory_entry *created);
 int ff_fatx_owns_handle(uint32_t);
 #endif
