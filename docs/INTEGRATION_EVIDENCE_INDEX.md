@@ -1,11 +1,11 @@
 # Integration evidence index and hold
 
-November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source-code commit is `d5ee7af`, after the Sol architect's `09:30` decision to hold further admission pending that review.
+November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records.
 
 ## Source lane
 
-- Branch/head: `codex/opencode-source`, last source-code commit `d5ee7af` (`Require the ordinal-2 call record for every unsupported ordinal-2 stop`).
-- Corrected report/helper slice, `3f97afa`..`5e492e1`:
+- Branch/head: `codex/opencode-source`, last source/CI commit `3ef6024` (`Run the full Python evidence suite in preparation CI`); docs-only hold records follow.
+- Corrected report/helper and verification slice:
   - `3f97afa` truthful configured denials, exact success shape/address, paired call arguments, full supplied/declared input comparison
   - `35a664a` ordinal-2 denial pairs with the status-1 unsupported-service stop
   - `12deaad` shared `validateSuppliedDeviceProfile` in the report contract and comparison tool
@@ -15,7 +15,11 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
   - `5e492e1` reject a no-call prequery that claims the ordinal-2 stop
   - `2450b7e` truthful avQuery outcome presentation in the local startup checker
   - `d5ee7af` require the ordinal-2 call record for every unsupported ordinal-2 stop
-- Source files touched: `src/runtime/proof-report.mjs`, `src/runtime/device-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `src/runtime/local-title-proof.mjs`, `tools/compare-proof-profiles.mjs`, `tools/fixtures/thread_startup_probe.c`, `tools/fixtures/thread_startup_check.html`, `tests/proof-report.test.mjs`, `tests/compare-proof-profiles.test.mjs`, `tests/av-query-outcome.test.mjs`, `package.json`.
+  - `e1b0a28` run the controller native fixtures in the native suite
+  - `a74e2ce` run the previously unrun guest/pfifo native fixtures
+  - `79f20c2` run the native component suite in preparation CI
+  - `3ef6024` run the full Python evidence suite in preparation CI
+- Source files touched: `src/runtime/proof-report.mjs`, `src/runtime/device-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `src/runtime/local-title-proof.mjs`, `tools/compare-proof-profiles.mjs`, `tools/fixtures/thread_startup_probe.c`, `tools/fixtures/thread_startup_check.html`, `tools/run-native-tests.mjs`, `.github/workflows/prepare.yml`, `tests/proof-report.test.mjs`, `tests/compare-proof-profiles.test.mjs`, `tests/av-query-outcome.test.mjs`, `package.json`.
 - Targeted checks on this slice: runtime 179/179, evidence 4/4, native 34/34, `npm run check` 354 source files, `git diff --check` clean; pair comparison exits 0. Preparation CI runs `npm run test:native` on Linux and the full `npm run test:evidence` suite.
 - Narrow GLM review (`2026-11-04T09:15:22`, step-capped after the checks) found no material defect; the control stop target `0xFE000094` and the `0x1F79A0` enter/exit trace were confirmed from the retained reports. A follow-up narrow review at `2026-11-04T10:05:11` of the no-call prequery guard also found no material defect; minor unexercised control-path cases are noted in the binding checkpoint.
 - Presentation: `src/runtime/local-title-proof.mjs` exports `describeAvQueryOutcome`, used by `tools/fixtures/thread_startup_check.html` to label the result as completed, denied/unsupported or prequery; `tests/av-query-outcome.test.mjs` covers it. Runtime 179/179.
