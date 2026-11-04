@@ -1,5 +1,7 @@
 # PFIFO LOW_MARK has a reset producer in the pinned full reference
 
+Latest boundary update (A017, source `ccb53cb`): the lane reports executing the narrow helpers and stopping at ordinal2 AvSendTVEncoderOption, return `0x1FD429`; see [the AV contract task](AV_ENCODER_BOUNDARY_REVIEW.md). The added `pfifoStatus` fields expose the initialization seam, **not** live aperture state. Snapshot schema pairing does not complete the reset/width/control evidence or prove later DMA_PUSH/consumer state. The earlier helper-admission task below is retained history, not a request for another translation batch.
+
 ## Current progress: source 12f4cf6, A016
 
 The builder has implemented the default-off `pfifoReset` initial-state experiment and reports passing the LOW_MARK wait to a status2 untranslated boundary at `0x1FCB00` (caller `0x1FD4A8`, return `0x1FD4C4`). Canonical PMC and the engine-wait control retain their prior stops. This is lane-reported same-module synthetic-profile startup, not an architect-run title test or execution of the untranslated body.

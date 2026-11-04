@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source ccb53cb and geometry 632500b
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A017 | Advance priority from helper admission to the exact ordinal-2 call contract; preserve the unsupported stop | The lane reports three narrow original helper admissions and a new reset-profile stop at AvSendTVEncoderOption (ordinal2,target0xFE000094,return0x1FD429;279 routines). Next task is read-only capture/corroboration of actual RegisterBase/Option/Param/Result, ABI, output permissions/bits and required inputs/side effects, reusing retained records/project. Public nxdk pin004fefb declares VOID NTAPI with four parameters; this is not the title's original ABI/option semantics and does not justify an EAX/NTSTATUS success stub. Do not implement encoder queries, capabilities, mode/timing or further frontier batches until the option-specific contract is grounded. Also correct the existing pfifoStatus fields to initialization-snapshot semantics: they read the detached init seam, not guest-updated live aperture state, so schema assertions are not end-to-end proof. A001 stays accepted; reset progress remains experimental, not complete A015 or whole-source approval. Geometry stays paused. See AV_ENCODER_BOUNDARY_REVIEW.md. |
+
 ### Architect review of source 12f4cf6 and geometry cf56008
 
 | ID | Decision | Basis / limits |
