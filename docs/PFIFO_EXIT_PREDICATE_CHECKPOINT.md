@@ -67,6 +67,21 @@ No vblank timing, no PFIFO consumer, no engine, no pushbuffer consumption, no in
 
 PCRTC component test optimized and ASan/UBSan; device-register, compiled real-VM vector, 16-byte checked-pointer, kernel-timer and port tests optimized; generator-to-compiled regression 2/2; Python memory-access 12/12; runtime suite 112/112; title-seed 25/25; `npm run check` and whitespace checks pass.
 
+## Access-level evidence for the FIFO pump
+
+The same experiment records every PFIFO access, which shows what the guest does while the exit still fails:
+
+| address | reads | writes | dominant write value | sites |
+| --- | --- | --- | --- | --- |
+| `0xFD002500` (`PFIFO + 0x500`, undefined in the retained header) | 2 | 71 | `0x1`, 66 times | `0x1FDD92` x64 |
+| `0xFD003250` (`NV_PFIFO_CACHE1_PULL0`) | 1 | 70 | `0x1`, 66 times | `0x1FDD92` x64 |
+| `0xFD002080` (`PFIFO + 0x80`, undefined in the retained header) | 64 | 0 | none | `0x1FDD9E` |
+| `0xFD003214` (`NV_PFIFO_CACHE1_STATUS`) | 65 | 0 | none | `0x1FE4DB` |
+| `0xFD003220` (`NV_PFIFO_CACHE1_DMA_PUSH`) | 64 | 2 | `0x0`/`0x1` once each | `0x1FDD1A` |
+| `0xFD002400` (`NV_PFIFO_RUNOUT_STATUS`) | 0 | 0 | none | never accessed |
+
+So the guest pumps `PFIFO + 0x500` and `CACHE1_PULL0` with bit 0, reads `PFIFO + 0x80` and `DMA_PUSH`, then tests `CACHE1_STATUS` bit `0x10` — 64 iterations of one loop body at `0x1FDD92`/`0x1FDD9E`/`0x1FDD1A`. `RUNOUT_STATUS` is never touched, so its predicate is unreachable while cache status fails. The two pumped offsets without a header definition are unevidenced in meaning; the aperture preserves the writes verbatim and derives no engine state.
+
 ## Measured predicate order
 
 A new literal profile flag, `device.engineWait`, declares those three registers as status inputs through the existing `ff_device_registers_add_status_wait`, so a run names the predicate that blocks the exit instead of ending at the bounded log. With `pcrtcVblanks: 1` and `engineWait: true` the run stops at **status 12 on `0xFD003214`** (read) and the report shows:
