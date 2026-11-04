@@ -1,4 +1,18 @@
 import { BUILD_REFERENCE as REFERENCE, loadLocalTitleProof } from './local-title-proof.mjs';
+import { validateProofReport } from './proof-report.mjs';
+
+/* A startup report is evidence for a human reader, so it is validated before it
+ * is posted: a malformed or self-contradictory report becomes an error message. */
+function postStartup(report) {
+  try {
+    validateProofReport(report);
+  } catch (error) {
+    self.postMessage({ kind: 'error', message: `Startup report rejected: ${error.message}` });
+    return;
+  }
+  self.postMessage(report);
+}
+
 
 self.onmessage = async event => {
   try {
@@ -30,7 +44,7 @@ self.onmessage = async event => {
       tlsAllocation: view.getUint32(REFERENCE.tlsSize, true) === tlsBytes,
       tlsIndex: view.getInt32(profile.tls.index, true) === tlsIndex
     };
-    self.postMessage({ kind: 'startup-boundary', verified: Object.values(checks).every(Boolean), checks,
+    postStartup({ kind: 'startup-boundary', verified: Object.values(checks).every(Boolean), checks,
       sourceSha256, moduleSha256, hostImports: 0, biosUsed: false,
       originalFunctionsReached: entered.map(row => row.address), trace,
       stop: { status: state[0], ordinal: state[2], target: state[1], stack: state[3], returnAddress: state[5], arguments: actualArguments },

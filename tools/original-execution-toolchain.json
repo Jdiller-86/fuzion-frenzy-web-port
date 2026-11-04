@@ -29,12 +29,20 @@
       "repository": "https://github.com/sp00nznet/xboxrecomp.git",
       "commit": "f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b",
       "directory": "xboxrecomp-source",
-      "scope": "Native-web feasibility candidate; not an accepted complete runtime"
+      "scope": "Native-web feasibility candidate; not an accepted complete runtime",
+      "note": "Locally retained kernel-replacement source at the pinned commit. Its AvSendTVEncoderOption option-6 word (0x00400104) is a synthetic D3D compatibility default chosen for mode-table matching (src/kernel/kernel_hal.c:1463-1510), not an original-kernel observation. Ordinal 2 remains unsupported."
     },
     "capstoneVersion": "5.0.6",
     "windowsWheelSha256": "761c3deae00b22ac697081cdae1383bb90659dd0d79387a09cf5bdbb22b17064",
     "digestSource": "https://pypi.org/project/capstone/5.0.6/#files",
     "storage": "Ignored recomp-venv only; no global dependency changes"
+  },
+  "cxbx": {
+    "repository": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded",
+    "commit": "585c49a50af1255ab155099e06f24505f9c5a800",
+    "directory": null,
+    "retained": false,
+    "note": "Public source read at the cited commit. Numeric option 6 is AV_QUERY_AV_CAPABILITIES in src/core/kernel/common/xbox.h and is handled in EmuKrnlAv.cpp by AvQueryAvCapabilities(); it is not a no-op and does not define AV_OPTION_QUERY_AVPACK. This differs from the xboxrecomp option-6 mapping. Option 6 remains unsupported; no source is stored locally."
   },
   "compiler": {
     "emscriptenVersion": "3.1.50",

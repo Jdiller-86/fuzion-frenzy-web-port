@@ -6,6 +6,10 @@ import unittest
 spec = importlib.util.spec_from_file_location("memory_access", Path(__file__).resolve().parents[1] / "tools/recomp_memory_access.py")
 guard = importlib.util.module_from_spec(spec); spec.loader.exec_module(guard)
 
+spec_verify = importlib.util.spec_from_file_location(
+    "verify_translation", Path(__file__).resolve().parents[1] / "tools/verify-translation.py")
+verify_tool = importlib.util.module_from_spec(spec_verify); spec_verify.loader.exec_module(verify_tool)
+
 SITE = 0x00100000
 
 
@@ -122,8 +126,91 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertIn('FF_MEMORY_SITE_U32((edi), 1u, 0x00100000u)', result)
         self.assertEqual(counts['sites'], 1)
 
+    def test_checked_xmm_loads_are_rewritten_and_pure_sse_is_allowed(self):
+        result, counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm2 = XMM_MUL(xmm2, XMM_MEM(eax));', SITE, 0x00100030)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', result)
+        self.assertIn('XMM_MUL', result)
+        self.assertEqual(counts['reads'], 1)
+        self.assertEqual(counts['sites'], 1)
+        stored, store_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nXMM_STORE(eax, xmm0);', SITE, 0x00100030)
+        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 2u, 0x00100000u)) = (xmm0)', stored)
+        self.assertEqual(store_counts['writes'], 1)
+        nested, nested_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nXMM_STORE(eax, XMM_ADD(xmm0, XMM_MEM(ebx)));', SITE, 0x00100030)
+        self.assertIn('_ff_xmmtmp0', nested)
+        self.assertIn('FF_MEMORY_SITE_POINTER((ebx), 16u, 1u', nested)
+        self.assertEqual(nested_counts['reads'], 1)
+        self.assertEqual(nested_counts['writes'], 1)
+        for source in ['XMM_MEM(eax) = xmm0;', 'eax = &XMM_MEM(edi);', 'eax = &(XMM_MEM(edi));',
+                       'eax = & ((XMM_MEM(edi)));', 'Xmm_Mul(xmm0);', 'xmm_add(xmm0);',
+                       'XMM_MEM(eax)++;']:
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                guard.instrument_memory_accesses(source, SITE)
+        # A logical operator before the operand is not address-of.
+        allowed, _ = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nflags = a && (XMM_MEM(eax).u32[0] != 0);', SITE, 0x00100030)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u', allowed)
+
+    def test_alignment_requiring_moves_keep_an_alignment_guard(self):
+        aligned, aligned_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movaps */', SITE, 0x00100030)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 1u, 0x00100000u))', aligned)
+        self.assertEqual(aligned_counts['aligned'], 1)
+        stored, stored_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nXMM_STORE(eax, xmm0); /* movaps */', SITE, 0x00100030)
+        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 2u, 0x00100000u)) = (xmm0)', stored)
+        self.assertEqual(stored_counts['aligned'], 1)
+        unaligned, unaligned_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movups */', SITE, 0x00100030)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', unaligned)
+        self.assertEqual(unaligned_counts['unaligned'], 1)
+        self.assertNotIn('FF_MEMORY_SITE_VECTOR', unaligned)
+        plain, plain_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax);', SITE, 0x00100030)
+        self.assertNotIn('FF_MEMORY_SITE_VECTOR', plain)
+        self.assertEqual(plain_counts['unaligned'], 1)
+
+    def test_instrumentation_is_deterministic_and_idempotent(self):
+        source = 'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movaps */\neax = MEM32(edi);'
+        first, first_counts = guard.instrument_memory_accesses(source, SITE, 0x00100030)
+        second, second_counts = guard.instrument_memory_accesses(source, SITE, 0x00100030)
+        self.assertEqual(first, second)
+        self.assertEqual(first_counts, second_counts)
+        # Feeding guarded output back in must not wrap or rewrite anything twice.
+        again, again_counts = guard.instrument_memory_accesses(first, SITE, 0x00100030)
+        self.assertEqual(again, first)
+        self.assertEqual(again_counts['sites'], 0)
+        self.assertEqual(again_counts['reads'], 0)
+        self.assertEqual(again_counts['writes'], 0)
+
+    def test_translation_guard_verifier_detects_unguarded_surfaces(self):
+        guarded = (
+            'void ff_title_00100000(void)\n{\n'
+            'loc_00100000: ;\n'
+            '    eax = (*(const ff_guest_U32*)FF_MEMORY_SITE_POINTER((edi), 4u, 1u, 0x00100000u)).value;\n'
+            '}\n'
+        )
+        report = verify_tool.verify(guarded)
+        self.assertEqual(report['functions'], 1)
+        self.assertEqual(report['rewritten'], 0)
+        unguarded = (
+            'void ff_title_00100000(void)\n{\n'
+            'loc_00100000: ;\n'
+            '    eax = MEM32(edi);\n'
+            '}\n'
+        )
+        report = verify_tool.verify(unguarded)
+        self.assertEqual(report['functions'], 1)
+        self.assertEqual(report['rewritten'], 1)
+        with self.assertRaises(ValueError):
+            verify_tool.verify('/* no functions */')
+        self.assertEqual(len(verify_tool.split_functions(guarded + guarded.replace('00100000', '00100100'))), 2)
+
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
-        for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_MEM(eax)', 'MMX_STORE(eax, value)',
+        for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'XMM_LOAD_LOW(xmm0, eax)',
+                       'XMM_STORE_LOW(eax, xmm0)', 'XMM_UNKNOWN(eax)', 'MMX_STORE(eax, value)',
                        '__atomic_fetch_add(XBOX_PTR(eax), 1, 0)', 'MEM80(eax)', 'MEM32(', 'MEM32()', 'MEM32;',
                        '/* unclosed', '"unclosed',
                        'uint8_t *_d = (uint8_t*)XBOX_PTR(edi), *_s = (uint8_t*)XBOX_PTR(esi);']:

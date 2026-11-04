@@ -28,7 +28,7 @@ public class ExportRecompilationClosure extends GhidraScript {
         int limit=prior.has("functionLimit")?prior.get("functionLimit").getAsInt():64;
         if(limit!=64 && limit!=128 && limit!=256 && limit!=512)throw new IllegalArgumentException("Unsupported explicit function limit");
         int instructionLimit=prior.has("instructionLimit")?prior.get("instructionLimit").getAsInt():8192;
-        if(instructionLimit!=8192 && instructionLimit!=16384)throw new IllegalArgumentException("Unsupported explicit instruction budget");
+        if(instructionLimit!=8192 && instructionLimit!=16384 && instructionLimit!=32768)throw new IllegalArgumentException("Unsupported explicit instruction budget");
         int functionBudget=Math.min(limit>=256?32:8,limit-known.size()),instructionBudget=Math.min(8192,instructionLimit-prior.get("instructions").getAsInt());
         if(functionBudget<1 || instructionBudget<1)throw new IllegalArgumentException("No remaining aggregate admission budget");
         var queue=new ArrayDeque<Address>();var discovered=new HashSet<Address>();var rootAddresses=new HashSet<Address>();

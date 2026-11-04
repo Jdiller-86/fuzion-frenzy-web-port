@@ -32,4 +32,7 @@ uint32_t ff_timer_cancel(ff_timer_queue *, uint32_t timer, uint32_t *was_inserte
  * At IRQL >= DISPATCH_LEVEL (2), dequeue is deferred to prevent nesting. */
 uint32_t ff_dpc_peek(const ff_timer_queue *, uint32_t irql, ff_dpc_call *, uint32_t *present);
 uint32_t ff_dpc_pop(ff_timer_queue *, uint32_t irql, uint32_t expected_object);
+/* Read-only diagnosis: 0 means validate() would pass; nonzero identifies the
+ * first structural/timer/dpc/link failure. It never mutates the queue. */
+uint32_t ff_timers_check(const ff_timer_queue *);
 #endif
