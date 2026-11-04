@@ -131,6 +131,14 @@ try {
                 $brief = [string]$guidance.summary
                 if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
                 if ($guidance.approved -and $guidance.model -eq 'openai/gpt-6.1-sol') {
+                    if ($Lane -eq 'geometry' -and $guidance.geometryCycle -eq 'HOLD') {
+                        $state.outcome = 'deferred_architect'
+                        $state.finished = (Get-Date).ToString('o')
+                        $state.architectHead = [string]$guidance.head
+                        $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+                        Write-Output 'Geometry cycle deferred by the Sol architect; primary development continues.'
+                        return
+                    }
                     $prompt += " The Sol project architect approved this current priority directive for lane $Lane from integration head $($guidance.head): $brief Follow it within your lane ownership after checking current evidence; report any conflict with the user's requirements or a newer verified result."
                     $prompt += " Sol completed this architect review at $($guidance.created). Any older 'Sol unavailable' or usage-limit report in this persistent session is superseded. Do not repeat that claim unless a new Sol attempt actually fails; record the new error and time if it does. This past success does not guarantee current quota."
                 } else {
