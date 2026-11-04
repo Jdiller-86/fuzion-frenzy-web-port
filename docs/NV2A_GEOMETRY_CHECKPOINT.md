@@ -2,7 +2,7 @@
 
 The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers one post-vertex geometry component, not the complete NV2A renderer or original-game fidelity.
 
-Directive status, November 3 (integration head `38a398a4533c63a4def196929af7de21217c8265`): retain draft #3 and the topology hold pending whole-chain/reference review; draft #2 remains unapproved. PR #1 requires refreshed integration-head CI/head/base review and has no merge authorization this cycle. The geometry and architect heads remain unmerged; reported startup progress under synthetic inputs is not rendering, fidelity or playability. The reference contract and integration gate are recorded below. No component is integration-approved; independent commit-level review is unavailable under this lane's free-model-only constraint and is handed to the primary lane/architect. This cycle changed tests and documentation only; it did not review, approve or merge any PR.
+Directive status, November 3 (integration head `a57b9780cb2e3e3214a376a58406338d2f2981c3`): fixture and topology expansion are paused pending an actionable retained reference and a completed whole-chain review. Drafts #2/#3 are retained as-is; draft #2 remains unapproved. PR #1 needs refreshed-head checks and review and has no merge authorization. The Sol architect review completed at 2026-11-03T19:47:36.9741198-05:00 produced this directive; it is an architect-level review, not a geometry whole-chain or retained-reference review, and older Sol-unavailability reports are superseded. The geometry and architect heads remain unmerged. Reported startup progress under synthetic inputs is not rendering, fidelity or playability, and no controllable original screen exists. No component is integration-approved.
 
 Next-task update, November 1: the user confirmed no local boot firmware and asked about a native web port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) now scopes an original initialization-function proof. A native line/quad reference has been captured; its browser prepass remains pending. Preserve this triangle component and both references for either runtime route.
 
@@ -53,7 +53,7 @@ The output must be unused. `fused` intentionally differs from this particular so
 
 Analytic tests cover attribute forwarding, first/last provoking colors, smooth colors, the rotated helper row, negative deltas, strip and loop pair order including the closing wrap pair, per-pair provoking, capacity/count rejection and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux line compile/run. This is a candidate implementation, not the captured native line reference comparison or a browser prepass. Quad geometry, polygon line modes, original arithmetic calibration and renderer integration remain unimplemented.
 
-Review status (November 3, free-model-only cycle): the strip/loop assembly was checked against the pinned public generator source and analytic native tests without a separate GLM or Sol review. Material correctness input for the primary lane: the selected pair order and per-pair provoking follow the generator's host-supplied `layout(lines)` contract, but the actual NV2A host decomposition of line strips and the loop closing segment has not been compared with a captured reference. Line-loop degeneracy rules (for example count 2 or repeated vertices) and clipping-induced segment splitting are likewise unproved here.
+Review status (November 3, free-model-only cycle): the strip/loop assembly was checked against the pinned public generator source and analytic native tests without an independent whole-chain geometry review. Material correctness input for the primary lane: the selected pair order and per-pair provoking follow the generator's host-supplied `layout(lines)` contract, but the actual NV2A host decomposition of line strips and the loop closing segment has not been compared with a captured reference. Line-loop degeneracy rules (for example count 2 or repeated vertices) and clipping-induced segment splitting are likewise unproved here.
 
 The captured native line/quad reference and browser comparison remain private and unavailable in this source-only worktree. Do not treat the analytic line tests as original-hardware or reference parity.
 
@@ -89,7 +89,7 @@ Analytic tests cover rotation, the fixed provoking and smooth colors, forwarded 
 
 The stream assemblers now form strip/fan triangles; the caller still supplies the measured winding orders. Line-strip and line-loop assembly is handled by `ff_nv2a_expand_line_strip`/`ff_nv2a_expand_line_loop` in the line section, reusing the same two-vertex line body per adjacent (and closing) pair; the generator treats all three line primitive types with the same two-vertex line shader and has no strip/loop parity. Analytic tests cover even/odd rotation and provoking selection, first-vertex selection, smooth colors, position rows, depth slope, stream triangle windows and per-mode output counts, and invalid-state/capacity rejection without output writes across fill, line and point modes. Optimized and ASan/UBSan native runs pass; no captured-reference comparison, browser prepass or renderer integration was performed here.
 
-Review status (November 3, free-model-only cycle): the stream assembly was checked against the pinned public generator source and analytic native tests without a separate GLM or Sol review, per the current runner directive. Remaining correctness inputs for primary-lane review: the caller must supply host-measured winding orders, the stream must begin at the draw's primitive 0 for strip parity, and strip/fan primitive-restart, degenerate-triangle and draw-origin behavior is not compared with a captured reference. No captured strip/fan reference or browser prepass exists here, and GLSL division rounding is assumed correctly rounded because the fused/separate profiles cover only the determinant terms.
+Review status (November 3, free-model-only cycle): the stream assembly was checked against the pinned public generator source and analytic native tests without an independent whole-chain geometry review, per the current runner directive. Remaining correctness inputs for primary-lane review: the caller must supply host-measured winding orders, the stream must begin at the draw's primitive 0 for strip parity, and strip/fan primitive-restart, degenerate-triangle and draw-origin behavior is not compared with a captured reference. No captured strip/fan reference or browser prepass exists here, and GLSL division rounding is assumed correctly rounded because the fused/separate profiles cover only the determinant terms.
 
 ## Retained-reference comparison contract
 
@@ -173,10 +173,31 @@ The free-model-only geometry directive forbids delegating to paid or other-model
 
 A source-owned ABI guard in `tests/nv2a_triangle_test.c` allocates the four-word reference state on the heap and exercises the list fill/line/point paths under ASan, so a future read of the strip-only extension fails the boundary check rather than silently changing the comparator contract.
 
+The status above is unchanged: no actionable reference was added or accessed this cycle. The private triangle reference and the line/quad captures remain outside this source-only worktree.
+
+### Pause status and resumption criteria
+
+Per the current directive the lane is paused for:
+
+- any new primitive, polygon mode, strip/loop/stream assembler or other topology expansion;
+- new geometry fixtures, comparator exports or reference-capture work;
+- any change that would make a component look integration-ready without the required review.
+
+Retained and unchanged: drafts #2 and #3, the existing source-owned components and the write-bounds checks. Draft #2 remains unapproved; this lane has not re-evaluated either draft. PR #1 was not checked, reviewed or merged in this cycle. The newest lane change is `818380b` (write-bounds checks), which changed tests and documentation only.
+
+Resumption requires all of:
+
+1. an actionable retained reference admissible under the contract above and covering one existing component;
+2. an exact-bit comparison result for that component under a stated arithmetic profile;
+3. a recorded whole-chain review of the scope above, performed outside this lane under a permitted model or by the primary lane/architect, including the five-word strip adapter decision;
+4. a primary-lane integration decision.
+
+Until then the only in-scope changes are corrections to a demonstrated defect or to evidence that is already false. No new fixture or topology should be committed while paused.
+
 ## Inference, unknowns and next task
 
 The evidence supports a CPU prepass followed by WebGL2 as a candidate replacement for this filled-triangle geometry stage. It does not select the final graphics architecture or establish original-hardware fidelity. The source-owned C component is not integrated into xemu yet.
 
 Unknown/unimplemented: primitive assembly from vertex streams for quad strips (triangle strip/fan and line strip/loop assembly are now source-owned), vertex-program/fixed-function translation, original fragment/texture/depth/blend behavior, shared-context/thread integration, complete GL host adaptation, performance, release-browser coverage and original-title execution. The synthetic forwarded positions are post-vertex inputs, not a substitute for that missing vertex path. An Xbox test/capture would still be needed to establish original behavior; no game/firmware download or native-game streaming is authorized.
 
-Next concrete task: new topology expansion remains held pending whole-chain review and retained-reference comparison. The write-bounds contract for the existing entry points is now covered; the lane's next step is to satisfy the retained-reference contract for one existing component, which requires the admissible private reference and an equivalent comparator export; neither exists in this source-only worktree. Whole-chain and commit-level review are also outstanding because this lane may not delegate to another model. The primary lane/architect must supply the reference access, the whole-chain and commit-level review, and the integration decision; until then, quad-strip stream assembly and the other listed candidates stay unstarted. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
+Next concrete task: paused by the current directive. No actionable retained reference or whole-chain review exists in this source-only worktree, and this lane may not request another model. The next actor is the primary lane/architect: supply an admissible reference and the five-word strip adapter decision, perform the whole-chain review, and decide integration. This lane should not add fixtures or topology while paused; if the directive changes, resume with a component the review names. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
