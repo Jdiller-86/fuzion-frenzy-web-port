@@ -93,16 +93,16 @@ export function validateProofReport(report) {
    * proof. */
   const experiments = report.experiments ?? [];
   const claimsReset = experiments.includes('pfifoReset');
-  if (report.pfifoStatus !== undefined && !claimsReset)
+  if (report.pfifoResetState !== undefined && !claimsReset)
     throw new Error('PFIFO reset state requires the pfifoReset experiment');
-  if (claimsReset && report.pfifoStatus === undefined)
+  if (claimsReset && report.pfifoResetState === undefined)
     throw new Error('The pfifoReset experiment requires PFIFO reset state');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */
-  if (report.pfifoStatus !== undefined) {
-    const pfifo = report.pfifoStatus;
-    if (!pfifo || !integer(pfifo.cache1) || !integer(pfifo.runout) || !integer(pfifo.dmaPush) ||
+  if (report.pfifoResetState !== undefined) {
+    const pfifo = report.pfifoResetState;
+    if (!pfifo || pfifo.scope !== 'seam' || !integer(pfifo.cache1) || !integer(pfifo.runout) || !integer(pfifo.dmaPush) ||
         !integer(pfifo.consumerUpdates) || !integer(pfifo.resets))
       throw new Error('Malformed PFIFO reset state');
     if (pfifo.resets !== 1) throw new Error('PFIFO reset must be applied exactly once');

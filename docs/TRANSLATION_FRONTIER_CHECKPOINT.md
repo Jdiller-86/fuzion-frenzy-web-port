@@ -21,7 +21,7 @@ The frontier now has 99 placeholders (98 referenced), but the run enters **0** o
 | `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
 | `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
 
-The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
+The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
 
 ## Limits
 
@@ -55,7 +55,7 @@ Module `recomp-post-memory-build-70`, SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
 | `pfifoReset` | **status 2 at `0x1FD42F`** (return `0x1FD4C9`) | 277 | 404 | 12,584 |
 
-The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
+The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
 
 ## Limits
 

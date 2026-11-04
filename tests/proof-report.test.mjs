@@ -29,28 +29,32 @@ test('a well-formed startup report validates and is returned unchanged', () => {
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
   const valid = report({
     experiments: ['pfifoReset'],
-    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
   });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({
-    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
   })), /requires the pfifoReset experiment/);
   assert.throws(() => validateProofReport(report({ experiments: ['pfifoReset'] })),
     /requires PFIFO reset state/);
   assert.throws(() => validateProofReport(report({
     experiments: ['pfifoReset'],
-    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 1, resets: 1 },
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 1, resets: 1 },
   })), /consumer update/);
   assert.throws(() => validateProofReport(report({
     experiments: ['pfifoReset'],
-    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 2 },
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 2 },
   })), /exactly once/);
   assert.throws(() => validateProofReport(report({
     experiments: ['pfifoReset'],
-    pfifoStatus: { cache1: 0, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+    pfifoResetState: { scope: 'seam', cache1: 0, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
   })), /LOW_MARK/);
   assert.throws(() => validateProofReport(report({
-    experiments: ['pfifoReset'], pfifoStatus: { cache1: 0x10 },
+    experiments: ['pfifoReset'], pfifoResetState: { scope: 'seam', cache1: 0x10 },
+  })), /Malformed/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'],
+    pfifoResetState: { scope: 'device', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
   })), /Malformed/);
 });
 

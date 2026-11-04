@@ -20,9 +20,27 @@ November 4, 2026. The narrow admission of `0x1FD42F` and its direct dependency `
 | `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
 | `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
 
-The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. The stop record now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects one on any other stop, so the boundary cannot be reported as modeled or omitted. `src/runtime/kernel-service.mjs` is metadata only and implements nothing.
+The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. The stop record now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects one on any other stop, so the boundary cannot be reported as modeled or omitted. `src/runtime/kernel-service.mjs` is metadata only and implements nothing.
 
 The report now also records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature, and no return value is supplied. The probe records the attempted call before the fail-closed stop, and the worker maps ordinal 2 to four arguments.
+
+## Ordinal-2 call contract (captured, not modeled)
+
+From the retained translation `ff_title_001FD410` and the reset report:
+
+| item | observed |
+| --- | --- |
+| target | IAT slot `0x00253450`, mapped to kernel ordinal 2 (`AvSendTVEncoderOption`) |
+| call site / return | `0x1FD423` / `0x1FD429` |
+| ABI | The caller pushes four arguments and a return address; the callee-side cleanup and return convention are not established from the retained records. The architect notes the export is `VOID NTAPI`-style, so no NTSTATUS/EAX success may be assumed. |
+| arguments | `(0, 6, 0, 0x203720)`: first/register-base `0`, option `6`, value `0`, output pointer `0x203720` |
+| call gate | The wrapper calls only when `[0x203720] == 0`. |
+| output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). The exact output bits and meaning are not assigned. |
+| required inputs | A 4-byte writable guest output word at `0x203720`; no encoder handle is passed (first argument `0`). |
+| other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; those are different call sites and do not define option 6. |
+| pinned reference | xemu models the SMBus encoders (`hw/xbox/smbus_cx25871.c`, `smbus_fs454.c`, `smbus_xcalibur.c`) and the machine's `video-encoder` property, not the kernel export's option/return semantics. |
+
+The service remains unsupported: the harness records the call and stops with status 1, leaving EAX and the NTSTATUS unset. It does not return `STATUS_SUCCESS` or any NTSTATUS.
 
 ## What this establishes
 
