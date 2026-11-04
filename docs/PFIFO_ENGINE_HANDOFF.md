@@ -162,15 +162,15 @@ The reset rule is wired through the existing `ff_pfifo_status` seam as a separat
 - `device.pfifoReset: true` selects it. The probe applies the adapter once during aperture initialization and seeds the two status registers from the seam; the canonical profile leaves it off and stays fail-closed.
 - The adapter has no GET, PUT or guest-memory access: it changes two status words only. The retained runs confirm the `DMA_PUT`/`DMA_GET` writes are byte-for-byte identical across the canonical, `engineWait` and `pfifoReset` profiles.
 
-Measured with module `recomp-post-memory-build-70` (SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a8cc7f847fab3d9235f89ea0434dfb22`):
+Measured with module `recomp-post-memory-build-70` (SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`):
 
 | profile | stop | routines | kernel ops | device events |
 | --- | --- | --- | --- | --- |
 | canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
-| `pfifoReset` | **status 2 at `0x1FD42F`** (return `0x1FD4C9`) | 277 | 404 | 12,584 |
+| `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
 
-The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, executes the admitted `0x1FCB00`, and reaches untranslated `0x1FD42F`. It reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The validator also requires `pfifoStatus` exactly when `pfifoReset` is declared, so the proof and its declaration cannot diverge. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, executes the admitted `0x1FCB00`, `0x1FD42F` and `0x1FD410`, and stops at unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094`. It reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The validator also requires `pfifoStatus` exactly when `pfifoReset` is declared, so the proof and its declaration cannot diverge. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
 
 No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-based next target.
 
@@ -187,6 +187,6 @@ No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-ba
 
 ## Next task
 
-The next genuine stop is untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, reached through `0x1FD4A8`). `0x1FCB00` is admitted; the narrow batch added only that 10-instruction leaf.
+The next genuine stop is unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094` (status 1, return `0x1FD429`). `0x1FCB00`, `0x1FD42F` and `0x1FD410` are admitted; the narrow batch added only those helpers and no broad closure.
 
 The engine workstream still owns any non-empty submission and the transitions after it. This lane does not inject consumer state from a poll or a read, does not treat the reset value as a general completion rule, and does not infer display timing. Any future activation must cite the evidence gate above.

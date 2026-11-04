@@ -1,4 +1,10 @@
-# Continue from the first evidence-based admission: 0x1FCB00 -> 0x1FD42F
+# Continue from the AvSendTVEncoderOption service boundary
+
+The latest narrow admission adds the next reached helper `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions). Translation `recomp-title-recomp-title-post-memory-49` has 418 functions / 17,353 instructions; the seed gate is 32 recorded / 32 offered / 0 unexpected / 0 missing and the translation gate reports 0 functions needing rewriting. With the `pfifoReset` profile the run executes both and stops at unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094` (status 1, return `0x1FD429`, 279 routines, 404 kernel operations). The frontier now has 99 placeholders, but the run enters none: the blocker is the kernel service, not translation. Controls are unchanged: canonical status 10 at `0xFD000100`, `engineWait` status 12 at `0xFD003214`, and `pcrtc` status 15 at `0xFD003214`. Do not guess encoder behaviour or display timing.
+
+Validation: runtime suite 134/134, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it.
+
+## Prior: the first evidence-based admission: 0x1FCB00 -> 0x1FD42F
 
 The latest bounded milestone admits exactly the reached helper `0x1FCB00` from the retained Ghidra project. Translation `recomp-title-recomp-title-post-memory-48` has 416 functions / 17,294 instructions; the 10-instruction leaf has no calls, so no dependencies were needed. The seed gate is 32/32/0/0 and the translation gate reports 0 functions needing rewriting. With the `pfifoReset` profile the run executes the helper and stops at untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations); the reachability filter reports `entered = 1` for `0x1FD42F`. The reset adapter's scope is the two status registers, its width is only `LOW_MARK` in the low byte, and its control is default-off, one-shot, initialization-only; no polling injection. Canonical, `engineWait` and `pcrtc` controls are unchanged.
 

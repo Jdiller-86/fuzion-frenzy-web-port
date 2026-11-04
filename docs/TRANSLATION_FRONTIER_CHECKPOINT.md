@@ -1,4 +1,39 @@
-# The 0x1FCB00 admission advances the stop to 0x1FD42F
+# The 0x1FD42F admission reaches AvSendTVEncoderOption (ordinal 2)
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-49` admits the next reached helper `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for **418 functions / 17,353 instructions**. The reset run executes both and stops at **status 1** (unsupported Xbox service), target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. The retained callers evidence names ordinal 2 as `AvSendTVEncoderOption`; no encoder behaviour is modeled.
+
+The frontier now has 99 placeholders (98 referenced), but the run enters **0** of them: the next blocker is the kernel service, not a translation target. 66 placeholders are called by an executed caller and 32 have only unexecuted callers; none can advance this run while ordinal 2 is unsupported.
+
+## Narrow admission
+
+- One merged seed within the existing 32-export budget, recomposed with `--guard-memory`.
+- `0x1FD42F` calls `0x1FD410`; `0x1FD410` calls ordinal 2 through IAT `0x00253450`. No other dependency was added.
+- `tools/verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+- `tools/verify-translation.py`: 0 functions needing rewriting.
+- Module `recomp-post-memory-build-70`, SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`.
+
+## Measured result
+
+| run | stop | routines | kernel ops | events |
+| --- | --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
+| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
+| `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
+| `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+
+The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
+
+## Limits
+
+- No encoder capabilities, mode, timing or return values are guessed.
+- One helper and its direct dependency were added; no broad closure or frontier batch.
+- No display, renderer, fidelity or playability.
+
+## Next task
+
+Do not export more frontier targets for this run: the next dependency is the kernel service. Decide whether to model a bounded, evidence-backed `AvSendTVEncoderOption` service or take another independent prerequisite. Keep the canonical profile fail-closed and the geometry lane paused.
+
+## Prior: The 0x1FCB00 admission advances the stop to 0x1FD42F
 
 November 4, 2026. The first evidence-based admission after the reset breakthrough is complete. Translation `recomp-title-recomp-title-post-memory-48` admits exactly the reached helper `0x1FCB00` (10 instructions, a leaf that returns `0xF` for inputs `3`/`0x1C`, otherwise reads `[EAX + 0x2024F0]` and masks `0x3C`) and contains **416 functions / 17,294 instructions**. The reset run now executes it and stops at the next reached helper, untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations). The frontier filter reports **entered = 1** for `0x1FD42F` (called by `0x1FD4A8`), so the next admission is evidence-based.
 

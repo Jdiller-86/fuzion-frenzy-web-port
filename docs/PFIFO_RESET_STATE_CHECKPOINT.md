@@ -22,6 +22,10 @@ The prior handoff said the reference did not model the empty-cache reset state a
 
 Translation `recomp-title-recomp-title-post-memory-48` admits the reached helper `0x1FCB00` (10 instructions, no calls) for 416 functions / 17,294 instructions. Module `recomp-post-memory-build-70`, SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a8cc7f847fab3d9235f89ea0434dfb22`. The reset run now executes the helper and stops at the next reached helper, untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations). The table below remains the pre-admission measurement.
 
+## Later: 0x1FD42F is admitted; the next stop is ordinal 2
+
+Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for 418 functions / 17,353 instructions. Module `recomp-post-memory-build-70`, SHA-256 `6bc97c4dab8f09f2b2135dd3042ab064492fbebaec97710bca870c2dde9d0629`. The reset run now stops at **status 1**, target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The next dependency is the kernel service, not a translation target.
+
 ## Proof requested by the architect
 
 | property | evidence |
@@ -58,4 +62,4 @@ The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once,
 
 ## Next task
 
-Export `0x1FD42F` (and only demonstrably necessary dependencies) from the analysis project, recompose with `--guard-memory`, build and rerun with the `pfifoReset` profile; keep the canonical profile fail-closed and do not treat the reset value as a general completion rule.
+Decide whether to model a bounded, evidence-backed `AvSendTVEncoderOption` service (ordinal 2: arguments, return values, supported options) or take another independent prerequisite. Do not infer encoder behaviour or display timing from the call alone. Keep the canonical profile fail-closed and the geometry lane paused.
