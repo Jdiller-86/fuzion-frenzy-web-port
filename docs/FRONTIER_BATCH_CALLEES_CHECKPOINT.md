@@ -19,6 +19,10 @@ November 4, 2026. Bounded read-only scoping of the callees named by the two stat
 
 `0x1FC980` is shared by both candidate paths. The retained exporter reads it as **2 instructions / a 9-byte instruction-only envelope**, no calls; SHA-256 `18744bb385b803cd8d67c0d4c2e26d02c30e005e6b0a8f8c11e7d31972e23d4b`. Byte identity, independent decoder agreement (2/2, no normalizations) and `checked_function_layout` pass. The seed was not merged into the selection, and `0x1FC980` remains unadmitted.
 
+## 0x1FCB70 two-table shape (read-only)
+
+The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`, with two computed jumps: `0x1FCB8B` through the **11-target** table at `0x1FCC50`, and `0x1FCBC6` through the **2-target** table at `0x1FCC98`. Both tables are outside the body, with a gap at `0x1FCC7C..0x1FCC97` between them. A table-aware batch export would need both tables and the gap; it was not attempted because the post-`0x1F7080` path is unproven. `0x1FCB70` remains unadmitted.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
