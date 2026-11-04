@@ -1,6 +1,14 @@
-# Continue from the external ordinal-2 observation request
+# Continue from the external capture validator
 
-The latest bounded decision records that no local evidence can resolve the original `AvSendTVEncoderOption` option-6 response. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one original-hardware capture rather than another replacement-source or fixture-hardening cycle. The exact call, required fields, acceptance criteria and local-content rules are in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md). A raw EEPROM alone is insufficient, and the replacement-kernel values remain unadopted.
+The latest bounded correction makes the original-hardware observation request operational. `src/runtime/av-observation.mjs` and `tools/validate-av-observation.mjs` validate a local capture for the exact `(0, 6, 0, Result)` call shape, strict `original-hardware` provenance, four before/after bytes, normal return, game/kernel/console/collection fields and one to four confirmations; a differing confirmation requires a variation note. The measured word and consumer-domain match are reported, but a mismatch is retained as evidence, not rejected or altered. The validator never writes, uploads or authenticates the capture, and no service model or runtime handler is added.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it.
+
+Next: request the capture once and validate any returned record with the tool. If it cannot be provided, record the external prerequisite and stop; do not run another replacement-source survey or add another fixture. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+
+## Prior: continue from the external ordinal-2 observation request
+
+The prior bounded decision records that no local evidence can resolve the original `AvSendTVEncoderOption` option-6 response. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one original-hardware capture rather than another replacement-source or fixture-hardening cycle. The exact call, required fields, acceptance criteria and local-content rules are in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md). A raw EEPROM alone is insufficient, and the replacement-kernel values remain unadopted.
 
 Validation: docs-only; runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 336 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it.
 

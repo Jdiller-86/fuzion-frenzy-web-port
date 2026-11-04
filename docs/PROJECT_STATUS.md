@@ -1,4 +1,10 @@
-# The ordinal-2 blocker is now an external original-hardware observation
+# The external ordinal-2 capture now has a source-owned validator
+
+November 4: the original-hardware observation request is now operational. `tools/validate-av-observation.mjs` and `src/runtime/av-observation.mjs` check a local capture for the exact `(0, 6, 0, Result)` call shape, strict `original-hardware` provenance, four before/after bytes, normal return, game/kernel/console/collection fields and one to four confirmations. A differing confirmation requires a variation note. The validator reports the measured word and whether it matches the observed consumer domain; a mismatch is retained as evidence, not rejected or altered. It never writes or uploads and does not authenticate the capture or model the service. Ordinal 2 remains unsupported and no runtime handler is added. **There is no controllable original screen.**
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it. See [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md).
+
+## Prior: The ordinal-2 blocker is now an external original-hardware observation
 
 November 4: the consumer table domain is known, but the original service's option-6 response is not. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one bounded original-hardware capture rather than another replacement-source or fixture-hardening cycle. The request is recorded in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md): capture the four arguments and the four `Result` bytes before and after the original ordinal-2 call, with game/kernel/console-configuration provenance and a confirming observation. A raw EEPROM alone is insufficient. No service model, runtime handler, default or frontier admission is added; ordinal 2 remains unsupported and `0x1F79A0` is not reached. **There is no controllable original screen.**
 

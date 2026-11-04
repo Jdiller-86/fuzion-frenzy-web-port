@@ -25,6 +25,47 @@ The capture must show:
 - the console video configuration and the connected AV cable/pack;
 - how the observation was collected, including any instrumentation that could affect it.
 
+## Capture record
+
+Store the capture locally as JSON and validate it with:
+
+```text
+node tools/validate-av-observation.mjs <local-capture.json>
+```
+
+The validator requires `source: "original-hardware"`, the exact `(0, 6, 0, Result)` call shape, four before/after bytes, a normal return, game/kernel/console/collection fields, and one to four confirmations. It prints the measured word and whether it matches the observed consumer domain. A mismatch is retained as evidence, not rejected or altered. It never writes or uploads.
+
+The following template is not evidence until every placeholder is replaced with a measured value; the validator rejects the placeholders.
+
+```json
+{
+  "schema": "av-observation/1",
+  "source": "original-hardware",
+  "game": { "sha256": "<64 hex characters>", "name": "Fuzion Frenzy (USA)" },
+  "kernel": { "version": "<observed kernel version>" },
+  "console": {
+    "videoConfiguration": "<observed video configuration>",
+    "avPack": "<observed AV pack>",
+    "cable": "<observed cable>"
+  },
+  "call": { "registerBase": 0, "option": 6, "param": 0, "resultAddress": "0x203720" },
+  "before": ["0xNN", "0xNN", "0xNN", "0xNN"],
+  "after": ["0xNN", "0xNN", "0xNN", "0xNN"],
+  "returnedNormally": true,
+  "collection": "<how the capture was collected>",
+  "instrumentation": "<none or details of any instrumentation>",
+  "confirmations": [
+    {
+      "before": ["0xNN", "0xNN", "0xNN", "0xNN"],
+      "after": ["0xNN", "0xNN", "0xNN", "0xNN"],
+      "returnedNormally": true
+    }
+  ]
+}
+```
+
+A differing confirmation requires a `variationNote` in that confirmation object. Raw captures stay local; only a validated summary or curated finding may be committed.
+
 ## Acceptance criteria
 
 1. The observation is attributable to the original kernel, not an emulator, replacement kernel or inferred value, and it is the same game call.
