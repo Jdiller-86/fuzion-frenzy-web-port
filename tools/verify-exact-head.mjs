@@ -65,6 +65,29 @@ export function containment({ baseOnly, headOnly }) {
   return { contained: behind === 0, ahead, behind };
 }
 
+/**
+ * How the published merge target relates to the candidate head.
+ *
+ * `ancestor` - the target is itself in the head's history.
+ * `parents-contained` - the target is a merge commit and both of its sides are
+ *   in the head's history, so the target's content is carried by the head even
+ *   though the target commit itself is not an ancestor. This is the normal
+ *   shape after the target was created by merging this branch into main.
+ * `divergent` - the target is not in the head's history and it is not a merge
+ *   whose sides are all in the head's history.
+ */
+export function classifyBaseRelation({ isAncestor, parentsContained }) {
+  if (isAncestor) return 'ancestor';
+  if (parentsContained) return 'parents-contained';
+  return 'divergent';
+}
+
+/** Paths tracked by the base that the head does not track at all. */
+export function missingPaths(basePaths, headPaths) {
+  const present = new Set(headPaths);
+  return basePaths.filter((file) => !present.has(file));
+}
+
 export function formatExternalGates(gates = EXTERNAL_GATES) {
   return gates.map((gate) => `  - ${gate}`).join('\n');
 }
@@ -103,6 +126,37 @@ function revListCounts(baseSha, headSha, repo) {
     return { baseOnly, headOnly };
   } catch {
     return { baseOnly: null, headOnly: null };
+  }
+}
+
+function isAncestor(ancestor, descendant, repo) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+      cwd: repo,
+      timeout: 60000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function commitParents(sha, repo) {
+  try {
+    const out = git(['rev-list', '--parents', '-n', '1', sha], repo).trim();
+    return out.split(/\s+/).slice(1).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function trackedPaths(sha, repo) {
+  try {
+    const out = git(['ls-tree', '-r', '--name-only', sha], repo);
+    return out.split('\n').filter(Boolean);
+  } catch {
+    return [];
   }
 }
 
@@ -174,11 +228,39 @@ export function runExactHeadCheck(options = {}) {
   } else {
     const counts = revListCounts(baseSha, headSha, repo);
     const state = containment(counts);
-    facts.base = { ref: baseRef, sha: baseSha, checked: true, ...state };
-    if (!state.contained) {
+    const strictAncestor = isAncestor(baseSha, headSha, repo);
+    const parents = commitParents(baseSha, repo);
+    const parentsContained = parents.length > 1
+      && parents.every((parent) => isAncestor(parent, headSha, repo));
+    const relation = classifyBaseRelation({ isAncestor: strictAncestor, parentsContained });
+    const dropped = missingPaths(trackedPaths(baseSha, repo), trackedPaths(headSha, repo));
+    facts.base = {
+      ...state,
+      ref: baseRef,
+      sha: baseSha,
+      checked: true,
+      relation,
+      strictlyContained: relation === 'ancestor',
+      contained: relation !== 'divergent',
+      parents,
+      missingPaths: dropped.length,
+    };
+    if (relation === 'divergent') {
       errors.push(
         `published base ${baseRef} (${shortSha(baseSha)}) is not contained in the head `
           + `(${state.behind} commit(s) only on ${baseRef})`,
+      );
+    }
+    if (relation === 'parents-contained') {
+      notes.push(
+        `published base ${baseRef} (${shortSha(baseSha)}) is a merge commit that is not itself an `
+          + 'ancestor of the head; both of its sides are in the head history',
+      );
+    }
+    if (dropped.length > 0) {
+      errors.push(
+        `the head does not track ${dropped.length} path(s) that ${baseRef} tracks `
+          + `(${dropped.slice(0, 5).join(', ')})`,
       );
     }
   }
@@ -217,8 +299,9 @@ export function formatReport(result) {
     + `${facts.head.matchesArchitect ? 'match' : 'MISMATCH'}`);
   if (facts.base.checked) {
     lines.push(`  published base  ${facts.base.sha}  (${facts.base.ref})  `
-      + `${facts.base.contained ? 'contained in head' : 'NOT contained in head'} `
-      + `(head ahead ${facts.base.ahead}, behind ${facts.base.behind})`);
+      + `${facts.base.relation} `
+      + `(head ahead ${facts.base.ahead}, behind ${facts.base.behind}, `
+      + `missing base paths ${facts.base.missingPaths})`);
   } else {
     lines.push(`  published base  unresolved (${facts.base.ref}); containment not checked`);
   }

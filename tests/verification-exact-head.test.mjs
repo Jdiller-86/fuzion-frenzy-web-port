@@ -7,10 +7,12 @@ import { execFileSync } from 'node:child_process';
 
 import {
   EXTERNAL_GATES,
+  classifyBaseRelation,
   containment,
   formatExternalGates,
   formatReport,
   headIsArchitectHead,
+  missingPaths,
   parseSha,
   runExactHeadCheck,
   shortSha,
@@ -45,6 +47,29 @@ function makeRepo() {
   return { directory, mainName };
 }
 
+/**
+ * A repository whose published target is a merge commit of the branch itself:
+ * `published` merges `side` into the base, while the candidate branch merges
+ * the same two sides without carrying the published merge commit.
+ */
+function makeMergeRepo() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'exact-head-merge-'));
+  git(['init', '--quiet'], directory);
+  commit(directory, 'first');
+  const mainName = git(['rev-parse', '--abbrev-ref', 'HEAD'], directory).trim();
+  git(['branch', 'side'], directory);
+  git(['switch', '--quiet', 'side'], directory);
+  commit(directory, 'side');
+  git(['switch', '--quiet', mainName], directory);
+  git(['switch', '--quiet', '-c', 'published'], directory);
+  git(['merge', '--quiet', '--no-ff', '-m', 'published merge', 'side'], directory);
+  git(['switch', '--quiet', '-c', 'candidate', mainName], directory);
+  git(['merge', '--quiet', '--no-ff', '-m', 'candidate merge', 'side'], directory);
+  commit(directory, 'candidate');
+  git(['branch', '--quiet', 'architect', 'candidate'], directory);
+  return { directory, mainName };
+}
+
 test('only a full lowercase commit id is accepted as a head', () => {
   const sha = 'a'.repeat(40);
   assert.equal(parseSha(sha), sha);
@@ -69,6 +94,17 @@ test('containment needs the base to have no commit of its own', () => {
     { contained: true, ahead: 132, behind: 0 });
   assert.deepEqual(containment({ baseOnly: 2, headOnly: 228 }),
     { contained: false, ahead: 228, behind: 2 });
+});
+
+test('the base relation separates an ancestor, a merged target and a divergence', () => {
+  assert.equal(classifyBaseRelation({ isAncestor: true, parentsContained: false }), 'ancestor');
+  assert.equal(classifyBaseRelation({ isAncestor: false, parentsContained: true }), 'parents-contained');
+  assert.equal(classifyBaseRelation({ isAncestor: false, parentsContained: false }), 'divergent');
+});
+
+test('only base paths that the head does not track are reported as missing', () => {
+  assert.deepEqual(missingPaths(['a.txt', 'b.txt'], ['a.txt', 'b.txt', 'c.txt']), []);
+  assert.deepEqual(missingPaths(['a.txt', 'b.txt'], ['a.txt']), ['b.txt']);
 });
 
 test('the external promotion gates are listed and never asserted', () => {
@@ -125,6 +161,34 @@ test('a candidate that does not contain the published base is rejected', () => {
   assert.equal(result.exitCode, 1);
   assert.match(result.errors.join(' '), /not contained in the head/);
   assert.equal(result.facts.base.contained, false);
+  assert.equal(result.facts.base.relation, 'divergent');
+});
+
+test('a published target that is a merge of the branch is accepted with an explicit note', () => {
+  const { directory, mainName } = makeMergeRepo();
+  const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
+    baseRef: 'published', localRef: mainName });
+  assert.equal(result.ok, true, result.errors.join(' '));
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.facts.base.relation, 'parents-contained');
+  assert.equal(result.facts.base.contained, true);
+  assert.equal(result.facts.base.strictlyContained, false);
+  assert.equal(result.facts.base.missingPaths, 0);
+  assert.match(result.notes.join(' '), /merge commit that is not itself an ancestor/);
+  assert.match(formatReport(result), /parents-contained/);
+});
+
+test('a head that drops a published path is rejected even when the commits are related', () => {
+  const { directory, mainName } = makeMergeRepo();
+  git(['rm', '--quiet', 'side.txt'], directory);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'commit', '--quiet', '-m', 'drop side'], directory);
+  const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
+    baseRef: 'published', localRef: mainName });
+  assert.equal(result.ok, false);
+  assert.equal(result.exitCode, 1);
+  assert.match(result.errors.join(' '), /does not track 1 path/);
+  assert.deepEqual(result.facts.base.missingPaths, 1);
 });
 
 test('the architect head containing the published base passes and reports local facts', () => {

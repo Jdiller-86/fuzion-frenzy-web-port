@@ -102,3 +102,35 @@ test('the exact-head precheck runs from the command line and prints the marker',
   assert.match(exact.stdout, /match/);
   assert.match(exact.stdout, /exact-head marker: [0-9a-f]{40}/);
 });
+
+test('the exact-head precheck accepts a published target that merged the branch itself', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'exact-head-merged-'));
+  const git = (args) => execFileSync('git', args, {
+    cwd: directory, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  git(['init', '--quiet']);
+  fs.writeFileSync(path.join(directory, 'a.txt'), 'one\n');
+  git(['add', '-A']);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'commit', '--quiet', '-m', 'first']);
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+  git(['branch', 'side']);
+  git(['switch', '--quiet', 'side']);
+  fs.writeFileSync(path.join(directory, 'b.txt'), 'two\n');
+  git(['add', '-A']);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'commit', '--quiet', '-m', 'side']);
+  git(['switch', '--quiet', '-c', 'published', branch]);
+  git(['merge', '--quiet', '--no-ff', '-m', 'published merge', 'side']);
+  git(['switch', '--quiet', '-c', 'candidate', branch]);
+  git(['merge', '--quiet', '--no-ff', '-m', 'candidate merge', 'side']);
+  git(['branch', '--quiet', 'architect', 'candidate']);
+
+  const result = spawnSync(process.execPath, [
+    path.resolve('tools/verify-exact-head.mjs'), '--repo', directory, 'candidate',
+    '--architect-ref', 'architect', '--base-ref', 'published', '--local-ref', branch,
+  ], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /parents-contained/);
+  assert.match(result.stdout, /missing base paths 0/);
+});
