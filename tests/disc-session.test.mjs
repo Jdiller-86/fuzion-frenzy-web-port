@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DiscSessionCore, DiscSessionError } from '../src/runtime/disc-session-core.mjs';
 import { DiscSession } from '../src/runtime/disc-session.mjs';
+import { BUILD_REFERENCE } from '../src/runtime/local-title-proof.mjs';
 
 const SECTOR = 2048;
 function fixture() {
@@ -76,6 +80,37 @@ test('a supported XISO opens and returns only requested byte ranges', async () =
   const executable = await core.read('default.xbe', 0, 16);
   assert.deepEqual([...executable.bytes], [...xbeBytes]);
   assert.ok(core.dataBytesRead < b.length);
+});
+
+test('the retained production XBE identity is accepted when present', async t => {
+  const localXbe = path.resolve(fileURLToPath(new URL('../', import.meta.url)), 'research/reference/default.xbe');
+  if (!fs.existsSync(localXbe)) {
+    t.skip('local production XBE is not present');
+    return;
+  }
+  const xbe = fs.readFileSync(localXbe);
+  assert.equal(xbe.length, BUILD_REFERENCE.size);
+  const b = new Uint8Array(34 * SECTOR + xbe.length), v = new DataView(b.buffer), enc = new TextEncoder();
+  const d = 32 * SECTOR, root = 33 * SECTOR, data = 34 * SECTOR;
+  b.set(enc.encode('MICROSOFT*XBOX*MEDIA'), d);
+  b.set(enc.encode('MICROSOFT*XBOX*MEDIA'), d + SECTOR - 20);
+  v.setUint32(d + 20, 33, true);
+  v.setUint32(d + 24, 64, true);
+  v.setUint16(root + 0, 0, true);
+  v.setUint16(root + 2, 0, true);
+  v.setUint32(root + 4, 34, true);
+  v.setUint32(root + 8, xbe.length, true);
+  b[root + 12] = 0x20;
+  b[root + 13] = 11;
+  b.set(enc.encode('default.xbe'), root + 14);
+  b.set(xbe, data);
+  const core = new DiscSessionCore();
+  const info = await core.open(blob(b), { size: BUILD_REFERENCE.size, sha256: BUILD_REFERENCE.sha256 });
+  assert.equal(info.xbeBytes, BUILD_REFERENCE.size);
+  assert.deepEqual(await core.inventory(), [{ name: 'default.xbe', size: BUILD_REFERENCE.size, directory: false }]);
+  const first = await core.read('default.xbe', 0, 16);
+  assert.deepEqual([...first.bytes], [...xbe.subarray(0, 16)]);
+  core.close();
 });
 
 test('unsupported identity, malformed image, unsafe path and invalid range fail closed', async () => {

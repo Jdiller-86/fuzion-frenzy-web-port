@@ -40,10 +40,14 @@ No console errors were reported. The network log contained only the fixture page
 
 An independent GLM review at `2026-11-04T06:35:19.3594903-05:00` found that `DiscSessionCore.open()` had no busy guard and could overwrite a cleared session if `close()` ran during one of its awaits. It now sets a busy guard, re-checks `closed` after each await and no longer resets `closed` on success. Tests now cover clear-during-open, concurrent open, clear while a read is pending, request timeout, `worker.onerror` and an unexpected response type.
 
+## Production identity validation
+
+The pinned `BUILD_REFERENCE` now carries the 2,834,432-byte XBE size. `tests/disc-session.test.mjs` conditionally builds a synthetic XISO around the retained `research/reference/default.xbe` when it is present, opens the session with the pinned size/SHA-256, checks the root inventory and reads the first 16 bytes. It skips cleanly when the local XBE is absent; no original content is committed. It passed in this worktree.
+
 ## Tests and limits
 
-- `tests/disc-session.test.mjs` covers open/read, root and explicit subdirectory inventory (names/sizes only), inventory entry limit, non-directory/missing paths, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read/open, concurrent open, independent reopen, client busy/clear/timeout/worker.onerror/protocol rejection and worker error replies.
-- Runtime suite 156/156, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass.
+- `tests/disc-session.test.mjs` covers open/read, production-XBE identity when the local file is present, root and explicit subdirectory inventory (names/sizes only), inventory entry limit, non-directory/missing paths, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read/open, concurrent open, independent reopen, client busy/clear/timeout/worker.onerror/protocol rejection and worker error replies.
+- Runtime suite 157/157, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass.
 - This is not a guest disc service, not a full importer/converter, and not proof of conversion completeness, title fidelity or playability. It does not read the whole image or upload it. The inventory is shallow: the root or one explicit directory, with no recursive listing or content.
 - `dataBytesRead` is informational; there is no cumulative session cap. A same-origin caller can retrieve an entire image in 64 KiB slices over time, though no egress path exists in these files.
 - The session trusts the caller-supplied identity; any runtime wiring must supply the pinned production digest.

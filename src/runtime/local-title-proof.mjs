@@ -3,6 +3,7 @@ import { inspectProofWasm } from './wasm-proof.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
+  size: 2834432,
   sha256: '45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9',
   entry: 0x30f7f, threadWrapper: 0x3439f, tlsSize: 0x3191b4,
   threadStart: 0x30f10, systemStart: 0x34307, kernelReturn: 0x343de, ordinal: 255
