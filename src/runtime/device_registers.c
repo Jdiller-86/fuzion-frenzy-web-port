@@ -35,21 +35,34 @@ static int in_zero_range(const ff_device_registers *device, uint32_t address, ui
 static uint32_t note_read(ff_device_registers *device, uint32_t address, uint32_t site, uint32_t value)
 {
     address = canonical_address(device, address);
+    /* A declared status input the guest polls: an unchanged masked value is a
+     * wait for an event this model never delivers, independent of how many other
+     * registers the loop body touches. */
+    for (uint32_t i = 0; i < device->status_wait_count; ++i) {
+        ff_device_status_wait *wait = &device->status_waits[i];
+        if (!wait->active || wait->address != address) continue;
+        uint32_t masked = value & wait->mask;
+        if (wait->count && masked == wait->value) {
+            if (++wait->count > FF_DEVICE_WAIT_LIMIT) {
+                device->wait_limited = 1; device->wait_address = address;
+                return FF_BOOT_UNSUPPORTED;
+            }
+        } else {
+            wait->value = masked; wait->count = 1;
+        }
+    }
     ff_device_wait *wait = NULL;
     for (uint32_t i = 0; i < device->wait_count; ++i)
         if (device->waits[i].active && device->waits[i].address == address) { wait = &device->waits[i]; break; }
     if (!wait && device->wait_count < FF_DEVICE_WAITS) {
         wait = &device->waits[device->wait_count++];
         *wait = (ff_device_wait){address, value, 1, 1};
-    } else if (!wait) {
-        /* The bounded table is full of other registers: fall back to the
-         * single-site detector rather than evicting live evidence. */
-    } else if (wait->value == value) {
+    } else if (wait && wait->value == value) {
         if (++wait->count > FF_DEVICE_WAIT_LIMIT) {
             device->wait_limited = 1; device->wait_address = address;
             return FF_BOOT_UNSUPPORTED;
         }
-    } else {
+    } else if (wait) {
         wait->value = value; wait->count = 1;
     }
     if (device->poll_count && device->poll_address == address &&
@@ -67,6 +80,10 @@ static void note_write(ff_device_registers *device, uint32_t address)
     for (uint32_t i = 0; i < device->wait_count; ++i)
         if (device->waits[i].active && device->waits[i].address == address) {
             device->waits[i].value = 0; device->waits[i].count = 0;
+        }
+    for (uint32_t i = 0; i < device->status_wait_count; ++i)
+        if (device->status_waits[i].active && device->status_waits[i].address == address) {
+            device->status_waits[i].value = 0; device->status_waits[i].count = 0;
         }
 }
 
@@ -210,6 +227,18 @@ uint32_t ff_device_registers_add_write_clearing(ff_device_registers *device, uin
     for (uint32_t i = 0; i < device->self_clearing_count; ++i)
         if (device->self_clearing[i].address == address) return FF_BOOT_INVALID;
     device->write_clearing[device->write_clearing_count++] = (ff_device_write_clearing){address};
+    return 0;
+}
+
+uint32_t ff_device_registers_add_status_wait(ff_device_registers *device, uint32_t address, uint32_t mask)
+{
+    if (!device || !device->ready || device->event_count || device->pending || !mask ||
+        (address & 3u) || address < device->base || address - device->base >= device->bytes)
+        return FF_BOOT_INVALID;
+    if (device->status_wait_count >= FF_DEVICE_STATUS_WAITS) return FF_BOOT_INVALID;
+    for (uint32_t i = 0; i < device->status_wait_count; ++i)
+        if (device->status_waits[i].address == address) return FF_BOOT_INVALID;
+    device->status_waits[device->status_wait_count++] = (ff_device_status_wait){address, mask, 0, 0, 1};
     return 0;
 }
 

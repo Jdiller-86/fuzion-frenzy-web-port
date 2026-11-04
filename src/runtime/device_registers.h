@@ -17,7 +17,8 @@
  * to the register restarts its count. */
 #define FF_DEVICE_POLL_LIMIT 16u
 #define FF_DEVICE_WAIT_LIMIT 64u
-#define FF_DEVICE_WAITS 8u
+#define FF_DEVICE_WAITS 16u
+#define FF_DEVICE_STATUS_WAITS 4u
 #define FF_DEVICE_INITIAL 64u
 #define FF_DEVICE_ZERO_RANGES 8u
 #define FF_DEVICE_SELF_CLEARING 4u
@@ -39,8 +40,13 @@ typedef struct {
 typedef struct {
     uint32_t base, bytes;
 } ff_device_zero_range;
-/* One register the guest keeps re-reading with the same value: a wait for a
- * hardware transition this model cannot raise. */
+/* A declared status input the guest waits on: reads return the current value,
+ * and an unchanged masked value across many reads is a wait this model cannot
+ * satisfy because no device event is ever delivered. */
+typedef struct {
+    uint32_t address, mask, value, count, active;
+} ff_device_status_wait;
+/* One register the guest keeps re-reading with an unchanged value. */
 typedef struct {
     uint32_t address, value, count, active;
 } ff_device_wait;
@@ -67,11 +73,12 @@ typedef struct {
     /* Consecutive identical reads at one site: a device transition this model
      * cannot supply. poll_count above FF_DEVICE_POLL_LIMIT stops the proof. */
     uint32_t poll_address, poll_value, poll_site, poll_count;
-    /* Registers re-read with an unchanged value, and the one that exhausted the
-     * bounded wait limit. */
-    uint32_t wait_count, wait_address, wait_limited;
+    /* Registers re-read with an unchanged value, declared status inputs the guest
+     * waits on, and the register that exhausted the bounded wait limit. */
+    uint32_t wait_count, wait_address, wait_limited, status_wait_count;
     uint32_t self_clearing_count, alias_count, write_clearing_count;
     uint32_t zero_word;
+    ff_device_status_wait status_waits[FF_DEVICE_STATUS_WAITS];
     ff_device_wait waits[FF_DEVICE_WAITS];
     ff_device_alias aliases[FF_DEVICE_ALIASES];
     ff_device_self_clearing self_clearing[FF_DEVICE_SELF_CLEARING];
@@ -102,6 +109,10 @@ uint32_t ff_device_registers_add_self_clearing(ff_device_registers *, uint32_t a
  * back the remaining status. The write event keeps the value the guest stored. A
  * sub-dword store to such a register is rejected rather than partially applied. */
 uint32_t ff_device_registers_add_write_clearing(ff_device_registers *, uint32_t address);
+/* Declare a status input the guest polls. Reads return the current value; if the
+ * masked bits stay unchanged across FF_DEVICE_WAIT_LIMIT reads the proof stops,
+ * because this model never delivers a device event that could change them. */
+uint32_t ff_device_registers_add_status_wait(ff_device_registers *, uint32_t address, uint32_t mask);
 /* Declare two addresses that share one stored value; events keep the address
  * the translated block actually used. */
 uint32_t ff_device_registers_add_alias(ff_device_registers *, uint32_t first, uint32_t second);

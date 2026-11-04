@@ -797,6 +797,10 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
      * delivered"; it is not evidence of interrupt delivery. Without this flag the
      * read stays fail-closed. */
     if(mmio_pmc_zero && (status=ff_device_registers_add_zero_range(&device_registers,0xFD000100u,4u)))return status;
+    /* The reached wait at 0x1FE50D polls bit 24 of NV_PMC_INTR_0. Declaring it as
+     * a status input means the polling loop is reported as a device wait instead
+     * of silently consuming the bounded event log until it fills. */
+    if(mmio_pmc_zero && (status=ff_device_registers_add_status_wait(&device_registers,0xFD000100u,0x01000000u)))return status;
     if(!mmio_write_clearing) return 0;
     /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
      * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it
