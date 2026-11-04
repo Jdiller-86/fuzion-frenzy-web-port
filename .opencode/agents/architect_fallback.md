@@ -1,7 +1,7 @@
 ---
-description: Budgeted GLM Flash architect for integration, builder direction, and guarded PR decisions while linked Sol is limited
+description: Budgeted GLM 5.3 architect for integration, builder direction, and guarded PR decisions while linked Sol is limited
 mode: primary
-model: opencode-go/glm-5.3-flash
+model: opencode-go/glm-5.3
 steps: 20
 permissions:
   - action: read
