@@ -21,6 +21,7 @@ const suites = [
   'tests/recomp_memory_access_test.py',
   'tests/recomp_memory_access_codegen_test.py',
   'tests/title_seed_test.py',
+  'tests/verify_seeds_test.py',
 ];
 
 function probe(command, prefix) {
