@@ -1,4 +1,10 @@
-# The ordinal-2 ABI is grounded: stdcall, 16 argument bytes, void return
+# The ordinal-2 output contract is captured: 4 bytes at 0x203720, masks 0xFF/0xFF00
+
+November 4: the output side of the ordinal-2 contract is now explicit and checkable. The caller consumes only bits 0-15 of the 4-byte output word at `0x203720`, masks `0xFF`/`0xFF00`, and scans a table at `0x202C38` (0xBF entries, 0xC bytes each); bits 16-31 are not consumed on this path. `src/runtime/kernel-service.mjs` records `output: { address: 0x203720, bytes: 4, writable: true, masks: [0xFF, 0xFF00], table: { base: 0x202C38, entries: 0xBF, stride: 0xC } }`; `proof-report.mjs` requires those facts for ordinal 2 and rejects output facts on unknown services. The service remains unsupported; no capability result or bit meaning is fabricated. **There is no controllable original screen.**
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 331 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The ordinal-2 ABI is grounded: stdcall, 16 argument bytes, void return
 
 November 4: the ABI gap in the ordinal-2 contract is closed from retained evidence. The call site `0x1FD423` pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the guest reads the 4-byte output word at `0x203720`, not an NTSTATUS in EAX. `src/runtime/kernel-service.mjs` now records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`; `proof-report.mjs` requires those facts for ordinal 2 and rejects ABI facts on unknown services. The service remains unsupported and no success is fabricated. **There is no controllable original screen.**
 

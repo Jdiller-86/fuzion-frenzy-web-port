@@ -1,4 +1,10 @@
-# Continue from the grounded ordinal-2 ABI
+# Continue from the captured ordinal-2 output contract
+
+The latest bounded milestone makes the output side explicit. The caller consumes only bits 0-15 of the 4-byte output at `0x203720`, masks `0xFF`/`0xFF00`, and scans a table at `0x202C38` (0xBF entries, 0xC bytes each); bits 16-31 are not consumed on this path. The service descriptor records the output address/width/permissions, masks and table facts; the validator requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability result is fabricated. The next decision is whether pinned references ground the semantics; do not guess.
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 331 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it.
+
+## Prior: the grounded ordinal-2 ABI
 
 The latest bounded milestone closes the ABI gap in the ordinal-2 contract. The call site `0x1FD423` pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the guest reads the 4-byte output word at `0x203720`, not an NTSTATUS in EAX. `src/runtime/kernel-service.mjs` records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`; `proof-report.mjs` requires those facts for ordinal 2 and rejects ABI facts on unknown services. The service remains unsupported; no success is fabricated. The next decision is whether the pinned references ground the encoder semantics; do not guess.
 

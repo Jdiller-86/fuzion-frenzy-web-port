@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { describeKernelService } from '../src/runtime/kernel-service.mjs';
 
-test('ordinal 2 is named AvSendTVEncoderOption with the evidenced ABI and is not modeled', () => {
+test('ordinal 2 is named AvSendTVEncoderOption with the evidenced ABI/output and is not modeled', () => {
   assert.deepEqual(describeKernelService(2), {
     ordinal: 2,
     name: 'AvSendTVEncoderOption',
@@ -10,6 +10,13 @@ test('ordinal 2 is named AvSendTVEncoderOption with the evidenced ABI and is not
     callingConvention: 'stdcall',
     argumentBytes: 16,
     returns: 'void',
+    output: {
+      address: 0x203720,
+      bytes: 4,
+      writable: true,
+      masks: [0xff, 0xff00],
+      table: { base: 0x202c38, entries: 0xbf, stride: 0xc },
+    },
   });
 });
 

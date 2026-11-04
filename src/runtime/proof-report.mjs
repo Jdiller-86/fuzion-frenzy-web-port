@@ -47,8 +47,14 @@ export function validateProofReport(report) {
       if (stop.service.callingConvention !== 'stdcall' || stop.service.argumentBytes !== 16 ||
           stop.service.returns !== 'void')
         throw new Error('The AvSendTVEncoderOption descriptor must carry the evidenced stdcall/16-byte/void ABI');
+      const output = stop.service.output;
+      if (!output || typeof output !== 'object' || output.address !== 0x203720 || output.bytes !== 4 ||
+          output.writable !== true || !Array.isArray(output.masks) || output.masks.length !== 2 ||
+          output.masks[0] !== 0xff || output.masks[1] !== 0xff00 || !output.table ||
+          output.table.base !== 0x202c38 || output.table.entries !== 0xbf || output.table.stride !== 0xc)
+        throw new Error('The AvSendTVEncoderOption descriptor must carry the evidenced output facts');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
-               stop.service.returns !== undefined) {
+               stop.service.returns !== undefined || stop.service.output !== undefined) {
       throw new Error('Only a known service may carry ABI facts');
     }
   } else if (stop.service !== undefined) {
