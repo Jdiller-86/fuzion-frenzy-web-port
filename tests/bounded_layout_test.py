@@ -134,5 +134,56 @@ class MixedLayoutContractTest(unittest.TestCase):
                 reader(memory))
 
 
+def dispatch_layout(flows, tables):
+    row = {"address": "00100004", "computed": True, "call": False,
+           "mnemonic": "JMP", "flows": [f"{value:08x}" for value in flows]}
+    return {"start": 0x100000, "end": 0x10000c, "rows": [row],
+            "tables": tables, "mixed": True}
+
+
+def table(start, targets):
+    return {"start": start, "end": start + 4 * len(targets), "targets": targets}
+
+
+def site(anchor=0x100004):
+    return {"address": 0x100004, "base": None, "index": "eax",
+            "scale": 4, "size": 4, "anchor": anchor}
+
+
+class DispatchTableContractTest(unittest.TestCase):
+    def test_matching_table_and_flows_are_accepted(self):
+        layout = dispatch_layout([0x100000], [table(0x100004, [0x100000, 0x100000])])
+        census = PREP.checked_dispatch_tables(layout, [site()])
+        self.assertEqual(census, {0x100004: [0x100000, 0x100000]})
+
+    def test_wrong_flows_are_rejected(self):
+        layout = dispatch_layout([0x200000], [table(0x100004, [0x100000])])
+        with self.assertRaisesRegex(
+                ValueError, "Computed jump lacks one complete declared local table"):
+            PREP.checked_dispatch_tables(layout, [site()])
+
+    def test_missing_site_is_rejected(self):
+        layout = dispatch_layout([0x100000], [table(0x100004, [0x100000])])
+        with self.assertRaisesRegex(
+                ValueError, "Computed-jump census does not cover every established dispatch"):
+            PREP.checked_dispatch_tables(layout, [])
+
+    def test_unused_table_is_rejected(self):
+        layout = dispatch_layout([0x100000], [
+            table(0x100004, [0x100000]),
+            table(0x10000c, [0x100000]),
+        ])
+        with self.assertRaisesRegex(
+                ValueError, "Declared data is not accounted for by validated dispatches"):
+            PREP.checked_dispatch_tables(layout, [site()])
+
+    def test_unsupported_operand_is_rejected(self):
+        layout = dispatch_layout([0x100000], [table(0x100004, [0x100000])])
+        bad = site()
+        bad["base"] = "eax"
+        with self.assertRaisesRegex(ValueError, "Unsupported computed-jump operand"):
+            PREP.checked_dispatch_tables(layout, [bad])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
