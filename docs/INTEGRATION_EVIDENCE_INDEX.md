@@ -1,6 +1,6 @@
 # Integration evidence index and hold
 
-November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records.
+November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
 ## Source lane
 
@@ -40,6 +40,15 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Explicit `browser-71-reset-avquery.json`: status 2 at `0x1F6EB0`, 281 / 405; `0x1F79A0` executed and returned; next frontier entry `0x1F6EB0` called by executed `0x1F83C0`.
 - Translation `recomp-title-recomp-title-post-memory-50`: 419 functions / 17,448 instructions from 32 retained seeds. `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing; `verify-translation.py` reports 517 functions, 0 needing rewriting, fully instrumented.
 - `0x1F6EB0` is **not** admitted or exported. No storage/framework/substitute work was added.
+- **Read-only `0x1F6EB0` characterization:** 110 instructions / 455 bytes in the `D3D` section, no direct calls, return sites `0x1F7033`/`0x1F7076`, no indirect or undecodable branch; unadmitted. See [the frontier characterization](FRONTIER_1F6EB0_CHECKPOINT.md).
+- **Helper result synced to the integration head:** `4917e83` merges `c9dc22f` into the source lane so PR #2 is mergeable. The decision log is a 287-row union with no duplicates; `npm run check` 367 files, `test:runtime` 186/186; only governance tools/CI differ from the helper result. The bounded `0x1F6EB0` result and the `0x1FC780` stop are unchanged.
+- **Exact-head admission evidence (`becc879`):** module `9d8689ff?`; control profile `d01ac221?`; experiment profile `351383c3?` (only `avQueryWord` differs); control report `82dd1464?`; experiment report `f92976d4?`; next stop `0x1FC780`. The source lane is synced to `becc879`; PR #2 head `e1804fb` is `CLEAN`/`MERGEABLE`; preparation CI runs `41917187801` and `41917176661` success; no further admission until reviewed.
+- **Verification lane:** `tools/verify-exact-head.mjs` is on `origin/codex/opencode-verification` (`b2e4558`), not in `becc879`; the exact-head record is that lane's deliverable, not a primary change.
+- **Exact-head precheck (`becc879`):** the verification-lane `tools/verify-exact-head.mjs` (from `origin/codex/opencode-verification`, `b2e4558`) reports the head matches the architect head and contains `origin/main`; local `main` `e700373` has 2 commits not in the head; the external CI/PR/marker/publication gates are listed. The primary lane ran it read-only; the verification lane owns the record.
+- **Exact-head review state (2026-11-04T16:25):** integration head `c9dc22f` CI run `41908980383` success; PR #2 head `558af53` is `CLEAN`/`MERGEABLE`; its preparation CI runs `41915416295` and `41915405699` are success; the diff versus `c9dc22f` is docs-only. The bounded `0x1F6EB0` helper result and the `0x1FC780` stop are unchanged.
+- **Read-only `0x1FC780` characterization:** 17 instructions / 53 bytes in `D3D`, one self-recursive call, `ret 4`, reached from executed `0x1F5640`; unadmitted. See [the characterization](FRONTIER_1FC780_CHECKPOINT.md).
+- **Obsolete baseline request rejected:** `recomp-title-post-utility-01` (317 functions / 10,612 instructions, 19 seeds) neither contains nor references `0x1F6EB0`; its utility path stops at `MmQueryStatistics`. The current-lineage admission (translation 51) and the `0x1FC780` stop stand under the architect's directive.
+- **0x1F6EB0 admitted** under the `c9dc22f` directive: translation 51 (420 functions / 17,558 instructions), module 72 (`9d8689ff?`, 660,060 bytes). Same-module control 279/404 at ordinal 2; experiment 283/405, status 2 at `0x1FC780`; frontier enters `0x1FC780` called by `0x1F5640`. `0x1FC780` is unadmitted; the lane stops. Independent guards: seeds 32 recorded / 32 offered / 0 unexpected / 0 missing; translation 517 functions, 0 needing rewriting.
 
 ## Main/PR integration state
 

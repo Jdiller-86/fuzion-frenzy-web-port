@@ -1,4 +1,17 @@
-# Original utility drive mounts from backed FATX bytes
+# 0x1F6EB0 admitted; next stop 0x1FC780
+
+November 4, 2026. The bounded admission requested by the current GLM Flash manager follows the utility-mount lineage through the later startup and D3D work. Translation `recomp-title-recomp-title-post-memory-51` (420 functions / 17,558 instructions from 32 seed exports, `--guard-memory`) admits the reached leaf `0x1F6EB0` (455 bytes / 110 instructions, no calls). Module `recomp-post-memory-build-72` is 660,060 bytes, SHA-256 `9d8689ff916dbed7d264e378ca23e5e8b1d26853a5a2b11fa30ca0780e42ccaf`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1FC780`** | 283 | 405 |
+
+Both runs use the same module and full supplied input profile; `avQueryWord` is the only added input. The comparison exits 0, and the experiment reaches `0x1F6EB0`. The next genuine stop is untranslated `0x1FC780`, called by executed `0x1F5640`. It is not admitted and was not analyzed further. The lane stops immediately after this report.
+
+These are synthetic startup observations, not console settings, fidelity, renderer, gameplay or original service semantics. The historical FATX and utility-drive notes below remain the prior record.
+
+## Prior: Original utility drive mounts from backed FATX bytes
 
 November 2, 2026. Original browser startup now opens its formatted cache root, queries allocation size, closes that handle and links `Z:` to the mounted partition. Original `XMountUtilityDrive` returns one. The next original helper enters and requests memory statistics. **There is no playable original screen, no guest general-FATX file service and no durable save implementation.** The complete original-game/custom-feature goal remains active.
 
@@ -106,7 +119,7 @@ Limits: single-cluster, non-empty files only. Multi-cluster allocation, extensio
 
 ## Next task
 
-Superseding note: this checkpoint predates D059-D069. `MmQueryStatistics`, contiguous memory and the synthetic device aperture are complete; the current boundary is `0x1fe085` (see `PROJECT_STATUS.md`). The historical next-task text below is retained unchanged.
+Superseding note: this checkpoint predates D059-D069. `MmQueryStatistics`, contiguous memory, the synthetic aperture and the later D3D frontier are complete; the current record is the `0x1F6EB0` admission and `0x1FC780` stop above. The historical next-task text below is retained unchanged.
 
 Implement the reached `MmQueryStatistics` contract using consistent accounting for the modeled guest environment. Reconcile physical page capacity, available pages, virtual committed/reserved bytes, and cache/pool/stack/image ownership before writing the checked 36-byte result. Represent any required unmodeled baseline explicitly; do not substitute host/Wasm allocation size, count every virtual reservation as physical use, double-count shared image pages or invent original-console defaults. Then continue original `0x00030ade` and follow its actual next dependency. Reuse the current generation and retained nineteen seeds; no new extraction/import is needed to start.
 
