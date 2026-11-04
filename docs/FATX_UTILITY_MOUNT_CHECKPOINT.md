@@ -9,7 +9,7 @@ November 4, 2026. The next bounded admission follows the utility-mount lineage t
 
 Both runs use the same module and full supplied input profile; `avQueryWord` is the only added input. The comparison exits 0; the experiment reaches `0x1FC780`. The next genuine stop is untranslated `0x1FCCB0`, called by executed `0x1F5640`. It is not admitted and was not analyzed further. The lane stops immediately after this report.
 
-These are synthetic startup observations, not console settings, fidelity, renderer, gameplay or original service semantics. A read-only characterization of `0x1FCCB0` finds a small indirect jump-table dispatcher; it is unadmitted.
+These are synthetic startup observations, not console settings, fidelity, renderer, gameplay or original service semantics. A read-only characterization of `0x1FCCB0` finds a small indirect jump-table dispatcher whose table and four case blocks are mapped; it is unadmitted.
 
 ## Prior: 0x1F6EB0 admitted; next stop 0x1FC780
 
