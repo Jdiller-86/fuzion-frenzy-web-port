@@ -7,7 +7,129 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
-## Exact-head precheck for `ae4b7ae` (published architect head, November 4, 2026)
+## Exact-head precheck for `b5294fa` (published architect head, November 4, 2026)
+
+**Recorded marker:** `b5294fac8de4a68a24eb3b207a6466695dde9fd6`
+("Record 0x1FC780 admission integration and 0x1FCCB0 dispatcher
+characterization"). That commit is the head of `codex/opencode-architect` and of
+`origin/codex/opencode-architect`, so the reviewed candidate **is** the published
+architect head.
+
+The lane branch was rebased onto that integration head first, as directed, so
+this record sits on the same base as the candidate it describes:
+`b5294fa` -> `649de14` (exact-head precheck tool and `c9dc22f` record) ->
+`ab7710f` (`ae4b7ae` record and base-gate refinement) -> the new record commit.
+The rebase was clean; `tests/integration-verification.test.mjs` was unchanged
+between the previous base and `b5294fa`.
+
+```
+node tools/verify-exact-head.mjs b5294fa      # exit 0
+```
+
+### Established locally (source-only, offline)
+
+| Fact | Value |
+| --- | --- |
+| Candidate commit | `b5294fac8de4a68a24eb3b207a6466695dde9fd6` |
+| Architect ref | `codex/opencode-architect` -> `b5294fac8de4a68a24eb3b207a6466695dde9fd6` (match) |
+| Published merge target | `origin/main` -> `2aba6380bc66e82d6e181d61166a9b84b0ef7e4e`, relation **ancestor** (head ahead 37, behind 0, missing base paths 0) |
+| Local main branch | `main` -> `e70037316c22b1ff10d6e63f43e89cabeb60273c`, contained in the head (head ahead 266, behind 0) |
+| Tracked paths at the head | 373 |
+| Local conflict probe | `git merge-tree --write-tree origin/main b5294fa` -> tree `ff0be3d39d90dc9b8875cd75bc3227e2389b640c`, exit 0 (no conflict) |
+| Head delta over published main | 37 commits, 15 changed paths, all documentation or lane tooling |
+
+Unlike the previous head, the published target `origin/main` is now a **strict
+ancestor** of the candidate, and no published path is missing from it.
+
+### Exact-head CI evidence (read-only, GitHub API, 2026-11-04T22:48Z)
+
+| Item | Value |
+| --- | --- |
+| Push run | id `41927475606`, "Preparation checks", event `push`, branch `codex/opencode-architect`, attempt 1, `completed` / **success** (created 22:41:32Z, updated 22:42:29Z) |
+| Push run jobs | `126915535340` "preparation (ubuntu-latest)" success; `126915534912` "preparation (windows-latest)" success |
+| Pull-request run | id `41927492924`, "Preparation checks", event `pull_request`, attempt 1, `completed` / **success** (created 22:41:40Z, updated 22:42:25Z) |
+| Pull-request run jobs | `126915596355` "preparation (ubuntu-latest)" success; `126915595321` "preparation (windows-latest)" success |
+| Run head | `b5294fac8de4a68a24eb3b207a6466695dde9fd6` (the exact candidate) in both runs |
+
+### Pull request state at that moment (read-only)
+
+- PR **#6** `codex/opencode-architect@b5294fac8de4a68a24eb3b207a6466695dde9fd6`
+  -> `main@2aba6380bc66e82d6e181d61166a9b84b0ef7e4e`: **open, not a draft**,
+  `mergeable: true`, `mergeable_state: clean`, 37 commits, 15 changed files,
+  +404/-12, created 2026-11-04T22:41:35Z.
+- PR **#5** remains the merged predecessor (`becc879` -> `main`, merged
+  2026-11-04T21:39:32Z); PR **#3** is still the open geometry draft; PR **#2**
+  and **#1** are closed.
+- https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/6
+
+So all three gates the architect listed for this head are now **observed** at
+the exact SHA: CI green on both operating systems for both the push and the
+pull-request runs, the published target strictly contained in the head, and the
+pull request reported clean/mergeable. Whether to promote it is the
+architect's decision; this lane records the evidence and requests nothing.
+
+### Gates that remain external (listed by the tool, never asserted here)
+
+The tool prints these as requirements for a reviewer, not as results:
+
+- `ci:` GitHub Actions "Preparation checks" on `ubuntu-latest` reports success
+  at the exact head SHA.
+- `ci:` GitHub Actions "Preparation checks" on `windows-latest` reports success
+  at the exact head SHA.
+- `pr:` the pull request for the exact head is open, not a draft, and reported
+  clean/mergeable.
+- `marker:` the architect issued an exact-head marker for this SHA. The tool
+  neither issues nor accepts one.
+- `publication:` the source publication guard and whitespace gate are re-run
+  against the exact head.
+
+The CI and PR lines above were read once from the public GitHub API without
+credentials. A green local precheck means "the mechanically observable part
+holds", not "this candidate is approved".
+
+### Evidence limits
+
+- The precheck reads refs, commit metadata and path counts only. It reads no
+  original content, no private research artifact, no XBE and no title module,
+  and it executes no guest code.
+- The CI and PR observations are a snapshot read at 2026-11-04T22:48Z. They
+  describe those runs and that pull-request state only.
+- The mergeability probe is a local `git merge-tree` conflict test; the
+  `mergeable_state: clean` line is GitHub's own report for PR #6.
+- The `0x1FC780` admission evidence and the `0x1FCCB0` characterization and
+  admission set are the primary lane's reviewed result. This lane checked the
+  head identity, ancestry and CI of that head only; it did not review, replay
+  or approve the admission evidence itself, and it does not judge the pending
+  `0x1FCCB0` translator-resync proof.
+- Node `v24.22.1` and npm `11.19.1` are inside the declared ranges but are not
+  the exact `24.14.0` runtime pin.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim. No merge request
+  was made and no source or runtime file was changed by this lane.
+
+### Checks run for this result
+
+- `git rebase b5294fa` -> clean; lane branch is now `b5294fa` plus the two
+  replayed lane commits.
+- `node tools/verify-exact-head.mjs b5294fa` -> exit 0 (exact head matches the
+  architect head; published target is a strict ancestor with no missing paths).
+- `node --test tests/verification-exact-head.test.mjs` -> 14/14 pass.
+- `node --test tests/integration-verification.test.mjs` -> 7/7 pass.
+- `npm run test:runtime` -> 188 tests, 187 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 376 source files (373 at the
+  candidate head plus this lane's three new paths).
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the bounded
+`0x1FCCB0` admission result once the primary reports it; the same command
+checks that head against the then-current architect head and the published
+merge target. No further tooling work is authorized until the architect asks
+for it.
+
+## Earlier record: exact-head precheck for `ae4b7ae` (November 4, 2026)
 
 **Recorded marker:** `ae4b7ae6b3332f67104eb812470d785dc5caad87`
 ("Record 0x1F6EB0 evidence-slice integration and request main PR at the merged
@@ -144,13 +266,13 @@ approved".
   own tree; the architect head itself tracks 371 paths).
 - `git diff --check` -> clean.
 
-### Next task for this lane
+### Stop condition of that cycle
 
-Stop after this record. The next exact-head precheck applies to the bounded
-`0x1FC780` admission result once the primary reports it; the same command
-checks that head against the then-current architect head and the published
-merge target. No further tooling work is authorized until the architect asks
-for it.
+Stop after this document-and-test commit. The next exact-head precheck applies
+to the bounded `0x1F6EB0` helper result once the primary reports it; the same
+command checks that head against the then-current architect head and the
+published merge target. No further tooling work is authorized until the
+architect asks for it. That result is the record above.
 
 ## Earlier record: exact-head precheck for `c9dc22f` (November 4, 2026)
 
