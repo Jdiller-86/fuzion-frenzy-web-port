@@ -31,6 +31,15 @@ static void reset(uint64_t interrupt_time, uint64_t system_time)
         assert(ff_initialize_dpc(ram, sizeof ram, dpc(i), 0x1200 + i * 16, 0x7000 + i) == FF_BOOT_OK);
     }
 }
+static void diagnostic_check(void)
+{
+    reset(0, 1000);
+    assert(ff_timers_check(&queue) == 0);
+    put(24, 0x1234);
+    assert(ff_timers_check(&queue) == 15);
+    put(24, 24);
+    assert(ff_timers_check(&queue) == 0);
+}
 static void six_hour_boundary(void)
 {
     const uint64_t start = 0x1fffffffcu, system = 0x123456789abcULL, delay = 216000000000ULL;
@@ -148,7 +157,7 @@ static void rejected_states(void)
 int main(void)
 {
     six_hour_boundary(); rearm_cancel_and_pending(); clock_changes_and_order();
-    capacity_and_atomic_failure(); rejected_states();
+    capacity_and_atomic_failure(); rejected_states(); diagnostic_check();
     puts("One-shot timers: exact expiry, 64-bit clocks, wall-clock changes, rearm/cancel, ordered/deduplicated DPC arguments, IRQL deferral, capacity and rejected-state checks passed");
     return 0;
 }

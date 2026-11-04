@@ -1,8 +1,24 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, describeMmioExperiments, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
 import { createDeviceReport } from './device-report.mjs';
+import { validateProofReport } from './proof-report.mjs';
+import { describeKernelService } from './kernel-service.mjs';
+
+/* A boundary report is evidence for a human reader, so it is validated before it
+ * is posted: a malformed or out-of-range report becomes an error message instead
+ * of a result. */
+function postBoundary(report) {
+  try {
+    validateProofReport(report);
+  } catch (error) {
+    self.postMessage({ kind: 'error', message: `Proof report rejected: ${error.message}` });
+    return;
+  }
+  self.postMessage(report);
+}
+
 import { createSubmissionProbe } from './submission-probe.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
@@ -17,7 +33,7 @@ self.onmessage = async event => {
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
-    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
+    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
@@ -39,6 +55,38 @@ self.onmessage = async event => {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
       const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
       const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
+      /* Write-1-to-clear register behaviour is an explicitly experimental model:
+       * the selected profile must opt in, and the same profile without it is the
+       * control that must reproduce the un-acknowledged guest loop. */
+      if(typeof api.ff_probe_mmio_write_clearing!=='function' ||
+         api.ff_probe_mmio_write_clearing(mmioProfile.writeClearing?1:0)) {
+        throw new Error('The private module cannot set the experimental write-clearing control');
+      }
+      if(typeof api.ff_probe_mmio_pmc_zero!=='function' ||
+         api.ff_probe_mmio_pmc_zero(mmioProfile.pmcZero?1:0)) {
+        throw new Error('The private module cannot set the experimental PMC zero-status control');
+      }
+      if(typeof api.ff_probe_mmio_engine_wait!=='function' ||
+         api.ff_probe_mmio_engine_wait(mmioProfile.engineWait?1:0)) {
+        throw new Error('The private module cannot set the experimental engine-wait control');
+      }
+      if(mmioProfile.pfifoReset) {
+        if(typeof api.ff_probe_mmio_pfifo_reset!=='function' ||
+           api.ff_probe_mmio_pfifo_reset(1)) {
+          throw new Error('The private module cannot set the experimental PFIFO reference-reset control');
+        }
+      }
+      if(mmioProfile.avQueryWord !== undefined) {
+        if(typeof api.ff_probe_av_query_word!=='function' ||
+           api.ff_probe_av_query_word(mmioProfile.avQueryWord)) {
+          throw new Error('The private module cannot set the declared synthetic AV query word');
+        }
+      }
+      if(mmioProfile.pcrtcVblanks) {
+        if(typeof api.ff_probe_pcrtc!=='function' || api.ff_probe_pcrtc(mmioProfile.pcrtcVblanks)) {
+          throw new Error('The private module cannot admit the declared display events');
+        }
+      }
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
         primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
@@ -138,15 +186,23 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
+      if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
+        call.output = {
+          rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
+          address: api.ff_probe_kernel_word(i, 11) >>> 0,
+          eaxBefore: api.ff_probe_kernel_word(i, 7) >>> 0,
+          espBefore: api.ff_probe_kernel_word(i, 8) >>> 0,
+          eaxAfter: api.ff_probe_kernel_word(i, 9) >>> 0,
+          espAfter: api.ff_probe_kernel_word(i, 10) >>> 0,
+        };
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
         scope:'modeled-guest-memory-statistics'};
-      if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),
-        sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
+      if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),        sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
         sampledSystemTicks: ((BigInt(api.ff_probe_kernel_word(i, 10) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 9) >>> 0)).toString() };
       if (call.ordinal === 184 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 7) >>> 0, regionBytes: api.ff_probe_kernel_word(i, 8) >>> 0 };
       if (call.ordinal === 168 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 4) >>> 0 };
@@ -937,17 +993,17 @@ self.onmessage = async event => {
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:calls.filter(call=>call.status===0).length,
         stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
-          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':'unsupported execution boundary',
+          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: describeMmioExperiments(mmioProfile), avQueryWord: mmioProfile.avQueryWord, pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
-      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
+      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16), service: state[0] === 1 ? describeKernelService(state[2]) : undefined },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });
   } catch (error) { self.postMessage({ kind: 'error', message: String(error) }); }

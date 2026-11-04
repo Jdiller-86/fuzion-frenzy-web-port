@@ -143,7 +143,8 @@ class SeedCompositionTests(unittest.TestCase):
     def test_instruction_budgets_require_explicit_expansion(self):
         prepare.validate_instruction_count(8192)
         prepare.validate_instruction_count(16384,16384)
-        for count,limit in [(8193,8192),(16385,16384),(1,8193),(True,8192),(0,8192)]:
+        prepare.validate_instruction_count(32768,32768)
+        for count,limit in [(8193,8192),(16385,16384),(32769,32768),(1,8193),(True,8192),(0,8192)]:
             with self.subTest(count=count,limit=limit),self.assertRaises(ValueError):
                 prepare.validate_instruction_count(count,limit)
 

@@ -1,6 +1,6 @@
-# Empty-ring profile adopted; default build reaches 0x1FB5B0 with the profile and stays fail-closed without it
+# Empty-ring profile adopted; default build reaches 0x1FB3B0 with the profile and stays fail-closed without it
 
-November 4, 2026. The validated empty-ring model is now part of the default source build, driven by an explicit synthetic profile rather than a compile-time context hack. With the profile, the original startup passes the PFIFO wait and stops at untranslated `0x1FB5B0`; without the profile, the same build retains status 13. **There is no playable screen, renderer or device model.**
+November 4, 2026. The validated empty-ring model is now part of the default source build, driven by an explicit synthetic profile rather than a compile-time context hack. With the profile, the original startup passes the PFIFO wait and stops at untranslated `0x1FB3B0`; without the profile, the same build retains status 13. **There is no playable screen, renderer or device model.**
 
 ## Source-owned change
 
@@ -21,7 +21,7 @@ Two runs with the existing worker and retained XBE:
 
 | Settings | Stop | Routines | Kernel operations |
 | --- | --- | --- | --- |
-| `settings-pfifo.json` (explicit empty-ring profile) | status 2, `0x1FB5B0`, return `0x1FB63D` | 262 | 402 |
+| `settings-pfifo.json` (explicit empty-ring profile) | status 2, `0x1FB3B0`, return `0x1FB4FD` | 262 | 402 |
 | `settings-mmio-20.json` (no profile) | status 13, `0xFD800044` | 261 | 402 |
 
 83/83 initialization callbacks returned in both runs.
@@ -30,7 +30,7 @@ Two runs with the existing worker and retained XBE:
 
 - The empty-ring model is now an explicit, profile-driven part of the default build. It is not a hidden context hack: the profile supplies the observed 512 KB ring values, and the component validates them.
 - The model changes behavior only when the profile is present. The no-profile path remains fail-closed at status 13.
-- The original code reaches a new dependency at `0x1FB5B0`; the PFIFO wait is no longer the blocker for this profile. The next step is to translate/admit that routine and continue.
+- The original code reaches a new dependency at `0x1FB3B0`; the PFIFO wait is no longer the blocker for this profile. The next step is to translate/admit that routine and continue.
 
 ## Limits
 
@@ -42,4 +42,4 @@ The profile is one explicit synthetic input; it does not establish the kernel D3
 
 ## Next task
 
-Translate/admit the reached original routine at `0x1FB5B0` and continue the startup with the adopted profile. Do not consume a non-empty ring or claim rendering/fidelity without evidence.
+Translate/admit the reached original routine at `0x1FB3B0` and continue the startup with the adopted profile. Do not consume a non-empty ring or claim rendering/fidelity without evidence.

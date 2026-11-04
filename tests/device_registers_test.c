@@ -175,6 +175,10 @@ static void sub_dword_writes_extend_unknown_registers(void)
 static void zero_ranges_serve_reads_and_yield_to_writes(void)
 {
     reset();
+    for (uint32_t i = 0; i < FF_DEVICE_ZERO_RANGES; ++i)
+        assert(ff_device_registers_add_zero_range(&device, 0xFD100000u + i * 0x100u, 0x10u) == 0);
+    assert(ff_device_registers_add_zero_range(&device, 0xFD100800u, 0x10u) == FF_BOOT_INVALID);
+    reset();
     assert(ff_device_registers_add_zero_range(&device, 0xFD100200u, 0x100u) == 0);
     uint32_t *word = (uint32_t *)ff_device_registers_access_width(
         &device, 0xFD100204u, 4, FF_DEVICE_ACCESS_READ, 0x00100020u);
@@ -303,6 +307,90 @@ static void repeated_identical_reads_stop_at_the_poll_limit(void)
     assert(!ff_device_registers_poll_limited(&device));
 }
 
+static void interleaved_reads_of_one_register_stop_at_the_wait_limit(void)
+{
+    reset();
+    uint32_t status = 0x2u, other = 0x3u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &status) == 0);
+    assert(ff_device_registers_touch(&device, 0xFD009180u, FF_DEVICE_WRITE, 0x1FE05Au, &other) == 0);
+    /* A loop body that reads the watched register at one site and another
+     * register at a different site each pass defeats the single-site detector;
+     * the per-register counter still names the wait. */
+    uint32_t stopped = 0;
+    for (uint32_t i = 0; i < FF_DEVICE_WAIT_LIMIT + 2u && !stopped; ++i) {
+        if (!ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u)) { stopped = 1; break; }
+        if (!ff_device_registers_access(&device, 0xFD009180u, FF_DEVICE_ACCESS_READ, 0x00100024u)) { stopped = 1; break; }
+    }
+    assert(stopped && ff_device_registers_poll_limited(&device));
+    assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
+    /* A store to the watched register restarts its count. */
+    uint32_t changed = 0x4u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &changed) == 0);
+    uint32_t readback = 0;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_READ, 0x00100028u, &readback) == 0 && readback == 0x4u);
+    assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
+}
+
+static void externally_served_accesses_can_be_logged_without_storage(void)
+{
+    reset();
+    uint32_t entries = device.count;
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == 0);
+    assert(ff_device_registers_log(&device, 0xFD600140u, FF_DEVICE_WRITE, 1u, 0x00200340u) == 0);
+    assert(device.event_count == 2 && device.count == entries);
+    assert(device.events[0].address == 0xFD600100u && device.events[0].direction == FF_DEVICE_READ);
+    assert(device.events[0].site == 0x001FE4DBu && device.events[0].value == 0u);
+    assert(device.events[1].address == 0xFD600140u && device.events[1].direction == FF_DEVICE_WRITE);
+    assert(device.events[1].site == 0x00200340u && device.events[1].value == 1u);
+    /* Rejected inputs never consume a slot. */
+    assert(ff_device_registers_log(&device, 0xFD600100u, 3u, 0u, 0x001FE4DBu) == FF_BOOT_INVALID);
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0u) == FF_BOOT_UNSUPPORTED);
+    assert(ff_device_registers_log(&device, 0xFC000000u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == FF_BOOT_UNSUPPORTED);
+    assert(device.event_count == 2);
+    /* A logged access does not create a register entry, so reads stay fail-closed. */
+    assert(ff_device_registers_access(&device, 0xFD600100u, FF_DEVICE_ACCESS_READ, 0x001FE4DBu) == NULL);
+    device.event_count = FF_DEVICE_EVENTS;
+    assert(ff_device_registers_log(&device, 0xFD600100u, FF_DEVICE_READ, 0u, 0x001FE4DBu) == FF_BOOT_NO_MEMORY);
+}
+
+static void capacity_exhaustion_is_reported_separately_from_a_denied_access(void)
+{
+    reset();
+    assert(!ff_device_registers_capacity_reached(&device));
+    uint32_t value = 0x5u;
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) == 0);
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u) != NULL);
+    /* The ordered log is the bounded resource: once full, the next access fails
+     * for storage reasons instead of for an unmodeled address. */
+    device.event_count = FF_DEVICE_EVENTS;
+    assert(ff_device_registers_capacity_reached(&device));
+    assert(ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u) == NULL);
+    assert(ff_device_registers_touch(&device, 0xFD009140u, FF_DEVICE_WRITE, 0x1FE05Au, &value) != 0);
+}
+
+static void a_declared_status_wait_trips_despite_a_busy_register_file(void)
+{
+    reset();
+    /* Declare the polled status input, then read more other registers than the
+     * generic wait table can hold every pass: the declared wait still trips
+     * because it is tracked by declaration, not by table capacity. */
+    assert(ff_device_registers_add_status_wait(&device, 0xFD009140u, 0x01000000u) == 0);
+    assert(ff_device_registers_add_status_wait(&device, 0xFD009140u, 1u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_status_wait(&device, 0xFD009142u, 1u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_status_wait(&device, 0xFD009144u, 0u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_initial(&device, 0xFD009140u, 0u) == 0);
+    for (uint32_t i = 0; i < FF_DEVICE_WAITS + 8u; ++i)
+        assert(ff_device_registers_add_initial(&device, 0xFD009180u + i * 4u, i + 2u) == 0);
+    uint32_t stopped = 0;
+    for (uint32_t pass = 0; pass < FF_DEVICE_WAIT_LIMIT + 2u && !stopped; ++pass) {
+        if (!ff_device_registers_access(&device, 0xFD009140u, FF_DEVICE_ACCESS_READ, 0x00100020u)) stopped = 1;
+        for (uint32_t i = 0; i < FF_DEVICE_WAITS + 8u && !stopped; ++i)
+            if (!ff_device_registers_access(&device, 0xFD009180u + i * 4u, FF_DEVICE_ACCESS_READ, 0x00100024u)) stopped = 1;
+    }
+    assert(stopped && ff_device_registers_poll_limited(&device));
+    assert(ff_device_registers_wait_address(&device) == 0xFD009140u);
+}
+
 static void self_clearing_bits_complete_after_the_write(void)
 {
     reset();
@@ -320,6 +408,36 @@ static void self_clearing_bits_complete_after_the_write(void)
     assert(ff_device_registers_add_self_clearing(&device, 0xFD009204u, 0x10u) == FF_BOOT_INVALID);
     uint32_t *slot = ff_device_registers_access(&device, 0xFD009200u, FF_DEVICE_ACCESS_READ, 0x00100020u);
     assert(slot && *slot == 0x40000u);
+}
+
+static void write_clearing_registers_acknowledge_only_the_stored_bits(void)
+{
+    reset();
+    /* Pending status is a hardware state, so seed it before traffic starts. */
+    assert(ff_device_registers_add_initial(&device, 0xFD009200u, 0x3000u) == 0);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009200u) == 0);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009200u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD009202u) == FF_BOOT_INVALID);
+    assert(ff_device_registers_add_write_clearing(&device, 0xFD800000u) == FF_BOOT_INVALID);
+    uint32_t acknowledge = 0x1000u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x00100024u, &acknowledge) == 0);
+    assert(device.events[0].direction == FF_DEVICE_WRITE && device.events[0].value == 0x1000u);
+    uint32_t readback = 0xffffffffu;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100028u, &readback) == 0);
+    assert(readback == 0x2000u);
+    /* A store that acknowledges nothing leaves the remaining status set, and a
+     * status bit can never be latched by the guest writing it. */
+    acknowledge = 0;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x00100024u, &acknowledge) == 0);
+    acknowledge = 0x4000u;
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_WRITE, 0x0010002Cu, &acknowledge) == 0);
+    assert(ff_device_registers_touch(&device, 0xFD009200u, FF_DEVICE_READ, 0x00100028u, &readback) == 0);
+    assert(readback == 0x2000u);
+    /* A partial store cannot express an exclusive acknowledge mask. */
+    uint32_t *half = ff_device_registers_access_width(&device, 0xFD009200u, 2u, FF_DEVICE_ACCESS_WRITE, 0x00100030u);
+    assert(half != NULL);
+    *half = 0x2000u;
+    assert(ff_device_registers_commit(&device) == FF_BOOT_UNSUPPORTED);
 }
 
 static void aliases_share_storage_and_keep_event_addresses(void)
@@ -353,7 +471,10 @@ int main(void)
     access_masks_sites_and_widths_fail_closed();
     capacity_limits_are_atomic(); invalid_configuration_is_rejected(); initial_registers_are_explicit_and_bounded();
     repeated_identical_reads_stop_at_the_poll_limit(); self_clearing_bits_complete_after_the_write();
+    interleaved_reads_of_one_register_stop_at_the_wait_limit(); externally_served_accesses_can_be_logged_without_storage(); capacity_exhaustion_is_reported_separately_from_a_denied_access();
+    a_declared_status_wait_trips_despite_a_busy_register_file();
+    write_clearing_registers_acknowledge_only_the_stored_bits();
     aliases_share_storage_and_keep_event_addresses();
-    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, aliases and atomicity passed");
+    puts("owned synthetic aperture: values, staged writes, read-modify-write, sites, initial registers, bounds, capacities, polling, self-clearing bits, write-clearing acknowledgement, aliases and atomicity passed");
     return 0;
 }

@@ -49,6 +49,23 @@ test('device reports preserve the explicit supplied profile separately from obse
   assert.deepEqual(report.entries[0], { address: 0xFD000000, value: 0x10, reads: 1, writes: 2 });
 });
 
+test('declared status waits are reported with their polled mask and count', () => {
+  const api = fake(2, 1);
+  api.ff_probe_device_status_wait_count = () => 2;
+  api.ff_probe_device_status_wait_word = (index, field) =>
+    [[0xFD000100, 0x01000000, 0x00000000, 1], [0xFD002100, 0x00001000, 0x00001000, 3]][index][field];
+  const report = createDeviceReport(api);
+  assert.deepEqual(report.statusWaits, [
+    { address: 0xFD000100, mask: 0x01000000, value: 0, count: 1 },
+    { address: 0xFD002100, mask: 0x00001000, value: 0x1000, count: 3 },
+  ]);
+  assert.deepEqual(createDeviceReport(fake(1, 1)).statusWaits, []);
+  const over = fake(1, 1);
+  over.ff_probe_device_status_wait_count = () => 5;
+  over.ff_probe_device_status_wait_word = () => 0;
+  assert.throws(() => createDeviceReport(over));
+});
+
 test('an older module without event site provenance reports null', () => {
   const report = createDeviceReport(fake(1, 1, 0xFFFFFFFF));
   assert.equal(report.log[0].site, null);
