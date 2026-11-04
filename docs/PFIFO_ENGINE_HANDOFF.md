@@ -162,15 +162,16 @@ The reset rule is wired through the existing `ff_pfifo_status` seam as a separat
 - `device.pfifoReset: true` selects it. The probe applies the adapter once during aperture initialization and seeds the two status registers from the seam; the canonical profile leaves it off and stays fail-closed.
 - The adapter has no GET, PUT or guest-memory access: it changes two status words only. The retained runs confirm the `DMA_PUT`/`DMA_GET` writes are byte-for-byte identical across the canonical, `engineWait` and `pfifoReset` profiles.
 
-Measured with module `recomp-post-memory-build-70` (SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`):
+Measured with module `recomp-post-memory-build-70` (SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`):
 
 | profile | stop | routines | kernel ops | device events |
 | --- | --- | --- | --- | --- |
 | canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
-| `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+| `pfifoReset` | status 1 at `0xFE000094` (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+| `pfifoReset` + `avPack` | **status 2 at `0x1F79A0`** (return `0x1F83ED`) | 280 | 405 | 12,584 |
 
-The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, executes the admitted `0x1FCB00`, `0x1FD42F` and `0x1FD410`, and stops at unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094`. It reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The validator also requires `pfifoResetState` exactly when `pfifoReset` is declared, so the proof and its declaration cannot diverge. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, executes the admitted `0x1FCB00`, `0x1FD42F` and `0x1FD410`, and then either stops at unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094` or, with the explicit `device.avPack` profile, writes the declared word to `0x203720` and continues to untranslated `0x1F79A0`. It reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The validator also requires `pfifoResetState` exactly when `pfifoReset` is declared, and `avPack` exactly when the `avPack` experiment is declared. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
 
 No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-based next target.
 
@@ -187,6 +188,6 @@ No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-ba
 
 ## Next task
 
-The next genuine stop is unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094` (status 1, return `0x1FD429`). `0x1FCB00`, `0x1FD42F` and `0x1FD410` are admitted; the narrow batch added only those helpers and no broad closure.
+The next genuine stop is untranslated `0x1F79A0` (status 2, return `0x1F83ED`) when the explicit AV-pack profile is selected; without it the run stays fail-closed at kernel ordinal 2. `0x1FCB00`, `0x1FD42F` and `0x1FD410` are admitted; the narrow batches added only those helpers and no broad closure.
 
 The engine workstream still owns any non-empty submission and the transitions after it. This lane does not inject consumer state from a poll or a read, does not treat the reset value as a general completion rule, and does not infer display timing. Any future activation must cite the evidence gate above.

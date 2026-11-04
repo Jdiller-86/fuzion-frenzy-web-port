@@ -1,6 +1,6 @@
-# The reset path reaches AvSendTVEncoderOption; no encoder service is modeled
+# The explicit AV-pack experiment passes AvSendTVEncoderOption and reaches 0x1F79A0
 
-November 4, 2026. The narrow admission of `0x1FD42F` and its direct dependency `0x1FD410` advanced the reset run to a new genuine stop: kernel ordinal 2, `AvSendTVEncoderOption`, at target `0xFE000094`, return `0x1FD429`. `0x1FD410` (`CMiniport_GetDisplayCapabilities`) calls the IAT slot `0x00253450`, which the retained profile maps to ordinal 2. The harness has no encoder model, so execution stops with status 1 (unsupported Xbox service) instead of guessing the encoder's behaviour. **There is no display model, renderer, timing source or playable screen.**
+November 4, 2026. The ordinal-2 contract is captured, and option 6 is modeled **only** under an explicit AV-pack profile. Without a declared pack the service stays fail-closed at `0xFE000094`; with `device.avPack` declaring pack, standard and refresh, the handler writes the word to `0x203720` and the run continues to untranslated `0x1F79A0` (return `0x1F83ED`, 280 routines, 405 kernel operations). The pack is player-declared; the pinned reference's HDTV/NTSC-M/60 Hz value is not a default. **There is no renderer, timing source or playable screen.**
 
 ## Narrow admission
 
@@ -9,7 +9,7 @@ November 4, 2026. The narrow admission of `0x1FD42F` and its direct dependency `
 - One merged seed within the existing 32-export budget, recomposed with `--guard-memory`.
 - `tools/verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
 - `tools/verify-translation.py`: 0 functions needing rewriting.
-- Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
+- Module `recomp-post-memory-build-70`, SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`.
 
 ## Measured stop
 
@@ -18,11 +18,20 @@ November 4, 2026. The narrow admission of `0x1FD42F` and its direct dependency `
 | canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
 | `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
-| `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+| `pfifoReset` (no AV pack) | status 1 at `0xFE000094` (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
+| `pfifoReset` + `avPack` | **status 2 at `0x1F79A0`** (return `0x1F83ED`) | 280 | 405 | 12,584 |
 
 The reset run still reports `pfifoResetState: { scope: 'seam', cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. The stop record now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects one on any other stop, so the boundary cannot be reported as modeled or omitted. `src/runtime/kernel-service.mjs` is metadata only and implements nothing.
 
 The report now also records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature, and no return value is supplied. The probe records the attempted call before the fail-closed stop, and the worker maps ordinal 2 to four arguments.
+
+## Modeled option-6 experiment
+
+- `device.avPack: { pack, standard, refresh }` is required; there is no default. `composeAvPackWord` validates the names against the pinned constants, and the worker calls `ff_probe_av_pack` before the run.
+- The probe handler supports only option 6 (`AV_OPTION_QUERY_AVPACK`), validates the 4-byte writable output pointer, writes the declared word, and returns void with stdcall cleanup (pops 16 bytes).
+- Without the profile, the resolver keeps the existing status-1 fail-closed stop.
+- The report records `avPack: 0x00400104` and `calls[ordinal 2] = { status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
+- The value used in the private profile is the pinned reference's HDTV/NTSC-M/60 Hz default, explicitly declared. It is not a claim about the original console, and the canonical profile remains fail-closed.
 
 ## Ordinal-2 call contract (captured, not modeled)
 
@@ -49,13 +58,13 @@ From the retained translation `ff_title_001FD410` and the reset report:
 
 That value is a **reference default** for a North-American HDTV/NTSC/60 Hz console, not this player's console. It is not adopted: the service remains unsupported until the player's pack/standard/refresh is grounded. No capability or mode is guessed.
 
-The service remains unsupported: the harness records the call and stops with status 1, leaving EAX and the NTSTATUS unset. It does not return `STATUS_SUCCESS` or any NTSTATUS. The report's `service` descriptor records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`, and `proof-report.mjs` requires those facts for ordinal 2.
+The service is unsupported by default and modeled only for option 6 when the profile declares an AV pack. The modeled handler is void and writes the declared word; it does not return an NTSTATUS or a fabricated EAX success. The status-1 path still records the attempted call and stops. The report's `service` descriptor records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`, `option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' }`, `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }` and the output facts; `proof-report.mjs` requires them for ordinal 2.
 
 ## What this establishes
 
 - The two admitted helpers execute in the original path; the PFIFO reset path is no longer the blocker for this branch.
 - The next dependency is a kernel service, not an untranslated original routine.
-- The retained callers evidence names ordinal 2 as `AvSendTVEncoderOption`; the pinned reference grounds option 6 as `AV_OPTION_QUERY_AVPACK` and the pack/standard/refresh layout. The specific value is not adopted because the player's console is not grounded.
+- The service is modeled only under an explicit AV-pack profile and only for option 6; without the profile it stays fail-closed. The declared value is player input, not a claim about the original console.
 
 ## Limits
 

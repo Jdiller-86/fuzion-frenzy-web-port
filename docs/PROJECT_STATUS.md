@@ -1,4 +1,10 @@
-# The pinned reference grounds ordinal-2 option 6 and its result bits
+# The explicit AV-pack experiment passes ordinal 2 and reaches 0x1F79A0
+
+November 4: the ordinal-2 service is modeled only under an explicit AV-pack profile. `device.avPack` requires pack, standard and refresh with no default; `composeAvPackWord` validates them against the pinned constants. The probe handler supports only option 6, validates the 4-byte writable output at `0x203720`, writes the declared word, and returns void with stdcall cleanup. Without the profile the service stays fail-closed at status 1 on `0xFE000094`; with it the reset run stops at untranslated `0x1F79A0` (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations). The call record is `{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`. The private profile uses the pinned reference's HDTV/NTSC-M/60 Hz value explicitly; the source supplies no default. Canonical and the `engineWait`/`pcrtc` controls are unchanged. **There is no controllable original screen.**
+
+Validation: runtime suite 142/142, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md) and [the frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
+
+## Prior: The pinned reference grounds ordinal-2 option 6 and its result bits
 
 November 4: the pinned `xboxrecomp-source` kernel reference grounds the service semantics. Option 6 is `AV_OPTION_QUERY_AVPACK`; the result word uses pack bits `0xFF`, standard bits `0xFF00` and refresh bits `0xC00000`. The reference implements a North-American HDTV/NTSC/60 Hz default (`0x00400104`), but that is a reference default, not the player's console, so no value is adopted. `src/runtime/kernel-service.mjs` now records `option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' }` and `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }`; `proof-report.mjs` requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability or mode is guessed. **There is no controllable original screen.**
 

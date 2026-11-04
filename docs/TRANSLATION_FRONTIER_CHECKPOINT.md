@@ -1,4 +1,21 @@
-# The 0x1FD42F admission reaches AvSendTVEncoderOption (ordinal 2)
+# The explicit AV-pack experiment enters 0x1F79A0
+
+November 4, 2026. With the explicit `device.avPack` profile, the reset run passes `AvSendTVEncoderOption` (ordinal 2) and stops at untranslated **`0x1F79A0`** (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations). The frontier reports **entered = 1** for `0x1F79A0` (called by `0x1F83C0`), 69 called by an executed caller and 28 with only unexecuted callers. Without the AV-pack profile the run still stops fail-closed at ordinal 2. No frontier expansion was performed this cycle.
+
+Module `recomp-post-memory-build-70`, SHA-256 `8f567b811a728fac05ea7f36b8d01ebaff1fa421be30dc52447cffdc4659fa29`.
+
+## Modeled service
+
+- `device.avPack: { pack, standard, refresh }` is explicit and has no default; `composeAvPackWord` validates it.
+- The probe handler supports only option 6, writes the declared word to `0x203720`, and returns void with stdcall cleanup.
+- The call record is `{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
+- The private profile uses the pinned reference's HDTV/NTSC-M/60 Hz default explicitly; it is not a claim about the original console.
+
+## Next task
+
+Export `0x1F79A0` (and only demonstrably necessary dependencies) from the retained project, recompose with the guard, build and rerun with the explicit AV-pack profile. Do not take a broad batch.
+
+## Prior: the 0x1FD42F admission reaches AvSendTVEncoderOption (ordinal 2)
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-49` admits the next reached helper `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for **418 functions / 17,353 instructions**. The reset run executes both and stops at **status 1** (unsupported Xbox service), target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. The retained callers evidence names ordinal 2 as `AvSendTVEncoderOption`; no encoder behaviour is modeled.
 

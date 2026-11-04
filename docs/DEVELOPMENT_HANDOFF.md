@@ -1,4 +1,10 @@
-# Continue from the pinned ordinal-2 option/result semantics
+# Continue from the explicit AV-pack service experiment
+
+The latest bounded milestone models ordinal-2 option 6 only under an explicit AV-pack profile. `device.avPack` requires pack/standard/refresh with no default; `composeAvPackWord` validates them against the pinned constants. The probe handler writes the declared word to `0x203720` and returns void with stdcall cleanup; without the profile the service stays fail-closed at status 1 on `0xFE000094`. With it the reset run stops at untranslated `0x1F79A0` (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations); the call record shows status 0, args `[0,6,0,2111264]`, output `packWord: 0x00400104`. The private profile uses the pinned reference's HDTV/NTSC-M/60 Hz value explicitly; the source supplies no default. Next: export `0x1F79A0` and only necessary dependencies; do not take a broad batch or invent an AV pack default.
+
+Validation: runtime suite 142/142, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it.
+
+## Prior: the pinned ordinal-2 option/result semantics
 
 The latest bounded milestone grounds the service semantics from the pinned `xboxrecomp-source` kernel reference. Option 6 is `AV_OPTION_QUERY_AVPACK`; the result word uses pack bits `0xFF`, standard bits `0xFF00` and refresh bits `0xC00000`. The reference's HDTV/NTSC/60 Hz value (`0x00400104`) is a reference default, not the player's console, so it is not adopted. The service descriptor now records the option and result-bit facts; the validator requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability or mode is guessed. The next decision is whether a player/console profile can ground the value; do not adopt the reference default silently.
 

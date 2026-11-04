@@ -80,7 +80,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|avPack)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -117,6 +117,13 @@ export function validateProofReport(report) {
     throw new Error('PFIFO reset state requires the pfifoReset experiment');
   if (claimsReset && report.pfifoResetState === undefined)
     throw new Error('The pfifoReset experiment requires PFIFO reset state');
+  const claimsAvPack = experiments.includes('avPack');
+  if (report.avPack !== undefined && !claimsAvPack)
+    throw new Error('The AV pack input requires the avPack experiment');
+  if (claimsAvPack && report.avPack === undefined)
+    throw new Error('The avPack experiment requires the AV pack input');
+  if (report.avPack !== undefined && !integer(report.avPack))
+    throw new Error('Malformed AV pack input');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */

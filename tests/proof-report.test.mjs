@@ -58,6 +58,17 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
+test('the AV pack input is paired with its experiment and bounded', () => {
+  const valid = report({ experiments: ['avPack'], avPack: 0x00400104 });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({ avPack: 0x00400104 })),
+    /requires the avPack experiment/);
+  assert.throws(() => validateProofReport(report({ experiments: ['avPack'] })),
+    /requires the AV pack input/);
+  assert.throws(() => validateProofReport(report({ experiments: ['avPack'], avPack: -1 })),
+    /Malformed/);
+});
+
 test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
   const valid = report({
     stop: {
