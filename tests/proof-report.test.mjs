@@ -92,6 +92,10 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
 
 test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
   const call = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
+  /* Any report claiming the unsupported ordinal-2 stop must record the call,
+   * including the unconfigured control path. */
+  assert.throws(() => validateProofReport(report({ stop: unsupportedOrdinal2() })),
+    /requires the ordinal-2 call record/);
   assert.throws(() => validateProofReport(report({ calls: [call] })),
     /must stop at the unsupported service/);
   assert.throws(() => validateProofReport(report({
@@ -149,7 +153,7 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   assert.throws(() => validateProofReport(report({
     stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-  })), /must not stop at the unsupported ordinal-2 service/);
+  })), /requires the ordinal-2 call record/);
   /* A configured profile may truthfully record a denial; the report must
    * preserve that instead of presenting it as success. */
   const denied = report({
@@ -236,6 +240,7 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
         callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
       },
     },
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
   });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({

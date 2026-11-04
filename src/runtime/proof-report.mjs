@@ -202,11 +202,12 @@ export function validateProofReport(report) {
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
    * That is only consistent when the run stopped before the query: a stop at
-   * the unsupported ordinal-2 service must carry the call record. A denial,
-   * when present, is the unsupported-service stop itself, even if an earlier
-   * ordinal-2 call completed. */
-  if (claimsAvQuery && !ordinalTwoRecorded && stop.status === 1 && stop.ordinal === 2)
-    throw new Error('A configured prequery must not stop at the unsupported ordinal-2 service');
+   * the unsupported ordinal-2 service must carry the call record, with or
+   * without the avQuery experiment. A denial, when present, is the
+   * unsupported-service stop itself, even if an earlier ordinal-2 call
+   * completed. */
+  if (!ordinalTwoRecorded && stop.status === 1 && stop.ordinal === 2)
+    throw new Error('An unsupported ordinal-2 stop requires the ordinal-2 call record');
   if (avQueryDenied && (stop.status !== 1 || stop.ordinal !== 2))
     throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;

@@ -202,9 +202,9 @@ test('the comparison rejects repeated experiment names', () => {
   }), /must not repeat an experiment/);
 });
 
-test('the comparison requires both call lists and a non-decreasing run', () => {
+test('the comparison requires the control call record and a non-decreasing run', () => {
   assert.throws(() => compareProofProfiles({ ...control(), calls: undefined }, experiment()),
-    /must carry its kernel call list/);
+    /requires the ordinal-2 call record/);
   assert.throws(() => compareProofProfiles(control(), {
     ...experiment(), originalStartup: startup(278, 405),
   }), /must not report fewer functions or kernel operations/);
