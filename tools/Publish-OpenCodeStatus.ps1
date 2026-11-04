@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $source = Join-Path $repo '.worktrees\opencode-source'
 $architect = Join-Path $repo '.worktrees\opencode-architect'
+$verificationWorktree = Join-Path $repo '.worktrees\opencode-verification'
 $apiBase = 'https://api.github.com/repos/Jdiller-86/fuzion-frenzy-web-port'
 $notificationStatePath = Join-Path $repo '.worktrees\opencode-status-notification.json'
 
@@ -32,6 +33,8 @@ function Clean-Line([string]$value) {
 
 $builder = Read-State 'opencode'
 $geometry = Read-State 'opencode-geometry'
+$verification = Read-State 'opencode-verification'
+$delivery = Read-State 'opencode-manager'
 $manager = Read-State 'opencode-architect'
 $checkpoint = 'Current source checkpoint unavailable.'
 $handoff = Join-Path $source 'docs\DEVELOPMENT_HANDOFF.md'
@@ -41,9 +44,12 @@ if (Test-Path -LiteralPath $handoff) {
 $updated = [DateTimeOffset]::Now.ToString('yyyy-MM-dd HH:mm zzz')
 $builderStatus = if ($builder) { "$(Clean-Line $builder.outcome) on $(Clean-Line $builder.model)" } else { 'unavailable' }
 $geometryStatus = if ($geometry) { "$(Clean-Line $geometry.outcome) on $(Clean-Line $geometry.model)" } else { 'unavailable' }
+$verificationStatus = if ($verification) { "$(Clean-Line $verification.outcome) on $(Clean-Line $verification.model)" } else { 'awaiting first task' }
+$deliveryStatus = if ($delivery) { "$(Clean-Line $delivery.outcome) on $(Clean-Line $delivery.model)" } else { 'unavailable' }
 $architectStatus = if ($manager) { "$(Clean-Line $manager.outcome) on $(Clean-Line $manager.model)" } else { 'unavailable' }
 $sourceCommit = Clean-Line (Get-Head $source)
 $architectCommit = Clean-Line (Get-Head $architect)
+$verificationCommit = if (Test-Path $verificationWorktree) { Clean-Line (Get-Head $verificationWorktree) } else { 'unavailable' }
 $cycleFinished = if ($manager -and $manager.finished) { [string]$manager.finished } else { '' }
 $previousNotification = $null
 if (Test-Path -LiteralPath $notificationStatePath) {
@@ -58,6 +64,8 @@ $comment = @"
 - Architect: $architectStatus. $architectChange
 - Primary builder: $builderStatus. $sourceChange
 - Geometry builder: $geometryStatus.
+- Verification builder: $verificationStatus.
+- Delivery manager: $deliveryStatus.
 - Next checkpoint: $checkpoint
 - Main integration: [PR #1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1).
 
@@ -70,6 +78,8 @@ Updated $updated by the local OpenCode scheduler. This page shows source-only pr
 
 - **Primary builder:** $builderStatus. Latest commit: $sourceCommit.
 - **Geometry builder:** $geometryStatus.
+- **Verification builder:** $verificationStatus. Latest commit: $verificationCommit.
+- **Delivery manager:** $deliveryStatus.
 - **Architect:** $architectStatus. Latest integration commit: $architectCommit.
 - **Current checkpoint:** $checkpoint
 - **Main integration:** [PR #1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1). Review branches: [source PR #2](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/2), [geometry PR #3](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/3).

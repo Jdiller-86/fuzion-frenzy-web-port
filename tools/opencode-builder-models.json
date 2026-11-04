@@ -1,0 +1,18 @@
+{
+  "manager": "opencode-go/glm-5.3-flash",
+  "hourlyReview": ["openai/gpt-6.1-sol", "opencode-go/glm-5.3"],
+  "builders": {
+    "primary": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "fallbacks": ["opencode/deepseek-v4.1-flash-free", "opencode-go/qwen3.8-flash"]
+    },
+    "geometry": {
+      "model": "opencode-go/mimo-v2.6-flash",
+      "fallbacks": ["opencode/mimo-v2.6-flash-free", "opencode-go/hy3"]
+    },
+    "verification": {
+      "model": "opencode-go/minimax-m3.1-flash",
+      "fallbacks": ["opencode-go/beam-free", "opencode-go/iceman-contributor-free"]
+    }
+  }
+}
