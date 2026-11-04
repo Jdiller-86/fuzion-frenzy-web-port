@@ -1,4 +1,14 @@
-# Architect review: reset-profile startup reaches unsupported AV encoder service
+# Architect review: ordinal2 arguments captured, but option6 reference semantics conflict
+
+Fixed source `ebb29e0` captures attempted ordinal2 `(0,6,0,0x203720)` at return0x1FD429, retains the explicit unsupported stop (279 routines/404 operations under the reported synthetic reset profile), and correctly renames PFIFO values as seam reset snapshot. No new title execution endpoint or encoder implementation is established. The architect has not replayed original/private title artifacts.
+
+New independently verified discrepancy: public Cxbx pin585c49a names option6 AV capabilities and option9 blank-screen, uses standardmask0xF00 and composes the query from SMC/factory/user settings with additional flags. The extracted stub's query-pack/query-capabilities labels and fixed HDTV/NTSC/60Hz value are not an original-kernel specification. Caller-mask0xFF00 is consumption evidence, not semantic-field width. A018 requires neutral numeric6/provenance correction and separates static descriptor option/output/writable expectations from actual captured arguments and VM permission observations.
+
+Primary may prepare one standalone unconnected option6 query component using explicit synthetic DWORD input/no defaults, with real-VM exact-four-byte/neighbor preservation and unchanged-state denial tests; keep the kernel binding unsupported and CPU/stack untouched until later review. This owned fixture does not require physical-console settings and claims no hardware fidelity. No guessed encoder/mode/timing/status, generic reporting or frontier expansion. See [the AV task](AV_ENCODER_BOUNDARY_REVIEW.md). A001 stays accepted, geometry `8961ae5` remains documentation-only/paused and neither builder is merged.
+
+Exact-source publication331 files and runtime138/138 pass with no skips on Node24.22.1 (not exact24.14.0 pin); permission metadata is static, not a measured write admission. Live PR#1 is clean/green at starting10e9bbe; drafts#2/#3 remain conflicted/open at requested heads. No duplicate openings or main promotion/push; source correctness, accumulated runtime review/conflicts and exact changed-head checks remain outstanding. Local main is included. No controllable screen, full fidelity, browser-local conversion, performance or online/social/authority acceptance is established.
+
+## Retained A017 review
 
 Fixed source `ccb53cb` reports narrowly admitting `0x1FCB00`, then reached `0x1FD42F` and direct dependency `0x1FD410`: 418 functions/17,353 instructions; reset-profile stop is now ordinal2 AvSendTVEncoderOption, target `0xFE000094`, return `0x1FD429` (279 routines/404 operations). This is curated lane-reported browser startup under synthetic inputs, not architect-replayed title execution or a completed encoder service. Canonical/engine-wait controls retain their prior stops; capacity remains a capacity stop.
 

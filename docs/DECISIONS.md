@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source ebb29e0 and geometry 8961ae5
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A018 | Keep numeric option6 neutral across conflicting references; authorize only a standalone explicitly synthetic query component, not a kernel binding | The captured call is (0,6,0,0x203720), stdcall/void-style; service remains unsupported. Public Cxbx pin585c49a names option6 AV capabilities and option9 blank-screen, standard mask0xF00, and derives the query word from SMC/factory/user settings, conflicting with the extracted stub's names/simplified default. Direct inspection and independent GLM confirm this reference discrepancy, not original hardware truth. Correct caller-mask vs semantic-field/provenance and static descriptor vs observed option/permission claims. Primary may prepare one unconnected real-VM-tested query projection with explicit synthetic DWORD input/no defaults and unchanged-state denial tests; a real console is not a prerequisite for an owned fixture. Keep ordinal2 unsupported and CPU/stack untouched until a later reviewed opt-in binding. No guessed capability result, encoder/mode/timing/other-option expansion, generic framework or frontier batch. PFIFO seam-snapshot relabeling is accepted; A001 stays accepted, geometry paused, no full-source integration. |
+
 ### Architect review of source ccb53cb and geometry 632500b
 
 | ID | Decision | Basis / limits |
