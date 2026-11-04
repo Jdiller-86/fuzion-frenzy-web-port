@@ -127,6 +127,13 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/fatx_volume_test.c src/runtime/fatx_volume.c src/runtime/local_disk.c src/runtime/object_namespace.c src/runtime/file_namespace.c src/runtime/local_volume.c src/runtime/local_directories.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/fatx-root-check"
           "$RUNNER_TEMP/fatx-root-check"
+      - name: Check unconnected synthetic AV query (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/av_query_fixture_test.c src/runtime/av_query.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/av-query-check"
+          "$RUNNER_TEMP/av-query-check"
+          gcc -std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra -Werror tests/av_query_fixture_test.c src/runtime/av_query.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/av-query-sanitizer-check"
+          "$RUNNER_TEMP/av-query-sanitizer-check"
       - name: Check owned memory statistics (Linux)
         if: runner.os == 'Linux'
         run: |

@@ -2,6 +2,13 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "opencode-go/deepseek-v4.1-flash",
   "default_agent": "builder",
+  "providers": {
+    "unsloth": {
+      "models": {
+        "qwen3.8-27b": { "limit": { "context": 32768, "output": 2048 } }
+      }
+    }
+  },
   "policies": [
     { "action": "tool.use", "resource": "subagent:*", "effect": "deny" },
     { "action": "tool.use", "resource": "subagent:builder", "effect": "allow" },
@@ -13,8 +20,7 @@
     { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
     { "action": "tool.use", "resource": "edit:*.env.*", "effect": "deny" },
     { "action": "tool.use", "resource": "external_directory:*", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:git merge *", "effect": "deny" }
+    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" }
   ],
   "agents": {
     "builder": {
@@ -30,6 +36,7 @@
         { "action": "edit", "resource": "research/*", "effect": "deny" },
         { "action": "edit", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "git merge *", "effect": "deny" },
         { "action": "rea_*", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
         { "action": "subagent", "resource": "scout", "effect": "allow" },
@@ -76,9 +83,10 @@
       ]
     },
     "architect": {
-      "description": "Sol architect for consequential design decisions and unresolved CPU, memory, ABI or GPU reasoning after a concise evidence report; one bounded escalation per decision.",
+      "description": "Sol project authority that actively directs builders, reviews evidence, integrates bounded work and manages source-only PRs; also answers bounded escalation decisions.",
       "mode": "all",
       "model": "openai/gpt-6.1-sol",
+      "system": "You are the Fuzion Frenzy project architect and delivery manager. Own the critical path to actual original-game execution in a browser and the staged full project goal. In a primary architect turn, compare builder results with your previous directive, identify drift or repeated low-value work, assign each active lane one bounded result with acceptance checks and a stop condition, and redirect or hold a lane when evidence makes its work unproductive. Make integration a routine deliverable: review committed source slices, resolve or name exact blockers, evaluate the current main PR head independently, and request a guarded merge when fully reviewed. Builders implement; you decide consequential design and integration, verify material claims, and keep the repository and long-term goal aligned. Never manufacture runtime evidence, bypass source-only and local-content rules, force a merge, or claim playability without a controllable original screen. When invoked as a bounded subagent, answer the specific escalation with evidence and a concise directive, then return implementation to the builder.",
       "steps": 8,
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
