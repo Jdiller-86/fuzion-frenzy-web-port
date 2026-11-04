@@ -24,6 +24,10 @@ November 4, 2026. Bounded read-only analysis of the next reached routine from th
 
 The retained experiment reaches this routine from executed `0x1F5640` at return `0x1F57C9` (call site `0x1F57C4`). Static reading only: a small leaf that reads the two listed words, tests flags and returns; it does not establish semantics, ABI or original-run behavior.
 
+## Exported seed (read-only, not admitted)
+
+The retained exporter reads `0x1F7080` as **27 instructions / an 89-byte envelope**, instruction-only layout, no calls or tables; SHA-256 `4968b4371b592b7269c20cf5e9804b474d3595a34b23fb231e189b121fb1d431`. Byte identity, independent decoder agreement (27/27, no normalizations) and `checked_function_layout` pass. The seed was not merged into the selection, and `0x1F7080` remains unadmitted.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
