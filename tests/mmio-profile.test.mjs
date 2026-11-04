@@ -55,11 +55,17 @@ test('an explicit register profile admits the 16 MiB NV2A aperture window', () =
 test('experimental register controls default off and require an explicit true', () => {
   assert.equal(parseLocalMmioProfile(bytes(reached)).writeClearing, false);
   assert.equal(parseLocalMmioProfile(bytes(reached)).pmcZero, false);
+  assert.equal(parseLocalMmioProfile(bytes(reached)).pcrtcVblanks, 0);
   assert.equal(parseLocalMmioProfile(bytes(reached, { writeClearing: true })).writeClearing, true);
   assert.equal(parseLocalMmioProfile(bytes(reached, { pmcZero: true })).pmcZero, true);
   for (const value of [1, 'true', {}, []]) {
     assert.equal(parseLocalMmioProfile(bytes(reached, { writeClearing: value })).writeClearing, false);
     assert.equal(parseLocalMmioProfile(bytes(reached, { pmcZero: value })).pmcZero, false);
+  }
+  /* Declared display events are an explicit, bounded count. */
+  assert.equal(parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: 8 })).pcrtcVblanks, 8);
+  for (const value of [0.5, -1, 65, '8', true, {}]) {
+    assert.equal(parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: value })).pcrtcVblanks, 0);
   }
 });
 

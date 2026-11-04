@@ -185,8 +185,11 @@ export function parseLocalMmioProfile(buffer) {
    * code never acknowledges this register (its only store is zero), so nothing
    * here may be treated as a completion or acknowledge rule. */
   const pmcZero = device.pmcZero === true;
+  const pcrtcVblanks = Number.isInteger(device.pcrtcVblanks) && device.pcrtcVblanks >= 0 &&
+    device.pcrtcVblanks <= 64 ? device.pcrtcVblanks : 0;
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
-    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero };
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
+    pcrtcVblanks };
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);

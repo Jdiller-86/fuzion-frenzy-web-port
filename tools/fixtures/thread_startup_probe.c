@@ -75,6 +75,7 @@ static uint32_t memory_statistics_ready;
 #error Device register storage retains the modeled memory statistics
 #endif
 #include "../../src/runtime/device_registers.h"
+#include "../../src/runtime/pcrtc_state.h"
 #include "../../src/runtime/pfifo_dma.h"
 static ff_device_registers device_registers;
 #endif
@@ -136,6 +137,44 @@ static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 static ff_port_io port_io;
+/* PCRTC interrupt state, enabled only when the profile supplies events. The
+ * register contract and PMC aggregation come from the retained NV2A reference;
+ * no timing source exists here, so nothing is raised unless the profile says so. */
+static ff_pcrtc_state pcrtc;
+static uint32_t pcrtc_ready;
+static uint32_t pcrtc_shadow[3];
+static int32_t pcrtc_dirty = -1;
+static void pcrtc_flush(void)
+{
+    if (pcrtc_dirty < 0) return;
+    int32_t index = pcrtc_dirty; pcrtc_dirty = -1;
+    if (index == 0) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, pcrtc_shadow[0]);
+    else if (index == 1) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_EN_0, pcrtc_shadow[1]);
+    else if (pcrtc_shadow[2] & FF_PCRTC_PMC_IRQ)
+        (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, FF_PCRTC_INTR_VBLANK);
+}
+static uint32_t *pcrtc_access(uint32_t address, uint32_t access)
+{
+    int32_t index = address == 0xFD600100u ? 0 : address == 0xFD600140u ? 1 :
+                    address == 0xFD000100u ? 2 : -1;
+    if (index < 0 || !pcrtc_ready) return NULL;
+    pcrtc_flush();
+    pcrtc_shadow[0] = pcrtc.pending;
+    pcrtc_shadow[1] = pcrtc.enabled;
+    pcrtc_shadow[2] = ff_pcrtc_pmc_irq(&pcrtc);
+    if (access & 2u) pcrtc_dirty = index;
+    return &pcrtc_shadow[index];
+}
+/* The profile supplies a bounded number of vertical-blank events up front. */
+uint32_t ff_probe_pcrtc(uint32_t vblanks)
+{
+    if (vblanks > 64u) return FF_BOOT_INVALID;
+    ff_pcrtc_init(&pcrtc);
+    for (uint32_t i = 0; i < vblanks; ++i) ff_pcrtc_vblank(&pcrtc);
+    pcrtc_ready = 1;
+    return 0;
+}
+
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 void xbox_PortOut(uint32_t port, uint32_t value, int width)
 {
@@ -325,6 +364,13 @@ static void pfifo_ring_sync(void)
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
     (void)site;
+    /* The PCRTC path is served from its own explicit state when the profile
+     * supplies display events; without that it falls through to the aperture and
+     * ultimately to the fail-closed stop. */
+    if (pcrtc_ready && bytes == 4u) {
+        uint32_t *slot = pcrtc_access(address, access);
+        if (slot) { ++vm_access_count; return slot; }
+    }
 #ifdef FF_MMIO_PROOF
     /* A staged device write is committed before any later access, so event
      * order and the stored value are both final. */

@@ -50,6 +50,11 @@ self.onmessage = async event => {
          api.ff_probe_mmio_pmc_zero(mmioProfile.pmcZero?1:0)) {
         throw new Error('The private module cannot set the experimental PMC zero-status control');
       }
+      if(mmioProfile.pcrtcVblanks) {
+        if(typeof api.ff_probe_pcrtc!=='function' || api.ff_probe_pcrtc(mmioProfile.pcrtcVblanks)) {
+          throw new Error('The private module cannot admit the declared display events');
+        }
+      }
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
         primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
