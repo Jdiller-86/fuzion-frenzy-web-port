@@ -6,7 +6,7 @@ Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761
 
 ## Withdrawn option-6 model
 
-The explicit AV-pack profile, its handler and its report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case and falls through to a default no-op, while the pinned `xboxrecomp-source` reference implements option 6. Neither reference establishes the original behavior, so option 6 is neutral and ordinal 2 is unsupported. Untranslated `0x1F79A0` is **not** reached, and no frontier expansion was performed. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+The explicit AV-pack profile, its handler and its report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it, while the pinned `xboxrecomp-source` maps the same numeric 6 to `AV_OPTION_QUERY_AVPACK`. The replacement semantics differ, so option 6 is neutral and ordinal 2 is unsupported. Untranslated `0x1F79A0` is **not** reached, and no frontier expansion was performed. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
 
 ## Next task
 

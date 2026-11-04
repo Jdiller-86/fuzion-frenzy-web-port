@@ -1,13 +1,13 @@
 # The option-6 AV model is withdrawn; ordinal 2 remains unsupported
 
-November 4, 2026. The modeled `AvSendTVEncoderOption` option-6 handler is withdrawn. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case in `AvSendTVEncoderOption` and falls through to a default no-op, while the pinned `xboxrecomp-source` reference implements option 6 as an AV-pack query. Neither reference establishes the original console's behavior, so no option-6 model is retained. Ordinal 2 stays unsupported and fail-closed: the reset run stops at **status 1**, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. **There is no renderer, timing source or playable screen.**
+November 4, 2026. The modeled `AvSendTVEncoderOption` option-6 handler is withdrawn. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`, while the pinned `xboxrecomp-source` maps the same numeric 6 to `AV_OPTION_QUERY_AVPACK` and returns a fixed compatibility default. Both are replacement implementations with different semantics; neither establishes the original console's behavior, so no option-6 model is retained. Ordinal 2 stays unsupported and fail-closed: the reset run stops at **status 1**, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. **There is no renderer, timing source or playable screen.**
 
 ## Confirmed conflict
 
 - `xboxrecomp-source/src/kernel/kernel.h:1147-1157` names option `0x06` `AV_OPTION_QUERY_AVPACK`; `kernel_hal.c:1463-1479` returns HDTV/NTSC-M/60 Hz `0x00400104`.
-- Cxbx at the full cited commit (`src/core/kernel/exports/EmuKrnlAv.cpp`) implements `AvSendTVEncoderOption` as `VOID NTAPI`, but its switch has no option-6 case; option 6 falls to the default and does nothing.
-- The two references disagree on whether option 6 produces a result word. Neither is original-console execution, so the disagreement is not adjudicated by preferring one.
-- The Cxbx source was read from the public repository at the cited commit and is not stored locally; `tools/original-execution-toolchain.json` records the full commit, `retained: false`, and the conflict.
+- Cxbx at the full cited commit defines `AV_QUERY_AV_CAPABILITIES` as `6` in `src/core/kernel/common/xbox.h` and handles it in `src/core/kernel/exports/EmuKrnlAv.cpp` by returning `AvQueryAvCapabilities()` (pack, standard, refresh and user flags derived from the SMC video mode and nonvolatile settings). It does not define `AV_OPTION_QUERY_AVPACK`; numeric 6 is not a no-op.
+- The two references disagree on what numeric 6 means and how the result is composed. Neither is original-console execution, so the disagreement is not adjudicated by preferring one.
+- The Cxbx source was read from the public repository at the cited commit and is not stored locally; `tools/original-execution-toolchain.json` records the full commit, `retained: false`, and the semantic conflict.
 
 ## What was withdrawn
 
@@ -40,13 +40,13 @@ The reset report records the attempted call in the standard call list: `{ ordina
 
 ### Consumer-domain evidence
 
-Read-only analysis of the retained executable's table at `0x202C38` (0xBF entries, 0xC bytes) records the accepted domain: NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs; the last entry is an `0xFF` sentinel and **no row has standard `0x00`**. A zero/no-op result therefore matches no row, while the synthetic `xboxrecomp-source` value `0x00400104` matches 33 candidate rows. That source is a kernel replacement whose option-6 word is a D3D compatibility default, not original behavior. The aggregate evidence and limits are in [the mode-domain checkpoint](AV_MODE_DOMAIN_CHECKPOINT.md).
+Read-only analysis of the retained executable's table at `0x202C38` (0xBF entries, 0xC bytes) records the accepted domain: NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs; the last entry is an `0xFF` sentinel and **no row has standard `0x00`**. A zero result therefore matches no row. Cxbx's option 6 is a capabilities query, not a no-op, and the synthetic `xboxrecomp-source` value `0x00400104` matches 33 candidate rows. Both are replacement implementations, not original behavior. The aggregate evidence and limits are in [the mode-domain checkpoint](AV_MODE_DOMAIN_CHECKPOINT.md).
 
 ### Unconnected numeric-6 component
 
-`src/runtime/av_query.h/.c` is one reusable, unconnected component for the observed `(0, 6, 0, Result)` shape. It checks `RegisterBase == 0`, numeric option `6` and `Param == 0`, requires a complete caller-supplied synthetic DWORD with no default, and writes it only when `ff_vm_check` grants the whole four-byte span on a real `ff_virtual_memory` window. A denial leaves every byte unchanged. It supplies no guest return value and mutates no CPU or stack state.
+`src/runtime/av_query.h/.c` is one reusable, unconnected component for the observed `(0, 6, 0, Result)` shape. It checks `RegisterBase == 0`, numeric option `6` and `Param == 0`, takes a nullable explicit `ff_av_query_config` pointer (a null pointer means no synthetic DWORD was supplied and the query is denied; there is no default), and writes the configured word only when `ff_vm_check` grants the whole four-byte span on a real `ff_virtual_memory` window. The store is bytewise little-endian, so an unaligned guest pointer is safe, and a denial leaves every byte unchanged. It supplies no guest return value and mutates no CPU or stack state.
 
-`tests/av_query_fixture_test.c` calls that component directly, not a duplicate writer. Two distinct DWORDs must appear verbatim in little-endian order; wrong option/base/param, read-only, unaligned, null, unmapped, page-crossing and VM-end-crossing spans must be denied with the surrounding eight bytes unchanged. It is compiled in the native component suite but is not linked to the probe, a service handler or any runtime path.
+`tests/av_query_fixture_test.c` calls that component directly, not a duplicate writer. Two distinct DWORDs, zero and all-ones must appear verbatim in little-endian order at aligned and unaligned pointers; a null config is denied; wrong option/base/param, read-only, null, unmapped, one-page-crossing and VM-end-crossing spans are denied; a committed two-page span succeeds; and 32-bit wrap addresses are denied. Each success changes exactly four bytes and leaves four bytes on both sides unchanged; each denial leaves the whole window unchanged. It is compiled in the native component suite but is not linked to the probe, a service handler or any runtime path.
 
 ## Measured result
 
@@ -75,8 +75,8 @@ These remain a labeled reference implementation, not an original-runtime observa
 - The two admitted helpers execute in the original path; the PFIFO reset path is no longer the blocker for this branch.
 - The next dependency is a kernel service, not an untranslated original routine.
 - The numeric-6 memory contract is captured in one reusable, unconnected component; the kernel semantics remain unresolved.
-- The consumer's accepted AV mode domain is captured, and a zero/no-op result cannot match it; the original console's mode is still unknown.
-- The service cannot be modeled from the current evidence: the pinned references conflict, and no original-console observation exists.
+- The consumer's accepted AV mode domain is captured, and a zero result cannot match it; the original console's mode is still unknown. Cxbx's option 6 is a capabilities query, not a no-op.
+- The service cannot be modeled from the current evidence: the replacement references have different option-6 semantics, and no original-console observation exists.
 
 ## Limits
 
@@ -87,4 +87,4 @@ These remain a labeled reference implementation, not an original-runtime observa
 
 ## Next task
 
-The blocker is now an external observation. Request the exact original-hardware capture described in [the observation request](AV_ORIGINAL_CAPTURE_REQUEST.md): the four arguments and the `Result` bytes immediately before and after the original ordinal-2 option-6 call, with game, kernel and console-configuration provenance. Validate any returned capture with `tools/validate-av-observation.mjs`; it checks completeness and original-hardware provenance and records a consumer-domain mismatch without rejecting or altering it. If the capture cannot be provided, record the prerequisite and stop; do not run another replacement-source survey, invent a value or adopt a synthetic default. Keep ordinal 2 unsupported and numeric option 6 neutral: no default, no fixed pack word, no EAX/NTSTATUS success, and no broad closure batch.
+Keep ordinal 2 unsupported and numeric option 6 neutral. The component is complete with a nullable explicit synthetic-DWORD config, bytewise little-endian stores, unaligned and whole-span handling, and neighbor/wrap tests. An original-hardware capture remains optional fidelity evidence, not a prerequisite; no further capture schema or replacement-source survey is needed. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.

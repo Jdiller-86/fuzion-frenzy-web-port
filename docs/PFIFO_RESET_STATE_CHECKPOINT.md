@@ -28,7 +28,7 @@ Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instr
 
 ## Later: the option-6 AV model is withdrawn
 
-The explicit AV-pack profile, `composeAvPackWord`, the probe handler and the report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case in `AvSendTVEncoderOption` and falls through to a default no-op, conflicting with the pinned `xboxrecomp-source` option-6 implementation. Neither reference establishes the original behavior, so the reset run stays at **status 1**, target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
+The explicit AV-pack profile, `composeAvPackWord`, the probe handler and the report fields are removed. Cxbx-Reloaded at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`, while the pinned `xboxrecomp-source` maps it to `AV_OPTION_QUERY_AVPACK`. The replacement semantics differ, so neither establishes the original behavior; the reset run stays at **status 1**, target `0xFE000094`, ordinal **2**, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. Module `recomp-post-memory-build-70`, SHA-256 `b6314c57b4cc8b78e73c54262237a8761e2619da92b19083fc59f174a856a4c6`.
 
 ## Proof requested by the architect
 

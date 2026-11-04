@@ -42,7 +42,7 @@
     "commit": "585c49a50af1255ab155099e06f24505f9c5a800",
     "directory": null,
     "retained": false,
-    "note": "Public source read at the cited commit. Its AvSendTVEncoderOption switch has no AV_OPTION_QUERY_AVPACK case and falls through to a default no-op, conflicting with the xboxrecomp option-6 implementation. Option 6 remains unsupported; no source is stored locally."
+    "note": "Public source read at the cited commit. Numeric option 6 is AV_QUERY_AV_CAPABILITIES in src/core/kernel/common/xbox.h and is handled in EmuKrnlAv.cpp by AvQueryAvCapabilities(); it is not a no-op and does not define AV_OPTION_QUERY_AVPACK. This differs from the xboxrecomp option-6 mapping. Option 6 remains unsupported; no source is stored locally."
   },
   "compiler": {
     "emscriptenVersion": "3.1.50",

@@ -1,4 +1,12 @@
-# Continue from the bounded FATX overwrite primitive
+# Continue from the finished numeric-6 component and corrected Cxbx mapping
+
+`src/runtime/av_query.h/.c` now takes a nullable explicit `ff_av_query_config` pointer; a null pointer means the synthetic DWORD is absent and the query is denied, while an explicit zero word is written as zero. Stores are bytewise little-endian, unaligned guest pointers are safe, and the whole four-byte span is checked. The fixture covers two distinct values, zero/all-ones, aligned/unaligned writes, a committed two-page crossing, one-page and VM-end denial, 32-bit wrap denial, four-byte neighbors on both sides, argument-shape rejection and null config. Numeric option 6 in Cxbx is `AV_QUERY_AV_CAPABILITIES`, handled by `AvQueryAvCapabilities()`, not a no-op; the xboxrecomp replacement maps it to `AV_OPTION_QUERY_AVPACK`. Ordinal 2 remains unsupported and `0x1F79A0` is unadmitted.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:44:57.8570169-05:00`; this cycle follows it.
+
+Next: keep the component unconnected and ordinal 2 unsupported. Hardware capture is optional fidelity evidence, not a prerequisite; do not add another capture schema or run another replacement-source survey. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success. Preserve the FATX overwrite-only scope and the paused geometry lane.
+
+## Prior: continue from the bounded FATX overwrite primitive
 
 The filesystem path now has a source-owned data-overwrite primitive. `ff_disk_has`/`ff_disk_store` require every destination page to exist, and `ff_fatx_write_entry` writes only inside an existing file's declared range and already-backed cluster chain. It preflights the whole chain and every page before writing, so an unsupported chain, missing page, out-of-range request or directory entry leaves the file and disk unchanged; it refreshes the mount revision on success. It does not create, extend, allocate, delete, remount or serve a guest file request. The `fatx_volume` fixture is now in `npm run test:native` and covers one-cluster/cross-cluster read-back, rejection cases, a sparse cluster and a two-cluster atomic preflight.
 
@@ -24,7 +32,7 @@ Next: request the capture once. If it cannot be provided, record the external pr
 
 ## Prior: continue from the captured consumer AV mode domain
 
-The prior bounded evidence step records the consumer side of the ordinal-2 query. The retained executable's table at `0x202C38` has 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel and **no standard-zero row**, so a zero/no-op result matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value is a D3D compatibility default, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported and no service model, default, binding or frontier admission is added.
+The prior bounded evidence step records the consumer side of the ordinal-2 query. The retained executable's table at `0x202C38` has 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel and **no standard-zero row**, so a zero result matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value is a D3D compatibility default, not an original-kernel observation; Cxbx maps numeric 6 to `AV_QUERY_AV_CAPABILITIES` and handles it. Ordinal 2 remains unsupported and no service model, default, binding or frontier admission is added.
 
 Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 335 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
 
@@ -36,15 +44,15 @@ The prior bounded correction prevents the unsupported ordinal-2 service from bei
 
 Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
 
-Next: the service evidence blocker is unchanged. Obtain original-console or otherwise authoritative evidence for ordinal-2 option-6 semantics, or a definitive adjudication of the Cxbx/`xboxrecomp-source` conflict before any model. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+Next: keep ordinal 2 unsupported and numeric option 6 neutral. Hardware capture is optional fidelity evidence, not a prerequisite; do not add another capture schema or run another replacement-source survey. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
 
 ## Prior: continue from the withdrawn option-6 model
 
-The prior bounded correction withdraws the modeled ordinal-2 option-6 service. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` has no `AV_OPTION_QUERY_AVPACK` case and falls through to a default no-op, conflicting with the pinned `xboxrecomp-source` implementation; neither grounds the original console, so the handler, `device.avPack`, `src/runtime/av-pack.mjs`, its test and the report fields are removed. Ordinal 2 stays unsupported: the reset run stops at status 1, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations; untranslated `0x1F79A0` is not reached. The static descriptor keeps only the name and `stdcall`/16-byte/void ABI, and the report requires four observed arguments and no output for the unsupported call. One reusable, unconnected numeric-6 component (`src/runtime/av_query.h/.c`) now captures only the memory contract: explicit caller-supplied DWORD with no default, real-VM whole-span checks, and two-value exact-write/unchanged-denial tests that call the component directly. It is not linked to the probe or any runtime path.
+The prior bounded correction withdraws the modeled ordinal-2 option-6 service. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`; the pinned `xboxrecomp-source` maps the same numeric 6 to `AV_OPTION_QUERY_AVPACK`. Neither grounds the original console, so the handler, `device.avPack`, `src/runtime/av-pack.mjs`, its test and the report fields are removed. Ordinal 2 stays unsupported: the reset run stops at status 1, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations; untranslated `0x1F79A0` is not reached. The static descriptor keeps only the name and `stdcall`/16-byte/void ABI, and the report requires four observed arguments and no output for the unsupported call. One reusable, unconnected numeric-6 component (`src/runtime/av_query.h/.c`) now captures only the memory contract: a nullable explicit-DWORD config with no default, bytewise little-endian stores, unaligned and whole-span handling, and two-value/neighbor/wrap tests that call the component directly. It is not linked to the probe or any runtime path.
 
 Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T04:46:00.0944972-05:00; this cycle follows it within lane ownership.
 
-Next: obtain original-console or otherwise authoritative evidence for ordinal-2 option-6 semantics, or a definitive adjudication of the Cxbx/`xboxrecomp-source` conflict. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+Next: keep ordinal 2 unsupported and numeric option 6 neutral. Hardware capture is optional fidelity evidence, not a prerequisite; do not add another capture schema or run another replacement-source survey. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
 
 ## Prior: continue from the option-neutral static service descriptor
 

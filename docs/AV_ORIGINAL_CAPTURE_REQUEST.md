@@ -1,12 +1,12 @@
 # Ordinal-2 original-hardware observation request
 
-November 4, 2026. The source-only work can no longer resolve the `AvSendTVEncoderOption` option-6 value by comparing replacement kernels. The consumer domain is known, but the original service's response is not. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and recommended one bounded external observation rather than another replacement-source or fixture-hardening cycle. This document records the exact request, its acceptance criteria and the current external prerequisite. **No service model or runtime behavior changes until the observation exists.**
+November 4, 2026. This document records an **optional** original-hardware capture for the `AvSendTVEncoderOption` option-6 value. The consumer domain is known, but the original service's response is not. The unconnected numeric-6 component and the fail-closed ordinal-2 runtime do not depend on this capture; it is fidelity evidence only. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and later superseded the earlier prerequisite framing at `2026-11-04T05:44:57.8570169-05:00`: no further capture schema or replacement-source survey is required. **No service model or runtime behavior changes from this document.**
 
 ## Why the current evidence is insufficient
 
-- Cxbx-Reloaded at `585c49a50af1255ab155099e06f24505f9c5a800` has no option-6 case and falls through to a no-op.
+- Cxbx-Reloaded at `585c49a50af1255ab155099e06f24505f9c5a800` defines numeric option 6 as `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`; it does not define `AV_OPTION_QUERY_AVPACK` and does not fall through to a no-op.
 - The locally retained `xboxrecomp-source` at `f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b` is a kernel replacement. Its `0x00400104` value is a D3D compatibility default chosen for mode-table matching (`src/kernel/kernel_hal.c:1463-1510`), not an original-kernel observation.
-- The game's own table at `0x202C38` (0xBF rows of 0xC bytes) accepts NTSC-M/J/PAL-I standards with SCART, HDTV, VGA or wildcard packs; it has no standard-zero row. This proves a zero/no-op result is incompatible, but it does not reveal the console's actual mode or the service's transformation.
+- The game's own table at `0x202C38` (0xBF rows of 0xC bytes) accepts NTSC-M/J/PAL-I standards with SCART, HDTV, VGA or wildcard packs; it has no standard-zero row. This proves a zero result is incompatible, but it does not reveal the console's actual mode or the service's transformation.
 - A raw EEPROM alone is insufficient: it does not establish the service's output or how stored configuration and connected hardware map to the result word.
 
 ## Requested observation
@@ -77,7 +77,7 @@ A differing confirmation requires a `variationNote` in that confirmation object.
 
 ## Current external prerequisite
 
-No original Xbox kernel, BIOS, EEPROM or original-console observation is available in this worktree. The supplied game files are present, but they cannot produce this observation. The next source-only action is therefore to request the capture once. If it cannot be provided, this blocker stays recorded and no replacement value is invented.
+No original Xbox kernel, BIOS, EEPROM or original-console observation is available in this worktree. The supplied game files are present, but they cannot produce this observation. This capture is optional fidelity evidence, not a prerequisite for the unconnected component or for keeping ordinal 2 unsupported. No replacement value is invented when it is absent.
 
 ## What the observation would and would not establish
 
@@ -85,4 +85,4 @@ A successful observation would ground **one configuration-specific response** fo
 
 ## Next task
 
-Request the capture described above from the player. Keep ordinal 2 unsupported, numeric option 6 neutral and `0x1F79A0` unadmitted until the verified observation exists.
+If a capture becomes available, it may be recorded and validated with the tool above. Keep ordinal 2 unsupported, numeric option 6 neutral and `0x1F79A0` unadmitted; the component work does not wait on this evidence.
