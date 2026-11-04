@@ -174,6 +174,13 @@ uint32_t ff_probe_pcrtc(uint32_t vblanks)
     pcrtc_ready = 1;
     return 0;
 }
+/* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
+uint32_t ff_probe_pcrtc_word(uint32_t field)
+{
+    if (!pcrtc_ready) return UINT32_MAX;
+    return field == 0 ? 1u : field == 1 ? pcrtc.pending : field == 2 ? pcrtc.enabled :
+           field == 3 ? pcrtc.vblanks : UINT32_MAX;
+}
 
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 void xbox_PortOut(uint32_t port, uint32_t value, int width)
