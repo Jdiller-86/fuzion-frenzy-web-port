@@ -21,6 +21,15 @@ const avOutput = (rawWord, edit = {}) => ({
   eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54, ...edit,
 });
 
+/* A status-1 ordinal-2 denial is the unsupported-service stop itself. */
+const unsupportedOrdinal2 = () => ({
+  status: 1, target: 0xFE000094, ordinal: 2,
+  service: {
+    ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
+  },
+});
+
 test('a well-formed startup report validates and is returned unchanged', () => {
   const input = report();
   assert.equal(validateProofReport(input), input);
@@ -65,7 +74,10 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
 });
 
 test('an unsupported ordinal-2 call carries four arguments and no output', () => {
-  const valid = report({ calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }] });
+  const valid = report({
+    stop: unsupportedOrdinal2(),
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0] }],
@@ -76,6 +88,25 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
   assert.throws(() => validateProofReport(report({
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { packWord: 0 } }],
   })), /must not carry an output/);
+});
+
+test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
+  const call = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
+  assert.throws(() => validateProofReport(report({ calls: [call] })),
+    /must stop at the unsupported service/);
+  assert.throws(() => validateProofReport(report({
+    stop: { status: 1, target: 0xFE000094, ordinal: 3, service: { ordinal: 3, name: null, modeled: false } },
+    calls: [call],
+  })), /must stop at the unsupported service/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [call],
+  })), /must stop at the unsupported service/);
+  /* A completed call is not a denial and does not require the unsupported stop. */
+  const completed = report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
+  });
+  assert.equal(validateProofReport(completed), completed);
 });
 
 test('an explicit synthetic avQuery word completes ordinal 2 with its raw word', () => {
@@ -98,6 +129,7 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   /* A configured profile may truthfully record a denial or a prequery stop; the
    * report must preserve that instead of presenting it as success. */
   const denied = report({
+    stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
   });

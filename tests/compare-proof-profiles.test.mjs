@@ -69,10 +69,10 @@ test('the comparison rejects a different module or executable', () => {
     /digest is missing or malformed/);
 });
 
-test('the comparison rejects a control that does not stop on ordinal 2', () => {
+test('the comparison rejects a control whose ordinal-2 denial does not stop there', () => {
   assert.throws(() => compareProofProfiles(
     { ...control(), stop: { status: 10, target: 0xFD000100, ordinal: 1 } }, experiment()),
-    /control must stop on the unsupported ordinal-2 call/);
+    /must stop at the unsupported service/);
 });
 
 test('the comparison rejects an experiment that does not progress past ordinal 2', () => {
@@ -84,7 +84,7 @@ test('the comparison rejects an experiment that does not progress past ordinal 2
 
 test('the comparison requires the avQuery experiment to be the only added input', () => {
   const missing = {
-    ...experiment(), experiments: control().experiments,
+    ...experiment(), stop: control().stop, experiments: control().experiments,
     avQueryWord: undefined, calls: control().calls,
   };
   assert.throws(() => compareProofProfiles(control(), missing),

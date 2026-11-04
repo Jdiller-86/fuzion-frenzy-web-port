@@ -139,6 +139,7 @@ export function validateProofReport(report) {
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryCall = false;
   let avQueryAttempt = false;
+  let avQueryDenied = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -155,6 +156,7 @@ export function validateProofReport(report) {
           throw new Error('An unsupported ordinal-2 call must not report success');
         if (call.output !== undefined)
           throw new Error('Unsupported ordinal-2 calls must not carry an output word');
+        if (call.status === 1) avQueryDenied = true;
       } else if (call.status === 0) {
         /* The adapter exists for the observed (0, 6, 0, Result) query, so a
          * successful call must carry exactly that shape and write through its
@@ -189,6 +191,7 @@ export function validateProofReport(report) {
         if (call.output !== undefined)
           throw new Error('A denied synthetic avQuery call must not carry an output word');
         avQueryAttempt = true;
+        avQueryDenied = true;
       }
     }
   }
@@ -197,6 +200,10 @@ export function validateProofReport(report) {
    * as the recorded attempt; a success must satisfy the exact shape above. */
   if (claimsAvQuery && !avQueryCall && !avQueryAttempt)
     throw new Error('The avQuery experiment requires a recorded ordinal-2 call');
+  /* An ordinal-2 denial is the unsupported-service stop itself. A report that
+   * records the denial but claims a later stop is not a truthful observation. */
+  if (avQueryDenied && !avQueryCall && (stop.status !== 1 || stop.ordinal !== 2))
+    throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;
 }
 
