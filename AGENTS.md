@@ -43,6 +43,7 @@ Do not expand an investigation into full decompilation or an emulator project wi
 - `npm run check`: preparation contract plus tracked/unignored source publication checks. This is not a gameplay test.
 - `npm run check:environment`: report local runtime and optional analysis-tool readiness without installing software or reading credentials.
 - `npm run test:formats`: source-owned format/conversion fixtures; not gameplay tests.
+- `npm run test:native`: compiles and runs every owned C component fixture (device aperture, PCRTC state, kernel timers, ports, checked vector/real-VM access) with the local gcc, or the WSL gcc on Windows; it reports a missing compiler as an error, never as a pass.
 - `npm run test:runtime`: source-owned browser delivery and Wasm resource-admission checks (file allowlists, rejected uploads/unapproved imports/implicit startup, the exact opt-in clock signature and bounded memory); does not execute an emulator or original game.
 - `npm run dev:research`: allowlisted loopback browser proof; no original content is served.
 - `git diff --check`: whitespace verification.
