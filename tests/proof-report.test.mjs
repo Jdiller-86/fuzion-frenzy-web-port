@@ -26,6 +26,21 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
+  const valid = report({ pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 } });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({
+    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 1, resets: 1 },
+  })), /consumer update/);
+  assert.throws(() => validateProofReport(report({
+    pfifoStatus: { cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 2 },
+  })), /exactly once/);
+  assert.throws(() => validateProofReport(report({
+    pfifoStatus: { cache1: 0, runout: 0x10, dmaPush: 0, consumerUpdates: 0, resets: 1 },
+  })), /LOW_MARK/);
+  assert.throws(() => validateProofReport(report({ pfifoStatus: { cache1: 0x10 } })), /Malformed/);
+});
+
 test('a worker-level error report is accepted without evidence fields', () => {
   const failure = { kind: 'error', message: 'Missing bounded device-aperture accessors' };
   assert.equal(validateProofReport(failure), failure);

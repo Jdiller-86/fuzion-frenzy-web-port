@@ -162,7 +162,7 @@ The reset rule is wired through the existing `ff_pfifo_status` seam as a separat
 - `device.pfifoReset: true` selects it. The probe applies the adapter once during aperture initialization and seeds the two status registers from the seam; the canonical profile leaves it off and stays fail-closed.
 - The adapter has no GET, PUT or guest-memory access: it changes two status words only. The retained runs confirm the `DMA_PUT`/`DMA_GET` writes are byte-for-byte identical across the canonical, `engineWait` and `pfifoReset` profiles.
 
-Measured with module `recomp-post-memory-build-70` (SHA-256 `af2181759af49ba26e6276febbaa6aace3819a5474b550de2376863de181a2e8`):
+Measured with module `recomp-post-memory-build-70` (SHA-256 `4b8c2688519cb4338c32cf82479a909c41a4cb1d15d0bce7d1b25b54b5185874`):
 
 | profile | stop | routines | kernel ops | device events |
 | --- | --- | --- | --- | --- |
@@ -170,7 +170,7 @@ Measured with module `recomp-post-memory-build-70` (SHA-256 `af2181759af49ba26e6
 | `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
 | `pfifoReset` | **status 2 at `0x1FCB00`** (return `0x1FD4C4`) | 276 | 404 | 12,584 |
 
-The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, and reaches untranslated `0x1FCB00`. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, and reaches untranslated `0x1FCB00`. It reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`, and the report validator rejects any consumer update, more than one reset, or a missing `LOW_MARK`. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
 
 No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-based next target.
 
@@ -183,7 +183,7 @@ No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-ba
 
 ## Validation
 
-`npm run test:native` 14/14 (the status seam now covers the reference reset, zero consumer updates, repeat initialization and preserved stores), `npm run test:evidence` 4/4, runtime suite 133/133, title-seed 25/25, `npm run check` and whitespace checks pass. The adapter is default-off; the canonical profile remains fail-closed.
+`npm run test:native` 14/14 (the status seam now covers the reference reset, zero consumer updates, repeat initialization and preserved stores), `npm run test:evidence` 4/4, runtime suite 134/134, title-seed 25/25, `npm run check` and whitespace checks pass. The adapter is default-off; the canonical profile remains fail-closed.
 
 ## Next task
 

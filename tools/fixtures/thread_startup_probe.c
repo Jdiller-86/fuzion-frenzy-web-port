@@ -825,7 +825,7 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
-static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset;
+static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset, mmio_pfifo_reset_count;
 static ff_pfifo_status mmio_pfifo_status;
 /* Explicitly experimental: the selected profile must opt in to modelling an
  * acknowledging store, and the same profile without it is the control run. */
@@ -865,6 +865,21 @@ uint32_t ff_probe_mmio_pfifo_reset(uint32_t enable)
     mmio_pfifo_reset = enable;
     return 0;
 }
+/* Report the seam state after the reset adapter ran. Field 0 is the ready flag
+ * for the experiment; the others are the two status values, DMA_PUSH, the
+ * consumer-update counter and the number of reset applications. */
+uint32_t ff_probe_pfifo_status_word(uint32_t field)
+{
+    switch(field) {
+        case 0: return mmio_pfifo_reset ? 1u : 0u;
+        case 1: return mmio_pfifo_status.cache1_status;
+        case 2: return mmio_pfifo_status.runout_status;
+        case 3: return mmio_pfifo_status.dma_push;
+        case 4: return mmio_pfifo_status.consumer_updates;
+        case 5: return mmio_pfifo_reset_count;
+        default: return 0;
+    }
+}
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
@@ -885,6 +900,7 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     if(mmio_pfifo_reset) {
         ff_pfifo_status_init(&mmio_pfifo_status);
         ff_pfifo_status_reference_reset(&mmio_pfifo_status);
+        ++mmio_pfifo_reset_count;
         if((status=ff_device_registers_add_initial(&device_registers,0xFD003214u,
               ff_pfifo_status_read(&mmio_pfifo_status,FF_PFIFO_CACHE1_STATUS_OFFSET))) ||
            (status=ff_device_registers_add_initial(&device_registers,0xFD002400u,

@@ -78,6 +78,19 @@ export function validateProofReport(report) {
         !bounded(pcrtc.events, DEVICE_STATUS_WAITS * 16))
       throw new Error('Malformed display-interrupt state');
   }
+  /* PFIFO reference-reset state, when that experiment was selected. The report
+   * must show one initialization, zero consumer updates and LOW_MARK on both
+   * status registers; anything else defeats the proof the experiment exists for. */
+  if (report.pfifoStatus !== undefined) {
+    const pfifo = report.pfifoStatus;
+    if (!pfifo || !integer(pfifo.cache1) || !integer(pfifo.runout) || !integer(pfifo.dmaPush) ||
+        !integer(pfifo.consumerUpdates) || !integer(pfifo.resets))
+      throw new Error('Malformed PFIFO reset state');
+    if (pfifo.resets !== 1) throw new Error('PFIFO reset must be applied exactly once');
+    if (pfifo.consumerUpdates !== 0) throw new Error('PFIFO reset must not make a consumer update');
+    if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
+      throw new Error('PFIFO reset must set LOW_MARK on both status registers');
+  }
   return report;
 }
 

@@ -21,10 +21,11 @@ The prior handoff said the reference did not model the empty-cache reset state a
 | repeat initialization | The native test calls the adapter twice on the same seam and asserts identical values and still zero consumer updates. |
 | preserved controls | Canonical still stops at status 10 on `0xFD000100`; the `engineWait` control still stops at status 12 on `0xFD003214`. |
 | no injection from polling | The adapter is called once in `ff_probe_mmio_profile`, before the guest runs; no read or status-wait path calls it. |
+| end-to-end report | The reset run reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. `proof-report.mjs` rejects any report with a consumer update, more than one reset, or a missing `LOW_MARK`, so the invariant is checked before the report is shown. |
 
 ## Retained profile comparison
 
-Module `recomp-post-memory-build-70`, SHA-256 `af2181759af49ba26e6276febbaa6aace3819a5474b550de2376863de181a2e8`.
+Module `recomp-post-memory-build-70`, SHA-256 `4b8c2688519cb4338c32cf82479a909c41a4cb1d15d0bce7d1b25b54b5185874`.
 
 | profile | stop | routines | kernel ops | device events |
 | --- | --- | --- | --- | --- |
@@ -43,7 +44,7 @@ The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once,
 
 ## Validation
 
-`npm run test:native` 14/14 (status seam in optimized and ASan/UBSan); `npm run test:evidence` 4/4; runtime suite 133/133; title-seed 25/25; `npm run check` and whitespace checks pass. The private module, profiles and reports remain local and ignored.
+`npm run test:native` 14/14 (status seam in optimized and ASan/UBSan); `npm run test:evidence` 4/4; runtime suite 134/134; title-seed 25/25; `npm run check` and whitespace checks pass. The private module, profiles and reports remain local and ignored.
 
 ## Next task
 
