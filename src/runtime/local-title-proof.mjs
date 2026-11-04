@@ -200,6 +200,18 @@ export function parseLocalMmioProfile(buffer) {
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
     pcrtcVblanks, engineWait };
 }
+
+/* Every experimental device input the selected profile turns on, so a report can
+ * state what model produced it instead of leaving it implicit. */
+export function describeMmioExperiments(profile) {
+  if (!profile) return [];
+  const active = [];
+  if (profile.writeClearing) active.push('writeClearing');
+  if (profile.pmcZero) active.push('pmcZero');
+  if (profile.pcrtcVblanks) active.push(`pcrtcVblanks:${profile.pcrtcVblanks}`);
+  if (profile.engineWait) active.push('engineWait');
+  return active;
+}
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const memory=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).memory;

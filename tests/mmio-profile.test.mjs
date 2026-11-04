@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseLocalMmioProfile } from '../src/runtime/local-title-proof.mjs';
+import { parseLocalMmioProfile, describeMmioExperiments } from '../src/runtime/local-title-proof.mjs';
 
 const reached = [
   { address: 0xFD001804, initial: 0x10 },
@@ -87,6 +87,18 @@ test('unknown device profile keys fail closed', () => {
   assert.equal(all.pmcZero, true);
   assert.equal(all.pcrtcVblanks, 4);
   assert.equal(all.engineWait, true);
+});
+
+test('experimental device inputs are summarised for the report', () => {
+  const none = parseLocalMmioProfile(bytes(reached));
+  assert.deepEqual(describeMmioExperiments(none), []);
+  assert.deepEqual(describeMmioExperiments(null), []);
+  const all = parseLocalMmioProfile(bytes(reached, {
+    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true,
+  }));
+  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'engineWait']);
+  const one = parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: 2 }));
+  assert.deepEqual(describeMmioExperiments(one), ['pcrtcVblanks:2']);
 });
 
 test('register profiles reject missing, duplicate, unaligned, out-of-window or excessive entries', () => {
