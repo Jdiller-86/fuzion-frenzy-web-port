@@ -17,6 +17,9 @@ self.onmessage = async event => {
     } else if (message.type === 'read') {
       const result = await session.read(message.path, message.offset, message.length);
       self.postMessage({ type: 'read-result', id, result }, [result.bytes.buffer]);
+    } else if (message.type === 'inventory') {
+      const result = await session.inventory();
+      self.postMessage({ type: 'inventory-result', id, result });
     } else if (message.type === 'close') {
       session.close();
       self.postMessage({ type: 'closed', id });

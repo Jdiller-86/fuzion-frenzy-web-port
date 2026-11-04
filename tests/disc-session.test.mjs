@@ -47,6 +47,10 @@ test('a supported XISO opens and returns only requested byte ranges', async () =
   assert.deepEqual([...data.bytes], [0x20, 0x30]);
   assert.equal(data.fileSize, 4);
   assert.equal(core.dataBytesRead, 2);
+  const inventory = await core.inventory();
+  assert.deepEqual(inventory.map(entry => entry.name), ['default.xbe', 'data.bin']);
+  assert.deepEqual(inventory[0], { name: 'default.xbe', size: 16, directory: false });
+  assert.deepEqual(inventory[1], { name: 'data.bin', size: 4, directory: false });
   const executable = await core.read('default.xbe', 0, 16);
   assert.deepEqual([...executable.bytes], [...xbeBytes]);
   assert.ok(core.dataBytesRead < b.length);
@@ -78,6 +82,7 @@ test('only one read may be outstanding and clear rejects a late result', async (
   await core.open(blob(b), await expected(xbeBytes));
   const first = core.read('default.xbe', 0, 16);
   await assert.rejects(core.read('data.bin', 0, 1), error => error instanceof DiscSessionError && error.code === 'busy');
+  await assert.rejects(core.inventory(), error => error instanceof DiscSessionError && error.code === 'busy');
   await first;
   const late = core.read('default.xbe', 0, 16);
   core.close();
@@ -95,6 +100,15 @@ test('a new core opens an independent session after clear', async () => {
   await second.open(blob(b), id);
   assert.deepEqual([...(await second.read('data.bin', 0, 4)).bytes], [0x10, 0x20, 0x30, 0x40]);
   second.close();
+});
+
+test('the inventory is bounded and contains no content offsets or bytes', async () => {
+  const { b, xbeBytes } = fixture();
+  const id = await expected(xbeBytes);
+  const core = new DiscSessionCore({ maxInventoryEntries: 1 });
+  await core.open(blob(b), id);
+  await assert.rejects(core.inventory(), error => error instanceof DiscSessionError && error.code === 'limit');
+  assert.equal(core.dataBytesRead, 0);
 });
 
 class FakeWorker {
@@ -121,6 +135,12 @@ test('the client enforces one request, late-result isolation and clear terminati
   await assert.rejects(session.read('data.bin', 1, 1), /Only one request/);
   worker.reply({ type: 'read-result', id: worker.sent[1].id, result: { bytes: new Uint8Array([1]) } });
   await read;
+  const inventory = session.inventory();
+  await tick();
+  assert.equal(worker.sent[2].type, 'inventory');
+  worker.reply({ type: 'inventory-result', id: worker.sent[2].id,
+    result: [{ name: 'data.bin', size: 1, directory: false }] });
+  assert.deepEqual(await inventory, [{ name: 'data.bin', size: 1, directory: false }]);
   session.clear();
   assert.equal(worker.terminated, true);
   await assert.rejects(session.read('data.bin', 0, 1), /not open/);

@@ -90,6 +90,12 @@ export class DiscSession {
     return this._request({ type: 'read', path, offset, length }, 'read-result');
   }
 
+  inventory() {
+    if (!this.opened || this.closed)
+      return Promise.reject(new DiscSessionError('state', 'The session is not open'));
+    return this._request({ type: 'inventory' }, 'inventory-result');
+  }
+
   clear() {
     if (this.closed) return;
     this.closed = true;

@@ -28,10 +28,13 @@ function identity(value) {
 }
 
 export class DiscSessionCore {
-  constructor({ maxReadBytes = DISC_MAX_READ } = {}) {
+  constructor({ maxReadBytes = DISC_MAX_READ, maxInventoryEntries = 256 } = {}) {
     if (!Number.isSafeInteger(maxReadBytes) || maxReadBytes < 1 || maxReadBytes > DISC_MAX_READ)
       fail('limit', 'The read limit must be an integer from 1 to 65536');
+    if (!Number.isSafeInteger(maxInventoryEntries) || maxInventoryEntries < 1 || maxInventoryEntries > 1024)
+      fail('limit', 'The inventory limit must be an integer from 1 to 1024');
     this.maxReadBytes = maxReadBytes;
+    this.maxInventoryEntries = maxInventoryEntries;
     this.image = null;
     this.fs = null;
     this.opened = false;
@@ -99,6 +102,22 @@ export class DiscSessionCore {
       if (bytes.byteLength !== length) fail('range', 'Truncated XISO read');
       this.dataBytesRead += length;
       return { path, offset, length, fileSize: entry.size, bytes };
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async inventory() {
+    if (!this.opened || this.closed) fail('state', 'The session is not open');
+    if (this.busy) fail('busy', 'Only one request may be outstanding');
+    this.busy = true;
+    try {
+      if (this.closed) fail('state', 'The session was cleared');
+      const entries = await this.fs.list(this.fs.root);
+      if (entries.length > this.maxInventoryEntries)
+        fail('limit', 'The root inventory exceeds the bounded entry limit');
+      if (this.closed) fail('state', 'The session was cleared');
+      return entries.map(entry => ({ name: entry.name, size: entry.size, directory: entry.directory }));
     } finally {
       this.busy = false;
     }

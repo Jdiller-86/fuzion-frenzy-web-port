@@ -8,7 +8,8 @@ November 4, 2026. The browser can now open one locally selected bare XISO in a d
 - `src/runtime/disc-session-worker.mjs` is the browser worker bridge. The selected `File`/`Blob` is cloned into the worker; the page receives only requested ranges.
 - `src/runtime/disc-session.mjs` is the main-thread handle. It allows one outstanding request, ignores late results after clear, times out bounded requests and terminates the worker on clear.
 - Reads are limited to **65,536 bytes per response** and one outstanding read per session. The adapter does not call `arrayBuffer()` on the whole image; `openXiso` reads the header/directory spans, identity reads the executable span, and `read()` slices only the requested range.
-- Fail-closed cases: non-Blob/empty image, malformed XDVDFS, missing/wrong `default.xbe` identity, unsafe path, directory target, negative/zero/oversized range, range beyond the file, truncated read, busy session and cleared session.
+- A bounded root **inventory** returns only names, sizes and directory flags, with a default 1..1024 entry limit; it never returns file offsets or content. It shares the one-request-at-a-time rule.
+- Fail-closed cases: non-Blob/empty image, malformed XDVDFS, missing/wrong `default.xbe` identity, unsafe path, directory target, negative/zero/oversized range, range beyond the file, truncated read, busy session, oversized inventory and cleared session.
 - Clear terminates the worker and invalidates the session; a new `DiscSession.open` creates an independent worker/session.
 
 ## Browser fixture
@@ -20,6 +21,7 @@ Observed in the in-app browser at `http://127.0.0.1:4173/disc-session`:
 ```json
 {
   "ok": true,
+  "inventory": ["default.xbe", "data.bin"],
   "data": [32, 48],
   "executable": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
   "oversized": true,
@@ -34,9 +36,9 @@ No console errors were reported. The network log contained only the fixture page
 
 ## Tests and limits
 
-- `tests/disc-session.test.mjs` covers open/read, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read, independent reopen, client busy/clear/late-result isolation and worker errors.
-- Runtime suite 150/150, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 345 source files and whitespace checks pass.
-- This is not a guest disc service, not a full importer/converter, and not proof of conversion completeness, title fidelity or playability. It does not read the whole image or upload it.
+- `tests/disc-session.test.mjs` covers open/read, root inventory (names/sizes only), inventory entry limit, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read, independent reopen, client busy/clear/late-result isolation and worker errors.
+- Runtime suite 151/151, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass.
+- This is not a guest disc service, not a full importer/converter, and not proof of conversion completeness, title fidelity or playability. It does not read the whole image or upload it. The inventory is root-only and contains no content.
 - Ordinal 2 remains unsupported, `0x1F79A0` remains unadmitted, and no CPU/stack, geometry or frontier work is involved.
 
 ## Next task

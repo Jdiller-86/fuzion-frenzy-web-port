@@ -38,6 +38,7 @@ async function run() {
   const expectedIdentity = { size: xbeBytes.length, sha256: await sha256(xbeBytes) };
   const file = new File([b], 'fixture.iso', { type: 'application/octet-stream' });
   const session = await DiscSession.open(file, { expectedIdentity });
+  const inventory = await session.inventory();
   const data = await session.read('data.bin', 1, 2);
   const executable = await session.read('default.xbe', 0, 16);
   const oversized = await session.read('data.bin', 0, 65537).then(() => false, error => error.code === 'range');
@@ -52,6 +53,7 @@ async function run() {
   reopened.clear();
   return {
     ok: true,
+    inventory: inventory.map(entry => entry.name),
     data: [...data.bytes],
     executable: [...executable.bytes],
     oversized,
