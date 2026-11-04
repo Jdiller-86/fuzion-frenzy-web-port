@@ -139,11 +139,14 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
     experiments: ['avQuery'],
     calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
   })), /requires an explicit raw word/);
-  assert.throws(() => validateProofReport(report({
-    experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [],
-  })), /requires a recorded ordinal-2 call/);
-  /* A configured profile may truthfully record a denial or a prequery stop; the
-   * report must preserve that instead of presenting it as success. */
+  /* A configured profile may be a truthful prequery: ordinal 2 was never
+   * reached, so the report has no ordinal-2 call. */
+  const prequery = report({ experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [] });
+  assert.equal(validateProofReport(prequery), prequery);
+  const prequeryWithoutCalls = report({ experiments: ['avQuery'], avQueryWord: 0x00800303 });
+  assert.equal(validateProofReport(prequeryWithoutCalls), prequeryWithoutCalls);
+  /* A configured profile may truthfully record a denial; the report must
+   * preserve that instead of presenting it as success. */
   const denied = report({
     stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
@@ -198,16 +201,16 @@ test('the completed avQuery call must expose an unchanged EAX and a 20-byte pop'
   assert.equal(validateProofReport(call(avOutput(0x00800303))).calls[0].output.eaxBefore, 0xdeadbeef);
 });
 
-test('an avQuery claim cannot omit the call list or use a non-DWORD value', () => {
-  /* The declaration claims a recorded guest call, so an absent call list must
-   * fail exactly like an empty one. */
-  assert.throws(() => validateProofReport(report({
-    experiments: ['avQuery'], avQueryWord: 0x00800303,
-  })), /requires a recorded ordinal-2 call/);
-  assert.throws(() => validateProofReport(report({
+test('a configured avQuery report may be a prequery, but the word must be a DWORD', () => {
+  /* The declaration is an input claim; a prequery run that never reaches
+   * ordinal 2 is truthful and must still validate. */
+  const prequery = report({ experiments: ['avQuery'], avQueryWord: 0x00800303 });
+  assert.equal(validateProofReport(prequery), prequery);
+  const otherCalls = report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 187, status: 0, arguments: [1] }],
-  })), /requires a recorded ordinal-2 call/);
+  });
+  assert.equal(validateProofReport(otherCalls), otherCalls);
   /* A report without the experiment may still omit the call list. */
   const plain = report();
   assert.equal(validateProofReport(plain), plain);

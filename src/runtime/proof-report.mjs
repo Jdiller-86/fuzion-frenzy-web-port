@@ -143,8 +143,6 @@ export function validateProofReport(report) {
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
-  let avQueryCall = false;
-  let avQueryAttempt = false;
   let avQueryDenied = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
@@ -187,7 +185,6 @@ export function validateProofReport(report) {
           throw new Error('The synthetic avQuery call must not report a wrapping stack frame');
         if (call.output.espAfter !== ((call.output.espBefore + 20) >>> 0))
           throw new Error('The synthetic avQuery call must pop the 20-byte stdcall frame');
-        avQueryCall = true;
       } else {
         /* A configured profile can still truthfully deny or reach the query
          * before it can be answered; preserve that report instead of presenting
@@ -196,19 +193,14 @@ export function validateProofReport(report) {
           throw new Error('A denied synthetic avQuery call must report the unsupported status');
         if (call.output !== undefined)
           throw new Error('A denied synthetic avQuery call must not carry an output word');
-        avQueryAttempt = true;
         avQueryDenied = true;
       }
     }
   }
-  /* The declaration is a claim about a recorded guest call, so it must hold
-   * even when the report omits the call list entirely. A truthful denial counts
-   * as the recorded attempt; a success must satisfy the exact shape above. */
-  if (claimsAvQuery && !avQueryCall && !avQueryAttempt)
-    throw new Error('The avQuery experiment requires a recorded ordinal-2 call');
-  /* An ordinal-2 denial is the unsupported-service stop itself. A report that
-   * records the denial but claims a later stop is not a truthful observation,
-   * even if an earlier ordinal-2 call completed. */
+  /* An avQuery declaration may describe a prequery run in which ordinal 2 was
+   * never reached; the report then has no ordinal-2 call and is still truthful.
+   * A denial, when present, is the unsupported-service stop itself, even if an
+   * earlier ordinal-2 call completed. */
   if (avQueryDenied && (stop.status !== 1 || stop.ordinal !== 2))
     throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;

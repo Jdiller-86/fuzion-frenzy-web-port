@@ -1,4 +1,21 @@
-# The binding advances the frontier to translation target 0x1F79A0
+# The 0x1F79A0 admission advances the stop to 0x1F6EB0
+
+November 4, 2026. A bounded read-only export admitted only the reached leaf `0x1F79A0` (281 body bytes / 289-byte envelope / 95 instructions, no calls) into the retained translation. `recomp-title-recomp-title-post-memory-50` now contains 419 functions / 17,448 instructions from the same 32 seed exports, with original-byte identity, decoder agreement and 419 checked memory accesses retained.
+
+Module `recomp-post-memory-build-71`, SHA-256 `42ee9909ad83092c021226deb94e49999deb64c38d71049e7b7adb76eeb3077b`:
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F6EB0`** | 281 | 405 |
+
+The frontier on the new translation has 98 placeholders (97 referenced) and 352 call targets. The control enters 0 placeholders (66 called by an executed caller, 31 static-only). The explicit run executes 281 functions and enters exactly one placeholder: **`0x1F6EB0`, called by executed original function `0x1F83C0`** (68 called-by-executed, 28 static-only). The `0x1F79A0` function executed and returned (trace enter/exit), so the next genuine stop is `0x1F6EB0`.
+
+This is static reachability plus the retained report; it does not prove the call edge dynamically beyond the status-2 stop. `0x1F6EB0` is **not** admitted, translated, exported or treated as progress. No further admission, framework, storage expansion or fake success is added; the geometry lane stays paused.
+
+Reproduce with `node tools/translation-frontier.mjs research/verification/recomp-title-recomp-title-post-memory-50 --run research/verification/pfifo-setup-01/browser-71-reset-avquery.json`; the text output names `ENTERED 0x001F6EB0 called by 0x001F83C0`.
+
+## Prior: The binding advances the frontier to translation target 0x1F79A0
 
 November 4, 2026. The explicit synthetic ordinal-2 binding moves the frontier from the kernel service to a translation target. On module `recomp-post-memory-build-70` (`cd2fac97df95a4289b20742768555a080a995e2f16c774a36da25a856720a1a0`):
 
