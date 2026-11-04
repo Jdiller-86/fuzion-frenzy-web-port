@@ -11,6 +11,9 @@
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
 export const DEVICE_ENTRY_LIMIT = 8192;
+/* Must stay in sync with FF_DEVICE_STATUS_WAITS; each declaration supplies at most
+ * 64 vertical-blank events in the display experiment. */
+export const DEVICE_STATUS_WAITS = 4;
 export const STOP_STATUSES = new Set([1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15]);
 
 const integer = (value) => Number.isInteger(value) && value >= 0;
@@ -57,6 +60,23 @@ export function validateProofReport(report) {
         !bounded(device.count ?? -1, DEVICE_ENTRY_LIMIT) ||
         !bounded(device.events ?? -1, DEVICE_EVENT_LIMIT))
       throw new Error('Device report exceeds the bounded aperture capacity');
+    /* Declared status inputs: address, polled mask, last masked value, read count. */
+    if (device.statusWaits !== undefined) {
+      if (!Array.isArray(device.statusWaits) || device.statusWaits.length > DEVICE_STATUS_WAITS)
+        throw new Error('Device report exceeds the bounded status-wait capacity');
+      for (const wait of device.statusWaits) {
+        if (!wait || !integer(wait.address) || !integer(wait.mask) || !wait.mask ||
+            !integer(wait.value) || !integer(wait.count))
+          throw new Error('Malformed declared status wait');
+      }
+    }
+  }
+  /* Display-interrupt state, when the display path was exercised. */
+  if (report.pcrtc !== undefined) {
+    const pcrtc = report.pcrtc;
+    if (!pcrtc || !integer(pcrtc.pending) || !integer(pcrtc.enabled) ||
+        !bounded(pcrtc.events, DEVICE_STATUS_WAITS * 16))
+      throw new Error('Malformed display-interrupt state');
   }
   return report;
 }

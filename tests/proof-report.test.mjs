@@ -100,6 +100,34 @@ test('startup-boundary reports require consistent checks and honest flags', () =
   assert.throws(() => validateProofReport({ kind: 'unknown-boundary' }));
 });
 
+test('declared status waits and display state are validated when present', () => {
+  const waits = report({
+    deviceRegisters: {
+      count: 1, events: 1, entries: [{}], log: [{}],
+      statusWaits: [{ address: 0xFD000100, mask: 0x01000000, value: 0, count: 65 }],
+    },
+    pcrtc: { pending: 0, enabled: 1, events: 8 },
+  });
+  assert.equal(validateProofReport(waits), waits);
+  const empty = report({ deviceRegisters: { count: 0, events: 0, entries: [], log: [], statusWaits: [] } });
+  assert.equal(validateProofReport(empty), empty);
+  const bad = [
+    [{ address: 0xFD000100, mask: 0, value: 0, count: 1 }],
+    [{ address: 0xFD000100, mask: 0x10, value: 0, count: -1 }],
+    [{ address: 'FD000100', mask: 0x10, value: 0, count: 1 }],
+    [{ mask: 0x10, value: 0, count: 1 }],
+    new Array(5).fill({ address: 1, mask: 1, value: 0, count: 1 }),
+  ];
+  for (const statusWaits of bad) {
+    assert.throws(() => validateProofReport(report({
+      deviceRegisters: { count: 1, events: 1, entries: [{}], log: [{}], statusWaits },
+    })));
+  }
+  for (const pcrtc of [null, {}, { pending: -1, enabled: 1, events: 1 }, { pending: 0, enabled: 1, events: 99999 }]) {
+    assert.throws(() => validateProofReport(report({ pcrtc })));
+  }
+});
+
 test('experimental inputs and device capacities are validated', () => {
   assert.throws(() => validateProofReport(report({ experiments: 'writeClearing' })));
   assert.throws(() => validateProofReport(report({ experiments: ['pmcZer0'] })));
