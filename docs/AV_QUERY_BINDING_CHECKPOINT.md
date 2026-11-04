@@ -65,4 +65,4 @@ A follow-up narrow GLM review (attempted `2026-11-04T10:05:11`, step-capped afte
 
 ## Validation
 
-Runtime suite 179/179, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 354 source files and whitespace checks pass. Both reset reports validate on module `42ee9909…` and the comparison tool reproduces them. Private profiles, seeds, modules and reports remain local/ignored.
+Runtime suite 179/179, evidence 4/4, native 26/26, title-seed 25/25, `npm run check` 354 source files and whitespace checks pass. Both reset reports validate on module `42ee9909…` and the comparison tool reproduces them. Private profiles, seeds, modules and reports remain local/ignored.
