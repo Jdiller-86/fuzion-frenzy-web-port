@@ -1,4 +1,17 @@
-# 0x1F6EB0 admitted; next stop 0x1FC780
+# 0x1FC780 admitted; next stop 0x1FCCB0
+
+November 4, 2026. The next bounded admission follows the utility-mount lineage through the startup/D3D frontier. Translation `recomp-title-recomp-title-post-memory-52` (421 functions / 17,575 instructions, 32 seed exports, `--guard-memory`) admits the reached leaf `0x1FC780` (53 bytes / 17 instructions, one self-recursive call). Module `recomp-post-memory-build-73` is 662,080 bytes, SHA-256 `f89016609cde54d9fd0a612d9da5cb6f6ae24d0999391760ac27ef2c9ccc7326`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1FCCB0`** | 284 | 405 |
+
+Both runs use the same module and full supplied input profile; `avQueryWord` is the only added input. The comparison exits 0; the experiment reaches `0x1FC780`. The next genuine stop is untranslated `0x1FCCB0`, called by executed `0x1F5640`. It is not admitted and was not analyzed further. The lane stops immediately after this report.
+
+These are synthetic startup observations, not console settings, fidelity, renderer, gameplay or original service semantics. A read-only characterization of `0x1FCCB0` finds a small indirect jump-table dispatcher whose table and four case blocks are mapped; it is unadmitted.
+
+## Prior: 0x1F6EB0 admitted; next stop 0x1FC780
 
 November 4, 2026. The bounded admission requested by the current GLM Flash manager follows the utility-mount lineage through the later startup and D3D work. Translation `recomp-title-recomp-title-post-memory-51` (420 functions / 17,558 instructions from 32 seed exports, `--guard-memory`) admits the reached leaf `0x1F6EB0` (455 bytes / 110 instructions, no calls). Module `recomp-post-memory-build-72` is 660,060 bytes, SHA-256 `9d8689ff916dbed7d264e378ca23e5e8b1d26853a5a2b11fa30ca0780e42ccaf`.
 

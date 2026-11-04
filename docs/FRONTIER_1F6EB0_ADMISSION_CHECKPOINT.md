@@ -31,6 +31,7 @@ Module `recomp-post-memory-build-72`: **660,060 bytes**, SHA-256 `9d8689ff916dbe
 - Experiment profile `settings-pfifo-reset3-avquery.json` SHA-256 `351383c33e37e51baed18fead2f4621c037aa3ca74fef246bbfb8f97ad2c58af`; it differs from the control only by `avQueryWord = 0x00800303`.
 - Control report SHA-256 `82dd1464f1d199f4af9e4abb88cb0e35a2fc537ec44060be37f22ca7f868b6f8`; experiment report SHA-256 `f92976d43b852ffa860dd647fe2a936844a7f18e338245bed232f4cb2093cd2d`.
 - `tools/compare-proof-profiles.mjs` exits 0 on the pair; the frontier enters `0x1FC780` called by executed `0x1F5640`.
+- Main is now `2aba638` (PR #5 merged; tree equals `becc879`); the synced source head contains `origin/main`.
 - The source lane is synced to `becc879`; PR #2 head `e1804fb` is `CLEAN`/`MERGEABLE` against `becc879`; preparation CI runs `41917187801` and `41917176661` success. No further admission until reviewed.
 
 ## Next and limits
