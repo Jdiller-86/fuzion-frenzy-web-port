@@ -11,8 +11,8 @@ import java.nio.file.StandardOpenOption;
 public class ExportRecompilationSeed extends GhidraScript {
     @Override public void run() throws Exception {
         var args = getScriptArgs();
-        if (args.length < 2 || args.length > 9) {
-            throw new IllegalArgumentException("Output and 1-8 exact function entries required");
+        if (args.length < 2 || args.length > 33) {
+            throw new IllegalArgumentException("Output and 1-32 exact function entries required");
         }
         var project = Path.of(getSourceFile().getAbsolutePath()).toRealPath()
                 .getParent().getParent().getParent();

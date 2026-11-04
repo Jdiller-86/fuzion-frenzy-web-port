@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -18,6 +18,90 @@ const section = (id, bytes) => [id, ...uint(bytes.length), ...bytes];
 const memory = (minimum = 1, maximum = PROOF_MEMORY_PAGES, flags = 1, count = 1) =>
   section(5, [count, flags, ...uint(minimum), ...uint(maximum)]);
 const module = (...sections) => Uint8Array.from([...header, ...sections.flat()]).buffer;
+
+test('disk startup requires explicit fresh geometry, cache count and bounded local backing',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:3};
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:value})).buffer;
+  assert.equal(parseLocalDiskProfile(bytes(disk)).bytes,disk.bytes);
+  assert.equal(parseLocalDiskProfile(bytes(disk)).persistent,false);
+  for(const edit of [{synthetic:false},{state:'existing'},{device:'host-disk'},{bytes:'-1'},{bytes:'513'},
+    {bytes:'9223372036854775808'},{sectorBytes:0},{cachePartitions:0},{cachePartitions:42},{cachePartitions:1.5}]) {
+    assert.throws(()=>parseLocalDiskProfile(bytes({...disk,...edit})),/explicit fresh synthetic disk/);
+  }
+  assert.throws(()=>parseLocalDiskProfile(bytes(undefined)),/explicit fresh synthetic disk/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>17}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>17}),512);
+});
+
+test('partition startup rejects missing, overlapping, duplicate, unaligned and out-of-disk views',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:2};
+  const partitions=[{number:3,offset:'4294967296',bytes:'1073741824'},{number:4,offset:'5368709120',bytes:'1073741824'}];
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:{...disk,partitions:value}})).buffer;
+  assert.deepEqual(parseLocalDiskPartitions(bytes(partitions)),partitions);
+  for(const value of [undefined,[],partitions.slice(0,1),[partitions[0],partitions[0]],
+    [partitions[0],{...partitions[1],offset:'4294967808'}],[partitions[0],{...partitions[1],offset:'5368709121'}],
+    [partitions[0],{...partitions[1],bytes:'4294967296'}],[partitions[0],{...partitions[1],number:5}]]) {
+    assert.throws(()=>parseLocalDiskPartitions(bytes(value)),/partition/i);
+  }
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>18}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>18}),512);
+});
+
+test('disk geometry must be explicit and describe the configured capacity exactly',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const disk={kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:3};
+  const geometry={cylinders:'32768',tracksPerCylinder:16,sectorsPerTrack:32};
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,disk:{...disk,geometry:value}})).buffer;
+  assert.deepEqual(parseLocalDiskGeometry(bytes(geometry)),geometry);
+  for(const edit of [{cylinders:'32767'},{cylinders:'0'},{cylinders:32768},{tracksPerCylinder:0},{tracksPerCylinder:1.5},
+    {sectorsPerTrack:0x100000000},{sectorsPerTrack:31}])assert.throws(()=>parseLocalDiskGeometry(bytes({...geometry,...edit})),/explicit disk geometry/);
+  assert.throws(()=>parseLocalDiskGeometry(bytes(undefined)),/explicit disk geometry/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>19}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>19}),512);
+});
+
+test('partition information requires explicit typed flags and consistent hidden sectors',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const information={hiddenSectors:8388608,partitionType:127,bootIndicator:true,recognizedPartition:false,rewritePartition:true};
+  const bytes=info=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,
+    disk:{kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:1,
+      partitions:[{number:3,offset:'4294967296',bytes:'1073741824',information:info}]}})).buffer;
+  assert.deepEqual(parseLocalPartitionInformation(bytes(information)),[{number:3,...information}]);
+  for(const edit of [{hiddenSectors:0},{hiddenSectors:'8388608'},{partitionType:256},{bootIndicator:1},
+    {recognizedPartition:undefined},{rewritePartition:null}])assert.throws(()=>parseLocalPartitionInformation(bytes({...information,...edit})),/explicit partition information/);
+  assert.throws(()=>parseLocalPartitionInformation(bytes(undefined)),/explicit partition information/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>20}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>20}),512);
+});
+
+test('RAW attachment profile must name every configured cache partition explicitly',()=>{
+  const volume={kind:'local-volume-profile',synthetic:true,device:'harddisk0-partition1',totalAllocationUnits:'1000',
+    availableAllocationUnits:'1000',sectorsPerAllocationUnit:32,bytesPerSector:512,directoryState:'fresh',fileState:'fresh'};
+  const bytes=rawVolumes=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,volume,
+    disk:{kind:'local-disk-profile',synthetic:true,device:'harddisk0',state:'fresh',bytes:'8589934592',sectorBytes:512,cachePartitions:2,
+      partitions:[{number:3,offset:'4294967296',bytes:'1073741824'},{number:4,offset:'5368709120',bytes:'1073741824'}],rawVolumes}})).buffer;
+  assert.deepEqual(parseLocalRawDiskVolumes(bytes([3,4])),[3,4]);
+  for(const value of [undefined,[],[3],[3,3],[3,5],[3,'4']])assert.throws(()=>parseLocalRawDiskVolumes(bytes(value)),/explicit fresh RAW/);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>21}),4096);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>21}),512);
+});
+
+test('memory statistics require explicit capacity, baseline and support-arena ownership',()=>{
+  const profile={kind:'local-memory-profile',synthetic:true,physicalPages:16384,baselinePoolPages:0,fixedArena:'committed-runtime-pool'};
+  const bytes=memory=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,memory})).buffer;
+  assert.deepEqual(parseLocalMemoryProfile(bytes(profile)),profile);
+  for(const edit of [{physicalPages:0},{physicalPages:16385},{physicalPages:'16384'},{baselinePoolPages:-1},
+    {baselinePoolPages:16385},{baselinePoolPages:undefined},{fixedArena:undefined},{synthetic:false}]) {
+    assert.throws(()=>parseLocalMemoryProfile(bytes({...profile,...edit})),/explicit modeled physical/);
+  }
+  assert.throws(()=>parseLocalMemoryProfile(bytes(undefined)),/explicit modeled physical/);
+});
 
 function ownedSectionRequest() {
   const ram=new Uint8Array(0x14000),view=new DataView(ram.buffer),base=0x10000,descriptor=0x10300;
@@ -247,6 +331,8 @@ test('title execution loader rejects non-browser-worker execution before compili
 test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
   assert.equal(proofTraceCapacity({}),64);
   for (const capacity of [64,128,1024]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>16}),4096);
+  for(const abi of [undefined,14,15]) assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>abi}),/bounded trace capacity/);
   for (const capacity of [0,32,65,129,256,1023,1025,0x80000000,-1,NaN,Infinity,'128','1024',true]) {
     assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),/bounded trace capacity/);
   }
@@ -255,6 +341,10 @@ test('trace admission retains legacy capacity and rejects arbitrary declared siz
 test('kernel-record admission retains legacy capacity and rejects arbitrary sizes', () => {
   assert.equal(proofKernelCapacity({}),32);
   for(const capacity of [32,128]) assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),capacity);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>256,ff_probe_abi:()=>15}),256);
+  assert.equal(proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>16}),512);
+  for(const abi of [undefined,14,15]) assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>512,ff_probe_abi:()=>abi}),/bounded kernel-record capacity/);
+  for(const abi of [undefined,13,14,16]) assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>256,ff_probe_abi:()=>abi}),/bounded kernel-record capacity/);
   for(const capacity of [0,31,33,64,129,-1,NaN,Infinity,'128',true]) {
     assert.throws(()=>proofKernelCapacity({ff_probe_kernel_capacity:()=>capacity}),/bounded kernel-record capacity/);
   }
@@ -290,7 +380,27 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
     ...[-1, 0.5, 0x100000000, null].map(miscFlags => ({ kind: 'local-console-settings', synthetic: true, miscFlags }))]) {
     assert.throws(() => parseLocalConsoleSettings(bytes(value)));
   }
-  assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(4097)));
+  assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(8193)));
+});
+
+test('the empty PFIFO profile requires explicit aligned base/end and put at the base', () => {
+  const bytes = value => new TextEncoder().encode(JSON.stringify(value)).buffer;
+  assert.equal(parseLocalPfifoProfile(bytes({})), undefined);
+  const pfifo = { kind: 'local-pfifo-profile', synthetic: true, base: 0x03B7D000, end: 0x03BFD000, put: 0x03B7D000 };
+  assert.deepEqual(parseLocalPfifoProfile(bytes({ pfifo })), pfifo);
+  for (const value of [
+    { ...pfifo, kind: 'other' },
+    { ...pfifo, synthetic: false },
+    { ...pfifo, base: 0x03B7D002 },
+    { ...pfifo, end: 0x03B7D000 },
+    { ...pfifo, put: 0x03B7D400 },
+  ]) assert.throws(() => parseLocalPfifoProfile(bytes({ pfifo: value })), /empty PFIFO ring profile/);
+});
+
+test('expanded console settings require an explicit DWORD without assuming a parental-control default',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,parentalControlGames:value})).buffer;
+  for(const value of [0,1,0xffffffff])assert.equal(parseLocalNvConsoleSettings(bytes(value)).parentalControlGames,value);
+  for(const value of [undefined,null,false,-1,0.5,0x100000000,'0'])assert.throws(()=>parseLocalNvConsoleSettings(bytes(value)),/explicit synthetic/);
 });
 
 test('volume settings require explicit synthetic capacity and geometry without unsafe integer conversion', () => {

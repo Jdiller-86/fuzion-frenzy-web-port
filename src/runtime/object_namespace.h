@@ -12,7 +12,7 @@
 #define FF_NS_NOT_FOUND 0xc0000034u
 #define FF_NS_PATH_NOT_FOUND 0xc000003au
 enum { FF_NS_DIRECTORY = 1, FF_NS_DEVICE, FF_NS_LINK, FF_NS_FILE };
-enum { FF_NS_LOCAL_DISC = 1 };
+enum { FF_NS_LOCAL_DISC = 1, FF_NS_LOCAL_FATX };
 typedef struct {
     uint32_t id, parent, kind, references, target, device_kind, media_ready, provider_object;
     char name[FF_NS_NAME], target_name[FF_NS_PATH];
@@ -37,6 +37,9 @@ typedef struct { uint32_t object, remaining_offset, remaining_bytes; } ff_namesp
 uint32_t ff_namespace_init(ff_object_namespace *, ff_virtual_memory *);
 uint32_t ff_namespace_bind_files(ff_object_namespace *, const ff_namespace_file_provider *, void *);
 uint32_t ff_namespace_add_device(ff_object_namespace *, const char *, uint32_t bytes, uint32_t kind, uint32_t *id);
+/* Register a validated mounted cache filesystem, atomically creating the
+ * Harddisk0 parent if needed. Provider identity is not a host path. */
+uint32_t ff_namespace_add_fatx_device(ff_object_namespace *, uint32_t partition, uint32_t provider_object, uint32_t *id);
 uint32_t ff_namespace_resolve(const ff_object_namespace *, const char *, uint32_t bytes, ff_namespace_resolution *);
 uint32_t ff_namespace_create_link(ff_object_namespace *, uint32_t link_string, uint32_t target_string, uint32_t *id);
 uint32_t ff_namespace_delete_link(ff_object_namespace *, const char *, uint32_t bytes);

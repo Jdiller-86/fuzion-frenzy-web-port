@@ -8,8 +8,17 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#include "../../src/runtime/port_io.h"
+#ifdef FF_PFIFO_PROOF
+#include "../../src/runtime/pfifo_channel.h"
+#endif
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
+#include "../../src/runtime/guest_mirror.h"
+#include "../../src/runtime/guest_write_map.h"
+#include "../../src/runtime/interrupt_vector.h"
+#include "../../src/runtime/gpu_instance.h"
+#include "../../src/runtime/time_fields.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -24,6 +33,51 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #endif
 #include "../../src/runtime/local_volume.h"
 #endif
+#ifdef FF_DISK_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF) || !defined(FF_FILE_WRITE_PROOF)
+#error Disk startup retains the checked initializer proof
+#endif
+#include "../../src/runtime/local_disk.h"
+#define FF_DISK_DATA_ADDRESS 0x03f10000u
+static ff_local_disk local_disk;
+static uint32_t disk_ready;
+#endif
+#if defined(FF_DISK_PARTITION_PROOF) && !defined(FF_DISK_PROOF)
+#error Partition views retain the checked sparse-disk contract
+#endif
+#if defined(FF_DISK_GEOMETRY_PROOF) && !defined(FF_DISK_PARTITION_PROOF)
+#error Disk control retains the explicit partition contract
+#endif
+#if defined(FF_DISK_INFORMATION_PROOF) && !defined(FF_DISK_GEOMETRY_PROOF)
+#error Partition information retains explicit disk geometry
+#endif
+#if defined(FF_DISK_DISMOUNT_PROOF) && !defined(FF_DISK_INFORMATION_PROOF)
+#error Dismount retains explicit partition information and attachment state
+#endif
+#ifdef FF_FATX_PROOF
+#if !defined(FF_DISK_DISMOUNT_PROOF) || !defined(FF_NAMESPACE_PROOF)
+#error FATX retains explicit disk, RAW lifetime and namespace contracts
+#endif
+#include "../../src/runtime/fatx_volume.h"
+static ff_fatx_volume fatx_volume;
+static uint32_t fatx_ready;
+#endif
+#ifdef FF_MEMORY_STATISTICS_PROOF
+#if !defined(FF_FATX_PROOF) || !defined(FF_SECTION_PROOF)
+#error Memory statistics retain the current checked startup and filesystem ABI
+#endif
+#include "../../src/runtime/memory_statistics.h"
+static ff_memory_statistics memory_statistics;
+static uint32_t memory_statistics_ready;
+#endif
+#ifdef FF_MMIO_PROOF
+#if !defined(FF_MEMORY_STATISTICS_PROOF)
+#error Device register storage retains the modeled memory statistics
+#endif
+#include "../../src/runtime/device_registers.h"
+#include "../../src/runtime/pfifo_dma.h"
+static ff_device_registers device_registers;
+#endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
@@ -36,7 +90,12 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #define FF_GUEST_BYTES (64u * 1024u * 1024u)
 #define FF_STACK_TOP (FF_GUEST_BYTES - 4096u)
 #define FF_KERNEL_BASE 0xfe000000u
-#if defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
+#ifdef FF_INITIALIZER_BATCH_PROOF
+#ifndef FF_STARTUP_EXPANSION_PROOF
+#error Initializer batches retain the expanded checked startup contract
+#endif
+#define FF_TRACE_CAPACITY 4096u
+#elif defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
 #ifndef FF_REGULAR_FILE_PROOF
 #error Expanded metadata traces retain the explicit fresh regular-file contract
 #endif
@@ -44,7 +103,18 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #else
 #define FF_TRACE_CAPACITY 128u
 #endif
+#ifdef FF_STARTUP_EXPANSION_PROOF
+#ifndef FF_NV_QUERY_PROOF
+#error Expanded startup retains the checked explicit settings contract
+#endif
+#endif
+#ifdef FF_INITIALIZER_BATCH_PROOF
+#define FF_KERNEL_CAPACITY 512u
+#elif defined(FF_STARTUP_EXPANSION_PROOF)
+#define FF_KERNEL_CAPACITY 256u
+#else
 #define FF_KERNEL_CAPACITY 128u
+#endif
 
 ptrdiff_t g_xbox_mem_offset;
 uint32_t g_xbox_code_lo, g_xbox_code_hi;
@@ -65,8 +135,23 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+static ff_port_io port_io;
+void xbox_PortOut(uint32_t port, uint32_t value, int width)
+{
+    (void)ff_port_io_write(&port_io, port, value, (uint32_t)width);
+}
+#ifdef FF_DISK_GEOMETRY_PROOF
+static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
+#endif
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#ifdef FF_NV_QUERY_PROOF
+#ifndef FF_SECTION_PROOF
+#error Expanded settings retain checked image and guest memory ownership
+#endif
+#include "../../src/runtime/console_settings.h"
+static uint32_t parental_games,parental_games_ready;
+#endif
 #ifdef FF_VOLUME_PROOF
 static ff_local_volume local_volume;
 static uint32_t volume_ready;
@@ -97,8 +182,10 @@ static uint32_t namespace_ready;
 #endif
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
+static ff_guest_mirror guest_mirror;
+static ff_guest_write_map guest_write_map;
 static uint32_t vm_ready, vm_access_count, vm_fault[4];
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
@@ -146,6 +233,9 @@ void ff_probe_copy_recover(void);
 static const char source_digest[] = FF_SOURCE_SHA256;
 static const struct { uint32_t slot, ordinal; } bindings[] = FF_KERNEL_BINDINGS;
 
+#ifdef FF_MMIO_PROOF
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
+#endif
 static void ff_probe_return_frame(uint32_t address, uint32_t frame)
 {
 #ifdef FF_COPY_PROOF
@@ -153,10 +243,20 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame)
 #else
     (void)address; (void)frame;
 #endif
+#ifdef FF_MMIO_PROOF
+    /* Stop at the reached device helper's return, before its caller continues. */
+    if (device_registers.ready && address == 0x001FE05Au) {
+        (void)ff_device_registers_commit(&device_registers);
+        stop(11, address, device_registers.event_count);
+    }
+#endif
 }
 
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 {
+#ifdef FF_MMIO_PROOF
+    (void)ff_device_registers_commit(&device_registers);
+#endif
     probe_state[0] = status; probe_state[1] = target; probe_state[2] = ordinal; probe_state[3] = g_esp;
     if (g_esp <= FF_GUEST_BYTES - 44u && !(g_esp & 3u)) {
         probe_state[4] = 10; probe_state[5] = MEM32(g_esp);
@@ -171,14 +271,112 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
-#ifdef FF_VM_PROOF
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
+#ifdef FF_PFIFO_PROOF
+static ff_pfifo_channel pfifo_profile_channel;
+static uint32_t pfifo_profile_ready;
+uint32_t ff_probe_pfifo_profile(uint32_t base, uint32_t end, uint32_t put)
 {
+    if (ff_pfifo_channel_configure(&pfifo_profile_channel, base, end)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_set_get(&pfifo_profile_channel, 0)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_set_put(&pfifo_profile_channel, put)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_enable(&pfifo_profile_channel)) return FF_BOOT_INVALID;
+    if (!ff_pfifo_channel_empty(&pfifo_profile_channel)) return FF_BOOT_INVALID;
+    pfifo_profile_ready = 1;
+    return 0;
+}
+#endif
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+static ff_pfifo_channel pfifo_ring;
+static uint32_t pfifo_ring_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+static void pfifo_ring_sync(void)
+{
+    uint32_t context = pfifo_ring_word(0x00206720u);
+    if (!context || context > FF_GUEST_BYTES - 0x20u) return;
+    uint32_t base = pfifo_ring_word(context + 0x10u);
+    uint32_t end = pfifo_ring_word(context + 0x14u);
+    uint32_t put = pfifo_ring_word(context + 0x18u);
+    if (!pfifo_ring.ready && ff_pfifo_channel_configure(&pfifo_ring, base, end)) return;
+    if (ff_pfifo_channel_set_get(&pfifo_ring, 0)) return;
+    if (ff_pfifo_channel_set_put(&pfifo_ring, put)) return;
+    (void)ff_pfifo_channel_enable(&pfifo_ring);
+}
+#endif
+#ifdef FF_VM_PROOF
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
+{
+    (void)site;
+#ifdef FF_MMIO_PROOF
+    /* A staged device write is committed before any later access, so event
+     * order and the stored value are both final. */
+    if (device_registers.ready && ff_device_registers_commit(&device_registers))
+        stop(10, address, access);
+    if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
+        /* The reached PFIFO submission writes DMA_PUT and waits for the device
+         * GET to catch up. Without a FIFO consumer model that match cannot
+         * occur, so report the boundary instead of spinning to the poll limit.
+         * The opt-in FF_ALLOW_DMA_GET_READ diagnostic serves the observed GET
+         * instead, letting the original comparison decide; it is not the
+         * default fail-closed contract. */
+        int pfifo_served = 0;
+#ifdef FF_PFIFO_PROOF
+        if (pfifo_profile_ready && access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            if (put && ff_pfifo_channel_should_serve_empty_get(&pfifo_profile_channel, *put)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) { *get = ff_pfifo_channel_read_get(&pfifo_profile_channel); pfifo_served = 1; }
+            }
+        }
+#endif
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+        if (access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            pfifo_ring_sync();
+            if (pfifo_ring.enabled && ff_pfifo_channel_empty(&pfifo_ring)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) { *get = ff_pfifo_channel_read_get(&pfifo_ring); pfifo_served = 1; }
+            }
+        }
+#endif
+#ifndef FF_ALLOW_DMA_GET_READ
+        if (!pfifo_served && access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            uint32_t *get = ff_device_registers_slot(&device_registers, address);
+            uint32_t get_value = get ? *get : 0;
+            if (put && get_value != *put) stop(13, address, access);
+        }
+#endif
+        uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
+                               : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
+                               : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
+        uint32_t *slot = device_access ? ff_device_registers_access_width(&device_registers, address, (uint32_t)bytes, device_access, site) : NULL;
+        if (!slot) stop(ff_device_registers_poll_limited(&device_registers) ? 12 : 10, address, access);
+        ++vm_access_count;
+        return slot;
+    }
+#endif
+#ifdef FF_VM_PROOF
+    /* The reached cache-flush write targets the physical-mirror base. Only a
+     * bounded data page is modeled; outside it the identity window still
+     * decides, and execute access is never served from this storage. */
+    if (access && (access & ~(FF_VM_READ | FF_VM_WRITE)) == 0 && bytes <= FF_GUEST_MIRROR_BYTES &&
+        ff_guest_mirror_contains(&guest_mirror, address, (uint32_t)bytes)) {
+        ++vm_access_count;
+        uint32_t offset = ff_guest_mirror_offset(address);
+        if ((access & FF_VM_WRITE) && bytes)
+            (void)ff_guest_write_map_mark(&guest_write_map, offset, (uint32_t)bytes);
+        return guest_ram + offset;
+    }
+#endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
         vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access;
         stop(10, address, access);
     }
     ++vm_access_count;
+    if ((access & FF_VM_WRITE) && bytes) (void)ff_guest_write_map_mark(&guest_write_map, address, (uint32_t)bytes);
     /* Zero-count string operations access no guest address. Return a harmless
      * in-array pointer even if their unused register is outside this window. */
     return guest_ram + (bytes ? address : 0);
@@ -186,8 +384,14 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
 uint32_t ff_probe_vm_image(uint32_t base, uint32_t bytes)
 {
     if (vm_ready || ff_vm_claim_fixed(&virtual_memory, base, bytes) ||
-        ff_vm_claim_fixed(&virtual_memory, 0x03c00000u, 0x00400000u) ||
-        ff_vm_map_fixed(&virtual_memory, 0x03c00000u, 0x00400000u, 4)) return FF_BOOT_INVALID;
+        ff_vm_claim_fixed(&virtual_memory, 0x03c00000u, 0x00400000u)) return FF_BOOT_INVALID;
+#ifdef FF_DISK_PROOF
+    if(ff_vm_map_fixed(&virtual_memory,0x03c00000u,FF_DISK_DATA_ADDRESS-0x03c00000u,4) ||
+       ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS,FF_VM_PAGE,2) ||
+       ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS+FF_VM_PAGE,FF_GUEST_BYTES-FF_DISK_DATA_ADDRESS-FF_VM_PAGE,4))return FF_BOOT_INVALID;
+#else
+    if(ff_vm_map_fixed(&virtual_memory,0x03c00000u,0x00400000u,4))return FF_BOOT_INVALID;
+#endif
     vm_ready = 1; return 0;
 }
 uint32_t ff_probe_vm_map_image(uint32_t base, uint32_t bytes, uint32_t protection)
@@ -216,6 +420,25 @@ uint32_t ff_probe_vm_page_word(uint32_t address, uint32_t field)
     switch (field) { case 0: return virtual_memory.owner[p]; case 1: return virtual_memory.committed[p]; case 2: return virtual_memory.permission[p]; default: return 0; }
 }
 uint32_t ff_probe_vm_access_count(void) { return vm_access_count; }
+#ifdef FF_CONTEXT_PROBE
+static uint32_t probe_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+uint32_t ff_probe_context_word(uint32_t index)
+{
+    if (index >= 32u) return 0;
+    if (index == 0u) return probe_word(0x00206720u);
+    uint32_t base = probe_word(0x00206720u);
+    if (!base || base > FF_GUEST_BYTES - 0x80u) return 0;
+    return probe_word(base + (index - 1u) * 4u);
+}
+#endif
+uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
+uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
+uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
 uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 4 ? vm_fault[index] : 0; }
 uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
 {
@@ -359,7 +582,7 @@ static void trace(uint32_t kind, uint32_t address)
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE);
+    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -369,7 +592,7 @@ void recomp_trace_enter(const char *name, uint32_t address) {
 void recomp_trace_exit(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ, 0u);
 #endif
     trace(2, address);
 }
@@ -489,7 +712,7 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -499,6 +722,148 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_MEMORY_STATISTICS_PROOF
+uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_pages)
+{
+    /* The modeled physical capacity must equal the bounded guest RAM. A smaller
+     * explicit value would understate the pages this runtime actually owns. */
+    if(!vm_ready || !image_sections.ready || memory_statistics_ready ||
+       physical_pages!=FF_GUEST_BYTES/FF_VM_PAGE)return FF_BOOT_INVALID;
+    const ff_memory_profile profile={physical_pages,baseline_pool_pages};
+    uint32_t status=ff_memory_statistics_init(&memory_statistics,&virtual_memory,&profile);
+    if(!status) {
+        const ff_vm_region *image=&virtual_memory.regions[image_sections.owner-1];
+        status=ff_memory_statistics_classify(&memory_statistics,image->base,image->bytes,FF_MEMORY_IMAGE);
+    }
+    if(!status)status=ff_memory_statistics_classify(&memory_statistics,0x03c00000u,0x00400000u,FF_MEMORY_POOL);
+    if(!status)memory_statistics_ready=1;
+    return status;
+}
+#ifdef FF_MMIO_PROOF
+uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
+{
+    if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
+    uint32_t status = ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
+    if(status)return status;
+    /* NV_PFB_WBC at NV2A offset 0x410: the reached wait sets NV_PFB_WBC_FLUSH
+     * (1 << 16) and polls until it clears. xemu's PFB model reads 0 because a
+     * flush is not pending, so model only that self-clearing bit here. */
+    status = ff_device_registers_add_self_clearing(&device_registers,0xFD100410u,0x10000u);
+    if(status)return status;
+    /* xemu user.c mirrors USER DMA_PUT/GET/REF into the PFIFO CACHE1 copies. */
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
+    return ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u);
+}
+uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
+{
+    return ff_device_registers_add_initial(&device_registers,address,value);
+}
+uint32_t ff_probe_mmio_zero(uint32_t base,uint32_t bytes)
+{
+    return ff_device_registers_add_zero_range(&device_registers,base,bytes);
+}
+uint32_t ff_probe_mmio_alias_count(void) { return device_registers.alias_count; }
+uint32_t ff_probe_mmio_alias_word(uint32_t index, uint32_t field)
+{
+    if(index >= device_registers.alias_count)return UINT32_MAX;
+    return field ? device_registers.aliases[index].second : device_registers.aliases[index].first;
+}
+uint32_t ff_probe_mmio_word(uint32_t field)
+{
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
+    if(field==0)return device_registers.ready;
+    if(field==1)return device_registers.base;
+    if(field==2)return device_registers.bytes;
+    if(field==3)return device_registers.count;
+    if(field==4)return device_registers.event_count;
+    if(field>=5 && field<5+FF_DEVICE_ENTRIES*4){
+        uint32_t e=(field-5)/4u,k=(field-5)%4u;
+        if(e>=device_registers.count)return UINT32_MAX;
+        return k==0?device_registers.entries[e].address:k==1?device_registers.entries[e].value:
+               k==2?device_registers.entries[e].reads:device_registers.entries[e].writes;
+    }
+    return UINT32_MAX;
+}
+uint32_t ff_probe_mmio_event(uint32_t index,uint32_t field)
+{
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
+    if(index>=device_registers.event_count)return UINT32_MAX;
+    const ff_device_event *e=&device_registers.events[index];
+    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:field==4?e->site:UINT32_MAX;
+}
+#endif
+uint32_t ff_probe_memory_word(uint32_t field)
+{    if(field==0)return memory_statistics_ready;
+    if(field==1)return memory_statistics.profile.physical_pages;
+    if(field==2)return memory_statistics.profile.baseline_pool_pages;
+    uint32_t words[FF_MEMORY_STATISTICS_WORDS];
+    uint32_t status=memory_statistics_ready?ff_memory_statistics_snapshot(&memory_statistics,words):FF_BOOT_INVALID;
+    if(field==3)return status;
+    return !status && field>=4 && field<13?words[field-4]:UINT32_MAX;
+}
+static void query_memory_statistics(void)
+{
+    uint32_t *row=kernel_record(181,1);row[1]=FF_BOOT_UNSUPPORTED;
+    if(!memory_statistics_ready)stop(9,row[1],181);
+    row[1]=ff_memory_statistics_query(&memory_statistics,row[2]);
+    if(row[1])stop(9,row[1],181);
+    for(unsigned i=0;i<FF_MEMORY_STATISTICS_WORDS;++i)row[3+i]=MEM32(row[2]+i*4);
+    g_eax=0;g_esp+=8;
+}
+#ifdef FF_VM_PROOF
+static void hal_get_interrupt_vector(void)
+{
+    uint32_t *row=kernel_record(44,2),vector=0;
+    row[1]=ff_hal_get_interrupt_vector(&virtual_memory,guest_ram,row[2],row[3],&vector);
+    if(row[1])stop(9,row[1],44);
+    row[4]=vector;g_eax=vector;g_esp+=12;
+}
+static void ke_initialize_interrupt(void)
+{
+    uint32_t *row=kernel_record(109,7);
+    row[1]=ff_ke_initialize_interrupt(&virtual_memory,guest_ram,row[2],row[3],row[4],row[5]);
+    if(row[1])stop(9,row[1],109);
+    row[9]=row[6];row[10]=row[7];row[11]=row[8];
+    g_eax=0;g_esp+=32;
+}
+static void ke_connect_interrupt(void)
+{
+    uint32_t *row=kernel_record(98,1);
+    row[1]=ff_ke_connect_interrupt(&virtual_memory,guest_ram,row[2]);
+    if(row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],98);
+    g_eax=row[1];g_esp+=8;
+}
+static void hal_register_shutdown_notification(void)
+{
+    uint32_t *row=kernel_record(47,2);
+    row[1]=ff_hal_register_shutdown_notification(&virtual_memory,guest_ram,row[2],row[3]);
+    if(row[1])stop(9,row[1],47);
+    g_eax=0;g_esp+=12;
+}
+#endif
+#endif
+#ifdef FF_FATX_PROOF
+static int fatx_parent_handle(uint32_t attributes)
+{
+    return attributes && !(attributes&3u) && !ff_vm_check(&virtual_memory,attributes,12,FF_VM_READ) &&
+        ff_fatx_owns_handle(MEM32(attributes));
+}
+#endif
+#if defined(FF_TIMER_PROOF) && defined(FF_VM_PROOF)
+static void query_system_time(void)
+{
+    uint32_t *row=kernel_record(128,1);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!timers_ready)stop(9,row[1],128);
+    row[1]=(!row[2] || (row[2]&3u))?FF_BOOT_INVALID:ff_vm_check(&virtual_memory,row[2],8,FF_VM_WRITE);
+    if(row[1])stop(9,row[1],128);
+    const uint64_t ticks=timers.system_time;
+    MEM32(row[2])=(uint32_t)ticks;MEM32(row[2]+4)=(uint32_t)(ticks>>32);
+    row[1]=0;row[3]=(uint32_t)ticks;row[4]=(uint32_t)(ticks>>32);
+    g_esp+=8; /* VOID NTAPI: preserve registers; pop return address and pointer. */
+}
+#endif
 #ifdef FF_SECTION_PROOF
 static void section_operation(uint32_t ordinal)
 {
@@ -523,11 +888,24 @@ static void create_thread(void)
     if (!recomp_lookup(row[7]) || !recomp_lookup(row[11])) stop(9, row[11], 255);
     row[1] = ff_boot_create(&boot, row + 2);
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 255);
+#ifdef FF_MEMORY_STATISTICS_PROOF
+    const ff_boot_thread *created=&boot.threads[boot.count-1];
+    if(!memory_statistics_ready || ff_memory_statistics_classify(&memory_statistics,created->stack_low,
+        created->stack_top-created->stack_low,FF_MEMORY_STACK))stop(9,FF_BOOT_INVALID,255);
+#endif
     g_eax = row[1]; g_esp += 44; /* NTAPI return address and ten arguments. */
 }
 static void close_handle(void)
 {
     uint32_t *row = kernel_record(187, 1);
+#ifdef FF_FATX_PROOF
+    if (ff_fatx_owns_handle(row[2])) row[1] = ff_fatx_close(&fatx_volume, row[2]);
+    else
+#endif
+#ifdef FF_DISK_PROOF
+    if (ff_disk_owns_handle(row[2])) row[1] = ff_disk_close(&local_disk, row[2]);
+    else
+#endif
 #ifdef FF_VOLUME_PROOF
     if (ff_volume_owns_handle(row[2])) row[1] = ff_volume_close(&local_volume, row[2]);
     else
@@ -544,6 +922,10 @@ uint32_t ff_probe_namespace_init(void)
     if (!status) status=ff_namespace_add_device(&object_namespace,"\\Device\\CdRom0",14,FF_NS_LOCAL_DISC,&id);
 #ifdef FF_FILE_LINK_PROOF
     if (!status) status=ff_file_namespace_bind(&object_namespace,&local_volume);
+#endif
+#ifdef FF_FATX_PROOF
+    if(!status)status=disk_ready?ff_fatx_init(&fatx_volume,&local_disk,&object_namespace):FF_BOOT_INVALID;
+    if(!status)fatx_ready=1;
 #endif
     if (!status) namespace_ready=1;
     return status;
@@ -656,7 +1038,15 @@ static void open_volume_root(void)
 {
     uint32_t *row = kernel_record(202, 6);
     if (!volume_ready) stop(9, 0, 202);
-    row[1] = ff_volume_open_root(&local_volume, row + 2);
+    row[1] = FF_BOOT_UNSUPPORTED;
+#ifdef FF_DISK_PROOF
+    if (disk_ready) row[1] = ff_disk_open(&local_disk, row + 2);
+#endif
+#ifdef FF_FATX_PROOF
+    if(row[1]==FF_BOOT_UNSUPPORTED && fatx_ready)row[1]=ff_fatx_open_root(&fatx_volume,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED && fatx_parent_handle(row[4]))stop(9,row[1],202);
+#endif
+    if (row[1] == FF_BOOT_UNSUPPORTED) row[1] = ff_volume_open_root(&local_volume, row + 2);
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 202);
     if (!row[1]) { row[8] = MEM32(row[2]); row[9] = MEM32(row[5]); row[10] = MEM32(row[5] + 4); }
     g_eax = row[1]; g_esp += 28;
@@ -683,6 +1073,9 @@ static void initialize_ansi_string(void)
 static void create_directory(void)
 {
     uint32_t *row = kernel_record(190, 9);
+#ifdef FF_FATX_PROOF
+    if(fatx_parent_handle(row[4])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],190);}
+#endif
     if (!volume_ready) stop(9, 0, 190);
 #ifdef FF_REGULAR_FILE_PROOF
     row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
@@ -710,6 +1103,9 @@ static void create_directory(void)
 static void query_file_information(void)
 {
     uint32_t *row=kernel_record(211,5);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],211);}
+#endif
     row[1]=ff_volume_query_file(&local_volume,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],211);
     if(!row[1]) {
@@ -723,6 +1119,9 @@ static void query_file_information(void)
 static void write_regular_file(void)
 {
     uint32_t *row=kernel_record(236,8);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],236);}
+#endif
     ff_volume_handle *handle=NULL;
     for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[2]) handle=&local_volume.handles[i];
     if(handle) row[19]=handle->position;
@@ -741,6 +1140,146 @@ static void write_regular_file(void)
     g_eax=row[1]; g_esp+=36;
 }
 #endif
+#ifdef FF_DISK_PROOF
+static void transfer_disk(int writing)
+{
+    const uint32_t ordinal=writing?236:219;
+    uint32_t *row=kernel_record(ordinal,8);
+    row[1]=FF_BOOT_UNSUPPORTED;
+    if(!disk_ready || !ff_disk_owns_handle(row[2]))stop(9,row[1],ordinal);
+    row[1]=writing?ff_disk_write(&local_disk,row+2):ff_disk_read(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],ordinal);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
+    if(!row[1] && row[11])for(unsigned i=0;i<FF_DISK_HANDLES;++i)if(local_disk.handles[i].handle==row[2]) {
+        const ff_disk_handle *file=&local_disk.handles[i];
+        const uint64_t start=file->position-row[11],physical=file->offset+start;
+        row[12]=file->partition;row[13]=(uint32_t)file->position;row[14]=(uint32_t)(file->position>>32);
+        row[15]=(uint32_t)start;row[16]=(uint32_t)(start>>32);row[17]=(uint32_t)physical;row[18]=(uint32_t)(physical>>32);
+    }
+    g_eax=row[1];g_esp+=36;
+}
+static void read_disk(void){transfer_disk(0);}
+static void write_file(void)
+{
+    if(ff_disk_owns_handle(MEM32(g_esp+4)))transfer_disk(1);
+    else write_regular_file();
+}
+uint32_t ff_probe_disk_profile(uint32_t low,uint32_t high,uint32_t sector_bytes,uint32_t cache_partitions)
+{
+    if(!vm_ready || disk_ready)return FF_BOOT_INVALID;
+    ff_disk_profile profile={low|((uint64_t)high<<32),sector_bytes,cache_partitions};
+    uint32_t status=ff_disk_init(&local_disk,&virtual_memory,&profile);
+    if(!status){disk_ready=1;MEM32(FF_DISK_DATA_ADDRESS)=cache_partitions;}
+    return status;
+}
+uint32_t ff_probe_disk_word(uint32_t field)
+{
+    switch(field){
+    case 0:return disk_ready;case 1:return local_disk.active;case 2:return local_disk.opened;case 3:return local_disk.closed;
+    case 4:return local_disk.allocated_pages;case 5:return (uint32_t)local_disk.profile.bytes;
+    case 6:return (uint32_t)(local_disk.profile.bytes>>32);case 7:return local_disk.profile.sector_bytes;
+    case 8:return local_disk.profile.cache_partitions;
+#ifdef FF_DISK_PARTITION_PROOF
+    case 9:return local_disk.partition_count;
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+    case 10:return local_disk.geometry.ready;case 11:return (uint32_t)local_disk.geometry.cylinders;
+    case 12:return (uint32_t)(local_disk.geometry.cylinders>>32);case 13:return local_disk.geometry.tracks_per_cylinder;
+    case 14:return local_disk.geometry.sectors_per_track;
+#endif
+#ifdef FF_DISK_DISMOUNT_PROOF
+    case 15:return local_disk.volume_count;
+#endif
+    default:return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_disk_byte(uint32_t low,uint32_t high){return ff_disk_byte(&local_disk,low|((uint64_t)high<<32));}
+uint32_t ff_probe_disk_transfer_details(void){return 1;}
+#ifdef FF_DISK_PARTITION_PROOF
+uint32_t ff_probe_disk_partition_profile(uint32_t number,uint32_t offset_low,uint32_t offset_high,uint32_t bytes_low,uint32_t bytes_high)
+{
+    return disk_ready?ff_disk_add_partition(&local_disk,number,offset_low|((uint64_t)offset_high<<32),bytes_low|((uint64_t)bytes_high<<32)):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_partition_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.partition_count)return UINT32_MAX;
+    const ff_disk_partition *part=&local_disk.partitions[index];
+    switch(field){case 0:return part->number;case 1:return (uint32_t)part->offset;case 2:return (uint32_t)(part->offset>>32);
+        case 3:return (uint32_t)part->bytes;case 4:return (uint32_t)(part->bytes>>32);default:return UINT32_MAX;}
+}
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+uint32_t ff_probe_disk_geometry_profile(uint32_t low,uint32_t high,uint32_t tracks,uint32_t sectors)
+{
+    return disk_ready?ff_disk_set_geometry(&local_disk,low|((uint64_t)high<<32),tracks,sectors):FF_BOOT_INVALID;
+}
+static void control_disk(void)
+{
+    uint32_t *row=kernel_record(196,10);
+    row[1]=FF_BOOT_UNSUPPORTED;
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))stop(9,row[1],196);
+#endif
+    if(!disk_ready)stop(9,row[1],196);
+    row[1]=ff_disk_control(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],196);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[12]=MEM32(row[6]);row[13]=MEM32(row[6]+4);}
+    if(!row[1]) {
+        if(row[13]>32 || (row[13]&3u))stop(9,row[13],196);
+        for(unsigned i=0;i<row[13]/4;++i)disk_control_information[kernel_call_count-1][i]=MEM32(row[10]+i*4);
+    }
+    g_eax=row[1];g_esp+=44;
+}
+uint32_t ff_probe_disk_control_word(uint32_t index,uint32_t word)
+{
+    return index<kernel_call_count && word<8?disk_control_information[index][word]:0;
+}
+#ifdef FF_DISK_INFORMATION_PROOF
+uint32_t ff_probe_disk_partition_information(uint32_t number,uint32_t hidden,uint32_t type,uint32_t flags)
+{
+    return disk_ready?ff_disk_set_partition_information(&local_disk,number,hidden,type,flags):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_information_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.partition_count)return UINT32_MAX;
+    const ff_disk_partition *part=&local_disk.partitions[index];
+    switch(field){case 0:return part->information_ready;case 1:return part->hidden_sectors;case 2:return part->type;
+        case 3:return part->flags;default:return UINT32_MAX;}
+}
+#ifdef FF_DISK_DISMOUNT_PROOF
+uint32_t ff_probe_disk_raw_volume(uint32_t partition)
+{
+    return disk_ready?ff_disk_attach_raw_volume(&local_disk,partition):FF_BOOT_INVALID;
+}
+uint32_t ff_probe_disk_volume_word(uint32_t index,uint32_t field)
+{
+    if(index>=local_disk.volume_count)return UINT32_MAX;
+    const ff_disk_volume *volume=&local_disk.volumes[index];
+    switch(field){case 0:return volume->partition;case 1:return volume->state;case 2:return volume->references;
+        case 3:return volume->dismounts;default:return UINT32_MAX;}
+}
+static void filesystem_control_disk(void)
+{
+    uint32_t *row=kernel_record(200,10);
+    row[1]=FF_BOOT_UNSUPPORTED;
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))stop(9,row[1],200);
+#endif
+    if(!disk_ready)stop(9,row[1],200);
+    row[1]=ff_disk_fs_control(&local_disk,row+2);
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],200);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[12]=MEM32(row[6]);row[13]=MEM32(row[6]+4);}
+    if(!row[1])for(unsigned i=0;i<FF_DISK_HANDLES;++i)if(local_disk.handles[i].handle==row[2]) {
+        const uint32_t id=local_disk.handles[i].volume;
+        const ff_disk_volume *volume=&local_disk.volumes[id-1];
+        row[14]=id;row[15]=volume->state;row[16]=volume->references;row[17]=volume->dismounts;
+    }
+    g_eax=row[1];g_esp+=44;
+}
+#endif
+#endif
+#endif
+#endif
 uint32_t ff_probe_directory_word(uint32_t index, uint32_t field)
 {
     if (index >= FF_VOLUME_DIRECTORIES) return 0;
@@ -757,6 +1296,10 @@ static void query_volume_size(void)
 {
     uint32_t *row = kernel_record(218, 5);
     if (!volume_ready) stop(9, 0, 218);
+#ifdef FF_FATX_PROOF
+    if(ff_fatx_owns_handle(row[2]))row[1]=fatx_ready?ff_fatx_query_size(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
+#endif
     row[1] = ff_volume_query_size(&local_volume, row + 2);
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 218);
     if (!row[1]) {
@@ -795,6 +1338,34 @@ uint32_t ff_probe_volume_handle_word(uint32_t index, uint32_t field)
         case 4: return handle->directory; case 5:return handle->data_file; case 6:return handle->position; default: return 0; }
 }
 #endif
+#ifdef FF_FATX_PROOF
+uint32_t ff_probe_fatx_word(uint32_t field)
+{
+    switch(field){case 0:return fatx_ready;case 1:return fatx_volume.mount_count;case 2:return fatx_volume.file_count;
+        case 3:return fatx_volume.active;case 4:return fatx_volume.opened;case 5:return fatx_volume.closed;default:return UINT32_MAX;}
+}
+uint32_t ff_probe_fatx_mount_word(uint32_t index,uint32_t field)
+{
+    if(index>=fatx_volume.mount_count)return UINT32_MAX;
+    const ff_fatx_mount *mount=&fatx_volume.mounts[index];
+    switch(field){case 0:return mount->id;case 1:return mount->partition;case 2:return mount->device;case 3:return mount->serial;
+        case 4:return mount->sectors_per_cluster;case 5:return mount->cluster_bytes;case 6:return mount->entry_bytes;
+        case 7:return mount->root_cluster;case 8:return mount->cluster_count;case 9:return mount->free_clusters;
+        case 10:return mount->root_clusters;case 11:return mount->file_objects;
+        case 12:return (uint32_t)mount->offset;case 13:return (uint32_t)(mount->offset>>32);
+        case 14:return (uint32_t)mount->bytes;case 15:return (uint32_t)(mount->bytes>>32);
+        case 16:return (uint32_t)mount->fat_bytes;case 17:return (uint32_t)(mount->fat_bytes>>32);
+        case 18:return (uint32_t)mount->data_offset;case 19:return (uint32_t)(mount->data_offset>>32);
+        case 20:return (uint32_t)mount->revision;case 21:return (uint32_t)(mount->revision>>32);default:return UINT32_MAX;}
+}
+uint32_t ff_probe_fatx_file_word(uint32_t index,uint32_t field)
+{
+    if(index>=FF_FATX_FILES)return UINT32_MAX;
+    const ff_fatx_file *file=&fatx_volume.files[index];
+    switch(field){case 0:return file->id;case 1:return file->mount;case 2:return file->handle;case 3:return file->access;
+        case 4:return file->share;case 5:return file->options;case 6:return file->references;default:return UINT32_MAX;}
+}
+#endif
 static void enter_critical(void)
 {
     uint32_t *row = kernel_record(277, 1);
@@ -826,8 +1397,15 @@ static void initialize_timer(void)
 static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
+#ifdef FF_NV_QUERY_PROOF
+    if(!misc_flags_ready || (row[2]!=17 && row[2]!=10) || (row[2]==10 && !parental_games_ready)) {
+        row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[2],24);
+    }
+    row[1]=ff_query_console_dword(&virtual_memory,row+2,row[2]==17?misc_flags:parental_games);
+#else
     if (!misc_flags_ready || row[2] != 17) { row[1]=FF_BOOT_UNSUPPORTED; stop(9, row[2], 24); }
     row[1] = ff_query_misc_flags(guest_ram, FF_GUEST_BYTES, row + 2, misc_flags);
+#endif
     if (row[1] != FF_BOOT_OK && row[1] != 0xc0000023u) stop(9, row[1], 24);
     if (row[1] == FF_BOOT_OK) {
         row[7] = MEM32(row[3]); row[8] = MEM32(row[4]); row[9] = row[6] ? MEM32(row[6]) : 4;
@@ -846,7 +1424,7 @@ static void status_to_dos_error(void)
 static void initialize_critical(void)
 {
     uint32_t *row = kernel_record(291, 1);
-    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE);
+    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE, 0u);
     row[1] = ff_initialize_critical(guest_ram, FF_GUEST_BYTES, row[2]);
     if (row[1]) stop(9, row[1], 291);
     g_esp += 8;
@@ -858,6 +1436,36 @@ static void allocate_virtual_memory(void)
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION) stop(9, row[1], 184);
     if (!row[1]) { row[7] = MEM32(row[2]); row[8] = MEM32(row[4]); }
     g_eax = row[1]; g_esp += 24;
+}
+static void allocate_contiguous_memory(void)
+{
+    uint32_t *row = kernel_record(166, 5), base = 0;
+    row[1] = ff_vm_allocate_contiguous(&virtual_memory, row[2], row[3], row[4], row[5], row[6], &base);
+    if (row[1] != 0 && row[1] != FF_BOOT_NO_MEMORY) stop(9, row[1], 166);
+    row[7] = base;
+    g_eax = base; g_esp += 24;
+}
+static void claim_gpu_instance_memory(void)
+{
+    uint32_t *row = kernel_record(168, 2), base = 0;
+    row[1] = ff_claim_gpu_instance_memory(&virtual_memory, row[2], row[3], 0, 0x03e00000u, &base);
+    if (row[1]) stop(9, row[1], 168);
+    row[4] = base;
+    g_eax = base; g_esp += 12;
+}
+static void rtl_time_to_fields(void)
+{
+    uint32_t *row = kernel_record(305, 2);
+    if (!row[2] || (row[2] & 3u) || ff_vm_check(&virtual_memory, row[2], 8, FF_VM_READ))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    if (!row[3] || (row[3] & 1u) || ff_vm_check(&virtual_memory, row[3], 16, FF_VM_WRITE))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    uint64_t time = (uint64_t)MEM32(row[2]) | ((uint64_t)MEM32(row[2] + 4) << 32);
+    uint16_t fields[8] = {0};
+    row[1] = ff_time_to_fields(time, fields);
+    if (row[1]) stop(9, row[1], 305);
+    for (unsigned i = 0; i < 8; ++i) { MEM16(row[3] + i * 2u) = fields[i]; row[4 + i] = fields[i]; }
+    g_eax = 0; g_esp += 12;
 }
 #endif
 #ifdef FF_TIMER_PROOF
@@ -900,6 +1508,19 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
+        if (ordinal == 44) return hal_get_interrupt_vector;
+        if (ordinal == 109) return ke_initialize_interrupt;
+        if (ordinal == 98) return ke_connect_interrupt;
+        if (ordinal == 47) return hal_register_shutdown_notification;
+#ifdef FF_MEMORY_STATISTICS_PROOF
+        if (ordinal == 181) return query_memory_statistics;
+        if (ordinal == 166) return allocate_contiguous_memory;
+        if (ordinal == 168) return claim_gpu_instance_memory;
+        if (ordinal == 305) return rtl_time_to_fields;
+#endif
+#ifdef FF_TIMER_PROOF
+        if (ordinal == 128) return query_system_time;
+#endif
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 149) return set_timer;
@@ -912,7 +1533,18 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 211) return query_file_information;
 #endif
 #ifdef FF_FILE_WRITE_PROOF
+#ifdef FF_DISK_PROOF
+        if (ordinal == 219) return read_disk;
+        if (ordinal == 236) return write_file;
+#ifdef FF_DISK_GEOMETRY_PROOF
+        if (ordinal == 196) return control_disk;
+#ifdef FF_DISK_DISMOUNT_PROOF
+        if (ordinal == 200) return filesystem_control_disk;
+#endif
+#endif
+#else
         if (ordinal == 236) return write_regular_file;
+#endif
 #endif
 #ifdef FF_FILE_LINK_PROOF
         if (ordinal == 279) return equal_ansi_string;
@@ -932,7 +1564,29 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_SECTION_PROOF
+#ifdef FF_MMIO_PROOF
+    return 24;
+#elif defined(FF_MEMORY_STATISTICS_PROOF)
+    return 23;
+#elif defined(FF_FATX_PROOF)
+    return 22;
+#elif defined(FF_DISK_DISMOUNT_PROOF)
+    return 21;
+#elif defined(FF_DISK_INFORMATION_PROOF)
+    return 20;
+#elif defined(FF_DISK_GEOMETRY_PROOF)
+    return 19;
+#elif defined(FF_DISK_PARTITION_PROOF)
+    return 18;
+#elif defined(FF_DISK_PROOF)
+    return 17;
+#elif defined(FF_INITIALIZER_BATCH_PROOF)
+    return 16;
+#elif defined(FF_STARTUP_EXPANSION_PROOF)
+    return 15;
+#elif defined(FF_NV_QUERY_PROOF)
+    return 14;
+#elif defined(FF_SECTION_PROOF)
     return 13;
 #elif defined(FF_FILE_WRITE_PROOF)
     return 12;
@@ -957,6 +1611,9 @@ uint32_t ff_probe_abi(void) {
 #endif
 }
 void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
+#ifdef FF_NV_QUERY_PROOF
+void ff_probe_parental_games(uint32_t value) { parental_games=value;parental_games_ready=1; }
+#endif
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
 uint32_t ff_probe_stack_top(void) { return FF_STACK_TOP; }
@@ -976,6 +1633,18 @@ uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
 uint32_t ff_probe_kernel_capacity(void) { return FF_KERNEL_CAPACITY; }
+#ifdef FF_STARTUP_EXPANSION_PROOF
+uint32_t ff_probe_fp_word(uint32_t field)
+{
+    switch(field) {
+    case 0:return g_fp_control_word;
+    case 1:return g_mxcsr;
+    case 2:return g_fp_cc;
+    case 3:return (uint32_t)g_fp_top;
+    default:return UINT32_MAX;
+    }
+}
+#endif
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {
@@ -993,12 +1662,19 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+    ff_port_io_init(&port_io);
+#ifdef FF_DISK_GEOMETRY_PROOF
+    memset(disk_control_information,0,sizeof disk_control_information);
+#endif
 #ifdef FF_REGULAR_FILE_PROOF
     memset(file_information,0,sizeof file_information);
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_NV_QUERY_PROOF
+    parental_games=parental_games_ready=0;
+#endif
 #ifdef FF_SECTION_PROOF
     memset(&image_sections,0,sizeof image_sections);
 #endif
@@ -1014,8 +1690,22 @@ void ff_probe_reset(void)
 #ifdef FF_VOLUME_PROOF
     memset(&local_volume, 0, sizeof local_volume); volume_ready = 0;
 #endif
+#ifdef FF_DISK_PROOF
+    memset(&local_disk,0,sizeof local_disk);disk_ready=0;
+#endif
+#ifdef FF_FATX_PROOF
+    memset(&fatx_volume,0,sizeof fatx_volume);fatx_ready=0;
+#endif
+#ifdef FF_MEMORY_STATISTICS_PROOF
+    memset(&memory_statistics,0,sizeof memory_statistics);memory_statistics_ready=0;
+#endif
+#ifdef FF_MMIO_PROOF
+    memset(&device_registers,0,sizeof device_registers);
+#endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
+    ff_guest_mirror_init(&guest_mirror);
+    ff_guest_write_map_init(&guest_write_map);
     vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);
 #endif
 #ifdef FF_TIMER_PROOF
@@ -1033,8 +1723,14 @@ void ff_probe_reset(void)
 }
 void ff_probe_bind_kernels(void)
 {
+#ifdef FF_DISK_PROOF
+    if(ff_vm_map_fixed(&virtual_memory,FF_DISK_DATA_ADDRESS,FF_VM_PAGE,2))stop(9,FF_DISK_DATA_ADDRESS,40);
+#endif
     for (unsigned i = 0; i < FF_KERNEL_BINDING_COUNT; ++i) {
         if ((bindings[i].slot & 3u) || bindings[i].slot > FF_GUEST_BYTES - 4u) stop(3, bindings[i].slot, 0);
+#ifdef FF_DISK_PROOF
+        if(bindings[i].ordinal==40){MEM32(bindings[i].slot)=FF_DISK_DATA_ADDRESS;continue;}
+#endif
         MEM32(bindings[i].slot) = FF_KERNEL_BASE + i * 4u;
     }
 }

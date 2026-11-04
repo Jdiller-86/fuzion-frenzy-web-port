@@ -14,7 +14,7 @@ const sha256 = async buffer => [...new Uint8Array(await crypto.subtle.digest('SH
   .map(n => n.toString(16).padStart(2, '0')).join('');
 
 export function parseLocalConsoleSettings(buffer) {
-  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > 4096) throw new Error('Invalid local settings profile size');
+  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength > 8192) throw new Error('Invalid local settings profile size');
   const profile = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer));
   if (profile?.kind !== 'local-console-settings' || profile.synthetic !== true ||
       !Number.isInteger(profile.miscFlags) || profile.miscFlags < 0 || profile.miscFlags > 0xffffffff) {
@@ -23,14 +23,23 @@ export function parseLocalConsoleSettings(buffer) {
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
 }
 
+export function parseLocalNvConsoleSettings(buffer) {
+  const settings=parseLocalConsoleSettings(buffer);
+  const parentalControlGames=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).parentalControlGames;
+  if(!Number.isInteger(parentalControlGames) || parentalControlGames<0 || parentalControlGames>0xffffffff) {
+    throw new Error('Select an explicit synthetic parental-control-games DWORD; no original console default is assumed');
+  }
+  return {...settings,parentalControlGames};
+}
+
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024].includes(capacity)) throw new Error('Unsupported bounded trace capacity');
+  if (![64,128,1024,4096].includes(capacity) || capacity===4096 && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
   const capacity=typeof api.ff_probe_kernel_capacity==='function'?api.ff_probe_kernel_capacity():32;
-  if(![32,128].includes(capacity)) throw new Error('Unsupported bounded kernel-record capacity');
+  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
   return capacity;
 }
 
@@ -63,6 +72,142 @@ export function parseLocalFileProfile(buffer) {
   return {synthetic:true,state:'fresh',persistent:false,maxFiles:16,maxFileBytes:65536};
 }
 
+export function parseLocalDiskProfile(buffer) {
+  parseLocalFileProfile(buffer);
+  const disk=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk;
+  const bytes=typeof disk?.bytes==='string' && /^(0|[1-9][0-9]{0,18})$/.test(disk.bytes)?BigInt(disk.bytes):-1n;
+  if(disk?.kind!=='local-disk-profile' || disk.synthetic!==true || disk.device!=='harddisk0' || disk.state!=='fresh' ||
+     bytes<=0n || bytes>0x7fffffffffffffffn || ![512,4096].includes(disk.sectorBytes) || bytes%BigInt(disk.sectorBytes) ||
+     !Number.isInteger(disk.cachePartitions) || disk.cachePartitions<1 || disk.cachePartitions>41) {
+    throw new Error('Select an explicit fresh synthetic disk profile; no original disk contents or cache count is assumed');
+  }
+  return {kind:disk.kind,synthetic:true,device:disk.device,state:disk.state,bytes:bytes.toString(),
+    sectorBytes:disk.sectorBytes,cachePartitions:disk.cachePartitions,persistent:false,maxBackingPages:128};
+}
+
+export function parseLocalDiskPartitions(buffer) {
+  const profile=parseLocalDiskProfile(buffer);
+  const partitions=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.partitions;
+  const count=value=>typeof value==='string' && /^(0|[1-9][0-9]{0,18})$/.test(value)?BigInt(value):-1n;
+  if(!Array.isArray(partitions) || partitions.length!==profile.cachePartitions)throw new Error('Select an explicit complete cache-partition layout');
+  const result=[];
+  for(const part of partitions) {
+    const offset=count(part?.offset),bytes=count(part?.bytes),sector=BigInt(profile.sectorBytes);
+    if(!Number.isInteger(part?.number) || part.number<3 || part.number>=profile.cachePartitions+3 || offset<0n || bytes<=0n ||
+       offset+bytes>BigInt(profile.bytes) || offset%sector || bytes%sector || result.some(old=>old.number===part.number ||
+         offset<BigInt(old.offset)+BigInt(old.bytes) && BigInt(old.offset)<offset+bytes)) {
+      throw new Error('Select nonoverlapping, sector-aligned cache partitions inside the explicit disk');
+    }
+    result.push({number:part.number,offset:offset.toString(),bytes:bytes.toString()});
+  }
+  return result;
+}
+
+export function parseLocalDiskGeometry(buffer) {
+  const disk=parseLocalDiskProfile(buffer);
+  const geometry=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.geometry;
+  const cylinders=typeof geometry?.cylinders==='string' && /^(0|[1-9][0-9]{0,18})$/.test(geometry.cylinders)?BigInt(geometry.cylinders):-1n;
+  const tracks=geometry?.tracksPerCylinder,sectors=geometry?.sectorsPerTrack;
+  if(cylinders<=0n || !Number.isInteger(tracks) || tracks<1 || tracks>0xffffffff ||
+     !Number.isInteger(sectors) || sectors<1 || sectors>0xffffffff ||
+     cylinders*BigInt(tracks)*BigInt(sectors)*BigInt(disk.sectorBytes)!==BigInt(disk.bytes)) {
+    throw new Error('Select explicit disk geometry consistent with the configured capacity');
+  }
+  return {cylinders:cylinders.toString(),tracksPerCylinder:tracks,sectorsPerTrack:sectors};
+}
+
+export function parseLocalPartitionInformation(buffer) {
+  const disk=parseLocalDiskProfile(buffer),parts=parseLocalDiskPartitions(buffer);
+  const raw=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.partitions;
+  return parts.map((part,i)=>{
+    const info=raw[i]?.information;
+    if(!Number.isInteger(info?.hiddenSectors) || info.hiddenSectors<0 || info.hiddenSectors>0xffffffff ||
+       BigInt(info.hiddenSectors)!==BigInt(part.offset)/BigInt(disk.sectorBytes) ||
+       !Number.isInteger(info.partitionType) || info.partitionType<0 || info.partitionType>255 ||
+       ['bootIndicator','recognizedPartition','rewritePartition'].some(key=>typeof info[key]!=='boolean')) {
+      throw new Error('Select explicit partition information consistent with the configured layout');
+    }
+    return {number:part.number,hiddenSectors:info.hiddenSectors,partitionType:info.partitionType,
+      bootIndicator:info.bootIndicator,recognizedPartition:info.recognizedPartition,rewritePartition:info.rewritePartition};
+  });
+}
+
+export function parseLocalRawDiskVolumes(buffer) {
+  const parts=parseLocalDiskPartitions(buffer);
+  const volumes=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).disk.rawVolumes;
+  if(!Array.isArray(volumes) || volumes.length!==parts.length || new Set(volumes).size!==volumes.length ||
+     volumes.some(number=>!Number.isInteger(number) || !parts.some(part=>part.number===number))) {
+    throw new Error('Select explicit fresh RAW attachments for the configured cache partitions');
+  }
+  return [...volumes];
+}
+
+export function parseLocalMmioProfile(buffer) {
+  parseLocalConsoleSettings(buffer);
+  const device = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).device;
+  const entries = device?.registers, window = device?.window;
+  if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
+      !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
+      window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
+      !Array.isArray(entries) || entries.length < 2 || entries.length > 64) {
+    throw new Error('Select an explicit synthetic register window with 2-64 supplied entries');
+  }
+  const seen = new Set();
+  for (const entry of entries) {
+    if (!Number.isInteger(entry.address) || (entry.address & 3) || !Number.isInteger(entry.initial) ||
+        entry.initial < 0 || entry.initial > 0xffffffff || entry.address < window.base ||
+        entry.address - window.base >= window.size) {
+      throw new Error('Register entries require an aligned in-window address and explicit 32-bit value');
+    }
+    seen.add(entry.address);
+  }
+  if (seen.size !== entries.length || !seen.has(0xfd001804) || !seen.has(0xfd600140)) {
+    throw new Error('Register storage must declare distinct reached device addresses');
+  }
+  const rawRanges = device.zeroRanges ?? [];
+  if (!Array.isArray(rawRanges) || rawRanges.length > 4)
+    throw new Error('Use at most four explicit synthetic zero ranges');
+  const zeroRanges = [];
+  for (const range of rawRanges) {
+    if (!Number.isInteger(range?.address) || (range.address & 3) || !Number.isInteger(range?.bytes) ||
+        range.bytes < 4 || (range.bytes & 3) || range.address < window.base ||
+        range.bytes > window.size - (range.address - window.base) ||
+        zeroRanges.some(old => old.address === range.address)) {
+      throw new Error('Zero ranges require an aligned in-window base and bounded byte length');
+    }
+    zeroRanges.push({ address: range.address, bytes: range.bytes });
+  }
+  return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges };
+}
+export function parseLocalMemoryProfile(buffer) {
+  parseLocalConsoleSettings(buffer);
+  const memory=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).memory;
+  if(memory?.kind!=='local-memory-profile' || memory.synthetic!==true ||
+     memory.fixedArena!=='committed-runtime-pool' || !Number.isInteger(memory.physicalPages) ||
+     memory.physicalPages<1 || memory.physicalPages>16384 || !Number.isInteger(memory.baselinePoolPages) ||
+     memory.baselinePoolPages<0 || memory.baselinePoolPages>memory.physicalPages) {
+    throw new Error('Select explicit modeled physical capacity, pool baseline and fixed-arena ownership');
+  }
+  return {kind:memory.kind,synthetic:true,physicalPages:memory.physicalPages,baselinePoolPages:memory.baselinePoolPages,
+    fixedArena:memory.fixedArena};
+}
+
+export function parseLocalPfifoProfile(buffer) {
+  if (!buffer) return undefined;
+  const root = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer));
+  const pfifo = root.pfifo;
+  if (!pfifo) return undefined;
+  const u32 = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value >>> 0 : null;
+  const base = u32(pfifo.base), end = u32(pfifo.end), put = u32(pfifo.put);
+  if (pfifo.kind !== 'local-pfifo-profile' || pfifo.synthetic !== true ||
+      base === null || end === null || put === null || (base & 3) || (end & 3) || (put & 3) ||
+      end <= base || put !== base) {
+    throw new Error('Select an explicit synthetic empty PFIFO ring profile');
+  }
+  return { kind: pfifo.kind, synthetic: true, base, end, put };
+}
+
 export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, extraExports = [], { clock } = {}) {
   if (typeof WorkerGlobalScope === 'undefined' || !(self instanceof WorkerGlobalScope)) {
     throw new Error('Original title proof execution requires a browser worker');
@@ -89,11 +234,34 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10,11,12,13].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
-  if(proofAbi===13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
+  if(proofAbi>=13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
     typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing local image-section ABI');
+  if([17,18,19,20,21,22,23,24].includes(proofAbi) && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-device ABI');
+  }
+  if([18,19,20,21,22,23,24].includes(proofAbi) && ['disk_partition_profile','disk_partition_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-partition ABI');
+  }
+  if([19,20,21,22,23,24].includes(proofAbi) && ['disk_geometry_profile','disk_control_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing local disk-control ABI');
+  }
+  if([20,21,22,23,24].includes(proofAbi) && ['disk_partition_information','disk_information_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing explicit disk-partition information ABI');
+  }
+  if([21,22,23,24].includes(proofAbi) && ['disk_raw_volume','disk_volume_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing explicit RAW-volume attachment ABI');
+  }
+  if([22,23,24].includes(proofAbi) && ['fatx_word','fatx_mount_word','fatx_file_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing backed FATX-root provider ABI');
+  }
+  if([23,24].includes(proofAbi) && ['memory_profile','memory_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+    throw new Error('Missing modeled memory-statistics ABI');
+  }
+  if(proofAbi===24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
+  if(proofAbi===24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {
@@ -108,16 +276,16 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   ram.fill(0); api.ff_probe_reset();
   if (profile.base + profile.headerBytes > RAM_BYTES) throw new Error('Headers exceed the proof RAM');
   ram.set(new Uint8Array(xbeBytes, 0, profile.headerBytes), profile.base);
-  for (const section of proofAbi===13?[]:profile.sections) {
+  for (const section of proofAbi>=13?[]:profile.sections) {
     if (section.address + section.virtualBytes > RAM_BYTES) throw new Error('Section exceeds proof RAM');
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
   let imageInitialState;
-  if ([5,6,7,8,9,10,11,12,13].includes(proofAbi)) {
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
-    if(proofAbi===13) {
+    if(proofAbi>=13) {
       const capacity=api.ff_probe_image_source_capacity();
       if(capacity!==16*1024*1024) throw new Error('Unexpected bounded local image source capacity');
       const sourceAddress=range(api.ff_probe_image_source(),capacity,16);
@@ -143,9 +311,10 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
   if (!Number.isInteger(bindingCount) || bindingCount < 1 || bindingCount > 64) throw new Error('Invalid proof binding count');
   for (let i = 0; i < bindingCount; i++) {
     const slot = api.ff_probe_binding_slot(i), ordinal = api.ff_probe_binding_ordinal(i);
+    const word=Number.isInteger(slot) && slot>=0 && slot<=RAM_BYTES-4?view.getUint32(slot,true):undefined;
     if (!profile.imports.some(entry => entry.address === slot && entry.ordinal === ordinal) ||
-        slot % 4 || slot > RAM_BYTES - 4 || view.getUint32(slot, true) !== (0x80000000 | ordinal) >>> 0) {
-      throw new Error('Kernel-call binding does not match the original import declaration');
+        slot % 4 || slot > RAM_BYTES - 4 || word !== (0x80000000 | ordinal) >>> 0) {
+      throw new Error(`Kernel-call binding does not match the original import declaration: slot ${slot}, ordinal ${ordinal}, loaded word ${word}`);
     }
   }
   api.ff_probe_bind_kernels();

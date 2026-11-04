@@ -101,6 +101,29 @@ uint32_t ff_namespace_add_device(ff_object_namespace *space, const char *path, u
     if (!status) find(space,*id)->device_kind=kind;
     return status;
 }
+uint32_t ff_namespace_add_fatx_device(ff_object_namespace *space,uint32_t partition,uint32_t provider,uint32_t *id)
+{
+    if(!space || !space->memory || !id || !provider || partition<3 || partition>43)return FF_BOOT_INVALID;
+    const ff_namespace_object *devices=child(space,1,"Device",6);
+    if(!devices || devices->kind!=FF_NS_DIRECTORY)return FF_BOOT_INVALID;
+    const ff_namespace_object *disk=child(space,devices->id,"Harddisk0",9);
+    if(disk && disk->kind!=FF_NS_DIRECTORY)return FF_BOOT_UNSUPPORTED;
+    char name[13]="Partition";uint32_t bytes=9;
+    if(partition>=10)name[bytes++]=(char)('0'+partition/10);
+    name[bytes++]=(char)('0'+partition%10);name[bytes]=0;
+    if(disk && child(space,disk->id,name,bytes))return FF_NS_COLLISION;
+    const uint32_t needed=disk?1:2;
+    uint32_t free_slots=0;
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)free_slots+=space->objects[i].id==0;
+    if(free_slots<needed || (uint64_t)space->next_id+needed>UINT32_MAX)return FF_BOOT_NO_MEMORY;
+    uint32_t parent=disk?disk->id:0,status;
+    if(!disk && (status=insert(space,devices->id,"Harddisk0",9,FF_NS_DIRECTORY,&parent)))return status;
+    status=insert(space,parent,name,bytes,FF_NS_DEVICE,id);
+    if(status)return status; /* all insert failure conditions were preflighted */
+    ff_namespace_object *device=find(space,*id);
+    device->device_kind=FF_NS_LOCAL_FATX;device->media_ready=1;device->provider_object=provider;
+    return 0;
+}
 static uint32_t read_string(ff_object_namespace *space, uint32_t descriptor, char output[FF_NS_PATH], uint32_t *bytes)
 {
     if (!descriptor || (descriptor & 3u) || ff_vm_check(space->memory,descriptor,8,FF_VM_READ)) return FF_VM_ACCESS_VIOLATION;

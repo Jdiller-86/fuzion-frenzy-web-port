@@ -1,5 +1,6 @@
 .tools/
 research/
+/.worktrees/
 /Fuzion Frenzy (USA)/
 *.7z
 *.iso

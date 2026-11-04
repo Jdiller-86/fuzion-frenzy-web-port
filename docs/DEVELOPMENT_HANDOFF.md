@@ -1,4 +1,392 @@
-# Original execution progress checkpoint
+# Architect handoff: final declaration fix, then one reached helper; bounded integration delivered
+
+Requested source12deaad, live0ffb634, unchanged geometryc12d17a. A023 closes successful shape/output-address/paired-argument/denied-call and full declared-input comparison findings after direct code/test review. One residual is reproduced: a configured report stopping before ordinal2 (status10/empty calls) still fails the recorded-call requirement. No further shared validator or schema work is needed.
+
+**Primary's bounded result:** remove the activation-as-attempt guard, add one prequery regression while retaining actual denial/unsupported-stop and successful shape/CPU/output checks, revalidate the retained pair; then admit only actually reached0x1F79A0 and provably necessary bounded direct dependencies from existing seeds/projects with every byte/decoder/layout/memory/local-content/resource guard. Compare same-module controls/full input identity, report the next genuine stop and stop. No speculative closure/default/fake return/encoder/timing or storage expansion. See [A023](AV_ENCODER_BOUNDARY_REVIEW.md). Current0x1F79A0 is a stopped placeholder under synthetic AV input, not an executed original body or hardware fidelity.
+
+**Integration delivered:** reviewed localmain385dae5 merged as7ca1174; exact three-file standalone AV component/fixture slice frombadecb4/12deaad imported asac207ba with Linux plain/sanitizer CI. Blob equality and tests against integration VM passed; no guest binding/profile activation imported. Oldestee34a5c was inspected but cannot stand alone without later A001 vector safety/type/escape corrections. Full builder branches remain unmerged, but are not a prerequisite for promoting the separately reviewed integration head.
+
+**Geometry: HOLD**—unchanged head, no actionable reference/dependency. Preserve components without idle prompts/audits/documentation commits. Held geometry is resource saving, not project pause. Disc/FATX expansion/guest wiring stays frozen until a reached dependency/review; A001/A020 remain accepted.
+
+Main PR#1 exactf8dd9c0 is clean/green but fails localmain385dae5 ancestry (exit1), independently of builder conflicts. New integration includes local main but requires updated exact-head PR/CI. Next hour architect reviews that finite local-main + component/CI + governance delta for guarded promotion, and the primary's corrected report/bounded-helper commit separately. Existing PRs#1–#3 retained, no duplicates/push/main merge now. Requested candidate tests174 pass/1 private-XBE skip of175; live0ffb634175 pass/1 same skip of176. No controllable original screen or full fidelity/local-conversion/performance/online/social/authority acceptance.
+
+## Retained A022 handoff
+
+Fixed source `6c4ec73931f96d3db953d1d4dcb96f4b5bac576b`, geometry `c12d17a53696bc3f2ad1dd17d3c170487702952d`; live PR#2 advanced toe406cb39d8460fef3c6bafdc2384cbf54ae6b761 during review. A022 accepts scoped adapter mechanics/native tests: explicit raw DWORD, exact component, VOID/EAX untouched, checked ESP+20/unchanged denial. Lane reports same-module588c0dd5 control ordinal2 versus configured0x1F79A0; not architect replay or original settings/fidelity, and the stopped helper body is unexecuted. No new helper admission.
+
+**Primary's single corrective task:** separate avQuery input declaration from actual execution. Accept truthful configured-but-denied/no-output and prequery-stop reports; on actual success require DWORD(0,6,0,Result), declared raw word and evidenced CPU effect. Comparison still requires successful progress, but must pair exact call arguments and all unchanged local input-profile values after removing only device.avQueryWord (using retained local profiles or immutable input-only snapshots/digests). Do not compare dynamic postrun state. Add focused regressions/revalidate the retained pair; no generic schema/comparison framework. Direct Sol reproductions at both heads show Option5 success/mismatched call args and differing parsed miscFlags pass, while truthful failures are rejected. Newere406cb3 already fixes supplied MMIO/duplicate-name gaps: preserve, do not repeat those tasks. See [A022](AV_ENCODER_BOUNDARY_REVIEW.md).
+
+Go builder/reviewer attempts failed quota; Sol reviewed actual code and executed tests, no independent GLM approval invented or need to keep retrying as the only next task. Requested6c4ec73: publication352 files,runtime167 pass/1 skipped/0 failed out of168,native20/20 plain+sanitizer. Newere406cb3: publication352 files,runtime169 pass/1 skipped/0 failed out of170. Skip is production-XBE identity because private content is absent; not a pass. Node24.22.1 differs from24.14.0 pin. Temporary clean source-only worktrees removed nonforce.
+
+Disc/FATX holds remain; targeted new metadata-page preflight acknowledged, not full save/filesystem acceptance. Geometry stays paused/reference-gated without idle churn; A001/A020/PFIFO labels remain accepted. PR#1 now matches startingfd31b2b/clean/green, while existing#2/#3 remain conflicted drafts; no duplicate opening, builder merge, push or main promotion. Full source review/conflicts/changed-head gates remain. No controllable screen or complete local-content/fidelity/performance/online/social/authority acceptance.
+
+## Retained A021 handoff
+
+Fixed source `b559f03583c7329073e55b1266c0f26f62567579`, geometry `45f372c6fe6e05707da7d971d20352d401c93e4b`. A021 accepts the A020 component gate: nullable explicit config/zero valid, bytewise LE, safe unaligned/real-VM span admission, actual-component zero/high-bit/two-value/neighbors/span/wrap tests and corrected Cxbx mapping. Do not repeat those closed findings. This is component acceptance, not a full-builder merge or original-kernel/settings claim.
+
+**Primary's single next task:** use the reviewed component in one new explicit default-off **synthetic raw-DWORD** binding for the reached(0,6,0,Result) call. Absent config stays unsupported; restrict exact argument shape, use real VM and test actual adapter success/denial before original browser use. Preserve EAX for VOID, other registers except evidenced successful cleanup, and memory/CPU/stack unchanged on denial except bounded diagnostics. Use existing actual-adapter/stopping harness, not a duplicate writer/report-only test. No composer/default/table/monitor inference or encoder/mode/timing/settings expansion. Reuse retained seeds/module; run same-module reset-profile pair differing only in input, retain canonical/engine/display controls, state full flags/digests/input/actual output and next genuine stop. Stop for review before any helper admission including0x1F79A0. See [A021 acceptance](AV_ENCODER_BOUNDARY_REVIEW.md). Hardware observation is optional later fidelity evidence, not a prerequisite for this honest synthetic exploration.
+
+Disc worker/range/inventory and FATX overwrite/create/delete/data allocation are provisional source-owned prerequisites, not title progression. Preserve them unconnected; freeze expansion/persistence/guest wiring without reached dependency and focused integration review. Directory entry cap is a response cap after bounded parser work, not a256-entry parse limit; repeated64KiB reads are possible. FATX multi-step data/FAT/directory failure atomicity needs separate review before integration. No broad new storage audit or subsystem task displaces the query boundary. Geometry remains paused/reference-gated without idle audit churn; A001/PFIFO labels stay accepted.
+
+Exact candidate checks: publication346 files,runtime156/156,no skips,native18/18 plain+sanitizer on Node24.22.1/not exact24.14.0. Curated generated-disc browser evidence is lane-reported, not an architect title replay. Existing PRs#1–#3 retained; PR#1 reports3f982c7 while the Git ref reports7ac8510, so runner must refresh/recheck coherent exact heads/CI before any later promotion. No builder merged/main approval or push. No controllable original screen or full fidelity/local-conversion/performance/online/social/authority acceptance.
+
+## Retained A020 handoff
+
+Fixed source `49a55df77a7f26e728266e9b750eaedb47f355f6`, geometry `6b52f66947c24aaccf1f267d8ef1a98a83db6291`. A020 accepts the withdrawn resolver/profile/worker/handler and status0-report rejection, plus actual reusable unconnected component/test structure. Keep ordinal2 unsupported at0xFE000094/return0x1FD429; no0x1F79A0 admission or binding. A001/static descriptor/PFIFO seam fixes remain accepted.
+
+**Primary's one bounded task:** finish the existing `av_query.c/.h` plus actual-component native fixture. Use nullable explicit synthetic config/full DWORD (NULL denies, explicit zero valid), four observed arguments and real-VM whole-span check before four bytewise little-endian stores. Drop unjustified alignment rejection and admit safe unaligned spans; current cross-page/end-2 tests are short-circuited by that guard and prove no VM-span branch. Add missing-config/wrap/out-of-range/read-only-crossing denials, safe unaligned success, one high-bit word outside the old composer and both-side neighbor checks. Preserve unchanged state on denial and no CPU/stack dependency. Run plain/sanitizer native tests and submit for component review, not title binding. Exact scope in [A020](AV_ENCODER_BOUNDARY_REVIEW.md).
+
+Correct the false numeric6-no-case claim across service/domain/capture/decision/concern docs. Full public Cxbx pin585c49a50af1255ab155099e06f24505f9c5a800 `common/xbox.h:68` defines `AV_QUERY_AV_CAPABILITIES 6`; `exports/EmuKrnlAv.cpp:204–205` handles it via the SMC/factory/user-derived result. Different macro names are not absence of a case. Architect re-fetched both paths. Original-kernel truth/settings remain unresolved. A020 supersedes the lane-recorded05:26 capture-only/stop advice under its false no-case premise: capture is optional configuration-specific fidelity evidence, not the only next task. No hardware request, new capture schema/validator or replacement survey is needed to finish this owned component. Existing schema validation authenticates nothing and its whitelist is not an actual wildcard consumer replay; leave it unconnected/unpromoted.
+
+Exact candidate validation passes publication339 files,runtime144/144 (15 files,no skips),native16/16 plain+sanitizer on Node24.22.1/not exact24.14.0; independent review is snippet-scoped, not title ABI approval. Geometry changes two checkpoint lines only and stays paused/reference-gated without idle audits. Neither builder merged; PRs#1–#3 already open, main PR head lags architect branch; source correctness/full review/conflicts/changed-head checks block promotion. No original/private artifact access or controlled screen; full fidelity/local-conversion/performance/online/social/authority goals remain.
+
+## Retained A019 handoff
+
+Fixed source `4c1f39fb973106f2af97679cdb70ae3471b4abb5`, geometry `8ee92c1e2f484f56d5a1cc42b08ae9b899f52187`. Read A019 and [the exact acceptance](AV_ENCODER_BOUNDARY_REVIEW.md). Static descriptor option/output/writable conflation is fixed. But source connects option6 through profile/worker/resolver and mutates ESP despite A018's unconnected-only scope. The reported0x1F79A0 endpoint is an **unapproved synthetic-binding experiment**, not accepted progress; no helper admission follows. The last accepted boundary is unsupported ordinal2 at0xFE000094/return0x1FD429.
+
+**Primary's single next task:** withdraw resolver/profile activation in new source commits (no history rewrite/discard, preserve evidence), keep descriptor/call-capture fixes, and submit one reusable unconnected numeric6 component accepting explicit full synthetic DWORD/config presence for(0,6,0,Result). Whole-span real-VM checks before little-endian stores; CPU/stack untouched. Test that actual component using two distinct values, exact bytes and before/after neighbors, missing config/unsupported RegisterBase/Option/Param, null/unmapped/read-only/out-of-bounds/wrapping/protection-crossing denials with unchanged state. Admit safe unaligned access or justify a separate host policy, not a guessed Xbox fault. The current test-local writer misses these branches and does not test the connected handler. Reject withdrawn activation fail-closed; no silent ignore, provenance framework, settings composer, further binding or frontier batch.
+
+Cxbx full pin585c49a50af1255ab155099e06f24505f9c5a800 was fetched again: option6 capabilities,9 blank-screen,standardmask0xF00,SMC/factory/user result. The discrepancy is verified public-source evidence, not provisional advice; original-kernel truth/settings are unresolved. Local retention is not a prerequisite for a full pinned URL/curated citation. Do not copy third-party source into tracked files or label synthetic values as measured player settings. No console is needed for this synthetic fixture. Geometry remains paused/reference-gated without idle audit churn. A001 and PFIFO seam naming remain accepted.
+
+Exact candidate validation: publication334 files,runtime144/144,no skips,native16/16 plain+sanitizer including the limited fixture. Node24.22.1 differs from exact24.14.0 pin; passing tests do not approve the binding. Neither builder merged; PRs#1–#3 exist and no promotion/push approved. No original/private artifacts accessed or executed, no controllable screen or full fidelity/local-conversion/performance/online/social/authority acceptance.
+
+## Retained A018 handoff
+
+Current fixed heads: source `ebb29e0c8692b485e4947b055a69050f06c40831`, geometry `8961ae58fb2e1e8510f135c1e1d6fcdc9aabe6f4`. Source captures `(RegisterBase,Option,Param,Result)=(0,6,0,0x203720)` at ordinal2/return0x1FD429; the service stays unsupported. PFIFO seam snapshot naming is corrected. Read A018 and [the AV review](AV_ENCODER_BOUNDARY_REVIEW.md): exact public Cxbx pin585c49a and independent review contradict the extracted stub's option6/9 names and simplified result. Cxbx names6 capabilities,9 blank-screen, standardmask0xF00 and includes SMC/factory/user flags. Neither reference is original hardware truth; do not adopt the fixed HDTV/NTSC/60Hz default or treat caller-mask0xFF00 as a standard-field definition.
+
+**Next primary result:** correct the neutral numeric-option6 contract/provenance and static-descriptor vs observed-option/permission distinction, then prepare one standalone **unconnected** query component with explicit synthetic DWORD input/no defaults. Real-VM fixtures must prove exactly four output bytes and unchanged neighboring state; absent config/unsupported arguments/invalid output stop before mutation. Restrict to the evidenced query shape, not other options/modes. Keep the actual ordinal2 kernel binding unsupported and CPU/stack unchanged, with no fake EAX/NTSTATUS success. A physical console is not required for honestly labeled owned fixtures; matching original settings is still unproved. Submit the component/contract for review before any later opt-in browser wiring. No generic report framework, frontier batch, full encoder or guessed timing. Preserve all local-content/memory/ABI/resource and canonical/reset/display controls. Geometry remains paused without idle audit churn.
+
+Independent exact-source tests pass138/138 and publication331 source files (Node24.22.1, not exact24.14.0 pin). Static `output.writable:true` is not a VM permission observation. Neither builder branch is merged; existing PRs remain open and no promotion/push is authorized. No original module/content was accessed or executed here and no controllable screen/full fidelity/local-conversion/online/social/authority acceptance is established.
+
+## Retained A017 handoff
+
+Current fixed review: source `ccb53cb84496bb1a3b8633335a5b75e26ee66b1c`, geometry `632500bee007ae44ce19abdb2b663fd68596d442`. Read A017 and [the AV boundary task](AV_ENCODER_BOUNDARY_REVIEW.md). The lane reports executing `0x1FCB00`, then reached `0x1FD42F` and dependency `0x1FD410`, to unsupported ordinal2 AvSendTVEncoderOption at `0xFE000094`, return `0x1FD429` (279 routines/404 operations). No service behavior is modeled. Newer live source `3f3ec11` names the service in metadata but its full head was not reviewed/tested here. The architect has not run original code/private modules or raw reports.
+
+**Primary's next task:** reuse the stopped frame/records and retained caller evidence to capture one exact read-only RegisterBase/Option/Param/Result contract, with numeric option, original calling/cleanup convention, output permissions/width/allowed bits, required settings and side effects or exact missing evidence. Checked public nxdk pin004fefb declares VOID NTAPI with four parameters; do not infer original ABI/semantics or invent NTSTATUS/EAX success. Keep ordinal2 explicitly stopped; no encoder service, capability values, mode switch, timing or frontier batch is authorized until the option-specific evidence exists. Correct existing PFIFO report fields to initialization-snapshot semantics: their seam is copied to the aperture only at init and does not observe guest DMA_PUSH writes; validator/schema tests do not prove live state. No new generic reporting machinery is needed. Retain all byte/decoder/layout/memory/ABI/local-content and canonical/reset/display controls. Geometry stays paused/reference-gated without more idle audits.
+
+Candidate checks pass: publication329 files, runtime135/135 without skips, native14/14 plain/sanitizer. Report/profile tests use synthetic objects/stub accessors, not the actual probe; Node24.22.1 differs from exact24.14.0 pin. A001 stays accepted, neither full builder branch is approved/merged, existing PRs remain open and no main promotion or push occurs. No controllable original screen, full fidelity/local-conversion/online/social/authority acceptance is established.
+
+## Retained A016 handoff
+
+Current fixed heads: source `12f4cf64e069b679566bb13e8757139d5035af16`, geometry `cf56008f34341e3c7f602b7e9d618c0d96e52942`. Read A016 and [the reset checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md). Primary reports the default-off reset projection leaves the wait for status2 at untranslated `0x1FCB00`, caller `0x1FD4A8`, return `0x1FD4C4`; canonical and engine-wait controls keep their stops. The placeholder was reached, not the original body executed. Architect source inspection confirms fresh init→projection→two aperture initial values, before guest execution; independent component review supports only that scope. The architect did not run original title content.
+
+**Next primary task:** make the fresh-zeroed-init-only precondition explicit (the OR helper is not a dirty-state reset), distinguish the reference RUNOUT read rule, add the existing required owned U8/U32 aperture consistency check and state all active flags in one same-module control pair differing only in reset. Then admit only `0x1FCB00` and demonstrably necessary bounded dependencies from the retained seeds/project, recompose with guarded memory, build locally and run title code only in the browser. Preserve all original bytes, decoder/layout/ABI/memory and local-content guards. Report the next real stop; no unbounded closure export, speculative frontier batch, new consumer, forced helper return or successful kernel/device stub. Keep canonical PMC fail-closed and separate display pending-state experiments from causal timing/IRQ. Geometry remains paused without fixture/audit churn.
+
+Candidate validation: publication guard328 files, runtime133/133 without skips, native14/14 plain/sanitizer, evidence4/4; Node24.22.1 rather than exact pin24.14.0. A001 remains accepted; neither full builder branch is integration-approved/merged. Existing PRs #1–#3 remain open, no duplicate opening or main-merge request. No controllable original screen, rendering/fidelity/local-conversion or online/social/authority acceptance is established.
+
+## Retained A015 handoff
+
+Fixed heads reviewed: source `897e389625e9b8be0efe3f26eb9d7ab47e41eff5`, geometry `df97a31051f3fb192f5bcbe526d4e8091bc13ec8`. Read A015 and [the reset checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md). Direct public pinned-source inspection and independent GLM review establish a reset producer the source contract missed: xemu `nv2a.c:307` clears PFIFO registers and `:317` sets CACHE1_STATUS.LOW_MARK, connected through reset hold. The reference reset status is not zero and LOW_MARK does not require prior method consumption. Correct those claims in the source contract/status, including the stale third-engine-workstream ownership. This is reference evidence, not original hardware or execution.
+
+**Primary's single next task:** reuse the existing status seam for one explicit default-off reference-reset adapter, scoped to its modeled state, with the owned-fixture/control acceptance in the reset checkpoint. Prove initial LOW_MARK, separate reference runout semantics, no consumer updates/GET/PUT/command changes, repeat reset and byte/word consistency. Initialize before guest execution or on a separately evidenced reset event, not to satisfy a poll or GET==PUT. With retained local inputs, compare identical modules/profiles differing only in this option, preserve display experiment provenance, and report the next genuine stop. Do not manufacture a non-empty submission, method, consumer or timing source. Undefined pump offsets remain unresolved; keep canonical PMC and unsupported modes fail-closed. No frontier batches or more generic evidence tooling are requested.
+
+Source now stops on refused PCRTC log entries instead of discarding errors; this is verified by diff inspection, not executed probe-branch coverage. Candidate validation passed 131 runtime tests with no failures/skips and publication guard (327 files), using Node 24.22.1 rather than 24.14.0. Geometry remains documentation-only/paused. A001 stays accepted and neither builder branch is merged. Existing PRs #1–#3 remain open; no duplicate openings, main promotion or push. No original module/content was accessed or executed here; no controllable screen or full fidelity/local-conversion/online/social/authority milestone is established.
+
+## Retained A013/A014 handoff
+
+Current fixed heads: source `86ded35ff5676034efb899638099fc3c19a86676`, geometry `02dd6cc3145214036cc215c1bdfa670246682cb7`. Read [the latest review](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A013/A014. The parenthesized read-address rejection and generated denied read/store stopping-hook tests now satisfy the two remaining A001 checks. No more work on those old findings is requested. Exact-head source tests pass (runtime 125/125, emitter 14/14, compiled codegen 2/2 with no skips, evidence runner 4/4, native plain/sanitizer 14/14); Node used for that temporary validation was 24.22.1 rather than the 24.14.0 pin. Neither full builder branch is integration-approved or merged.
+
+**Primary's next bounded task:** own the producer-free PFIFO submission-to-consumption contract; do not wait for a nonexistent third scheduled workstream. Use the existing `PFIFO_ENGINE_HANDOFF.md`, retained original submission trace/seeds and the full pinned xemu PFIFO implementation (not its extracted stub). Identify the first admissible method or precise missing input, DMA/RAMIN/cache linkage, reset/enable/error/order and unresolved PFIFO +0x500/+0x80 accesses. Define a replayable acceptance trace before proposing an adapter. Preserve canonical fail-closed behavior, explicit experiment controls and all memory/resource/local-content guards; no synthesized bits, GET==PUT completion, guessed cadence, fresh extraction, broad frontier translation or generic audit frameworks. Source review also found ignored PCRTC logging error returns; establish a bounded stop on log failure before that path can be integration-approved. Geometry stays paused without repeated topology/fixture/audit churn; a named reference-comparator task needs explicit scope and admissible input, not a prior successful comparison.
+
+Local main `ebd1ebf` is now integrated by completed governance merge `9d3b9f0`. PRs #1–#3 remain open; no duplicate opening or main-merge request. Changed-head publication/CI/review remains necessary. No original execution or controllable screen was observed here. Full local conversion/fidelity/online/social/server-authority goals remain unfinished.
+
+## Superseded A011/A012 handoff
+
+Latest fixed source review is `1807769`, with observed newer provenance `f402f5b`; geometry is `220c2a8`, all unmerged. Read [the current checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A011/A012. Const reads fix the direct-write defect. Do not repeat that completed work. Remaining: prevent the already-required parenthesized address-of escape and execute generated denied read/store functions under an explicit stopping/unwinding hook, asserting unchanged state instead of merely comparing pointer macros to NULL. Reuse the existing generator/VM fixture; no new parser, type system or alignment expansion.
+
+After those two deltas, scope display/vblank pending/enable/acknowledge/reset/PMC aggregation and a justified configured event producer. PMC bit 24 is PCRTC, **not PFIFO**; the name is independently verified in the pinned public header. Keep canonical PMC fail-closed and the explicit experiments/control intact; no guessed cadence, poll-count trigger, GET-based event or CPU IRQ injection. Geometry stays paused; a specifically approved reference adapter may precede its successful comparison once admissible input exists, avoiding a circular resumption gate. Existing PRs #1–#3 need no opening markers; source/geometry are not approved and changed-head main checks remain outstanding.
+
+## Prior handoff
+
+Latest review: source `7ee63ea`, observed newer delta `8ced875`, geometry `818380b`, all unmerged. Read [the current checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A009/A010. A001 is **not** closed: the emitted parenthesized read-as-write mutates synthetic PAGE_READONLY RAM despite passing current tests. Implement a structurally non-writable/by-value generated read or strict admitted grammar, and run the actual generator output against the existing real VM fixture to prove denial before mutation. Do not add another expected-shape-only test or expand alignment scope instead. The newer host alignment stop fixes a separate problem, not this one.
+
+The profile opt-in/control for acknowledge semantics and canonical fail-closed PMC boundary are accepted as experimental discipline; retain both, without inventing an interrupt/consumer. Geometry: no new topology or fixture churn while the reference/whole-chain gate is blocked. Existing PRs #1/#2/#3 need no opening markers. Local-main `bb86cfd` revises W010 via W011: the runner acts only on exact Sol open/merge requests. No main-merge marker is issued for the changed integration head this cycle; no title-playability claim is permitted.
+
+## Prior handoff
+
+Read [the PR-aware review checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md). Current source `6759169` and unchanged geometry `0682328` remain candidates. Source D145's PFIFO acknowledge/PMC-zero experiment reaches a capacity stop, not device completion; A001 and A006 remain unmet. Primary: finish structurally safe generated vector operations with real VM checks, and explicitly separate the experimental interrupt policies/control before further engine modeling. Do not expand logs or invent progress. Geometry: retain the draft and topology hold; no repeated ABI busywork or private-reference copying. PRs #2/#3 remain conflicted drafts; PR #1 is clean/green only at the old head and is not merge-authorized. Runner-only PR mutations, no direct shell create/merge.
+
+## Previous handoff
+
+Current reviewed candidates are source `b0ca634` and geometry `0682328`, both unmerged. See [the integration checkpoint](ARCHITECT_INTEGRATION_CHECKPOINT.md) and A004–A006. The timer failure is localized and the reserved model-owned DPC-head correction is justified; do not repeat that diagnosis or force timer results. Direct vector-store/helper probes and unknown-port stops are repaired, but `(XMM_MEM(eax)) = xmm0` still admits a store through read intent. Finish A001 with structurally read-only generated loads and compiled generated operations against real VM permissions, not just a deny flag in a stub. Keep 0x80C0 behavior explicitly synthetic and opt-in.
+
+The latest private source report reaches the PMC read `0xFD000100` under an inferred PGRAPH write-clearing model (276 routines, timerCheck=0). The write-clearing rule is currently hardcoded by the probe, not selected by profile data; treat it as an experiment requiring explicit policy/control or an independent reference. Leave the PMC boundary fail-closed while establishing which original event/submission should cause the wait to finish. No static interrupt bit, implicit zero, forced return or expanded trace capacity is approved. Geometry: its new offset assertions are scoped ABI guards only; hold further topology work and renderer integration until whole-chain/reference review is actionable. No controllable original screen exists.
+
+## Previous review handoff (superseded where corrected above)
+
+Read [the current integration checkpoint](ARCHITECT_INTEGRATION_CHECKPOINT.md) before the historical handoff below. Governance merge `838f825` is verified; source `f54e411` and geometry `0fd820a` remain unmerged. Candidate browser reports reach 277 routines and stop at status 9 / `0xC00000BB`, diagnostic ordinal 149, return `0x200F73`; no original run was repeated by this review. First close the reproduced XMM read-lvalue/write-intent and mixed-case helper holes, add compiled generated-vector/real-VM coverage, and reject unknown port reads explicitly. Then locate the actual timer/clock rejection without inventing object state, forcing time, or weakening queue validation. Ordinal 149 is not proof of a missing timer implementation: `sample_clock` and queue failures also use that diagnostic label.
+
+Geometry: retain the documented comparison contract and ABI guard, but hold topology expansion and renderer integration pending whole-chain and retained-reference review. The upstream emitter may own its pinned vector types; the prior provisional demand to duplicate them in this repository is withdrawn. Both old stop labels `0x1FB5B0` and `0x1FB600` were conversion errors; use the corrected source decision D133 progression. Historical sections below are retained evidence, not current next tasks.
+
+## Historical handoff: empty-ring override guard
+
+Read [the override-guard checkpoint](PFIFO_OVERRIDE_GUARD_CHECKPOINT.md), [the next-routine checkpoint](PFIFO_NEXT_ROUTINE_CHECKPOINT.md), [the adoption checkpoint](PFIFO_PROFILE_ADOPTION_CHECKPOINT.md), [the empty-ring checkpoint](PFIFO_EMPTY_RING_CHECKPOINT.md), [the context checkpoint](PFIFO_CONTEXT_CHECKPOINT.md), [the GET-read checkpoint](PFIFO_GET_READ_CHECKPOINT.md), [the ring checkpoint](PFIFO_RING_CHECKPOINT.md), [the channel-setup checkpoint](PFIFO_CHANNEL_SETUP_CHECKPOINT.md), [the decoder checkpoint](PFIFO_DECODE_CHECKPOINT.md), [the host-step checkpoint](HOST_STEP_CHECKPOINT.md), [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The latest bounded milestone guards the empty-ring override against a changed PUT. `ff_pfifo_channel_should_serve_empty_get` requires a ready/enabled channel, an aligned in-range PUT equal to the channel's current PUT, and that PUT equal to the base; the probe reads the current USER DMA_PUT and serves the base only when the guard is true. A changed PUT no longer receives the empty-ring value. Build `recomp-post-memory-build-60` (527,474 bytes, SHA-256 `e6aab945…`) still reaches `0x1FB5B0` with `settings-pfifo.json` (262 routines) and still stops at status 13 without it (261 routines).
+
+The substantive blocker is unchanged: `0x1FB5B0` is inside `FUN_001FB580`, and the guard-memory recomposition rejects the raw matrix helper at `0x1FA460`. The next priority is a bounded modeled memory surface/admission rule for that helper, or a narrower closure. Builds 58 and 51 remain preserved.
+
+Validation: pfifo-channel optimized/ASan/UBSan, startup-proof 40/40, runtime suite 110/110, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+
+**Next task:** add a bounded modeled memory surface or admission rule for `0x1FA460`, recompose with `--guard-memory`, build a new module and rerun the adopted profile. Alternatively choose a narrower closure that avoids the unadmitted helper. Do not bypass guard-memory, hand-admit raw pointers, substitute a host matrix helper, consume a non-empty ring or claim rendering, original-game compatibility or playability without evidence. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: 0x1FB5B0 closure and guard-memory blocker
+
+The adopted profile reaches `0x1FB5B0`, a loop body inside `FUN_001FB580`, a D3D device-defaults routine. A bounded read-only closure recovered 29 new functions / 1,518 instructions; an unguarded translation recomposed to 395 functions / 16,092 instructions. The `--guard-memory` recomposition rejected `0x001FA460`, a generic 4×4 matrix multiply over raw `float *` inputs, as an unadmitted raw guest pointer helper. The new translation is not admitted into the guarded build; the check was not bypassed and no host matrix substitute was introduced.
+
+## Prior: adopted empty-ring profile
+
+The validated empty-ring model is now part of the default source build, driven by an explicit synthetic `pfifo` profile. `parseLocalPfifoProfile` validates aligned base/end/put values with `put == base`; the worker calls `ff_probe_pfifo_profile`; the probe serves the base on an empty `DMA_GET` read. Build `recomp-post-memory-build-58` reaches untranslated `0x1FB5B0` (return `0x1FB63D`) with `settings-pfifo.json`, and still stops at status 13 without the profile.
+
+## Prior: empty-ring model passes the wait
+
+`src/runtime/pfifo_channel.h/.c` validates an explicit base/end, starts PUT at the base, and initializes GET to the base when an enabled ring is empty. With the observed 512 KB profile (base `0x03B7D000`, end `0x03BFD000`), the diagnostic build advanced past the PFIFO wait at `0xFD800044` and stopped at untranslated `0x1FB5B0` (return `0x1FB63D`), with 83/83 initializers, 262 distinct routines and 402 kernel operations. The model does not consume a non-empty ring or execute methods.
+
+## Prior: device-context ring observation
+
+A bounded diagnostic read the original device context. `D3D_g_pDevice` at `0x00206720` points to `0x00203B90`; the context gives ring base `0x03B7D000`, ring end `0x03BFD000` (512 KB), current push/PUT at the base (empty), and a wait for GET to reach `0x03B7D000`. The observed GET was 0, so the wait polled to the limit. This corrected the earlier full-range interpretation: GET=0 is a software reset, not the ring base; the actual ring is the empty 512 KB buffer, not a 59 MB span.
+
+## Prior: DMA_GET diagnostic
+
+An opt-in `FF_ALLOW_DMA_GET_READ` in the probe served the observed GET (`0`) instead of stopping. The original code then spun on the same DMA_GET read until the device poll limit (status 12), with 83/83 initializers, 262 distinct routines and 402 kernel operations. This ruled out the false-boundary explanation and confirmed the wait expects a different GET value.
+
+## Prior: pushbuffer ring pointer model
+
+The title's D3D code builds commands at a current push pointer, writes a wrap jump `(base & 0x0FFFFFFF) + 1` when space is short, restarts at the context base, and writes `DMA_PUT` as `pointer & 0x03FFFFFF`. `src/runtime/pfifo-ring.mjs` validates and describes explicit base/end/put/get values, encodes the observed jump word and physical masks, and reports whether each pointer is inside the ring. It deliberately does not infer empty/wrap semantics, read guest memory, follow jumps or advance `DMA_GET`. The context ring base/end are not established, and `GET=0` remains outside the observed candidate range.
+
+## Prior: PFIFO channel setup writes GET=0
+
+A bounded read-only Ghidra pass corrected the channel-setup picture. The title's own context setup writes PFIFO PUT/GET to zero (`0x20005A`, `0x20027C`, `0x20047F`) before `D3D8::CDevice_KickOff` (`0x1FAED0`) writes USER PUT `0x03B7D000` at site `0x1FAF1C`. The retained event log places the zero writes at indices 5193–9120 and the PUT write at 12523, so GET=0 is title-initialized, not an unmodeled external write. However, the 20 KB GPU-instance claim `0x03B78000`..`0x03B7D000` and the 4 KB before PUT are entirely zero; GET=0 does not point at an established command stream. `submissionSummary` now reports `putZeroBeforePut`/`getZeroBeforePut` from event order.
+
+## Prior: read-only NV2A packet decoder
+
+Read [the decoder checkpoint](PFIFO_DECODE_CHECKPOINT.md), [the host-step checkpoint](HOST_STEP_CHECKPOINT.md), [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The bounded milestone was a source-owned read-only NV2A pushbuffer decoder, `src/runtime/pfifo-decode.mjs`. It decodes documented headers into method records (subchannel, first method, count, non-increasing flag, arguments), separate jump/ring-jump/call/return records and explicit unknown words, with word/packet budgets and explicit stop reasons. It never executes a method, follows control flow, mutates memory or advances `DMA_GET`; targets are reported as encoded and not mapped. The retained report shows the 4 KB before `PUT` is entirely zero and the 20 KB claim unwritten; the PFIFO fail-closed boundary was retained.
+
+`src/runtime/pfifo-decode.mjs` and `tests/pfifo-decode.test.mjs` implement and validate the decoder; an independent correctness review confirmed the masks, field extraction, argument consumption and read-only behavior, and its negative-range gap was fixed. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
+
+Validation: pfifo-decode 9/9, runtime suite 103/103, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+
+## Prior: deterministic fixed-step host loop pacing
+
+## Prior: bounded controller packet, host adapter, port query, browser source and four-port device
+
+Read [the controller checkpoint](CONTROLLER_PACKET_CHECKPOINT.md), [the post-memory execution checkpoint](POST_MEMORY_EXECUTION_CHECKPOINT.md) and [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The latest bounded milestones are independent runtime prerequisites: a source-owned Xbox controller state/packet encoder based on the pinned `xinput_xbox.h` layout, a pure host gamepad adapter based on the pinned `input_map.c` rules, a bounded controller port query, a browser-style gamepad source, and a four-seat controller device. The adapter maps an explicit standard-mapping snapshot to Xbox state with a 15% radial stick deadzone, 5% trigger threshold, 50% digital-button threshold, analog face/shoulder buttons and Y positive upwards; it requires checked 16-button/4-axis snapshots and fails closed on malformed input. The port returns the pinned `ERROR_DEVICE_NOT_CONNECTED` (`1167`) for a disconnected pad without writing output, and `FF_BOOT_INVALID` for null/short arguments. The device composes four seats matching the pinned `XBOX_MAX_CONTROLLERS` (`4`), rejects an out-of-range or disconnected seat with `1167`, and keeps per-seat connection and packet numbers. The source turns an explicit `navigator.getGamepads()`-shaped list into four positional seats, admitting only standard-mapping pads whose `index` matches the seat and failing each bad or absent port closed. None of the components calls a browser API, reads a host device or a clock, and none is integrated into the worker or boot path. The PFIFO fail-closed boundary is unchanged (status 13 at `0xFD800044`; 261 routines, 402 kernel operations).
+
+`src/runtime/controller_packet.h/.c`, `src/runtime/controller_port.h/.c`, `src/runtime/controller_device.h/.c`, `src/runtime/gamepad-adapter.mjs`, `src/runtime/controller-source.mjs` and their tests implement and validate the components. The module remains `recomp-post-memory-build-51` (526,955 bytes, SHA-256 `cd0bf176…`); the last startup report is `post-memory-browser-20261103-46.json`.
+
+Validation: controller packet, port and device optimized/ASan/UBSan, gamepad adapter and controller source Node tests, runtime suite, Python memory-access 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module/content was committed; all private evidence stays local. ABI 24 and D060 are unchanged.
+
+**Next task:** integrate the source, adapter, packet encoder, port query and four-port device only when a bounded original controller path is reached, or continue another independent runtime prerequisite. Do not claim host input fidelity, latency or original-game compatibility without evidence, and do not fabricate packets, a get pointer, interrupts, DMA or rendering. The captured line/quad reference comparison and browser prepass also remain private.
+
+## Prior: full GET..PUT scan
+
+The full submitted span decodes as image/heap, not a queue. Report `post-memory-browser-20261103-46.json`.
+
+## Prior: 0x200f59
+
+`0x00200f59` read `0xFD400100` = `0`, skipped `0x1FDAC0`, called `0x2000CB` twice, and returned; the caller reached `0x20107C`. Selection `recomp-title-post-memory-23` was 359 functions / 13,649 instructions; module `recomp-post-memory-build-36` was 484,657 bytes, SHA-256 `91afe5cb…`. Report `post-memory-browser-20261103-19.json`.
+
+## Prior: 0x2000cb
+
+`0x002000cb` read `0xFD400700` = `0` and returned; `0x002010fd` stopped at unsupplied `0xFD100284`. Module `recomp-post-memory-build-35` initially used individual entries and was 481,279 bytes, SHA-256 `3dc7bfd7…`. Report `post-memory-browser-20261103-17.json`.
+
+## Prior: 0x2010fd
+
+`0x002010fd` programmed its device-register block and called `0x2000CB`. Selection `recomp-title-post-memory-21` was 357 functions / 13,548 instructions; module `recomp-post-memory-build-34` was 478,501 bytes, SHA-256 `2de72595…`. Report `post-memory-browser-20261103-16.json`.
+
+## Prior: 0x200340 and system time
+
+`0x00200340` wrote `1` to `0xFD600100`/`0xFD600140`; `KeQuerySystemTime` and the source-owned `RtlTimeToTimeFields` returned `2026-11-03 16:02:49.719`; `0x001fe1d0` reached `0x2010FD`. Selection `recomp-title-post-memory-20` was 356 functions / 13,407 instructions; module `recomp-post-memory-build-33` was 476,718 bytes, SHA-256 `b1c8c186…`. Report `post-memory-browser-20261103-15.json`.
+
+## Prior: 0x1ffcc0
+
+Original `0x001ffcc0` executed to completion and returned to `0x001fe0c6`, which called `0x1FFE27` (return `0x1FE199`, status 2). All 83 initialization callbacks return; 237 distinct original routines execute and 399 kernel operations complete. Selection `recomp-title-post-memory-11` is 347 functions / 13,113 instructions; module `recomp-post-memory-build-23` is SHA-256 `76eab6bd…` (464,158 bytes). The local report is `post-memory-browser-20261103-05.json`. The source-owned aperture admits 1/2/4-byte reads and fails closed on sub-dword writes.
+
+## Prior: 0x1fe085 and interrupt initialization
+
+Original `0x001fe085` executed and returned to `0x1FE5CE`. All 83 initialization callbacks return; 235 distinct original routines execute and 399 kernel operations complete. The reached interrupt-initialization services (ordinals 44, 109, 98, 47) are modeled from the pinned public bridge. Execution stops at untranslated `0x1FE0C6` (return `0x1FE616`).
+
+Selection `recomp-title-post-memory-09` is 345 functions / 12,892 instructions; module `recomp-post-memory-build-21` is SHA-256 `5fc6d100…` (459,080 bytes). An explicit synthetic profile supplied zero for the newly observed device reads `0xFD001800`, `0xFD001808`, `0xFD10020C`; these are test inputs, not original defaults. The modeled services do not deliver interrupts or establish NV2A behavior.
+
+## Prior supplied-profile handoff
+
+## Device reports preserve supplied register profiles
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The device report now records the explicit multi-register profile input separately from observed entries and events. `device-report.mjs` normalizes the supplied window and 2–64 address/initial entries; the worker passes the parsed profile, so a private run can distinguish supplied values from reads/writes without a separate settings file. Profile validation and the two-entry fallback are unchanged.
+
+Validation: Node tests cover supplied-profile preservation and separation, 2/3/64-entry and malformed profiles; runtime 47/47, Python 10/10, title-seed 25/25, `npm run check` for 230 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained export is unavailable. In a private cycle, rebuild with `ff_probe_mmio_add` exported, admit the next export, and use an explicit multi-register profile only for values the next run actually requires. The captured line/quad reference comparison and browser prepass also remain private. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior multi-register handoff
+
+## Explicit multi-register device profiles
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The synthetic aperture now accepts 2–64 explicit initial register entries. `ff_device_registers_init_many` validates distinct aligned in-window addresses before mutation; `ff_device_registers_add_initial` seeds extras only before any access or staged write. The probe exports `ff_probe_mmio_add`, and the worker seeds profile extras after the two required reached addresses. The profile parser accepts 2–64 distinct entries and requires `0xfd001804` and `0xfd600140`; no value is guessed.
+
+Validation: C multi-entry/add/rejection tests, Node 2/3/64-entry profile tests (runtime 46/46), Python 10/10, title-seed 25/25, `npm run check` for 230 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is unavailable. In a private cycle, rebuild with `ff_probe_mmio_add` exported, admit the next export, and use an explicit multi-register profile only for values the next run actually requires. The captured line/quad reference comparison and browser prepass also remain private. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior quad-strip handoff
+
+## Source-owned quad-strip fill candidate added
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_quad.c` now expands both a standalone quad and an even quad-strip adjacency primitive using the pinned public xemu `geom.c` fill orders: `1,2,0`/`2,3,0` for a quad and `0,1,2`/`2,1,3` for a quad strip. Odd strip primitives emit nothing. Attributes, provoking/smooth colors, position rows and per-triangle depth slope are preserved. All remain source-owned candidates, not captured-reference or original-hardware comparisons.
+
+Validation: quad/quad-strip tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare the line/quad/quad-strip candidates against the captured references, add polygon line/point modes and remaining assembly, and separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior quad-fill handoff
+
+## Source-owned quad-fill geometry candidate added
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_quad.c` now expands a four-vertex quad into the pinned public xemu `geom.c` two-triangle fill order (`1,2,0` and `2,3,0`), forwarding attributes, provoking/smooth colors, both triangle position row sets and per-triangle depth slope. It joins the line and triangle candidates. All remain source-owned candidates, not captured-reference or original-hardware comparisons.
+
+Validation: line and quad tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare both candidates against the captured references and add quad-strip/assembly behavior; separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior line-geometry handoff
+
+## Source-owned line geometry expansion added
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md) and [the geometry checkpoint](NV2A_GEOMETRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+`src/runtime/nv2a_line.c` now expands a two-vertex line using the pinned public xemu `geom.c` formula: forwarded attributes, flat/smooth provoking colors, the rotated interpolation position row and zero standalone-line depth slope. It is a source-owned candidate, not a captured-reference or original-hardware comparison.
+
+Validation: analytic line tests optimized and ASan/UBSan, `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, `npm run check` and whitespace checks. No original module was rebuilt or run; no original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the captured native line/quad reference comparison and browser prepass remain private and unavailable here. The reached original boundary is still untranslated `0x1fe085`, and its retained export is also unavailable. In a private cycle, compare the line candidate against the captured reference, then add quad/assembly support; separately admit `0x1fe085`. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior device-report handoff
+
+## Device reports retain every bounded aperture entry and event
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The browser proof worker now reports every bounded device-aperture entry and event instead of truncating to 16/8. The mapper rejects counts beyond the 1,024-entry / 4,096-event capacities, copies all recorded values and keeps the additive site mapping (`UINT32_MAX` to `null`). This prepares the next private device run for complete evidence.
+
+Validation: new Node tests 4/4 (17 entries/9 events, site/null, capacity rejection, missing accessors), `npm run test:runtime` 44/44, Python 10/10, title-seed 25/25, FATX optimized/ASan/UBSan, `npm run check` and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency with the complete device report. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior FATX directory handoff
+
+## Read-only FATX directory/file component
+
+Read [the FATX utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The source-owned FATX mount now enumerates root and subdirectory entries, reads file bytes and resolves relative paths up to eight components. It parses the public 64-byte entry layout, follows FAT16/FAT32 chains with cycle/bounds/short-chain checks, and copies only after preflight. It is not a guest service: original file operations beyond root/size still stop.
+
+Validation: owned FATX test optimized plus ASan/UBSan, Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` for 221 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency. Keep guest FATX file service unexposed until an actual original request is observed; do not infer directory contents or retail behavior. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior staged device-write handoff
+
+## Continue from staged device-write events
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The explicit synthetic aperture now stages every device write until the generated store has run and records the stored value in one ordered event. Read-modify-write records the read immediately and stages the write; `ff_device_registers_access` centralizes the three access masks. `ff_probe_guest_memory` commits a pending write before any later access, and the return-frame stop/event readers commit before reading counts, so event order and values are final.
+
+Validation: WSL GCC optimized plus ASan/UBSan runs of `tests/device_registers_test.c` and the transformed `tests/memory_access_test.c`, Python 10/10, title-seed 25/25, runtime 40/40, `npm run check` for 221 files and whitespace checks. No original module was rebuilt or run; no new original-runtime observation exists. ABI 24 and D060 are unchanged.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior basic-block access handoff
+
+## Continue from the checked basic-block access contract
+
+Read [the renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+The in-flight checked-memory change is complete. Every emitted scalar guest access now carries the guest address of its translated basic block, the host forwards it into modeled device events, and a zero-site device access stops. The `loc_%08X:` label convention and entry/successor labelling were checked against the pinned public emitter source (`sp00nznet/xboxrecomp` commit `f0f8a46`). `ff_probe_mmio_event(..., 4)` exposes the site additively; ABI 24 and D060 are unchanged.
+
+Validation: Python memory-access tests 8/8, title-seed tests 25/25, runtime tests 40/40, `npm run check` for 221 files, whitespace checks, and optimized plus ASan/UBSan WSL GCC runs of the owned transformed fixture with three labelled blocks (integer and float widths), device-site assertions and a rejected zero-site device access. No original module was rebuilt or run; there is no new original-runtime observation.
+
+**Next task:** the reached original boundary is still untranslated `0x1fe085`, and the retained read-only export is not present in this source-only worktree. In a private cycle, admit that export and observe the next dependency, then rebuild a module to observe the staged device write values. Do not infer NV2A behavior, DMA, interrupts or rendering from the synthetic aperture; D060 remains conditional.
+
+## Prior renderer-entry handoff
+
+## Continue from the contiguous-memory request in renderer initialization
+
+OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md); the [continuous development goal](OPENCODE_GOAL.md) defines the bounded advancement loop. This changes development coordination, not the runtime checkpoint below.
+
+Read [the current renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+
+Original code now programs a bounded synthetic device aperture and continues past it. Helper `0x001fe05a` reads `0xfd001804`, ORs 4, writes it back and writes zero to `0xfd600140`; the caller then writes `0xfd009140` -- a computed offset that a fixed per-address list could not cover. Both profiles record four events across three addresses (with unknown-before provenance for the first write), execute 234 routines / 396 kernel operations / 3,633 events, keep statistics at `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`, and stop at untranslated original routine `0x1fe085` (return `0x1fe5bd`).
+
+Reuse `recomp-title-post-memory-06` and `recomp-post-memory-build-16`: 344 functions / 12,878 instructions, ABI 24, module `d757d534…` (424,106 bytes). Reports `post-memory-browser-20261102-15.json` / `-16.json`; audit `aperture-checkpoint-20261102-01.json`. The aperture admits [`0xFD000000`, `0xFD800000`) from explicit profile inputs, stores sparsely (1,024 addresses), logs 4,096 events, faults on unknown reads, and rejects every other address, width or direction without mutation. It is inert storage, not NV2A behaviour; D060 remains conditional on that.
+
+**Next task:** admit and translate `0x1fe085` from a bounded read-only export, then observe the next dependency. No device behaviour, DMA, interrupt or rendering may be inferred.
+
+Validation: new aperture native/sanitizer suite passes; `python tests/title_seed_test.py` 25; 40/40 runtime cases and `npm run check` pass. No public CI result is claimed. Full runtime/fidelity, renderer, disc/package reads, general filesystem and durable saves, graphics/audio/controllers, playability, end-user conversion and all planned features remain unfinished. Keep the full goal active.
+
+## Prior memory-statistics handoff
+
+Original code answered `MmQueryStatistics` from the modeled page model and stopped at `0x001f7650` entry after running the 140-byte helper. Read the retained [memory-statistics checkpoint](MEMORY_STATISTICS_CHECKPOINT.md) for that verified boundary; it is superseded by the checkpoint above, not overwritten.
+
+## Prior utility-mount handoff
+
+Original code opens its formatted FATX root, queries 65,519 usable / 65,518 free clusters, closes the root handle and creates `Z:` for partition 5. `XMountUtilityDrive` returns one and the next helper requests ordinal 181. Read the retained [utility-mount checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md) for that verified boundary; it is superseded by the checkpoint above, not overwritten.
+
+## Prior RAW dismount handoff
+
+# Continue from original formatter return and the FATX root open
+
+Read [the current RAW-volume checkpoint](RAW_VOLUME_DISMOUNT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected. There is no playable original screen.
+
+Both explicit fresh synthetic profiles now complete dismount and close, return from original `0x00033ddb` with `EAX=1`, and request the selected partition's root. All 83 callbacks return; 226 routines execute and 388 operations complete across 3,619 trace events. The RAW attachment is detached, held until its last handle closes and retired; all written header/table/root bytes remain intact. The pending ordinal-202 request is `\Device\Harddisk0\Partition5\`, access `0x00100001`, share 3, options `0x00800021`, return `0x000337ca`. No guest open result, utility mount or drive link is supplied.
+
+Reuse `recomp-title-disk-geometry-01` and `recomp-raw-dismount-build-01`: unchanged 316 functions / 10,587 instructions, ABI 21 and prior fixed memory/backing/diagnostic bounds / sole clock import. Final reports are `raw-dismount-browser-20261102-03.json`, `-04.json`; compact identities/byte/lifetime/return checks are in `raw-dismount-checkpoint-20261102-01.json`. New inputs in `raw-volume-inputs-01` explicitly provide fresh RAW attachments; they are not original-console state. All prior code, inputs, reports and originals are preserved.
+
+**Next task:** implement a genuine FATX filesystem/root provider over the written partition backing, then observe the original volume query, close and utility link. Keep its identity separate from partition 1 and from retired RAW attachments. Validate cluster/table/root bounds, usable allocation geometry and actual object/reference lifetime. Retained formatter instructions `0x00033edc` and `0x00033ef3`..`0x00033efc` explain the extra table page: add one entry, choose entry width, then align. The reached 1 GiB geometry agrees with browser bytes; wider format acceptance remains unproved. No new Ghidra export/import/extraction is needed to start.
+
+Validation: owned optimized/sanitizer component checks and all 39 runtime/admission/source-delivery cases pass; all 32 compiled identities match. ABI-20 browser compatibility, empty warning/error logs and Clear pass. General RAW locking/sharing/retained-file cases remain unsupported rather than receiving invented retail statuses. Full filesystem/persistence, disc reads, runtime/fidelity, original graphics/audio/controllers, playability, end-user conversion and all planned features remain unfinished. Keep the full goal active and retain the prior source-only local server if reused.
+
+## Prior partition-format write handoff
+
+# Continue from original FATX writes and the pending dismount
+
+Read [the current partition-format checkpoint](PARTITION_FORMAT_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain selected; there is no playable original screen.
+
+Both explicit fresh synthetic profiles now return from 83 initialization callbacks, execute 226 distinct original routines, record 3,617 trace events and complete 386 kernel operations. The original formatter opens partition 5, receives configured geometry/partition information, queries system time and writes its own FATX header/table/root: 70 writes / 286,720 bytes. Both final byte checks verify the table/root boundary and all 16 KiB of the empty root. The formatter has not returned and the utility drive is not mounted.
+
+**Current code/build:** `research/verification/recomp-title-disk-geometry-01` and `recomp-format-snapshot-build-02`, 316 functions / 10,587 instructions. Reuse this generation's `inputs.json`; the earlier disk-device generation lacks the register-loaded ordinal-196 binding. ABI 20 retains the prior fixed resources, 4,096/512 diagnostics, local-only content and sole browser-clock import. Exact final evidence: `format-layout-browser-20261102-05.json`, `-06.json` and `format-layout-checkpoint-20261102-03.json`. The prior ABI-17 module retains its original boundary under the new harness.
+
+**Next request:** ordinal 200 (`NtFsControlFile`), `FSCTL_DISMOUNT_VOLUME` / `0x00090020`, return `0x000340d4`, arguments `[393220,0,0,0,62983480,589856,0,0,0,0]`. No guest result was supplied. Establish and implement actual raw-device versus mounted-volume attachment, invalidation and handle/reference lifetime; preserve all written bytes. Then follow the genuine original close/formatter return and subsequent utility-volume open/query/link. No unconditional success or invented retail failure status is justified by the current raw block backend alone.
+
+**Material format concern:** the supplied 1 GiB / 32-sector-cluster case places its FAT at 4,096, root at 270,336 and root end at 286,720. There is one more table page than a naive ceiling formula predicts. Read the retained formatter's actual calculation before generalizing a mount parser. Explicit synthetic layout/flags are development inputs; retail equivalence and general FATX support remain unproved.
+
+Validation: owned disk/control optimized/sanitizer checks, 27 Python cases and 38 runtime/admission/source-server cases pass. All 32 compiled identities match; browser logs are empty and Clear succeeds. No original native/Node execution, new extraction/import/export or unrelated broad campaign occurred. Full filesystem/durable saves, disc/package reads, complete runtime/fidelity, original graphics/audio/controllers, playability, browser-local end-user conversion and all planned features remain unfinished. Preserve every earlier file and keep the full goal active.
+
+## Prior application-entry and disk-cache checkpoint
+
+Selected route: **static recompilation to WebAssembly**, with the complete original game and all planned custom features. Read [the current initialization/disk checkpoint](INITIALIZER_EXECUTION_CHECKPOINT.md). Earlier approximate reconstruction remains research.
+
+The original browser path now returns from **83/83 initialization callbacks**, enters `0x0002d540` / `0x0004e690` / `0x0002cd80`, opens the whole-disk device, reads fresh RAM backing, writes its own 512-byte cache record and closes the disk handle. Both explicit synthetic profiles execute 223 distinct original routines, record 3,583 events and complete 307 kernel operations. The original code selects cache partition 5 and enters formatting. It stops before a guest result for ordinal 202, `\Device\Harddisk0\Partition5`, return `0x00033e0e`, access `0x00100003`, share zero, options `0x18`. There is no playable screen.
+
+Reuse `research/verification/recomp-title-disk-device-01` and `recomp-build-disk-device-01`: 316 original functions / 10,587 instructions. Their `inputs.json` retains exact seed paths/digests; do not reconstruct the seed list from old checkpoints. Final actual-browser reports are `disk-cache-browser-20261102-02.json` and `-03.json`; their compact identity/payload checks are in `disk-cache-checkpoint-20261102-01.json`. ABI 17 retains fixed resources and the sole clock import. Its explicit fresh synthetic disk uses bounded sparse RAM backing and real read/write/close semantics; ordinal-40 data points to read-only guest memory containing the supplied cache count. Nothing accesses the host disk or assumes retail disk contents/defaults.
+
+**Next task:** provide the reached cache partition with a real bounded view and an explicit synthetic layout, then follow the original `0x00033ddb` formatting routine's actual next request. That routine and its immediate mount dependencies are already translated. Preserve identity, sector/range/access/sharing/status/lifetime semantics and failure atomicity. Prove the actual format return and utility-drive link before reporting a successful mount. No further extraction, import or Ghidra export is needed to start. Do not prefill the cache record, invent partition geometry or substitute successful formatting stubs.
+
+Targeted validation passes: disk optimized/sanitizer fixtures, 26 Python cases and 35 runtime/admission/delivery cases (two local-server cases require the scoped Windows loopback repeat). Compiled identities match all 32 inputs; browser warnings/errors are empty and Clear releases selections/results. Publication and whitespace guards pass. Source work includes earlier pre-pause settings/heap/initializer changes; preserve them. New source/current observations have not yet been claimed as public-CI-validated. Full disk/FATX persistence, disc/package reads, complete scheduling/exception/floating-point behavior, graphics/audio/controllers, a playable original screen, end-user recompilation and all planned custom features remain unfinished. Keep the full goal active.
+
+## Prior section-residency checkpoint
 
 Selected route: **static recompilation to WebAssembly**, preserving the complete original game, all planned custom features and local player-supplied content. Read [the section-residency checkpoint](SECTION_RESIDENCY_CHECKPOINT.md).
 

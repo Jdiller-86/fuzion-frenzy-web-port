@@ -10,6 +10,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <p>This engineering check creates a guest thread and lets original startup initialize its TLS in a browser worker. Select the private thread module and compatible local game executable. Neither file is uploaded.</p>
 <p>The game has not booted. Preemptive scheduling, waits, the complete kernel and rendering remain unimplemented. Unsupported original calls stop explicitly.</p>
 <p>The expanded startup proof requires explicit synthetic console settings. These test inputs do not establish an original console's settings or fidelity.</p>
+<p>The disk proof also requires an explicit fresh synthetic disk profile. Original cache-record reads and writes stay in bounded RAM backing; no host disk or existing saves are opened.</p>
 <p>The timer proof uses one bounded browser-clock capability. Its elapsed and wall-clock samples do not establish original console clock precision or suspend behavior.</p>
 <p>When the original copy helper is present, source-owned buffer cases also check its copying and calling behavior. These diagnostics do not establish full-game fidelity.</p>
 <p>The memory proof tracks reserved and committed pages in a bounded guest address window. It also checks denial of a reserved-page read and a read-only image write; full Xbox virtual memory and exception recovery remain unimplemented.</p>
@@ -24,21 +25,34 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <label>Local thread module (.wasm)<input id="module" type="file" accept=".wasm"></label>
 <label>Local game executable (.xbe)<input id="xbe" type="file" accept=".xbe"></label>
 <label>Local test console settings (.json)<input id="settings" type="file" accept=".json"></label>
-<button id="run">Run thread startup proof</button><button id="clear">Clear local selection</button>
-<p id="status" role="status">Select local proof files</p><pre id="details"></pre>
+<button id="run">Run thread startup proof</button><button id="clear">Clear local selection</button><button id="save" disabled>Save local report</button>
+<p id="status" role="status">Select local proof files</p><details><summary>Local research details</summary><pre id="details"></pre></details>
 <script type="module">
 const moduleInput = document.getElementById('module'), xbeInput = document.getElementById('xbe');
 const settingsInput = document.getElementById('settings');
 const run = document.getElementById('run'), clear = document.getElementById('clear');
+const save = document.getElementById('save');
 const status = document.getElementById('status'), details = document.getElementById('details');
 let worker, timer, generation = 0;
+let reportUrl;
+save.onclick = () => {
+  if (!details.textContent) return;
+  if (reportUrl) URL.revokeObjectURL(reportUrl);
+  reportUrl = URL.createObjectURL(new Blob([details.textContent], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = reportUrl; link.download = `original-startup-report-${Date.now()}.json`; link.click();
+};
 function release() { if (worker) worker.terminate(); worker = undefined; clearTimeout(timer); run.disabled = false; }
 clear.onclick = () => {
   generation++; release(); moduleInput.value = ''; xbeInput.value = ''; settingsInput.value = '';
+  save.disabled = true;
+  if (reportUrl) URL.revokeObjectURL(reportUrl);
+  reportUrl = undefined;
   details.textContent = ''; status.textContent = 'Local selection cleared'; document.body.dataset.state = 'idle';
 };
 run.onclick = async () => {
   const current = ++generation; release(); details.textContent = ''; run.disabled = true;
+  save.disabled = true;
   document.body.dataset.state = 'loading'; status.textContent = 'Reading local files…';
   try {
     const moduleFile = moduleInput.files[0], xbeFile = xbeInput.files[0];
@@ -46,7 +60,7 @@ run.onclick = async () => {
     if (moduleFile.size > 4 * 1024 * 1024 || xbeFile.size > 16 * 1024 * 1024) throw new Error('A selected file exceeds this bounded proof');
     const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
     const settingsFile = settingsInput.files[0];
-    if (settingsFile && settingsFile.size > 4096) throw new Error('A settings profile exceeds this bounded proof');
+    if (settingsFile && settingsFile.size > 8192) throw new Error('A settings profile exceeds this bounded proof');
     const settingsBytes = settingsFile ? await settingsFile.arrayBuffer() : undefined;
     if (generation !== current) return;
     worker = new Worker('/src/runtime/thread-proof-worker.mjs', { type: 'module' });
@@ -56,7 +70,13 @@ run.onclick = async () => {
     worker.onmessage = event => {
       if (generation !== current) return;
       if (event.data.kind === 'error') return fail(event.data.message);
-      const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2);
+      const result = event.data; release(); details.textContent = JSON.stringify(result, null, 2); save.disabled = false;
+      if(result.phase==='original-initializer-bringup') {
+        const progress=result.originalStartup;
+        document.body.dataset.state='in-progress';
+        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}. The game has not booted.`;
+        return;
+      }
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';
       status.textContent = result.verified ? (result.phase === 'original-image-written-settings-stop'
         ? 'Original startup wrote its 10,240-byte title image and returned from data initialization; the next original routine requests unsupported console setting 10.'

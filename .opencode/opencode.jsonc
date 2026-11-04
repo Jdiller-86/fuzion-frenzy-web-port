@@ -1,0 +1,106 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "default_agent": "builder",
+  "providers": {
+    "unsloth": {
+      "models": {
+        "qwen3.8-27b": { "limit": { "context": 32768, "output": 2048 } }
+      }
+    }
+  },
+  "policies": [
+    { "action": "tool.use", "resource": "subagent:*", "effect": "deny" },
+    { "action": "tool.use", "resource": "subagent:builder", "effect": "allow" },
+    { "action": "tool.use", "resource": "subagent:scout", "effect": "allow" },
+    { "action": "tool.use", "resource": "subagent:reviewer", "effect": "allow" },
+    { "action": "tool.use", "resource": "subagent:architect", "effect": "allow" },
+    { "action": "tool.use", "resource": "read:*.env", "effect": "deny" },
+    { "action": "tool.use", "resource": "read:*.env.*", "effect": "deny" },
+    { "action": "tool.use", "resource": "edit:*.env", "effect": "deny" },
+    { "action": "tool.use", "resource": "edit:*.env.*", "effect": "deny" },
+    { "action": "tool.use", "resource": "external_directory:*", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" }
+  ],
+  "agents": {
+    "builder": {
+      "description": "Everyday coding and bounded task coordination using OpenCode Go DeepSeek Flash.",
+      "mode": "all",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "steps": 48,
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "read", "resource": "research/*", "effect": "deny" },
+        { "action": "read", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
+        { "action": "read", "resource": ".tools/*", "effect": "deny" },
+        { "action": "edit", "resource": "research/*", "effect": "deny" },
+        { "action": "edit", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "ask" },
+        { "action": "shell", "resource": "git merge *", "effect": "deny" },
+        { "action": "rea_*", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "scout", "effect": "allow" },
+        { "action": "subagent", "resource": "reviewer", "effect": "allow" },
+        { "action": "subagent", "resource": "architect", "effect": "allow" }
+      ]
+    },
+    "scout": {
+      "description": "Local Qwen source exploration and narrow read-only REA evidence gathering; return concise findings with paths and uncertainty.",
+      "mode": "subagent",
+      "model": "unsloth/qwen3.8-27b",
+      "steps": 8,
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "rea_*", "resource": "*", "effect": "deny" },
+        { "action": "rea_binary_overview", "resource": "*", "effect": "allow" },
+        { "action": "rea_list_procedures", "resource": "*", "effect": "allow" },
+        { "action": "rea_procedure_info", "resource": "*", "effect": "allow" },
+        { "action": "rea_procedure_assembly", "resource": "*", "effect": "allow" },
+        { "action": "rea_procedure_pseudo_code", "resource": "*", "effect": "allow" },
+        { "action": "rea_procedure_callees", "resource": "*", "effect": "allow" },
+        { "action": "rea_procedure_callers", "resource": "*", "effect": "allow" },
+        { "action": "rea_get_call_graph", "resource": "*", "effect": "allow" },
+        { "action": "rea_xrefs", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "reviewer": {
+      "description": "Independent correctness review with OpenCode Go GLM 5.3 for CPU, memory, ABI, GPU, and unresolved defects.",
+      "mode": "subagent",
+      "model": "opencode-go/glm-5.3",
+      "steps": 12,
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "read", "resource": "research/*", "effect": "deny" },
+        { "action": "read", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
+        { "action": "read", "resource": ".tools/*", "effect": "deny" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "rea_*", "resource": "*", "effect": "deny" }
+      ]
+    },
+    "architect": {
+      "description": "Sol project authority that actively directs builders, reviews evidence, integrates bounded work and manages source-only PRs; also answers bounded escalation decisions.",
+      "mode": "all",
+      "model": "openai/gpt-6.1-sol",
+      "system": "You are the Fuzion Frenzy project architect and delivery manager. Own the critical path to actual original-game execution in a browser and the staged full project goal. In a primary architect turn, compare builder results with your previous directive, identify drift or repeated low-value work, assign each active lane one bounded result with acceptance checks and a stop condition, and redirect or hold a lane when evidence makes its work unproductive. Make integration a routine deliverable: review committed source slices, resolve or name exact blockers, evaluate the current main PR head independently, and request a guarded merge when fully reviewed. Builders implement; you decide consequential design and integration, verify material claims, and keep the repository and long-term goal aligned. Never manufacture runtime evidence, bypass source-only and local-content rules, force a merge, or claim playability without a controllable original screen. When invoked as a bounded subagent, answer the specific escalation with evidence and a concise directive, then return implementation to the builder.",
+      "steps": 8,
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "read", "resource": "research/*", "effect": "deny" },
+        { "action": "read", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
+        { "action": "read", "resource": ".tools/*", "effect": "deny" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "rea_*", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "builder", "effect": "allow" },
+        { "action": "subagent", "resource": "scout", "effect": "allow" },
+        { "action": "subagent", "resource": "reviewer", "effect": "allow" }
+      ]
+    }
+  }
+}

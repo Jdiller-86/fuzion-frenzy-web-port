@@ -1,7 +1,9 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
+import { createDeviceReport } from './device-report.mjs';
+import { createSubmissionProbe } from './submission-probe.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
@@ -9,23 +11,61 @@ self.onmessage = async event => {
   try {
     const clock = createProofClock();
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
-    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()===13;
+    const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
+    const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
+    if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
-    if(metadataAbi && proofTraceCapacity(api)!==1024) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
+    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
     if (timerAbi && ['timer_count','timer_word','dpc_count','dpc_delivered','poll','dpc_recover'].some(name =>
       typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing timer proof ABI');
-    let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile;
+    let consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk;
+    let memoryProfile, mmioProfile;
     if (api.ff_probe_abi() >= 3) {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
-      consoleSettings = parseLocalConsoleSettings(event.data.settingsBytes);
+      consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
       api.ff_probe_misc_flags(consoleSettings.miscFlags);
+      if(nvAbi) {
+        if(typeof api.ff_probe_parental_games!=='function') throw new Error('Missing explicit console-settings ABI');
+        api.ff_probe_parental_games(consoleSettings.parentalControlGames);
+      }
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
+    if(api.ff_probe_abi()===24) {
+      mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
+      const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
+      const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
+      if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
+        primary.initial,secondary.initial)) {
+        throw new Error('Cannot admit the explicit synthetic register window');
+      }
+      for(const entry of mmioProfile.registers.filter(entry=>entry.address!==0xfd001804 && entry.address!==0xfd600140)) {
+        if(typeof api.ff_probe_mmio_add!=='function' || api.ff_probe_mmio_add(entry.address,entry.initial)) {
+          throw new Error('The private module cannot seed the explicit extra register profile');
+        }
+      }
+      for(const range of mmioProfile.zeroRanges ?? []) {
+        if(typeof api.ff_probe_mmio_zero!=='function' || api.ff_probe_mmio_zero(range.address,range.bytes)) {
+          throw new Error('The private module cannot seed the explicit zero range');
+        }
+      }
+    }
+    let pfifoProfile;
+    if (typeof api.ff_probe_pfifo_profile === 'function') {
+      pfifoProfile = parseLocalPfifoProfile(event.data.settingsBytes);
+      if (pfifoProfile && api.ff_probe_pfifo_profile(pfifoProfile.base, pfifoProfile.end, pfifoProfile.put))
+        throw new Error('Cannot admit the explicit synthetic empty PFIFO ring profile');
+    }
+    if(statisticsAbi) {
+      memoryProfile=parseLocalMemoryProfile(event.data.settingsBytes);
+      if(api.ff_probe_memory_profile(memoryProfile.physicalPages,memoryProfile.baselinePoolPages)) {
+        throw new Error('Cannot admit explicit modeled physical-memory accounting');
+      }
+    }
     if (volumeAbi) {
       if (['volume_profile','volume_word','volume_handle_word'].some(name => typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing local volume ABI');
       volumeProfile = parseLocalVolumeProfile(event.data.settingsBytes);
@@ -37,6 +77,38 @@ self.onmessage = async event => {
       const total = BigInt(volumeProfile.totalAllocationUnits), available = BigInt(volumeProfile.availableAllocationUnits);
       if (api.ff_probe_volume_profile(Number(total & 0xffffffffn), Number(total >> 32n), Number(available & 0xffffffffn),
           Number(available >> 32n), volumeProfile.sectorsPerAllocationUnit, volumeProfile.bytesPerSector)) throw new Error('Cannot admit explicit local volume profile');
+    }
+    if(diskAbi) {
+      diskProfile=parseLocalDiskProfile(event.data.settingsBytes);
+      if(partitionAbi)diskProfile.partitions=parseLocalDiskPartitions(event.data.settingsBytes);
+      if(geometryAbi)diskProfile.geometry=parseLocalDiskGeometry(event.data.settingsBytes);
+      if(informationAbi)diskProfile.partitionInformation=parseLocalPartitionInformation(event.data.settingsBytes);
+      if(dismountAbi)diskProfile.rawVolumes=parseLocalRawDiskVolumes(event.data.settingsBytes);
+      const bytes=BigInt(diskProfile.bytes);
+      if(api.ff_probe_disk_profile(Number(bytes&0xffffffffn),Number(bytes>>32n),diskProfile.sectorBytes,diskProfile.cachePartitions)) {
+        throw new Error('Cannot admit explicit local disk-device profile');
+      }
+      if(partitionAbi)for(const part of diskProfile.partitions) {
+        const offset=BigInt(part.offset),length=BigInt(part.bytes);
+        if(api.ff_probe_disk_partition_profile(part.number,Number(offset&0xffffffffn),Number(offset>>32n),Number(length&0xffffffffn),Number(length>>32n))) {
+          throw new Error('Cannot admit explicit disk-partition backing');
+        }
+      }
+      if(geometryAbi) {
+        const cylinders=BigInt(diskProfile.geometry.cylinders);
+        if(api.ff_probe_disk_geometry_profile(Number(cylinders&0xffffffffn),Number(cylinders>>32n),diskProfile.geometry.tracksPerCylinder,diskProfile.geometry.sectorsPerTrack)) {
+          throw new Error('Cannot admit explicit disk geometry');
+        }
+      }
+      if(informationAbi)for(const info of diskProfile.partitionInformation) {
+        if(api.ff_probe_disk_partition_information(info.number,info.hiddenSectors,info.partitionType,
+          (info.bootIndicator?1:0)|(info.recognizedPartition?2:0)|(info.rewritePartition?4:0))) {
+          throw new Error('Cannot admit explicit partition information');
+        }
+      }
+      if(dismountAbi)for(const partition of diskProfile.rawVolumes) {
+        if(api.ff_probe_disk_raw_volume(partition))throw new Error('Cannot admit fresh RAW-volume attachment');
+      }
     }
     if (namespaceAbi) {
       if (['namespace_init','namespace_count','namespace_word','namespace_name','namespace_target_name','namespace_resolution'].some(name =>
@@ -51,6 +123,8 @@ self.onmessage = async event => {
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
     if(fileClockWindow) fileClockWindow.afterSystemTicks=clock.sample().system.toString();
+    const floatingPointState=api.ff_probe_abi()>=15?Object.fromEntries(
+      ['x87ControlWord','mxcsr','representedConditionBits','x87StackTop'].map((name,i)=>[name,api.ff_probe_fp_word(i)>>>0])):undefined;
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
     const traceCapacity=proofTraceCapacity(api), kernelCapacity=proofKernelCapacity(api);
     if (count < 0 || count > traceCapacity || threadCount > 4 || callCount < 0 || callCount > kernelCapacity) throw new Error('Invalid boot-proof counts');
@@ -64,14 +138,19 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 202: 6, 211: 5, 218: 5, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
+      if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
+      if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
+        scope:'modeled-guest-memory-statistics'};
       if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),
         sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
         sampledSystemTicks: ((BigInt(api.ff_probe_kernel_word(i, 10) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 9) >>> 0)).toString() };
       if (call.ordinal === 184 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 7) >>> 0, regionBytes: api.ff_probe_kernel_word(i, 8) >>> 0 };
+      if (call.ordinal === 168 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 4) >>> 0 };
+      if (call.ordinal === 305 && !call.status) call.output = { fields: Array.from({length:8},(_,n)=>api.ff_probe_kernel_word(i,n+4)>>>0) };
       if (call.ordinal === 202 && !call.status) call.output = { handle: api.ff_probe_kernel_word(i, 8) >>> 0,
         ioStatus: api.ff_probe_kernel_word(i, 9) >>> 0, information: api.ff_probe_kernel_word(i, 10) >>> 0 };
       if (call.ordinal === 218 && !call.status) call.output = { ioStatus: api.ff_probe_kernel_word(i, 7) >>> 0, information: api.ff_probe_kernel_word(i, 8) >>> 0,
@@ -87,7 +166,19 @@ self.onmessage = async event => {
       if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
       if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
-      if(call.ordinal===236 && writeAbi) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
+      const diskTransfer=diskAbi && [219,236].includes(call.ordinal) && call.arguments[0]>=0x60000 && call.arguments[0]<0x70000;
+      if(diskTransfer)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11)};
+      if(diskTransfer && !call.status && call.output.information && api.ff_probe_disk_transfer_details?.()===1) {
+        const wide=(low,high)=>((BigInt(api.ff_probe_kernel_word(i,high)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,low)>>>0)).toString();
+        Object.assign(call.output,{partition:api.ff_probe_kernel_word(i,12)>>>0,position:wide(13,14),relativeOffset:wide(15,16),physicalOffset:wide(17,18)});
+      }
+      if(geometryAbi && call.ordinal===196 && !call.status)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,12)>>>0,
+        information:api.ff_probe_kernel_word(i,13)>>>0,words:Array.from({length:api.ff_probe_kernel_word(i,13)/4},(_,n)=>api.ff_probe_disk_control_word(i,n)>>>0)};
+      if(dismountAbi && call.ordinal===200 && !call.status)call.output={backend:'local-synthetic-raw-volume',
+        ioStatus:api.ff_probe_kernel_word(i,12)>>>0,information:api.ff_probe_kernel_word(i,13)>>>0,
+        volume:api.ff_probe_kernel_word(i,14)>>>0,state:api.ff_probe_kernel_word(i,15)>>>0,
+        references:api.ff_probe_kernel_word(i,16)>>>0,dismounts:api.ff_probe_kernel_word(i,17)>>>0};
+      if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
         writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
@@ -273,7 +364,7 @@ self.onmessage = async event => {
       checks.caseInsensitiveDriveResolution = !!disc && objectNamespace.driveResolution.status===0 && objectNamespace.driveResolution.object===disc.id &&
         objectNamespace.driveResolution.remainingOffset===7 && objectNamespace.driveResolution.remainingBytes===0;
       checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 && disc.mediaReady===0 && created?.output?.mediaReady===0 &&
-        objectNamespace.objects.filter(row=>row.kind===2).every(row=>row.mediaReady===0);
+        objectNamespace.objects.filter(row=>row.kind===2 && row.deviceKind===1).every(row=>row.mediaReady===0);
       checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest;
     }
     const admittedGuestRange = (address, bytes, access) => {
@@ -692,10 +783,169 @@ self.onmessage = async event => {
       virtualMemory.denialDiagnostics = { reservedRead:denied(calls[9].output.baseAddress + 4096,1), readOnlyImageWrite:denied(profile.base,2) };
       checks.reservedAndReadOnlyAccessDenied = Object.values(virtualMemory.denialDiagnostics).every(Boolean);
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: Object.values(checks).every(Boolean), checks,
-      sourceSha256, moduleSha256, consoleSettings, volumeProfile, directoryProfile, fileStorageProfile, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+    if(diskAbi) {
+      const fields=['ready','active','opened','closed','allocatedPages','bytesLow','bytesHigh','sectorBytes','cachePartitions'];
+      localDisk={...Object.fromEntries(fields.map((field,i)=>[field,api.ff_probe_disk_word(i)>>>0])),synthetic:true,persistent:false,
+        cacheRecord:Array.from({length:512},(_,i)=>api.ff_probe_disk_byte(2048+i,0))};
+      if(localDisk.allocatedPages>diskProfile.maxBackingPages || localDisk.cacheRecord.some(byte=>byte>255))throw new Error('Invalid disk observation bounds');
+      const slot=profile.imports.find(entry=>entry.ordinal===40)?.address;
+      if(slot===undefined)throw new Error('Missing declared cache-partition-count import');
+      const address=view.getUint32(slot,true);
+      if(address>ram.length-4 || !admittedGuestRange(address,4,1) || admittedGuestRange(address,4,2)) {
+        throw new Error('Kernel data import must point to readable, read-only guest memory');
+      }
+      localDisk.kernelData={slot,address,value:view.getUint32(address,true),readable:true,writable:false};
+      if(localDisk.kernelData.value!==diskProfile.cachePartitions)throw new Error('Kernel data differs from the explicit disk profile');
+      if(partitionAbi) {
+        const count=api.ff_probe_disk_word(9);
+        if(count!==diskProfile.partitions.length)throw new Error('Incomplete disk-partition backing');
+        localDisk.partitions=Array.from({length:count},(_,i)=>({number:api.ff_probe_disk_partition_word(i,0),
+          offset:((BigInt(api.ff_probe_disk_partition_word(i,2)>>>0)<<32n)|BigInt(api.ff_probe_disk_partition_word(i,1)>>>0)).toString(),
+          bytes:((BigInt(api.ff_probe_disk_partition_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_disk_partition_word(i,3)>>>0)).toString()}));
+        if(JSON.stringify(localDisk.partitions)!==JSON.stringify(diskProfile.partitions))throw new Error('Disk-partition backing differs from the explicit layout');
+      }
+      if(geometryAbi) {
+        localDisk.geometry={ready:api.ff_probe_disk_word(10),cylinders:((BigInt(api.ff_probe_disk_word(12)>>>0)<<32n)|BigInt(api.ff_probe_disk_word(11)>>>0)).toString(),
+          tracksPerCylinder:api.ff_probe_disk_word(13)>>>0,sectorsPerTrack:api.ff_probe_disk_word(14)>>>0};
+        if(localDisk.geometry.ready!==1 || ['cylinders','tracksPerCylinder','sectorsPerTrack'].some(key=>localDisk.geometry[key]!==diskProfile.geometry[key])) {
+          throw new Error('Disk geometry differs from the explicit profile');
+        }
+      }
+      if(informationAbi) {
+        localDisk.partitionInformation=diskProfile.partitions.map((part,i)=>{
+          const flags=api.ff_probe_disk_information_word(i,3)>>>0;
+          if(api.ff_probe_disk_information_word(i,0)!==1)throw new Error('Incomplete partition information');
+          return {number:part.number,hiddenSectors:api.ff_probe_disk_information_word(i,1)>>>0,
+            partitionType:api.ff_probe_disk_information_word(i,2)>>>0,bootIndicator:!!(flags&1),recognizedPartition:!!(flags&2),rewritePartition:!!(flags&4)};
+        });
+        if(JSON.stringify(localDisk.partitionInformation)!==JSON.stringify(diskProfile.partitionInformation))throw new Error('Partition information differs from the explicit profile');
+      }
+      if(partitionAbi && api.ff_probe_disk_transfer_details?.()===1) {
+        localDisk.partitionSamples=[];
+        for(const part of diskProfile.partitions) {
+          const writes=calls.filter(call=>call.ordinal===236 && !call.status && call.output?.partition===part.number && call.output.information>0);
+          if(!writes.length)continue;
+          const positions=[...new Set(writes.map(call=>call.output.relativeOffset))];
+          const selected=[...new Set([...positions.slice(0,3),...positions.slice(-5)])];
+          const samples=selected.map(value=>{
+            const relative=BigInt(value),physical=BigInt(part.offset)+relative;
+            const count=Number(BigInt(part.bytes)-relative<4096n?BigInt(part.bytes)-relative:4096n);
+            if(count<1 || count>4096)throw new Error('Partition sample lies outside explicit backing');
+            return {relativeOffset:value,physicalOffset:physical.toString(),bytes:Array.from({length:count},(_,i)=>{
+              const address=physical+BigInt(i);return api.ff_probe_disk_byte(Number(address&0xffffffffn),Number(address>>32n));
+            })};
+          });
+          localDisk.partitionSamples.push({number:part.number,writes:writes.length,transferredBytes:writes.reduce((total,call)=>total+call.output.information,0),
+            observation:'post-stop-current-backing',samples});
+        }
+      }
+      if(dismountAbi) {
+        if(api.ff_probe_disk_word(15)!==diskProfile.rawVolumes.length)throw new Error('Incomplete RAW-volume attachments');
+        localDisk.volumes=diskProfile.rawVolumes.map((partition,i)=>{
+          const value={partition:api.ff_probe_disk_volume_word(i,0)>>>0,state:api.ff_probe_disk_volume_word(i,1)>>>0,
+            references:api.ff_probe_disk_volume_word(i,2)>>>0,dismounts:api.ff_probe_disk_volume_word(i,3)>>>0};
+          if(value.partition!==partition || ![1,2,3].includes(value.state) || value.references>8 || value.dismounts>1 ||
+             value.state===3 && value.references)throw new Error('Invalid RAW-volume attachment lifetime');
+          return value;
+        });
+      }
+    }
+    if(initializerAbi && state[2]===202 && (state[0]===1 || state[0]===9)) {
+      openFileRequest={...inspectOpenFileRequest(ram,state.slice(6,12),admittedGuestRange),
+        observation:'stopped-before-kernel-result'};
+    }
+    let localFatx;
+    if(fatxAbi) {
+      const mountCount=api.ff_probe_fatx_word(1),fileCount=api.ff_probe_fatx_word(2);
+      if(api.ff_probe_fatx_word(0)!==1 || mountCount>4 || fileCount>16)throw new Error('Invalid FATX provider state');
+      const fieldNames=['id','partition','device','serial','sectorsPerCluster','clusterBytes','entryBytes','rootCluster',
+        'clusterCount','freeClusters','rootClusters','fileObjects'];
+      const mounts=Array.from({length:mountCount},(_,i)=>{
+        const value=Object.fromEntries(fieldNames.map((key,n)=>[key,api.ff_probe_fatx_mount_word(i,n)>>>0]));
+        for(const [key,low] of [['offset',12],['bytes',14],['fatBytes',16],['dataOffset',18],['revision',20]]) {
+          value[key]=((BigInt(api.ff_probe_fatx_mount_word(i,low+1)>>>0)<<32n)|BigInt(api.ff_probe_fatx_mount_word(i,low)>>>0)).toString();
+        }
+        const device=objectNamespace.objects.find(object=>object.id===value.device);
+        if(!device || device.kind!==2 || device.deviceKind!==2 || device.mediaReady!==1 || device.providerObject!==value.id ||
+           ![2,4].includes(value.entryBytes) || !value.rootClusters || value.rootClusters>64 || value.freeClusters>value.clusterCount) {
+          throw new Error('Invalid mounted FATX identity/layout');
+        }
+        return value;
+      });
+      const fileFields=['id','mount','handle','access','share','options','references'];
+      const files=Array.from({length:16},(_,i)=>Object.fromEntries(fileFields.map((key,n)=>[key,api.ff_probe_fatx_file_word(i,n)>>>0]))).filter(file=>file.id);
+      if(files.length!==fileCount || files.some(file=>!file.references || !mounts.some(mount=>mount.id===file.mount)))throw new Error('Invalid FATX file lifetime');
+      localFatx={ready:true,mountCount,fileCount,active:api.ff_probe_fatx_word(3),opened:api.ff_probe_fatx_word(4),closed:api.ff_probe_fatx_word(5),mounts,files,
+        persistent:false,scope:'backed FATX root/size; general file operations unsupported'};
+    }
+    let memoryAccounting;
+    if(statisticsAbi) {
+      if(api.ff_probe_memory_word(0)!==1 || api.ff_probe_memory_word(1)!==memoryProfile.physicalPages ||
+         api.ff_probe_memory_word(2)!==memoryProfile.baselinePoolPages)throw new Error('Memory accounting differs from its explicit profile');
+      const status=api.ff_probe_memory_word(3)>>>0;
+      memoryAccounting={status,profile:memoryProfile,scope:'modeled guest pages; no retail-console equivalence',
+        ...(status===0?{words:Array.from({length:9},(_,n)=>api.ff_probe_memory_word(n+4)>>>0)}:{})};
+    }
+    let deviceRegisters;
+    if(api.ff_probe_abi()===24) {
+      deviceRegisters=createDeviceReport(api, mmioProfile);
+    }
+    const claim = calls.find(call => call.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
+    let guestWritePages;
+    if (typeof api.ff_probe_write_map_size === 'function') {
+      const words = api.ff_probe_write_map_size() >>> 0, pages = [];
+      for (let wordIndex = 0; wordIndex < words; ++wordIndex) {
+        const bits = api.ff_probe_write_map_word(wordIndex) >>> 0;
+        for (let bit = 0; bit < 32; ++bit) if (bits & (1 << bit)) pages.push(wordIndex * 32 + bit);
+      }
+      guestWritePages = { pageBytes: 4096, count: api.ff_probe_write_map_count() >>> 0, pages };
+    }
+    const submissionProbe = deviceRegisters ? createSubmissionProbe({
+      status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
+      allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
+      aliases: deviceRegisters.aliases,
+      events: deviceRegisters.log,
+      writtenPages: guestWritePages?.pages ?? [],
+    }) : { available: false, reason: 'no observed device aperture' };
+    let memoryStatisticsRequest;
+    if(fatxAbi && state[0]===1 && state[2]===181) {
+      const pointer=state[6];
+      if(!pointer || (pointer&3) || !admittedGuestRange(pointer,4,1))throw new Error('Invalid memory-statistics request pointer');
+      const suppliedLength=view.getUint32(pointer,true);
+      memoryStatisticsRequest={pointer,suppliedLength,expectedBytes:36,
+        outputWritable:admittedGuestRange(pointer,36,2),serviceImplemented:false,observation:'stopped-before-kernel-result'};
+    }
+    let originalStartup;
+    if(initializerAbi) {
+      // Read the immutable selected file, not the reused live stack or a guessed catalog.
+      const start=0x281750,end=0x2818a0;
+      const section=profile.sections.find(s=>s.address<=start && end<=s.address+s.fileBytes);
+      if(!section)throw new Error('Original initializer table is outside selected file backing');
+      const table=new DataView(event.data.xbeBytes,section.fileOffset+start-section.address,end-start);
+      const callbacks=Array.from({length:(end-start)/4},(_,i)=>table.getUint32(i*4,true)).filter(Boolean);
+      const callbackFrame=trace.find(row=>row.kind==='enter' && row.address===callbacks[0]);
+      let completed=0,cursor=-1;
+      if(callbackFrame)for(const address of callbacks) {
+        const entry=trace.findIndex((row,i)=>i>cursor && row.kind==='enter' && row.address===address && row.stack===callbackFrame.stack);
+        if(entry<0)break;
+        const returned=trace.findIndex((row,i)=>i>entry && row.kind==='exit' && row.address===address && row.stack===callbackFrame.stack);
+        if(returned<0 || trace[entry].cpu?.fs!==thread.fs || trace[returned].cpu?.fs!==thread.fs ||
+           trace[returned].cpu?.exceptionHead!==trace[entry].cpu?.exceptionHead)break;
+        cursor=returned;completed++;
+      }
+      originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
+        nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
+        completedKernelOperations:calls.filter(call=>call.status===0).length,
+        stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':'unsupported execution boundary',
+        limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
+    }
+    self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      contextWords: typeof api.ff_probe_context_word === 'function'
+        ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
+      sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
       gameBooted: false, memoryBytes: memory.byteLength,
