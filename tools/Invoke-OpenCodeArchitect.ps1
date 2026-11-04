@@ -10,6 +10,7 @@ $sessionPath = Join-Path $repo '.worktrees\opencode-architect-cycle-session.txt'
 $logPath = Join-Path $repo '.worktrees\opencode-architect-cycle.log'
 $lockPath = Join-Path $repo '.worktrees\opencode-architect-cycle.lock'
 $prManager = Join-Path $repo 'tools\Invoke-OpenCodeGitHubPR.ps1'
+$statusPublisher = Join-Path $repo 'tools\Publish-OpenCodeStatus.ps1'
 
 function Test-SourcePublication([string]$path) {
     $dirty = @(git -C $path status --porcelain)
@@ -53,7 +54,18 @@ try {
     $sourceHead = (git -C $repo rev-parse codex/opencode-source).Trim()
     $geometryHead = (git -C $repo rev-parse codex/opencode-geometry).Trim()
     $mainHead = (git -C $repo rev-parse main).Trim()
+    $solCooldownUntil = [DateTimeOffset]::MinValue
+    if (Test-Path -LiteralPath $statePath) {
+        try {
+            $previousState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+            if ($previousState.solCooldownUntil) {
+                $parsedCooldown = [DateTimeOffset]::MinValue
+                if ([DateTimeOffset]::TryParse([string]$previousState.solCooldownUntil, [ref]$parsedCooldown)) { $solCooldownUntil = $parsedCooldown }
+            }
+        } catch { Write-Warning 'Previous architect state unavailable; checking Sol normally.' }
+    }
     $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; head = $head; sourceHead = $sourceHead; geometryHead = $geometryHead; mainHead = $mainHead; model = 'openai/gpt-6.1-sol'; sessionId = $sessionId }
+    if ($solCooldownUntil -gt [DateTimeOffset]::Now) { $state.solCooldownUntil = $solCooldownUntil.ToString('o') }
     $prSnapshot = 'GitHub PR snapshot unavailable; inspect again before approving a merge.'
     try {
         $snapshotOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action Snapshot 2>&1
@@ -97,10 +109,11 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
-                foreach ($candidate in @('openai/gpt-6.1-sol', 'opencode/glm-5.3-flash-free')) {
+                $candidates = if ($solCooldownUntil -gt [DateTimeOffset]::Now) { @('opencode-go/glm-5.3-flash', 'opencode/glm-5.3-flash-free') } else { @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash', 'opencode/glm-5.3-flash-free') }
+                foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
-                    $runPrompt = if ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol allowance or model availability failed. This is the source-only integration branch $head; builder heads are source=$sourceHead and geometry=$geometryHead. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/PROJECT_STATUS.md and the latest checkpoints; inspect those committed refs. Give a provisional read-only progress review for both builder lanes. Do not edit, delegate, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by your provisional advice." }
-                    $agent = if ($candidate -eq 'openai/gpt-6.1-sol') { 'architect' } else { 'reviewer' }
+                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'Linked Sol is usage-limited. You are the authorized budgeted architect fallback for this cycle; references to Sol in the following task mean the project architect role you now occupy. Complete one bounded management or integration result within your 12-step cap. Keep the source-only, exact-head, CI and merge gates, and do not change the product route. ' + $prompt } elseif ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol and the budgeted Go architect are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead and geometry=$geometryHead. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/PROJECT_STATUS.md and the latest checkpoints; inspect those committed refs. Give a provisional read-only progress review for both builder lanes. Do not edit, delegate, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by your provisional advice." }
+                    $agent = if ($candidate -eq 'openai/gpt-6.1-sol') { 'architect' } elseif ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect_fallback' } else { 'reviewer' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
                     } else {
@@ -110,7 +123,11 @@ try {
                     $output += @('model=' + $candidate) + @($runOutput)
                     if ($exitCode -eq 0) { break }
                     $failureText = ($runOutput | Out-String)
-                    if ($candidate -ne 'openai/gpt-6.1-sol' -or $failureText -notmatch '(?i)quota|usage\s+limit|rate\s+limit|allowance|insufficient\s+credits|insufficient\s+balance|\b429\b|model\s+unavailable|model\s+not\s+found') { break }
+                    if ($candidate -eq 'openai/gpt-6.1-sol' -and $failureText -match '(?i)ChatGPT usage limit|subscription_sharing_usage_limit_exceeded') {
+                        $solCooldownUntil = [DateTimeOffset]::Now.AddHours(6)
+                        $state.solCooldownUntil = $solCooldownUntil.ToString('o')
+                    }
+                    if ($candidate -eq 'opencode/glm-5.3-flash-free' -or $failureText -notmatch '(?i)quota|usage\s+limit|rate\s+limit|allowance|insufficient\s+credits|insufficient\s+balance|\b429\b|model\s+unavailable|model\s+not\s+found') { break }
                 }
             } finally { $ErrorActionPreference = $oldPreference }
         } finally { Pop-Location }
@@ -136,7 +153,7 @@ try {
         $summary = if ($match.Success) { $match.Groups[1].Value.Trim() } else { $response }
         if ($summary.Length -gt 1200) { $summary = $summary.Substring(0, 1200) }
         $geometryCycleMatch = [regex]::Match($response, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
-        $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -eq 'openai/gpt-6.1-sol' -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
+        $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash') -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
         $tempPath = $guidancePath + '.tmp'
         $guidance | ConvertTo-Json | Set-Content -LiteralPath $tempPath -Encoding utf8
         Move-Item -LiteralPath $tempPath -Destination $guidancePath -Force
@@ -151,7 +168,7 @@ try {
             $state.publication = 'retry'
             $state.publicationError = $_.Exception.Message
         }
-        if ($modelUsed -eq 'openai/gpt-6.1-sol' -and $state.publication -eq 'published') {
+        if ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash') -and $state.publication -eq 'published') {
             try {
                 $openArgs = @('-Action', 'Ensure', '-ExpectedHead', $after)
                 $openMain = [regex]::Match($response, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
@@ -173,7 +190,7 @@ try {
             }
         }
         $promotion = [regex]::Match($response, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
-        if ($modelUsed -eq 'openai/gpt-6.1-sol' -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
+        if ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash') -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
             try {
                 $mergeOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action MergeMain -ExpectedHead $after 2>&1
                 if ($LASTEXITCODE -ne 0) { throw (($mergeOutput | Out-String).Trim()) }
@@ -188,6 +205,15 @@ try {
         $state.publication = 'deferred_unfinished_integration'
     } else {
         $state.publication = 'deferred_failed_review'
+    }
+    $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+    try {
+        $statusOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $statusPublisher -IssueNumber 4 2>&1
+        if ($LASTEXITCODE -eq 0) { $state.statusPublication = 'updated' }
+        else { $state.statusPublication = 'retry'; $state.statusError = (($statusOutput | Out-String).Trim()) }
+    } catch {
+        $state.statusPublication = 'retry'
+        $state.statusError = $_.Exception.Message
     }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('Architect audit: ' + $state.outcome + ' model=' + $modelUsed)
