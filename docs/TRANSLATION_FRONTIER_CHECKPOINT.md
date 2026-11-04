@@ -15,6 +15,16 @@ This is static reachability plus the retained report; it does not prove the call
 
 Reproduce with `node tools/translation-frontier.mjs research/verification/recomp-title-recomp-title-post-memory-50 --run research/verification/pfifo-setup-01/browser-71-reset-avquery.json`; the text output names `ENTERED 0x001F6EB0 called by 0x001F83C0`.
 
+### `0x1F6EB0` call context (static)
+
+The retained `recomp-post-memory-front-01` seed contains the already-admitted caller `0x1F83C0` (`D3DDevice_SetVertexShader`). At `0x1F8461` it issues a direct `CALL 0x001F6EB0`. Immediately before:
+
+- `ESI` holds `[0x00206720]` and `ECX=ESI` (the device context);
+- `EAX` is the buffer returned by `CALL 0x001FB3B0`; the caller writes `[EAX]=0x41EA0`, `[EAX+4]=0`, `[EAX+8]=0x81E94`, `[EAX+0xC]=6`, `[EAX+0x10]=0` and sets `EDX=[EAX+0x14]`;
+- after `0x1F6EB0` returns, the caller stores `[ESI]=EAX` and calls `0x001F82C0` before its epilogue.
+
+This is static call-site/register evidence only. The callee body is not exported, its semantics are unknown, and no dynamic edge beyond the status-2 stop is proved. `0x1F6EB0` remains unadmitted under the hold; this context is preparation for a future authorized admission, not an admission or fidelity claim.
+
 An independent narrow GLM review (attempted `2026-11-04T09:15:22`; step-capped after completing the checks) found no material defect in the prequery fix or the admission evidence. It confirmed the experiment's `0x1F79A0` enter/exit trace, the `0x1F6EB0` status-2 stop, the 281/405 counts and the module digest; the control stop target `0xFE000094` was then confirmed directly from `browser-71-reset3.json`. The review treats `0x1F6EB0` as a static-reachability boundary, not a proven dynamic edge beyond the stop.
 
 The source-owned admission guards were re-run against the new translation: `verify-seeds.py` reports **32 recorded / 32 offered / 0 unexpected / 0 missing** (the offered seeds match the translation's record exactly), and `verify-translation.py` reports **517 functions, 0 needing rewriting, fully instrumented**.
