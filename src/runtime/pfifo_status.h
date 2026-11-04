@@ -48,4 +48,19 @@ uint32_t ff_pfifo_status_satisfied(const ff_pfifo_status *);
  * whoever owns the FIFO consumer contract must supply the rules that decide when
  * to call it. */
 uint32_t ff_pfifo_status_consumer_update(ff_pfifo_status *, uint32_t offset, uint32_t value);
+/* Reference reset adapter, default-off and initialization-only.
+ *
+ * The pinned xemu reset zeroes the PFIFO register block and then sets
+ * NV_PFIFO_CACHE1_STATUS.LOW_MARK because the method cache is empty
+ * (hw/xbox/nv2a/nv2a.c:307-317), and pfifo_read returns
+ * NV_PFIFO_RUNOUT_STATUS.LOW_MARK for every read (pfifo.c:51-52). The pusher
+ * clears LOW_MARK only before a dispatch (pfifo.c:340) and sets it again after
+ * processing (pfifo.c:242-243), so an empty, unsubmitted cache keeps the reset
+ * value.
+ *
+ * This is not a consumer update: it leaves DMA_PUSH and consumer_updates
+ * untouched, adds no capability, and is idempotent. Call it once before the
+ * guest runs, only when the explicit reference-reset experiment is selected. It
+ * must never be called from a poll or a read. */
+void ff_pfifo_status_reference_reset(ff_pfifo_status *);
 #endif

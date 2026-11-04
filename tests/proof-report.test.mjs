@@ -18,7 +18,7 @@ const report = (edit = {}) => ({
 test('a well-formed startup report validates and is returned unchanged', () => {
   const input = report();
   assert.equal(validateProofReport(input), input);
-  const withExperiments = report({ experiments: ['writeClearing', 'pcrtcVblanks:8'] });
+  const withExperiments = report({ experiments: ['writeClearing', 'pcrtcVblanks:8', 'pfifoReset'] });
   assert.equal(validateProofReport(withExperiments), withExperiments);
   const device = report({
     deviceRegisters: { count: 2, events: 1, entries: [{}, {}], log: [{}] },

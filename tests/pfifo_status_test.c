@@ -56,6 +56,39 @@ int main(void)
     assert(ff_pfifo_status_consumer_update(NULL, FF_PFIFO_CACHE1_STATUS_OFFSET, 1u) == 1);
     assert(ff_pfifo_status_satisfied(NULL) == 0);
     ff_pfifo_status_init(NULL);
+    ff_pfifo_status_reference_reset(NULL);
+
+    /* Reference reset adapter: LOW_MARK is initialized with zero consumer
+     * updates, DMA_PUSH is untouched, and a repeated reset is identical. */
+    ff_pfifo_status_init(&status);
+    ff_pfifo_status_reference_reset(&status);
+    assert(status.cache1_status == FF_PFIFO_CACHE1_STATUS_LOW_MARK);
+    assert(status.runout_status == FF_PFIFO_RUNOUT_STATUS_LOW_MARK);
+    assert(status.dma_push == 0);
+    assert(status.consumer_updates == 0);
+    assert(ff_pfifo_status_satisfied(&status) != 0);
+    ff_pfifo_status_reference_reset(&status);
+    assert(status.cache1_status == FF_PFIFO_CACHE1_STATUS_LOW_MARK);
+    assert(status.runout_status == FF_PFIFO_RUNOUT_STATUS_LOW_MARK);
+    assert(status.dma_push == 0);
+    assert(status.consumer_updates == 0);
+
+    /* The reset preserves an existing guest DMA_PUSH store and unrelated bits. */
+    assert(ff_pfifo_status_write(&status, FF_PFIFO_CACHE1_DMA_PUSH_OFFSET, FF_PFIFO_CACHE1_DMA_PUSH_ACCESS) == 0);
+    ff_pfifo_status_reference_reset(&status);
+    assert(status.dma_push == FF_PFIFO_CACHE1_DMA_PUSH_ACCESS);
+    assert(status.consumer_updates == 0);
+    ff_pfifo_status_init(&status);
+    assert(ff_pfifo_status_write(&status, FF_PFIFO_CACHE1_STATUS_OFFSET, 0x20u) == 0);
+    ff_pfifo_status_reference_reset(&status);
+    assert(status.cache1_status == (0x20u | FF_PFIFO_CACHE1_STATUS_LOW_MARK));
+
+    /* The reset does not clear a state bit that the guest's predicate rejects. */
+    ff_pfifo_status_init(&status);
+    assert(ff_pfifo_status_write(&status, FF_PFIFO_CACHE1_DMA_PUSH_OFFSET, FF_PFIFO_CACHE1_DMA_PUSH_STATE) == 0);
+    ff_pfifo_status_reference_reset(&status);
+    assert(ff_pfifo_status_satisfied(&status) == 0);
+    assert(status.consumer_updates == 0);
 
     /* Bit identities resolved from the full retained reference are encoded, not
      * inferred: LOW_MARK on both status registers, STATE on DMA_PUSH, and the

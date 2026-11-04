@@ -72,6 +72,20 @@ test('experimental register controls default off and require an explicit true', 
   for (const value of [1, 'true', {}, []]) {
     assert.equal(parseLocalMmioProfile(bytes(reached, { engineWait: value })).engineWait, false);
   }
+  /* The PFIFO reference reset state is a separate literal opt-in. */
+  assert.equal(parseLocalMmioProfile(bytes(reached)).pfifoReset, false);
+  assert.equal(parseLocalMmioProfile(bytes(reached, { pfifoReset: true })).pfifoReset, true);
+  for (const value of [1, 'true', {}, []]) {
+    assert.equal(parseLocalMmioProfile(bytes(reached, { pfifoReset: value })).pfifoReset, false);
+  }
+});
+
+test('the PFIFO reset experiment is a default-off flag that leaves the register list unchanged', () => {
+  const off = parseLocalMmioProfile(bytes(reached));
+  assert.equal(off.pfifoReset, false);
+  const on = parseLocalMmioProfile(bytes(reached, { pfifoReset: true }));
+  assert.equal(on.pfifoReset, true);
+  assert.deepEqual(on.registers, reached);
 });
 
 test('unknown device profile keys fail closed', () => {
@@ -81,12 +95,13 @@ test('unknown device profile keys fail closed', () => {
   /* Every supported key is accepted together. */
   const all = parseLocalMmioProfile(bytes(reached, {
     zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }],
-    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true,
+    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true, pfifoReset: true,
   }));
   assert.equal(all.writeClearing, true);
   assert.equal(all.pmcZero, true);
   assert.equal(all.pcrtcVblanks, 4);
   assert.equal(all.engineWait, true);
+  assert.equal(all.pfifoReset, true);
 });
 
 test('experimental device inputs are summarised for the report', () => {
@@ -94,9 +109,9 @@ test('experimental device inputs are summarised for the report', () => {
   assert.deepEqual(describeMmioExperiments(none), []);
   assert.deepEqual(describeMmioExperiments(null), []);
   const all = parseLocalMmioProfile(bytes(reached, {
-    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true,
+    writeClearing: true, pmcZero: true, pcrtcVblanks: 4, engineWait: true, pfifoReset: true,
   }));
-  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'engineWait']);
+  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'engineWait', 'pfifoReset']);
   const one = parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: 2 }));
   assert.deepEqual(describeMmioExperiments(one), ['pcrtcVblanks:2']);
 });

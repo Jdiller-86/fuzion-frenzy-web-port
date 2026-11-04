@@ -1,3 +1,5 @@
+**Later evidence (November 4):** the seam now has a default-off reference-reset adapter (D182) that seeds the pinned empty-cache `LOW_MARK` without a consumer update; the consumer entry point remains unreferenced. See [the reset-state checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md).
+
 # The PFIFO status seam exists; the contract owner does not
 
 November 4, 2026. The reached loop's exit predicates now have a typed, tested seam in source, with no producer and no behaviour change. The ownership question was escalated to the architect again this cycle and **failed with a provider error**, so it remains unresolved. **There is no engine, renderer, timing source or playable screen.**

@@ -1,4 +1,10 @@
-# Continue from the translation frontier reachability filter
+# Continue from the PFIFO reference-reset breakthrough
+
+The latest bounded milestone corrects the earlier consumption-only claim and adds one default-off reference-reset adapter through the existing `ff_pfifo_status` seam. The pinned `nv2a_reset` sets `CACHE1_STATUS.LOW_MARK` for an empty cache (`nv2a.c:307-317`), and `pfifo_read` returns `RUNOUT_STATUS.LOW_MARK` (`pfifo.c:51-52`). `ff_pfifo_status_reference_reset` ORs those bits, leaves `DMA_PUSH` and `consumer_updates` untouched, and is idempotent; the probe applies it once at initialization under `device.pfifoReset`. With the flag, the run leaves the low-mark wait and stops at untranslated `0x1FCB00` (status 2, return `0x1FD4C4`, 404 kernel ops); canonical still stops at 10 on `0xFD000100` and `engineWait` at 12 on `0xFD003214`. GET/PUT writes are identical across all three profiles. The reachability filter reports `entered = 1` for `0x1FCB00`; no frontier expansion was performed. Do not combine `pfifoReset` with `engineWait`, inject from polling, or treat the reset value as a general completion rule.
+
+Validation: runtime suite 133/133, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 327 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T00:46:37-05:00; this cycle follows it.
+
+## Prior: the translation frontier reachability filter
 
 The latest bounded milestone makes the translation frontier reachability-aware. `tools/translation-frontier.mjs --run <report>` intersects the static placeholder list with a retained run's executed functions and partitions it into `entered`, `calledByExecutedCaller` and `staticOnly`. Against `browser-70.json` (276 executed functions) it reports **0 entered**, 66 called by an executed caller (62 on `0x2CD80`) and 35 with only unexecuted callers. None of the 66 is proven taken, so exporting them cannot advance the current execution; the PFIFO wait remains the blocker and speculative expansion is deferred. The filter uses only entered trace addresses because the retained traces contain unmatched tail-call exits; it does not invent call edges and warns on trace truncation. Five new tests bring the frontier suite to 9.
 

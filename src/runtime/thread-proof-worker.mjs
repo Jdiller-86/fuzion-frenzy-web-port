@@ -69,6 +69,12 @@ self.onmessage = async event => {
          api.ff_probe_mmio_engine_wait(mmioProfile.engineWait?1:0)) {
         throw new Error('The private module cannot set the experimental engine-wait control');
       }
+      if(mmioProfile.pfifoReset) {
+        if(typeof api.ff_probe_mmio_pfifo_reset!=='function' ||
+           api.ff_probe_mmio_pfifo_reset(1)) {
+          throw new Error('The private module cannot set the experimental PFIFO reference-reset control');
+        }
+      }
       if(mmioProfile.pcrtcVblanks) {
         if(typeof api.ff_probe_pcrtc!=='function' || api.ff_probe_pcrtc(mmioProfile.pcrtcVblanks)) {
           throw new Error('The private module cannot admit the declared display events');

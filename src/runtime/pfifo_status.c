@@ -52,3 +52,12 @@ uint32_t ff_pfifo_status_consumer_update(ff_pfifo_status *status, uint32_t offse
     ++status->consumer_updates;
     return 0;
 }
+
+void ff_pfifo_status_reference_reset(ff_pfifo_status *status)
+{
+    if (!status) return;
+    /* The reset value is LOW_MARK on both status registers. DMA_PUSH and the
+     * consumer-update counter are untouched; a repeated call is identical. */
+    status->cache1_status |= FF_PFIFO_CACHE1_STATUS_LOW_MARK;
+    status->runout_status |= FF_PFIFO_RUNOUT_STATUS_LOW_MARK;
+}

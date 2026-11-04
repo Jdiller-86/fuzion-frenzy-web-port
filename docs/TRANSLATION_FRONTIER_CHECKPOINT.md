@@ -1,4 +1,33 @@
-# Reachability filter: no frontier placeholder is entered by the retained run
+# The reset run enters one frontier placeholder: 0x1FCB00
+
+November 4, 2026. With the default-off `pfifoReset` experiment the run leaves the PFIFO wait and stops at untranslated `0x1FCB00` (status 2, return `0x1FD4C4`). The reachability filter reports **entered = 1** (`0x1FCB00` called by `0x1FD4A8`), 68 called by an executed caller and 32 with only unexecuted callers. This is the first evidence-based next admission target; **no frontier expansion was performed this cycle**.
+
+## Source-owned tool fix
+
+A status-2 stop target is the untranslated routine itself and does not appear in `originalFunctionsReached`. `parseRunEvidence` now adds it to the entered set, and `tests/translation-frontier.test.mjs` covers a stop target absent from the reached set.
+
+## Measured result
+
+| item | pre-reset | reset |
+| --- | --- | --- |
+| executed functions | 276 | 276 |
+| placeholders entered | 0 | **1 (`0x1FCB00`)** |
+| called by an executed caller | 66 | 68 |
+| only unexecuted callers | 35 | 32 |
+
+The reset run executes `0x1FD4A8`, which statically calls `0x1FCB00`; the run enters the placeholder and stops with status 2. The canonical profile still reports 0 entered.
+
+## Limits
+
+- "Called by an executed caller" remains a static upper bound.
+- The entered target is one run's evidence; a different profile or a later run changes it.
+- The filter does not translate, build, execute, or prove fidelity.
+
+## Next task
+
+Export `0x1FCB00` and its closure, recompose with the guard, build, and rerun with the `pfifoReset` profile. Do not export the remaining untaken-branch targets.
+
+## Prior: pre-reset static-only run
 
 November 4, 2026. The static frontier is now intersected with a retained run report, so the next translation batch can be scoped by executed callers instead of every static target. Against `browser-70.json` (276 executed functions), **0 of 101 referenced placeholders were entered**, 66 have at least one statically-calling function that executed, and 35 have only unexecuted callers. The 66 are untaken branches, not reachable calls: the run stops at the PFIFO wait, not at an untranslated routine. **There is no engine, renderer, timing source or playable screen.**
 

@@ -87,9 +87,17 @@ export function parseRunEvidence(report) {
   if (!Array.isArray(reached) && !Array.isArray(report.trace))
     throw new Error('Run evidence needs originalFunctionsReached or trace');
   const executed = new Set();
+  const entered = new Set();
   if (reached !== undefined) {
     if (!Array.isArray(reached)) throw new Error('originalFunctionsReached must be an array');
     for (const address of reached) executed.add(addressOf(address));
+  }
+  /* A status-2 stop is the untranslated routine itself: it was entered, but it
+   * is not an executed original function and does not appear in the reached set. */
+  if (report.stop !== undefined) {
+    if (!report.stop || typeof report.stop !== 'object' || Array.isArray(report.stop))
+      throw new Error('stop must be an object');
+    if (report.stop.status === 2) entered.add(addressOf(report.stop.target));
   }
   let truncated = false;
   if (report.trace !== undefined) {
@@ -105,7 +113,7 @@ export function parseRunEvidence(report) {
     truncated = Number.isInteger(report.traceCapacity) &&
       report.traceCapacity >= 0 && report.trace.length >= report.traceCapacity;
   }
-  return { executed, truncated };
+  return { executed, entered, truncated };
 }
 
 /* Partition the static frontier by the retained run:
@@ -115,10 +123,10 @@ export function parseRunEvidence(report) {
  * - static-only: no caller executed.
  * Only the first group is proven to affect the current run. */
 export function analyzeReachability(frontier, report) {
-  const { executed, truncated } = parseRunEvidence(report);
+  const { executed, entered: enteredByStop, truncated } = parseRunEvidence(report);
   const entered = [], calledByExecutedCaller = [], staticOnly = [];
   for (const placeholder of frontier.referenced) {
-    if (executed.has(placeholder)) {
+    if (enteredByStop.has(placeholder) || executed.has(placeholder)) {
       entered.push({ placeholder, callers: frontier.referencedBy[placeholder] ?? [] });
       continue;
     }

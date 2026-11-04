@@ -1,3 +1,5 @@
+**Later evidence (November 4):** [the reset-state checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md) shows the pinned `nv2a_reset` supplies `CACHE1_STATUS.LOW_MARK` for an empty cache, so the wait can pass with a reference reset input and no consumer. The measured predicate order below still holds for a profile that does not seed the reset state.
+
 # The remaining exit predicates are PFIFO engine status, not display state
 
 November 4, 2026. With the display interrupt modelled and a profile able to declare vertical-blank events, the reached wait loop still cannot complete. A read-only audit of its exit condition shows why: the three remaining predicates are PFIFO engine status bits, which require a FIFO consumer this lane does not model. **There is no timing source, engine, renderer or playable screen.**

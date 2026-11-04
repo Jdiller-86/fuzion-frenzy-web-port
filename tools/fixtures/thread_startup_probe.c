@@ -77,6 +77,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/device_registers.h"
 #include "../../src/runtime/pcrtc_state.h"
 #include "../../src/runtime/pfifo_dma.h"
+#include "../../src/runtime/pfifo_status.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -824,7 +825,8 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
-static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait;
+static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset;
+static ff_pfifo_status mmio_pfifo_status;
 /* Explicitly experimental: the selected profile must opt in to modelling an
  * acknowledging store, and the same profile without it is the control run. */
 uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
@@ -853,6 +855,16 @@ uint32_t ff_probe_mmio_engine_wait(uint32_t enable)
     mmio_engine_wait = enable;
     return 0;
 }
+/* Explicitly experimental and default-off: apply the pinned reference reset
+ * value (LOW_MARK on both PFIFO status registers) through the existing seam
+ * exactly once at initialization. No consumer update is made, no read or poll
+ * raises anything, and the pushbuffer pointers are untouched. */
+uint32_t ff_probe_mmio_pfifo_reset(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_pfifo_reset = enable;
+    return 0;
+}
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
@@ -867,6 +879,17 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u)))return status;
+    /* Reference reset adapter: one-time initialization through the existing
+     * PFIFO status seam. It sets LOW_MARK on both status registers without a
+     * consumer update and leaves DMA_PUSH and the pushbuffer untouched. */
+    if(mmio_pfifo_reset) {
+        ff_pfifo_status_init(&mmio_pfifo_status);
+        ff_pfifo_status_reference_reset(&mmio_pfifo_status);
+        if((status=ff_device_registers_add_initial(&device_registers,0xFD003214u,
+              ff_pfifo_status_read(&mmio_pfifo_status,FF_PFIFO_CACHE1_STATUS_OFFSET))) ||
+           (status=ff_device_registers_add_initial(&device_registers,0xFD002400u,
+              ff_pfifo_status_read(&mmio_pfifo_status,FF_PFIFO_RUNOUT_STATUS_OFFSET)))) return status;
+    }
     /* Experimental PMC zero status: the reached wait at 0x1FE50D polls bit 24 of
      * NV_PMC_INTR_0, and the only store the original code makes to it is zero
      * (0x1FDFC3), so this register is a status input rather than an acknowledge

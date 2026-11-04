@@ -150,12 +150,13 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
   }
   const entries = device?.registers, window = device?.window;
+  const pfifoReset = device?.pfifoReset === true;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
@@ -198,7 +199,7 @@ export function parseLocalMmioProfile(buffer) {
   const engineWait = device.engineWait === true;
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait };
+    pcrtcVblanks, engineWait, pfifoReset };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -210,6 +211,7 @@ export function describeMmioExperiments(profile) {
   if (profile.pmcZero) active.push('pmcZero');
   if (profile.pcrtcVblanks) active.push(`pcrtcVblanks:${profile.pcrtcVblanks}`);
   if (profile.engineWait) active.push('engineWait');
+  if (profile.pfifoReset) active.push('pfifoReset');
   return active;
 }
 export function parseLocalMemoryProfile(buffer) {

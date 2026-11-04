@@ -133,6 +133,18 @@ test('run evidence accepts a trace-only report and reports truncation', () => {
   assert.equal(evidence.truncated, true);
 });
 
+test('a status-2 stop target is an entered placeholder even when absent from the reached set', () => {
+  const report = analyzeTranslation(reachTranslation);
+  const reach = analyzeReachability(report, {
+    originalFunctionsReached: [0x00100000],
+    stop: { status: 2, target: 0x00100200 },
+  });
+  assert.deepEqual(reach.entered, [{ placeholder: 0x00100200, callers: [0x00100000] }]);
+  assert.equal(reach.executedFunctions, 1);
+  assert.throws(() => parseRunEvidence({ originalFunctionsReached: [1], stop: { status: 2 } }),
+    /invalid function address/);
+});
+
 test('the command line reads a run report without mistaking it for the translation', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'frontier-'));
   fs.writeFileSync(path.join(directory, 'title-functions.inc'), reachTranslation);

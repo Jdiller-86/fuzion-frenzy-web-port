@@ -1,6 +1,6 @@
 # PFIFO engine/consumer handoff
 
-November 4, 2026. The architect assigned the PFIFO engine/consumer contract to a **new engine workstream**; this lane keeps CPU memory/device-aperture and vector/memory-safety ownership. This note is the bounded handoff: seam API, measured polling trace, unresolved register semantics, and the evidence gate for activating producers. It adds no producer rules. **There is no engine, renderer, timing source or playable screen.**
+November 4, 2026. The architect assigned the PFIFO engine/consumer contract to a **new engine workstream**; this lane keeps CPU memory/device-aperture and vector/memory-safety ownership. This note is the bounded handoff: seam API, measured polling trace, unresolved register semantics, the pinned reset rule and the evidence gate for activating producers. It adds no producer rules. **There is no engine, renderer, timing source or playable screen.**
 
 ## What this lane hands over
 
@@ -9,7 +9,8 @@ A producer-free seam in `src/runtime/pfifo_status.h/.c`, unit-tested in `tests/p
 - `ff_pfifo_status_init` — zeroed state;
 - `ff_pfifo_status_read` / `ff_pfifo_status_write` — the three reached offsets (`NV_PFIFO_CACHE1_STATUS` `0x1214`, `NV_PFIFO_RUNOUT_STATUS` `0x0400`, `NV_PFIFO_CACHE1_DMA_PUSH` `0x1220`); guest stores are preserved **verbatim**; unknown offsets rejected;
 - `ff_pfifo_status_satisfied` — the reached exit predicate `cache1 & 0x10 && runout & 0x10 && !(dma_push & 0x10)`;
-- `ff_pfifo_status_consumer_update` — the only consumer-side entry point; **nothing calls it** and activation is disabled until justified.
+- `ff_pfifo_status_consumer_update` - the only consumer-side entry point; **nothing calls it** and activation is disabled until justified;
+- `ff_pfifo_status_reference_reset` - the default-off pinned reset adapter: sets `LOW_MARK` on both status registers, leaves `DMA_PUSH` and `consumer_updates` untouched, and is initialization-only.
 
 The canonical profile stays fail-closed: the three bits are never synthesised and the run stops explicitly.
 
@@ -83,8 +84,8 @@ In the reference pusher (`pfifo.c:298-375`) the first word at `DMA_GET` is a com
 Therefore, in this run:
 
 - **No first method exists to name.** `DMA_PUT == DMA_GET` at every programming site, so the pusher reads no word and the puller is never entered. There is no header, subchannel, method or argument word to cite.
-- **The exact missing input is a non-empty submission**: `DMA_PUT` advanced past `DMA_GET`, containing at least one method header with `METHOD_COUNT > 0` and its data word(s), plus a puller dispatch that returns `num_proc > 0`. The run does not contain it, and the fail-closed profile does not contain it.
-- **The alternative basis is unobserved initial state**: if real hardware marks an already-empty cache `LOW_MARK`, that reset/empty rule would also satisfy the predicate. The reference does not model it (a zeroed `CACHE1_STATUS` is the reset state), so it is not evidence and must not be used.
+- **The exact missing input for the consumer contract is a non-empty submission**: `DMA_PUT` advanced past `DMA_GET`, containing at least one method header with `METHOD_COUNT > 0` and its data word(s), plus a puller dispatch that returns `num_proc > 0`. The run does not contain it, and the fail-closed profile does not contain it.
+- **The reference itself provides the empty-cache reset state**: `nv2a_reset` zeroes the PFIFO register block and then sets `CACHE1_STATUS.LOW_MARK` because the method cache is empty (`hw/xbox/nv2a/nv2a.c:307-317`), and `pfifo_read` returns `RUNOUT_STATUS.LOW_MARK` for every read (`pfifo.c:51-52`). The pusher clears `LOW_MARK` only before a dispatch (`pfifo.c:340`) and sets it after processing (`pfifo.c:242-243`), so an empty, unsubmitted cache keeps the reset value. The synthetic aperture had seeded both as zero, so the wait could not pass; seeding the reference reset value lets it pass (see [the reset-state checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md)). This is an initialization rule, not a consumer update or a forced bit.
 - The guest does own a command builder that advances `DMA_PUT` (`0x1FAF1C`, `PUT = pointer & 0x03FFFFFF`, per the ring checkpoint), but the reached run never executes it before the wait. That submission is the missing input, not a consumable queue.
 
 ### Reset / enable / error / ordering
@@ -149,9 +150,29 @@ Consequences for the reached predicate (`CACHE1_STATUS & 0x10` set, `RUNOUT_STAT
 
 1. The runout condition is free — the reference always reports `LOW_MARK`.
 2. `DMA_PUSH.STATE` (`0x10`) has **no producer** in the reference; it reads back whatever is stored, and the guest writes only `ACCESS` (`0x1`) or `0` to that register, so the clear requirement holds without modelling.
-3. `CACHE1_STATUS.LOW_MARK` is the real gate, and the reference sets it **only after the puller has processed a method**. The run programs a valid DMA channel but leaves `DMA_PUT == DMA_GET == 0` on the empty 512 KB ring, so nothing is processed and `LOW_MARK` never sets; the reference model would also leave the guest waiting.
+3. `CACHE1_STATUS.LOW_MARK` is the real gate. The reference sets it at reset (empty cache) and after the puller processes a method, and clears it only before the next dispatch. The run programs a valid DMA channel but leaves `DMA_PUT == DMA_GET == 0` on the empty 512 KB ring, so no dispatch occurs; the reset value therefore remains set. The pinned reset rule is an initialization input, not a consumer.
 
-That is decisive for the contract: the reached loop is waiting for **actual FIFO consumption of pushed work**. Satisfying it requires a consumer that processes at least one method, which is exactly what the empty-ring profile deliberately refuses to fake. No producer rule is added here; the engine workstream must decide and evidence the consumption contract.
+That is decisive for the contract: the reached loop is waiting for a cache at low mark. The pinned reset rule already supplies that state for an empty, unsubmitted cache; no consumer is needed to satisfy this wait, and no producer rule is added. A future consumer still owns any non-empty submission and the transitions that follow it.
+
+## Explicit reference-reset experiment
+
+The reset rule is wired through the existing `ff_pfifo_status` seam as a separate, default-off input:
+
+- `ff_pfifo_status_reference_reset` sets `CACHE1_STATUS.LOW_MARK` and `RUNOUT_STATUS.LOW_MARK` and touches nothing else. It does **not** call `ff_pfifo_status_consumer_update`, leaves `DMA_PUSH` and `consumer_updates` unchanged, and is idempotent. Call it once before the guest runs, never from a poll or a read.
+- `device.pfifoReset: true` selects it. The probe applies the adapter once during aperture initialization and seeds the two status registers from the seam; the canonical profile leaves it off and stays fail-closed.
+- The adapter has no GET, PUT or guest-memory access: it changes two status words only. The retained runs confirm the `DMA_PUT`/`DMA_GET` writes are byte-for-byte identical across the canonical, `engineWait` and `pfifoReset` profiles.
+
+Measured with module `recomp-post-memory-build-70` (SHA-256 `af2181759af49ba26e6276febbaa6aace3819a5474b550de2376863de181a2e8`):
+
+| profile | stop | routines | kernel ops | device events |
+| --- | --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
+| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
+| `pfifoReset` | **status 2 at `0x1FCB00`** (return `0x1FD4C4`) | 276 | 404 | 12,584 |
+
+The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once, exits the wait on the first iteration, and reaches untranslated `0x1FCB00`. The canonical profile still stops on the unmodeled PMC read, and the `engineWait` control still stops on the status predicate.
+
+No frontier expansion was performed this cycle; `0x1FCB00` is now an evidence-based next target.
 
 ## Constraints carried over
 
@@ -162,14 +183,10 @@ That is decisive for the contract: the reached loop is waiting for **actual FIFO
 
 ## Validation
 
-`npm run test:native` 14/14, `npm run test:evidence` 4/4, runtime suite 126/126, title-seed 25/25, `npm run check` 327 source files and whitespace checks pass. The contract is documentation-only; the status seam remains unreferenced and the canonical profile remains fail-closed.
+`npm run test:native` 14/14 (the status seam now covers the reference reset, zero consumer updates, repeat initialization and preserved stores), `npm run test:evidence` 4/4, runtime suite 133/133, title-seed 25/25, `npm run check` and whitespace checks pass. The adapter is default-off; the canonical profile remains fail-closed.
 
 ## Next task
 
-The engine workstream takes the contract and must return one of three evidenced outcomes:
+The next genuine stop is untranslated `0x1FCB00` (status 2, return `0x1FD4C4`, reached through `0x1FD4A8`). It is now evidence-based for the next admission batch; no frontier expansion was done this cycle.
 
-1. a bounded non-empty submission (`DMA_PUT > DMA_GET` with at least one dispatchable method header and data word) plus a puller that reports `num_proc > 0`, with replayed transitions; or
-2. original/hardware evidence for the empty-cache reset state, if an empty cache is supposed to set `LOW_MARK`, including the exact condition and reset value; or
-3. an explicit decision that the reached wait cannot be satisfied and that the explicit stop is the correct boundary.
-
-Until then this lane keeps the canonical profile fail-closed, adds no producer rule and does not seed a completion bit. Any future activation must cite the evidence gate above.
+The engine workstream still owns any non-empty submission and the transitions after it. This lane does not inject consumer state from a poll or a read, does not treat the reset value as a general completion rule, and does not infer display timing. Any future activation must cite the evidence gate above.
