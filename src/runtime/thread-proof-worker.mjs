@@ -191,6 +191,7 @@ self.onmessage = async event => {
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
         call.output = {
           rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
+          address: api.ff_probe_kernel_word(i, 11) >>> 0,
           eaxBefore: api.ff_probe_kernel_word(i, 7) >>> 0,
           espBefore: api.ff_probe_kernel_word(i, 8) >>> 0,
           eaxAfter: api.ff_probe_kernel_word(i, 9) >>> 0,

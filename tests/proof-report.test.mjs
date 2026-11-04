@@ -17,7 +17,7 @@ const report = (edit = {}) => ({
 
 /* The completed ordinal-2 call must expose the adapter's VOID/EAX/stack effect. */
 const avOutput = (rawWord, edit = {}) => ({
-  rawWord, eaxBefore: 0xdeadbeef, espBefore: 0x3c10c40,
+  rawWord, address: 2111264, eaxBefore: 0xdeadbeef, espBefore: 0x3c10c40,
   eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54, ...edit,
 });
 
@@ -94,19 +94,44 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   })), /requires an explicit raw word/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [],
-  })), /requires a completed ordinal-2 call/);
-  assert.throws(() => validateProofReport(report({
+  })), /requires a recorded ordinal-2 call/);
+  /* A configured profile may truthfully record a denial or a prequery stop; the
+   * report must preserve that instead of presenting it as success. */
+  const denied = report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
-  })), /must complete the ordinal-2 call/);
+  });
+  assert.equal(validateProofReport(denied), denied);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { rawWord: 1 } }],
+  })), /must not carry an output word/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 4, arguments: [0, 6, 0, 2111264] }],
+  })), /must report the unsupported status/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264] }],
-  })), /must carry its raw word/);
+  })), /must carry its raw word, output address/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800304) }],
   })), /must match the declared raw word/);
+});
+
+test('a successful avQuery call must use the observed query shape and output address', () => {
+  const call = (arguments_, output = avOutput(0x00800303)) => report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: arguments_, output }],
+  });
+  for (const arguments_ of [[1, 6, 0, 2111264], [0, 5, 0, 2111264], [0, 6, 1, 2111264], [0, 6, 0, 0]])
+    assert.throws(() => validateProofReport(call(arguments_)),
+      /observed \(0, 6, 0, Result\) query shape/);
+  assert.throws(() => validateProofReport(call([0, 6, 0, 2111264],
+    avOutput(0x00800303, { address: 2111272 }))), /output address must match/);
+  assert.throws(() => validateProofReport(call([0, 6, 0, 2111264],
+    avOutput(0x00800303, { address: undefined }))), /raw word, output address/);
 });
 
 test('the completed avQuery call must expose an unchanged EAX and a 20-byte pop', () => {
@@ -121,20 +146,20 @@ test('the completed avQuery call must expose an unchanged EAX and a 20-byte pop'
   assert.throws(() => validateProofReport(call(avOutput(0x00800303,
     { espBefore: 0xfffffff0, espAfter: 0x00000004 }))), /wrapping stack frame/);
   assert.throws(() => validateProofReport(call(avOutput(0x00800303, { eaxBefore: undefined }))),
-    /must carry its raw word and CPU effect/);
+    /must carry its raw word, output address/);
   assert.equal(validateProofReport(call(avOutput(0x00800303))).calls[0].output.eaxBefore, 0xdeadbeef);
 });
 
 test('an avQuery claim cannot omit the call list or use a non-DWORD value', () => {
-  /* The declaration claims a completed guest call, so an absent call list must
+  /* The declaration claims a recorded guest call, so an absent call list must
    * fail exactly like an empty one. */
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-  })), /requires a completed ordinal-2 call/);
+  })), /requires a recorded ordinal-2 call/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 187, status: 0, arguments: [1] }],
-  })), /requires a completed ordinal-2 call/);
+  })), /requires a recorded ordinal-2 call/);
   /* A report without the experiment may still omit the call list. */
   const plain = report();
   assert.equal(validateProofReport(plain), plain);

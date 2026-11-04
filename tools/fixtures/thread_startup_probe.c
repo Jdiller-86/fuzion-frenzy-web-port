@@ -1732,6 +1732,7 @@ static void av_send_tv_encoder_option(void)
     row[8] = esp_before;
     row[9] = cpu.eax;
     row[10] = cpu.esp;
+    row[11] = args[3]; /* output address the adapter wrote through */
 }
 #endif
 recomp_func_t recomp_lookup_kernel(uint32_t address)

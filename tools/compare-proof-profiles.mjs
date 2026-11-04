@@ -42,14 +42,15 @@ function experimentSet(report) {
 /* The supplied device input profile is the window, initial registers and
  * zero-ranges the run was configured with. Two runs with different supplied
  * inputs are not a controlled comparison even if their experiment names match,
- * so normalise it and require deep equality. */
+ * so require the full profile and compare it deeply. Both reports must carry it:
+ * an absent profile is not evidence that the inputs matched. */
 function suppliedProfile(report) {
   const device = report.deviceRegisters;
-  if (device === undefined || device === null) return null;
+  if (!device || typeof device !== 'object')
+    throw new Error('Each profile must carry its supplied device input profile');
   const supplied = device.supplied;
-  if (supplied === undefined || supplied === null) return null;
-  if (typeof supplied !== 'object')
-    throw new Error('The supplied device input profile must be an object or null');
+  if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied))
+    throw new Error('Each profile must carry its supplied device input profile');
   const window = supplied.window;
   if (!window || !DWORD(window.base) || !DWORD(window.size))
     throw new Error('The supplied device window is malformed');
@@ -65,14 +66,19 @@ function suppliedProfile(report) {
     if (!range || !DWORD(range.address) || !DWORD(range.bytes))
       throw new Error('A supplied device zero range is malformed');
   }
-  return {
-    window: { base: window.base, size: window.size },
-    registers: registers.map(entry => ({ address: entry.address, initial: entry.initial })),
-    zeroRanges: zeroRanges.map(range => ({ address: range.address, bytes: range.bytes })),
-  };
+  return supplied;
 }
 
-const sameSupplied = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+/* Compare the whole supplied profile, including fields this tool does not know
+ * about, so a new or misspelled input cannot slip through as controlled. */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  return value;
+}
+
+const sameSupplied = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
 
 function ordinalTwoCalls(report) {
   if (!Array.isArray(report.calls))
@@ -120,6 +126,12 @@ export function compareProofProfiles(control, experiment) {
     throw new Error('The control profile must record the attempted ordinal-2 call');
   if (!experimentCalls.length)
     throw new Error('The experiment profile must record the completed ordinal-2 call');
+  /* A controlled comparison must observe the same guest call. Differing
+   * arguments would mean a different query reached the binding, not just a
+   * different supplied input. */
+  if (JSON.stringify(controlCalls.map(call => call.arguments)) !==
+      JSON.stringify(experimentCalls.map(call => call.arguments)))
+    throw new Error('The profiles recorded different ordinal-2 call arguments');
   /* validateProofReport already enforces the per-call status/output pairing for
    * both branches; these checks name the comparison invariant explicitly. */
   if (controlCalls.some(call => call.status === 0 || call.output !== undefined))

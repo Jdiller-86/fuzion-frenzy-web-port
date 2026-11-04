@@ -138,6 +138,7 @@ export function validateProofReport(report) {
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryCall = false;
+  let avQueryAttempt = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -154,18 +155,24 @@ export function validateProofReport(report) {
           throw new Error('An unsupported ordinal-2 call must not report success');
         if (call.output !== undefined)
           throw new Error('Unsupported ordinal-2 calls must not carry an output word');
-      } else {
-        if (call.status !== 0)
-          throw new Error('The synthetic avQuery profile must complete the ordinal-2 call');
+      } else if (call.status === 0) {
+        /* The adapter exists for the observed (0, 6, 0, Result) query, so a
+         * successful call must carry exactly that shape and write through its
+         * fourth argument. */
+        if (call.arguments[0] !== 0 || call.arguments[1] !== 6 ||
+            call.arguments[2] !== 0 || call.arguments[3] === 0)
+          throw new Error('The synthetic avQuery call must use the observed (0, 6, 0, Result) query shape');
         /* The guest run must expose the adapter's VOID/EAX/stack effect, not just
          * the raw word, so the integration path is checked as well as the native
          * fixture. */
-        if (!call.output || !dword(call.output.rawWord) ||
+        if (!call.output || !dword(call.output.rawWord) || !dword(call.output.address) ||
             !dword(call.output.eaxBefore) || !dword(call.output.espBefore) ||
             !dword(call.output.eaxAfter) || !dword(call.output.espAfter))
-          throw new Error('The synthetic avQuery call must carry its raw word and CPU effect');
+          throw new Error('The synthetic avQuery call must carry its raw word, output address and CPU effect');
         if (call.output.rawWord !== report.avQueryWord)
           throw new Error('The synthetic avQuery output must match the declared raw word');
+        if (call.output.address !== call.arguments[3])
+          throw new Error('The synthetic avQuery output address must match the fourth call argument');
         if (call.output.eaxAfter !== call.output.eaxBefore)
           throw new Error('The synthetic avQuery call must leave EAX unchanged');
         if (call.output.espBefore > 0xffffffff - 20)
@@ -173,13 +180,23 @@ export function validateProofReport(report) {
         if (call.output.espAfter !== ((call.output.espBefore + 20) >>> 0))
           throw new Error('The synthetic avQuery call must pop the 20-byte stdcall frame');
         avQueryCall = true;
+      } else {
+        /* A configured profile can still truthfully deny or reach the query
+         * before it can be answered; preserve that report instead of presenting
+         * a denial as success. */
+        if (call.status !== 1)
+          throw new Error('A denied synthetic avQuery call must report the unsupported status');
+        if (call.output !== undefined)
+          throw new Error('A denied synthetic avQuery call must not carry an output word');
+        avQueryAttempt = true;
       }
     }
   }
-  /* The declaration is a claim about a completed guest call, so it must hold
-   * even when the report omits the call list entirely. */
-  if (claimsAvQuery && !avQueryCall)
-    throw new Error('The avQuery experiment requires a completed ordinal-2 call');
+  /* The declaration is a claim about a recorded guest call, so it must hold
+   * even when the report omits the call list entirely. A truthful denial counts
+   * as the recorded attempt; a success must satisfy the exact shape above. */
+  if (claimsAvQuery && !avQueryCall && !avQueryAttempt)
+    throw new Error('The avQuery experiment requires a recorded ordinal-2 call');
   return report;
 }
 

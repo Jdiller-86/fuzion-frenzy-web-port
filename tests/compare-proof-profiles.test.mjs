@@ -11,6 +11,14 @@ const startup = (routines, operations) => ({
   totalInitializers: 83, completedInitializers: 83,
   distinctOriginalFunctions: routines, completedKernelOperations: operations,
 });
+const supplied = () => ({
+  window: { base: 0xFD000000, size: 0x01000000 },
+  registers: [{ address: 0xFD001004, initial: 0 }, { address: 0xFD101800, initial: 0 }],
+  zeroRanges: [{ address: 0xFD001000, bytes: 16 }],
+});
+const deviceRegisters = supplied => ({
+  entries: [], log: [], aliases: [], statusWaits: [], count: 0, events: 0, supplied,
+});
 const control = () => ({
   kind: 'thread-startup-boundary',
   phase: 'original-initializer-bringup',
@@ -21,6 +29,7 @@ const control = () => ({
   sourceSha256: digest('a'),
   moduleSha256: digest('b'),
   experiments: ['writeClearing'],
+  deviceRegisters: deviceRegisters(supplied()),
   calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
 });
 const experiment = () => ({
@@ -32,18 +41,10 @@ const experiment = () => ({
   calls: [{
     ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264],
     output: {
-      rawWord: 0x00800303, eaxBefore: 0xdeadbeef, espBefore: 0x3c10c40,
-      eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54,
+      rawWord: 0x00800303, address: 2111264, eaxBefore: 0xdeadbeef,
+      espBefore: 0x3c10c40, eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54,
     },
   }],
-});
-const deviceRegisters = supplied => ({
-  entries: [], log: [], aliases: [], statusWaits: [], count: 0, events: 0, supplied,
-});
-const supplied = () => ({
-  window: { base: 0xFD000000, size: 0x01000000 },
-  registers: [{ address: 0xFD001004, initial: 0 }, { address: 0xFD101800, initial: 0 }],
-  zeroRanges: [{ address: 0xFD001000, bytes: 16 }],
 });
 
 test('the controlled avQuery comparison reports the delta and next stop', () => {
@@ -56,6 +57,7 @@ test('the controlled avQuery comparison reports the delta and next stop', () => 
   assert.equal(result.nextStop.target, 0x1F79A0);
   assert.equal(result.control.ordinal2[0].status, 1);
   assert.equal(result.experiment.ordinal2[0].status, 0);
+  assert.deepEqual(result.deviceInputs, supplied());
 });
 
 test('the comparison rejects a different module or executable', () => {
@@ -92,26 +94,54 @@ test('the comparison requires the avQuery experiment to be the only added input'
   }), /differ only by the avQuery experiment/);
 });
 
-test('the comparison requires identical supplied device inputs', () => {
-  const matched = { ...experiment(), deviceRegisters: deviceRegisters(supplied()) };
-  const result = compareProofProfiles(
-    { ...control(), deviceRegisters: deviceRegisters(supplied()) }, matched);
-  assert.deepEqual(result.deviceInputs, supplied());
-
+test('the comparison requires the full supplied device input profile to match', () => {
   const other = edit => ({
     ...experiment(), deviceRegisters: deviceRegisters({ ...supplied(), ...edit }),
   });
-  const base = { ...control(), deviceRegisters: deviceRegisters(supplied()) };
-  assert.throws(() => compareProofProfiles(base, other({
+  assert.throws(() => compareProofProfiles(control(), other({
     window: { base: 0xFD000000, size: 0x00F00000 },
   })), /different device inputs/);
-  assert.throws(() => compareProofProfiles(base, other({
+  assert.throws(() => compareProofProfiles(control(), other({
     registers: [{ address: 0xFD001004, initial: 1 }],
   })), /different device inputs/);
-  assert.throws(() => compareProofProfiles(base, other({ zeroRanges: [] })),
+  assert.throws(() => compareProofProfiles(control(), other({ zeroRanges: [] })),
     /different device inputs/);
-  assert.throws(() => compareProofProfiles(control(), matched),
+  /* Fields this tool does not know about are still part of the profile. */
+  assert.throws(() => compareProofProfiles(
+    { ...control(), deviceRegisters: deviceRegisters({ ...supplied(), note: 'a' }) },
+    { ...experiment(), deviceRegisters: deviceRegisters({ ...supplied(), note: 'b' }) }),
     /different device inputs/);
+  /* An absent profile is not evidence that the inputs matched. */
+  const empty = { ...control() };
+  delete empty.deviceRegisters;
+  assert.throws(() => compareProofProfiles(empty, experiment()),
+    /must carry its supplied device input profile/);
+  assert.throws(() => compareProofProfiles({
+    ...control(), deviceRegisters: deviceRegisters(null),
+  }, experiment()), /must carry its supplied device input profile/);
+});
+
+test('the comparison requires the same ordinal-2 call arguments', () => {
+  const base = experiment();
+  const shifted = {
+    ...base,
+    calls: [{
+      ...base.calls[0], arguments: [0, 6, 0, 2111272],
+      output: { ...base.calls[0].output, address: 2111272 },
+    }],
+  };
+  assert.throws(() => compareProofProfiles(control(), shifted),
+    /different ordinal-2 call arguments/);
+});
+
+test('a truthful configured denial validates but is not a progress comparison', () => {
+  const denied = {
+    ...experiment(),
+    stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  };
+  assert.throws(() => compareProofProfiles(control(), denied),
+    /must complete ordinal 2 with its declared raw word/);
 });
 
 test('the comparison rejects repeated experiment names', () => {
