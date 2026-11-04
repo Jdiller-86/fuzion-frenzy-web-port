@@ -29,6 +29,17 @@ Module `recomp-post-memory-build-70` rebuilt with the probe/adapters: **SHA-256 
 
 The control's ordinal-2 call remains `{ status: 1, arguments: [0,6,0,2111264] }` with no output. The experiment's call is `{ status: 0, arguments: [0,6,0,2111264], output: { rawWord: 0x00800303 } }`; its experiments list includes `avQuery`. Both reports validate. The raw word is a synthetic test value chosen from the observed consumer domain (PAL-I, SCART, 50 Hz), not a console default and not the withdrawn composer.
 
+## Contract hardening and reproducible comparison
+
+A source review of the committed binding found two fail-closed gaps in `proof-report.mjs`; both are fixed and covered by `tests/proof-report.test.mjs`:
+
+- The "avQuery requires a completed ordinal-2 call" check sat inside `if (report.calls !== undefined)`, so a report that declared `avQuery` and `avQueryWord` but omitted `calls` validated without any completed call. The check now runs after the optional call-list block, so an omitted or empty list both fail. Reports without the experiment may still omit `calls`.
+- `avQueryWord` was checked only as a non-negative integer, so a value above `0xffffffff` passed the report even though the profile parser rejects it. The report now applies the same DWORD bound.
+
+`tools/compare-proof-profiles.mjs` makes the same-module comparison repeatable instead of an ad hoc script. It validates both reports, requires equal `sourceSha256`/`moduleSha256`, requires `avQuery` to be the only added experiment with the control carrying no raw word, requires the control to stop on the unsupported ordinal-2 call and the experiment to complete it and progress, and rejects a missing call list, an extra input or a non-decreasing run. `tests/compare-proof-profiles.test.mjs` covers the accepted comparison, a different module/executable, a control that does not stop on ordinal 2, an experiment that does not progress, an extra experiment, a missing call list and a non-DWORD word. Run against the retained reports, it reproduces: control status 1 at `0xFE000094` (279/404), experiment status 2 at `0x1F79A0` (280/405), next stop `0x1F79A0`.
+
+The independent GLM review could not be obtained: the previous cycle's reviewer attempt failed with `Go usage limit exceeded`. This cycle used the runner's free fallback and did not re-attempt Go, so its current availability was not checked. The fixes above are a source review, not an independent review; independent ABI review of the binding remains outstanding.
+
 ## Limits and next stop
 
 - The binding supplies one synthetic raw DWORD only when explicitly selected; the canonical/default path remains unsupported and still stops at ordinal 2.
@@ -38,4 +49,4 @@ The control's ordinal-2 call remains `{ status: 1, arguments: [0,6,0,2111264] }`
 
 ## Validation
 
-Runtime suite 159/159, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 350 source files and whitespace checks pass. Both reset reports validate. Private profiles, module and reports remain local/ignored.
+Runtime suite 167/167, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 352 source files and whitespace checks pass. Both reset reports validate and the comparison tool reproduces them. Private profiles, module and reports remain local/ignored.

@@ -116,7 +116,10 @@ export function validateProofReport(report) {
     throw new Error('The synthetic AV query word requires the avQuery experiment');
   if (claimsAvQuery && report.avQueryWord === undefined)
     throw new Error('The avQuery experiment requires an explicit raw word');
-  if (report.avQueryWord !== undefined && !integer(report.avQueryWord))
+  /* The profile parser bounds the word to a raw DWORD; the report must apply the
+   * same bound so a hand-written value cannot claim a wider domain. */
+  if (report.avQueryWord !== undefined &&
+      (!integer(report.avQueryWord) || report.avQueryWord > 0xffffffff))
     throw new Error('Malformed synthetic AV query word');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
@@ -134,10 +137,10 @@ export function validateProofReport(report) {
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
+  let avQueryCall = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
-    let avQueryCall = false;
     for (const call of report.calls) {
       if (!call || typeof call !== 'object' || !integer(call.ordinal) || !integer(call.status) ||
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
@@ -161,9 +164,11 @@ export function validateProofReport(report) {
         avQueryCall = true;
       }
     }
-    if (claimsAvQuery && !avQueryCall)
-      throw new Error('The avQuery experiment requires a completed ordinal-2 call');
   }
+  /* The declaration is a claim about a completed guest call, so it must hold
+   * even when the report omits the call list entirely. */
+  if (claimsAvQuery && !avQueryCall)
+    throw new Error('The avQuery experiment requires a completed ordinal-2 call');
   return report;
 }
 

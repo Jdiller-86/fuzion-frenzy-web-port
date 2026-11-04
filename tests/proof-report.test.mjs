@@ -103,6 +103,27 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   })), /must match the declared raw word/);
 });
 
+test('an avQuery claim cannot omit the call list or use a non-DWORD value', () => {
+  /* The declaration claims a completed guest call, so an absent call list must
+   * fail exactly like an empty one. */
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+  })), /requires a completed ordinal-2 call/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 187, status: 0, arguments: [1] }],
+  })), /requires a completed ordinal-2 call/);
+  /* A report without the experiment may still omit the call list. */
+  const plain = report();
+  assert.equal(validateProofReport(plain), plain);
+  for (const avQueryWord of [-1, 0x100000000, 1.5, '1']) {
+    assert.throws(() => validateProofReport(report({
+      experiments: ['avQuery'], avQueryWord,
+      calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: avQueryWord } }],
+    })), /Malformed synthetic AV query word/);
+  }
+});
+
 test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
   const valid = report({
     stop: {
