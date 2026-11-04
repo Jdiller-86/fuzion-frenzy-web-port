@@ -24,6 +24,15 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Narrow GLM review (`2026-11-04T09:15:22`, step-capped after the checks) found no material defect; the control stop target `0xFE000094` and the `0x1F79A0` enter/exit trace were confirmed from the retained reports. A follow-up narrow review at `2026-11-04T10:05:11` of the no-call prequery guard also found no material defect; minor unexercised control-path cases are noted in the binding checkpoint.
 - Presentation: `src/runtime/local-title-proof.mjs` exports `describeAvQueryOutcome`, used by `tools/fixtures/thread_startup_check.html` to label the result as completed, denied/unsupported or prequery; `tests/av-query-outcome.test.mjs` covers it. Runtime 179/179.
 
+## Integrable slice series
+
+- Local branch: `slice-integrable-cc07556` (not pushed).
+- Base: `e406cb3` (`3f97afa^`) plus `21c6c25` “Base: ac207ba native AV-query CI”, which applies only the 7-line `ac207ba` native-AV-query hunk to `.github/workflows/prepare.yml`. The component and fixture blobs already match `ac207ba`.
+- Cherry-picked range: `3f97afa^..d5ee7af` (20 commits) applied with **zero conflicts**; head `7b25c88e56c4d5a21e2777999e9752cadb014b41` (21 commits including the base).
+- Resulting tree differs from `d5ee7af` only by the 7-line `prepare.yml` hunk.
+- Checks in the temporary worktree: `npm run check` passes 354 source files; `npm run test:runtime` passes 178 with 1 skipped (the ignored local XBE is absent in the temporary worktree; the source worktree runs 179/179).
+- No push, merge, `0x1F6EB0` admission or geometry change. This series is ready for the architect's exact-head integration review.
+
 ## Retained admission evidence
 
 - Module `recomp-post-memory-build-71`, SHA-256 `42ee9909ad83092c021226deb94e49999deb64c38d71049e7b7adb76eeb3077b`.
