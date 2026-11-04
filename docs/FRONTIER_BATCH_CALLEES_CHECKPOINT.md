@@ -30,6 +30,10 @@ The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`
 - Both pass byte identity, independent decoder agreement (118/118 and 113/113, no normalizations) and `checked_function_layout` (`mixed=False`, 0 tables).
 - Path B is the three-function batch `0x1F5B70` + `0x1F6300` + shared `0x1FC980`; all three seeds are preflighted and none is in the selection.
 
+### Path A blocker
+
+The gap `0x1FCC7C..0x1FCC97` is **28 bytes of defined byte data** between the 11-entry pointer table and the 2-entry pointer table. The exporter would emit non-pointer `data` parts; `checked_function_layout` accepts only 4-byte pointer data, so a table-aware envelope spanning both tables fails. Do not clear or redefine the byte data to satisfy the guard. Path A needs a byte-data layout capability; Path B (`0x1F5B70` + `0x1F6300` + `0x1FC980`) remains seed-ready.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
