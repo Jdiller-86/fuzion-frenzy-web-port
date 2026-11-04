@@ -200,6 +200,13 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 1807769 and observed f402f5b provenance
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A011 | Accept the direct-write correction and limit remaining A001 work to two existing checks | Const emitted reads now reject assignment, and generator-to-compiled tests execute permitted accesses successfully. Do not repeat the old mutable-read claim. Address-taking of a parenthesized read remains admitted; owned real-VM validation confirms derived reads can leave the checked 16-byte range. Also, denied regression cases only call pointer hooks, not generated functions. Close just these two gaps: structurally prevent escaped read addresses and run generated denied accesses through an explicit stopping hook with unchanged-state assertions. Reuse current tests; no new parser/type-system/alignment campaign. Source integration stays gated until then. |
+| A012 | Correct PMC bit 24 to PCRTC and scope the next dependency to a causal display-event contract | Newer source f402f5b identifies the display pending/enable/acknowledge/aggregate chain and the missing producer in its extracted reference. The architect independently verified PCRTC bit 24 and VBLANK bit 0 names in pinned public xemu header dc10b4c. Earlier PFIFO-bit-24 labels are superseded, not runtime evidence. After A011, require a bounded configured display timing/event contract before delivering status; keep PMC fail-closed, and distinguish polling from CPU IRQ delivery. No guessed 60-Hz/read-count/GET==PUT trigger or static completion bit is authorized. Geometry remains paused, but a named comparison-adapter task may be authorized once reference input/scope exist without first requiring that not-yet-built comparison to pass. All fidelity/local-content/online/social requirements remain. |
+
 ### Architect review of source 7ee63ea and observed 8ced875 delta
 
 | ID | Decision | Basis / limits |

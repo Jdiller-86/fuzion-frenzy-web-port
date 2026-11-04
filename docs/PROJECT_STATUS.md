@@ -1,4 +1,12 @@
-# Architect review: A001 closure rejected by real-VM write-bypass reproduction
+# Architect review: direct writes fixed; escaped-read and generated-denial checks remain
+
+Current fixed source `1807769` prevents the previously demonstrated direct read-as-write using const; do not carry the old mutable-read finding forward. Its codegen regression passes 2/2 and emitter tests 12/12 without skips, but A001 has two remaining branches: address-taking still yields a checked-range pointer that can be used outside that range, and denied tests call macros rather than executing generated functions under a safe stop. Independent owned real-VM validation and review confirm both. Finish only these two deltas before source integration, reusing the existing fixture.
+
+Live source PR #2 advanced to `f402f5b`; its display-provenance checkpoint corrects PMC bit 24 to PCRTC/VBLANK, independently verified against the pinned public xemu register header. It is **not** the previously described PFIFO completion bit. After A001, establish a justified configured display-event producer and pending/enable/reset/aggregation contract; do not synthesize a timing event merely to end polling or conflate it with CPU IRQ delivery. Canonical execution remains the unknown PMC read; explicit pmcZero now reports a bounded status wait, not log exhaustion. No original run was performed here.
+
+Local main `ebd1ebf` (two-line time-specific model-availability reporting) is included by this cycle's merge. Source `1807769`/observed `f402f5b` and geometry `220c2a8` remain unmerged. Geometry's delta is pause documentation only; no new component/reference result. Live PR #1 is clean/green at starting `a57b978`; drafts #2/#3 remain conflicted/open. No duplicate opening or main-merge marker is issued for the changed integration head. See A011/A012 and [the latest checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md). Full fidelity, conversion, playability and planned online/social authority remain unfinished.
+
+## Prior review
 
 Current fixed source review is `7ee63ea`, with the newer live PR #2 delta `8ced875` also inspected; geometry is `818380b`, and local-main marker-governance correction `bb86cfd` is integrated by this review merge as W011. Source and geometry remain unmerged. Live PR #1 was clean/green at starting integration `38a398a`; draft PRs #2/#3 remain conflicted and already open, so no opening markers are appropriate. The changed integration head needs refreshed GitHub review/checks before any main-merge authorization.
 

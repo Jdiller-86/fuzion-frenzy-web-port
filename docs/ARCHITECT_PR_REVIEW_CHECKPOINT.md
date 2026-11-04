@@ -1,5 +1,40 @@
 # Architect PR and execution review
 
+## Current cycle: direct-write fix accepted; two bounded A001 checks remain
+
+Starting integration `a57b9780cb2e3e3214a376a58406338d2f2981c3` was clean. Requested fixed heads are source `1807769cec14f5fa015eac4b8ce61fbea0ac80e3`, geometry `220c2a80063931716280b7a101bf331eec0f9f78`, local main `ebd1ebf75173224ce266ce3ca3eda41cec7f2edb`. The reviewed two-line local-main change makes model-availability reports time-specific; it is included in this cycle's governance merge. It changes no model, permissions or title runtime. Source and geometry remain unmerged.
+
+### A001: narrow the remaining task, do not repeat completed work
+
+Source now emits const vector reads and adds a generator-to-compiled regression. Independent exact-head validation passes Python emitter 12/12, codegen 2/2 with no compiler skips, and device-register C optimized/ASan/UBSan. Const assignment is rejected by the compiler: the previously demonstrated direct read-as-write is **fixed**, and historical claims of a mutable read must not be repeated as current.
+
+Two previously required checks remain, confirmed by source inspection and the independent reviewer/validator:
+
+1. `const RecompXmm *p = &(XMM_MEM(eax));` is still admitted and compiles. An owned real-VM regression reads the next uncommitted page through the derived pointer after only one 16-byte checked access. This is an unsupported escaped-pointer form, not an original title instruction or a request for a general C parser. Return the read by value or reject address-taking structurally, and add the existing required negative address-of check alongside the passing assignment check.
+2. The compiled regression executes generated reads/stores only at permitted addresses. Denied cases call pointer macros directly and compare NULL/bytes. Execute the existing generated functions under a denied access with a stopping/unwinding hook (as production does), assert the stop and unchanged state, and never dereference a returned NULL. Reuse the real VM and generator; no new fixture hierarchy, upstream type copy or CPU-wide audit is needed.
+
+This is the full remaining A001 task. Do not repeat alignment implementation or the fixed direct-assignment reproduction. Const fixes one part; it does not satisfy the address-escape or generated-denial branches. A source merge remains withheld pending those two deltas.
+
+### Current original-execution dependency: display timing, not a PFIFO consumer
+
+At requested source `1807769`, the canonical run still stops on the unknown PMC read `0xFD000100` (276 routines, 83 initializer returns, 403 operations, timerCheck=0). Explicit `pmcZero` now ends at a declared status wait (65 unchanged masked reads), not event-log exhaustion. Neither status supplies an interrupt or engine progress.
+
+Live draft #2 advanced during this review to `f402f5b7ad269be118d0d110a89cebc1ccae0e80`. Its curated provenance checkpoint identifies PMC bit 24 as **PCRTC**, not PFIFO, with pending/enabled display status and a missing event producer in the extracted reference. The architect independently checked the pin `dc10b4cea96e403d30c17ed53551fdaf023bc17f` public xemu `hw/xbox/nv2a/nv2a_regs.h`: line 67 defines `NV_PMC_INTR_0_PCRTC (1 << 24)`; lines 655–658 define PCRTC pending/enabled VBLANK bit 0. This verifies register identity, not the complete timing implementation, guest execution or fidelity. Earlier PFIFO-bit-24 labels are superseded. The newer full source head is not integration-reviewed or executed here.
+
+After the two A001 deltas, define one bounded display-event contract from retained evidence: pending/enable/acknowledge/reset and PMC aggregation, a justified configured timing transition and budgets, and explicit stops for unknown modes or missing producer. No arbitrary 60-Hz timer, poll-count trigger, GET==PUT implication, static status bit or forced return is approved. A polled display status and CPU IRQ delivery are separate contracts. The experimental acknowledge/control and canonical fail-closed PMC boundary stay intact.
+
+### Geometry, PRs and limits
+
+Geometry `220c2a8` is documentation-only and correctly records the pause; no new runtime/reference evidence exists. Whole-chain and retained-reference acceptance remain required for integration. Clarification: once an admissible reference and named bounded review task exist, the architect may authorize the minimal comparison adapter **before** the comparison succeeds; do not impose a circular requirement that the comparison already pass before its adapter can be built. There is no such authorized task now; keep the lane paused without more fixtures/topology.
+
+Live GitHub read-only verification: #1 open/non-draft/clean/mergeable at `a57b978` over main `1a67c4f`, with Linux/Windows preparation successful; #2 open draft/conflicted at `f402f5b`; #3 open draft/conflicted at `220c2a8`. Existing PRs merit retention, not duplicate openings or builder approval. No opening or merge marker is issued. The changed integration head must be published and rechecked before main authorization; no PR or credential helper was invoked by the architect.
+
+No original module or private input was accessed or run. The independent tests used only owned synthetic RAM/source. Scout's prior-gate lookup was checked against the recorded requirements; it did not approve the new code. Full fidelity, browser-local conversion, rendering/playability and all online/social/control/authority goals remain unfinished. A011/A012 govern the narrowed priorities.
+
+Current integration checks pass: `npm run check` (293 source files), `npm run test:runtime` (110/110), `git diff --check`, and offline parsing of the changed cycle script. No runner was invoked. These are source/governance checks, not original-game execution. The only imported executable-script change is the reviewed two-line scheduling-prompt correction; no builder device/vector/geometry implementation is included.
+
+## Previous cycle
+
 ## Latest cycle: vector closure rejected; experiment separation improved
 
 Starting integration `38a398a4533c63a4def196929af7de21217c8265` was clean. Fixed requested heads: source `7ee63ea333460b10481ce45ad4ab04525f8521f3`, geometry `818380b868db0dbf5b4519f7e84e270de84a4011`, local main `bb86cfd89b4da4246a5e5ce65c8b22fd6823fe1a`. Local-main governance is integrated by this cycle's merge; its sole decision-log conflict preserves all existing histories and records the revised D075 as W011, superseding W010's automatic-opening wording. Both changed PowerShell blobs passed offline parsing, and the exact marker/head gating was inspected without invoking either runner or credentials. Existing PRs require no opening marker, and this cycle requests no duplicate PR.

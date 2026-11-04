@@ -1,4 +1,10 @@
-# Architect handoff: one generator-to-VM safety regression before more alignment or engine work
+# Architect handoff: two final A001 checks, then the display-event contract
+
+Latest fixed source review is `1807769`, with observed newer provenance `f402f5b`; geometry is `220c2a8`, all unmerged. Read [the current checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A011/A012. Const reads fix the direct-write defect. Do not repeat that completed work. Remaining: prevent the already-required parenthesized address-of escape and execute generated denied read/store functions under an explicit stopping/unwinding hook, asserting unchanged state instead of merely comparing pointer macros to NULL. Reuse the existing generator/VM fixture; no new parser, type system or alignment expansion.
+
+After those two deltas, scope display/vblank pending/enable/acknowledge/reset/PMC aggregation and a justified configured event producer. PMC bit 24 is PCRTC, **not PFIFO**; the name is independently verified in the pinned public header. Keep canonical PMC fail-closed and the explicit experiments/control intact; no guessed cadence, poll-count trigger, GET-based event or CPU IRQ injection. Geometry stays paused; a specifically approved reference adapter may precede its successful comparison once admissible input exists, avoiding a circular resumption gate. Existing PRs #1–#3 need no opening markers; source/geometry are not approved and changed-head main checks remain outstanding.
+
+## Prior handoff
 
 Latest review: source `7ee63ea`, observed newer delta `8ced875`, geometry `818380b`, all unmerged. Read [the current checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A009/A010. A001 is **not** closed: the emitted parenthesized read-as-write mutates synthetic PAGE_READONLY RAM despite passing current tests. Implement a structurally non-writable/by-value generated read or strict admitted grammar, and run the actual generator output against the existing real VM fixture to prove denial before mutation. Do not add another expected-shape-only test or expand alignment scope instead. The newer host alignment stop fixes a separate problem, not this one.
 

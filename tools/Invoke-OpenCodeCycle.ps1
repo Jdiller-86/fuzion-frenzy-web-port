@@ -114,6 +114,7 @@ try {
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
+    if ($Lane -eq 'primary') { $prompt += ' Treat model availability as time-specific: do not repeat an old Sol usage-limit result as current. If Sol was not attempted this cycle, say its current availability was not checked; if it was attempted, record the new result and time.' }
     if ($Lane -eq 'geometry') {
         $prompt += ' If the free model is unavailable, preserve edits and retry at the next scheduled geometry cycle; do not change providers or consume Go or Codex allowance.'
     } else {
@@ -131,6 +132,7 @@ try {
                 if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
                 if ($guidance.approved -and $guidance.model -eq 'openai/gpt-6.1-sol') {
                     $prompt += " The Sol project architect approved this current priority directive for lane $Lane from integration head $($guidance.head): $brief Follow it within your lane ownership after checking current evidence; report any conflict with the user's requirements or a newer verified result."
+                    $prompt += " Sol completed this architect review at $($guidance.created). Any older 'Sol unavailable' or usage-limit report in this persistent session is superseded. Do not repeat that claim unless a new Sol attempt actually fails; record the new error and time if it does. This past success does not guarantee current quota."
                 } else {
                     $prompt += " Provisional hourly review for lane $Lane (not an approved design decision): $brief Verify independently and do not change the project route on this advice alone."
                 }
