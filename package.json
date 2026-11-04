@@ -22,7 +22,7 @@
     "build": "node tools/build-web.mjs",
     "preview": "node tools/serve-web.mjs --built",
     "test:gameplay": "node --test tests/twisted-system.test.mjs tests/local-input.test.mjs tests/browser-safety.test.mjs tests/web-delivery.test.mjs",
-    "test:runtime": "node --test tests/runtime-proof.test.mjs tests/startup-proof.test.mjs tests/device-report.test.mjs tests/mmio-profile.test.mjs tests/submission-probe.test.mjs tests/pfifo-scan.test.mjs tests/pfifo-decode.test.mjs tests/pfifo-ring.test.mjs tests/gamepad-adapter.test.mjs tests/controller-source.test.mjs tests/host-step.test.mjs tests/proof-report.test.mjs",
+    "test:runtime": "node --test tests/runtime-proof.test.mjs tests/startup-proof.test.mjs tests/device-report.test.mjs tests/mmio-profile.test.mjs tests/submission-probe.test.mjs tests/pfifo-scan.test.mjs tests/pfifo-decode.test.mjs tests/pfifo-ring.test.mjs tests/gamepad-adapter.test.mjs tests/controller-source.test.mjs tests/host-step.test.mjs tests/proof-report.test.mjs tests/translation-frontier.test.mjs",
     "test:native": "node tools/run-native-tests.mjs",
     "test:evidence": "node tools/run-python-tests.mjs"
   }
