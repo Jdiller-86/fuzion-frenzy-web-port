@@ -8,6 +8,7 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $source = Join-Path $repo '.worktrees\opencode-source'
 $architect = Join-Path $repo '.worktrees\opencode-architect'
 $apiBase = 'https://api.github.com/repos/Jdiller-86/fuzion-frenzy-web-port'
+$notificationStatePath = Join-Path $repo '.worktrees\opencode-status-notification.json'
 
 function Read-State([string]$name) {
     $path = Join-Path $repo ('.worktrees\' + $name + '-cycle-state.json')
@@ -43,6 +44,25 @@ $geometryStatus = if ($geometry) { "$(Clean-Line $geometry.outcome) on $(Clean-L
 $architectStatus = if ($manager) { "$(Clean-Line $manager.outcome) on $(Clean-Line $manager.model)" } else { 'unavailable' }
 $sourceCommit = Clean-Line (Get-Head $source)
 $architectCommit = Clean-Line (Get-Head $architect)
+$cycleFinished = if ($manager -and $manager.finished) { [string]$manager.finished } else { '' }
+$previousNotification = $null
+if (Test-Path -LiteralPath $notificationStatePath) {
+    try { $previousNotification = Get-Content -LiteralPath $notificationStatePath -Raw | ConvertFrom-Json }
+    catch { $previousNotification = $null }
+}
+$sourceChange = if ($previousNotification -and $previousNotification.sourceCommit -eq $sourceCommit) { 'No new primary commit.' } else { "Primary commit: $sourceCommit." }
+$architectChange = if ($previousNotification -and $previousNotification.architectCommit -eq $architectCommit) { 'No new architect commit.' } else { "Architect commit: $architectCommit." }
+$comment = @"
+### Fuzion Frenzy architect update - $updated
+
+- Architect: $architectStatus. $architectChange
+- Primary builder: $builderStatus. $sourceChange
+- Geometry builder: $geometryStatus.
+- Next checkpoint: $checkpoint
+- Main integration: [PR #1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1).
+
+Original-game browser playability is not established. You can reply here with project direction; replies are not yet imported into the architect's scheduled prompt.
+"@
 $body = @"
 # Fuzion Frenzy development status
 
@@ -59,7 +79,7 @@ Updated $updated by the local OpenCode scheduler. This page shows source-only pr
 This issue is updated in place after each architect cycle, including cycles stopped by model limits. The repository's branch commits and PR checks are the source of truth for published changes.
 "@
 
-if ($DryRun) { Write-Output $body; return }
+if ($DryRun) { Write-Output $body; Write-Output $comment; return }
 
 $credentialLines = @('protocol=https', 'host=github.com', '') | git credential fill
 if ($LASTEXITCODE -ne 0) { throw 'Git credential helper failed.' }
@@ -73,6 +93,12 @@ try {
     $payload = @{ body = $body } | ConvertTo-Json -Compress
     $result = Invoke-RestMethod -Uri ($apiBase + '/issues/' + $IssueNumber) -Method Patch -Headers $headers -ContentType 'application/json' -Body $payload -TimeoutSec 25
     Write-Output ('Updated GitHub status issue: ' + $result.html_url)
+    if ($cycleFinished -and (-not $previousNotification -or $previousNotification.cycleFinished -ne $cycleFinished)) {
+        $commentPayload = @{ body = $comment } | ConvertTo-Json -Compress
+        $posted = Invoke-RestMethod -Uri ($apiBase + '/issues/' + $IssueNumber + '/comments') -Method Post -Headers $headers -ContentType 'application/json' -Body $commentPayload -TimeoutSec 25
+        @{ cycleFinished = $cycleFinished; sourceCommit = $sourceCommit; architectCommit = $architectCommit; commentId = $posted.id } | ConvertTo-Json | Set-Content -LiteralPath $notificationStatePath -Encoding utf8
+        Write-Output ('Posted architect update: ' + $posted.html_url)
+    }
 } finally {
     $token = $null
     $credentialLines = $null
