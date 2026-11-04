@@ -1,6 +1,14 @@
-# Continue from the fail-closed ordinal-2 report contract
+# Continue from the captured consumer AV mode domain
 
-The latest bounded correction prevents the unsupported ordinal-2 service from being reported as successful: `proof-report.mjs` rejects a status-0 ordinal-2 call, the observed call remains status 1 with four arguments and no output, and the retained reset report still validates. The unconnected numeric-6 component also denies a four-byte span that crosses the declared VM end and leaves the surrounding bytes unchanged. Original option-6 semantics remain unresolved; no service model, default, binding or frontier admission is added.
+The latest bounded evidence step records the consumer side of the ordinal-2 query. The retained executable's table at `0x202C38` has 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel and **no standard-zero row**, so a zero/no-op result matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value is a D3D compatibility default, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported and no service model, default, binding or frontier admission is added.
+
+Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 335 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
+
+Next: obtain the player's original console AV mode or an authoritative original-kernel observation. If a future decision authorizes an explicit, default-free input, validate it against the observed domain; do not re-enable the withdrawn model or adopt the synthetic replacement value. Do not model option 6, export `0x1F79A0` or fake EAX/NTSTATUS success.
+
+## Prior: continue from the fail-closed ordinal-2 report contract
+
+The prior bounded correction prevents the unsupported ordinal-2 service from being reported as successful: `proof-report.mjs` rejects a status-0 ordinal-2 call, the observed call remains status 1 with four arguments and no output, and the retained reset report still validates. The unconnected numeric-6 component also denies a four-byte span that crosses the declared VM end and leaves the surrounding bytes unchanged. Original option-6 semantics remain unresolved; no service model, default, binding or frontier admission is added.
 
 Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
 

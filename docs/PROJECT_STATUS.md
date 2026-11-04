@@ -1,4 +1,10 @@
-# The unsupported ordinal-2 call cannot report success
+# The consumer AV mode domain is captured; a zero result cannot match
+
+November 4: read-only analysis of the retained executable's table at `0x202C38` found 0xBF rows of 0xC bytes covering NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs, one `0xFF` sentinel row, and **no standard-zero row**. A zero/no-op result therefore matches no row. The retained `xboxrecomp-source` is a kernel replacement whose option-6 value (`0x00400104`) is a D3D compatibility default chosen for mode-table matching, not an original-kernel observation; Cxbx still has no option-6 case. Ordinal 2 remains unsupported: the reset run stays at status 1, target `0xFE000094`, ordinal 2, return `0x1FD429`. No service model, default, binding or frontier admission is added, and `0x1F79A0` is not reached. **There is no controllable original screen.**
+
+Validation: runtime suite 139/139, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 335 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked. See [the mode-domain checkpoint](AV_MODE_DOMAIN_CHECKPOINT.md).
+
+## Prior: The unsupported ordinal-2 call cannot report success
 
 November 4: the report validator now rejects any ordinal-2 call with status 0 while the service remains unsupported. The observed call stays status 1 with four arguments and no output, and the retained reset report still validates. The unconnected numeric-6 component also now denies a query whose four-byte span crosses the declared VM end, leaving the surrounding bytes unchanged. This hardens the fail-closed contract only: original option-6 semantics remain unresolved, no service model, default, binding or frontier admission is added, and `0x1F79A0` is not reached. **There is no controllable original screen.**
 

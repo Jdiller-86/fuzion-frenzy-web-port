@@ -29,7 +29,8 @@
       "repository": "https://github.com/sp00nznet/xboxrecomp.git",
       "commit": "f0f8a461496a4f23d9b0aeaa284b8d70ba7ab82b",
       "directory": "xboxrecomp-source",
-      "scope": "Native-web feasibility candidate; not an accepted complete runtime"
+      "scope": "Native-web feasibility candidate; not an accepted complete runtime",
+      "note": "Locally retained kernel-replacement source at the pinned commit. Its AvSendTVEncoderOption option-6 word (0x00400104) is a synthetic D3D compatibility default chosen for mode-table matching (src/kernel/kernel_hal.c:1463-1510), not an original-kernel observation. Ordinal 2 remains unsupported."
     },
     "capstoneVersion": "5.0.6",
     "windowsWheelSha256": "761c3deae00b22ac697081cdae1383bb90659dd0d79387a09cf5bdbb22b17064",

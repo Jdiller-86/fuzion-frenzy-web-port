@@ -38,6 +38,10 @@ From the retained translation `ff_title_001FD410` and the reset report:
 
 The reset report records the attempted call in the standard call list: `{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }`. These are the four observed call-frame words in argument order; they are evidence, not an interpreted signature. No output word or return value is supplied. `proof-report.mjs` requires exactly four observed arguments, rejects any output on an unsupported ordinal-2 call, and rejects a status-0 call so the unsupported service cannot be reported as successful.
 
+### Consumer-domain evidence
+
+Read-only analysis of the retained executable's table at `0x202C38` (0xBF entries, 0xC bytes) records the accepted domain: NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs; the last entry is an `0xFF` sentinel and **no row has standard `0x00`**. A zero/no-op result therefore matches no row, while the synthetic `xboxrecomp-source` value `0x00400104` matches 33 candidate rows. That source is a kernel replacement whose option-6 word is a D3D compatibility default, not original behavior. The aggregate evidence and limits are in [the mode-domain checkpoint](AV_MODE_DOMAIN_CHECKPOINT.md).
+
 ### Unconnected numeric-6 component
 
 `src/runtime/av_query.h/.c` is one reusable, unconnected component for the observed `(0, 6, 0, Result)` shape. It checks `RegisterBase == 0`, numeric option `6` and `Param == 0`, requires a complete caller-supplied synthetic DWORD with no default, and writes it only when `ff_vm_check` grants the whole four-byte span on a real `ff_virtual_memory` window. A denial leaves every byte unchanged. It supplies no guest return value and mutates no CPU or stack state.
@@ -71,6 +75,7 @@ These remain a labeled reference implementation, not an original-runtime observa
 - The two admitted helpers execute in the original path; the PFIFO reset path is no longer the blocker for this branch.
 - The next dependency is a kernel service, not an untranslated original routine.
 - The numeric-6 memory contract is captured in one reusable, unconnected component; the kernel semantics remain unresolved.
+- The consumer's accepted AV mode domain is captured, and a zero/no-op result cannot match it; the original console's mode is still unknown.
 - The service cannot be modeled from the current evidence: the pinned references conflict, and no original-console observation exists.
 
 ## Limits
@@ -82,4 +87,4 @@ These remain a labeled reference implementation, not an original-runtime observa
 
 ## Next task
 
-Obtain original-console or otherwise authoritative evidence for the ordinal-2 option-6 semantics, or a definitive adjudication of the reference conflict, before modeling anything. Until then keep ordinal 2 unsupported and numeric option 6 neutral: no default, no fixed pack word, no EAX/NTSTATUS success, and no broad closure batch.
+Obtain the player's original console AV mode or an authoritative original-kernel observation. If a future decision authorizes an explicit, default-free input, validate it against the observed mode domain in [the mode-domain checkpoint](AV_MODE_DOMAIN_CHECKPOINT.md); do not re-enable the withdrawn model or adopt the synthetic replacement value. Keep ordinal 2 unsupported and numeric option 6 neutral: no default, no fixed pack word, no EAX/NTSTATUS success, and no broad closure batch.
