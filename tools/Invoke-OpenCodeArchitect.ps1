@@ -112,7 +112,7 @@ try {
                 $candidates = if ($solCooldownUntil -gt [DateTimeOffset]::Now) { @('opencode-go/glm-5.3-flash', 'opencode/glm-5.3-flash-free') } else { @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash', 'opencode/glm-5.3-flash-free') }
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
-                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'Linked Sol is usage-limited. You are the authorized budgeted architect fallback for this cycle; references to Sol in the following task mean the project architect role you now occupy. Complete one bounded management or integration result within your 20-step cap, reserving final steps for a GEOMETRY_CYCLE marker and an ARCHITECT_REVIEW directive. Keep the source-only, exact-head, CI and merge gates, and do not change the product route. ' + $prompt } elseif ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol and the budgeted Go architect are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead and geometry=$geometryHead. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/PROJECT_STATUS.md and the latest checkpoints; inspect those committed refs. Give a provisional read-only progress review for both builder lanes. Do not edit, delegate, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by your provisional advice." }
+                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { "Linked Sol is usage-limited. Act as the authorized budgeted architect under AGENTS.md and docs/OPENCODE_GOAL.md. Integration HEAD=$head; primary=$sourceHead; geometry=$geometryHead; local main=$mainHead. PR snapshot: $prSnapshot. Review the latest committed evidence and prior directive. Finish one bounded integration or management decision; check the existing main PR independently of unfinished builder work. Use Qwen Scout once for a narrow source question if useful. Give Primary and Geometry one concrete next task, acceptance check, and stop condition. If geometry has no actionable reference, choose HOLD. Preserve source-only, original-browser-execution, exact-head, runtime, CI, ancestry, and mergeability gates. Never request a merge from metadata alone. Do not push or operate GitHub directly. Conclude with GEOMETRY_CYCLE: HOLD or RUN; then only justified exact-head OPEN_*_PR or MERGE_MAIN_PR markers; and a final ARCHITECT_REVIEW: Primary: ... Geometry: ... Next integration review: ... . Reserve steps to finish this directive. Do not start another tool action after deciding the final directive." } elseif ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol and the budgeted Go architect are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead and geometry=$geometryHead. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/PROJECT_STATUS.md and the latest checkpoints; inspect those committed refs. Give a provisional read-only progress review for both builder lanes. Do not edit, delegate, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by your provisional advice." }
                     $agent = if ($candidate -eq 'openai/gpt-6.1-sol') { 'architect' } elseif ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect_fallback' } else { 'reviewer' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
@@ -120,6 +120,13 @@ try {
                         $runOutput = & opencode run --auto --agent $agent --model $candidate $runPrompt 2>&1
                     }
                     $exitCode = $LASTEXITCODE
+                    if ($exitCode -eq 0 -and $candidate -eq 'opencode-go/glm-5.3-flash' -and (($runOutput | Out-String) -notmatch '(?m)^ARCHITECT_REVIEW:\s*\S')) {
+                        $finalPrompt = 'Finish this architect cycle now. No tools or additional investigation. Based on the evidence already checked, state the next bounded Primary and Geometry tasks, acceptance checks, and stop conditions. If a main PR merge was not fully proven, omit MERGE_MAIN_PR. End with GEOMETRY_CYCLE: HOLD or RUN, followed by any already justified exact-head PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Next integration review: ... .'
+                        if ($sessionId) { $finalOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $finalPrompt 2>&1 }
+                        else { $finalOutput = & opencode run --auto --agent $agent --model $candidate $finalPrompt 2>&1 }
+                        $exitCode = $LASTEXITCODE
+                        $runOutput = @($runOutput) + @($finalOutput)
+                    }
                     $output += @('model=' + $candidate) + @($runOutput)
                     if ($exitCode -eq 0) { break }
                     $failureText = ($runOutput | Out-String)
@@ -168,7 +175,7 @@ try {
             $state.publication = 'retry'
             $state.publicationError = $_.Exception.Message
         }
-        if ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash') -and $state.publication -eq 'published') {
+        if ($guidance.approved -and $state.publication -eq 'published') {
             try {
                 $openArgs = @('-Action', 'Ensure', '-ExpectedHead', $after)
                 $openMain = [regex]::Match($response, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
@@ -190,7 +197,7 @@ try {
             }
         }
         $promotion = [regex]::Match($response, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
-        if ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash') -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
+        if ($guidance.approved -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
             try {
                 $mergeOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action MergeMain -ExpectedHead $after 2>&1
                 if ($LASTEXITCODE -ne 0) { throw (($mergeOutput | Out-String).Trim()) }
