@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 6c4ec73, live e406cb3 and geometry c12d17a
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A022 | Accept scoped adapter mechanics, repair declaration-versus-execution and controlled-input evidence before further admission | Source6c4ec73 implements explicit default-off raw-DWORD binding with the reviewed component, no EAX assignment and checked ESP+20; actual-adapter native/sanitizer tests pass. Lane reports same-module588c0dd5 reset1/ordinal2 versus synthetic2/0x1F79A0 and CPU effect; this remains synthetic/lane-reported, not architect-replayed fidelity or an executed helper body. Sol reproduced reporting defects at6c4ec73 and newer e406cb3: unsupported option5 success and mismatched paired call arguments validate, different parsed console miscFlags pass comparison, truthful configured-but-denied/prequery stops are rejected. Activation declares input, not successful execution; preserve real failures and validate shape/CPU/output only on actual success. Compare all unchanged input-profile values (not dynamic outputs) and exact call arguments using retained local profiles or immutable input snapshots/digests. Newere406cb3 already fixes supplied MMIO inputs/duplicate experiment names: do not repeat that closed work. One small evidence correction/revalidated pair is primary's next task; no new framework, hardware prerequisite or helper admission yet. Scoped adapter review is direct Sol plus executed owned tests; Go builder/reviewer calls failed quota, no independent GLM approval is invented. A001/A020 stay accepted; storage/geometry holds and no whole-source/main integration remain. |
+
 ### Architect review of source b559f03 and geometry 45f372c
 
 | ID | Decision | Basis / limits |

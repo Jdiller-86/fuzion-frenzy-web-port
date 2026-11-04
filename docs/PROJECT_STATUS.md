@@ -1,4 +1,14 @@
-# Architect review: numeric6 component accepted; next is one synthetic binding experiment
+# Architect review: synthetic adapter delivered; failure reporting and one-factor evidence need correction
+
+Fixed source6c4ec73 implements the A021 default-off raw-DWORD query adapter. Scoped mechanics and native/sanitizer tests accepted: component writes checked LE bytes, EAX stays unchanged, ESP advances20 only on success. Lane reports module588c0dd5 control status1/ordinal2/return0x1FD429,279/404 versus explicit0x00800303 status2/0x1F79A0/return0x1F83ED,280/405, with observed EAX0→0/ESP62983352→62983372. This is curated synthetic startup, not architect replay, original AV settings/hardware fidelity or execution of the stopped helper body. No new helper admission.
+
+A022 directs one evidence correction: input activation must not require successful query execution; retain configured denied/prequery reports, enforce actual successful(0,6,0,Result) shape and compare exact paired arguments/full unchanged input profiles. Sol executed repros against6c4ec73 and livee406cb3: Option5 success and mismatched args validate, parsed console miscFlags1 versus2 pass comparison; truthful denied/prequery stops are rejected. Newere406cb3 already fixes supplied-MMIO equality/duplicate names, so those findings stay closed. Revalidate the retained local pair after focused regression fixes, no generic framework/default/hardware prerequisite or frontier batch. See [A022](AV_ENCODER_BOUNDARY_REVIEW.md).
+
+Go validation/reviewer attempts failed usage limits. Direct Sol validation at requested6c4ec73: publication352 files,runtime167 pass/1 skipped/0 failed (168 total),native20/20 plain+sanitizer. Livee406cb3: publication352 files,runtime169 pass/1 skipped/0 failed (170 total). Production-XBE identity skips because private content is absent; not claimed verified. Node24.22.1 differs from exact24.14.0 pin. All original/private content remained inaccessible/unexecuted here.
+
+Storage holds remain, with targeted missing-metadata preflight improvement acknowledged; no whole filesystem/save/disc acceptance. Geometryc12d17a changes two checkpoint lines only, stays paused/reference-gated. A001/A020/PFIFO fixes accepted. Live PR#1 now startingfd31b2b/clean/green, prior head mismatch not a current reproduced blocker; drafts#2/#3 conflicted/open,source advanced toe406cb3. No duplicate PR/main approval/builder merge/push. Accumulated review/conflicts/exact changed-head gates remain; local main included. No controlled original screen or full fidelity/browser-local conversion/performance/online/social/authority acceptance.
+
+## Retained A021 review
 
 Fixed source `b559f03` completes nullable explicit config (zero valid), bytewise LE, safe unaligned output, actual-component zero/high-bit/two-value/neighbors/span/wrap checks and corrected Cxbx mapping. A021 accepts this owned component gate; original-kernel/settings semantics and whole-source correctness remain unresolved. Ordinal2 is still unsupported in the current committed source at0xFE000094/return0x1FD429 (lane-reported279 routines/404 operations), no0x1F79A0 admission or title artifact replay here.
 
