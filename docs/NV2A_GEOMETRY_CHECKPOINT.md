@@ -1,6 +1,6 @@
 # Filled-triangle geometry component checkpoint
 
-The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers one post-vertex geometry component, not the complete NV2A renderer or original-game fidelity.
+The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers the source-owned post-vertex geometry components, not the complete NV2A renderer or original-game fidelity.
 
 Directive status, November 3 (integration head `a57b9780cb2e3e3214a376a58406338d2f2981c3`): fixture and topology expansion are paused pending an actionable retained reference and a completed whole-chain review. Drafts #2/#3 are retained as-is; draft #2 remains unapproved. PR #1 needs refreshed-head checks and review and has no merge authorization. The Sol architect review completed at 2026-11-03T19:47:36.9741198-05:00 produced this directive; it is an architect-level review, not a geometry whole-chain or retained-reference review, and older Sol-unavailability reports are superseded. The geometry and architect heads remain unmerged. Reported startup progress under synthetic inputs is not rendering, fidelity or playability, and no controllable original screen exists. No component is integration-approved.
 
@@ -65,7 +65,7 @@ Analytic tests cover attribute forwarding, provoking/smooth colors, both row set
 
 ## Source-owned quad-strip component
 
-`ff_nv2a_expand_quad_strip` uses the public quad-strip fill body: odd adjacency primitive IDs emit nothing; even IDs emit `0,1,2` from `calc_triz(2,0,1)` and `2,1,3` from `calc_triz(2,1,3)`. Attribute forwarding, flat provoking color (input 3), smooth per-emitted-vertex colors, the two position row sets and per-triangle depth slope reuse the quad-fill path. Analytic tests cover even/odd parity, forwarded attributes, colors, row sets, depth slopes and invalid state. The captured quad-strip reference comparison and browser prepass remain private and unavailable; further primitive assembly and renderer integration are unimplemented.
+`ff_nv2a_expand_quad_strip` uses the public quad-strip fill body: odd adjacency primitive IDs emit nothing; even IDs emit `0,1,2` from `calc_triz(2,0,1)` and `2,1,3` from `calc_triz(2,1,3)`. Attribute forwarding, flat provoking color (input 3), smooth per-emitted-vertex colors, the two position row sets and per-triangle depth slope reuse the quad-fill path. Analytic tests cover even/odd parity, forwarded attributes, colors, row sets, depth slopes and invalid state. The captured quad-strip reference comparison and browser prepass remain private and unavailable; quad-strip stream assembly and renderer integration remain unimplemented.
 
 ## Source-owned polygon line and point modes
 
@@ -186,6 +186,8 @@ Per the current directive the lane is paused for:
 Retained and unchanged: drafts #2 and #3, the existing source-owned components and the write-bounds checks. Draft #2 remains unapproved; this lane has not re-evaluated either draft. PR #1 has not been checked, reviewed or merged by this lane. The newest source/test change is `818380b` (write-bounds checks); subsequent lane changes have been documentation only.
 
 Provisional review status: a provisional hourly review (reported with Sol unavailable, remote-read verification only, nothing executed or merged) described geometry as documentation-only with the pause respected and assets/references preserved. That is not an approved design decision and does not change this lane's scope or resumption criteria; its primary-lane findings are outside this lane. Independently checked this cycle: the directive/PR head `a57b9780cb2e3e3214a376a58406338d2f2981c3` is not an ancestor of `main` (`ebd1ebf`), and this lane performed no PR check, review, merge or push.
+
+Pause audit at this checkpoint: the three CI native targets compile and pass under the optimized and ASan/UBSan flag sets, and GCC `-fanalyzer` reports no diagnostics for the three implementation files. No geometry fixture, reference, comparator export or topology was added.
 
 Resumption requires all of:
 
