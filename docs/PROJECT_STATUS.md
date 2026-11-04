@@ -1,4 +1,14 @@
-# Architect review: descriptor fixed; premature synthetic query binding rejected
+# Architect review: withdrawal accepted; byte/config contract still incomplete
+
+Fixed source `49a55df` removes the premature query binding/profile/worker and rejects successful ordinal2 reports. This satisfies withdrawal and leaves the last accepted execution boundary at unsupported ordinal2,target0xFE000094,return0x1FD429 (lane reports279 routines/404 operations). Actual reusable `av_query.c/.h` now exists with an actual-component fixture; no original title artifact was replayed here and0x1F79A0 remains unadmitted.
+
+A020 directs a precise finishing task, not another survey: nullable explicit synthetic full-DWORD config, bytewise little-endian stores, safe unaligned success and true whole-span/wrap/protection denial tests with both-side neighbors and high-bit value. Current code has no config-presence gate and native-endian memcpy; end-2 tests fail alignment first, never proving VM-span denial. Keep unconnected/CPU-stack independent and request review before any future binding. See [A020 acceptance](AV_ENCODER_BOUNDARY_REVIEW.md).
+
+New source docs falsely say pinned Cxbx has no numeric6 case. Architect re-fetch proves `common/xbox.h:68` maps AV_QUERY_AV_CAPABILITIES to6; `EmuKrnlAv.cpp:204–205` handles it with SMC/factory/user-derived output. Correct that erroneous premise, not another provenance label. Original-kernel settings/fidelity remain unresolved. A020 supersedes the recorded05:26 capture-only/stop recommendation under this false premise: a hardware observation is optional configuration-specific fidelity evidence, not the sole next move or a prerequisite for owned synthetic work. No more capture validator/schema work. Existing schema is not authentication/actual consumer replay; its wildcard whitelist is not a runtime admission rule.
+
+Independent exact-head validation: publication339 source files,runtime144/144 (15 files,no skips),native16/16 plain+sanitizer via WSL GCC13.3; Node24.22.1 differs from exact24.14.0 pin. Geometry `6b52f66` changes two checkpoint lines only and stays paused/reference-gated. A001/PFIFO labels remain accepted; both builders unmerged. Live PR#1 open/clean/green at3f982c7 (lags architect4e59550),#2/#3 open/conflicted drafts at requested heads/preparation green. No duplicates/promotion: component/reference defects, full accumulated review/conflicts and exact changed-head checks remain. No controllable screen, full fidelity/browser-local conversion/performance or eventual online/social/authority acceptance.
+
+## Retained A019 review
 
 Fixed source `4c1f39f` removes static option/output/writable assertions correctly, but wires option6 through profile/worker/kernel resolver despite A018's unconnected-only scope. Reported0x1F79A0 (return0x1F83ED,280 routines/405 operations) is lane-reported startup under an **unapproved synthetic-binding experiment**, not the accepted original-execution frontier. The last accepted boundary remains unsupported ordinal2 at0xFE000094/return0x1FD429. No title artifact was replayed by the architect.
 

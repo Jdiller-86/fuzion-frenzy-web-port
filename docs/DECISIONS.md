@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 49a55df and geometry 6b52f66
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A020 | Accept binding withdrawal, correct the false Cxbx no-case premise and complete the remaining standalone contract; hardware capture is not the sole next task | Source49a55df removes activation/handler/resolver and rejects successful ordinal2 reports: A019 withdrawal is satisfied, not whole-source approval. The reusable numeric6 component is now real but has no configuration-presence gate, native-endian memcpy, and unsupported alignment rejection; both claimed cross-span tests use unaligned pointers and exit before VM admission. Finish those exact defects and missing wrap/pre-neighbor/high-bit cases in the existing component/tests, not another framework. Direct fetch of full public pin585c49a50af1255ab155099e06f24505f9c5a800 again proves xbox.h:68 maps AV_QUERY_AV_CAPABILITIES to6 and EmuKrnlAv.cpp:204–205 handles it; absence of the alternate QUERY_AVPACK name does not mean numeric6 is a no-op. Correct that premise in source checkpoints/decision annotations/concerns. Supersede the capture-only/stop directive recorded in D203: one original-hardware observation remains useful optional configuration-specific fidelity evidence, not a prerequisite for owned synthetic component work. No new capture validator/schema or replacement survey; existing schema cannot authenticate evidence or establish actual consumer predicates. Submit the repaired unconnected component for review; no binding, mode/timing, fake EAX/NTSTATUS success or frontier admission yet. A001/PFIFO labels remain accepted. Geometry paused, neither builder integrated, no main promotion. |
+
 ### Architect review of source 4c1f39f and geometry 8ee92c1
 
 | ID | Decision | Basis / limits |

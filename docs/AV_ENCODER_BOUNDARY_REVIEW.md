@@ -1,6 +1,22 @@
 # Ordinal 2: establish the reached call contract before emulating an encoder
 
-## Current directive A019: repair the boundary, not the provenance report
+## Current directive A020: withdrawal accepted; finish three concrete component gaps
+
+Source `49a55df77a7f26e728266e9b750eaedb47f355f6` withdraws the profile/worker/resolver binding and rejects status0 ordinal2 reports. This satisfies the withdrawal portion of A019. `src/runtime/av_query.c/.h` is now a reusable unconnected component and its native fixture calls it, not a duplicate writer. Neither fact accepts the complete component contract or whole source branch.
+
+**One small implementation task remains:**
+
+1. Separate explicit synthetic configuration from observed call arguments: e.g. a nullable `const ff_av_query_config *` containing the full DWORD (NULL means absent; explicit zero remains a valid synthetic input). Validate configuration/shape/pointer/span before writes. No default/composer, guest EAX value or CPU/stack dependency.
+2. Remove the unsupported four-byte alignment restriction from this byte-writing component; use four explicit little-endian byte stores rather than host-native `memcpy(&word)`. VM-check the complete span before any store. Existing page-crossing and backing-end tests use `end-2` pointers but fail the alignment guard first, so they do **not** establish the asserted whole-span denial branch. Test a safe unaligned success and unaligned crossing into a read-only/unmapped page/end, plus UINT32_MAX wrapping/out-of-range pointers. Require unchanged backing on every denial, including absent config and unsupported arguments.
+3. Keep the existing two-value actual-component fixture, add one full DWORD with bits outside the old composer, and verify neighbors on **both sides** of successful writes. This is a targeted correction of material byte/admission branches, not a broad fixture campaign. Run existing plain/sanitized native checks and report actual results. Then request bounded component review before any future opt-in ABI/browser wiring; do not re-enable the binding now.
+
+**Correct false reference claims, do not demand hardware as the only next move.** Direct public fetch this cycle of the already linked full pin again yields `common/xbox.h:68` (`AV_QUERY_AV_CAPABILITIES 6`) and `exports/EmuKrnlAv.cpp:204–205` (`case AV_QUERY_AV_CAPABILITIES: *Result = AvQueryAvCapabilities()`). The latter derives the word from SMC/factory/user inputs at118–153. The source lane's `AV_MODE_DOMAIN_CHECKPOINT.md`, `AV_ORIGINAL_CAPTURE_REQUEST.md`, service checkpoint, handoff and decisions conflate absence of the alternate macro `AV_OPTION_QUERY_AVPACK` with absence of numeric6 support. Correct these as superseded erroneous claims, retaining honest history. The reference discrepancy concerns names/layout/composition, not a proven zero/no-op response. Neither emulator replacement establishes original-kernel truth.
+
+The lane records a newer bounded Sol recommendation at05:26 for a hardware observation. A020 supersedes its capture-only/stop direction because the documented no-case premise is demonstrably false and A019's owned-component task remains incomplete. A capture may ground one observed configuration for fidelity, but no physical console/EEPROM/kernel acquisition is required to complete the synthetic component. Do not request hardware or build more capture tooling as a substitute. The existing capture schema's provenance string is not authentication; its `consumerDomainMatch` whitelist is not a replay of the original predicate (a wildcard table pack must not be treated as a closed list of allowed inputs). Keep raw observations local and leave the unused tool unconnected/unpromoted.
+
+The lane-reported aggregate consumer table metadata is retained as static analysis, not independently replayed original execution or a selection of console settings. The accepted execution boundary remains unsupported ordinal2 at0xFE000094/return0x1FD429. No0x1F79A0 admission, success stub, timing/encoder/settings subsystem or further generic report/validator expansion.
+
+## Retained A019 directive: repair the boundary, not the provenance report
 
 At source `4c1f39fb973106f2af97679cdb70ae3471b4abb5`, the static descriptor is now correctly limited to name/ABI. However `da53c06` already connected `ff_probe_av_pack` and `av_send_tv_encoder_option` through the profile, worker and kernel resolver. This violates A018's explicit unconnected-only scope; default-off does not satisfy that scope. The claimed stop at `0x1F79A0` (return `0x1F83ED`,280 routines/405 operations) is lane-reported evidence under an **unapproved synthetic query binding**, not an accepted new original-execution frontier. Do not translate it yet.
 
