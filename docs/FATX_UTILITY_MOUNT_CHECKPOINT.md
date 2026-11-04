@@ -96,10 +96,11 @@ Limits: empty files only. Cluster freeing, directory deletion, data-cluster allo
 - it resolves the parent directory, rejects duplicates/invalid names and requires `1..cluster_bytes` of data;
 - it allocates exactly one free FAT cluster, sets it to the terminal value and records first cluster/size in the new directory entry;
 - it preflights the bounded page store through `ff_disk_store_allocate` and writes the data before the FAT and directory metadata; a capacity failure leaves no directory entry;
+- before writing any data it also preflights the directory-slot page and the selected FAT-entry page, so a sparse backing cannot leave orphaned data or FAT state;
 - it decrements the mount's free-cluster count and refreshes the revision on success;
 - it does not create directories, extend beyond one cluster, free clusters or serve a guest request.
 
-`tests/fatx_volume_test.c` covers a five-byte file, a full 16,384-byte cluster, a zero-filled file, data beyond one cluster, duplicate/invalid names, null/zero data, and a FAT16 volume with no free cluster. Each success is read back and its FAT terminator is checked; each failure leaves the directory, FAT and disk unchanged.
+`tests/fatx_volume_test.c` covers a five-byte file, a full 16,384-byte cluster, a zero-filled file, data beyond one cluster, duplicate/invalid names, null/zero data, a FAT16 volume with no free cluster, and missing directory/FAT backing pages. Each success is read back and its FAT terminator is checked; each failure leaves the directory, FAT and disk unchanged.
 
 Limits: single-cluster, non-empty files only. Multi-cluster allocation, extension, cluster freeing, directory creation/deletion, durable persistence across reloads, guest FATX services and original save-path behavior remain unsupported.
 

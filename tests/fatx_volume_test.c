@@ -45,6 +45,14 @@ static void reset(uint64_t bytes)
     uint32_t open[6]={OUT,0x100003,ATTR,IOSB,0,0x18};memcpy(args,open,sizeof args);
     name("\\Device\\Harddisk0\\Partition5");
 }
+static void drop_page(uint64_t offset)
+{
+    const uint64_t index=offset/FF_DISK_PAGE_BYTES;
+    for(unsigned i=0;i<FF_DISK_PAGES;++i)if(disk.pages[i].used && disk.pages[i].index==index) {
+        disk.pages[i].used=0;--disk.allocated_pages;return;
+    }
+    assert(0);
+}
 static void write_page(uint32_t handle,uint64_t offset)
 {
     uint32_t io[8]={handle,0,0,0,IOSB,DATA,4096,OFFSET};put(OFFSET,offset,8);assert(!ff_disk_write(&disk,io));
@@ -307,6 +315,22 @@ static void fatx_create_file_with_data(void)
     unchanged();
     assert(!ff_fatx_close(&fs,handle));
 }
+static void fatx_create_file_sparse_backing_fails_closed(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
+    ff_fatx_directory_entry created;
+    const uint8_t data[]={0x5a};
+    drop_page(part_base+270336);
+    save();assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"SPARSE.BIN",10,data,1,&created)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    assert(!ff_fatx_close(&fs,handle));
+
+    setup_files(UINT32_MAX,5,2);handle=open_root();
+    drop_page(part_base+4096);
+    save();assert(ff_fatx_create_file(&fs,1,NULL,0,0,(const uint8_t*)"SPARSE.BIN",10,data,1,&created)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    assert(!ff_fatx_close(&fs,handle));
+}
 static void fatx_delete_empty_file(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
@@ -472,6 +496,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_create_file_with_data();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

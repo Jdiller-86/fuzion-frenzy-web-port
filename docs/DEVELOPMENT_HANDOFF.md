@@ -1,4 +1,12 @@
-# Continue from the bounded local disc session
+# Continue from the preflighted FATX single-cluster creation
+
+`ff_fatx_create_file` now preflights the directory-slot page and the selected FAT-entry page before writing any data, in addition to the existing data-page and revision checks. A sparse directory or FAT backing therefore returns `FF_BOOT_UNSUPPORTED` without leaving orphaned data pages or FAT state. The `fatx_volume` fixture adds missing-directory and missing-FAT cases and verifies the directory, FAT and disk stay unchanged.
+
+Validation: runtime suite 157/157, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked; the prior independent GLM review at `2026-11-04T06:35:19.3594903-05:00` remains recorded.
+
+Next: keep single-cluster creation off the runtime path; extend FATX to multi-cluster allocation, extension, cluster freeing or durable persistence only when a reached original save path or an explicit product decision requires it. Keep ordinal 2 unsupported, `0x1F79A0` unadmitted and the geometry lane paused.
+
+## Prior: Continue from the bounded local disc session
 
 A source-owned read-only disc session opens one locally selected bare XISO in a dedicated browser worker. It identifies `default.xbe` by an explicit size/SHA-256, serves requested byte ranges only, limits each read to 65,536 bytes with one outstanding request, returns a bounded inventory of the root or one explicit directory (names/sizes/directory flags only), and terminates/invalidate the session on clear. It does not upload, serve, convert or preload the whole image, and it is not connected to the guest runtime. The generated-fixture browser run returned the expected root (`default.xbe`, `data.bin`, `PACKAGES`) and nested (`a.bin`) inventory plus data/executable values, rejected oversized, unsafe, busy and cleared requests, and rejected a non-directory inventory path; the network log contained only source modules and no content-bearing request.
 

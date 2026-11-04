@@ -607,6 +607,10 @@ uint32_t ff_fatx_create_file(ff_fatx_volume *fs,uint32_t id,
     uint32_t cluster;
     status=find_free_cluster(fs,mount,&cluster);
     if(status)return status;
+    const uint64_t fat_address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
+    if(!ff_disk_has(fs->disk,address,64u) ||
+       !ff_disk_has(fs->disk,fat_address,mount->entry_bytes))
+        return FF_BOOT_UNSUPPORTED;
     if(fs->disk->revision>UINT64_MAX-3u)return FF_BOOT_UNSUPPORTED;
     const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
     status=ff_disk_store_allocate(fs->disk,data_address,data,bytes);

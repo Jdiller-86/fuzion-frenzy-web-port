@@ -1,4 +1,10 @@
-# A bounded local XISO session runs in a browser worker
+# FATX single-cluster creation preflights directory and FAT backing
+
+November 4: `ff_fatx_create_file` now preflights the directory-slot page and the selected FAT-entry page before writing any data, in addition to the existing data-page and revision checks. A sparse directory or FAT backing therefore returns `FF_BOOT_UNSUPPORTED` without leaving orphaned data pages or FAT state. The `fatx_volume` fixture adds missing-directory and missing-FAT cases and verifies the directory, FAT and disk stay unchanged. Single-cluster creation remains unconnected, with no directory creation, extension, cluster freeing, durable persistence or guest FATX service. **There is no controllable original screen.**
+
+Validation: runtime suite 157/157, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked; the prior independent GLM review at `2026-11-04T06:35:19.3594903-05:00` remains recorded. See [the FATX checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md).
+
+## Prior: A bounded local XISO session runs in a browser worker
 
 November 4: a source-owned read-only disc session opens one locally selected bare XISO in a dedicated browser worker. It identifies `default.xbe` by an explicit size/SHA-256, serves requested byte ranges only, limits each read to 65,536 bytes with one outstanding request, returns a bounded inventory of the root or one explicit directory (names/sizes/directory flags only), and terminates/invalidate the session on clear. It does not upload, serve, convert or preload the whole image, and it is not connected to the guest runtime. The generated-fixture browser run returned the expected root (`default.xbe`, `data.bin`, `PACKAGES`) and nested (`a.bin`) inventory plus data/executable values, rejected oversized, unsafe, busy and cleared requests, and rejected a non-directory inventory path; the network log contained only source modules and no content-bearing request. An independent GLM review found and fixed a clear-during-open race in the core and added the missing lifecycle tests. Ordinal 2 remains unsupported, `0x1F79A0` unadmitted and no CPU/stack, geometry or frontier work is involved. **There is no controllable original screen.**
 
