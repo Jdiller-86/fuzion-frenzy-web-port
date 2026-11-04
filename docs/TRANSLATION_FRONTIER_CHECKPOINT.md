@@ -1,4 +1,50 @@
-# The admitted translation has 102 known-untranslated callees; 101 are referenced
+# Reachability filter: no frontier placeholder is entered by the retained run
+
+November 4, 2026. The static frontier is now intersected with a retained run report, so the next translation batch can be scoped by executed callers instead of every static target. Against `browser-70.json` (276 executed functions), **0 of 101 referenced placeholders were entered**, 66 have at least one statically-calling function that executed, and 35 have only unexecuted callers. The 66 are untaken branches, not reachable calls: the run stops at the PFIFO wait, not at an untranslated routine. **There is no engine, renderer, timing source or playable screen.**
+
+## Source-owned change
+
+`tools/translation-frontier.mjs` gains `--run <report.json>` and the exported `parseRunEvidence` / `analyzeReachability`:
+
+- accepts `originalFunctionsReached` and/or a `trace`; validates the report object, address range and `enter`/`exit` kinds;
+- uses only entered addresses from the trace, because the retained traces contain unmatched exits from tail calls and returns; it deliberately does not reconstruct a call stack or claim dynamic call edges;
+- partitions each referenced placeholder into `entered`, `calledByExecutedCaller` (a static upper bound) and `staticOnly`;
+- reports the executed-function count and warns when the trace reached its declared capacity;
+- `--json` includes `reachability`; the human output prints counts and `ENTERED` / `EXECUTED-CALLER` addresses only.
+
+`tests/translation-frontier.test.mjs` adds five cases (9 total): the three-way partition, malformed addresses and event kinds, tolerance of an unmatched exit, a trace-only report with truncation, and a CLI test that proves `--run` is not mistaken for the translation path. No original code is reproduced.
+
+## Measured result
+
+Report `browser-70.json`, translation `recomp-title-recomp-title-post-memory-46`:
+
+| item | count |
+| --- | --- |
+| translation functions (including 102 placeholders) | 517 |
+| referenced placeholders | 101 |
+| executed functions | 276 |
+| placeholders entered | **0** |
+| called by an executed caller (untaken branch) | 66 |
+| only unexecuted callers | 35 |
+
+The 66 cluster on `0x2CD80` (62), with singletons from `0x34307` (`0x341D0`), `0x1E0DAB` (`0x1E0E52`), `0x200F59` (`0x20010A`) and `0x42BE0` (`0x202150`). Because the run enters none of them, admitting any of these placeholders cannot advance the current execution; it would only prepare untaken branches. The current blocker remains PFIFO consumption, owned by the engine workstream.
+
+## Limits
+
+- "Called by an executed caller" is a static upper bound: the caller's branch may not be taken.
+- The executed set is one profile's run; a different profile or a later run changes it.
+- The filter does not prove reachability from the current stop, decode a call stack, translate, build or execute anything.
+- No engine, renderer, timing source, rendering, fidelity or playability.
+
+## Validation
+
+`tests/translation-frontier.test.mjs` 9/9; runtime suite 131/131; `npm run test:evidence` 4/4; `npm run test:native` 14/14; title-seed 25/25; `npm run check` and whitespace checks pass.
+
+## Next task
+
+Wait for a run that actually enters a placeholder (then `entered` is non-empty) before exporting that address, or for the engine workstream to unblock PFIFO consumption. Do not export the 66 untaken-branch targets as if they were reachable.
+
+## Static inventory
 
 November 4, 2026. An inventory of the boundary placeholders in the current translation quantifies the remaining admission work. It is a planning datum only: nothing here is a fidelity or progress claim, and no new routine was translated. **There is no engine, renderer, timing source or playable screen.**
 

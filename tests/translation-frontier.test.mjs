@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeTranslation } from '../tools/translation-frontier.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { analyzeReachability, analyzeTranslation, parseRunEvidence } from '../tools/translation-frontier.mjs';
 
 const translation = [
   '/**',
@@ -63,4 +67,82 @@ test('calls are attributed to the enclosing function only', () => {
   const report = analyzeTranslation(text);
   assert.equal(report.callTargets, 1);
   assert.equal(report.referencedPlaceholders, 0);
+});
+
+const reachTranslation = [
+  'void ff_title_00100000(void)',
+  '{',
+  '  RECOMP_ABI_CALL(0x00100200u, ff_title_00100200);',
+  '  RECOMP_ABI_CALL(0x00100500u, ff_title_00100500);',
+  '}',
+  'void ff_title_00100400(void)',
+  '{',
+  '  RECOMP_ABI_CALL(0x00100300u, ff_title_00100300);',
+  '}',
+  'void ff_title_00100200(void) { ff_probe_stop_direct(0x00100200u); }',
+  'void ff_title_00100300(void) { ff_probe_stop_direct(0x00100300u); }',
+  'void ff_title_00100500(void) { ff_probe_stop_direct(0x00100500u); }',
+  '',
+].join('\n');
+
+const reachReport = {
+  originalFunctionsReached: [0x00100000],
+  trace: [
+    { kind: 'enter', address: 0x00100000 },
+    { kind: 'enter', address: 0x00100500 },
+    { kind: 'exit', address: 0x00100500 },
+    { kind: 'exit', address: 0x00100000 },
+  ],
+  traceCapacity: 8192,
+};
+
+test('run evidence partitions entered, executed-caller and static placeholders', () => {
+  const report = analyzeTranslation(reachTranslation);
+  const reach = analyzeReachability(report, reachReport);
+  assert.deepEqual(reach.entered, [{ placeholder: 0x00100500, callers: [0x00100000] }]);
+  assert.deepEqual(reach.calledByExecutedCaller, [{ placeholder: 0x00100200, callers: [0x00100000] }]);
+  assert.deepEqual(reach.staticOnly, [0x00100300]);
+  assert.equal(reach.executedFunctions, 2);
+  assert.equal(reach.truncated, false);
+});
+
+test('run evidence rejects malformed addresses and event kinds', () => {
+  assert.throws(() => parseRunEvidence({}), /originalFunctionsReached or trace/);
+  assert.throws(() => parseRunEvidence({ originalFunctionsReached: [-1] }), /invalid function address/);
+  assert.throws(() => parseRunEvidence({ originalFunctionsReached: [1], trace: [{ kind: 'jump', address: 1 }] }),
+    /enter or exit/);
+  assert.throws(() => parseRunEvidence({ originalFunctionsReached: [1], trace: [{ kind: 'enter', address: 0x100000000 }] }),
+    /invalid function address/);
+});
+
+test('an unmatched exit is tolerated because tail calls leave the stack unbalanced', () => {
+  const evidence = parseRunEvidence({
+    originalFunctionsReached: [1],
+    trace: [{ kind: 'enter', address: 1 }, { kind: 'exit', address: 2 }],
+  });
+  assert.deepEqual([...evidence.executed], [1]);
+  assert.equal(evidence.truncated, false);
+});
+
+test('run evidence accepts a trace-only report and reports truncation', () => {
+  const evidence = parseRunEvidence({
+    trace: [{ kind: 'enter', address: 0x10 }, { kind: 'exit', address: 0x10 }],
+    traceCapacity: 2,
+  });
+  assert.deepEqual([...evidence.executed], [0x10]);
+  assert.equal(evidence.truncated, true);
+});
+
+test('the command line reads a run report without mistaking it for the translation', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'frontier-'));
+  fs.writeFileSync(path.join(directory, 'title-functions.inc'), reachTranslation);
+  const run = path.join(directory, 'run.json');
+  fs.writeFileSync(run, JSON.stringify(reachReport));
+  const result = spawnSync(process.execPath, [
+    path.resolve('tools/translation-frontier.mjs'), directory, '--run', run, '--json',
+  ], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.functions, 5);
+  assert.deepEqual(parsed.reachability.entered, [{ placeholder: 0x00100500, callers: [0x00100000] }]);
 });

@@ -1,4 +1,10 @@
-# Continue from the PFIFO submission-to-consumption contract
+# Continue from the translation frontier reachability filter
+
+The latest bounded milestone makes the translation frontier reachability-aware. `tools/translation-frontier.mjs --run <report>` intersects the static placeholder list with a retained run's executed functions and partitions it into `entered`, `calledByExecutedCaller` and `staticOnly`. Against `browser-70.json` (276 executed functions) it reports **0 entered**, 66 called by an executed caller (62 on `0x2CD80`) and 35 with only unexecuted callers. None of the 66 is proven taken, so exporting them cannot advance the current execution; the PFIFO wait remains the blocker and speculative expansion is deferred. The filter uses only entered trace addresses because the retained traces contain unmatched tail-call exits; it does not invent call edges and warns on trace truncation. Five new tests bring the frontier suite to 9.
+
+Validation: `tests/translation-frontier.test.mjs` 9/9, runtime suite 131/131, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 327 source files and whitespace checks pass. Sol was not attempted this cycle, so its current availability was not checked.
+
+## Prior: the PFIFO submission-to-consumption contract
 
 The latest bounded milestone writes the producer-free PFIFO submission-to-consumption contract from the retained run and the pinned xemu reference. The guest programs a valid DMA channel (`MODE=1`, `PUSH1=0x100`, `PUSH0`/`PULL0`/`DMA_PUSH` `ACCESS=1`, `DMA_INSTANCE=0x11C`) but leaves `DMA_PUT == DMA_GET == 0` on the empty 512 KB ring, so the reference pusher breaks at `pfifo.c:301` and no method is dispatched; `LOW_MARK` is set only after `num_proc > 0`. There is no first admissible method to name; the exact missing input is a non-empty submission with a dispatchable header/data word, or original/hardware evidence for the empty-cache reset state. The contract also records reset/enable/error/ordering and the two undefined pumped accesses (`PFIFO + 0x500`, `PFIFO + 0x80`). Refused PCRTC log entries now stop with status 15 instead of being dropped. No producer rule, forced bit, guessed timing or empty-ring completion was added; the seam stays unreferenced and the canonical profile stays fail-closed.
 
