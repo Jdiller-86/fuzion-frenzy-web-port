@@ -29,6 +29,25 @@ const control = () => ({
   sourceSha256: digest('a'),
   moduleSha256: digest('b'),
   experiments: ['writeClearing'],
+  consoleSettings: { kind: 'local-console-settings', synthetic: true, miscFlags: 0, parentalControlGames: 0 },
+  volumeProfile: {
+    kind: 'local-volume-profile', synthetic: true, device: 'harddisk0-partition1',
+    totalAllocationUnits: '65536', availableAllocationUnits: '65536',
+    sectorsPerAllocationUnit: 32, bytesPerSector: 512,
+  },
+  directoryProfile: { synthetic: true, state: 'fresh', persistent: false },
+  fileStorageProfile: { synthetic: true, state: 'fresh', persistent: false, maxFiles: 16, maxFileBytes: 65536 },
+  diskProfile: {
+    kind: 'local-disk-profile', synthetic: true, device: 'harddisk0', state: 'fresh',
+    bytes: '8589934592', sectorBytes: 512, cachePartitions: 3, persistent: false, maxBackingPages: 128,
+  },
+  pfifoProfile: { kind: 'local-pfifo-profile', synthetic: true, base: 0x03B80000, end: 0x03BF0000, put: 0x03B80000 },
+  memoryAccounting: {
+    profile: {
+      kind: 'local-memory-profile', synthetic: true, physicalPages: 16384,
+      baselinePoolPages: 0, fixedArena: 'committed-runtime-pool',
+    },
+  },
   deviceRegisters: deviceRegisters(supplied()),
   calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
 });
@@ -92,6 +111,22 @@ test('the comparison requires the avQuery experiment to be the only added input'
   assert.throws(() => compareProofProfiles(control(), {
     ...experiment(), experiments: [...experiment().experiments, 'engineWait'],
   }), /differ only by the avQuery experiment/);
+});
+
+test('the comparison requires the other declared inputs to match', () => {
+  const edits = [
+    { consoleSettings: { ...control().consoleSettings, miscFlags: 1 } },
+    { volumeProfile: { ...control().volumeProfile, availableAllocationUnits: '65535' } },
+    { directoryProfile: { ...control().directoryProfile, state: 'reused' } },
+    { fileStorageProfile: { ...control().fileStorageProfile, maxFiles: 8 } },
+    { diskProfile: { ...control().diskProfile, state: 'reused' } },
+    { pfifoProfile: { ...control().pfifoProfile, put: 0x03B80004 } },
+    { memoryAccounting: { profile: { ...control().memoryAccounting.profile, baselinePoolPages: 1 } } },
+  ];
+  for (const edit of edits) {
+    assert.throws(() => compareProofProfiles(control(), { ...experiment(), ...edit }),
+      /declared different console\/volume\/directory\/file-storage\/disk\/PFIFO\/memory inputs/);
+  }
 });
 
 test('the comparison requires the full supplied device input profile to match', () => {

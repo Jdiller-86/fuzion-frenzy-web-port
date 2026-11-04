@@ -64,7 +64,23 @@ function canonical(value) {
   return value;
 }
 
-const sameSupplied = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+const sameCanonical = (left, right) => JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+
+/* Everything the run declared before it started, except the avQuery word under
+ * test and the device aperture already checked above. Two runs that differ in
+ * any of these are not a controlled comparison. Run state (local disk/volume,
+ * FATX, clock window) is deliberately excluded. */
+function declaredInputs(report) {
+  return {
+    consoleSettings: report.consoleSettings,
+    volumeProfile: report.volumeProfile,
+    directoryProfile: report.directoryProfile,
+    fileStorageProfile: report.fileStorageProfile,
+    diskProfile: report.diskProfile,
+    pfifoProfile: report.pfifoProfile,
+    memoryProfile: report.memoryAccounting?.profile,
+  };
+}
 
 function ordinalTwoCalls(report) {
   if (!Array.isArray(report.calls))
@@ -92,8 +108,10 @@ export function compareProofProfiles(control, experiment) {
   const experimentExperiments = experimentSet(experiment);
   const controlSupplied = suppliedProfile(control);
   const experimentSupplied = suppliedProfile(experiment);
-  if (!sameSupplied(controlSupplied, experimentSupplied))
+  if (!sameCanonical(controlSupplied, experimentSupplied))
     throw new Error('The profiles supplied different device inputs, so the comparison is not controlled');
+  if (!sameCanonical(declaredInputs(control), declaredInputs(experiment)))
+    throw new Error('The profiles declared different console/volume/directory/file-storage/disk/PFIFO/memory inputs, so the comparison is not controlled');
   if (controlExperiments.has('avQuery'))
     throw new Error('The control profile must not declare the avQuery experiment');
   if (!experimentExperiments.has('avQuery'))
