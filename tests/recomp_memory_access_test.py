@@ -163,6 +163,19 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertNotIn('FF_MEMORY_SITE_VECTOR', plain)
         self.assertEqual(plain_counts['unaligned'], 1)
 
+    def test_instrumentation_is_deterministic_and_idempotent(self):
+        source = 'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movaps */\neax = MEM32(edi);'
+        first, first_counts = guard.instrument_memory_accesses(source, SITE, 0x00100030)
+        second, second_counts = guard.instrument_memory_accesses(source, SITE, 0x00100030)
+        self.assertEqual(first, second)
+        self.assertEqual(first_counts, second_counts)
+        # Feeding guarded output back in must not wrap or rewrite anything twice.
+        again, again_counts = guard.instrument_memory_accesses(first, SITE, 0x00100030)
+        self.assertEqual(again, first)
+        self.assertEqual(again_counts['sites'], 0)
+        self.assertEqual(again_counts['reads'], 0)
+        self.assertEqual(again_counts['writes'], 0)
+
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
         for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'XMM_LOAD_LOW(xmm0, eax)',
                        'XMM_STORE_LOW(eax, xmm0)', 'XMM_UNKNOWN(eax)', 'MMX_STORE(eax, value)',
