@@ -137,6 +137,7 @@ static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 static ff_port_io port_io;
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 /* PCRTC interrupt state, enabled only when the profile supplies events. The
  * register contract and PMC aggregation come from the retained NV2A reference;
  * no timing source exists here, so nothing is raised unless the profile says so. */
@@ -155,10 +156,13 @@ static void pcrtc_flush(void)
     else if (index == 1) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_EN_0, pcrtc_shadow[1]);
     else if (pcrtc_shadow[2] & FF_PCRTC_PMC_IRQ)
         (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, FF_PCRTC_INTR_VBLANK);
-    /* Keep the report's device traffic complete for the modelled display path. */
-    if (device_registers.ready)
-        (void)ff_device_registers_log(&device_registers, pcrtc_offset(index),
-                                      FF_DEVICE_WRITE, pcrtc_shadow[index], pcrtc_site);
+    /* Keep the report's device traffic complete for the modelled display path.
+     * A refused log entry is evidence loss, so it stops the proof instead of
+     * being dropped: the run reports its device capacity boundary explicitly. */
+    if (device_registers.ready &&
+        ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                FF_DEVICE_WRITE, pcrtc_shadow[index], pcrtc_site))
+        stop(15, pcrtc_offset(index), 2);
 }
 static uint32_t *pcrtc_access(uint32_t address, uint32_t access, uint32_t site)
 {
@@ -169,9 +173,10 @@ static uint32_t *pcrtc_access(uint32_t address, uint32_t access, uint32_t site)
     pcrtc_shadow[0] = pcrtc.pending;
     pcrtc_shadow[1] = pcrtc.enabled;
     pcrtc_shadow[2] = ff_pcrtc_pmc_irq(&pcrtc);
-    if (device_registers.ready)
-        (void)ff_device_registers_log(&device_registers, pcrtc_offset(index),
-                                      FF_DEVICE_READ, pcrtc_shadow[index], site);
+    if (device_registers.ready &&
+        ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                FF_DEVICE_READ, pcrtc_shadow[index], site))
+        stop(15, pcrtc_offset(index), 1);
     if (access & 2u) { pcrtc_dirty = index; pcrtc_site = site; }
     return &pcrtc_shadow[index];
 }

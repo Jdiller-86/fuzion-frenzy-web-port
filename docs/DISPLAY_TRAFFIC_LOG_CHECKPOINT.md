@@ -24,9 +24,25 @@ With `device.pcrtcVblanks: 8`, the report now shows the guest's path explicitly:
 
 That is the acknowledge (`0xFD600100 = 1`) and enable (`0xFD600140 = 1`) already identified from the disassembly, now measured in the same report from the same run.
 
+## Refused display-log entries now stop the proof
+
+The first version discarded the return value of `ff_device_registers_log` on the display path (`(void)`), so a full event log silently dropped a PCRTC read or write and the report could claim a complete device trace while missing entries. That is evidence loss, not a tolerable diagnostic.
+
+`tools/fixtures/thread_startup_probe.c` now checks the return value in both `pcrtc_flush` (a committed write) and `pcrtc_access` (a read) and stops with **status 15** (device capacity reached) at the display register, ordinal `2` for the write and `1` for the read. No entry is dropped and the run names its capacity boundary instead of continuing with an incomplete trace. The canonical profile and every non-display path are unchanged.
+
+The rebuilt module is `recomp-post-memory-build-70`, SHA-256 `0a03de96cd248f296ba8327ddac5ded9de70d4c944e7797d62b675b1cadf1da4`; the pre-fix build was `ae51f055...`, so the change is present in the module. Re-run results:
+
+| profile | stop | device events | `pcrtc` |
+| --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 12,535 | absent |
+| `pcrtcVblanks: 8` | status 15 at `0xFD003214` | 32,768 (full) | `{ pending: 0, enabled: 1, events: 8 }` |
+| `pcrtcVblanks: 1`, `engineWait` | status 12 at `0xFD003214` | 13,233 | `{ pending: 0, enabled: 1, events: 1 }` |
+
+The `pcrtc` profile still stops on the main aperture path when the shared log fills, before a display-log refusal can occur, so the new branch is a fail-closed guard rather than an observed path in this profile. That is the correct behaviour: the report's completeness is now guaranteed by construction, not by an unchecked assumption.
+
 ## Run summary
 
-Module `recomp-post-memory-build-70`: **SHA-256 `ae51f0558f55ab31065e04d51d4d5cc56ae27b9e2c95193c39497b6c4c66949c`**.
+Module `recomp-post-memory-build-70`: **SHA-256 `0a03de96cd248f296ba8327ddac5ded9de70d4c944e7797d62b675b1cadf1da4`** (after the refused-entry fix).
 
 | profile | stop | routines | trace | device events | `pcrtc` |
 | --- | --- | --- | --- | --- | --- |
@@ -40,8 +56,8 @@ Logging is evidence, not behaviour: it changes no read, write or timing. There i
 
 ## Validation
 
-`npm run test:native` 14/14 (device-register fixture in optimized and sanitizer modes); `npm run test:evidence` 3/3; runtime suite 113/113; title-seed 25/25; `npm run check` and whitespace checks pass.
+`npm run test:native` 14/14 (device-register fixture in optimized and sanitizer modes); `npm run test:evidence` 4/4; runtime suite 126/126; title-seed 25/25; `npm run check` 327 source files and whitespace checks pass.
 
 ## Next task
 
-Unchanged: the PFIFO engine/consumer contract needs an assigned owner with evidenced producer rules. The new log API must not be used to imply that a logged access was modelled.
+The PFIFO engine/consumer contract is now documented producer-free in [the engine handoff](PFIFO_ENGINE_HANDOFF.md). The engine workstream must return a non-empty submission with a dispatched method, original/hardware empty-cache evidence, or an explicit decision that the stop is the correct boundary. The display log must not be used to imply that a logged access was modelled.

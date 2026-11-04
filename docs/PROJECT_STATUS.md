@@ -1,12 +1,16 @@
-# The frontier report now attributes each placeholder to its callers
+# The PFIFO submission contract is explicit: the ring is empty, so no first method exists
+
+November 4: the reached loop `0x1FE4D5` waits on `CACHE1_STATUS.LOW_MARK`, and the retained run shows exactly why it cannot leave. The guest programs a valid DMA channel (`MODE=1`, `PUSH1=0x100`, `PUSH0`/`PULL0`/`DMA_PUSH` `ACCESS=1`, `DMA_INSTANCE=0x11C`) but leaves `DMA_PUT == DMA_GET == 0` on the known-empty 512 KB ring (`0x03B7D000..0x03BFD000`). The pinned reference pusher therefore breaks immediately at `pfifo.c:301` and dispatches nothing, and `LOW_MARK` is set only after `num_proc > 0`. There is **no first admissible method to name**; the exact missing input is a non-empty submission (a method header with `METHOD_COUNT > 0` and its data word plus a dispatch) or original/hardware evidence that an already-empty cache sets `LOW_MARK`. The contract records the reference reset/enable/error/ordering and the two undefined pumped accesses (`PFIFO + 0x500`, `PFIFO + 0x80`). No producer rule, forced bit, guessed timing or empty-ring completion was added; the status seam stays unreferenced and the canonical profile stays fail-closed. The ignored PCRTC log failures are resolved: a refused display-log entry now stops with status 15 instead of being dropped, and the rebuilt module (`0a03de96...`) reports the 32,768-event capacity boundary explicitly. **There is no controllable original screen.**
+
+Validation: runtime suite 126/126, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 327 source files and whitespace checks pass. Sol was not attempted this cycle, so its current availability was not checked. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md) and [the display-log checkpoint](DISPLAY_TRAFFIC_LOG_CHECKPOINT.md).
+
+## Prior: the frontier report attributes placeholders to their callers
 
 November 4: the frontier report previously listed boundary placeholders by address only, which said nothing about how to batch them. `tools/translation-frontier.mjs` now records, for every referenced placeholder, the admitted functions that call it (`referencedBy`, exposed in `--json` and printed as `0x… called by 0x…`). Against the current translation the first five placeholders are all called by `0x2CD80`, which shows the frontier clusters by caller rather than by address order — the missing input for scoping the next admission batch. `tests/translation-frontier.test.mjs` adds an attribution case; the suite is 4 tests and the runtime suite is **126/126**. The tool still prints counts and addresses only and never reproduces original code. **There is no controllable original screen.**
 
-The PFIFO engine/consumer contract remains with the new engine workstream per `docs/PFIFO_ENGINE_HANDOFF.md`; the previous cycle recorded that the guest never writes the two status registers, so only a modelled consumer can produce `LOW_MARK`. Sol was not attempted this cycle, so its current availability was not checked.
-
-Validation: runtime suite 126/126, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md) and [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
-
 ## Prior: guest never writes the two PFIFO status registers
+
+`CACHE1_STATUS` has 5 reads and 0 writes and `RUNOUT_STATUS` 2 reads and 0 writes across every admitted function, so only a modelled consumer can produce `LOW_MARK`.
 
 ## Prior: translation verified fully instrumented
 

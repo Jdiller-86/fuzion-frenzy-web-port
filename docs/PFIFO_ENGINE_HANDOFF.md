@@ -51,6 +51,75 @@ A scan of every admitted function, not only the reached path, settles whether th
 
 The two status registers are **read-only in the guest's own code**, so no admitted routine can set `CACHE1_STATUS.LOW_MARK` or `RUNOUT_STATUS.LOW_MARK`; any producer must be a modelled consumer, and the engine workstream owns that decision. The guest does write the DMA `ACCESS` bit and both pump registers, which is the input side a consumer would act on.
 
+## Submission-to-consumption contract (producer-free)
+
+This is the single contract the engine workstream inherits. It is assembled from the retained run's own register traffic and the pinned xemu reference, and it adds no producer code. The reference is `.tools/emulation/xemu-source/hw/xbox/nv2a/pfifo.c` with `nv2a_regs.h` line numbers as cited.
+
+### Observed submission state
+
+The channel is fully programmed by the guest, but the ring is empty. The channel-programming writes in the retained run (`browser-70.json`, module `recomp-post-memory-build-70`, SHA-256 `0a03de96cd248f296ba8327ddac5ded9de70d4c944e7797d62b675b1cadf1da4`) are:
+
+| register | observed value | site |
+| --- | --- | --- |
+| `NV_PFIFO_MODE` (`0xFD002504`) | `0x1` (channel 0 in DMA mode) | `0x200419` |
+| `NV_PFIFO_CACHE1_PUSH1` (`0xFD003204`) | `0x100` (mode DMA, channel 0) | `0x200475` |
+| `NV_PFIFO_CACHE1_PUSH0` (`0xFD003200`) | `0x1` (`ACCESS`) | `0x2004C0` |
+| `NV_PFIFO_CACHE1_DMA_INSTANCE` (`0xFD00322C`) | `0x11C` (instance address `0x11C0`) | `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_CTL` (`0xFD003230`) | `0` | `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_PUT` (`0xFD003240`) | `0` | `0x20005A`, `0x20027C`, `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_GET` (`0xFD003244`) | `0` | `0x20005A`, `0x20027C`, `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_STATE` (`0xFD003228`) | `0` | `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_FETCH` (`0xFD003224`) | `0x86078` | `0x20047F` |
+| `NV_PFIFO_CACHE1_DMA_PUSH` (`0xFD003220`) | `0x1` (`ACCESS`) | `0x2004BA` |
+| `NV_PFIFO_CACHE1_PULL0` (`0xFD003250`) | `0x1` (`ACCESS`) | `0x2004C0` |
+| `PFIFO + 0x500` (`0xFD002500`) | `0x1` | `0x2004C0` |
+
+Every `DMA_PUT` write in the run is `0`, and every `DMA_GET` write is `0`. The 512 KB ring is `0x03B7D000`..`0x03BFD000` with `PUT` at the base (device-context observation), so the pushbuffer is empty; the `0` register values are the software reset values, not a populated pointer. The channel is therefore *enabled and idle*, which is exactly the state the reached wait loop expects to leave.
+
+### First admissible method, or the exact missing input
+
+In the reference pusher (`pfifo.c:298-375`) the first word at `DMA_GET` is a command header. A data word is dispatched to the puller only when the header set `METHOD_COUNT != 0` (`pfifo.c:329`); the puller then returns the number of words processed. `LOW_MARK` is set only when `num_proc > 0` (`pfifo.c:242-243`). The pusher's loop breaks immediately when `GET == PUT` (`pfifo.c:301`).
+
+Therefore, in this run:
+
+- **No first method exists to name.** `DMA_PUT == DMA_GET` at every programming site, so the pusher reads no word and the puller is never entered. There is no header, subchannel, method or argument word to cite.
+- **The exact missing input is a non-empty submission**: `DMA_PUT` advanced past `DMA_GET`, containing at least one method header with `METHOD_COUNT > 0` and its data word(s), plus a puller dispatch that returns `num_proc > 0`. The run does not contain it, and the fail-closed profile does not contain it.
+- **The alternative basis is unobserved initial state**: if real hardware marks an already-empty cache `LOW_MARK`, that reset/empty rule would also satisfy the predicate. The reference does not model it (a zeroed `CACHE1_STATUS` is the reset state), so it is not evidence and must not be used.
+- The guest does own a command builder that advances `DMA_PUT` (`0x1FAF1C`, `PUT = pointer & 0x03FFFFFF`, per the ring checkpoint), but the reached run never executes it before the wait. That submission is the missing input, not a consumable queue.
+
+### Reset / enable / error / ordering
+
+The reference rules, and where the run observes each input, are:
+
+| rule | reference | observed input |
+| --- | --- | --- |
+| Pusher runs only when `PUSH0.ACCESS`, `DMA_PUSH.ACCESS` set and `DMA_PUSH.STATUS` clear | `pfifo.c:267-269` | `PUSH0 = 1` @ `0x2004C0`; `DMA_PUSH = 1` @ `0x2004BA`; `.STATUS` clear |
+| Pusher additionally requires `MODE[channel]` set and `PUSH1.MODE == DMA` | `pfifo.c:282`, `:285` | `MODE = 1` @ `0x200419`; `PUSH1 = 0x100` @ `0x200475` |
+| Pusher stops when `DMA_GET == DMA_PUT` | `pfifo.c:301` | both `0` |
+| Puller runs only when `PULL0.ACCESS` set **and** `LOW_MARK` clear | `pfifo.c:170-171` | `PULL0 = 1` @ `0x2004C0`; `LOW_MARK` never set |
+| `LOW_MARK` is cleared before dispatch and set after `num_proc > 0` | `pfifo.c:340`, `:242-243` | never reached |
+| `RUNOUT_STATUS` reads always report `LOW_MARK` | `pfifo.c:52` | the guest never reads it before the first predicate fails |
+| `DMA_PUSH.STATE` has no producer; only the stored value is returned | `pfifo.c:255-274` | guest writes only `ACCESS` (`1`) or `0`; clears `.STATUS` (`0x1000`) at `0x1FDD79` |
+| A DMA error suspends the pusher (`DMA_PUSH.STATUS = 1`) | `pfifo.c:444-449` | the guest's recovery branch is present but not entered |
+| Protection error when `DMA_GET >= dma_len` | `pfifo.c:302-305` | not reached |
+
+The guest's own reset/recovery sequence is part of the contract and must not be replaced by a synthesised one:
+
+- Disable the puller (`PULL0 = 0`, `PFIFO + 0x500 = 0`), wait a bounded `0xFFFF` iterations for `PULL0` bit `12` to clear, clear `PULL0 + 8` (`0x3258`), then re-enable (`PULL0 = 1`, `PFIFO + 0x500 = 1`) at `0x1FDC72`..`0x1FDC9E`.
+- On a `DMA_PUSHER` interrupt, acknowledge `PFIFO_INTR_0` bit `12` (`0x1000`), clear `DMA_STATE`, and if `PUT != GET` advance `GET` by `4` (`0x1FDCE8`..`0x1FDD0B`).
+- Clear `DMA_PUSH.STATUS` (`0x1000`) to unsuspend at `0x1FDD79`, then re-enable `PULL0` and `PFIFO + 0x500` at `0x1FDD92`.
+
+Ordering that a consumer must preserve: `LOW_MARK` clear → method dispatch → `LOW_MARK` set; the pusher advances `DMA_GET` only over words it actually dispatched; the guest's pump writes (`PULL0`, `PFIFO + 0x500`) follow the dispatch and may be freely repeated while `LOW_MARK` is set. No consumer may set `LOW_MARK` before a dispatch, set `RUNOUT_STATUS`, or produce `DMA_PUSH.STATE`.
+
+### Unresolved pumped accesses
+
+These two are written or read by the pump on every iteration but have no definition in the retained header, so no engine meaning is assigned:
+
+- `PFIFO + 0x500` (`0xFD002500`): 13 writes across the translation, toggled `0`/`1` in lockstep with `PULL0.ACCESS`; the pump polls its bit `4` at `0x1FDD70` after `LOW_MARK`. It is not `NV_PFIFO_MODE` (`0x504`) or `NV_PFIFO_DMA` (`0x508`).
+- `PFIFO + 0x80` (`0xFD002080`): read-only in the guest; the pump masks it with `1` and ORs it into its return value at `0x1FDD9E`; 64 reads per pump iteration.
+
+Secondary undefined accesses carried by the same context restore, also unevidenced and preserved verbatim: `PULL0 + 8` (`0x3258`), `PFIFO + 0x4C` (`0x204C`, written `0x1FFFFF` at `0x200317`), and `0x1260`..`0x126C`. The aperture stores them; it derives no engine state.
+
 ## Evidence gate for the engine workstream
 
 Before any producer rule is activated:
@@ -62,9 +131,9 @@ Before any producer rule is activated:
 5. **Loop progress without forced bits** — the reached loop must leave because the modelled state changed, and the report must show the transition; exit alone does not establish fidelity, and no completion bit may be seeded.
 6. **Fail-closed remainder** — unknown configuration, unsupported transitions or exhausted budgets must still stop explicitly.
 
-## Reference-derived producer contract (full xemu source)
+## Reference citations for the contract (full xemu source)
 
-The earlier audit used the extracted NV2A stub in `.tools/emulation/xboxrecomp-source`, which models no consumer. The fuller retained reference in `.tools/emulation/xemu-source` (main project, read-only) does implement PFIFO, and reading it resolves the meaning of all three polled bits and the producer rule that matters:
+The earlier audit used the extracted NV2A stub in `.tools/emulation/xboxrecomp-source`, which models no consumer. The fuller retained reference in `.tools/emulation/xemu-source` (main project, read-only) does implement PFIFO; the bullets below are the citation appendix for the contract above.
 
 - `hw/xbox/nv2a/nv2a_regs.h:137-139` — `NV_PFIFO_CACHE1_STATUS` (`0x1214`) bit `0x10` is `NV_PFIFO_CACHE1_STATUS_LOW_MARK` (`1 << 4`), with `HIGH_MARK` at `1 << 8`.
 - `nv2a_regs.h:123-126` — `NV_PFIFO_RUNOUT_STATUS` (`0x400`) bit `0x10` is `NV_PFIFO_RUNOUT_STATUS_LOW_MARK`.
@@ -80,7 +149,7 @@ Consequences for the reached predicate (`CACHE1_STATUS & 0x10` set, `RUNOUT_STAT
 
 1. The runout condition is free — the reference always reports `LOW_MARK`.
 2. `DMA_PUSH.STATE` (`0x10`) has **no producer** in the reference; it reads back whatever is stored, and the guest writes only `ACCESS` (`0x1`) or `0` to that register, so the clear requirement holds without modelling.
-3. `CACHE1_STATUS.LOW_MARK` is the real gate, and the reference sets it **only after the puller has processed a method**. With an empty pushbuffer nothing is processed, so `LOW_MARK` never sets and the reference model would also leave the guest waiting.
+3. `CACHE1_STATUS.LOW_MARK` is the real gate, and the reference sets it **only after the puller has processed a method**. The run programs a valid DMA channel but leaves `DMA_PUT == DMA_GET == 0` on the empty 512 KB ring, so nothing is processed and `LOW_MARK` never sets; the reference model would also leave the guest waiting.
 
 That is decisive for the contract: the reached loop is waiting for **actual FIFO consumption of pushed work**. Satisfying it requires a consumer that processes at least one method, which is exactly what the empty-ring profile deliberately refuses to fake. No producer rule is added here; the engine workstream must decide and evidence the consumption contract.
 
@@ -89,11 +158,18 @@ That is decisive for the contract: the reached loop is waiting for **actual FIFO
 - Guest stores to `DMA_PUSH` remain verbatim; the seam must not discard them.
 - No capacity increase (trace, device events, wait budgets) may be used to escape the loop.
 - Reports already state the active experimental inputs (`experiments`) and, when the display path is used, `pcrtc`; the engine work must add its own explicit switch rather than reuse an unrelated one.
+- The two undefined pumped offsets (`PFIFO + 0x500`, `PFIFO + 0x80`) stay value-preserving: no read is reinterpreted as status and no write is translated into engine progress.
 
 ## Validation
 
-`npm run test:native` 14/14, `npm run test:evidence` 3/3, runtime suite 120/120, title-seed 25/25, `npm run check` and whitespace checks pass.
+`npm run test:native` 14/14, `npm run test:evidence` 4/4, runtime suite 126/126, title-seed 25/25, `npm run check` 327 source files and whitespace checks pass. The contract is documentation-only; the status seam remains unreferenced and the canonical profile remains fail-closed.
 
 ## Next task
 
-The engine workstream takes the contract; this lane keeps the canonical profile fail-closed and does not add producer rules. Any future activation must cite the evidence gate above.
+The engine workstream takes the contract and must return one of three evidenced outcomes:
+
+1. a bounded non-empty submission (`DMA_PUT > DMA_GET` with at least one dispatchable method header and data word) plus a puller that reports `num_proc > 0`, with replayed transitions; or
+2. original/hardware evidence for the empty-cache reset state, if an empty cache is supposed to set `LOW_MARK`, including the exact condition and reset value; or
+3. an explicit decision that the reached wait cannot be satisfied and that the explicit stop is the correct boundary.
+
+Until then this lane keeps the canonical profile fail-closed, adds no producer rule and does not seed a completion bit. Any future activation must cite the evidence gate above.
