@@ -180,7 +180,10 @@ def instrument_memory_accesses(text, site, limit=None):
                 aligned = bool(mnemonic and mnemonic.group(1).lower() in ALIGNED_XMM)
                 access = (f"FF_MEMORY_SITE_VECTOR(({address}), 1u, 0x{block:08X}u)" if aligned
                           else f"FF_MEMORY_SITE_POINTER(({address}), 16u, 1u, 0x{block:08X}u)")
-                pieces += [source[cursor:begin], f"(*(RecompXmm*){access})"]
+                # A generated read must be structurally non-writable: the const
+                # lvalue makes any store through it a compile error instead of a
+                # silent mutation of guest memory from a read instruction.
+                pieces += [source[cursor:begin], f"(*(const RecompXmm*){access})"]
                 stats["aligned" if aligned else "unaligned"] = stats.get("aligned" if aligned else "unaligned", 0) + 1
                 stats["reads"] += 1; used_sites.add(block); cursor = scan = closing
                 continue

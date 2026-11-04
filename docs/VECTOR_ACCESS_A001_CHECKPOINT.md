@@ -2,6 +2,21 @@
 
 November 4, 2026. Generated vector operations are structurally checked by the emitter and exercised by a compiled test against the real virtual-memory component; the alignment guard now lives in a host hook because an in-macro form was silently optimised away; the reached translation was regenerated and behaves identically; and the write-1-to-clear register model remains an opt-in experiment with a control. The canonical profile keeps `NV_PMC_INTR_0` fail-closed. **There is no controllable original screen, renderer, engine progress or fidelity result.**
 
+## Generated reads are structurally non-writable
+
+Alignment alone did not close the permission hole: a read was emitted as the mutable lvalue `(*(RecompXmm*)FF_MEMORY_SITE_POINTER(...))`, so nothing stopped a later edit from storing through a read instruction. Reads are now emitted as `(*(const RecompXmm*)...)` for both the plain and the alignment-guarded forms; stores keep the mutable lvalue. Assigning through a generated read is therefore a compile error rather than a silent guest-memory mutation, and there is no runtime cost.
+
+`tests/recomp_memory_access_codegen_test.py` is the generator-to-compiled regression: it runs `instrument_memory_accesses`, writes the emitted C into a temporary harness, compiles it against the real `src/runtime/virtual_memory.c`, and checks
+
+- a store through the generated read expression **fails to compile** with a read-only diagnostic (the structural guarantee, proven by the compiler rather than by inspection);
+- a permitted read returns the guest bytes and a permitted store writes them through the emitted form;
+- a denied store is refused with the bytes verified unchanged (denial before mutation);
+- denied reads (unmapped page, outside the window, misaligned alignment-requiring move) fail closed.
+
+It runs under the available compiler (verified with gcc 13.3 in WSL and skips with an explicit message when no compiler is present).
+
+The reached translation was regenerated with this emitter (`recomp-title-recomp-title-post-memory-45`, 415 functions / 17,284 instructions): **16 alignment-guarded const reads, 16 plain const reads and 4 mutable alignment-guarded stores**. The module built from it (`recomp-post-memory-build-70`) is 641,451 bytes, SHA-256 `f46c5444b90c749f49bda9bca9c5330c815c5638376f57a598b24a2d33f1aee3` — byte-identical to the previous build, which is expected because `const` is a compile-time qualifier with no codegen effect; unlike the folded ternary, nothing was removed.
+
 ## A blanket alignment guard was tried and rejected
 
 The first attempt enforced 16-byte alignment for every 16-byte guest access in the probe hook. The real run rejected it: a legitimate 16-byte access at `0x3C10D04` (four-byte aligned) occurs in the reached code, and the run stopped at status 10 with only **233** routines and a 3,631-event trace. That access comes from a move that does not require alignment, so a width-based rule was wrong.
@@ -68,7 +83,7 @@ The acknowledge rule is guest-implied and unverified against hardware. `NV_PMC_I
 
 ## Validation
 
-Compiled real-VM vector test and device-register test optimized and ASan/UBSan; kernel-timer, port and 16-byte checked-pointer tests optimized; Python memory-access 12/12; title-seed 25/25; runtime suite 110/110; `npm run check` 300 source files; whitespace checks pass.
+Device-register, compiled real-VM vector, 16-byte checked-pointer, kernel-timer and port tests pass optimized (the real-VM test also under ASan/UBSan); Python memory-access 12/12; generator-to-compiled codegen regression 2/2; runtime suite 111/111; title-seed 25/25; `npm run check` 302 source files; whitespace checks pass.
 
 ## Next task
 

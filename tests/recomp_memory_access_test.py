@@ -125,7 +125,7 @@ class MemoryAccessTests(unittest.TestCase):
     def test_checked_xmm_loads_are_rewritten_and_pure_sse_is_allowed(self):
         result, counts = guard.instrument_memory_accesses(
             'loc_00100000: ;\nxmm2 = XMM_MUL(xmm2, XMM_MEM(eax));', SITE, 0x00100030)
-        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', result)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', result)
         self.assertIn('XMM_MUL', result)
         self.assertEqual(counts['reads'], 1)
         self.assertEqual(counts['sites'], 1)
@@ -147,7 +147,7 @@ class MemoryAccessTests(unittest.TestCase):
     def test_alignment_requiring_moves_keep_an_alignment_guard(self):
         aligned, aligned_counts = guard.instrument_memory_accesses(
             'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movaps */', SITE, 0x00100030)
-        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 1u, 0x00100000u))', aligned)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 1u, 0x00100000u))', aligned)
         self.assertEqual(aligned_counts['aligned'], 1)
         stored, stored_counts = guard.instrument_memory_accesses(
             'loc_00100000: ;\nXMM_STORE(eax, xmm0); /* movaps */', SITE, 0x00100030)
@@ -155,7 +155,7 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertEqual(stored_counts['aligned'], 1)
         unaligned, unaligned_counts = guard.instrument_memory_accesses(
             'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movups */', SITE, 0x00100030)
-        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', unaligned)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', unaligned)
         self.assertEqual(unaligned_counts['unaligned'], 1)
         self.assertNotIn('FF_MEMORY_SITE_VECTOR', unaligned)
         plain, plain_counts = guard.instrument_memory_accesses(
