@@ -23,6 +23,16 @@ Module `recomp-post-memory-build-72`: **660,060 bytes**, SHA-256 `9d8689ff916dbe
 - The experiment's `originalFunctionsReached` contains `0x1F6EB0`. Its ordinal-2 call is status 0 with `output.rawWord = 0x00800303`, EAX unchanged and ESP advanced by 20 bytes.
 - Frontier on translation 51: **97 placeholders, 1 entered** — `0x1FC780` called by executed `0x1F5640`; 73 called by an executed caller, 22 static-only.
 
+## Exact-head review evidence
+
+- Integration base: `becc879`, preparation CI runs `41916226715` and `41916376757` success; main PR #5 is `CLEAN`/`MERGEABLE`.
+- Module `recomp-post-memory-build-72` SHA-256 `9d8689ff916dbed7d264e378ca23e5e8b1d26853a5a2b11fa30ca0780e42ccaf`.
+- Control profile `settings-pfifo-reset3.json` SHA-256 `d01ac221ccc107ebd21379953e8124e866a9baf46273dd73f4e9f85a9e4d4419`.
+- Experiment profile `settings-pfifo-reset3-avquery.json` SHA-256 `351383c33e37e51baed18fead2f4621c037aa3ca74fef246bbfb8f97ad2c58af`; it differs from the control only by `avQueryWord = 0x00800303`.
+- Control report SHA-256 `82dd1464f1d199f4af9e4abb88cb0e35a2fc537ec44060be37f22ca7f868b6f8`; experiment report SHA-256 `f92976d43b852ffa860dd647fe2a936844a7f18e338245bed232f4cb2093cd2d`.
+- `tools/compare-proof-profiles.mjs` exits 0 on the pair; the frontier enters `0x1FC780` called by executed `0x1F5640`.
+- The source lane is synced to `becc879`; PR #2 is `CLEAN`/`MERGEABLE`. No further admission until reviewed.
+
 ## Next and limits
 
 The next genuine stop is untranslated `0x1FC780` (status 2, return `0x1F56FD`). It is **not admitted or analyzed further**. Per the directive, the lane stops here.
