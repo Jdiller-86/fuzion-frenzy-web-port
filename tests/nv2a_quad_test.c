@@ -2,6 +2,7 @@
 #include "../src/runtime/nv2a_quad.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void vertex(FFNv2aPostVertex *v, float x, float y, float z, float w, float tag)
@@ -252,12 +253,78 @@ static void quad_polygon_modes(void)
     assert(!memcmp(strip_points, saved_points, sizeof(saved_points)));
 }
 
+/* Every quad entry point must write exactly its documented raster-vertex count
+ * (and nothing when odd strip adjacency emits zero). Spare heap slots are
+ * poisoned; an overrun past the allocation also fails under ASan.
+ */
+enum { BOUNDS_GUARD_VERTICES = 4 };
+
+static void assert_write_bounds(const FFNv2aRasterVertex *buffer, size_t written)
+{
+    const unsigned char *bytes = (const unsigned char *)buffer;
+    const size_t body = written * sizeof *buffer;
+    const size_t total = (written + BOUNDS_GUARD_VERTICES) * sizeof *buffer;
+    int wrote = 0;
+    for (size_t i = 0; i < body; ++i) wrote |= bytes[i] != 0xa5;
+    if (written != 0) assert(wrote);
+    for (size_t i = body; i < total; ++i) assert(bytes[i] == 0xa5);
+}
+
+static void assert_all_untouched(const FFNv2aRasterVertex *buffer, size_t slots)
+{
+    const unsigned char *bytes = (const unsigned char *)buffer;
+    for (size_t i = 0; i < slots * sizeof *buffer; ++i) assert(bytes[i] == 0xa5);
+}
+
+static void quad_write_bounds(void)
+{
+    FFNv2aPostVertex input[4]; polygon_inputs(input);
+    FFNv2aQuadState state = { .smooth = 0, .perspective_depth = 0 };
+    const size_t slots = 8 + BOUNDS_GUARD_VERTICES;
+    FFNv2aRasterVertex *out = malloc(slots * sizeof *out);
+    assert(out);
+    uint32_t emitted = 0;
+#define CHECK_BOUNDS(call, written) \
+    do { memset(out, 0xa5, slots * sizeof *out); assert((call) == 0); \
+         assert_write_bounds(out, (written)); } while (0)
+
+    CHECK_BOUNDS(ff_nv2a_expand_quad(input, &state, out, FF_NV2A_SEPARATE), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_quad_strip(input, &state, out, FF_NV2A_SEPARATE,
+                                           0, &emitted), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_quad_lines(input, &state, out, FF_NV2A_SEPARATE), 8);
+    CHECK_BOUNDS(ff_nv2a_expand_quad_points(input, &state, out, FF_NV2A_SEPARATE), 4);
+    CHECK_BOUNDS(ff_nv2a_expand_quad_strip_lines(input, &state, out, FF_NV2A_SEPARATE,
+                                                 0, &emitted), 8);
+    CHECK_BOUNDS(ff_nv2a_expand_quad_strip_points(input, &state, out, FF_NV2A_SEPARATE,
+                                                  0, &emitted), 4);
+#undef CHECK_BOUNDS
+
+    /* Odd quad-strip adjacency emits nothing and must leave every slot alone. */
+    memset(out, 0xa5, slots * sizeof *out);
+    emitted = 1;
+    assert(ff_nv2a_expand_quad_strip(input, &state, out, FF_NV2A_SEPARATE,
+                                     1, &emitted) == 0 && emitted == 0);
+    assert_all_untouched(out, slots);
+    memset(out, 0xa5, slots * sizeof *out);
+    emitted = 1;
+    assert(ff_nv2a_expand_quad_strip_lines(input, &state, out, FF_NV2A_SEPARATE,
+                                           1, &emitted) == 0 && emitted == 0);
+    assert_all_untouched(out, slots);
+    memset(out, 0xa5, slots * sizeof *out);
+    emitted = 1;
+    assert(ff_nv2a_expand_quad_strip_points(input, &state, out, FF_NV2A_SEPARATE,
+                                            1, &emitted) == 0 && emitted == 0);
+    assert_all_untouched(out, slots);
+    free(out);
+}
+
 int main(void)
 {
     forwarding_colors_and_depth();
     invalid_state_and_null_inputs();
     quad_strip_cases();
     quad_polygon_modes();
-    puts("Owned quad geometry forwarding, provoking colors, two triangles, depth, strip parity, polygon modes and state rejection passed");
+    quad_write_bounds();
+    puts("Owned quad geometry forwarding, provoking colors, two triangles, depth, strip parity, polygon modes, state rejection and write bounds passed");
     return 0;
 }

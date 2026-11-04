@@ -2,7 +2,7 @@
 
 The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers one post-vertex geometry component, not the complete NV2A renderer or original-game fidelity.
 
-Directive status, November 3 (integration head `b11a742a9c8934f801686dd8e7627857bd9b035a`): new topology expansion is held pending whole-chain review and retained-reference comparison. Both integration heads remain unmerged; reported startup progress under synthetic inputs is not rendering, fidelity or playability. The reference contract and integration gate are recorded below. No component is integration-approved; independent commit-level review is unavailable under this lane's free-model-only constraint and is handed to the primary lane/architect.
+Directive status, November 3 (integration head `38a398a4533c63a4def196929af7de21217c8265`): retain draft #3 and the topology hold pending whole-chain/reference review; draft #2 remains unapproved. PR #1 requires refreshed integration-head CI/head/base review and has no merge authorization this cycle. The geometry and architect heads remain unmerged; reported startup progress under synthetic inputs is not rendering, fidelity or playability. The reference contract and integration gate are recorded below. No component is integration-approved; independent commit-level review is unavailable under this lane's free-model-only constraint and is handed to the primary lane/architect. This cycle changed tests and documentation only; it did not review, approve or merge any PR.
 
 Next-task update, November 1: the user confirmed no local boot firmware and asked about a native web port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) now scopes an original initialization-function proof. A native line/quad reference has been captured; its browser prepass remains pending. Preserve this triangle component and both references for either runtime route.
 
@@ -142,6 +142,16 @@ The chain awaiting review is: host primitive assembly (line strip/loop, triangle
 
 Whole-chain review and retained-reference comparison are both outstanding. No component is integrated.
 
+### Documented write bounds
+
+Every public geometry entry point now has a source-owned write-bounds check in the CI-compiled native tests:
+
+- triangle list fill/line/point, strip fill/line/point, fan fill/line/point, polygon fill/line and both stream assemblers in `tests/nv2a_triangle_test.c`;
+- single line, line strip and line loop in `tests/nv2a_line_test.c`;
+- quad fill, quad strip fill, quad line/point and quad-strip line/point in `tests/nv2a_quad_test.c`.
+
+Each call receives a heap buffer with four extra raster-vertex slots poisoned to `0xa5`. The test asserts that the declared output count was actually written, that no spare slot changed, and that an over-large `capacity` does not increase the write count. Odd quad-strip primitives must leave every slot untouched while reporting `emitted == 0`. Heap allocation also lets ASan catch an overrun past the documented count. This pins the count contract only; it does not validate vertex values against a retained reference or establish rendering fidelity.
+
 ### Integration gate and commit-level review
 
 A geometry component may enter the original-execution/renderer path only after:
@@ -169,4 +179,4 @@ The evidence supports a CPU prepass followed by WebGL2 as a candidate replacemen
 
 Unknown/unimplemented: primitive assembly from vertex streams for quad strips (triangle strip/fan and line strip/loop assembly are now source-owned), vertex-program/fixed-function translation, original fragment/texture/depth/blend behavior, shared-context/thread integration, complete GL host adaptation, performance, release-browser coverage and original-title execution. The synthetic forwarded positions are post-vertex inputs, not a substitute for that missing vertex path. An Xbox test/capture would still be needed to establish original behavior; no game/firmware download or native-game streaming is authorized.
 
-Next concrete task: new topology expansion remains held pending whole-chain review and retained-reference comparison. The lane's next step is to satisfy the retained-reference contract for one existing component, which requires the admissible private reference and an equivalent comparator export; neither exists in this source-only worktree. Whole-chain and commit-level review are also outstanding because this lane may not delegate to another model. The primary lane/architect must supply the reference access, the whole-chain and commit-level review, and the integration decision; until then, quad-strip stream assembly and the other listed candidates stay unstarted. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
+Next concrete task: new topology expansion remains held pending whole-chain review and retained-reference comparison. The write-bounds contract for the existing entry points is now covered; the lane's next step is to satisfy the retained-reference contract for one existing component, which requires the admissible private reference and an equivalent comparator export; neither exists in this source-only worktree. Whole-chain and commit-level review are also outstanding because this lane may not delegate to another model. The primary lane/architect must supply the reference access, the whole-chain and commit-level review, and the integration decision; until then, quad-strip stream assembly and the other listed candidates stay unstarted. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.

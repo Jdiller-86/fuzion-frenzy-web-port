@@ -2,6 +2,7 @@
 #include "../src/runtime/nv2a_line.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void vertex(FFNv2aPostVertex *v, float x, float y, float z, float w, float tag)
@@ -206,6 +207,46 @@ static void strip_loop_rejection(void)
     assert(!memcmp(output, saved, sizeof(saved)));
 }
 
+/* Every line entry point must write exactly its documented raster-vertex count.
+ * Spare heap slots are poisoned; an overrun past the allocation also fails under
+ * ASan. Capacity deliberately exceeds the required count for the assemblers, so
+ * capacity cannot be used as a write count.
+ */
+enum { BOUNDS_GUARD_VERTICES = 4 };
+
+static void assert_write_bounds(const FFNv2aRasterVertex *buffer, size_t written)
+{
+    const unsigned char *bytes = (const unsigned char *)buffer;
+    const size_t body = written * sizeof *buffer;
+    const size_t total = (written + BOUNDS_GUARD_VERTICES) * sizeof *buffer;
+    int wrote = 0;
+    for (size_t i = 0; i < body; ++i) wrote |= bytes[i] != 0xa5;
+    if (written != 0) assert(wrote);
+    for (size_t i = body; i < total; ++i) assert(bytes[i] == 0xa5);
+}
+
+static void line_write_bounds(void)
+{
+    FFNv2aPostVertex input[4];
+    for (unsigned i = 0; i < 4; ++i)
+        vertex(&input[i], (float)i, 0.5f, 1.0f, 1.0f, (float)i + 1);
+    FFNv2aLineState state = { .smooth = 0, .first_provoking = 1 };
+    const size_t slots = 8 + BOUNDS_GUARD_VERTICES;
+    FFNv2aRasterVertex *out = malloc(slots * sizeof *out);
+    assert(out);
+#define CHECK_BOUNDS(call, written) \
+    do { memset(out, 0xa5, slots * sizeof *out); assert((call) == 0); \
+         assert_write_bounds(out, (written)); } while (0)
+
+    CHECK_BOUNDS(ff_nv2a_expand_line(input, &state, out), 2);
+    CHECK_BOUNDS(ff_nv2a_expand_line_strip(input, 4, &state, out,
+                                           (uint32_t)slots), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_line_loop(input, 4, &state, out,
+                                          (uint32_t)slots), 8);
+#undef CHECK_BOUNDS
+    free(out);
+}
+
 int main(void)
 {
     forwarded_and_flat_colors();
@@ -213,6 +254,7 @@ int main(void)
     line_strip_pairs();
     line_loop_pairs();
     strip_loop_rejection();
-    puts("Owned line geometry forwarding, provoking colors, rotated helper, strip/loop pairs and state rejection passed");
+    line_write_bounds();
+    puts("Owned line geometry forwarding, provoking colors, rotated helper, strip/loop pairs, state rejection and write bounds passed");
     return 0;
 }

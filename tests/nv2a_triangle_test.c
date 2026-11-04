@@ -644,6 +644,89 @@ static void reference_state_abi(void)
     free(words);
 }
 
+/* Every public geometry entry point must write exactly its documented raster
+ * vertex count. Each call gets a freshly poisoned buffer with spare slots; a
+ * write into a spare slot fails here and, because the buffer is heap allocated,
+ * an overrun past the allocation also fails under ASan.
+ */
+enum { BOUNDS_GUARD_VERTICES = 4 };
+
+static void reset_poison(FFNv2aRasterVertex *buffer, size_t slots)
+{
+    memset(buffer, 0xa5, slots * sizeof *buffer);
+}
+
+static void assert_write_bounds(const FFNv2aRasterVertex *buffer, size_t written)
+{
+    const unsigned char *bytes = (const unsigned char *)buffer;
+    const size_t body = written * sizeof *buffer;
+    const size_t total = (written + BOUNDS_GUARD_VERTICES) * sizeof *buffer;
+    int wrote = 0;
+    for (size_t i = 0; i < body; ++i) wrote |= bytes[i] != 0xa5;
+    if (written != 0) assert(wrote); /* the call must not silently emit nothing */
+    for (size_t i = body; i < total; ++i) assert(bytes[i] == 0xa5);
+}
+
+static void triangle_write_bounds(void)
+{
+    FFNv2aPostVertex stream[5] = {0};
+    for (unsigned i = 0; i < 5; ++i) {
+        stream[i].position[0] = (float)i;
+        stream[i].position[1] = 0.5f;
+        stream[i].position[2] = 1.0f;
+        stream[i].position[3] = 1.0f;
+        stream[i].clip[0] = (float)i;
+        stream[i].point_size = (float)i + 1;
+        stream[i].color[0][0] = (float)i;
+    }
+    const FFNv2aPostVertex *input = stream;
+    FFNv2aTriangleState state = {0, 0, 0, 1, 1};
+    FFNv2aPolygonState polygon = {0, 0, 1};
+    const size_t slots = 18 + BOUNDS_GUARD_VERTICES;
+    FFNv2aRasterVertex *out = malloc(slots * sizeof *out);
+    assert(out);
+#define CHECK_BOUNDS(call, written) \
+    do { reset_poison(out, slots); assert((call) == 0); \
+         assert_write_bounds(out, (written)); } while (0)
+
+    CHECK_BOUNDS(ff_nv2a_expand_triangle(input, &state, out, FF_NV2A_SEPARATE), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_lines(input, &state, out, FF_NV2A_SEPARATE), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_points(input, &state, out, FF_NV2A_SEPARATE), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_strip(input, &state, out, FF_NV2A_SEPARATE, 0), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_strip(input, &state, out, FF_NV2A_SEPARATE, 1), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_strip_lines(input, &state, out, FF_NV2A_SEPARATE, 1), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_strip_points(input, &state, out, FF_NV2A_SEPARATE, 1), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_fan(input, &state, out, FF_NV2A_SEPARATE), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_fan_lines(input, &state, out, FF_NV2A_SEPARATE), 6);
+    CHECK_BOUNDS(ff_nv2a_expand_triangle_fan_points(input, &state, out, FF_NV2A_SEPARATE), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_polygon_fill(input, &polygon, out, FF_NV2A_SEPARATE), 3);
+    CHECK_BOUNDS(ff_nv2a_expand_polygon_line(input, &polygon, out), 2);
+
+    /* A five-vertex stream forms three triangles. The capacity deliberately
+     * exceeds the required count so that capacity cannot be used as a write
+     * count. */
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_strip(stream, 5, &state, out,
+                                                 (uint32_t)slots, FF_NV2A_SEPARATE,
+                                                 FF_NV2A_POLYGON_FILL), 9);
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_strip(stream, 5, &state, out,
+                                                 (uint32_t)slots, FF_NV2A_SEPARATE,
+                                                 FF_NV2A_POLYGON_LINE), 18);
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_strip(stream, 5, &state, out,
+                                                 (uint32_t)slots, FF_NV2A_SEPARATE,
+                                                 FF_NV2A_POLYGON_POINT), 9);
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_fan(stream, 5, &state, out,
+                                               (uint32_t)slots, FF_NV2A_SEPARATE,
+                                               FF_NV2A_POLYGON_FILL), 9);
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_fan(stream, 5, &state, out,
+                                               (uint32_t)slots, FF_NV2A_SEPARATE,
+                                               FF_NV2A_POLYGON_LINE), 18);
+    CHECK_BOUNDS(ff_nv2a_assemble_triangle_fan(stream, 5, &state, out,
+                                               (uint32_t)slots, FF_NV2A_SEPARATE,
+                                               FF_NV2A_POLYGON_POINT), 9);
+#undef CHECK_BOUNDS
+    free(out);
+}
+
 int main(void)
 {
     FFNv2aPostVertex input[3] = {0};
@@ -718,6 +801,7 @@ int main(void)
     triangle_strip_fan_line_point_modes();
     triangle_stream_assembly();
     reference_state_abi();
-    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point/assembly/reference-abi cases passed");
+    triangle_write_bounds();
+    puts("Triangle prepass analytic geometry/color/depth/layout/polygon-mode/polygon/strip-fan/line-point/assembly/reference-abi/write-bounds cases passed");
     return 0;
 }
