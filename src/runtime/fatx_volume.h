@@ -84,5 +84,12 @@ uint32_t ff_fatx_create_empty(ff_fatx_volume *,uint32_t mount,
                               const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
                               const uint8_t *name,uint32_t name_bytes,
                               ff_fatx_directory_entry *created);
+/* Source-owned deletion of an empty file (size 0, first cluster 0) by path.
+ * It marks the matching directory entry deleted; it does not free clusters,
+ * delete directories, change the FAT or serve a guest request. Non-empty files,
+ * directories, missing paths and invalid requests are rejected without a
+ * partial write. */
+uint32_t ff_fatx_delete_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *path,uint32_t path_bytes,uint32_t flags);
 int ff_fatx_owns_handle(uint32_t);
 #endif

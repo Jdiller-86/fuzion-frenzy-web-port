@@ -255,6 +255,40 @@ static void fatx_create_empty_file(void)
     unchanged();
     assert(!ff_fatx_close(&fs,handle));
 }
+static void fatx_delete_empty_file(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
+    ff_fatx_directory_entry entry,created;
+    save();assert(ff_fatx_delete_empty(&fs,1,(const uint8_t*)"HELLO.TXT",9,0)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    save();assert(ff_fatx_delete_empty(&fs,1,(const uint8_t*)"SUBDIR",6,0)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    save();assert(ff_fatx_delete_empty(&fs,1,(const uint8_t*)"MISSING.TXT",11,0)==FF_BOOT_UNSUPPORTED);
+    unchanged();
+
+    assert(!ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"NEW.TXT",7,&created));
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"NEW.TXT",7,0,&entry) && !entry.size);
+    assert(!ff_fatx_delete_empty(&fs,1,(const uint8_t*)"NEW.TXT",7,0));
+    assert(ff_fatx_lookup(&fs,1,(const uint8_t*)"NEW.TXT",7,0,&entry)==FF_BOOT_UNSUPPORTED);
+    uint32_t count;assert(!ff_fatx_root_count(&fs,1,&count) && count==4);
+    uint8_t output[8];uint32_t bytes;
+    assert(!ff_fatx_read_path(&fs,1,(const uint8_t*)"HELLO.TXT",9,0,0,output,sizeof output,&bytes) &&
+           bytes==5 && !memcmp(output,"HELLO",5));
+
+    assert(!ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"NEW2.TXT",8,&created));
+    assert(!ff_fatx_delete_empty(&fs,1,(const uint8_t*)"NEW2.TXT",8,0));
+    assert(ff_fatx_lookup(&fs,1,(const uint8_t*)"NEW2.TXT",8,0,&entry)==FF_BOOT_UNSUPPORTED);
+
+    assert(!ff_fatx_create_empty(&fs,1,(const uint8_t*)"SUBDIR",6,0,(const uint8_t*)"CHILD.TXT",9,&created));
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"SUBDIR/CHILD.TXT",16,0,&entry) && !entry.size);
+    assert(!ff_fatx_delete_empty(&fs,1,(const uint8_t*)"SUBDIR/CHILD.TXT",16,0));
+    assert(ff_fatx_lookup(&fs,1,(const uint8_t*)"SUBDIR\\CHILD.TXT",16,0,&entry)==FF_BOOT_UNSUPPORTED);
+
+    save();assert(ff_fatx_delete_empty(&fs,1,NULL,0,0)==FF_BOOT_INVALID);unchanged();
+    save();assert(ff_fatx_delete_empty(&fs,1,(const uint8_t*)"\\NEW.TXT",8,0)==FF_BOOT_INVALID);unchanged();
+    save();assert(ff_fatx_delete_empty(&fs,1,(const uint8_t*)"NEW.TXT\\",8,0)==FF_BOOT_INVALID);unchanged();
+    assert(!ff_fatx_close(&fs,handle));
+}
 static void subdirectory_lookup_and_reads(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();ff_fatx_directory_entry entry;
@@ -386,6 +420,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file creation, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, bounds and mutation checks passed");return 0;
 }

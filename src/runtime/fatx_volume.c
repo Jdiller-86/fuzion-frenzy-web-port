@@ -550,3 +550,56 @@ uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
     created->size=0;
     return 0;
 }
+uint32_t ff_fatx_delete_empty(ff_fatx_volume *fs,uint32_t id,
+                              const uint8_t *path,uint32_t path_bytes,uint32_t flags)
+{
+    if(!fs || !path || !path_bytes || path_bytes>FF_FATX_PATH_BYTES)return FF_BOOT_INVALID;
+    if(path[0]=='\\' || path[0]=='/')return FF_BOOT_INVALID;
+    uint32_t parent_bytes=0,name_offset=0;
+    for(uint32_t i=path_bytes;i>0;--i)
+        if(path[i-1]=='\\' || path[i-1]=='/'){parent_bytes=i-1;name_offset=i;break;}
+    const uint8_t *name=path+name_offset;
+    const uint32_t name_bytes=path_bytes-name_offset;
+    if(!name_bytes || name_bytes>FF_FATX_NAME)return FF_BOOT_INVALID;
+    for(uint32_t i=0;i<name_bytes;++i)
+        if(!name[i] || name[i]=='\\' || name[i]=='/')return FF_BOOT_INVALID;
+    if((name_bytes==1 && name[0]=='.') ||
+       (name_bytes==2 && name[0]=='.' && name[1]=='.'))return FF_BOOT_INVALID;
+    ff_fatx_mount *mount;
+    uint32_t start;
+    uint32_t status=directory_start(fs,id,&mount,parent_bytes?path:NULL,parent_bytes,flags,&start);
+    if(status)return status;
+    uint32_t cluster=start,steps=0;
+    int found=0;
+    uint64_t address=0;
+    ff_fatx_directory_entry target;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || steps++>=FF_FATX_DIRECTORY_CHAIN)return FF_BOOT_UNSUPPORTED;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
+        for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
+            ff_fatx_directory_entry candidate;
+            const uint32_t parsed=parse_entry(fs,mount,base+offset,&candidate);
+            if(parsed==FF_FATX_PARSE_END)return FF_BOOT_UNSUPPORTED;
+            if(parsed==FF_FATX_PARSE_DELETED)continue;
+            if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
+            if(name_equal(candidate.name,name,name_bytes,flags)) {
+                address=base+offset;target=candidate;found=1;break;
+            }
+        }
+        if(found)break;
+        uint32_t next;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX))return FF_BOOT_UNSUPPORTED;
+        cluster=next;
+    }
+    if(!found)return FF_BOOT_UNSUPPORTED;
+    if((target.attributes&FF_FATX_ATTR_DIRECTORY) || target.size || target.first_cluster)
+        return FF_BOOT_UNSUPPORTED;
+    if(!ff_disk_has(fs->disk,address,1u))return FF_BOOT_UNSUPPORTED;
+    const uint8_t deleted=0xe5u;
+    status=ff_disk_store(fs->disk,address,&deleted,1u);
+    if(status)return status;
+    /* A metadata-only deletion leaves the mount geometry valid. */
+    mount->revision=fs->disk->revision;
+    return 0;
+}

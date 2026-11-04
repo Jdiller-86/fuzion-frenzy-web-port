@@ -1,4 +1,12 @@
-# Continue from metadata-only FATX file creation
+# Continue from metadata-only FATX empty-file deletion
+
+`ff_fatx_delete_empty` removes a zero-length file by path. It resolves the parent directory (root or relative path), locates the matching slot, requires a non-directory entry with size `0` and first cluster `0`, and writes only the `0xE5` deleted marker. It does not free clusters, change the FAT or delete directories; non-empty files, directories, missing paths, invalid names/paths, stale mounts and missing backing pages stop without a partial write; it refreshes the mount revision on success. The `fatx_volume` fixture covers root/subdirectory deletion, non-empty/directory/missing rejection, lookup failure after deletion, slot reuse by the next creation, unchanged failure state and an untouched-file read-back.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
+
+Next: extend FATX to data-cluster allocation, extension, cluster freeing or durable persistence only when a reached original save path or an explicit product decision requires it. Keep metadata-only create/delete and overwrite-only writes off the runtime path until then and do not claim save fidelity. Keep ordinal 2 unsupported, numeric option 6 neutral and `0x1F79A0` unadmitted; hardware capture remains optional fidelity evidence.
+
+## Prior: continue from metadata-only FATX file creation
 
 `ff_fatx_create_empty` adds metadata-only creation of a zero-length file (attribute `0x20`) in the root or a resolved subdirectory. It scans the whole directory chain for a duplicate name, records the first deleted slot or end marker, and writes only the 64-byte directory entry with first cluster `0` and size `0`. It does not change the FAT, allocate clusters or create directories; invalid names/paths, duplicates, a full 256-slot directory, stale mounts and missing backing pages stop without a partial entry; it refreshes the mount revision on success. The `fatx_volume` fixture covers root/subdirectory creation, zero-length read-back, duplicate/invalid-name rejection, a full directory and unchanged failure state.
 
