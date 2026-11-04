@@ -25,6 +25,9 @@ jobs:
       - run: python tests/title_seed_test.py
       - run: python tests/recomp_memory_access_test.py
       - run: npm run test:runtime
+      - name: Check native component fixtures (Linux)
+        if: runner.os == 'Linux'
+        run: npm run test:native
       - name: Check triangle geometry (Linux)
         if: runner.os == 'Linux'
         run: |
