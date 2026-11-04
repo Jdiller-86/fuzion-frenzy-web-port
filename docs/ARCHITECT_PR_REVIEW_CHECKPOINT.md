@@ -1,6 +1,24 @@
 # Architect PR and execution review
 
-## Current review: source 86ded35 / geometry 02dd6cc
+## Current review: source 897e389 / geometry df97a31
+
+Integration started clean at `d548844e4cd05de8bb80b6fa98e1362be6585138`; local main `ebd1ebf` remains included through `9d3b9f0`. Fixed builder heads: source `897e389625e9b8be0efe3f26eb9d7ab47e41eff5`, geometry `df97a31051f3fb192f5bcbe526d4e8091bc13ec8`. Neither builder branch is integrated by this review.
+
+**New causal evidence, A015:** the full pinned xemu reset path sets CACHE1_STATUS.LOW_MARK **before consumption**. `nv2a.c:307` clears PFIFO registers; `:317` sets LOW_MARK; `:387–390` and `:614` connect the reset hold callback. The architect verified the exact public pin dc10b4c and an independent GLM reviewer corroborated the path. Source's new contract gives useful submission/enable/order evidence but its zero-reset and consumption-only inference is wrong. The absence of a first method is not proof the reset predicate must stay clear. See [the reset checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md) for exact citations, evidence limits and bounded acceptance.
+
+**Primary:** correct the contract and implement one explicit, default-off reference-reset experiment using the existing seam. Prove reset LOW_MARK with zero consumer updates and unchanged GET/PUT/command memory, separate reference runout semantics, repeat initialization and no implicit activation. Initialization is before guest execution or on an evidenced reset, never a response to poll count, GET==PUT or a desired return. Retained local same-module controls may then identify the next genuine dependency. This is reference-state modeling, not observed original hardware/fidelity. A014 ownership stays with primary; fix source's stale third-workstream handoff. Stop generic frontier/audit expansion: latest source itself reports zero entered placeholders, so no translation batch is justified at the current stop.
+
+Source additionally checks PCRTC log failures and calls the explicit stop instead of discarding return codes; direct delta inspection confirms the implementation correction. Its checkpoint says the display-log refusal branch was not reached in its private profiles; source inspection and component tests must not be described as executed coverage of that branch. A001 remains accepted under A013, with no related new delta.
+
+Geometry's latest delta is documentation-only, updating pause/directive text. It supplies no new component/reference/runtime evidence, so the existing pause/whole-chain/reference gate remains. Do not repeat idle audit campaigns or add fixtures/topology. A named adapter still needs admissible input/scope, not its own already-successful comparison.
+
+Read-only GitHub verification: #1 open/non-draft/clean/mergeable at `d548844` over `1a67c4f`, with successful Linux/Windows preparation checks; #2/#3 already-open conflicted drafts at requested heads. No duplicate openings. Green starting-head CI does not approve source's incorrect reset contract, accumulated builder runtime changes or the new exact integration head. No builder merge, main-merge marker or push is issued. Main promotion remains withheld pending full intended-PR review and exact-head checks; this is not a governance-only delta against remote main.
+
+Scout's narrow lookup identified A014's producer-free contract and the existing geometry gate; material findings were checked against the retained decision/handoff text. All original content and private evidence remain local and untouched. No original module, reference executable or game was run by this review. There is no controllable original screen, scanout timing source or accepted full fidelity; browser-local conversion and every planned online/social/control/authority goal remain unfinished.
+
+Validation: independent exact-source `897e389` publication guard passes (327 files), runtime tests 131/131 with no failures/skips. The validator confirmed that no owned automated fixture executes the PCRTC probe's new log-refusal stop branch; the device component tests cover its return code only. Temporary-worktree cwd policy required equivalent absolute Node runners. Integration publication guard passes (294 files), runtime tests 110/110, and `git diff --check` passes. Both environments used Node 24.22.1, not exact pin 24.14.0. All new integration changes are source-only documentation; no builder runtime is imported.
+
+## Retained review: source 86ded35 / geometry 02dd6cc
 
 The inherited dirty worktree was an unfinished, staged merge of local main `ebd1ebf75173224ce266ce3ca3eda41cec7f2edb`, not builder work. Its seven staged files were inspected, publication/whitespace checks and offline PowerShell parsing passed, and the merge was completed as `9d3b9f0`. All retained A011/A012 findings below remain history at their stated source heads; the following review supersedes their next-task wording. No settings, credentials, original content or private research were read, changed or published. Sol is responding successfully this cycle; past availability failures do not describe this review.
 

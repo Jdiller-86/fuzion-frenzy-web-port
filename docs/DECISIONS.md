@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 897e389 and geometry df97a31
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A015 | Correct the PFIFO producer contract and authorize a bounded opt-in reference-reset experiment owned by primary | Exact public xemu pin dc10b4cea96e403d30c17ed53551fdaf023bc17f `nv2a.c:307,317` clears PFIFO registers then sets CACHE1_STATUS.LOW_MARK; reset hold callback/registration at :387–390/:614 establishes the path. Direct inspection and independent GLM review contradict source897e389's zero-reset/consumption-only claim. Reset initialization is not synthesized method completion, original hardware evidence or display timing. Correct the contract and reuse the existing seam for an explicit, default-off, narrowly scoped reference-reset adapter with owned fixtures proving LOW_MARK before consumption, no GET/PUT/command mutation, zero consumer updates, explicit runout read semantics, repeat reset and unchanged controls. Compare retained local profiles only if available; report next genuine stop. A014 primary ownership remains; no third lane, generic tooling/frontier expansion, forced bits on polls or full emulator. See PFIFO_RESET_STATE_CHECKPOINT.md. |
+
 ### Architect review of source 86ded35 and geometry 02dd6cc
 
 | ID | Decision | Basis / limits |
