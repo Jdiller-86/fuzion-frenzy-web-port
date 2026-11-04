@@ -88,6 +88,14 @@ test('the PFIFO reset experiment is a default-off flag that leaves the register 
   assert.deepEqual(on.registers, reached);
 });
 
+test('the synthetic AV query word is explicit and default-off', () => {
+  assert.equal(parseLocalMmioProfile(bytes(reached)).avQueryWord, undefined);
+  assert.equal(parseLocalMmioProfile(bytes(reached, { avQueryWord: 0x00800303 })).avQueryWord, 0x00800303);
+  for (const avQueryWord of [-1, 0x100000000, 1.5, '1', null]) {
+    assert.throws(() => parseLocalMmioProfile(bytes(reached, { avQueryWord })));
+  }
+});
+
 test('unknown device profile keys fail closed', () => {
   assert.throws(() => parseLocalMmioProfile(bytes(reached, { pmcZer0: true })));
   assert.throws(() => parseLocalMmioProfile(bytes(reached, { writeClearing: true, engineWait: true, pmcZer0: true })));
@@ -96,12 +104,14 @@ test('unknown device profile keys fail closed', () => {
   const all = parseLocalMmioProfile(bytes(reached, {
     zeroRanges: [{ address: 0xFD100200, bytes: 0x1000 }],
     writeClearing: true, pmcZero: true, pcrtcVblanks: 4, pfifoReset: true,
+    avQueryWord: 0x00800303,
   }));
   assert.equal(all.writeClearing, true);
   assert.equal(all.pmcZero, true);
   assert.equal(all.pcrtcVblanks, 4);
   assert.equal(all.engineWait, false);
   assert.equal(all.pfifoReset, true);
+  assert.equal(all.avQueryWord, 0x00800303);
 });
 
 test('pfifoReset and engineWait are mutually exclusive', () => {
@@ -117,8 +127,9 @@ test('experimental device inputs are summarised for the report', () => {
   assert.deepEqual(describeMmioExperiments(null), []);
   const all = parseLocalMmioProfile(bytes(reached, {
     writeClearing: true, pmcZero: true, pcrtcVblanks: 4, pfifoReset: true,
+    avQueryWord: 0x00800303,
   }));
-  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'pfifoReset']);
+  assert.deepEqual(describeMmioExperiments(all), ['writeClearing', 'pmcZero', 'pcrtcVblanks:4', 'pfifoReset', 'avQuery']);
   const one = parseLocalMmioProfile(bytes(reached, { pcrtcVblanks: 2 }));
   assert.deepEqual(describeMmioExperiments(one), ['pcrtcVblanks:2']);
 });

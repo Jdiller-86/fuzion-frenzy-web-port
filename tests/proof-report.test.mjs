@@ -72,6 +72,37 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
   })), /must not carry an output/);
 });
 
+test('an explicit synthetic avQuery word completes ordinal 2 with its raw word', () => {
+  const valid = report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({
+    avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+  })), /requires the avQuery experiment/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'],
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+  })), /requires an explicit raw word/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [],
+  })), /requires a completed ordinal-2 call/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  })), /must complete the ordinal-2 call/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264] }],
+  })), /must carry its raw word/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800304 } }],
+  })), /must match the declared raw word/);
+});
+
 test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
   const valid = report({
     stop: {

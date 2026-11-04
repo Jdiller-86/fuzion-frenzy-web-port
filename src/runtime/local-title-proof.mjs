@@ -151,7 +151,7 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'avQueryWord'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
@@ -203,9 +203,16 @@ export function parseLocalMmioProfile(buffer) {
    * naming the blocking predicate. */
   if (pfifoReset && engineWait)
     throw new Error('The pfifoReset and engineWait diagnostics are mutually exclusive');
+  /* Explicit synthetic raw DWORD for the observed ordinal-2 query. It is never
+   * composed from settings and has no default; an absent field leaves the
+   * service unsupported. */
+  const avQueryWord = device.avQueryWord;
+  if (avQueryWord !== undefined &&
+      (!Number.isInteger(avQueryWord) || avQueryWord < 0 || avQueryWord > 0xffffffff))
+    throw new Error('The synthetic AV query word must be an explicit 32-bit value');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait, pfifoReset };
+    pcrtcVblanks, engineWait, pfifoReset, avQueryWord };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -218,6 +225,7 @@ export function describeMmioExperiments(profile) {
   if (profile.pcrtcVblanks) active.push(`pcrtcVblanks:${profile.pcrtcVblanks}`);
   if (profile.engineWait) active.push('engineWait');
   if (profile.pfifoReset) active.push('pfifoReset');
+  if (profile.avQueryWord !== undefined) active.push('avQuery');
   return active;
 }
 export function parseLocalMemoryProfile(buffer) {

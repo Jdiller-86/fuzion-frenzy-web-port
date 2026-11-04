@@ -72,7 +72,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -109,6 +109,15 @@ export function validateProofReport(report) {
     throw new Error('PFIFO reset state requires the pfifoReset experiment');
   if (claimsReset && report.pfifoResetState === undefined)
     throw new Error('The pfifoReset experiment requires PFIFO reset state');
+  /* One explicit synthetic raw DWORD may bind the ordinal-2 query. It is a
+   * labeled experiment, not a default or a claim about the original service. */
+  const claimsAvQuery = experiments.includes('avQuery');
+  if (report.avQueryWord !== undefined && !claimsAvQuery)
+    throw new Error('The synthetic AV query word requires the avQuery experiment');
+  if (claimsAvQuery && report.avQueryWord === undefined)
+    throw new Error('The avQuery experiment requires an explicit raw word');
+  if (report.avQueryWord !== undefined && !integer(report.avQueryWord))
+    throw new Error('Malformed synthetic AV query word');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */
@@ -122,12 +131,13 @@ export function validateProofReport(report) {
     if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
       throw new Error('PFIFO reset must set LOW_MARK on both status registers');
   }
-  /* Ordinal 2 is unsupported: the observed call carries four arguments and no
-   * output. The option-6 result is not asserted because the pinned references
-   * conflict on its meaning. */
+  /* Ordinal 2 remains unsupported by default: the observed call carries four
+   * arguments and no output. Only the explicit synthetic avQuery word may make
+   * the adapter complete the call, and the report must show that exact raw word. */
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
+    let avQueryCall = false;
     for (const call of report.calls) {
       if (!call || typeof call !== 'object' || !integer(call.ordinal) || !integer(call.status) ||
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
@@ -136,11 +146,23 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
-      if (call.status === 0)
-        throw new Error('An unsupported ordinal-2 call must not report success');
-      if (call.output !== undefined)
-        throw new Error('Unsupported ordinal-2 calls must not carry an output word');
+      if (report.avQueryWord === undefined) {
+        if (call.status === 0)
+          throw new Error('An unsupported ordinal-2 call must not report success');
+        if (call.output !== undefined)
+          throw new Error('Unsupported ordinal-2 calls must not carry an output word');
+      } else {
+        if (call.status !== 0)
+          throw new Error('The synthetic avQuery profile must complete the ordinal-2 call');
+        if (!call.output || !integer(call.output.rawWord))
+          throw new Error('The synthetic avQuery call must carry its raw word');
+        if (call.output.rawWord !== report.avQueryWord)
+          throw new Error('The synthetic avQuery output must match the declared raw word');
+        avQueryCall = true;
+      }
     }
+    if (claimsAvQuery && !avQueryCall)
+      throw new Error('The avQuery experiment requires a completed ordinal-2 call');
   }
   return report;
 }

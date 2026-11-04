@@ -1,6 +1,6 @@
 # The option-6 AV model is withdrawn; ordinal 2 remains unsupported
 
-November 4, 2026. The modeled `AvSendTVEncoderOption` option-6 handler is withdrawn. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`, while the pinned `xboxrecomp-source` maps the same numeric 6 to `AV_OPTION_QUERY_AVPACK` and returns a fixed compatibility default. Both are replacement implementations with different semantics; neither establishes the original console's behavior, so no option-6 model is retained. Ordinal 2 stays unsupported and fail-closed: the reset run stops at **status 1**, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations. Untranslated `0x1F79A0` is **not** reached. **There is no renderer, timing source or playable screen.**
+November 4, 2026. The modeled `AvSendTVEncoderOption` option-6 handler is withdrawn. The public Cxbx-Reloaded source at commit `585c49a50af1255ab155099e06f24505f9c5a800` maps numeric option 6 to `AV_QUERY_AV_CAPABILITIES` and handles it with `AvQueryAvCapabilities()`, while the pinned `xboxrecomp-source` maps the same numeric 6 to `AV_OPTION_QUERY_AVPACK` and returns a fixed compatibility default. Both are replacement implementations with different semantics; neither establishes the original console's behavior, so no option-6 model is retained. Ordinal 2 stays unsupported and fail-closed by default: the reset run stops at **status 1**, target `0xFE000094`, ordinal 2, return `0x1FD429`, with 279 routines and 404 kernel operations. An explicit default-off synthetic raw-DWORD binding now exists only for a labeled experiment; it is not original semantics. Untranslated `0x1F79A0` is **not** admitted. **There is no renderer, timing source or playable screen.**
 
 ## Confirmed conflict
 
@@ -82,9 +82,9 @@ These remain a labeled reference implementation, not an original-runtime observa
 
 - No encoder capabilities, mode, timing, refresh or return value are known.
 - No display timing, renderer, fidelity or playability is established.
-- The service stays unsupported; `0x1F79A0` is not grounded progress.
+- The service stays unsupported by default; the explicit synthetic raw-DWORD binding is not original semantics and `0x1F79A0` is not grounded progress.
 - No frontier expansion was performed this cycle.
 
 ## Next task
 
-Keep ordinal 2 unsupported and numeric option 6 neutral. The component is complete with a nullable explicit synthetic-DWORD config, bytewise little-endian stores, unaligned and whole-span handling, and neighbor/wrap tests. An original-hardware capture remains optional fidelity evidence, not a prerequisite; no further capture schema or replacement-source survey is needed. Do not model option 6, export `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success.
+Keep ordinal 2 unsupported by default and numeric option 6 neutral. The accepted component and its default-off adapter are documented in [the binding checkpoint](AV_QUERY_BINDING_CHECKPOINT.md); the raw word is explicit, never composed or defaulted. Do not export or admit `0x1F79A0`, supply a default pack word or fake EAX/NTSTATUS success. Disc/FATX expansion and guest wiring stay frozen pending a reached dependency or review.

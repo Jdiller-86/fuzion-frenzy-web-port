@@ -1,4 +1,12 @@
-# Continue from the preflighted FATX single-cluster creation
+# Continue from the default-off synthetic raw-DWORD binding
+
+An explicit adapter now binds the accepted numeric-6 component to the observed ordinal-2 call only when the profile supplies `device.avQueryWord`. The adapter writes the four-byte result, pops the return address and four stdcall arguments (`esp += 20`) and leaves `eax` unchanged; denied queries leave output, EAX and ESP unchanged. The native adapter fixture covers aligned/unaligned success, null config, read-only/null/unmapped/wrong-shape denial, stack-wrap denial and unchanged neighbors. The report contract requires `avQuery` + `avQueryWord` and a completed ordinal-2 call with the matching `output.rawWord`; without the field, status-0/output-bearing ordinal-2 calls remain rejected. In the same rebuilt module (`4e03dbe3…`), the control profile stops at status 1 on ordinal 2 (279/404) while the explicit `0x00800303` profile continues to untranslated `0x1F79A0` (status 2, 280/405). Both reports validate.
+
+Validation: runtime suite 159/159, `npm run test:evidence` 4/4, `npm run test:native` 20/20, title-seed 25/25, `npm run check` 350 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T06:45:32.8167397-05:00`; this cycle follows it.
+
+Next: keep the default ordinal-2 path unsupported, keep the raw word explicit and never compose a default, and do not admit `0x1F79A0`. Disc/FATX expansion and guest wiring stay frozen pending a reached dependency or review; the geometry lane stays paused. Treat the explicit binding as labeled synthetic evidence, not fidelity or original service semantics.
+
+## Prior: Continue from the preflighted FATX single-cluster creation
 
 `ff_fatx_create_file` now preflights the directory-slot page and the selected FAT-entry page before writing any data, in addition to the existing data-page and revision checks. A sparse directory or FAT backing therefore returns `FF_BOOT_UNSUPPORTED` without leaving orphaned data pages or FAT state. The `fatx_volume` fixture adds missing-directory and missing-FAT cases and verifies the directory, FAT and disk stay unchanged.
 

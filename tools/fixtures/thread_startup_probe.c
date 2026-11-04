@@ -19,6 +19,8 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/interrupt_vector.h"
 #include "../../src/runtime/gpu_instance.h"
 #include "../../src/runtime/time_fields.h"
+#include "../../src/runtime/av_query.h"
+#include "../../src/runtime/av_query_adapter.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -827,6 +829,17 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
 #ifdef FF_MMIO_PROOF
 static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset, mmio_pfifo_reset_count;
 static ff_pfifo_status mmio_pfifo_status;
+static uint32_t av_query_word, av_query_ready;
+/* Explicit, default-off synthetic raw DWORD for the observed ordinal-2 query.
+ * The worker must call this before the run; without it the service stays
+ * unsupported. No composer, default or console inference exists. */
+uint32_t ff_probe_av_query_word(uint32_t word)
+{
+    if (av_query_ready) return FF_BOOT_INVALID;
+    av_query_word = word;
+    av_query_ready = 1;
+    return 0;
+}
 /* Explicitly experimental: the selected profile must opt in to modelling an
  * acknowledging store, and the same profile without it is the control run. */
 uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
@@ -1687,6 +1700,28 @@ static void set_timer(void)
     g_eax = previous; g_esp += 20;
 }
 #endif
+#if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+static void av_send_tv_encoder_option(void)
+{
+    uint32_t *row = kernel_record(2, 4);
+    if (!av_query_ready) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    const uint32_t args[4] = {row[2], row[3], row[4], row[5]};
+    const ff_av_query_config config = {av_query_word};
+    ff_av_query_cpu cpu = {g_esp, g_eax};
+    const ff_av_query_result result = ff_av_query_adapter(&virtual_memory, args, &config, &cpu);
+    if (result != FF_AV_QUERY_WROTE) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    g_esp = cpu.esp;
+    /* VOID-style: g_eax is intentionally unchanged. */
+    row[1] = 0;
+    row[6] = av_query_word;
+}
+#endif
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
     uint32_t offset = address - FF_KERNEL_BASE;
@@ -1756,6 +1791,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #endif
 #ifdef FF_NAMESPACE_PROOF
         if (ordinal == 67) return create_symbolic_link;
+#endif
+#if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+        if (ordinal == 2 && av_query_ready) return av_send_tv_encoder_option;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is
