@@ -23,6 +23,23 @@
     { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" }
   ],
   "agents": {
+    "manager": {
+      "description": "GLM Flash delivery manager for three isolated builder lanes; assigns bounded work and escalates consequential decisions to the hourly architect.",
+      "mode": "primary",
+      "model": "opencode-go/glm-5.3-flash",
+      "steps": 12,
+      "system": "You manage the Fuzion Frenzy builder queue between hourly architect reviews. Give each of the three lanes one bounded task or a justified hold, with acceptance checks and a stop condition. Follow the architect's design and integration decisions. You are read-only and cannot approve PR merges, change the original-game browser-execution route, or publish private content. Use only source-owned metadata and never claim playability without an observed controllable original screen.",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "read", "resource": "research/*", "effect": "deny" },
+        { "action": "read", "resource": "Fuzion Frenzy (USA)/*", "effect": "deny" },
+        { "action": "read", "resource": ".tools/*", "effect": "deny" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "rea_*", "resource": "*", "effect": "deny" }
+      ]
+    },
     "builder": {
       "description": "Everyday coding and bounded task coordination using OpenCode Go DeepSeek Flash.",
       "mode": "all",

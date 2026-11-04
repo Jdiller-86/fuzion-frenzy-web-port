@@ -1,14 +1,17 @@
 param(
     [switch]$DryRun,
-    [ValidateSet('primary', 'geometry')][string]$Lane = 'primary'
+    [ValidateSet('primary', 'geometry', 'verification')][string]$Lane = 'primary'
 )
 
 $ErrorActionPreference = 'Stop'
 if (-not $env:UNSLOTH_API_KEY) { $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User') }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$laneName = if ($Lane -eq 'geometry') { 'opencode-geometry' } else { 'opencode-source' }
-$branchName = if ($Lane -eq 'geometry') { 'codex/opencode-geometry' } else { 'codex/opencode-source' }
-$filePrefix = if ($Lane -eq 'geometry') { 'opencode-geometry-cycle' } else { 'opencode-cycle' }
+$laneName = if ($Lane -eq 'primary') { 'opencode-source' } else { 'opencode-' + $Lane }
+$branchName = if ($Lane -eq 'primary') { 'codex/opencode-source' } else { 'codex/opencode-' + $Lane }
+$filePrefix = if ($Lane -eq 'primary') { 'opencode-cycle' } else { 'opencode-' + $Lane + '-cycle' }
+$modelPool = Get-Content (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
+$lanePool = $modelPool.builders.$Lane
+if (-not $lanePool -or -not $lanePool.model) { throw "No model pool for lane $Lane" }
 $worktree = Join-Path $repo ('.worktrees\' + $laneName)
 $statePath = Join-Path $repo ('.worktrees\' + $filePrefix + '-state.json')
 $sessionPath = Join-Path $repo ('.worktrees\' + $filePrefix + '-session.txt')
@@ -32,6 +35,8 @@ function Get-WorktreeFingerprint([string]$path) {
 function Publish-VerifiedBranch([string]$path, [string]$expectedBranch) {
     $branch = (git -C $path branch --show-current).Trim()
     if ($LASTEXITCODE -ne 0 -or $branch -ne $expectedBranch) { throw 'Refusing to publish an unexpected branch.' }
+    $unfinished = @(git -C $path status --porcelain)
+    if ($LASTEXITCODE -ne 0 -or $unfinished.Count -ne 0) { throw 'Worktree has unfinished edits; publication waits for a reviewed commit.' }
     $changedPaths = @(git -C $path log --format= --name-only origin/main..HEAD | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect publication history.' }
     $forbidden = '(^|/)(research|\.tools|node_modules|\.venv|Fuzion Frenzy \(USA\))(/|$)|\.(7z|zip|iso|xbe|xbp|zro|xpr|xwb|xsb|dds|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$|(^|/)\.env(\.|$)'
@@ -47,6 +52,17 @@ function Publish-VerifiedBranch([string]$path, [string]$expectedBranch) {
         git push origin ('HEAD:refs/heads/' + $expectedBranch) | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Development branch push failed.' }
     } finally { Pop-Location }
+}
+
+function Test-LaneOwnership([string]$path, [string]$lane, [string]$before) {
+    if ($lane -eq 'primary') { return }
+    $changed = @(git -C $path diff --name-only ($before + '..HEAD') | Where-Object { $_ })
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect lane changes.' }
+    foreach ($file in $changed) {
+        $allowed = if ($lane -eq 'geometry') { $file -match '^(src/runtime/nv2a_[^/]+|tests/[^/]*nv2a[^/]*|docs/NV2A_GEOMETRY_CHECKPOINT\.md)$' }
+                   else { $file -match '^(tools/(verify-|check-)[^/]+|tests/(integration-|verification-)[^/]+|docs/INTEGRATION_VERIFICATION_CHECKPOINT\.md)$' }
+        if (-not $allowed) { throw "Lane $lane touched an unowned path: $file" }
+    }
 }
 
 if (-not (Test-Path -LiteralPath $worktree)) { throw 'Clean OpenCode worktree is missing.' }
@@ -90,23 +106,25 @@ try {
 
     $failures = if ($previous -and $previous.outcome -in @('running', 'retry', 'no_progress')) { [int]$previous.failures + 1 } else { 0 }
     $state = @{ attemptedHead = $head; started = (Get-Date).ToString('o'); outcome = 'running'; failures = $failures; sessionId = $sessionId; startedFingerprint = $beforeFingerprint }
-    $goModel = 'opencode-go/deepseek-v4.1-flash'
-    $freeModel = 'opencode/deepseek-v4.1-flash-free'
-    $freeBackup = 'opencode/glm-5.3-flash-free'
+    $goModel = [string]$lanePool.model
+    $fallbacks = @($lanePool.fallbacks | ForEach-Object { [string]$_ })
     $fallbackUntil = [DateTimeOffset]::MinValue
     if ($previous -and $previous.fallbackUntil) {
         $parsedFallback = [DateTimeOffset]::MinValue
         if ([DateTimeOffset]::TryParse([string]$previous.fallbackUntil, [ref]$parsedFallback)) { $fallbackUntil = $parsedFallback }
     }
-    $preferredModel = if ($Lane -eq 'geometry') { $freeModel } elseif ($fallbackUntil -gt [DateTimeOffset]::Now) { $freeModel } else { $goModel }
+    $preferredModel = if ($fallbackUntil -gt [DateTimeOffset]::Now -and $fallbacks.Count -gt 0) { $fallbacks[0] } else { $goModel }
     $state.model = $preferredModel
-    if ($Lane -eq 'primary' -and $fallbackUntil -gt [DateTimeOffset]::Now) { $state.fallbackUntil = $fallbackUntil.ToString('o') }
+    if ($fallbackUntil -gt [DateTimeOffset]::Now) { $state.fallbackUntil = $fallbackUntil.ToString('o') }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     if ($Lane -eq 'geometry' -and $dirty -and $sessionId) {
-        $prompt = 'Continue the unfinished source-owned NV2A geometry milestone in this same geometry session using only opencode/deepseek-v4.1-flash-free. Inspect the diff and last result, complete one bounded component task, targeted checks, status updates, source-only staged-path review and commit. Work only on src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not edit original-startup, memory, FATX, device, or main project status files. Do not delegate to paid or other-model agents. Record a material correctness blocker for the primary lane instead. Do not access private game/research inputs. Never push or merge to main.'
+        $prompt = 'Continue the unfinished source-owned NV2A geometry milestone in this same session. Inspect the diff and last result, complete one bounded component task, targeted checks and source-only staged-path review. Own only src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md. Do not access private game/research inputs, delegate, push or merge.'
     } elseif ($Lane -eq 'geometry') {
-        $prompt = 'Work in the dedicated geometry worktree using only opencode/deepseek-v4.1-flash-free on one bounded source-owned NV2A geometry component task. Read AGENTS.md, docs/OPENCODE_WORKFLOW.md, docs/NV2A_GEOMETRY_CHECKPOINT.md and docs/OPENCODE_GOAL.md. Own only src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md. The primary lane owns original startup, device, memory, FATX, broad status and route decisions; do not edit those files or duplicate its work. Use source-owned fixtures and targeted checks; never access ignored game/research inputs or claim original rendering from a component fixture. Do not delegate to paid or other-model agents. Record a material correctness blocker for the primary lane instead. Review staged source-only paths and commit one verified result on codex/opencode-geometry. Never push or merge to main.'
+        $prompt = 'Work in the dedicated geometry worktree on one bounded source-owned NV2A task. Read AGENTS.md, docs/NV2A_GEOMETRY_CHECKPOINT.md and docs/OPENCODE_GOAL.md. Own only src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md. Use source-owned fixtures and targeted checks; never access ignored game/research inputs or claim original rendering from a component fixture. Do not delegate, push or merge. Commit one verified result on codex/opencode-geometry.'
         if ($dirty) { $prompt += ' Preserve and finish existing worktree edits before selecting another task.' }
+    } elseif ($Lane -eq 'verification') {
+        $prompt = 'Work in the independent verification worktree on one bounded source-owned integration/check tooling task. Read AGENTS.md and docs/OPENCODE_GOAL.md. Own only tools/verify-*, tools/check-*, tests/integration-*, tests/verification-* and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Do not edit the runtime, general status, model/scheduler scripts or builder-owned tests. Do not access private research, delegate, merge or push. Run targeted checks, inspect staged paths and commit a verified result.'
+        if ($dirty) { $prompt += ' Preserve and finish existing edits before new work.' }
     } elseif ($dirty -and $sessionId) {
         $prompt = 'Continue the unfinished Fuzion Frenzy milestone in this same project session. Inspect the current diff and the previous cycle result, then complete the pending implementation, targeted checks, status/decision updates, source-only staged-path review and bounded commit. Preserve all worktree edits. Do not restart discovery or switch tasks unless the current task is demonstrably blocked. Never push or merge to main.'
     } else {
@@ -115,11 +133,8 @@ try {
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
     if ($Lane -eq 'primary') { $prompt += ' Treat model availability as time-specific: do not repeat an old Sol usage-limit result as current. If Sol was not attempted this cycle, say its current availability was not checked; if it was attempted, record the new result and time.' }
-    if ($Lane -eq 'geometry') {
-        $prompt += ' If the free model is unavailable, preserve edits and retry at the next scheduled geometry cycle; do not change providers or consume Go or Codex allowance.'
-    } else {
-        $prompt += ' If a provider allowance is exhausted, preserve edits and resume with the free fallback selected by this runner. Do not use paid Console balance. If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.'
-    }
+    $prompt += ' Use only this lane runner selected model or its configured cheap/free fallback; do not switch providers yourself or consume Codex allowance. If unavailable, preserve edits for the next cycle.'
+    if ($Lane -eq 'primary') { $prompt += ' If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.' }
     if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
     if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
     $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
@@ -130,7 +145,7 @@ try {
             if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
                 $brief = [string]$guidance.summary
                 if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
-                if ($guidance.approved -and $guidance.model -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3-flash')) {
+                if ($guidance.approved -and $guidance.model -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3')) {
                     if ($Lane -eq 'geometry' -and $guidance.geometryCycle -eq 'HOLD') {
                         $state.outcome = 'deferred_architect'
                         $state.finished = (Get-Date).ToString('o')
@@ -147,6 +162,33 @@ try {
             }
         } catch { Write-Warning 'Could not read the latest architect directive; continuing the builder cycle.' }
     }
+    $managerPath = Join-Path $repo '.worktrees\opencode-manager-guidance.json'
+    $managerTaskValid = $false
+    if (Test-Path -LiteralPath $managerPath) {
+        try {
+            $manager = Get-Content -LiteralPath $managerPath -Raw | ConvertFrom-Json
+            $managerCreated = [DateTimeOffset]::MinValue
+            $taskCard = $manager.lanes.$Lane
+            if ($taskCard -and $taskCard.head -eq $head -and [DateTimeOffset]::TryParse([string]$manager.created, [ref]$managerCreated) -and [DateTimeOffset]::Now.Subtract($managerCreated).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($managerCreated).TotalHours -lt 2) {
+                $managerTaskValid = $true
+                if ($taskCard.action -eq 'HOLD' -and -not $dirty) {
+                    $state.outcome = 'deferred_manager'
+                    $state.finished = (Get-Date).ToString('o')
+                    $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+                    Write-Output ("Lane $Lane held by the GLM Flash manager; other lanes continue.")
+                    return
+                }
+                if ($taskCard.action -eq 'RUN') { $prompt += " The GLM Flash manager assigned this bounded task: $($taskCard.task) Verify it against the latest architect directive; the architect prevails on conflict." }
+            }
+        } catch { Write-Warning 'Manager directive unavailable; continuing current lane rules.' }
+    }
+    if ($Lane -eq 'verification' -and -not $dirty -and -not $managerTaskValid) {
+        $state.outcome = 'deferred_no_task'
+        $state.finished = (Get-Date).ToString('o')
+        $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+        Write-Output 'Verification lane awaiting a manager task.'
+        return
+    }
     $output = @()
     $exitCode = 1
     $modelUsed = $preferredModel
@@ -160,7 +202,7 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
-                $candidates = if ($Lane -eq 'geometry') { @($freeModel) } elseif ($preferredModel -eq $goModel) { @($goModel, $freeModel, $freeBackup) } else { @($freeModel, $freeBackup) }
+                $candidates = if ($preferredModel -eq $goModel) { @($goModel) + $fallbacks } else { @($fallbacks) }
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
                     $runPrompt = if ($candidate -eq $preferredModel) { $prompt } else { 'Resume the same bounded task after a model allowance/availability failure. Inspect current worktree changes and the prior session state before acting; do not repeat completed work. ' + $prompt }
@@ -205,6 +247,7 @@ try {
     $state.lastSummary = $summary
     if ($exitCode -eq 0) {
         try {
+            Test-LaneOwnership $worktree $Lane $head
             Publish-VerifiedBranch $worktree $branchName
             $state.publication = 'published'
         } catch {
