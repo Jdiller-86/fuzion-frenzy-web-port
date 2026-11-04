@@ -1,4 +1,10 @@
-# Architect review: timer collision localized; interrupt hypothesis remains experimental
+# Architect review: PRs verified; candidate engine wait is still experimental
+
+Reviewed source `6759169c6a8e99e1ab6ea2f5f89bc0671148ec8a`, unchanged geometry `068232865f1026c83703fbd73422717b9296bdbd`, starting clean integration `54f062e749bc528d2da165d86ac166b468baa5e9`, and local-main governance candidate `111c832b37053a5e9aac3bcdd63ab5a97b799201`. Public GitHub API confirms PR #1 is open/non-draft/mergeable/green at `54f062e` over main `1a67c4f`; draft source PR #2 and geometry PR #3 are open/conflicted at the supplied heads, with no other open main PR. They merit continued review, not automatic integration. No PR was mutated, and no merge marker is issued.
+
+Source D145 reports a second inferred write-clearing declaration, a PMC-zero synthetic profile, per-register wait diagnostics and a distinct capacity status. Private build-68 SHA-256 `a385b2d3…` (640,409 bytes) stops at status 15 / `0xFD003220` with 276 routines, 83 initializer returns, 403 operations, timerCheck=0 and 7,518 trace events after the device log fills. This is not engine progress or original interrupt behavior. A001 and A006 are unchanged: generated-vector/real-VM coverage and structural read-only admission remain missing, and interrupt semantics need an explicit experimental policy/control or independent reference. The architect accessed no original inputs and reproduced no original execution. See [the PR review checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md), A007 and A008. Full fidelity, conversion, rendering/playability and all online/social authority goals remain unfinished.
+
+## Previous review
 
 This cycle reviews fixed refs source `b0ca6342eadfc8a94cc3e706867c974cacc4d66d` and geometry `068232865f1026c83703fbd73422717b9296bdbd` against clean integration `b11a742a9c8934f801686dd8e7627857bd9b035a`. Local main `6d8cc2d` is already integrated through `838f825`. Neither builder head is merged or approved for promotion. No private inputs were read and no original module was executed by the architect.
 

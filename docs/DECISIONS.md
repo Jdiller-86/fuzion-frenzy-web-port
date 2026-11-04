@@ -200,6 +200,13 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### PR-aware architect review of source 6759169
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A007 | Do not adopt the expanded interrupt experiment as engine progress | Source D145 extends the guest-implied acknowledge rule to PFIFO and the private profile supplies PMC status as zero, then reaches device-log capacity after repeated PULL0 writes/status polls. Explicitly supplied zero is still synthetic, not original device evidence. A006 applies to both interrupt rules and this PMC experiment; A001 is unchanged. Stop engine/export expansion until the bounded safety test and experimental-policy/control tasks are complete; do not grow capacities, seed interrupt bits or invent a consumer. The capacity diagnostic is evidence about the harness stop, not a completed wait. |
+| A008 | Retain the existing PR review queues without authorizing a main merge | Public API verifies PR #1 open/clean/green at old head 54f062e and draft conflicted PRs #2/#3 at source 6759169 and geometry 0682328. Both drafts merit review but not merge; no duplicate PR is needed. Main's green CI does not approve unintegrated governance or a changed integration head, and builder correctness gates remain explicit. The runner alone may create/merge PRs after a clean checked Sol review and exact-head authorization; this cycle issues no merge marker. Local-main D075 is a governance candidate, not adopted executable policy merely because its documentation describes safeguards. |
+
 ### Architect review of source b0ca634 and geometry 0682328
 
 | ID | Decision | Basis / limits |

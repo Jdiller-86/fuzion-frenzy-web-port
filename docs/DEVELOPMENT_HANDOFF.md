@@ -1,4 +1,8 @@
-# Architect handoff: finish vector safety and isolate the interrupt hypothesis
+# Architect handoff: existing safety gates before engine work or PR integration
+
+Read [the PR-aware review checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md). Current source `6759169` and unchanged geometry `0682328` remain candidates. Source D145's PFIFO acknowledge/PMC-zero experiment reaches a capacity stop, not device completion; A001 and A006 remain unmet. Primary: finish structurally safe generated vector operations with real VM checks, and explicitly separate the experimental interrupt policies/control before further engine modeling. Do not expand logs or invent progress. Geometry: retain the draft and topology hold; no repeated ABI busywork or private-reference copying. PRs #2/#3 remain conflicted drafts; PR #1 is clean/green only at the old head and is not merge-authorized. Runner-only PR mutations, no direct shell create/merge.
+
+## Previous handoff
 
 Current reviewed candidates are source `b0ca634` and geometry `0682328`, both unmerged. See [the integration checkpoint](ARCHITECT_INTEGRATION_CHECKPOINT.md) and A004–A006. The timer failure is localized and the reserved model-owned DPC-head correction is justified; do not repeat that diagnosis or force timer results. Direct vector-store/helper probes and unknown-port stops are repaired, but `(XMM_MEM(eax)) = xmm0` still admits a store through read intent. Finish A001 with structurally read-only generated loads and compiled generated operations against real VM permissions, not just a deny flag in a stub. Keep 0x80C0 behavior explicitly synthetic and opt-in.
 
