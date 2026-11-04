@@ -30,10 +30,12 @@ Measured predicate order: `CACHE1_STATUS` bit `0x10` blocks first (65 unchanged 
 
 ## Unresolved register semantics
 
+These were the unknowns when the handoff was written; the section below resolves the three polled bits from the fuller reference and leaves only the pumped offsets open.
+
 - `PFIFO + 0x500` (`0xFD002500`) and `PFIFO + 0x80` (`0xFD002080`) have **no definition** in the retained NV2A header; their meaning is unevidenced.
 - `NV_PFIFO_CACHE1_STATUS` (`0x1214`) and `NV_PFIFO_CACHE1_DMA_PUSH` (`0x1220`) define no fields, so their bit `0x10` meaning is unevidenced; only the guest's test is known.
 - `NV_PFIFO_RUNOUT_STATUS` defines `RANOUT (1<<0)`, `LOW_MARK (1<<4)`, `HIGH_MARK (1<<8)`, so bit `0x10` is `LOW_MARK` by name; who sets it is unknown.
-- The retained reference models no FIFO consumer: `pfifo_read` returns raw storage except the two interrupt registers and `pfifo_write` only stores (`nv2a_core.c:612-659`).
+- The extracted reference in `.tools/emulation/xboxrecomp-source` models no FIFO consumer: `pfifo_read` returns raw storage except the two interrupt registers and `pfifo_write` only stores (`nv2a_core.c:612-659`).
 
 ## Evidence gate for the engine workstream
 
@@ -45,6 +47,28 @@ Before any producer rule is activated:
 4. **Producer-connected tests** — a bounded test that drives `ff_pfifo_status_consumer_update` from the recorded conditions and checks `ff_pfifo_status_satisfied` at the expected boundaries.
 5. **Loop progress without forced bits** — the reached loop must leave because the modelled state changed, and the report must show the transition; exit alone does not establish fidelity, and no completion bit may be seeded.
 6. **Fail-closed remainder** — unknown configuration, unsupported transitions or exhausted budgets must still stop explicitly.
+
+## Reference-derived producer contract (full xemu source)
+
+The earlier audit used the extracted NV2A stub in `.tools/emulation/xboxrecomp-source`, which models no consumer. The fuller retained reference in `.tools/emulation/xemu-source` (main project, read-only) does implement PFIFO, and reading it resolves the meaning of all three polled bits and the producer rule that matters:
+
+- `hw/xbox/nv2a/nv2a_regs.h:137-139` — `NV_PFIFO_CACHE1_STATUS` (`0x1214`) bit `0x10` is `NV_PFIFO_CACHE1_STATUS_LOW_MARK` (`1 << 4`), with `HIGH_MARK` at `1 << 8`.
+- `nv2a_regs.h:123-126` — `NV_PFIFO_RUNOUT_STATUS` (`0x400`) bit `0x10` is `NV_PFIFO_RUNOUT_STATUS_LOW_MARK`.
+- `nv2a_regs.h:140-145` — `NV_PFIFO_CACHE1_DMA_PUSH` (`0x1220`): bit `0x00` is `ACCESS`, bit `0x10` is **`STATE`**, bit `0x1000` is `STATUS` (suspended). **This corrects the earlier reading** that called bit `0x10` "STATUS".
+- `hw/xbox/nv2a/pfifo.c:51-52` — reads of `NV_PFIFO_RUNOUT_STATUS` return `LOW_MARK` unconditionally ("low mark empty"), so the guest's `runout & 0x10` requirement is always satisfied by the reference.
+- `pfifo.c:165-173` — the puller refuses to run when `PULL0.ACCESS` is clear **or** `CACHE1_STATUS.LOW_MARK` is set: `LOW_MARK` means "cache1 at low mark / nothing to pull".
+- `pfifo.c:242-245` — `LOW_MARK` is **set after the puller processes a method** (`num_proc > 0`).
+- `pfifo.c:339-341` — `LOW_MARK` is **cleared before** the puller dispatches the next method.
+- `pfifo.c:261-274` — the pusher stalls while `DMA_PUSH.ACCESS` is clear or `DMA_PUSH.STATUS` (suspended) is set; the comment there notes `DMA_PUSH_STATE` as the busy bit but the model never writes it.
+- `pfifo.c:443-451` — a DMA error sets `DMA_PUSH.STATUS` (suspended).
+
+Consequences for the reached predicate (`CACHE1_STATUS & 0x10` set, `RUNOUT_STATUS & 0x10` set, `DMA_PUSH & 0x10` clear):
+
+1. The runout condition is free — the reference always reports `LOW_MARK`.
+2. `DMA_PUSH.STATE` (`0x10`) has **no producer** in the reference; it reads back whatever is stored, and the guest writes only `ACCESS` (`0x1`) or `0` to that register, so the clear requirement holds without modelling.
+3. `CACHE1_STATUS.LOW_MARK` is the real gate, and the reference sets it **only after the puller has processed a method**. With an empty pushbuffer nothing is processed, so `LOW_MARK` never sets and the reference model would also leave the guest waiting.
+
+That is decisive for the contract: the reached loop is waiting for **actual FIFO consumption of pushed work**. Satisfying it requires a consumer that processes at least one method, which is exactly what the empty-ring profile deliberately refuses to fake. No producer rule is added here; the engine workstream must decide and evidence the consumption contract.
 
 ## Constraints carried over
 
