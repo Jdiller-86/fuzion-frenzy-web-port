@@ -139,10 +139,15 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertIn('FF_MEMORY_SITE_POINTER((ebx), 16u, 1u', nested)
         self.assertEqual(nested_counts['reads'], 1)
         self.assertEqual(nested_counts['writes'], 1)
-        for source in ['XMM_MEM(eax) = xmm0;', 'eax = &XMM_MEM(edi);', 'Xmm_Mul(xmm0);', 'xmm_add(xmm0);',
+        for source in ['XMM_MEM(eax) = xmm0;', 'eax = &XMM_MEM(edi);', 'eax = &(XMM_MEM(edi));',
+                       'eax = & ((XMM_MEM(edi)));', 'Xmm_Mul(xmm0);', 'xmm_add(xmm0);',
                        'XMM_MEM(eax)++;']:
             with self.subTest(source=source), self.assertRaises(ValueError):
                 guard.instrument_memory_accesses(source, SITE)
+        # A logical operator before the operand is not address-of.
+        allowed, _ = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nflags = a && (XMM_MEM(eax).u32[0] != 0);', SITE, 0x00100030)
+        self.assertIn('(*(const RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u', allowed)
 
     def test_alignment_requiring_moves_keep_an_alignment_guard(self):
         aligned, aligned_counts = guard.instrument_memory_accesses(

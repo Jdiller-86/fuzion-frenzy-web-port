@@ -81,6 +81,21 @@ def code_mask(text):
     return "".join(result)
 
 
+def address_taken(prefix):
+    """True when a unary `&` applies to the expression that follows, even when the
+    operand is parenthesised (`&(XMM_MEM(x))`, `&((XMM_MEM(x)))`). A trailing `&&`
+    is a logical operator, not address-of."""
+    index = len(prefix) - 1
+    while index >= 0 and (prefix[index].isspace() or prefix[index] == '('):
+        index -= 1
+    if index < 0 or prefix[index] != '&':
+        return False
+    index -= 1
+    while index >= 0 and prefix[index].isspace():
+        index -= 1
+    return not (index >= 0 and prefix[index] == '&')
+
+
 def checked_block_sites(text, site, limit):
     """Return sorted ``(offset, guest address)`` labels for one function.
 
@@ -164,7 +179,8 @@ def instrument_memory_accesses(text, site, limit=None):
                 write_or_escape = (
                     (after.startswith(('+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '++', '--')) or
                      (after.startswith('=') and not after.startswith('==')) or
-                     before.endswith(('++', '--', '&'))))
+                     before.endswith(('++', '--')) or
+                     address_taken(before)))
                 if write_or_escape:
                     raise ValueError("Vector load used in a write or escaped-pointer context")
                 address = rewrite(source[opening + 1:closing - 1], base + opening + 1).strip()

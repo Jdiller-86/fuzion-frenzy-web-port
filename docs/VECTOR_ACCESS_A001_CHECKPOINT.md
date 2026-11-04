@@ -11,7 +11,7 @@ November 4, 2026. The A001 vector surface is closed on the exact evidence the re
 - a generated vector **store** into the read-only page reaches the stop hook exactly once with the address, access `2` and the emitted site, and the bytes are verified unchanged (denial before mutation);
 - a generated vector **read** of an unmapped page reaches the same stop with access `1`.
 
-Both denial cases are compiled and executed, and the Python test asserts the harness output. The earlier `&XMM_MEM(...)`/`XMM_MEM(...) = ...` rejections remain committed and tested in `tests/recomp_memory_access_test.py`.
+Both denial cases are compiled and executed, and the Python test asserts the harness output. The guarded translation contains 32 emitted vector forms and **none** takes their address, so the rejection rule costs nothing on the reached code. The escape half was previously only partially covered: `&XMM_MEM(...)` was rejected but the parenthesised `&(XMM_MEM(...))` was admitted. `address_taken` now walks back over whitespace and `(` before the operand, so `&(XMM_MEM(x))` and `&((XMM_MEM(x)))` are rejected while a preceding logical `&&` is not misread as address-of; `tests/recomp_memory_access_test.py` covers all three cases (13 tests).
 
 
 ## Generated reads are structurally non-writable

@@ -1,4 +1,14 @@
-# The worker now validates a boundary report before posting it
+# A001 closed: parenthesised address-of is rejected too, and denied ops stop before mutation
+
+November 4: the escape half of A001 is now structurally closed. The emitter rejected `&XMM_MEM(...)` but admitted the parenthesised form `&(XMM_MEM(...))`, because the check only looked at the immediately preceding character. `address_taken` now walks back over whitespace and `(` before the operand, so `&(XMM_MEM(x))` and `&((XMM_MEM(x)))` are rejected while a preceding logical `&&` is not misread as address-of; `tests/recomp_memory_access_test.py` covers both parenthesised forms, the plain form, and a `&& (XMM_MEM(...))` case that must stay admitted (13 tests). The guarded translation contains 32 emitted vector forms and none takes their address, so the stricter rule costs nothing on the reached code. Together with the earlier work — non-writable `const` reads, a store through a generated read failing to compile, and generated denied ops executed through a stopping hook that halts before mutation — A001's evidence now matches its headline. **There is no controllable original screen.**
+
+The PFIFO engine/consumer contract remains **unassigned**: Sol was not attempted this cycle, so its current availability was not checked. The producer-free seam stays unreferenced and no capacity was raised.
+
+Validation: `npm run test:evidence` 3/3 (memory-access 13/13), `npm run test:native` 14/14, runtime suite 120/120, title-seed 25/25, `npm run check` and whitespace checks pass. See [the A001 vector checkpoint](VECTOR_ACCESS_A001_CHECKPOINT.md) and [the exit-predicate checkpoint](PFIFO_EXIT_PREDICATE_CHECKPOINT.md).
+
+## Prior: worker validates reports before posting
+
+`postBoundary` runs `validateProofReport` and posts an error instead of a malformed evidence object.
 
 November 4: the report validator is wired into the worker, so a malformed or out-of-range boundary report can no longer reach the page as a result. `postBoundary(report)` in `src/runtime/thread-proof-worker.mjs` runs `validateProofReport` and, on failure, posts `{ kind: 'error', message: 'Proof report rejected: …' }` instead of the evidence object. All four current private runs (canonical, control, engine-wait, display-event) still post `thread-startup-boundary` reports unchanged, so the wiring rejects only malformed evidence; the runtime suite stays at **120/120** with the validator's own six tests. The validation remains structural: it cannot detect an incorrect claim, only a malformed or out-of-range one. **There is no controllable original screen.**
 
