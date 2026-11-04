@@ -69,6 +69,29 @@ test('the AV pack input is paired with its experiment and bounded', () => {
     /Malformed/);
 });
 
+test('the observed ordinal-2 call must agree with the modeled AV pack', () => {
+  const valid = report({
+    experiments: ['avPack'], avPack: 0x00400104,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avPack'], avPack: 0x00400104,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400105 } }],
+  })), /match the declared AV pack/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avPack'], avPack: 0x00400104,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0], output: { packWord: 0x00400104 } }],
+  })), /four observed arguments/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['avPack'], avPack: 0x00400104,
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
+  })), /must not carry an output/);
+  assert.throws(() => validateProofReport(report({
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }],
+  })), /requires the declared AV pack/);
+});
+
 test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
   const valid = report({
     stop: {

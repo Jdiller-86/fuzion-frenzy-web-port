@@ -36,6 +36,13 @@
     "digestSource": "https://pypi.org/project/capstone/5.0.6/#files",
     "storage": "Ignored recomp-venv only; no global dependency changes"
   },
+  "cxbx": {
+    "repository": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded",
+    "commitPrefix": "585c49a",
+    "directory": null,
+    "retained": false,
+    "note": "Provisional option-6 provenance conflict; the source is not retained locally, so the conflict is unverified. This entry records the missing reference and does not approve the modeled service."
+  },
   "compiler": {
     "emscriptenVersion": "3.1.50",
     "sdkRelease": "2ce4170cef5ce46f337f9fd907b614a8db772c7d",

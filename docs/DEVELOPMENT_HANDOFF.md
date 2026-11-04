@@ -1,4 +1,10 @@
-# Continue from the static/observed service separation and query fixture
+# Continue from the observed-call validation and the missing Cxbx reference
+
+The latest bounded correction ties the observed ordinal-2 call to the declared AV pack in the existing report validator: four arguments are required; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output. The static service descriptor remains free of observed facts. `tools/original-execution-toolchain.json` records the Cxbx `585c49a` prefix with `retained: false`, so the option-6 provenance conflict remains unverified. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2.
+
+Validation: runtime suite 143/143, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked.
+
+## Prior: the static/observed service separation and query fixture
 
 The latest bounded correction separates static service facts from observed call facts. `src/runtime/kernel-service.mjs` now carries only the name, ABI and result-bit layout; option 6, the observed arguments, output pointer `0x203720`, masks and table remain call evidence in the report and checkpoint, and `proof-report.mjs` rejects observed facts in the static descriptor. `tests/av_query_fixture_test.c` is the unconnected VM fixture: a granted 4-byte write changes exactly four bytes; read-only, unaligned, null and unmapped pointers are denied with no partial change. The provisional review's Cxbx pin `585c49a` conflict is not retained locally and remains unverified; the modeled service stays explicit/default-off, the AV-pack run still stops at `0x1F79A0`, and the no-pack run stays fail-closed at ordinal 2.
 

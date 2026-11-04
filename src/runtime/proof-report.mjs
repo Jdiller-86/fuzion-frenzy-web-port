@@ -131,6 +131,33 @@ export function validateProofReport(report) {
     if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
       throw new Error('PFIFO reset must set LOW_MARK on both status registers');
   }
+  /* The observed ordinal-2 call must agree with the declared AV-pack input:
+   * a modeled call carries exactly four arguments and its output word; an
+   * unsupported call carries no output. This keeps observed call facts out of
+   * the static service descriptor and prevents a mismatched result. */
+  if (report.calls !== undefined) {
+    if (!Array.isArray(report.calls) || report.calls.length > 8192)
+      throw new Error('Kernel call records must be a bounded list');
+    for (const call of report.calls) {
+      if (!call || typeof call !== 'object' || !integer(call.ordinal) || !integer(call.status) ||
+          !Array.isArray(call.arguments) || call.arguments.length > 16 ||
+          call.arguments.some(argument => !integer(argument)))
+        throw new Error('Malformed kernel call record');
+      if (call.ordinal !== 2) continue;
+      if (call.arguments.length !== 4)
+        throw new Error('An ordinal-2 call must carry four observed arguments');
+      if (call.status === 0) {
+        if (report.avPack === undefined)
+          throw new Error('A modeled ordinal-2 call requires the declared AV pack');
+        if (!call.output || !bounded(call.output.packWord, 0xffffffff))
+          throw new Error('A modeled ordinal-2 call must carry its output word');
+        if (call.output.packWord !== report.avPack)
+          throw new Error('The modeled ordinal-2 output must match the declared AV pack');
+      } else if (call.output !== undefined) {
+        throw new Error('An unsupported ordinal-2 call must not carry an output word');
+      }
+    }
+  }
   return report;
 }
 

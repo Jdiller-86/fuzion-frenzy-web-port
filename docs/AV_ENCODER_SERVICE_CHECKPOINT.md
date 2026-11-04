@@ -33,6 +33,9 @@ The report now also records the attempted call in the standard call list: `{ ord
 - The report records `avPack: 0x00400104` and `calls[ordinal 2] = { status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
 - The value used in the private profile is the pinned reference's HDTV/NTSC-M/60 Hz default, explicitly declared. It is not a claim about the original console, and the canonical profile remains fail-closed.
 
+- `proof-report.mjs` validates the observed call: ordinal 2 must carry four arguments; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output.
+- `tools/original-execution-toolchain.json` records the Cxbx `585c49a` reference prefix with `retained: false`; the conflict remains unverified.
+
 ### Unconnected query fixture
 
 `tests/av_query_fixture_test.c` models only the memory contract: a granted 4-byte write changes exactly four little-endian bytes, while read-only, unaligned, null and unmapped pointers are denied with no partial change. It is not linked to the probe, the service handler or any runtime path.

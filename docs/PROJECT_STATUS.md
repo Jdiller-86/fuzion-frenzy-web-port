@@ -1,4 +1,10 @@
-# Static service facts are separated from observed call facts; an unconnected query fixture is added
+# The observed ordinal-2 call is tied to the declared AV pack; the Cxbx reference is recorded as missing
+
+November 4: the existing report contract now checks the observed call without adding a new framework. Ordinal 2 must carry four observed arguments; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output. The static service descriptor remains free of observed facts. `tools/original-execution-toolchain.json` records the Cxbx `585c49a` reference prefix with `retained: false`, so the option-6 provenance conflict remains unverified. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack run stays fail-closed at ordinal 2. **There is no controllable original screen.**
+
+Validation: runtime suite 143/143, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: Static service facts are separated from observed call facts; an unconnected query fixture is added
 
 November 4: the static/observed conflation is corrected. `src/runtime/kernel-service.mjs` now carries only static service facts (name, `stdcall`/16-byte/void ABI, result-bit layout); the observed option 6, arguments `[0,6,0,2111264]`, output pointer `0x203720`, masks and table stay in the run's call list and the checkpoint. `proof-report.mjs` rejects observed facts in the static descriptor. `tests/av_query_fixture_test.c` adds the unconnected VM fixture: a granted 4-byte write changes exactly four bytes, while read-only, unaligned, null and unmapped pointers are denied with no partial change; native components now pass 16/16. The provisional review's Cxbx pin `585c49a` conflict is not retained locally, so it remains unverified; option-6 naming stays the pinned `xboxrecomp-source` fact, the modeled service stays explicit/default-off, and the AV-pack run still stops at `0x1F79A0` while the no-pack run stays fail-closed at ordinal 2. **There is no controllable original screen.**
 
