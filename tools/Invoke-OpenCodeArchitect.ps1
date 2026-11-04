@@ -9,6 +9,7 @@ $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
 $sessionPath = Join-Path $repo '.worktrees\opencode-architect-cycle-session.txt'
 $logPath = Join-Path $repo '.worktrees\opencode-architect-cycle.log'
 $lockPath = Join-Path $repo '.worktrees\opencode-architect-cycle.lock'
+$prManager = Join-Path $repo 'tools\Invoke-OpenCodeGitHubPR.ps1'
 
 function Test-SourcePublication([string]$path) {
     $dirty = @(git -C $path status --porcelain)
@@ -53,9 +54,16 @@ try {
     $geometryHead = (git -C $repo rev-parse codex/opencode-geometry).Trim()
     $mainHead = (git -C $repo rev-parse main).Trim()
     $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; head = $head; sourceHead = $sourceHead; geometryHead = $geometryHead; mainHead = $mainHead; model = 'openai/gpt-6.1-sol'; sessionId = $sessionId }
+    $prSnapshot = 'GitHub PR snapshot unavailable; inspect again before approving a merge.'
+    try {
+        $snapshotOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action Snapshot 2>&1
+        if ($LASTEXITCODE -eq 0) { $prSnapshot = ($snapshotOutput | Out-String).Trim() }
+        else { $state.prSnapshotError = 'Could not read GitHub PR state.' }
+    } catch { $state.prSnapshotError = $_.Exception.Message }
+    $state.prSnapshot = $prSnapshot
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
 
-    $prompt = "You are the hourly Sol project architect and authority for bounded design decisions, priority changes and reviewed merges. This is the persistent integration branch codex/opencode-architect at $head; committed builder heads are source=$sourceHead, geometry=$geometryHead, local main=$mainHead. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md, the current checkpoints, decisions and the corrected top of DEVELOPMENT_PLAN.md. Use git show/diff/log on those branch refs for current facts; your own branch may lag until you merge. Inspect any unfinished integration changes before new work. Compare actual original-game browser execution with the full fidelity, local-content and eventual online/social goal. Before spending Sol steps on broad source reconnaissance, delegate one useful narrow read-only source lookup or commit classification to local Scout (unsloth/qwen3.8-27b), which now has a 32K configured context; give it exact paths, a small answer limit and no private content. Verify material Scout findings yourself. If Scout is unavailable or no useful bounded question exists, continue and report that in the review. Approve or revise consequential design decisions in docs/DECISIONS.md, update governing docs when evidence changes, and send concise priority directives to both builders. You may delegate other narrow work when useful, but do not duplicate the primary or geometry owners. You may merge reviewed committed branches into your integration branch after checking diff, source-only paths, targeted tests and conflicts; never discard edits or force a merge. Keep game files and private research local. Do not push: the runner publishes checked commits. Only when you have integrated all intended changes, including local main governance commits, and reviewed a clean result for public main, end with PROMOTE_MAIN: <your exact 40-character integration HEAD>. Otherwise omit that marker. End with one line ARCHITECT_REVIEW: <at most 700 characters of authoritative priorities for the primary and geometry builders, with evidence limits>. Do not claim playability without a controllable original screen."
+    $prompt = "You are the hourly Sol project architect and authority for bounded design decisions, priority changes, reviewed merges and GitHub PR management. This is the persistent integration branch codex/opencode-architect at $head; committed builder heads are source=$sourceHead, geometry=$geometryHead, local main=$mainHead. GitHub PR snapshot (metadata only; verify current state): $prSnapshot. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md, the current checkpoints, decisions and the corrected top of DEVELOPMENT_PLAN.md. Use git show/diff/log on those branch refs for current facts; your own branch may lag until you merge. Inspect any unfinished integration changes before new work. Each cycle assess whether committed source/geometry work merits a draft review PR into the integration branch, whether a clean integration head merits a PR into main, and whether an existing main PR is ready to merge. The runner opens missing PRs after a clean checked Sol review and publishes the integration branch; do not use shell commands to create or merge PRs. Compare actual original-game browser execution with the full fidelity, local-content and eventual online/social goal. Before spending Sol steps on broad source reconnaissance, delegate one useful narrow read-only source lookup or commit classification to local Scout (unsloth/qwen3.8-27b), which now has a 32K configured context; give it exact paths, a small answer limit and no private content. Verify material Scout findings yourself. If Scout is unavailable or no useful bounded question exists, continue and report that in the review. Approve or revise consequential design decisions in docs/DECISIONS.md, update governing docs when evidence changes, and send concise priority directives to both builders. You may delegate other narrow work when useful, but do not duplicate the primary or geometry owners. You may merge reviewed committed branches into your integration branch after checking diff, source-only paths, targeted tests and conflicts; never discard edits or force a merge. Keep game files and private research local. Do not push: the runner publishes checked commits. Only if the exact clean integration HEAD is fully reviewed for main, all intended commits including local main are integrated, and GitHub checks and PR status can pass, end with MERGE_MAIN_PR: <your exact 40-character integration HEAD>. The runner will recheck and merge that PR without a direct push. Otherwise omit the marker and state the blocker. End with one line ARCHITECT_REVIEW: <at most 700 characters of authoritative priorities for the primary and geometry builders, with evidence limits>. Do not claim playability without a controllable original screen."
     if ($dirty.Count -gt 0) { $prompt += ' This integration worktree is dirty from an earlier cycle; finish or resolve those exact changes without resetting them before considering new merges.' }
     $output = @()
     $exitCode = 1
@@ -120,26 +128,25 @@ try {
             $state.publication = 'retry'
             $state.publicationError = $_.Exception.Message
         }
-        $promotion = [regex]::Match($response, '(?m)^PROMOTE_MAIN:\s*([0-9a-f]{40})\s*$')
-        if ($modelUsed -eq 'openai/gpt-6.1-sol' -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published') {
+        if ($modelUsed -eq 'openai/gpt-6.1-sol' -and $state.publication -eq 'published') {
             try {
-                Test-SourcePublication $worktree
-                Push-Location -LiteralPath $worktree
-                try {
-                    & npm run test:runtime | Out-Null
-                    if ($LASTEXITCODE -ne 0) { throw 'Runtime source gate failed.' }
-                    git fetch origin main | Out-Null
-                    if ($LASTEXITCODE -ne 0) { throw 'Could not refresh GitHub main.' }
-                    git merge-base --is-ancestor main HEAD
-                    if ($LASTEXITCODE -ne 0) { throw 'Local main governance commits are not integrated.' }
-                    git merge-base --is-ancestor origin/main HEAD
-                    if ($LASTEXITCODE -ne 0) { throw 'GitHub main advanced outside the reviewed integration.' }
-                    git push origin HEAD:refs/heads/main | Out-Null
-                    if ($LASTEXITCODE -ne 0) { throw 'Reviewed main promotion failed.' }
-                } finally { Pop-Location }
-                $state.promotion = 'published'
+                $prOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action Ensure -ExpectedHead $after 2>&1
+                if ($LASTEXITCODE -ne 0) { throw (($prOutput | Out-String).Trim()) }
+                $state.prManagement = ($prOutput | Out-String).Trim()
             } catch {
-                $state.promotion = 'retry'
+                $state.prManagement = 'retry'
+                $state.prError = $_.Exception.Message
+            }
+        }
+        $promotion = [regex]::Match($response, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+        if ($modelUsed -eq 'openai/gpt-6.1-sol' -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
+            try {
+                $mergeOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action MergeMain -ExpectedHead $after 2>&1
+                if ($LASTEXITCODE -ne 0) { throw (($mergeOutput | Out-String).Trim()) }
+                $state.promotion = 'merged_pr'
+                $state.mergeResult = ($mergeOutput | Out-String).Trim()
+            } catch {
+                $state.promotion = 'pending_checks_or_review'
                 $state.promotionError = $_.Exception.Message
             }
         }
