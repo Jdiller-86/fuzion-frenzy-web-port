@@ -17,8 +17,18 @@
 #define FF_PFIFO_CACHE1_STATUS_OFFSET 0x1214u
 #define FF_PFIFO_RUNOUT_STATUS_OFFSET 0x0400u
 #define FF_PFIFO_CACHE1_DMA_PUSH_OFFSET 0x1220u
-/* The single bit the reached loop tests on all three registers. */
+/* The single bit the reached loop tests on all three registers. Its identity was
+ * resolved from the full retained reference
+ * (.tools/emulation/xemu-source/hw/xbox/nv2a/nv2a_regs.h:137-145): bit 4 is
+ * LOW_MARK on CACHE1_STATUS and on RUNOUT_STATUS, and STATE (busy) on
+ * CACHE1_DMA_PUSH, whose ACCESS is bit 0 and suspended STATUS is bit 12.
+ * Naming the bits here does not model a producer. */
 #define FF_PFIFO_STATUS_POLLED_BIT 0x10u
+#define FF_PFIFO_CACHE1_STATUS_LOW_MARK 0x10u
+#define FF_PFIFO_RUNOUT_STATUS_LOW_MARK 0x10u
+#define FF_PFIFO_CACHE1_DMA_PUSH_STATE 0x10u
+#define FF_PFIFO_CACHE1_DMA_PUSH_ACCESS 0x01u
+#define FF_PFIFO_CACHE1_DMA_PUSH_SUSPENDED 0x1000u
 
 typedef struct {
     uint32_t cache1_status, runout_status, dma_push;

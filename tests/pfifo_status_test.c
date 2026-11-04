@@ -57,6 +57,27 @@ int main(void)
     assert(ff_pfifo_status_satisfied(NULL) == 0);
     ff_pfifo_status_init(NULL);
 
+    /* Bit identities resolved from the full retained reference are encoded, not
+     * inferred: LOW_MARK on both status registers, STATE on DMA_PUSH, and the
+     * guest's ACCESS writes do not disturb the STATE condition. */
+    assert(FF_PFIFO_CACHE1_STATUS_LOW_MARK == FF_PFIFO_STATUS_POLLED_BIT);
+    assert(FF_PFIFO_RUNOUT_STATUS_LOW_MARK == FF_PFIFO_STATUS_POLLED_BIT);
+    assert(FF_PFIFO_CACHE1_DMA_PUSH_STATE == FF_PFIFO_STATUS_POLLED_BIT);
+    assert(FF_PFIFO_CACHE1_DMA_PUSH_ACCESS == 0x01u);
+    assert(FF_PFIFO_CACHE1_DMA_PUSH_SUSPENDED == 0x1000u);
+    ff_pfifo_status_init(&status);
+    assert(ff_pfifo_status_consumer_update(&status, FF_PFIFO_CACHE1_STATUS_OFFSET, 0x10u) == 0);
+    assert(ff_pfifo_status_consumer_update(&status, FF_PFIFO_RUNOUT_STATUS_OFFSET, 0x10u) == 0);
+    /* The guest writes only ACCESS (bit 0) or 0 to DMA_PUSH. */
+    assert(ff_pfifo_status_write(&status, FF_PFIFO_CACHE1_DMA_PUSH_OFFSET, FF_PFIFO_CACHE1_DMA_PUSH_ACCESS) == 0);
+    assert(ff_pfifo_status_satisfied(&status) != 0);
+    /* A suspended DMA pusher (STATUS bit 12) is not what the loop tests. */
+    assert(ff_pfifo_status_write(&status, FF_PFIFO_CACHE1_DMA_PUSH_OFFSET, FF_PFIFO_CACHE1_DMA_PUSH_SUSPENDED) == 0);
+    assert(ff_pfifo_status_satisfied(&status) != 0);
+    /* Setting the STATE bit breaks the predicate, as the guest expects. */
+    assert(ff_pfifo_status_consumer_update(&status, FF_PFIFO_CACHE1_DMA_PUSH_OFFSET, FF_PFIFO_CACHE1_DMA_PUSH_STATE) == 0);
+    assert(ff_pfifo_status_satisfied(&status) == 0);
+
     puts("owned PFIFO status seam: guest stores, distinct registers, predicate and consumer entry point passed");
     return 0;
 }
