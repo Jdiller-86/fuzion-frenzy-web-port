@@ -1,4 +1,10 @@
-# The external ordinal-2 capture now has a source-owned validator
+# FATX gains a bounded overwrite primitive
+
+November 4: the filesystem path now has a source-owned data-overwrite primitive. `ff_disk_has`/`ff_disk_store` require every destination page to exist, and `ff_fatx_write_entry` writes only inside an existing file's declared range and already-backed cluster chain. It preflights the whole chain and every page before writing, so an unsupported chain, missing page, out-of-range request or directory entry leaves the file and disk unchanged; it refreshes the mount revision on success. It does not create, extend, allocate, delete, remount or serve a guest file request. The `fatx_volume` fixture is now part of `npm run test:native` and covers one-cluster/cross-cluster read-back, rejection cases, a sparse cluster and a two-cluster atomic preflight. Overwrite-only scope, durable persistence, new-file allocation, guest FATX services and original save-path behavior remain unsupported. **There is no controllable original screen.**
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked. See [the FATX checkpoint](FATX_UTILITY_MOUNT_CHECKPOINT.md).
+
+## Prior: The external ordinal-2 capture now has a source-owned validator
 
 November 4: the original-hardware observation request is now operational. `tools/validate-av-observation.mjs` and `src/runtime/av-observation.mjs` check a local capture for the exact `(0, 6, 0, Result)` call shape, strict `original-hardware` provenance, four before/after bytes, normal return, game/kernel/console/collection fields and one to four confirmations. A differing confirmation requires a variation note. The validator reports the measured word and whether it matches the observed consumer domain; a mismatch is retained as evidence, not rejected or altered. It never writes or uploads and does not authenticate the capture or model the service. Ordinal 2 remains unsupported and no runtime handler is added. **There is no controllable original screen.**
 

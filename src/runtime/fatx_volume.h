@@ -67,5 +67,13 @@ uint32_t ff_fatx_lookup(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint
                         uint32_t flags,ff_fatx_directory_entry *entry);
 uint32_t ff_fatx_read_path(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
                            uint32_t flags,uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Source-owned overwrite of an existing file's declared byte range. It writes
+ * only into already-backed clusters/pages; it does not allocate, extend,
+ * create, delete or remount. A preflight verifies the whole chain and every
+ * destination page before any byte is written, so an unsupported or missing
+ * backing leaves the file unchanged. The mount revision is refreshed on
+ * success. This is not a guest file service. */
+uint32_t ff_fatx_write_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
+                             uint32_t offset,const uint8_t *input,uint32_t bytes,uint32_t *written);
 int ff_fatx_owns_handle(uint32_t);
 #endif

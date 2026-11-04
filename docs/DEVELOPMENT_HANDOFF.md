@@ -1,6 +1,14 @@
-# Continue from the external capture validator
+# Continue from the bounded FATX overwrite primitive
 
-The latest bounded correction makes the original-hardware observation request operational. `src/runtime/av-observation.mjs` and `tools/validate-av-observation.mjs` validate a local capture for the exact `(0, 6, 0, Result)` call shape, strict `original-hardware` provenance, four before/after bytes, normal return, game/kernel/console/collection fields and one to four confirmations; a differing confirmation requires a variation note. The measured word and consumer-domain match are reported, but a mismatch is retained as evidence, not rejected or altered. The validator never writes, uploads or authenticates the capture, and no service model or runtime handler is added.
+The filesystem path now has a source-owned data-overwrite primitive. `ff_disk_has`/`ff_disk_store` require every destination page to exist, and `ff_fatx_write_entry` writes only inside an existing file's declared range and already-backed cluster chain. It preflights the whole chain and every page before writing, so an unsupported chain, missing page, out-of-range request or directory entry leaves the file and disk unchanged; it refreshes the mount revision on success. It does not create, extend, allocate, delete, remount or serve a guest file request. The `fatx_volume` fixture is now in `npm run test:native` and covers one-cluster/cross-cluster read-back, rejection cases, a sparse cluster and a two-cluster atomic preflight.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 18/18, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. No Sol attempt was made this cycle, so current availability was not checked.
+
+Next: extend FATX to allocation/create or durable persistence only when a reached original save path or an explicit product decision requires it. Keep guest writes off the runtime path until then and do not claim save fidelity. Continue requesting the external ordinal-2 capture; do not model option 6 or admit `0x1F79A0`.
+
+## Prior: continue from the external capture validator
+
+The prior bounded correction makes the original-hardware observation request operational. `src/runtime/av-observation.mjs` and `tools/validate-av-observation.mjs` validate a local capture for the exact `(0, 6, 0, Result)` call shape, strict `original-hardware` provenance, four before/after bytes, normal return, game/kernel/console/collection fields and one to four confirmations; a differing confirmation requires a variation note. The measured word and consumer-domain match are reported, but a mismatch is retained as evidence, not rejected or altered. The validator never writes, uploads or authenticates the capture, and no service model or runtime handler is added.
 
 Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 339 source files and whitespace checks pass. Sol completed the architect review at `2026-11-04T05:26:20.5945272-05:00`; this cycle follows it.
 

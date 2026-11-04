@@ -7,6 +7,7 @@
 #include <string.h>
 
 static uint8_t ram[0x40000],saved_ram[sizeof ram];
+static uint8_t partial_data[16385];
 static ff_virtual_memory memory;
 static ff_local_disk disk,saved_disk;
 static ff_object_namespace space,saved_space;
@@ -155,6 +156,63 @@ static void read_only_root_entries_and_files(void)
     write_raw_page(part_base+270336);
     assert(ff_fatx_root_count(&fs,1,&count)==FF_BOOT_UNSUPPORTED);
 }
+static void fatx_overwrite_existing_file(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();ff_fatx_directory_entry entry;
+    uint32_t written=0;
+    assert(!ff_fatx_root_entry(&fs,1,0,&entry) && !strcmp(entry.name,"HELLO.TXT") && entry.size==5);
+    uint8_t output[16];
+    assert(!ff_fatx_write_entry(&fs,1,&entry,0,(const uint8_t*)"WORLD",5,&written) && written==5);
+    memset(output,0xaa,sizeof output);
+    assert(!ff_fatx_read_entry(&fs,1,&entry,0,output,sizeof output,&written) && written==5 &&
+           !memcmp(output,"WORLD",5));
+    assert(!ff_fatx_write_entry(&fs,1,&entry,1,(const uint8_t*)"OR",2,&written) && written==2);
+    memset(output,0xaa,sizeof output);
+    assert(!ff_fatx_read_entry(&fs,1,&entry,0,output,sizeof output,&written) && written==5 &&
+           !memcmp(output,"WORLD",5));
+    save();assert(ff_fatx_write_entry(&fs,1,&entry,3,(const uint8_t*)"XX",3,&written)==FF_BOOT_INVALID);
+    assert(!written);unchanged();
+    assert(ff_fatx_write_entry(&fs,1,&entry,0,NULL,1,&written)==FF_BOOT_INVALID && !written);
+    assert(!ff_fatx_write_entry(&fs,1,&entry,0,(const uint8_t*)"X",0,&written) && !written);
+    assert(!ff_fatx_root_entry(&fs,1,1,&entry) && (entry.attributes&FF_FATX_ATTR_DIRECTORY));
+    save();assert(ff_fatx_write_entry(&fs,1,&entry,0,(const uint8_t*)"X",1,&written)==FF_BOOT_UNSUPPORTED && !written);
+    unchanged();
+    assert(!ff_fatx_root_entry(&fs,1,3,&entry) && !strcmp(entry.name,"BIG.BIN") && entry.size==16389);
+    assert(!ff_fatx_write_entry(&fs,1,&entry,16380,(const uint8_t*)"12345678",8,&written) && written==8);
+    memset(output,0xaa,sizeof output);
+    assert(!ff_fatx_read_entry(&fs,1,&entry,16380,output,8,&written) && written==8 &&
+           !memcmp(output,"12345678",8));
+
+    /* Add a valid chain whose second cluster has no backing page, plus a
+     * single-cluster file with no backing page. The mount revision is refreshed
+     * after the raw metadata writes; the existing handle stays valid. */
+    memset(ram+DATA,0,4096);
+    put(DATA,0xfffffff8u,4);put(DATA+4,UINT32_MAX,4);put(DATA+8,UINT32_MAX,4);
+    put(DATA+12,UINT32_MAX,4);put(DATA+16,5,4);put(DATA+20,UINT32_MAX,4);
+    put(DATA+24,UINT32_MAX,4);put(DATA+28,UINT32_MAX,4);put(DATA+32,UINT32_MAX,4);
+    put(DATA+36,UINT32_MAX,4);put(DATA+40,11,4);put(DATA+44,UINT32_MAX,4);
+    write_raw_page(part_base+4096);
+    memset(ram+DATA,0xff,4096);
+    dirent(DATA+0,"HELLO.TXT",0x20,2,5);dirent(DATA+64,"SUBDIR",0x10,3,0);
+    ram[DATA+128]=0xe5;dirent(DATA+192,"EMPTY.BIN",0x20,0,0);
+    dirent(DATA+256,"BIG.BIN",0x20,4,16389);dirent(DATA+320,"SPARSE.BIN",0x20,9,8);
+    dirent(DATA+384,"PARTIAL.BIN",0x20,10,16389);
+    write_raw_page(part_base+270336);
+    for(unsigned page=0;page<4;++page) {
+        memset(ram+DATA,0x43,4096);
+        write_raw_page(part_base+417792+page*4096);
+    }
+    fs.mounts[0].revision=disk.revision;
+    assert(!ff_fatx_root_entry(&fs,1,4,&entry) && !strcmp(entry.name,"SPARSE.BIN") && entry.size==8);
+    save();assert(ff_fatx_write_entry(&fs,1,&entry,0,(const uint8_t*)"X",1,&written)==FF_BOOT_UNSUPPORTED);
+    assert(!written);unchanged();
+    assert(!ff_fatx_root_entry(&fs,1,5,&entry) && !strcmp(entry.name,"PARTIAL.BIN") && entry.size==16389);
+    memset(partial_data,'X',sizeof partial_data);
+    save();assert(ff_fatx_write_entry(&fs,1,&entry,0,partial_data,sizeof partial_data,&written)==FF_BOOT_UNSUPPORTED);
+    assert(!written);unchanged();
+    assert(ff_disk_byte(&disk,part_base+417792)==0x43 && ff_disk_byte(&disk,part_base+417792+16383)==0x43);
+    assert(!ff_fatx_close(&fs,handle));
+}
 static void subdirectory_lookup_and_reads(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();ff_fatx_directory_entry entry;
@@ -286,6 +344,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, bounds and mutation checks passed");return 0;
 }

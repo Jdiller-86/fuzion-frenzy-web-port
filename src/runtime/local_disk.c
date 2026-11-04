@@ -204,6 +204,38 @@ uint8_t ff_disk_byte(const ff_local_disk *disk,uint64_t offset)
         return disk->pages[i].data[offset%FF_DISK_PAGE_BYTES];
     return 0;
 }
+uint32_t ff_disk_has(const ff_local_disk *disk,uint64_t offset,uint32_t bytes)
+{
+    if(!disk || offset>disk->profile.bytes || bytes>disk->profile.bytes-offset)return 0;
+    if(!bytes)return 1;
+    const uint64_t end=offset+bytes;
+    for(uint64_t cursor=offset;cursor<end;) {
+        const uint64_t index=cursor/FF_DISK_PAGE_BYTES;
+        if(!page((ff_local_disk*)disk,index))return 0;
+        cursor=(index+1)*FF_DISK_PAGE_BYTES;
+    }
+    return 1;
+}
+uint32_t ff_disk_store(ff_local_disk *disk,uint64_t offset,const uint8_t *data,uint32_t bytes)
+{
+    if(!disk || !data || !bytes)return FF_BOOT_INVALID;
+    if(!ff_disk_has(disk,offset,bytes))return FF_BOOT_UNSUPPORTED;
+    if(disk->revision==UINT64_MAX)return FF_BOOT_UNSUPPORTED;
+    const uint64_t end=offset+bytes;
+    uint32_t copied=0;
+    for(uint64_t cursor=offset;cursor<end;) {
+        const uint64_t index=cursor/FF_DISK_PAGE_BYTES;
+        const uint32_t within=(uint32_t)(cursor-index*FF_DISK_PAGE_BYTES);
+        uint32_t chunk=FF_DISK_PAGE_BYTES-within;
+        if(chunk>end-cursor)chunk=(uint32_t)(end-cursor);
+        ff_disk_page *entry=page(disk,index);
+        if(!entry)return FF_BOOT_UNSUPPORTED;
+        memcpy(entry->data+within,data+copied,chunk);
+        copied+=chunk;cursor+=chunk;
+    }
+    ++disk->revision;
+    return 0;
+}
 static uint32_t transfer(ff_local_disk *disk,const uint32_t args[8],int writing)
 {
     if(!disk || !disk->memory || !args)return FF_BOOT_INVALID;

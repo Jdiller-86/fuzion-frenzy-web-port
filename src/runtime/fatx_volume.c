@@ -330,6 +330,66 @@ uint32_t ff_fatx_read_entry(ff_fatx_volume *fs,uint32_t id,const ff_fatx_directo
     }
     *bytes=written;return 0;
 }
+uint32_t ff_fatx_write_entry(ff_fatx_volume *fs,uint32_t id,const ff_fatx_directory_entry *entry,
+                             uint32_t offset,const uint8_t *input,uint32_t bytes,uint32_t *written)
+{
+    ff_fatx_mount *mount;
+    if(!fs || !entry || !written)return FF_BOOT_INVALID;
+    *written=0;
+    uint32_t status=current_mount(fs,id,&mount);if(status)return status;
+    if(entry->attributes&FF_FATX_ATTR_DIRECTORY)return FF_BOOT_UNSUPPORTED;
+    if(!bytes)return 0;
+    if(!input || offset>entry->size || bytes>entry->size-offset)return FF_BOOT_INVALID;
+    if(!entry->first_cluster || entry->first_cluster>mount->cluster_count)return FF_BOOT_UNSUPPORTED;
+    const uint32_t skip=offset/mount->cluster_bytes,intra=offset%mount->cluster_bytes;
+    const uint64_t span=(uint64_t)intra+bytes;
+    const uint32_t need=skip+(uint32_t)((span+mount->cluster_bytes-1u)/mount->cluster_bytes);
+    uint32_t cluster=entry->first_cluster,length=0,next;
+    for(;;) {
+        if(!cluster || cluster>mount->cluster_count || ++length>mount->cluster_count)return FF_BOOT_UNSUPPORTED;
+        if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;
+        if(next==(mount->entry_bytes==2?0xffffu:UINT32_MAX))break;
+        cluster=next;
+    }
+    if(length<need)return FF_BOOT_UNSUPPORTED;
+    cluster=entry->first_cluster;
+    for(uint32_t i=0;i<skip;++i) { if(fat_next(fs,mount,cluster,&next))return FF_BOOT_UNSUPPORTED;cluster=next; }
+    /* Preflight the whole destination before writing. The chunk count bounds
+     * the revision increments so a multi-cluster write cannot overflow it
+     * after the first chunk. */
+    uint32_t cursor_cluster=cluster,fragment=intra,remaining=bytes;
+    uint64_t chunks=0;
+    while(remaining) {
+        uint32_t chunk=mount->cluster_bytes-fragment;
+        if(chunk>remaining)chunk=remaining;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cursor_cluster-1)*mount->cluster_bytes+fragment;
+        if(!ff_disk_has(fs->disk,base,chunk))return FF_BOOT_UNSUPPORTED;
+        ++chunks;remaining-=chunk;
+        if(remaining) {
+            if(fat_next(fs,mount,cursor_cluster,&next))return FF_BOOT_UNSUPPORTED;
+            cursor_cluster=next;fragment=0;
+        }
+    }
+    if(fs->disk->revision>UINT64_MAX-chunks)return FF_BOOT_UNSUPPORTED;
+    cursor_cluster=cluster;fragment=intra;
+    uint32_t done=0;
+    while(done<bytes) {
+        uint32_t chunk=mount->cluster_bytes-fragment;
+        if(chunk>bytes-done)chunk=bytes-done;
+        const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(cursor_cluster-1)*mount->cluster_bytes+fragment;
+        status=ff_disk_store(fs->disk,base,input+done,chunk);
+        if(status)return status;
+        done+=chunk;fragment=0;
+        if(done<bytes) {
+            if(fat_next(fs,mount,cursor_cluster,&next))return FF_BOOT_UNSUPPORTED;
+            cursor_cluster=next;
+        }
+    }
+    /* A data-only overwrite leaves the mount geometry valid. */
+    mount->revision=fs->disk->revision;
+    *written=done;
+    return 0;
+}
 static int name_equal(const char *entry_name,const uint8_t *path,uint32_t bytes,uint32_t flags)
 {
     if(strlen(entry_name)!=bytes)return 0;
