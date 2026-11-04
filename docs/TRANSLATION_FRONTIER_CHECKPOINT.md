@@ -15,6 +15,8 @@ This is static reachability plus the retained report; it does not prove the call
 
 Reproduce with `node tools/translation-frontier.mjs research/verification/recomp-title-recomp-title-post-memory-50 --run research/verification/pfifo-setup-01/browser-71-reset-avquery.json`; the text output names `ENTERED 0x001F6EB0 called by 0x001F83C0`.
 
+An independent narrow GLM review (attempted `2026-11-04T09:15:22`; step-capped after completing the checks) found no material defect in the prequery fix or the admission evidence. It confirmed the experiment's `0x1F79A0` enter/exit trace, the `0x1F6EB0` status-2 stop, the 281/405 counts and the module digest; the control stop target `0xFE000094` was then confirmed directly from `browser-71-reset3.json`. The review treats `0x1F6EB0` as a static-reachability boundary, not a proven dynamic edge beyond the stop.
+
 ## Prior: The binding advances the frontier to translation target 0x1F79A0
 
 November 4, 2026. The explicit synthetic ordinal-2 binding moves the frontier from the kernel service to a translation target. On module `recomp-post-memory-build-70` (`cd2fac97df95a4289b20742768555a080a995e2f16c774a36da25a856720a1a0`):

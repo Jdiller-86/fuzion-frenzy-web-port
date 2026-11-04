@@ -51,6 +51,8 @@ The architect's `2026-11-04T08:54:03` directive identified the configured-preque
 
 The independent GLM review completed a narrow static pass at `2026-11-04T08:45:21`–`08:48:07` and found two material defects: a configured report recording both a completed ordinal-2 call and a status-1 denial could claim any stop, and two reports that both omitted a declared input profile compared as matching. Both are fixed: the denial/stop pairing now applies even after a completed call, and every declared input must be present before comparison. New tests cover the mixed completed+denial case and each missing profile. The earlier partial pass had found no defect in the exact-shape, paired-argument and supplied-profile checks; those remain.
 
+A post-admission narrow GLM review (attempted `2026-11-04T09:15:22`, step-capped after completing the checks) found no material defect in the prequery branch or the admission evidence. The control stop target `0xFE000094`, the `0x1F79A0` enter/exit trace and the `0x1F6EB0` status-2 stop were confirmed directly from the retained reports.
+
 ## Limits and next stop
 
 - The binding supplies one synthetic raw DWORD only when explicitly selected; the canonical/default path remains unsupported and still stops at ordinal 2.
