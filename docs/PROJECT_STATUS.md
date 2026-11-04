@@ -1,12 +1,14 @@
-# Proof reports are shape-validated before they can be presented as evidence
+# The worker now validates a boundary report before posting it
 
-November 4: the browser page receives a report from the worker and shows it as evidence, so a truncated or malformed report must not be displayable as a result. `src/runtime/proof-report.mjs` adds `validateProofReport(report)`, which checks shape and bounds only and never reinterprets a value: the stop record (status in the known set, integer target/ordinal), the bounded trace (≤ 8,192 entries, well-formed entries), the startup counters (total/completed initializers consistent, ≤ 512 distinct routines, ≤ 8,192 kernel operations), a mandatory `stopReason` whenever the initializers are incomplete, any declared experimental inputs against the fixed allowlist, and the device report against the aperture capacities (≤ 8,192 entries, ≤ 32,768 events). A worker-level `kind: 'error'` report is accepted without evidence fields; a report that claims `verified: true` is rejected.
+November 4: the report validator is wired into the worker, so a malformed or out-of-range boundary report can no longer reach the page as a result. `postBoundary(report)` in `src/runtime/thread-proof-worker.mjs` runs `validateProofReport` and, on failure, posts `{ kind: 'error', message: 'Proof report rejected: …' }` instead of the evidence object. All four current private runs (canonical, control, engine-wait, display-event) still post `thread-startup-boundary` reports unchanged, so the wiring rejects only malformed evidence; the runtime suite stays at **120/120** with the validator's own six tests. The validation remains structural: it cannot detect an incorrect claim, only a malformed or out-of-range one. **There is no controllable original screen.**
 
-`tests/proof-report.test.mjs` covers the good path, the error report, a verification claim, a missing/out-of-range stop record, trace entries and the exact trace limit, partial-progress-without-reason, out-of-range counters, unknown experiments and both device capacities; it is wired into `npm run test:runtime`, which is now **120/120**. The validator was also run against the four current private reports (canonical, control, engine-wait, display-event) and accepts each.
+The PFIFO engine/consumer contract remains **unassigned**: Sol was not attempted this cycle, so its current availability was not checked. No producer rule is encoded, the seam is unreferenced and no capacity was raised.
 
-The PFIFO engine/consumer contract remains **unassigned**: this cycle's architect escalation failed with `subscription_sharing_usage_limit_exceeded`, so the assignment stays unresolved rather than invented (Sol has succeeded in earlier cycles; this is the current, time-specific result). No producer rule is encoded, the seam is unreferenced and no capacity was raised. **There is no controllable original screen.**
+Validation: runtime suite 120/120, `npm run test:evidence` 3/3, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the exit-predicate checkpoint](PFIFO_EXIT_PREDICATE_CHECKPOINT.md) and [the status-wait checkpoint](DEVICE_STATUS_WAIT_CHECKPOINT.md).
 
-Validation: runtime suite 120/120, `npm run test:evidence` 3/3, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the exit-predicate checkpoint](PFIFO_EXIT_PREDICATE_CHECKPOINT.md) and [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
+## Prior: proof reports shape-validated
+
+`validateProofReport` checks the stop record, trace bounds, startup counters, incomplete-run reasons, experimental allowlist and device capacities; six tests cover acceptance and rejection.
 
 ## Prior: FIFO pump access pattern recorded
 
