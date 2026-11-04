@@ -107,15 +107,27 @@ export class DiscSessionCore {
     }
   }
 
-  async inventory() {
+  async inventory(path = '') {
     if (!this.opened || this.closed) fail('state', 'The session is not open');
     if (this.busy) fail('busy', 'Only one request may be outstanding');
+    if (typeof path !== 'string' || path.length > 256 || path.includes('\\') || path.includes('\0'))
+      fail('path', 'Invalid inventory path');
     this.busy = true;
     try {
       if (this.closed) fail('state', 'The session was cleared');
-      const entries = await this.fs.list(this.fs.root);
+      let directory = this.fs.root;
+      if (path) {
+        try {
+          directory = await this.fs.find(path);
+        } catch (error) {
+          fail('path', error.message);
+        }
+      }
+      if (this.closed) fail('state', 'The session was cleared');
+      if (!directory || !directory.directory) fail('path', 'The inventory path is not a directory');
+      const entries = await this.fs.list(directory);
       if (entries.length > this.maxInventoryEntries)
-        fail('limit', 'The root inventory exceeds the bounded entry limit');
+        fail('limit', 'The directory inventory exceeds the bounded entry limit');
       if (this.closed) fail('state', 'The session was cleared');
       return entries.map(entry => ({ name: entry.name, size: entry.size, directory: entry.directory }));
     } finally {
