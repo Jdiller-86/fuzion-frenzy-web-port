@@ -6,6 +6,10 @@ import unittest
 spec = importlib.util.spec_from_file_location("memory_access", Path(__file__).resolve().parents[1] / "tools/recomp_memory_access.py")
 guard = importlib.util.module_from_spec(spec); spec.loader.exec_module(guard)
 
+spec_verify = importlib.util.spec_from_file_location(
+    "verify_translation", Path(__file__).resolve().parents[1] / "tools/verify-translation.py")
+verify_tool = importlib.util.module_from_spec(spec_verify); spec_verify.loader.exec_module(verify_tool)
+
 SITE = 0x00100000
 
 
@@ -180,6 +184,29 @@ class MemoryAccessTests(unittest.TestCase):
         self.assertEqual(again_counts['sites'], 0)
         self.assertEqual(again_counts['reads'], 0)
         self.assertEqual(again_counts['writes'], 0)
+
+    def test_translation_guard_verifier_detects_unguarded_surfaces(self):
+        guarded = (
+            'void ff_title_00100000(void)\n{\n'
+            'loc_00100000: ;\n'
+            '    eax = (*(const ff_guest_U32*)FF_MEMORY_SITE_POINTER((edi), 4u, 1u, 0x00100000u)).value;\n'
+            '}\n'
+        )
+        report = verify_tool.verify(guarded)
+        self.assertEqual(report['functions'], 1)
+        self.assertEqual(report['rewritten'], 0)
+        unguarded = (
+            'void ff_title_00100000(void)\n{\n'
+            'loc_00100000: ;\n'
+            '    eax = MEM32(edi);\n'
+            '}\n'
+        )
+        report = verify_tool.verify(unguarded)
+        self.assertEqual(report['functions'], 1)
+        self.assertEqual(report['rewritten'], 1)
+        with self.assertRaises(ValueError):
+            verify_tool.verify('/* no functions */')
+        self.assertEqual(len(verify_tool.split_functions(guarded + guarded.replace('00100000', '00100100'))), 2)
 
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
         for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'XMM_LOAD_LOW(xmm0, eax)',

@@ -1,8 +1,12 @@
-# The PFIFO seam now names the resolved bits instead of a bare mask
+# The current translation is verified fully instrumented by the current guard
 
-November 4: last cycle resolved the three polled bits from the full xemu reference; this cycle encodes those identities in the seam so no reader has to re-derive them. `src/runtime/pfifo_status.h` now defines `FF_PFIFO_CACHE1_STATUS_LOW_MARK`, `FF_PFIFO_RUNOUT_STATUS_LOW_MARK` and `FF_PFIFO_CACHE1_DMA_PUSH_STATE` (all `0x10`, the single bit the reached loop tests), plus `FF_PFIFO_CACHE1_DMA_PUSH_ACCESS` (`0x01`) and `FF_PFIFO_CACHE1_DMA_PUSH_SUSPENDED` (`0x1000`), each cited to `.tools/emulation/xemu-source/.../nv2a_regs.h:137-145`. `ff_pfifo_status_satisfied` now uses the named constants. `tests/pfifo_status_test.c` asserts the identities, that the guest's `ACCESS` write leaves the predicate satisfied, that the suspended `STATUS` bit is not what the loop tests, and that setting `STATE` breaks the predicate. No producer is added: the seam still stores guest values verbatim and nothing calls `ff_pfifo_status_consumer_update`. Native suite stays **14/14**. **There is no controllable original screen.**
+November 4: a source-owned verifier now proves that a prepared translation is exactly what the current guard would emit. `tools/verify-translation.py <translation-directory>` splits one private `title-functions.inc` on generated function headers, derives each function's address range from its own block labels and the next function start, and re-runs `instrument_memory_accesses` over every body; a fully guarded translation must come back byte-for-byte unchanged with zero rewritten sites. Against the current translation it reports **517 functions, 0 needing rewriting** — no unguarded memory surface remains, and the file matches the current emitter rather than an older one. `tests/recomp_memory_access_test.py` gains a case that a fully guarded synthetic function verifies clean, an unguarded `MEM32(edi)` is reported as needing rewriting, text without functions raises, and the splitter finds both functions; the suite is **14 tests**. The tool prints counts only and treats a missing directory or file as an error, since translations are private player-local artifacts. **There is no controllable original screen.**
 
-Validation: `npm run test:native` 14/14, `npm run test:evidence` 3/3, runtime suite 125/125, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md).
+The PFIFO engine/consumer contract remains with the new engine workstream per `docs/PFIFO_ENGINE_HANDOFF.md`; the seam names the resolved bits and models no producer. Sol was not attempted this cycle, so its current availability was not checked.
+
+Validation: `npm run test:evidence` 3/3, `npm run test:native` 14/14, runtime suite 125/125, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md) and [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
+
+## Prior: PFIFO seam names the resolved bits
 
 ## Prior: PFIFO bits resolved from the full xemu reference
 
