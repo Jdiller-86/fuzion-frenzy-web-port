@@ -1,4 +1,17 @@
-# The 0x1FC780 admission advances the stop to 0x1FCCB0
+# The 0x1FCCB0 admission advances the stop to 0x1F7080
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-53` admits the reached mixed-layout function `0x1FCCB0` (112-byte envelope, 8-entry table, four `ret 8` cases) after a synthetic resync fixture passed. It contains **422 functions / 17,593 instructions** from 32 seed exports. Module `recomp-post-memory-build-74` is 663,028 bytes, SHA-256 `c8c27cb4ec232cff478d16752d649767a34c30ebca45cb8c38195c552aa67657`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F7080`** | 285 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +6 routines, +1 kernel operation. The experiment reaches and executes `0x1FCCB0`. The frontier has **95 placeholders, 1 entered**: `0x1F7080` called by executed `0x1F5640` (71 called by an executed caller, 22 static-only).
+
+`0x1F7080` is **not** admitted or analyzed further. The lane stops here. These are synthetic startup observations, not fidelity, renderer, gameplay or original service semantics.
+
+## Prior: The 0x1FC780 admission advances the stop to 0x1FCCB0
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-52` admits the reached leaf `0x1FC780` (53 bytes / 17 instructions, one self-recursive call) and contains **421 functions / 17,575 instructions** from the same 32 seed exports. Module `recomp-post-memory-build-73` is 662,080 bytes, SHA-256 `f89016609cde54d9fd0a612d9da5cb6f6ae24d0999391760ac27ef2c9ccc7326`.
 
