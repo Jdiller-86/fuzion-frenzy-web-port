@@ -35,6 +35,8 @@ try {
     $architect = $null
     $architectPath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
     if (Test-Path -LiteralPath $architectPath) { try { $architect = Get-Content $architectPath -Raw | ConvertFrom-Json } catch {} }
+    $previousGuidance = $null
+    if (Test-Path -LiteralPath $guidancePath) { try { $previousGuidance = Get-Content $guidancePath -Raw | ConvertFrom-Json } catch {} }
     $source = Read-Cycle 'opencode'
     $geometry = Read-Cycle 'opencode-geometry'
     $verification = Read-Cycle 'opencode-verification'
@@ -46,7 +48,9 @@ try {
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     $architectBrief = if ($architect -and $architect.approved) { [string]$architect.summary } else { 'No approved architect directive; preserve the current original-execution route and integration hold.' }
     if ($architectBrief.Length -gt 900) { $architectBrief = $architectBrief.Substring(0, 900) }
-    $prompt = "You are the read-only Fuzion Frenzy delivery manager. Work from source-only metadata and AGENTS.md. $snapshot. Latest approved architect directive: $architectBrief. Assign one bounded task, acceptance check and stop condition to each useful independent lane. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* and its matching tests/checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD if architect geometryCycle is HOLD. Hold any lane without a concrete independent result or with an in-flight dirty worktree. You may not edit, merge or push; builders may edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
+    $priorBrief = if ($previousGuidance) { "Previous manager tasks: primary $($previousGuidance.lanes.primary.head) $($previousGuidance.lanes.primary.action) $($previousGuidance.lanes.primary.task); geometry $($previousGuidance.lanes.geometry.head) $($previousGuidance.lanes.geometry.action); verification $($previousGuidance.lanes.verification.head) $($previousGuidance.lanes.verification.action) $($previousGuidance.lanes.verification.task)." } else { '' }
+    if ($priorBrief.Length -gt 900) { $priorBrief = $priorBrief.Substring(0, 900) }
+    $prompt = "You are the read-only Fuzion Frenzy delivery manager. Work from source-only metadata and AGENTS.md. $snapshot. Latest approved architect directive: $architectBrief. $priorBrief Assign one bounded task, acceptance check and stop condition to each useful independent lane. If a lane's head advanced after its previous RUN task, assess its result and stop condition before assigning more; hold it for architect review unless an independent result is clearly authorized. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* and its matching tests/checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD if architect geometryCycle is HOLD. Hold any lane without a concrete independent result or with in-flight edits. You may not edit, merge or push; builders may edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
     $output = @()
     $exitCode = 1
     try {
