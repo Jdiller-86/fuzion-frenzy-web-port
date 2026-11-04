@@ -121,13 +121,56 @@ holds", not "this candidate is approved".
   candidate head plus this lane's three new paths).
 - `git diff --check` -> clean.
 
+Re-verification cycle (2026-11-04T23:30Z), same result set re-run:
+
+- `node tools/verify-exact-head.mjs b5294fa` -> exit 0 again.
+- `git merge-base --is-ancestor 077ee14 2309251` -> 1, and the reverse also 1
+  (the published lane branch and the rebased local branch diverge at
+  `c9dc22f`).
+- `npm run test:runtime` -> 188 tests, 187 pass, 0 fail, 1 pre-existing skip.
+- `npm run check` -> publication guard passed for 376 source files.
+
+### Re-verification of this record (2026-11-04T23:30Z)
+
+The lane task and the architect directive for this cycle were the ones already
+delivered by commit `2309251` (rebase onto `b5294fa`, precheck, CI record, no
+source or runtime change, no merge request). The recorded facts were
+re-read rather than assumed, and nothing in them has moved:
+
+- `codex/opencode-architect` and `origin/codex/opencode-architect` are still
+  `b5294fac8de4a68a24eb3b207a6466695dde9fd6`, so the recorded exact head is
+  still the published architect head. `node tools/verify-exact-head.mjs
+  b5294fa` still exits 0.
+- The published `main` is still `2aba6380bc66e82d6e181d61166a9b84b0ef7e4e`, so
+  the recorded ancestry still holds.
+- PR **#6** is still open, not a draft, `mergeable: true`,
+  `mergeable_state: clean`, head `b5294fac…`, base `2aba6380…`, with its
+  `updated_at` still 2026-11-04T22:41:35Z.
+- The same two runs are still the only runs at that SHA (`41927475606` push,
+  `41927492924` pull_request), both `success`, with no new run.
+- The primary lane advanced to `f897c7ee85f6dcd41e27f2c68988b202632131ab`
+  ("Preflight the shared 0x1FC980 seed read-only"). That is a source-lane
+  commit, not an integration head, so it does not move this record.
+
+### Publication finding for the architect
+
+The published lane branch is still `origin/codex/opencode-verification` at
+`077ee14`, the **pre-rebase** head. The rebased lane commits (`649de14`,
+`ab7710f`, `2309251`) are local only: `077ee14` is not an ancestor of
+`2309251` and the two diverge at `c9dc22f` (2 commits published-only, 47
+local-only). Publishing the rebased lane branch would therefore rewrite
+published history, which the project's no-force-push rule does not allow, and
+this lane does not push. The architect or runner has to decide how the
+verification record reaches the published lane branch; until then the
+`b5294fa` exact-head record exists only in this worktree.
+
 ### Next task for this lane
 
 Stop after this record. The next exact-head precheck applies to the bounded
-`0x1FCCB0` admission result once the primary reports it; the same command
-checks that head against the then-current architect head and the published
-merge target. No further tooling work is authorized until the architect asks
-for it.
+`0x1FCCB0` admission result once the primary reports it, or to whichever head
+the architect publishes next; the same command checks that head against the
+then-current architect head and the published merge target. No further tooling
+work is authorized until the architect asks for it.
 
 ## Earlier record: exact-head precheck for `ae4b7ae` (November 4, 2026)
 
