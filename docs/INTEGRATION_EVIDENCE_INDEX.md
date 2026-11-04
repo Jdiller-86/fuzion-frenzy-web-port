@@ -41,6 +41,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Translation `recomp-title-recomp-title-post-memory-50`: 419 functions / 17,448 instructions from 32 retained seeds. `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing; `verify-translation.py` reports 517 functions, 0 needing rewriting, fully instrumented.
 - `0x1F6EB0` is **not** admitted or exported. No storage/framework/substitute work was added.
 - **Read-only `0x1F6EB0` characterization:** 110 instructions / 455 bytes in the `D3D` section, no direct calls, return sites `0x1F7033`/`0x1F7076`, no indirect or undecodable branch; unadmitted. See [the frontier characterization](FRONTIER_1F6EB0_CHECKPOINT.md).
+- **Helper result synced to the integration head:** `4917e83` merges `c9dc22f` into the source lane so PR #2 is mergeable. The decision log is a 287-row union with no duplicates; `npm run check` 367 files, `test:runtime` 186/186; only governance tools/CI differ from the helper result. The bounded `0x1F6EB0` result and the `0x1FC780` stop are unchanged.
 - **0x1F6EB0 admitted** under the `c9dc22f` directive: translation 51 (420 functions / 17,558 instructions), module 72 (`9d8689ff?`, 660,060 bytes). Same-module control 279/404 at ordinal 2; experiment 283/405, status 2 at `0x1FC780`; frontier enters `0x1FC780` called by `0x1F5640`. `0x1FC780` is unadmitted; the lane stops.
 
 ## Main/PR integration state
