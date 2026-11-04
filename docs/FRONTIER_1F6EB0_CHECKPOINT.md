@@ -1,6 +1,6 @@
 # Frontier: `0x1F6EB0` read-only characterization
 
-November 4, 2026. Bounded read-only analysis of the next reached routine from the retained executable, using the project's pinned vendored decoder and XBE parser. This is not an export, admission, translation or execution, and it does not change the admission hold. Raw disassembly and the analysis script remain under ignored `research/verification/frontier-1f6eb0/`.
+November 4, 2026. Bounded read-only analysis of the next reached routine from the retained executable, using the project's pinned vendored decoder and XBE parser. This is not an export, admission, translation or execution, and it does not change the admission hold. Raw disassembly and the analysis script remain under ignored `research/verification/frontier-1f6eb0/`. **Superseded for execution by [the admission checkpoint](FRONTIER_1F6EB0_ADMISSION_CHECKPOINT.md): the routine was admitted and executed.**
 
 ## Method
 
