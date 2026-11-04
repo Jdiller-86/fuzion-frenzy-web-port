@@ -45,14 +45,27 @@ export function analyzeTranslation(text) {
     }
   }
   const targets = new Set();
-  for (const set of calls.values()) for (const address of set) targets.add(address);
+  const callers = new Map();
+  for (const [caller, set] of calls) {
+    for (const address of set) {
+      targets.add(address);
+      callers.set(address, (callers.get(address) ?? new Set()).add(caller));
+    }
+  }
   const referenced = [...stubs].filter(address => targets.has(address)).sort((a, b) => a - b);
+  /* Which admitted functions call each placeholder, so the next batch can be
+   * selected by cluster instead of address order. */
+  const referencedBy = Object.fromEntries(referenced.map(address => [
+    address,
+    [...(callers.get(address) ?? [])].sort((a, b) => a - b),
+  ]));
   return {
     functions: functions.size,
     placeholders: stubs.size,
     referencedPlaceholders: referenced.length,
     callTargets: targets.size,
     referenced,
+    referencedBy,
   };
 }
 
@@ -79,7 +92,10 @@ function main(argv) {
   console.log(`boundary placeholders: ${report.placeholders}`);
   console.log(`placeholders called by admitted code: ${report.referencedPlaceholders}`);
   console.log(`distinct call targets: ${report.callTargets}`);
-  for (const address of report.referenced) console.log(`  ${hex(address)}`);
+  for (const address of report.referenced) {
+    const callersOfPlaceholder = report.referencedBy[address] ?? [];
+    console.log(`  ${hex(address)} called by ${callersOfPlaceholder.map(hex).join(', ') || 'none'}`);
+  }
   return 0;
 }
 

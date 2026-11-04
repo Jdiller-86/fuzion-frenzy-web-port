@@ -33,6 +33,12 @@ test('the frontier report counts functions, placeholders and called placeholders
   assert.deepEqual(report.referenced, [0x00100200]);
 });
 
+test('the frontier report attributes placeholders to their callers', () => {
+  const report = analyzeTranslation(translation);
+  assert.deepEqual(report.referencedBy[0x00100200], [0x00100000]);
+  assert.equal(report.referencedBy[0x00100300], undefined);
+});
+
 test('a translation without placesholders reports zero placeholders', () => {
   const report = analyzeTranslation('void ff_title_00000010(void)\n{\nloc_00000010: ;\n}\n');
   assert.equal(report.functions, 1);

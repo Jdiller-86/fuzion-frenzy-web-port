@@ -1,12 +1,12 @@
-# The guest never writes the two PFIFO status registers, so no guest-side producer exists
+# The frontier report now attributes each placeholder to its callers
 
-November 4: scanning every admitted function — not only the reached path — settles whether the guest could produce the status bits itself. It cannot: `NV_PFIFO_CACHE1_STATUS` (`0xFD003214`) has **5 reads and 0 writes** and `NV_PFIFO_RUNOUT_STATUS` (`0xFD002400`) has **2 reads and 0 writes** across the whole translation, while the guest does write `NV_PFIFO_CACHE1_DMA_PUSH` (`0xFD003220`, 5 writes at `0x1FDD79`, `0x1FE853`, `0x1FE915`, `0x2004BA`, `0x20107C`), `NV_PFIFO_CACHE1_PULL0` (`0xFD003250`, 9 writes) and `PFIFO + 0x500` (`0xFD002500`, 14 writes). So `CACHE1_STATUS.LOW_MARK` and `RUNOUT_STATUS.LOW_MARK` can only come from a modelled consumer, and the engine workstream owns that decision; the guest's writes are the input side such a consumer would act on. No producer rule was added, the seam stays unreferenced and the canonical profile stays fail-closed. **There is no controllable original screen.**
+November 4: the frontier report previously listed boundary placeholders by address only, which said nothing about how to batch them. `tools/translation-frontier.mjs` now records, for every referenced placeholder, the admitted functions that call it (`referencedBy`, exposed in `--json` and printed as `0x… called by 0x…`). Against the current translation the first five placeholders are all called by `0x2CD80`, which shows the frontier clusters by caller rather than by address order — the missing input for scoping the next admission batch. `tests/translation-frontier.test.mjs` adds an attribution case; the suite is 4 tests and the runtime suite is **126/126**. The tool still prints counts and addresses only and never reproduces original code. **There is no controllable original screen.**
 
-Validation: documentation-only change; `npm run test:evidence` 4/4, `npm run test:native` 14/14, runtime suite 125/125, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md).
+The PFIFO engine/consumer contract remains with the new engine workstream per `docs/PFIFO_ENGINE_HANDOFF.md`; the previous cycle recorded that the guest never writes the two status registers, so only a modelled consumer can produce `LOW_MARK`. Sol was not attempted this cycle, so its current availability was not checked.
 
-## Prior: seed manifest verified
+Validation: runtime suite 126/126, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. See [the engine handoff](PFIFO_ENGINE_HANDOFF.md) and [the translation-frontier checkpoint](TRANSLATION_FRONTIER_CHECKPOINT.md).
 
-`tools/verify-seeds.py` matches 32 recorded seed digests against 32 offered seeds before any recomposition; the Python evidence suite is 4/4.
+## Prior: guest never writes the two PFIFO status registers
 
 ## Prior: translation verified fully instrumented
 
