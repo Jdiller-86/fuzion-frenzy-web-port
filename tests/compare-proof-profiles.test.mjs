@@ -37,6 +37,14 @@ const experiment = () => ({
     },
   }],
 });
+const deviceRegisters = supplied => ({
+  entries: [], log: [], aliases: [], statusWaits: [], count: 0, events: 0, supplied,
+});
+const supplied = () => ({
+  window: { base: 0xFD000000, size: 0x01000000 },
+  registers: [{ address: 0xFD001004, initial: 0 }, { address: 0xFD101800, initial: 0 }],
+  zeroRanges: [{ address: 0xFD001000, bytes: 16 }],
+});
 
 test('the controlled avQuery comparison reports the delta and next stop', () => {
   const result = compareProofProfiles(control(), experiment());
@@ -82,6 +90,37 @@ test('the comparison requires the avQuery experiment to be the only added input'
   assert.throws(() => compareProofProfiles(control(), {
     ...experiment(), experiments: [...experiment().experiments, 'engineWait'],
   }), /differ only by the avQuery experiment/);
+});
+
+test('the comparison requires identical supplied device inputs', () => {
+  const matched = { ...experiment(), deviceRegisters: deviceRegisters(supplied()) };
+  const result = compareProofProfiles(
+    { ...control(), deviceRegisters: deviceRegisters(supplied()) }, matched);
+  assert.deepEqual(result.deviceInputs, supplied());
+
+  const other = edit => ({
+    ...experiment(), deviceRegisters: deviceRegisters({ ...supplied(), ...edit }),
+  });
+  const base = { ...control(), deviceRegisters: deviceRegisters(supplied()) };
+  assert.throws(() => compareProofProfiles(base, other({
+    window: { base: 0xFD000000, size: 0x00F00000 },
+  })), /different device inputs/);
+  assert.throws(() => compareProofProfiles(base, other({
+    registers: [{ address: 0xFD001004, initial: 1 }],
+  })), /different device inputs/);
+  assert.throws(() => compareProofProfiles(base, other({ zeroRanges: [] })),
+    /different device inputs/);
+  assert.throws(() => compareProofProfiles(control(), matched),
+    /different device inputs/);
+});
+
+test('the comparison rejects repeated experiment names', () => {
+  assert.throws(() => compareProofProfiles(
+    { ...control(), experiments: ['writeClearing', 'writeClearing'] }, experiment()),
+    /must not repeat an experiment/);
+  assert.throws(() => compareProofProfiles(control(), {
+    ...experiment(), experiments: ['writeClearing', 'avQuery', 'avQuery'],
+  }), /must not repeat an experiment/);
 });
 
 test('the comparison requires both call lists and a non-decreasing run', () => {

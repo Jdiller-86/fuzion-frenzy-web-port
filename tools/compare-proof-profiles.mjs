@@ -31,8 +31,48 @@ function digest(report, field) {
 function experimentSet(report) {
   const names = report.experiments ?? [];
   if (!Array.isArray(names)) throw new Error('The experiments field must be a list');
-  return new Set(names);
+  const set = new Set(names);
+  /* A repeated name would collapse silently and could hide a second declared
+   * input, so reject it instead of comparing the reduced set. */
+  if (set.size !== names.length)
+    throw new Error('The experiments field must not repeat an experiment');
+  return set;
 }
+
+/* The supplied device input profile is the window, initial registers and
+ * zero-ranges the run was configured with. Two runs with different supplied
+ * inputs are not a controlled comparison even if their experiment names match,
+ * so normalise it and require deep equality. */
+function suppliedProfile(report) {
+  const device = report.deviceRegisters;
+  if (device === undefined || device === null) return null;
+  const supplied = device.supplied;
+  if (supplied === undefined || supplied === null) return null;
+  if (typeof supplied !== 'object')
+    throw new Error('The supplied device input profile must be an object or null');
+  const window = supplied.window;
+  if (!window || !DWORD(window.base) || !DWORD(window.size))
+    throw new Error('The supplied device window is malformed');
+  const registers = supplied.registers ?? [];
+  const zeroRanges = supplied.zeroRanges ?? [];
+  if (!Array.isArray(registers) || !Array.isArray(zeroRanges))
+    throw new Error('The supplied device input profile must carry register and zero-range lists');
+  for (const entry of registers) {
+    if (!entry || !DWORD(entry.address) || !DWORD(entry.initial))
+      throw new Error('A supplied device register is malformed');
+  }
+  for (const range of zeroRanges) {
+    if (!range || !DWORD(range.address) || !DWORD(range.bytes))
+      throw new Error('A supplied device zero range is malformed');
+  }
+  return {
+    window: { base: window.base, size: window.size },
+    registers: registers.map(entry => ({ address: entry.address, initial: entry.initial })),
+    zeroRanges: zeroRanges.map(range => ({ address: range.address, bytes: range.bytes })),
+  };
+}
+
+const sameSupplied = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
 function ordinalTwoCalls(report) {
   if (!Array.isArray(report.calls))
@@ -58,6 +98,10 @@ export function compareProofProfiles(control, experiment) {
 
   const controlExperiments = experimentSet(control);
   const experimentExperiments = experimentSet(experiment);
+  const controlSupplied = suppliedProfile(control);
+  const experimentSupplied = suppliedProfile(experiment);
+  if (!sameSupplied(controlSupplied, experimentSupplied))
+    throw new Error('The profiles supplied different device inputs, so the comparison is not controlled');
   if (controlExperiments.has('avQuery'))
     throw new Error('The control profile must not declare the avQuery experiment');
   if (!experimentExperiments.has('avQuery'))
@@ -101,6 +145,7 @@ export function compareProofProfiles(control, experiment) {
     moduleSha256,
     addedExperiment: 'avQuery',
     avQueryWord: experiment.avQueryWord,
+    deviceInputs: controlSupplied,
     control: {
       stop: control.stop,
       routines: before.distinctOriginalFunctions,
