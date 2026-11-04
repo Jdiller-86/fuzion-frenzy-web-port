@@ -829,11 +829,21 @@ uint32_t ff_probe_mmio_zero(uint32_t base,uint32_t bytes)
 {
     return ff_device_registers_add_zero_range(&device_registers,base,bytes);
 }
-uint32_t ff_probe_mmio_alias_count(void) { return device_registers.alias_count; }
-uint32_t ff_probe_mmio_alias_word(uint32_t index, uint32_t field)
+uint32_t ff_probe_mmio_alias_count(void) { return device_registers.alias_count; }uint32_t ff_probe_mmio_alias_word(uint32_t index, uint32_t field)
 {
     if(index >= device_registers.alias_count)return UINT32_MAX;
     return field ? device_registers.aliases[index].second : device_registers.aliases[index].first;
+}
+/* Declared status inputs the guest polls: address, mask, last masked value and
+ * the bounded read count, so the report shows which interrupt bit is waited on. */
+uint32_t ff_probe_device_status_wait_count(void) { return device_registers.status_wait_count; }
+uint32_t ff_probe_device_status_wait_word(uint32_t index, uint32_t field)
+{
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
+    if(index >= device_registers.status_wait_count)return UINT32_MAX;
+    const ff_device_status_wait *wait = &device_registers.status_waits[index];
+    return field==0?wait->address:field==1?wait->mask:field==2?wait->value:
+           field==3?wait->count:UINT32_MAX;
 }
 uint32_t ff_probe_mmio_word(uint32_t field)
 {

@@ -5,6 +5,8 @@
  * eight- or sixteen-item cap. */
 export const DEVICE_ENTRIES = 8192;
 export const DEVICE_EVENTS = 32768;
+/* Must stay in sync with FF_DEVICE_STATUS_WAITS in device_registers.h. */
+export const DEVICE_STATUS_WAITS = 4;
 
 export function createDeviceReport(api, profile = null) {
   if (!api || typeof api.ff_probe_mmio_word !== 'function' ||
@@ -46,6 +48,18 @@ export function createDeviceReport(api, profile = null) {
       second: api.ff_probe_mmio_alias_word(i, 1) >>> 0,
     });
   }
+  const statusWaits = [];
+  if (typeof api.ff_probe_device_status_wait_count === 'function' &&
+      typeof api.ff_probe_device_status_wait_word === 'function') {
+    const count = api.ff_probe_device_status_wait_count() >>> 0;
+    if (count > DEVICE_STATUS_WAITS) throw new Error('Device report exceeds the bounded status-wait capacity');
+    for (let i = 0; i < count; ++i) statusWaits.push({
+      address: api.ff_probe_device_status_wait_word(i, 0) >>> 0,
+      mask: api.ff_probe_device_status_wait_word(i, 1) >>> 0,
+      value: api.ff_probe_device_status_wait_word(i, 2) >>> 0,
+      count: api.ff_probe_device_status_wait_word(i, 3) >>> 0,
+    });
+  }
   return {
     scope: 'explicit synthetic aperture; unknown reads fail; one modeled self-clearing flush bit; no general NV2A or device behaviour',
     base: api.ff_probe_mmio_word(1) >>> 0,
@@ -55,6 +69,7 @@ export function createDeviceReport(api, profile = null) {
     entries,
     log,
     aliases,
+    statusWaits,
     supplied: profile ? {
       window: { base: profile.window.base, size: profile.window.size },
       registers: profile.registers.map(entry => ({ address: entry.address, initial: entry.initial })),
