@@ -109,7 +109,6 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: {
         ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
         callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
-        resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
       },
     },
   });
@@ -148,7 +147,7 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
         option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' },
       },
     },
-  })), /Observed call facts/);
+  })), /Observed option\/result facts/);
   assert.throws(() => validateProofReport(report({
     stop: {
       status: 1, target: 0xFE000094, ordinal: 2,
@@ -162,7 +161,7 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
         },
       },
     },
-  })), /Observed call facts/);
+  })), /Observed option\/result facts/);
   assert.throws(() => validateProofReport(report({
     stop: {
       status: 10, target: 0xFD000100, ordinal: 1,

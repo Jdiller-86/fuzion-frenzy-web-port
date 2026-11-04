@@ -10,7 +10,6 @@ test('ordinal 2 is named AvSendTVEncoderOption with static facts only', () => {
     callingConvention: 'stdcall',
     argumentBytes: 16,
     returns: 'void',
-    resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
   });
 });
 

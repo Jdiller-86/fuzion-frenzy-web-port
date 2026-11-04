@@ -1,4 +1,10 @@
-# The modeled AV pack run now carries its unresolved Cxbx provenance
+# The static service descriptor is now option-neutral
+
+November 4: the static service descriptor no longer asserts option-6-specific facts. `src/runtime/kernel-service.mjs` carries only the service name and the `stdcall`/16-byte/void ABI; the option-6 result bits, output pointer `0x203720`, masks and table remain observed call evidence in the checkpoint and the `avPackProvenance` field. `proof-report.mjs` rejects option/result/output facts in the static descriptor. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2. **There is no controllable original screen.**
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The modeled AV pack run now carries its unresolved Cxbx provenance
 
 November 4: every modeled AV-pack run now states its provenance. `src/runtime/av-pack.mjs` defines `AV_PACK_PROVENANCE`; the worker reports `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present. `proof-report.mjs` requires it and rejects a missing or misleading status, so a modeled run cannot be read as settled provenance. The service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2. **There is no controllable original screen.**
 

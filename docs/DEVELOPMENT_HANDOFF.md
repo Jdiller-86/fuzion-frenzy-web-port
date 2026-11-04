@@ -1,4 +1,10 @@
-# Continue from the explicit unresolved AV-pack provenance
+# Continue from the option-neutral static service descriptor
+
+The latest bounded correction keeps the static service descriptor neutral. `src/runtime/kernel-service.mjs` now carries only the service name and the `stdcall`/16-byte/void ABI; the option-6 result bits, output pointer `0x203720`, masks and table are observed call evidence in the checkpoint and the `avPackProvenance` field. `proof-report.mjs` rejects option/result/output facts in the static descriptor. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked.
+
+## Prior: the explicit unresolved AV-pack provenance
 
 The latest bounded correction makes the unresolved provenance visible in every modeled run. `src/runtime/av-pack.mjs` defines `AV_PACK_PROVENANCE`; the worker reports `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present, and `proof-report.mjs` requires it. The service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2. The Cxbx source is not retained, so the conflict remains unverified; do not promote the modeled state.
 
