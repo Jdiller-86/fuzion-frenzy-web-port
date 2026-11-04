@@ -1,6 +1,9 @@
 param(
     [ValidateSet('Snapshot', 'Ensure', 'MergeMain')][string]$Action = 'Snapshot',
-    [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedHead
+    [ValidatePattern('^[0-9a-f]{40}$')][string]$ExpectedHead,
+    [switch]$OpenMain,
+    [ValidatePattern('^[0-9a-f]{40}$')][string]$OpenSourceHead,
+    [ValidatePattern('^[0-9a-f]{40}$')][string]$OpenGeometryHead
 )
 
 $ErrorActionPreference = 'Stop'
@@ -108,18 +111,20 @@ try {
     }
 
     if ($Action -eq 'Ensure') {
-        Assert-Integration $ExpectedHead
-        if ($mainHead -ne $ExpectedHead -and -not $mainPR) {
+        if ($OpenMain -or $OpenSourceHead -or $OpenGeometryHead) { Assert-Integration $ExpectedHead }
+        if ($OpenMain -and $mainHead -ne $ExpectedHead -and -not $mainPR) {
             $body = "Automated Sol architect integration candidate. Source-owned changes and evidence are recorded in docs/ARCHITECT_INTEGRATION_CHECKPOINT.md and docs/PROJECT_STATUS.md. Original game playability is not claimed. The runner will merge only an exact Sol-approved head after local source/runtime checks, both GitHub preparation jobs, clean mergeability and current-base checks."
             $mainPR = Invoke-GitHub 'POST' '/pulls' @{ title = 'Integrate reviewed source progress toward browser execution'; head = 'codex/opencode-architect'; base = 'main'; body = $body; draft = $false }
             $result.mainPR = [int]$mainPR.number
             $result.openedMainPR = $true
         }
         foreach ($lane in @('source', 'geometry')) {
+            $requestedHead = if ($lane -eq 'source') { $OpenSourceHead } else { $OpenGeometryHead }
+            if (-not $requestedHead) { continue }
             $branch = 'codex/opencode-' + $lane
             $remoteHead = Get-RemoteHead $branch
             $localHead = (git -C $repo rev-parse $branch).Trim()
-            if ($remoteHead -ne $localHead) { continue }
+            if ($remoteHead -ne $localHead -or $remoteHead -ne $requestedHead) { throw "Requested $lane PR head changed or is unpublished." }
             $ahead = [int](git -C $repo rev-list --count ($ExpectedHead + '..' + $localHead))
             if ($LASTEXITCODE -ne 0 -or $ahead -le 0) { continue }
             Assert-SafePaths ($ExpectedHead + '..' + $localHead)
