@@ -51,7 +51,7 @@ The output must be unused. `fused` intentionally differs from this particular so
 
 `ff_nv2a_expand_line_strip` and `ff_nv2a_expand_line_loop` assemble host vertex streams into the same two-vertex line body. A strip of `count` inputs emits `2 * (count - 1)` raster vertices for adjacent pairs; a loop additionally closes `input[count - 1]` to `input[0]` and emits `2 * count`. Both reject `count < 2`, a `capacity` smaller than the required raster-vertex count, invalid state, null pointers and 32-bit size overflow before writing. The generator uses `layout(lines)` for `PRIM_TYPE_LINES`, `PRIM_TYPE_LINE_STRIP` and `PRIM_TYPE_LINE_LOOP` with no strip/loop parity, so flat provoking is resolved within each assembled pair (first or second pair vertex) and smooth color follows each emitted input.
 
-Analytic tests cover attribute forwarding, first/last provoking colors, smooth colors, the rotated helper row, negative deltas, strip and loop pair order including the closing wrap pair, per-pair provoking, capacity/count rejection and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux line compile/run. This is a candidate implementation, not the captured native line reference comparison or a browser prepass. Quad geometry, polygon line modes, original arithmetic calibration and renderer integration remain unimplemented.
+Analytic tests cover attribute forwarding, first/last provoking colors, smooth colors, the rotated helper row, negative deltas, strip and loop pair order including the closing wrap pair, per-pair provoking, capacity/count rejection and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux line compile/run. This is a candidate implementation, not the captured native line reference comparison or a browser prepass. Original-hardware arithmetic calibration and renderer integration remain unimplemented.
 
 Review status (November 3, free-model-only cycle): the strip/loop assembly was checked against the pinned public generator source and analytic native tests without an independent whole-chain geometry review. Material correctness input for the primary lane: the selected pair order and per-pair provoking follow the generator's host-supplied `layout(lines)` contract, but the actual NV2A host decomposition of line strips and the loop closing segment has not been compared with a captured reference. Line-loop degeneracy rules (for example count 2 or repeated vertices) and clipping-induced segment splitting are likewise unproved here.
 
@@ -61,7 +61,7 @@ The captured native line/quad reference and browser comparison remain private an
 
 `src/runtime/nv2a_quad.c/.h` expands one four-vertex quad into the pinned public xemu `geom.c` fill order `1,2,0` and `2,3,0` using `calc_quadz`/`calc_triz`/`emit_vertex`. It forwards clip/point/fog/texcoords, uses the quad's provoking color (input 3) or per-emitted-vertex smooth colors, copies the two triangle position row sets, and computes each triangle's depth slope with the explicit fused/separate arithmetic profile. The 42/51-float layouts are reused.
 
-Analytic tests cover attribute forwarding, provoking/smooth colors, both row sets, tilted/planar/perspective depth and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux quad compile/run. This is a candidate implementation, not the captured native quad reference comparison or a browser prepass. Quad strips, polygon line/point modes, original arithmetic calibration and renderer integration remain unimplemented; the captured reference is private and unavailable here.
+Analytic tests cover attribute forwarding, provoking/smooth colors, both row sets, tilted/planar/perspective depth and invalid-state rejection without output writes. Optimized and ASan/UBSan native runs pass; CI adds a Linux quad compile/run. This is a candidate implementation, not the captured native quad reference comparison or a browser prepass. Quad-strip stream assembly, original-hardware arithmetic calibration and renderer integration remain unimplemented; the captured reference is private and unavailable here.
 
 ## Source-owned quad-strip component
 
@@ -173,7 +173,7 @@ The free-model-only geometry directive forbids delegating to paid or other-model
 
 A source-owned ABI guard in `tests/nv2a_triangle_test.c` allocates the four-word reference state on the heap and exercises the list fill/line/point paths under ASan, so a future read of the strip-only extension fails the boundary check rather than silently changing the comparator contract.
 
-The status above is unchanged: no actionable reference was added or accessed this cycle. The private triangle reference and the line/quad captures remain outside this source-only worktree.
+The status above is unchanged: no actionable reference was added or accessed since the pause began. The private triangle reference and the line/quad captures remain outside this source-only worktree.
 
 ### Pause status and resumption criteria
 
@@ -183,7 +183,7 @@ Per the current directive the lane is paused for:
 - new geometry fixtures, comparator exports or reference-capture work;
 - any change that would make a component look integration-ready without the required review.
 
-Retained and unchanged: drafts #2 and #3, the existing source-owned components and the write-bounds checks. Draft #2 remains unapproved; this lane has not re-evaluated either draft. PR #1 was not checked, reviewed or merged in this cycle. The newest lane change is `818380b` (write-bounds checks), which changed tests and documentation only.
+Retained and unchanged: drafts #2 and #3, the existing source-owned components and the write-bounds checks. Draft #2 remains unapproved; this lane has not re-evaluated either draft. PR #1 has not been checked, reviewed or merged by this lane. The newest source/test change is `818380b` (write-bounds checks); subsequent lane changes have been documentation only.
 
 Resumption requires all of:
 
