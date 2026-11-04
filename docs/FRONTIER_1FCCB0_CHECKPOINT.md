@@ -33,6 +33,10 @@ Static reading only: this is a small **switch dispatcher**. It bounds a selector
 
 The retained exporter reads `0x1FCCB0` as **18 instructions / a 75-byte envelope** (`0x1FCCB0..0x1FCCFA`), no calls, SHA-256 `497317554657fc3afec91122db15678b5b87218e477d6516484661cd1d18d29e`. The 32-byte table at `0x1FCCFC` is **outside** the exported body and remains guest image data; a future admission must dispatch through the image table rather than a table-in-seed envelope. The seed was not merged into the selection, and `0x1FCCB0` remains unadmitted.
 
+## Dispatch blocker (not admitted)
+
+The seed's computed jump at `0x1FCCC0` has the four case flows and a `DATA` reference to `0x1FCCFC`, but its layout is instruction-only (`0x1FCCB0..0x1FCCFA`) and the 32-byte table is outside the body. The recomposition guard requires one complete **declared local table** for every computed jump (`checked_dispatch_tables`); the current seed cannot satisfy it. Do not bypass the guard or decode the table as instructions. The next prerequisite is a table-aware envelope export that defines the 8-entry table as data and extends the body to include it (through `0x1FCD20`), or an equivalent source-owned exporter; a fresh directive must authorize that admission.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
