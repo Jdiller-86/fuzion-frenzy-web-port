@@ -30,6 +30,7 @@ STORE_SOURCE = "loc_00100000: ;\nXMM_STORE(eax, xmm0); /* movaps */"
 
 HARNESS = r"""
 #include <assert.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -39,17 +40,27 @@ HARNESS = r"""
 typedef union { uint8_t u8[16]; uint32_t u32[4]; } RecompXmm;
 static uint8_t ram[0x40000];
 static ff_virtual_memory vm;
+static jmp_buf stop_jump;
+static uint32_t stop_address, stop_access, stop_site, stop_count;
+
+/* The host contract for a refused access is to stop the machine, not to return a
+ * pointer the translated code would then dereference. This hook longjmps so the
+ * test can observe the stop without touching guest memory. */
+static _Noreturn void stop(uint32_t address, uint32_t access, uint32_t site)
+{
+    stop_address = address; stop_access = access; stop_site = site; ++stop_count;
+    longjmp(stop_jump, 1);
+}
 
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
-    (void)site;
-    if (!access || (access & ~(uint64_t)7)) return NULL;
-    if (ff_vm_check(&vm, address, bytes, access)) return NULL;
+    if (!access || (access & ~(uint64_t)7)) stop(address, access, site);
+    if (ff_vm_check(&vm, address, bytes, access)) stop(address, access, site);
     return ram + address;
 }
 void *ff_probe_guest_vector(uint32_t address, uint32_t access, uint32_t site)
 {
-    if (address & 15u) return NULL;
+    if (address & 15u) stop(address, access, site);
     return ff_probe_guest_memory(address, 16u, access, site);
 }
 
@@ -87,18 +98,30 @@ int main(void)
     generated_store();
     for (unsigned i = 0; i < 16; ++i) assert(ram[0x00020000u + i] == (uint8_t)(0xA0u + i));
 
-    /* A denied store is refused before any mutation. */
+    /* A generated store into a read-only region reaches the stopping hook with no
+     * mutation: the emitted form is executed, not just inspected. */
     uint8_t before[16];
     memcpy(before, ram + 0x00010000u, sizeof before);
-    assert(FF_MEMORY_SITE_POINTER((0x00010000u), 16u, 2u, 0x00100030u) == NULL);
+    eax = 0x00010000u;
+    stop_count = 0;
+    if (!setjmp(stop_jump)) {
+        generated_store();
+        assert(0 && "a denied generated store must stop the machine");
+    }
+    assert(stop_count == 1 && stop_address == 0x00010000u && stop_access == 2);
+    assert(stop_site == 0x00100000u);
     assert(memcmp(before, ram + 0x00010000u, sizeof before) == 0);
 
-    /* Denied reads fail closed: unmapped, outside the window and misaligned. */
-    assert(FF_MEMORY_SITE_POINTER((0x00030000u), 16u, 1u, 0x00100030u) == NULL);
-    assert(FF_MEMORY_SITE_POINTER((0x00040000u), 16u, 1u, 0x00100030u) == NULL);
-    assert(FF_MEMORY_SITE_VECTOR((0x00010004u), 1u, 0x00100030u) == NULL);
+    /* A generated read of an unmapped page stops the same way. */
+    eax = 0x00030000u;
+    stop_count = 0;
+    if (!setjmp(stop_jump)) {
+        generated_read();
+        assert(0 && "a denied generated read must stop the machine");
+    }
+    assert(stop_count == 1 && stop_address == 0x00030000u && stop_access == 1);
 
-    puts("generated vector access: read-only, permitted store, denial before mutation");
+    puts("generated vector ops: permitted read/store, denied ops stop before mutation");
     return 0;
 }
 """
@@ -168,7 +191,7 @@ class CompiledVectorAccessTests(unittest.TestCase):
         self.assertEqual(build.returncode, 0, build.stderr)
         run = subprocess.run([str(self.path / "harness")], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertIn("denial before mutation", run.stdout)
+        self.assertIn("denied ops stop before mutation", run.stdout)
 
 
 if __name__ == "__main__":

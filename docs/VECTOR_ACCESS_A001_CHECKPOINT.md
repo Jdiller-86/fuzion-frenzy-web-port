@@ -1,6 +1,18 @@
-# A001 closed: alignment-guarded vectors reach the regenerated original code; acknowledgement stays experimental with a control
+# A001 closed: generated vector ops are non-writable, and denied ops stop before mutation in compiled code
 
-November 4, 2026. Generated vector operations are structurally checked by the emitter and exercised by a compiled test against the real virtual-memory component; the alignment guard now lives in a host hook because an in-macro form was silently optimised away; the reached translation was regenerated and behaves identically; and the write-1-to-clear register model remains an opt-in experiment with a control. The canonical profile keeps `NV_PMC_INTR_0` fail-closed. **There is no controllable original screen, renderer, engine progress or fidelity result.**
+November 4, 2026. The A001 vector surface is closed on the exact evidence the review asked for: a generated read is a non-writable `const` lvalue and assigning through it fails to compile; the address-of/escape form `&XMM_MEM(...)` is rejected by the emitter and covered by a test; and **generated** denied operations are now executed through a stopping host hook and proven to halt before any guest mutation. Alignment is handled per mnemonic, the reached translation uses the guarded forms and behaves identically, and the write-1-to-clear register model remains an opt-in experiment with a control. The canonical profile keeps `NV_PMC_INTR_0` fail-closed. **There is no controllable original screen, renderer, engine progress or fidelity result.**
+
+## Denied generated operations executed through a stopping hook
+
+`tests/recomp_memory_access_codegen_test.py` now compiles a harness whose `ff_probe_guest_memory`/`ff_probe_guest_vector` **stop** (longjmp, standing in for the fixture's `stop()`) instead of returning a pointer the translated code would dereference. The harness executes the emitted expressions rather than inspecting them:
+
+- a generated vector read of a mapped read-only page returns its bytes;
+- a generated vector store into a writable page writes them;
+- a generated vector **store** into the read-only page reaches the stop hook exactly once with the address, access `2` and the emitted site, and the bytes are verified unchanged (denial before mutation);
+- a generated vector **read** of an unmapped page reaches the same stop with access `1`.
+
+Both denial cases are compiled and executed, and the Python test asserts the harness output. The earlier `&XMM_MEM(...)`/`XMM_MEM(...) = ...` rejections remain committed and tested in `tests/recomp_memory_access_test.py`.
+
 
 ## Generated reads are structurally non-writable
 
