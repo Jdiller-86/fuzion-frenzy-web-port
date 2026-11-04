@@ -45,33 +45,40 @@ export class DiscSessionCore {
 
   async open(image, expectedIdentity) {
     if (this.opened || this.closed) fail('state', 'The session is already open or cleared');
+    if (this.busy) fail('busy', 'Only one request may be outstanding');
     if (!(image instanceof Blob) || !image.size) fail('content', 'A non-empty local XISO blob is required');
     const expected = identity(expectedIdentity);
-    let fs;
+    this.busy = true;
     try {
-      fs = await openXiso(image);
-    } catch (error) {
-      fail('volume', error.message);
+      let fs;
+      try {
+        fs = await openXiso(image);
+      } catch (error) {
+        fail('volume', error.message);
+      }
+      if (this.closed) fail('state', 'The session was cleared');
+      let entry;
+      try {
+        entry = await fs.find('default.xbe');
+      } catch (error) {
+        fail('identity', error.message);
+      }
+      if (this.closed) fail('state', 'The session was cleared');
+      if (!entry || entry.directory) fail('identity', 'The selected image has no default.xbe file');
+      try {
+        await requireBlobIdentity(fs.file(entry), expected.size, expected.sha256);
+      } catch (error) {
+        fail('identity', error.message);
+      }
+      if (this.closed) fail('state', 'The session was cleared');
+      this.image = image;
+      this.fs = fs;
+      this.opened = true;
+      this.dataBytesRead = 0;
+      return { imageBytes: image.size, xbeBytes: expected.size };
+    } finally {
+      this.busy = false;
     }
-    let entry;
-    try {
-      entry = await fs.find('default.xbe');
-    } catch (error) {
-      fail('identity', error.message);
-    }
-    if (!entry || entry.directory) fail('identity', 'The selected image has no default.xbe file');
-    try {
-      await requireBlobIdentity(fs.file(entry), expected.size, expected.sha256);
-    } catch (error) {
-      fail('identity', error.message);
-    }
-    this.image = image;
-    this.fs = fs;
-    this.opened = true;
-    this.closed = false;
-    this.busy = false;
-    this.dataBytesRead = 0;
-    return { imageBytes: image.size, xbeBytes: expected.size };
   }
 
   async read(path, offset, length) {

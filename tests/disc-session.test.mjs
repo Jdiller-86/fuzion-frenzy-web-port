@@ -133,6 +133,22 @@ test('the inventory is bounded and contains no content offsets or bytes', async 
   assert.equal(core.dataBytesRead, 0);
 });
 
+test('open is isolated against clear and concurrent open', async () => {
+  const { b, xbeBytes } = fixture();
+  const id = await expected(xbeBytes);
+  const core = new DiscSessionCore();
+  const opening = core.open(blob(b), id);
+  core.close();
+  await assert.rejects(opening, error => error instanceof DiscSessionError && error.code === 'state');
+  assert.equal(core.opened, false);
+  const again = new DiscSessionCore();
+  const first = again.open(blob(b), id);
+  await assert.rejects(again.open(blob(b), id), error => error instanceof DiscSessionError && error.code === 'busy');
+  await first;
+  assert.equal(again.opened, true);
+  again.close();
+});
+
 class FakeWorker {
   constructor() { this.sent = []; this.terminated = false; this.onmessage = null; this.onerror = null; }
   postMessage(message) { this.sent.push(message); }
@@ -179,4 +195,56 @@ test('worker errors reject the pending request and terminate the session', async
   worker.reply({ type: 'error', id: worker.sent[0].id, code: 'identity', message: 'unsupported' });
   await assert.rejects(opening, /unsupported/);
   assert.equal(worker.terminated, true);
+});
+
+async function openedSession(worker, timeoutMs) {
+  const opening = DiscSession.open(new Blob([1]), {
+    expectedIdentity: { size: 1, sha256: 'a'.repeat(64) },
+    workerFactory: () => worker,
+    timeoutMs,
+  });
+  await tick();
+  worker.reply({ type: 'opened', id: worker.sent[0].id, result: { imageBytes: 3, xbeBytes: 1 } });
+  return opening;
+}
+
+test('clear while a request is pending rejects it and terminates the worker', async () => {
+  const worker = new FakeWorker();
+  const session = await openedSession(worker);
+  const pending = session.read('data.bin', 0, 1);
+  await tick();
+  session.clear();
+  await assert.rejects(pending, /cleared/);
+  assert.equal(worker.terminated, true);
+});
+
+test('a non-replying worker times out and terminates', async () => {
+  const worker = new FakeWorker();
+  const opening = DiscSession.open(new Blob([1]), {
+    expectedIdentity: { size: 1, sha256: 'a'.repeat(64) },
+    workerFactory: () => worker,
+    timeoutMs: 5,
+  });
+  await assert.rejects(opening, /timed out/);
+  assert.equal(worker.terminated, true);
+});
+
+test('worker.onerror rejects the pending read and terminates', async () => {
+  const worker = new FakeWorker();
+  const session = await openedSession(worker);
+  const pending = session.read('data.bin', 0, 1);
+  await tick();
+  worker.onerror({ message: 'boom' });
+  await assert.rejects(pending, /boom/);
+  assert.equal(worker.terminated, true);
+});
+
+test('an unexpected response type rejects the request', async () => {
+  const worker = new FakeWorker();
+  const session = await openedSession(worker);
+  const pending = session.read('data.bin', 0, 1);
+  await tick();
+  worker.reply({ type: 'inventory-result', id: worker.sent[1].id, result: [] });
+  await assert.rejects(pending, /Unexpected disc-session response/);
+  session.clear();
 });

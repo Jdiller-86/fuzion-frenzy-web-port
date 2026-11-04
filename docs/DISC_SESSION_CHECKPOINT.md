@@ -8,7 +8,7 @@ November 4, 2026. The browser can now open one locally selected bare XISO in a d
 - `src/runtime/disc-session-worker.mjs` is the browser worker bridge. The selected `File`/`Blob` is cloned into the worker; the page receives only requested ranges.
 - `src/runtime/disc-session.mjs` is the main-thread handle. It allows one outstanding request, ignores late results after clear, times out bounded requests and terminates the worker on clear.
 - Reads are limited to **65,536 bytes per response** and one outstanding read per session. The adapter does not call `arrayBuffer()` on the whole image; `openXiso` reads the header/directory spans, identity reads the executable span, and `read()` slices only the requested range.
-- A bounded **directory inventory** accepts the root or one explicit directory path and returns only names, sizes and directory flags, with a default 1..1024 entry limit; it never returns file offsets or content. It shares the one-request-at-a-time rule.
+- A bounded **directory inventory** accepts the root or one explicit directory path and returns only names, sizes and directory flags, with a default 256 entries and a configurable 1..1024 limit; it never returns file offsets or content. It shares the one-request-at-a-time rule.
 - Fail-closed cases: non-Blob/empty image, malformed XDVDFS, missing/wrong `default.xbe` identity, unsafe path, directory target, negative/zero/oversized range, range beyond the file, truncated read, busy session, oversized inventory and cleared session.
 - Clear terminates the worker and invalidates the session; a new `DiscSession.open` creates an independent worker/session.
 
@@ -36,11 +36,18 @@ Observed in the in-app browser at `http://127.0.0.1:4173/disc-session`:
 
 No console errors were reported. The network log contained only the fixture page and source modules (`disc-session.mjs`, `disc-session-core.mjs`, `disc-session-worker.mjs`, `xdvdfs.mjs`, `identity.mjs`); the image was a local generated `File`, so there was no content-bearing request. The worker module appears twice because the fixture opens a second independent session after clear.
 
+## Review correction
+
+An independent GLM review at `2026-11-04T06:35:19.3594903-05:00` found that `DiscSessionCore.open()` had no busy guard and could overwrite a cleared session if `close()` ran during one of its awaits. It now sets a busy guard, re-checks `closed` after each await and no longer resets `closed` on success. Tests now cover clear-during-open, concurrent open, clear while a read is pending, request timeout, `worker.onerror` and an unexpected response type.
+
 ## Tests and limits
 
-- `tests/disc-session.test.mjs` covers open/read, root and explicit subdirectory inventory (names/sizes only), inventory entry limit, non-directory/missing paths, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read, independent reopen, client busy/clear/late-result isolation and worker errors.
-- Runtime suite 151/151, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass.
+- `tests/disc-session.test.mjs` covers open/read, root and explicit subdirectory inventory (names/sizes only), inventory entry limit, non-directory/missing paths, identity mismatch, malformed image, unsafe/missing path, invalid/oversized ranges, one outstanding read, clear-during-read/open, concurrent open, independent reopen, client busy/clear/timeout/worker.onerror/protocol rejection and worker error replies.
+- Runtime suite 156/156, evidence 4/4, native 18/18, title-seed 25/25, `npm run check` 346 source files and whitespace checks pass.
 - This is not a guest disc service, not a full importer/converter, and not proof of conversion completeness, title fidelity or playability. It does not read the whole image or upload it. The inventory is shallow: the root or one explicit directory, with no recursive listing or content.
+- `dataBytesRead` is informational; there is no cumulative session cap. A same-origin caller can retrieve an entire image in 64 KiB slices over time, though no egress path exists in these files.
+- The session trusts the caller-supplied identity; any runtime wiring must supply the pinned production digest.
+- The module-worker URL has been proven against the allowlisted research server, not a Vite production build. The worker's explicit `close` branch is currently unreachable from the shipped client, which terminates the worker instead.
 - Ordinal 2 remains unsupported, `0x1F79A0` remains unadmitted, and no CPU/stack, geometry or frontier work is involved.
 
 ## Next task
