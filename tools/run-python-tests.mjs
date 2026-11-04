@@ -22,6 +22,7 @@ const suites = [
   'tests/recomp_memory_access_codegen_test.py',
   'tests/title_seed_test.py',
   'tests/verify_seeds_test.py',
+  'tests/bounded_layout_test.py',
 ];
 
 function probe(command, prefix) {
