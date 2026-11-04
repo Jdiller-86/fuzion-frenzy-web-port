@@ -748,6 +748,15 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
+static uint32_t mmio_write_clearing;
+/* Explicitly experimental: the selected profile must opt in to modelling an
+ * acknowledging store, and the same profile without it is the control run. */
+uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_write_clearing = enable;
+    return 0;
+}
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
@@ -762,6 +771,7 @@ uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
     if((status=ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u)))return status;
+    if(!mmio_write_clearing) return 0;
     /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
      * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it
      * observed back to 0x100 and then re-reads it from another routine that

@@ -144,6 +144,25 @@ class MemoryAccessTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 guard.instrument_memory_accesses(source, SITE)
 
+    def test_alignment_requiring_moves_keep_an_alignment_guard(self):
+        aligned, aligned_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movaps */', SITE, 0x00100030)
+        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 1u, 0x00100000u))', aligned)
+        self.assertEqual(aligned_counts['aligned'], 1)
+        stored, stored_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nXMM_STORE(eax, xmm0); /* movaps */', SITE, 0x00100030)
+        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_VECTOR((eax), 2u, 0x00100000u)) = (xmm0)', stored)
+        self.assertEqual(stored_counts['aligned'], 1)
+        unaligned, unaligned_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax); /* movups */', SITE, 0x00100030)
+        self.assertIn('(*(RecompXmm*)FF_MEMORY_SITE_POINTER((eax), 16u, 1u, 0x00100000u))', unaligned)
+        self.assertEqual(unaligned_counts['unaligned'], 1)
+        self.assertNotIn('FF_MEMORY_SITE_VECTOR', unaligned)
+        plain, plain_counts = guard.instrument_memory_accesses(
+            'loc_00100000: ;\nxmm0 = XMM_MEM(eax);', SITE, 0x00100030)
+        self.assertNotIn('FF_MEMORY_SITE_VECTOR', plain)
+        self.assertEqual(plain_counts['unaligned'], 1)
+
     def test_unknown_helpers_escaped_pointers_and_malformed_surfaces_fail_closed(self):
         for source in ['&MEM32(eax)', 'XBOX_PTR(eax)', 'XMM_STOREU(eax, value)', 'XMM_LOAD_LOW(xmm0, eax)',
                        'XMM_STORE_LOW(eax, xmm0)', 'XMM_UNKNOWN(eax)', 'MMX_STORE(eax, value)',

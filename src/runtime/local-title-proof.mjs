@@ -179,8 +179,9 @@ export function parseLocalMmioProfile(buffer) {
     }
     zeroRanges.push({ address: range.address, bytes: range.bytes });
   }
+  const writeClearing = device.writeClearing === true;
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
-    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges };
+    registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing };
 }
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);

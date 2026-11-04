@@ -34,6 +34,9 @@ PURE_XMM = {"XMM_ZERO", "XMM_SCALAR", "XMM_SCALAR_DOUBLE", "XMM_SCALAR_BITS",
             "XMM_DIV", "XMM_MIN", "XMM_MAX", "XMM_SQRT", "XMM_RSQRT", "XMM_RCP",
             "XMM_AND", "XMM_OR", "XMM_XOR", "XMM_ANDN", "XMM_CMP_EQ",
             "XMM_CMP_LT", "XMM_CMP_LE", "XMM_CMP_NEQ"}
+# Vector moves whose memory operand must be 16-byte aligned. Unaligned forms are
+# movups/movupd/movdqu (and lddqu) and keep the plain checked access.
+ALIGNED_XMM = {"movaps", "movapd", "movdqa", "movdqa64", "movntps", "movntpd", "movntdq"}
 BLOCK_LABEL = re.compile(r"(?<![0-9A-Za-z_])loc_([0-9A-Fa-f]{8})\s*:")
 MEMORY_TOKEN = re.compile(r"\b(?:S?MEM\w*|PUSH32|POP32|XMM_(?:MEM|LOAD|STORE))\b")
 
@@ -167,8 +170,18 @@ def instrument_memory_accesses(text, site, limit=None):
                 address = rewrite(source[opening + 1:closing - 1], base + opening + 1).strip()
                 if not address: raise ValueError("Empty generated vector address")
                 block = site_at(base + begin)
-                pieces += [source[cursor:begin],
-                           f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 1u, 0x{block:08X}u))"]
+                # The translator appends the original mnemonic as a trailing
+                # comment. Alignment-requiring moves (movaps/movapd/movdqa and the
+                # non-temporal stores) fault on a misaligned guest address, so they
+                # keep an explicit alignment guard; movups/movupd/movdqu do not.
+                line_end = source.find('\n', closing)
+                tail = source[closing:line_end if line_end >= 0 else len(source)]
+                mnemonic = re.search(r"/\*\s*([A-Za-z0-9_.]+)\s*\*/", tail)
+                aligned = bool(mnemonic and mnemonic.group(1).lower() in ALIGNED_XMM)
+                access = (f"FF_MEMORY_SITE_VECTOR(({address}), 1u, 0x{block:08X}u)" if aligned
+                          else f"FF_MEMORY_SITE_POINTER(({address}), 16u, 1u, 0x{block:08X}u)")
+                pieces += [source[cursor:begin], f"(*(RecompXmm*){access})"]
+                stats["aligned" if aligned else "unaligned"] = stats.get("aligned" if aligned else "unaligned", 0) + 1
                 stats["reads"] += 1; used_sites.add(block); cursor = scan = closing
                 continue
             if name == "XMM_STORE":
@@ -184,7 +197,13 @@ def instrument_memory_accesses(text, site, limit=None):
                 value = rewrite(source[value_start:closing - 1], base + value_start).strip()
                 if not address or not value: raise ValueError("Empty generated vector store")
                 block = site_at(base + begin)
-                lhs = f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 2u, 0x{block:08X}u))"
+                line_end = source.find('\n', closing)
+                tail = source[closing:line_end if line_end >= 0 else len(source)]
+                mnemonic = re.search(r"/\*\s*([A-Za-z0-9_.]+)\s*\*/", tail)
+                aligned = bool(mnemonic and mnemonic.group(1).lower() in ALIGNED_XMM)
+                lhs = (f"(*(RecompXmm*)FF_MEMORY_SITE_VECTOR(({address}), 2u, 0x{block:08X}u))" if aligned
+                       else f"(*(RecompXmm*)FF_MEMORY_SITE_POINTER(({address}), 16u, 2u, 0x{block:08X}u))")
+                stats["aligned" if aligned else "unaligned"] = stats.get("aligned" if aligned else "unaligned", 0) + 1
                 if "FF_MEMORY_SITE_POINTER" in value or MEMORY_TOKEN.search(value):
                     temp = f"_ff_xmmtmp{xmm_temps[0]}"; xmm_temps[0] += 1
                     pieces += [source[cursor:begin],

@@ -39,6 +39,13 @@ self.onmessage = async event => {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
       const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
       const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
+      /* Write-1-to-clear register behaviour is an explicitly experimental model:
+       * the selected profile must opt in, and the same profile without it is the
+       * control that must reproduce the un-acknowledged guest loop. */
+      if(typeof api.ff_probe_mmio_write_clearing!=='function' ||
+         api.ff_probe_mmio_write_clearing(mmioProfile.writeClearing?1:0)) {
+        throw new Error('The private module cannot set the experimental write-clearing control');
+      }
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
         primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
