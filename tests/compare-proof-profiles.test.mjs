@@ -31,7 +31,10 @@ const experiment = () => ({
   avQueryWord: 0x00800303,
   calls: [{
     ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264],
-    output: { rawWord: 0x00800303 },
+    output: {
+      rawWord: 0x00800303, eaxBefore: 0xdeadbeef, espBefore: 0x3c10c40,
+      eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54,
+    },
   }],
 });
 

@@ -1708,18 +1708,30 @@ static void av_send_tv_encoder_option(void)
         row[1] = FF_BOOT_UNSUPPORTED;
         stop(1, 0xFE000094u, 2);
     }
+    const uint32_t eax_before = g_eax, esp_before = g_esp;
     const uint32_t args[4] = {row[2], row[3], row[4], row[5]};
     const ff_av_query_config config = {av_query_word};
-    ff_av_query_cpu cpu = {g_esp, g_eax};
+    ff_av_query_cpu cpu = {esp_before, eax_before};
     const ff_av_query_result result = ff_av_query_adapter(&virtual_memory, args, &config, &cpu);
     if (result != FF_AV_QUERY_WROTE) {
         row[1] = FF_BOOT_UNSUPPORTED;
         stop(1, 0xFE000094u, 2);
     }
+    /* The guest-run effect must match the adapter contract: VOID leaves EAX
+     * untouched and the stdcall return pops the return address plus four
+     * arguments. A mismatch is an internal proof failure, not a guest result. */
+    if (cpu.eax != eax_before || cpu.esp != esp_before + 20u) {
+        row[1] = 4;
+        stop(4, 0xFE000094u, 2);
+    }
     g_esp = cpu.esp;
     /* VOID-style: g_eax is intentionally unchanged. */
     row[1] = 0;
     row[6] = av_query_word;
+    row[7] = eax_before;
+    row[8] = esp_before;
+    row[9] = cpu.eax;
+    row[10] = cpu.esp;
 }
 #endif
 recomp_func_t recomp_lookup_kernel(uint32_t address)

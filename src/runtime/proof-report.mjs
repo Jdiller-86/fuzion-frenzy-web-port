@@ -17,6 +17,7 @@ export const DEVICE_STATUS_WAITS = 4;
 export const STOP_STATUSES = new Set([1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15]);
 
 const integer = (value) => Number.isInteger(value) && value >= 0;
+const dword = (value) => integer(value) && value <= 0xffffffff;
 const bounded = (value, limit) => integer(value) && value <= limit;
 
 export function validateProofReport(report) {
@@ -118,8 +119,7 @@ export function validateProofReport(report) {
     throw new Error('The avQuery experiment requires an explicit raw word');
   /* The profile parser bounds the word to a raw DWORD; the report must apply the
    * same bound so a hand-written value cannot claim a wider domain. */
-  if (report.avQueryWord !== undefined &&
-      (!integer(report.avQueryWord) || report.avQueryWord > 0xffffffff))
+  if (report.avQueryWord !== undefined && !dword(report.avQueryWord))
     throw new Error('Malformed synthetic AV query word');
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
@@ -157,10 +157,21 @@ export function validateProofReport(report) {
       } else {
         if (call.status !== 0)
           throw new Error('The synthetic avQuery profile must complete the ordinal-2 call');
-        if (!call.output || !integer(call.output.rawWord))
-          throw new Error('The synthetic avQuery call must carry its raw word');
+        /* The guest run must expose the adapter's VOID/EAX/stack effect, not just
+         * the raw word, so the integration path is checked as well as the native
+         * fixture. */
+        if (!call.output || !dword(call.output.rawWord) ||
+            !dword(call.output.eaxBefore) || !dword(call.output.espBefore) ||
+            !dword(call.output.eaxAfter) || !dword(call.output.espAfter))
+          throw new Error('The synthetic avQuery call must carry its raw word and CPU effect');
         if (call.output.rawWord !== report.avQueryWord)
           throw new Error('The synthetic avQuery output must match the declared raw word');
+        if (call.output.eaxAfter !== call.output.eaxBefore)
+          throw new Error('The synthetic avQuery call must leave EAX unchanged');
+        if (call.output.espBefore > 0xffffffff - 20)
+          throw new Error('The synthetic avQuery call must not report a wrapping stack frame');
+        if (call.output.espAfter !== ((call.output.espBefore + 20) >>> 0))
+          throw new Error('The synthetic avQuery call must pop the 20-byte stdcall frame');
         avQueryCall = true;
       }
     }

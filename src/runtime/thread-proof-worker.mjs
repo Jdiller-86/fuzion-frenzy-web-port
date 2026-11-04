@@ -189,7 +189,13 @@ self.onmessage = async event => {
       arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
-        call.output = { rawWord: api.ff_probe_kernel_word(i, 6) >>> 0 };
+        call.output = {
+          rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
+          eaxBefore: api.ff_probe_kernel_word(i, 7) >>> 0,
+          espBefore: api.ff_probe_kernel_word(i, 8) >>> 0,
+          eaxAfter: api.ff_probe_kernel_word(i, 9) >>> 0,
+          espAfter: api.ff_probe_kernel_word(i, 10) >>> 0,
+        };
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};

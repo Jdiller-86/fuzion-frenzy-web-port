@@ -15,6 +15,12 @@ const report = (edit = {}) => ({
   ...edit,
 });
 
+/* The completed ordinal-2 call must expose the adapter's VOID/EAX/stack effect. */
+const avOutput = (rawWord, edit = {}) => ({
+  rawWord, eaxBefore: 0xdeadbeef, espBefore: 0x3c10c40,
+  eaxAfter: 0xdeadbeef, espAfter: 0x3c10c54, ...edit,
+});
+
 test('a well-formed startup report validates and is returned unchanged', () => {
   const input = report();
   assert.equal(validateProofReport(input), input);
@@ -75,16 +81,16 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
 test('an explicit synthetic avQuery word completes ordinal 2 with its raw word', () => {
   const valid = report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
   });
   assert.equal(validateProofReport(valid), valid);
   assert.throws(() => validateProofReport(report({
     avQueryWord: 0x00800303,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
   })), /requires the avQuery experiment/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'],
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800303 } }],
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
   })), /requires an explicit raw word/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [],
@@ -99,8 +105,24 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   })), /must carry its raw word/);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: 0x00800304 } }],
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800304) }],
   })), /must match the declared raw word/);
+});
+
+test('the completed avQuery call must expose an unchanged EAX and a 20-byte pop', () => {
+  const call = (output) => report({
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output }],
+  });
+  assert.throws(() => validateProofReport(call(avOutput(0x00800303, { eaxAfter: 1 }))),
+    /leave EAX unchanged/);
+  assert.throws(() => validateProofReport(call(avOutput(0x00800303, { espAfter: 0x3c10c55 }))),
+    /pop the 20-byte stdcall frame/);
+  assert.throws(() => validateProofReport(call(avOutput(0x00800303,
+    { espBefore: 0xfffffff0, espAfter: 0x00000004 }))), /wrapping stack frame/);
+  assert.throws(() => validateProofReport(call(avOutput(0x00800303, { eaxBefore: undefined }))),
+    /must carry its raw word and CPU effect/);
+  assert.equal(validateProofReport(call(avOutput(0x00800303))).calls[0].output.eaxBefore, 0xdeadbeef);
 });
 
 test('an avQuery claim cannot omit the call list or use a non-DWORD value', () => {
@@ -119,7 +141,7 @@ test('an avQuery claim cannot omit the call list or use a non-DWORD value', () =
   for (const avQueryWord of [-1, 0x100000000, 1.5, '1']) {
     assert.throws(() => validateProofReport(report({
       experiments: ['avQuery'], avQueryWord,
-      calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: { rawWord: avQueryWord } }],
+      calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(avQueryWord) }],
     })), /Malformed synthetic AV query word/);
   }
 });
