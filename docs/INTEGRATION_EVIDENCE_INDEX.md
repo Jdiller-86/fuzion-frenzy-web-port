@@ -1,6 +1,6 @@
 # Integration evidence index and hold
 
-November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked at `cae269f` after the Sol architect's `09:30` decision to hold further admission pending that review.
+November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked at `2b64e5c` after the Sol architect's `09:30` decision to hold further admission pending that review.
 
 ## Source lane
 
@@ -37,6 +37,6 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 
 ## Hold and next
 
-The Sol architect (`2026-11-04T09:30`) selected **A: hold further admission pending exact-head integration review**. After this handoff the lane is parked: do not export/admit `0x1F6EB0`, expand storage/frameworks, or add substitute work. Geometry remains paused. Release requires the architect's independent review of the corrected slice and exact current PR head, resolution or naming of material blockers, and an explicit next-admission authorization.
+The Sol architect (`2026-11-04T09:30`) selected **A: hold further admission pending exact-head integration review**. A second escalation at `2026-11-04T09:55:09` failed with `subscription_sharing_usage_limit_exceeded`; the hold remains unresolved. After this handoff the lane is parked: do not export/admit `0x1F6EB0`, expand storage/frameworks, or add substitute work. Geometry remains paused. Release requires the architect's independent review of the corrected slice and exact current PR head, resolution or naming of material blockers, and an explicit next-admission authorization.
 
 The control path remains unsupported; `avQueryWord` stays explicit and synthetic. No controllable original screen, fidelity, online/social or authority claim is established.
