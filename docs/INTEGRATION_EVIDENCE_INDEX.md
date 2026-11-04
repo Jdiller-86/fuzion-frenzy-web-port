@@ -1,10 +1,10 @@
 # Integration evidence index and hold
 
-November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked at `2450b7e` after the Sol architect's `09:30` decision to hold further admission pending that review.
+November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source-code commit is `d5ee7af`, after the Sol architect's `09:30` decision to hold further admission pending that review.
 
 ## Source lane
 
-- Branch/head: `codex/opencode-source`, `2450b7e` (`Label the synthetic avQuery outcome truthfully in the startup checker`).
+- Branch/head: `codex/opencode-source`, last source-code commit `d5ee7af` (`Require the ordinal-2 call record for every unsupported ordinal-2 stop`).
 - Corrected report/helper slice, `3f97afa`..`5e492e1`:
   - `3f97afa` truthful configured denials, exact success shape/address, paired call arguments, full supplied/declared input comparison
   - `35a664a` ordinal-2 denial pairs with the status-1 unsupported-service stop
@@ -14,6 +14,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
   - `50af71a` configured-prequery acceptance plus the bounded `0x1F79A0` admission
   - `5e492e1` reject a no-call prequery that claims the ordinal-2 stop
   - `2450b7e` truthful avQuery outcome presentation in the local startup checker
+  - `d5ee7af` require the ordinal-2 call record for every unsupported ordinal-2 stop
 - Source files touched: `src/runtime/proof-report.mjs`, `src/runtime/device-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `src/runtime/local-title-proof.mjs`, `tools/compare-proof-profiles.mjs`, `tools/fixtures/thread_startup_probe.c`, `tools/fixtures/thread_startup_check.html`, `tests/proof-report.test.mjs`, `tests/compare-proof-profiles.test.mjs`, `tests/av-query-outcome.test.mjs`, `package.json`.
 - Targeted checks on this slice: runtime 179/179, evidence 4/4, native 20/20, `npm run check` 354 source files, `git diff --check` clean; pair comparison exits 0.
 - Narrow GLM review (`2026-11-04T09:15:22`, step-capped after the checks) found no material defect; the control stop target `0xFE000094` and the `0x1F79A0` enter/exit trace were confirmed from the retained reports. A follow-up narrow review at `2026-11-04T10:05:11` of the no-call prequery guard also found no material defect; minor unexercised control-path cases are noted in the binding checkpoint.
