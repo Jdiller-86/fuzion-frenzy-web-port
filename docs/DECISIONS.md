@@ -200,6 +200,13 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 86ded35 and geometry 02dd6cc
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A013 | Close the two remaining A001 acceptance branches at 86ded35, without approving the entire source branch | `address_taken` rejects the demonstrated parenthesized/nested address escape and tests preserve logical AND. Generator-produced denied read/store operations execute against the real VM through a stopping hook, recording stop address/access/site/count and unchanged read-only bytes. Independent GLM review and gcc-backed tests (emitter 14/14, codegen 2/2 without skips) support this bounded closure; direct const-write rejection remains. Do not repeat fixed findings. This does not establish general C grammar safety, precise Xbox exceptions or full runtime/source integration. |
+| A014 | Assign the bounded PFIFO submission/consumer contract to the existing primary lane; no third scheduled lane | Source D169's proposed new-workstream handoff leaves no established executable owner. Primary already owns device/runtime work and now owns one producer-free, evidence-cited contract from retained original submission through DMA/RAMIN/cache to the first admissible method or exact missing input. Full pinned xemu PFIFO confirms LOW_MARK/STATE and positive-progress updates; the extracted stub is not the full reference. Reconcile enable/reset/error/order and unresolved +0x500/+0x80 accesses before proposing a consumer adapter. Reference shortcuts and synthetic inputs are not hardware fidelity. No forced bits, empty-ring completion, guessed timing, speculative frontier expansion, full emulator or new runner/settings change. Geometry remains paused under its existing reference/whole-chain gate. |
+
 ### Architect review of source 1807769 and observed f402f5b provenance
 
 | ID | Decision | Basis / limits |
