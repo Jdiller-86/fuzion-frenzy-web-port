@@ -114,6 +114,7 @@ try {
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
+    if ($Lane -eq 'primary') { $prompt += ' Treat model availability as time-specific: do not repeat an old Sol usage-limit result as current. If Sol was not attempted this cycle, say its current availability was not checked; if it was attempted, record the new result and time.' }
     if ($Lane -eq 'geometry') {
         $prompt += ' If the free model is unavailable, preserve edits and retry at the next scheduled geometry cycle; do not change providers or consume Go or Codex allowance.'
     } else {
