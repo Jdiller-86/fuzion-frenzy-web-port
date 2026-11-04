@@ -29,6 +29,10 @@ The retained control/experiment pair reaches this routine from executed `0x1F564
 
 Static reading only: this is a small **switch dispatcher**. It bounds a selector, scales it by four and jumps through the table at `0x1FCCFC`. The table entries and cases are now mapped: it selects one of four three-instruction constant-return blocks (`ret 8`). A future admission needs the mixed code/table/padding envelope and the translator resync handling; the direct stream alone is not enough.
 
+## Exported seed (read-only, not admitted)
+
+The retained exporter reads `0x1FCCB0` as **18 instructions / a 75-byte envelope** (`0x1FCCB0..0x1FCCFA`), no calls, SHA-256 `497317554657fc3afec91122db15678b5b87218e477d6516484661cd1d18d29e`. The 32-byte table at `0x1FCCFC` is **outside** the exported body and remains guest image data; a future admission must dispatch through the image table rather than a table-in-seed envelope. The seed was not merged into the selection, and `0x1FCCB0` remains unadmitted.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
