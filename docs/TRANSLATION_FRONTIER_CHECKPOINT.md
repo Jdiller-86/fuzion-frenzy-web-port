@@ -17,6 +17,8 @@ Reproduce with `node tools/translation-frontier.mjs research/verification/recomp
 
 An independent narrow GLM review (attempted `2026-11-04T09:15:22`; step-capped after completing the checks) found no material defect in the prequery fix or the admission evidence. It confirmed the experiment's `0x1F79A0` enter/exit trace, the `0x1F6EB0` status-2 stop, the 281/405 counts and the module digest; the control stop target `0xFE000094` was then confirmed directly from `browser-71-reset3.json`. The review treats `0x1F6EB0` as a static-reachability boundary, not a proven dynamic edge beyond the stop.
 
+The source-owned admission guards were re-run against the new translation: `verify-seeds.py` reports **32 recorded / 32 offered / 0 unexpected / 0 missing** (the offered seeds match the translation's record exactly), and `verify-translation.py` reports **517 functions, 0 needing rewriting, fully instrumented**.
+
 ## Prior: The binding advances the frontier to translation target 0x1F79A0
 
 November 4, 2026. The explicit synthetic ordinal-2 binding moves the frontier from the kernel service to a translation target. On module `recomp-post-memory-build-70` (`cd2fac97df95a4289b20742768555a080a995e2f16c774a36da25a856720a1a0`):
