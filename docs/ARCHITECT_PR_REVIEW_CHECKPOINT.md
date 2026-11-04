@@ -1,6 +1,30 @@
 # Architect PR and execution review
 
-## Current review: source 897e389 / geometry df97a31
+## Current review: source 12f4cf6 / geometry cf56008
+
+Started clean at integration `b46e6086cc62ab06b60e470d5edc793c84251e17`. Fixed requested heads: source `12f4cf64e069b679566bb13e8757139d5035af16`, geometry `cf56008f34341e3c7f602b7e9d618c0d96e52942`, local main `ebd1ebf75173224ce266ce3ca3eda41cec7f2edb` (already integrated). Source adds one commit implementing the A015 default-off initial-state experiment; geometry changes only checkpoint wording. No inherited dirty changes or new builder merge.
+
+### Reported next execution boundary is now actionable
+
+Source's curated reset checkpoint reports one module SHA-256 `af2181759af49ba26e6276febbaa6aace3819a5474b550de2376863de181a2e8`: canonical remains status10 at unknown PMC `0xFD000100` (276 routines,403 kernel operations), engine-wait control remains status12 at `0xFD003214`, and the reset experiment leaves the wait and stops status2 at untranslated `0x1FCB00`, return `0x1FD4C4`, caller `0x1FD4A8` (276 routines,404 operations). No original instructions of that untranslated body have executed: the frontier tool now correctly classifies a reached status2 **placeholder** separately from executed original routines. The reported identical 3,837-event prefix and GET/PUT write sequences support the lane's conditional observation but identical trace events alone do not prove all command-memory bytes unchanged. No module/profile/raw report was accessed or run by the architect.
+
+Direct source inspection confirms `ff_probe_mmio_profile` calls `ff_pfifo_status_init` before `ff_pfifo_status_reference_reset` and copies only the cache/runout initial values to two named aperture addresses. The opt-in setter rejects activation after aperture initialization; the worker requires the export, defaults remain off and reports list `pfifoReset`. No reset call occurs on a read or poll. This is a credible initial-state experiment, not a FIFO consumer or general hardware reset. The ignored PCRTC-log-return fix from the previous head remains; its owned probe-branch coverage gap is not silently closed by these tests.
+
+Independent GLM review of component/header/tests supports the fresh-seam projection and notes its limits; the reviewer did not finish reading the probe block, whose initialization ordering was verified directly by the architect. The OR helper and dirty-state-preservation tests are not a general reference reset: actual xemu clears its register block first. **A016 accepts the bounded reported progress, not complete A015 or whole-source integration acceptance.** Primary should make the fresh-zeroed-state precondition explicit, avoid equating stored RUNOUT initialization with the reference's unconditional read rule, add the already-requested owned aperture U8/U32 consistency check and state all flags in a same-module control pair differing only in reset. Do not add a new fixture hierarchy or invent a general reset implementation to satisfy this naming correction.
+
+The next original-execution task is now **only 0x1FCB00**, plus demonstrably necessary bounded dependencies using retained seeds/project; not a speculative frontier batch or an unrestricted exported closure. Preserve every byte/decoder/layout/memory/ABI/local-content guard and run title code only in the browser. Reuse the controlled reset experiment and report the actual next stop without force-returning a helper or inventing a kernel/device success. The canonical path remains fail-closed and display pending-state experiments remain distinct from causal scanout timing/CPU IRQ delivery. No consumer, topology or audio/social subsystem expansion is authorized.
+
+### Geometry, PRs and evidence limits
+
+Geometry's two-line documentation delta follows A015 and adds no source/test/reference evidence. Keep the existing pause/reference/whole-chain gate, without repeated idle audits or fixture churn. Scout's narrow lookup correctly identified the A015 acceptance and fidelity limits; those were verified against the retained handoff and A015. No model, scheduler or global setting was changed.
+
+Live GitHub read-only verification: #1 open/non-draft/clean/mergeable at starting `b46e608` over `1a67c4f`, successful Linux/Windows preparation, no other open main PR; #2/#3 already-open conflicted drafts at the exact requested heads. Retain the review queues; no duplicate opening markers. No builder merge or main promotion: the startup result is not full-source approval, draft conflicts remain, main's intended runtime delta still needs complete review and the changed integration head needs exact-head CI/PR checks. No push or GitHub mutation is performed.
+
+There is still no controllable original screen. Original-console fidelity, rendering/audio/controllers, browser-local conversion, performance and every online/social/authority requirement remain unfinished.
+
+Validation at exact source12f4cf6: publication guard328 source files, runtime133/133 (no failures/skips), native14/14 runs (seven fixtures, plain plus ASan/UBSan), evidence4/4 suites including generator-to-compiled and title-seed checks. The validator used equivalent absolute-script/spawned-cwd invocations because temporary-worktree cwd commands were policy-blocked; the clean detached worktree was removed nonforce. Node24.22.1/npm11.19.1 differ from the exact Node24.14.0 pin; no toolchain installation/settings change. Integration changes are documentation-only: publication guard294 files and whitespace checks pass. Integration runtime code is unchanged since the retained110/110 result and green starting-head CI; that suite was not rerun for this documentation-only review. No check here executes original title content.
+
+## Retained review: source 897e389 / geometry df97a31
 
 Integration started clean at `d548844e4cd05de8bb80b6fa98e1362be6585138`; local main `ebd1ebf` remains included through `9d3b9f0`. Fixed builder heads: source `897e389625e9b8be0efe3f26eb9d7ab47e41eff5`, geometry `df97a31051f3fb192f5bcbe526d4e8091bc13ec8`. Neither builder branch is integrated by this review.
 

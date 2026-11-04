@@ -1,5 +1,15 @@
 # PFIFO LOW_MARK has a reset producer in the pinned full reference
 
+## Current progress: source 12f4cf6, A016
+
+The builder has implemented the default-off `pfifoReset` initial-state experiment and reports passing the LOW_MARK wait to a status2 untranslated boundary at `0x1FCB00` (caller `0x1FD4A8`, return `0x1FD4C4`). Canonical PMC and the engine-wait control retain their prior stops. This is lane-reported same-module synthetic-profile startup, not an architect-run title test or execution of the untranslated body.
+
+Actual startup wiring initializes a fresh seam, applies the projection once and copies two initial values into the aperture. It does not read/advance GET or PUT or consume commands. GLM component review supports this scope, and the architect directly verified the probe ordering. The helper's OR semantics **must not be presented as a general reset of dirty state**: restrict its stated contract to immediately following zeroed `ff_pfifo_status_init`, and retain the separate reference RUNOUT read semantics. Before complete A015 acceptance, add the already-requested owned U8/U32 aperture consistency assertion and document all flags in a control pair differing only in `pfifoReset`. Identical call traces are not a general memory-equality proof. These are narrow contract/coverage corrections, not a request to build a reset subsystem.
+
+Independent candidate checks pass: publication guard (328 files), runtime133/133 with no skips, native14/14 plain/sanitizer runs, evidence4/4 suites. Node24.22.1 differs from exact pin24.14.0. Full source branch is not integration-approved. Next admission is only the actually reached `0x1FCB00` and demonstrably necessary bounded dependencies from retained seeds/project; no speculative closure/frontier batch. Preserve the controls and every original-execution/local-content guard.
+
+## Retained reference evidence and A015 task
+
 November 4, 2026. Source review, not original execution. This corrects source `897e389`'s producer-free contract: a non-empty submission is **not** the only reference-supported route to `CACHE1_STATUS.LOW_MARK`. No adapter or runtime change is included here, and there is no controllable original screen.
 
 ## Independently verified reference path

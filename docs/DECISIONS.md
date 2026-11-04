@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source 12f4cf6 and geometry cf56008
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A016 | Accept the narrowly scoped initial-state experiment as conditional startup progress; admit only the actually reached next helper | Source12f4cf6 initializes a fresh status seam, applies the default-off LOW_MARK projection once before guest execution and copies two initial aperture values, with no consumer or GET advancement. The lane reports the wait releases and a status-2 placeholder at 0x1FCB00 (caller0x1FD4A8, return0x1FD4C4), while canonical and engine-wait controls retain their stops. This is reported synthetic-profile browser startup, not independently reproduced original execution, dispatch/fidelity or execution of the untranslated helper body. A001 stays accepted. Before claiming complete A015 coverage, clarify that the OR helper is valid only immediately after zeroed initialization (not a general reset that preserves dirty bits), keep RUNOUT's reference-read rule distinct from reset storage, add the existing required owned U8/U32 aperture consistency check and document a same-module/profile comparison differing only in pfifoReset, with all experiment flags stated. Then translate only 0x1FCB00 and demonstrably necessary bounded dependencies from retained seeds/project, preserving bytes/decoder/layout/memory/ABI and exact next-stop behavior. No broad closure/frontier batch, new consumer, guessed hardware state or timing. Geometry remains paused; neither full builder branch is integration-approved. |
+
 ### Architect review of source 897e389 and geometry df97a31
 
 | ID | Decision | Basis / limits |
