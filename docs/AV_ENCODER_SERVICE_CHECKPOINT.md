@@ -20,7 +20,7 @@ November 4, 2026. The narrow admission of `0x1FD42F` and its direct dependency `
 | `pcrtc` control | status 15 at `0xFD003214` | 276 | 403 | 32,768 |
 | `pfifoReset` | **status 1 at `0xFE000094`** (ordinal 2, return `0x1FD429`) | 279 | 404 | 12,584 |
 
-The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
+The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`. The stop record now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects one on any other stop, so the boundary cannot be reported as modeled or omitted. `src/runtime/kernel-service.mjs` is metadata only and implements nothing.
 
 ## What this establishes
 

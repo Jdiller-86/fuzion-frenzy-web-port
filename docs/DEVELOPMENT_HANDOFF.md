@@ -1,4 +1,10 @@
-# Continue from the mutually exclusive reset/engine-wait controls
+# Continue from the self-describing AvSendTVEncoderOption stop
+
+The latest bounded prerequisite makes the unsupported-service boundary explicit without implementing it. `src/runtime/kernel-service.mjs` names ordinal 2 as `AvSendTVEncoderOption` and never supplies a return value. The worker includes `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }` on a status-1 stop; `proof-report.mjs` requires that descriptor for every status-1 stop and rejects it on any other stop. The retained reset report validates. `tests/kernel-service.test.mjs` and the new `proof-report` cases cover the descriptor and the rejections; runtime suite 138/138. The next genuine stop remains ordinal 2 at `0xFE000094`; do not guess encoder behaviour.
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it.
+
+## Prior: the mutually exclusive reset/engine-wait controls
 
 The latest bounded correction makes the two diagnostics mutually exclusive: `parseLocalMmioProfile` rejects a profile with both `pfifoReset` and `engineWait`, because the wait would observe the seeded `LOW_MARK` and stop naming the blocking predicate. The adapter's scope (two status registers), width (only `LOW_MARK` in the low byte; sub-dword access is covered by the device-register tests and the run log) and control (default-off, one-shot, initialization-only) are unchanged. `tests/mmio-profile.test.mjs` covers both flags alone and the rejection. The next genuine stop remains unsupported `AvSendTVEncoderOption` (ordinal 2) at `0xFE000094`; do not guess encoder behaviour.
 

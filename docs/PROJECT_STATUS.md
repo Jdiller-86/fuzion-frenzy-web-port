@@ -1,4 +1,10 @@
-# The PFIFO reset control is now mutually exclusive with the engine-wait diagnostic
+# The AvSendTVEncoderOption stop is now self-describing and explicitly unmodeled
+
+November 4: the next bounded prerequisite makes the kernel-service boundary explicit. `src/runtime/kernel-service.mjs` names ordinal 2 as `AvSendTVEncoderOption` and implements nothing. A status-1 stop now carries `service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false }`; `proof-report.mjs` requires a non-modeled descriptor for every status-1 stop and rejects a descriptor on any other stop, so the boundary cannot be reported as modeled or omitted. The retained reset report validates, and `tests/kernel-service.test.mjs` plus the new `proof-report` cases cover the descriptor and the rejections. No encoder behaviour, return value, timing or display state is invented. **There is no controllable original screen.**
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The PFIFO reset control is now mutually exclusive with the engine-wait diagnostic
 
 November 4: the narrow reset control correction is complete. `parseLocalMmioProfile` now rejects a profile that sets both `pfifoReset` and `engineWait`: they observe the same status registers, and the wait would read the seeded `LOW_MARK` and stop naming the blocking predicate. The reset adapter remains scoped to the two status registers, sets only `LOW_MARK` in the low byte, and is default-off, one-shot and initialization-only; the device-register tests already cover sub-dword reads/writes, and the reset run's log reads `CACHE1_STATUS = 0x10` through the guest's U8 access. `tests/mmio-profile.test.mjs` covers both flags alone and the rejection. The encoder-service blocker is unchanged. **There is no controllable original screen.**
 

@@ -36,6 +36,16 @@ export function validateProofReport(report) {
   const stop = report.stop;
   if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal))
     throw new Error('Proof report stop record is incomplete or out of range');
+  /* An unsupported-service stop must name the reached service and state that it
+   * is not modeled; no other stop may carry a service descriptor. */
+  if (stop.status === 1) {
+    if (!stop.service || typeof stop.service !== 'object' || stop.service.ordinal !== stop.ordinal ||
+        !('name' in stop.service) || (stop.service.name !== null && typeof stop.service.name !== 'string') ||
+        stop.service.modeled !== false)
+      throw new Error('An unsupported-service stop must name the service and state that it is not modeled');
+  } else if (stop.service !== undefined) {
+    throw new Error('Only an unsupported-service stop may carry a service descriptor');
+  }
   const startup = report.originalStartup;
   if (!startup || !bounded(startup.totalInitializers, 4096) ||
       !bounded(startup.completedInitializers, startup.totalInitializers) ||

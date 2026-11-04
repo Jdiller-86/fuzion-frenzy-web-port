@@ -54,6 +54,37 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
+test('an unsupported-service stop must carry a non-modeled service descriptor', () => {
+  const valid = report({
+    stop: {
+      status: 1, target: 0xFE000094, ordinal: 2,
+      service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false },
+    },
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({
+    stop: { status: 1, target: 0xFE000094, ordinal: 2 },
+  })), /must name the service/);
+  assert.throws(() => validateProofReport(report({
+    stop: {
+      status: 1, target: 0xFE000094, ordinal: 2,
+      service: { ordinal: 3, name: 'AvSendTVEncoderOption', modeled: false },
+    },
+  })), /must name the service/);
+  assert.throws(() => validateProofReport(report({
+    stop: {
+      status: 1, target: 0xFE000094, ordinal: 2,
+      service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: true },
+    },
+  })), /must name the service/);
+  assert.throws(() => validateProofReport(report({
+    stop: {
+      status: 10, target: 0xFD000100, ordinal: 1,
+      service: { ordinal: 1, name: null, modeled: false },
+    },
+  })), /Only an unsupported-service/);
+});
+
 test('a worker-level error report is accepted without evidence fields', () => {
   const failure = { kind: 'error', message: 'Missing bounded device-aperture accessors' };
   assert.equal(validateProofReport(failure), failure);
