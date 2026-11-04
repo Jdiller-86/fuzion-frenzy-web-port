@@ -76,6 +76,16 @@ try {
             }
         } catch { Write-Warning 'Prior architect directive unavailable; continuing current review.' }
     }
+    foreach ($lane in @('source', 'geometry')) {
+        $laneRelativePath = if ($lane -eq 'source') { '.worktrees\opencode-cycle-state.json' } else { '.worktrees\opencode-geometry-cycle-state.json' }
+        $laneStatePath = Join-Path $repo $laneRelativePath
+        if (Test-Path -LiteralPath $laneStatePath) {
+            try {
+                $laneState = Get-Content -LiteralPath $laneStatePath -Raw | ConvertFrom-Json
+                $prompt += " Latest $lane cycle metadata (verify against Git; no summary text): outcome=$($laneState.outcome), started=$($laneState.started), finished=$($laneState.finished), attemptedHead=$($laneState.attemptedHead), finishedHead=$($laneState.finishedHead)."
+            } catch { Write-Warning "Could not read $lane cycle metadata; continuing current review." }
+        }
+    }
     if ($dirty.Count -gt 0) { $prompt += ' This integration worktree is dirty from an earlier cycle; finish or resolve those exact changes without resetting them before considering new merges.' }
     $output = @()
     $exitCode = 1
