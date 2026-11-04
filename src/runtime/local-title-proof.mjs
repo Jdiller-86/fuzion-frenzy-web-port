@@ -197,6 +197,11 @@ export function parseLocalMmioProfile(buffer) {
   const pcrtcVblanks = Number.isInteger(device.pcrtcVblanks) && device.pcrtcVblanks >= 0 &&
     device.pcrtcVblanks <= 64 ? device.pcrtcVblanks : 0;
   const engineWait = device.engineWait === true;
+  /* The reset seed and the engine-wait diagnostic observe the same registers and
+   * must not be combined: the wait would read the seeded LOW_MARK and stop
+   * naming the blocking predicate. */
+  if (pfifoReset && engineWait)
+    throw new Error('The pfifoReset and engineWait diagnostics are mutually exclusive');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
     pcrtcVblanks, engineWait, pfifoReset };

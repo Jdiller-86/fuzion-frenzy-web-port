@@ -16,7 +16,7 @@ The prior handoff said the reference did not model the empty-cache reset state a
 
 - **Scope**: the adapter writes only `CACHE1_STATUS` and `RUNOUT_STATUS`. `DMA_PUSH`, `DMA_GET`, `DMA_PUT` and guest memory are untouched; the report shows `dmaPush: 0` because the seam field was never written.
 - **Width**: only `LOW_MARK` (bit 4) in the low byte is set. The guest's U8 reads observe `0x10`, and the native test confirms unrelated bits are preserved. The aperture keeps the 32-bit store and serves the guest's byte access through its checked width path.
-- **Control**: default-off, one-shot (`resets === 1`), initialization-only, and never called from a poll or read. It is not combined with `engineWait`.
+- **Control**: default-off, one-shot (`resets === 1`), initialization-only, and never called from a poll or read. The profile parser rejects combining it with `engineWait`, because the wait would read the seeded `LOW_MARK` and stop naming the blocking predicate. Sub-dword reads and writes are covered by the device-register tests, and the reset run's log reads `CACHE1_STATUS = 0x10` through the guest's U8 access.
 
 ## Later: 0x1FCB00 is admitted
 

@@ -1,4 +1,10 @@
-# Continue from the AvSendTVEncoderOption service boundary
+# Continue from the mutually exclusive reset/engine-wait controls
+
+The latest bounded correction makes the two diagnostics mutually exclusive: `parseLocalMmioProfile` rejects a profile with both `pfifoReset` and `engineWait`, because the wait would observe the seeded `LOW_MARK` and stop naming the blocking predicate. The adapter's scope (two status registers), width (only `LOW_MARK` in the low byte; sub-dword access is covered by the device-register tests and the run log) and control (default-off, one-shot, initialization-only) are unchanged. `tests/mmio-profile.test.mjs` covers both flags alone and the rejection. The next genuine stop remains unsupported `AvSendTVEncoderOption` (ordinal 2) at `0xFE000094`; do not guess encoder behaviour.
+
+Validation: runtime suite 135/135, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 329 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it.
+
+## Prior: the AvSendTVEncoderOption service boundary
 
 The latest narrow admission adds the next reached helper `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions). Translation `recomp-title-recomp-title-post-memory-49` has 418 functions / 17,353 instructions; the seed gate is 32 recorded / 32 offered / 0 unexpected / 0 missing and the translation gate reports 0 functions needing rewriting. With the `pfifoReset` profile the run executes both and stops at unsupported kernel ordinal 2 (`AvSendTVEncoderOption`) at `0xFE000094` (status 1, return `0x1FD429`, 279 routines, 404 kernel operations). The frontier now has 99 placeholders, but the run enters none: the blocker is the kernel service, not translation. Controls are unchanged: canonical status 10 at `0xFD000100`, `engineWait` status 12 at `0xFD003214`, and `pcrtc` status 15 at `0xFD003214`. Do not guess encoder behaviour or display timing.
 

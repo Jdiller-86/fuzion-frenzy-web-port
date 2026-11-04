@@ -1,4 +1,10 @@
-# 0x1FD42F is admitted; execution reaches AvSendTVEncoderOption (ordinal 2)
+# The PFIFO reset control is now mutually exclusive with the engine-wait diagnostic
+
+November 4: the narrow reset control correction is complete. `parseLocalMmioProfile` now rejects a profile that sets both `pfifoReset` and `engineWait`: they observe the same status registers, and the wait would read the seeded `LOW_MARK` and stop naming the blocking predicate. The reset adapter remains scoped to the two status registers, sets only `LOW_MARK` in the low byte, and is default-off, one-shot and initialization-only; the device-register tests already cover sub-dword reads/writes, and the reset run's log reads `CACHE1_STATUS = 0x10` through the guest's U8 access. `tests/mmio-profile.test.mjs` covers both flags alone and the rejection. The encoder-service blocker is unchanged. **There is no controllable original screen.**
+
+Validation: runtime suite 135/135, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 329 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T01:45:34-05:00; this cycle follows it.
+
+## Prior: 0x1FD42F is admitted; execution reaches AvSendTVEncoderOption (ordinal 2)
 
 November 4: the next narrow admission is complete. Translation `recomp-title-recomp-title-post-memory-49` adds `0x1FD42F` (49 instructions) and its direct dependency `0x1FD410` (10 instructions) for **418 functions / 17,353 instructions**, using one merged seed within the 32-export budget and `--guard-memory`. The seed gate reports 32 recorded / 32 offered / 0 unexpected / 0 missing, and the translation gate reports 0 functions needing rewriting. The reset run executes both and stops at **status 1** (unsupported Xbox service), target `0xFE000094`, ordinal **2** (`AvSendTVEncoderOption`), return `0x1FD429`, with 279 routines and 404 kernel operations. The frontier now has 99 placeholders, but the run enters none: the blocker is the kernel service, not translation. Controls are unchanged: canonical status 10 at `0xFD000100`, `engineWait` status 12 at `0xFD003214`, and `pcrtc` status 15 at `0xFD003214`. No encoder behaviour or display timing is guessed. **There is no controllable original screen.**
 
