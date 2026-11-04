@@ -23,6 +23,13 @@ November 4, 2026. Bounded read-only scoping of the callees named by the two stat
 
 The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`, with two computed jumps: `0x1FCB8B` through the **11-target** table at `0x1FCC50`, and `0x1FCBC6` through the **2-target** table at `0x1FCC98`. Both tables are outside the body, with a gap at `0x1FCC7C..0x1FCC97` between them. A table-aware batch export would need both tables and the gap; it was not attempted because the post-`0x1F7080` path is unproven. `0x1FCB70` remains unadmitted.
 
+## Path B seed preflight (read-only)
+
+- `0x1F5B70`: **347-byte / 118-instruction** envelope, 4 calls, no computed jumps; SHA-256 `aa8ee11b8e9571a62630033f6f0b03fe95be5f3fa93f67ab7ffdb54b07bd071b`.
+- `0x1F6300`: **392-byte / 113-instruction** envelope, 5 calls, no computed jumps; SHA-256 `f4c8d089852a19bb7c1a101ca1754e8d734e659f5bef88cfe5ab464e6438e1af`.
+- Both pass byte identity, independent decoder agreement (118/118 and 113/113, no normalizations) and `checked_function_layout` (`mixed=False`, 0 tables).
+- Path B is the three-function batch `0x1F5B70` + `0x1F6300` + shared `0x1FC980`; all three seeds are preflighted and none is in the selection.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
