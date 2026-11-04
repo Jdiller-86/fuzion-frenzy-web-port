@@ -145,6 +145,11 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   assert.equal(validateProofReport(prequery), prequery);
   const prequeryWithoutCalls = report({ experiments: ['avQuery'], avQueryWord: 0x00800303 });
   assert.equal(validateProofReport(prequeryWithoutCalls), prequeryWithoutCalls);
+  /* A prequery may not claim the unsupported ordinal-2 stop without a call record. */
+  assert.throws(() => validateProofReport(report({
+    stop: unsupportedOrdinal2(),
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+  })), /must not stop at the unsupported ordinal-2 service/);
   /* A configured profile may truthfully record a denial; the report must
    * preserve that instead of presenting it as success. */
   const denied = report({

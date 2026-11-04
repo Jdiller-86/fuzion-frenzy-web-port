@@ -144,6 +144,7 @@ export function validateProofReport(report) {
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
+  let ordinalTwoRecorded = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -155,6 +156,7 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
+      ordinalTwoRecorded = true;
       if (report.avQueryWord === undefined) {
         if (call.status === 0)
           throw new Error('An unsupported ordinal-2 call must not report success');
@@ -199,8 +201,12 @@ export function validateProofReport(report) {
   }
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
-   * A denial, when present, is the unsupported-service stop itself, even if an
-   * earlier ordinal-2 call completed. */
+   * That is only consistent when the run stopped before the query: a stop at
+   * the unsupported ordinal-2 service must carry the call record. A denial,
+   * when present, is the unsupported-service stop itself, even if an earlier
+   * ordinal-2 call completed. */
+  if (claimsAvQuery && !ordinalTwoRecorded && stop.status === 1 && stop.ordinal === 2)
+    throw new Error('A configured prequery must not stop at the unsupported ordinal-2 service');
   if (avQueryDenied && (stop.status !== 1 || stop.ordinal !== 2))
     throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;
