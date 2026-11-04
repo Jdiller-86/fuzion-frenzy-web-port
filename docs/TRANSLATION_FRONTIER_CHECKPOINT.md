@@ -1,4 +1,38 @@
-# The reset run enters one frontier placeholder: 0x1FCB00
+# The 0x1FCB00 admission advances the stop to 0x1FD42F
+
+November 4, 2026. The first evidence-based admission after the reset breakthrough is complete. Translation `recomp-title-recomp-title-post-memory-48` admits exactly the reached helper `0x1FCB00` (10 instructions, a leaf that returns `0xF` for inputs `3`/`0x1C`, otherwise reads `[EAX + 0x2024F0]` and masks `0x3C`) and contains **416 functions / 17,294 instructions**. The reset run now executes it and stops at the next reached helper, untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations). The frontier filter reports **entered = 1** for `0x1FD42F` (called by `0x1FD4A8`), so the next admission is evidence-based.
+
+## Narrow admission
+
+- One seed function merged into an existing export; 32 exports total. No broad closure, frontier batch, consumer or guessed timing.
+- The helper has no calls, so no dependencies were needed.
+- `tools/verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing; `tools/verify-translation.py` reports 0 functions needing rewriting.
+- The `--guard-memory` recomposition preserves the byte/decoder/layout/memory/ABI guards.
+- The canonical, `engineWait` and `pcrtc` controls are unchanged.
+
+## Measured result
+
+Module `recomp-post-memory-build-70`, SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a8cc7f847fab3d9235f89ea0434dfb22`.
+
+| run | stop | routines | kernel ops | events |
+| --- | --- | --- | --- | --- |
+| canonical | status 10 at `0xFD000100` | 276 | 403 | 12,535 |
+| `engineWait` control | status 12 at `0xFD003214` | 276 | 403 | 13,233 |
+| `pfifoReset` | **status 2 at `0x1FD42F`** (return `0x1FD4C9`) | 277 | 404 | 12,584 |
+
+The reset run still reports `pfifoStatus: { cache1: 16, runout: 16, dmaPush: 0, consumerUpdates: 0, resets: 1 }`.
+
+## Limits
+
+- This is one helper, not a closure or a playable path.
+- The admitted helper's byte read at `[EAX + 0x2024F0]` is exercised only as reached; no broader table ownership is claimed.
+- No engine, renderer, timing source, fidelity or playability.
+
+## Next task
+
+Export `0x1FD42F` (and only demonstrably necessary dependencies) from the retained project, recompose with the guard, build and rerun. Keep the canonical profile fail-closed.
+
+## Prior: the reset run enters one frontier placeholder: 0x1FCB00
 
 November 4, 2026. With the default-off `pfifoReset` experiment the run leaves the PFIFO wait and stops at untranslated `0x1FCB00` (status 2, return `0x1FD4C4`). The reachability filter reports **entered = 1** (`0x1FCB00` called by `0x1FD4A8`), 68 called by an executed caller and 32 with only unexecuted callers. This is the first evidence-based next admission target; **no frontier expansion was performed this cycle**.
 

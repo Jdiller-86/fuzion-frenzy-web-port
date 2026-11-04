@@ -12,6 +12,16 @@ The prior handoff said the reference did not model the empty-cache reset state a
 - `tools/fixtures/thread_startup_probe.c` adds the default-off `ff_probe_mmio_pfifo_reset` control. When selected, it applies the adapter once during aperture initialization and seeds `0xFD003214` and `0xFD002400` from the seam. The injection is at initialization, not from polling, and the adapter has no GET, PUT or guest-memory access.
 - `src/runtime/local-title-proof.mjs` accepts the literal `device.pfifoReset: true`; `describeMmioExperiments` reports `pfifoReset`; `proof-report.mjs` accepts the name and requires `pfifoStatus` exactly when `pfifoReset` is declared, so the report cannot show the proof without the input or claim the input without the proof; the worker sets the control before the aperture is admitted. The canonical profile leaves it off and remains fail-closed.
 
+## Scope, width and control
+
+- **Scope**: the adapter writes only `CACHE1_STATUS` and `RUNOUT_STATUS`. `DMA_PUSH`, `DMA_GET`, `DMA_PUT` and guest memory are untouched; the report shows `dmaPush: 0` because the seam field was never written.
+- **Width**: only `LOW_MARK` (bit 4) in the low byte is set. The guest's U8 reads observe `0x10`, and the native test confirms unrelated bits are preserved. The aperture keeps the 32-bit store and serves the guest's byte access through its checked width path.
+- **Control**: default-off, one-shot (`resets === 1`), initialization-only, and never called from a poll or read. It is not combined with `engineWait`.
+
+## Later: 0x1FCB00 is admitted
+
+Translation `recomp-title-recomp-title-post-memory-48` admits the reached helper `0x1FCB00` (10 instructions, no calls) for 416 functions / 17,294 instructions. Module `recomp-post-memory-build-70`, SHA-256 `2c0b69dfbf55d0de2a183fd05c951283a8cc7f847fab3d9235f89ea0434dfb22`. The reset run now executes the helper and stops at the next reached helper, untranslated `0x1FD42F` (status 2, return `0x1FD4C9`, 277 routines, 404 kernel operations). The table below remains the pre-admission measurement.
+
 ## Proof requested by the architect
 
 | property | evidence |
@@ -48,4 +58,4 @@ The reset run reads `CACHE1_STATUS = 0x10` once and `RUNOUT_STATUS = 0x10` once,
 
 ## Next task
 
-Export `0x1FCB00` (and its closure) from the analysis project, recompose with `--guard-memory`, build and rerun with the `pfifoReset` profile; keep the canonical profile fail-closed and do not treat the reset value as a general completion rule.
+Export `0x1FD42F` (and only demonstrably necessary dependencies) from the analysis project, recompose with `--guard-memory`, build and rerun with the `pfifoReset` profile; keep the canonical profile fail-closed and do not treat the reset value as a general completion rule.
