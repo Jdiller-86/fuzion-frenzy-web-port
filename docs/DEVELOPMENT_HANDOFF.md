@@ -1,4 +1,10 @@
-# Continue from the explicit AV-pack service experiment
+# Continue from the static/observed service separation and query fixture
+
+The latest bounded correction separates static service facts from observed call facts. `src/runtime/kernel-service.mjs` now carries only the name, ABI and result-bit layout; option 6, the observed arguments, output pointer `0x203720`, masks and table remain call evidence in the report and checkpoint, and `proof-report.mjs` rejects observed facts in the static descriptor. `tests/av_query_fixture_test.c` is the unconnected VM fixture: a granted 4-byte write changes exactly four bytes; read-only, unaligned, null and unmapped pointers are denied with no partial change. The provisional review's Cxbx pin `585c49a` conflict is not retained locally and remains unverified; the modeled service stays explicit/default-off, the AV-pack run still stops at `0x1F79A0`, and the no-pack run stays fail-closed at ordinal 2.
+
+Validation: runtime suite 142/142, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked.
+
+## Prior: the explicit AV-pack service experiment
 
 The latest bounded milestone models ordinal-2 option 6 only under an explicit AV-pack profile. `device.avPack` requires pack/standard/refresh with no default; `composeAvPackWord` validates them against the pinned constants. The probe handler writes the declared word to `0x203720` and returns void with stdcall cleanup; without the profile the service stays fail-closed at status 1 on `0xFE000094`. With it the reset run stops at untranslated `0x1F79A0` (status 2, return `0x1F83ED`, 280 routines, 405 kernel operations); the call record shows status 0, args `[0,6,0,2111264]`, output `packWord: 0x00400104`. The private profile uses the pinned reference's HDTV/NTSC-M/60 Hz value explicitly; the source supplies no default. Next: export `0x1F79A0` and only necessary dependencies; do not take a broad batch or invent an AV pack default.
 

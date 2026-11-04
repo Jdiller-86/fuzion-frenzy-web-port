@@ -33,6 +33,10 @@ The report now also records the attempted call in the standard call list: `{ ord
 - The report records `avPack: 0x00400104` and `calls[ordinal 2] = { status: 0, arguments: [0, 6, 0, 2111264], output: { packWord: 0x00400104 } }`.
 - The value used in the private profile is the pinned reference's HDTV/NTSC-M/60 Hz default, explicitly declared. It is not a claim about the original console, and the canonical profile remains fail-closed.
 
+### Unconnected query fixture
+
+`tests/av_query_fixture_test.c` models only the memory contract: a granted 4-byte write changes exactly four little-endian bytes, while read-only, unaligned, null and unmapped pointers are denied with no partial change. It is not linked to the probe, the service handler or any runtime path.
+
 ## Ordinal-2 call contract (captured, not modeled)
 
 From the retained translation `ff_title_001FD410` and the reset report:
@@ -58,7 +62,11 @@ From the retained translation `ff_title_001FD410` and the reset report:
 
 That value is a **reference default** for a North-American HDTV/NTSC/60 Hz console, not this player's console. It is not adopted: the service remains unsupported until the player's pack/standard/refresh is grounded. No capability or mode is guessed.
 
-The service is unsupported by default and modeled only for option 6 when the profile declares an AV pack. The modeled handler is void and writes the declared word; it does not return an NTSTATUS or a fabricated EAX success. The status-1 path still records the attempted call and stops. The report's `service` descriptor records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`, `option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' }`, `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }` and the output facts; `proof-report.mjs` requires them for ordinal 2.
+The service is unsupported by default and modeled only for option 6 when the profile declares an AV pack. The static `service` descriptor records only the service facts: `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'` and `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }`. The observed call facts — option 6, arguments `[0, 6, 0, 2111264]`, output pointer `0x203720`, masks and table — are recorded in the run's call list and in the "Ordinal-2 call contract" section, not in the static descriptor. `proof-report.mjs` rejects observed facts in the static descriptor.
+
+## Provenance conflict
+
+A provisional review cites a Cxbx-Reloaded pin `585c49a` conflict for option 6. That source is not retained in this worktree or the main analysis tools, so the conflict cannot be verified here. The option-6 naming in this note remains the pinned `xboxrecomp-source` fact (`kernel.h:1147-1157`), not an adjudicated cross-reference. The service stays explicit/default-off, and no default or EAX/NTSTATUS success is supplied.
 
 ## What this establishes
 
