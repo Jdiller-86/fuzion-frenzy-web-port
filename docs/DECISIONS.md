@@ -200,6 +200,12 @@ Workflow rows formerly named D067–D074 on local main collide with the independ
 
 ## Runtime continuation
 
+### Architect review of source b559f03 and geometry 45f372c
+
+| ID | Decision | Basis / limits |
+| --- | --- | --- |
+| A021 | Accept the owned numeric6 component and authorize one default-off synthetic ABI/browser binding task, not hardware semantics or a frontier batch | Sourcebadecb4/b559f03 now supplies nullable full-DWORD config, explicit little-endian bytes, safe unaligned access, whole-span real-VM checks and actual-component zero/high-bit/two-value/neighbor/span/wrap tests. The A020 component gate is met under initialized VM and distinct host-owned arguments/config; no further audit of the same old gaps is requested. Source also corrects Cxbx numeric6 handling. Primary may now wire this reviewed component to the reached (0,6,0,Result) call only behind a new explicitly synthetic raw-DWORD opt-in with no default or settings/monitor/table inference. Preserve canonical unsupported behavior, validate exact arguments/config/span before changes, retain VOID/EAX and evidenced stack cleanup with actual-adapter denial/success tests. Rebuild retained module and compare reset profiles differing only in this input, retaining canonical/engine/display controls; report the next genuine stop without admitting another helper. This is conditional startup exploration, not exact-original settings/fidelity or acceptance of the prior premature binding. Disc-session/FATX work remains unconnected provisional prerequisites; freeze expansion/persistence/guest wiring pending a reached dependency and independent integration review. Geometry paused; no whole-builder/main merge approval. |
+
 ### Architect review of source 49a55df and geometry 6b52f66
 
 | ID | Decision | Basis / limits |
