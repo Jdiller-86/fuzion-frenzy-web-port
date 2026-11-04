@@ -7,6 +7,7 @@ November 4, 2026. The project architect's current directive (opencode-go/glm-5.3
 - Read-only export `FUN_001f6eb0` from the retained project: **455-byte** body/envelope, **110 instructions**, no calls. This matches the earlier direct-branch characterization.
 - The function was merged into the existing front seed (`seed-with-1f6eb0.json`, 27 functions) so the selection stays at the existing **32 seed exports**.
 - Translation `recomp-title-recomp-title-post-memory-51`: **420 functions / 17,558 instructions** from the same 32 seeds with `--guard-memory`. `0x1F6EB0` is admitted (455 bytes, 0 data/padding), the caller `0x1F83C0` emits the direct call, and the address is no longer an untranslated direct target.
+- Source-owned guards: `tools/verify-seeds.py` reports **32 recorded / 32 offered / 0 unexpected / 0 missing**; `tools/verify-translation.py` reports **517 functions, 0 needing rewriting, fully instrumented**.
 
 ## Module and controlled pair
 
