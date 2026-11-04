@@ -69,6 +69,37 @@ test('startup counters must stay in range and partial progress must be explained
   })));
 });
 
+test('startup-boundary reports require consistent checks and honest flags', () => {
+  const sha = 'a'.repeat(64);
+  const base = () => ({
+    kind: 'startup-boundary',
+    checks: { kernelReturnAddress: true, originalFunctionsReached: true },
+    verified: true,
+    sourceSha256: sha, moduleSha256: sha, hostImports: 0, biosUsed: false, gameBooted: false,
+    originalFunctionsReached: [0x30F7F, 0x30FC0],
+    trace: [{ kind: 'enter', address: 0x30F7F, stack: 0x3C30000 }],
+    stop: { status: 1, ordinal: 3, target: 0xC0000000, stack: 0x3C2FFFC },
+    limitation: 'Original startup only; no gameplay.',
+  });
+  const good = base();
+  assert.equal(validateProofReport(good), good);
+  const failing = { ...base(), checks: { kernelReturnAddress: true, originalFunctionsReached: false }, verified: false };
+  assert.equal(validateProofReport(failing), failing);
+  /* Verification must equal the checks, and the honesty flags may not be flipped. */
+  assert.throws(() => validateProofReport({ ...base(), verified: false }));
+  assert.throws(() => validateProofReport({ ...base(), checks: { a: 1 }, verified: true }));
+  assert.throws(() => validateProofReport({ ...base(), checks: {} }));
+  assert.throws(() => validateProofReport({ ...base(), gameBooted: true }));
+  assert.throws(() => validateProofReport({ ...base(), hostImports: 1 }));
+  assert.throws(() => validateProofReport({ ...base(), biosUsed: true }));
+  assert.throws(() => validateProofReport({ ...base(), moduleSha256: 'short' }));
+  assert.throws(() => validateProofReport({ ...base(), trace: new Array(17).fill({ kind: 'enter', address: 1, stack: 2 }) }));
+  assert.throws(() => validateProofReport({ ...base(), originalFunctionsReached: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] }));
+  assert.throws(() => validateProofReport({ ...base(), limitation: '' }));
+  assert.throws(() => validateProofReport({ ...base(), stop: null }));
+  assert.throws(() => validateProofReport({ kind: 'unknown-boundary' }));
+});
+
 test('experimental inputs and device capacities are validated', () => {
   assert.throws(() => validateProofReport(report({ experiments: 'writeClearing' })));
   assert.throws(() => validateProofReport(report({ experiments: ['pmcZer0'] })));

@@ -20,6 +20,8 @@ export function validateProofReport(report) {
   if (!report || typeof report !== 'object') throw new Error('Proof report must be an object');
   if (typeof report.kind !== 'string' || !report.kind) throw new Error('Proof report kind is required');
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
+  if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
+  if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
   if (report.verified !== false) throw new Error('A startup report must not claim verification');
   if (typeof report.phase !== 'string' || !report.phase) throw new Error('Proof report phase is required');
   if (!Array.isArray(report.trace) || report.trace.length > TRACE_LIMIT)
@@ -56,5 +58,38 @@ export function validateProofReport(report) {
         !bounded(device.events ?? -1, DEVICE_EVENT_LIMIT))
       throw new Error('Device report exceeds the bounded aperture capacity');
   }
+  return report;
+}
+
+/* The earlier single-thread startup report: its `verified` flag is meaningful, but
+ * it may only be true when every individual check is true, and it must never
+ * claim a booted game, a host import or a BIOS. */
+const SHA256 = /^[0-9a-f]{64}$/;
+export function validateStartupBoundary(report) {
+  if (report.gameBooted !== false) throw new Error('A startup boundary must not claim a booted game');
+  if (report.hostImports !== 0) throw new Error('A startup boundary must report no host imports');
+  if (report.biosUsed !== false) throw new Error('A startup boundary must report no BIOS use');
+  if (typeof report.sourceSha256 !== 'string' || !SHA256.test(report.sourceSha256) ||
+      typeof report.moduleSha256 !== 'string' || !SHA256.test(report.moduleSha256))
+    throw new Error('A startup boundary must carry both source and module digests');
+  const checks = report.checks;
+  if (!checks || typeof checks !== 'object' || !Object.keys(checks).length ||
+      Object.values(checks).some(value => typeof value !== 'boolean'))
+    throw new Error('A startup boundary must list boolean checks');
+  const allPass = Object.values(checks).every(Boolean);
+  if (report.verified !== allPass) throw new Error('A startup boundary verification must match its checks');
+  if (!Array.isArray(report.trace) || report.trace.length > 16 ||
+      report.trace.some(entry => !entry || typeof entry.kind !== 'string' ||
+        !integer(entry.address) || !integer(entry.stack)))
+    throw new Error('A startup boundary trace is malformed or exceeds its bound');
+  if (!Array.isArray(report.originalFunctionsReached) || report.originalFunctionsReached.length > 16 ||
+      report.originalFunctionsReached.some(address => !integer(address)))
+    throw new Error('A startup boundary reached-routine list is malformed');
+  const stop = report.stop;
+  if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal) ||
+      !integer(stop.stack))
+    throw new Error('A startup boundary stop record is incomplete or out of range');
+  if (typeof report.limitation !== 'string' || !report.limitation)
+    throw new Error('A startup boundary must state its limitation');
   return report;
 }
