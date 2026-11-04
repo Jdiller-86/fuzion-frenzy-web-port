@@ -32,7 +32,7 @@ From the retained translation `ff_title_001FD410` and the reset report:
 | --- | --- |
 | target | IAT slot `0x00253450`, mapped to kernel ordinal 2 (`AvSendTVEncoderOption`) |
 | call site / return | `0x1FD423` / `0x1FD429` |
-| ABI | The caller pushes four arguments and a return address; the callee-side cleanup and return convention are not established from the retained records. The architect notes the export is `VOID NTAPI`-style, so no NTSTATUS/EAX success may be assumed. |
+| ABI | The call site pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the caller reads the 4-byte output at `0x203720`, not an NTSTATUS in EAX. |
 | arguments | `(0, 6, 0, 0x203720)`: first/register-base `0`, option `6`, value `0`, output pointer `0x203720` |
 | call gate | The wrapper calls only when `[0x203720] == 0`. |
 | output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). The exact output bits and meaning are not assigned. |
@@ -40,7 +40,7 @@ From the retained translation `ff_title_001FD410` and the reset report:
 | other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; those are different call sites and do not define option 6. |
 | pinned reference | xemu models the SMBus encoders (`hw/xbox/smbus_cx25871.c`, `smbus_fs454.c`, `smbus_xcalibur.c`) and the machine's `video-encoder` property, not the kernel export's option/return semantics. |
 
-The service remains unsupported: the harness records the call and stops with status 1, leaving EAX and the NTSTATUS unset. It does not return `STATUS_SUCCESS` or any NTSTATUS.
+The service remains unsupported: the harness records the call and stops with status 1, leaving EAX and the NTSTATUS unset. It does not return `STATUS_SUCCESS` or any NTSTATUS. The report's `service` descriptor records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`, and `proof-report.mjs` requires those facts for ordinal 2.
 
 ## What this establishes
 

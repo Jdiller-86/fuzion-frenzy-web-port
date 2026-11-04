@@ -62,7 +62,10 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
   const valid = report({
     stop: {
       status: 1, target: 0xFE000094, ordinal: 2,
-      service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false },
+      service: {
+        ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
+        callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
+      },
     },
   });
   assert.equal(validateProofReport(valid), valid);
@@ -81,6 +84,15 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: { ordinal: 2, name: 'AvSendTVEncoderOption', modeled: true },
     },
   })), /must name the service/);
+  assert.throws(() => validateProofReport(report({
+    stop: {
+      status: 1, target: 0xFE000094, ordinal: 2,
+      service: {
+        ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
+        callingConvention: 'cdecl', argumentBytes: 16, returns: 'void',
+      },
+    },
+  })), /evidenced stdcall/);
   assert.throws(() => validateProofReport(report({
     stop: {
       status: 10, target: 0xFD000100, ordinal: 1,

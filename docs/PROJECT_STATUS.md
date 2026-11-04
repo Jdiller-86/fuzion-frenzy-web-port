@@ -1,4 +1,10 @@
-# The ordinal-2 call contract is captured and the PFIFO snapshot label is corrected
+# The ordinal-2 ABI is grounded: stdcall, 16 argument bytes, void return
+
+November 4: the ABI gap in the ordinal-2 contract is closed from retained evidence. The call site `0x1FD423` pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the guest reads the 4-byte output word at `0x203720`, not an NTSTATUS in EAX. `src/runtime/kernel-service.mjs` now records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`; `proof-report.mjs` requires those facts for ordinal 2 and rejects ABI facts on unknown services. The service remains unsupported and no success is fabricated. **There is no controllable original screen.**
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 331 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The ordinal-2 call contract is captured and the PFIFO snapshot label is corrected
 
 November 4: the retained translation `ff_title_001FD410` gives the exact ordinal-2 call: the wrapper calls IAT `0x00253450` (ordinal 2) with `(0, 6, 0, 0x203720)` only when `[0x203720] == 0`; the output is a 4-byte guest word at `0x203720`, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). The callee-side ABI and return convention are not established from the retained records; the export is `VOID NTAPI`-style, so no NTSTATUS/EAX success is assumed. The service remains unsupported. The report field `pfifoStatus` is renamed **`pfifoResetState`** and carries `scope: 'seam'`, so it cannot be read as the live device registers (the seam's `dmaPush` is `0` while the aperture's `DMA_PUSH` is `1`). `proof-report.mjs` requires the scope and the existing invariants; no new reporting framework was added. **There is no controllable original screen.**
 

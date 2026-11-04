@@ -43,6 +43,14 @@ export function validateProofReport(report) {
         !('name' in stop.service) || (stop.service.name !== null && typeof stop.service.name !== 'string') ||
         stop.service.modeled !== false)
       throw new Error('An unsupported-service stop must name the service and state that it is not modeled');
+    if (stop.service.name === 'AvSendTVEncoderOption') {
+      if (stop.service.callingConvention !== 'stdcall' || stop.service.argumentBytes !== 16 ||
+          stop.service.returns !== 'void')
+        throw new Error('The AvSendTVEncoderOption descriptor must carry the evidenced stdcall/16-byte/void ABI');
+    } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
+               stop.service.returns !== undefined) {
+      throw new Error('Only a known service may carry ABI facts');
+    }
   } else if (stop.service !== undefined) {
     throw new Error('Only an unsupported-service stop may carry a service descriptor');
   }
