@@ -1,4 +1,10 @@
-# Continue from the captured ordinal-2 output contract
+# Continue from the pinned ordinal-2 option/result semantics
+
+The latest bounded milestone grounds the service semantics from the pinned `xboxrecomp-source` kernel reference. Option 6 is `AV_OPTION_QUERY_AVPACK`; the result word uses pack bits `0xFF`, standard bits `0xFF00` and refresh bits `0xC00000`. The reference's HDTV/NTSC/60 Hz value (`0x00400104`) is a reference default, not the player's console, so it is not adopted. The service descriptor now records the option and result-bit facts; the validator requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability or mode is guessed. The next decision is whether a player/console profile can ground the value; do not adopt the reference default silently.
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 331 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it.
+
+## Prior: the captured ordinal-2 output contract
 
 The latest bounded milestone makes the output side explicit. The caller consumes only bits 0-15 of the 4-byte output at `0x203720`, masks `0xFF`/`0xFF00`, and scans a table at `0x202C38` (0xBF entries, 0xC bytes each); bits 16-31 are not consumed on this path. The service descriptor records the output address/width/permissions, masks and table facts; the validator requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability result is fabricated. The next decision is whether pinned references ground the semantics; do not guess.
 

@@ -1,15 +1,23 @@
-/* Source-owned names and ABI/output facts for reached Xbox kernel services.
+/* Source-owned names and contract facts for reached Xbox kernel services.
  *
  * This is metadata only: it never implements a service or supplies a return
- * value. The retained callers evidence names ordinal 2 as
- * AvSendTVEncoderOption. The call site at 0x1FD410 pushes four arguments and a
- * return address, and the following instruction is not an `add esp, imm`; the
- * translator therefore emits RECOMP_ICALL_SAFE_AT (callee-cleans), so the call
- * expects a stdcall/NTAPI callee that pops 16 bytes. The return is VOID
- * NTAPI-style. The caller reads a 4-byte output word at 0x203720, masks only
- * 0xFF and 0xFF00, and scans a 0xBF-entry table at 0x202C38 with stride 0xC;
- * bits 16-31 are not consumed on this path. These are observed facts, not an
- * implementation claim or a capability result.
+ * value. The retained callers evidence and the pinned xboxrecomp-source kernel
+ * reference ground the ordinal-2 contract:
+ *
+ * - `kernel.h:1100` declares
+ *   `VOID __stdcall AvSendTVEncoderOption(PVOID RegisterBase, ULONG Option,
+ *   ULONG Param, PULONG Result)`; the call site pushes four arguments and the
+ *   following instruction is not `add esp, imm`, so the stdcall/16-byte
+ *   callee-cleanup convention is consistent.
+ * - `kernel.h:1147-1157` defines option 6 as `AV_OPTION_QUERY_AVPACK`.
+ * - `kernel.h:1124-1145` defines the result fields: pack type in `0xFF`,
+ *   video standard in `0xFF00`, refresh in `0xC00000`.
+ * - `kernel_hal.c:1463-1479` returns a pack/standard/refresh word; its
+ *   HDTV/NTSC-M/60 Hz value is a reference default, not the player's console,
+ *   so no value is adopted here.
+ *
+ * The caller at 0x203720 masks 0xFF and 0xFF00 and scans a 0xBF-entry table at
+ * 0x202C38 with stride 0xC. The service remains unmodeled.
  */
 const SERVICES = new Map([
   [2, {
@@ -17,6 +25,8 @@ const SERVICES = new Map([
     callingConvention: 'stdcall',
     argumentBytes: 16,
     returns: 'void',
+    option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' },
+    resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
     output: {
       address: 0x203720,
       bytes: 4,
@@ -39,6 +49,8 @@ export function describeKernelService(ordinal) {
     callingConvention: known.callingConvention,
     argumentBytes: known.argumentBytes,
     returns: known.returns,
+    option: { ...known.option },
+    resultBits: { ...known.resultBits },
     output: { ...known.output, masks: [...known.output.masks], table: { ...known.output.table } },
   };
 }

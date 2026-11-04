@@ -65,6 +65,8 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: {
         ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
         callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
+        option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' },
+        resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
         output: {
           address: 0x203720, bytes: 4, writable: true,
           masks: [0xff, 0xff00],
@@ -104,6 +106,8 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: {
         ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
         callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
+        option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' },
+        resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
         output: {
           address: 0x203720, bytes: 4, writable: true, masks: [0xff],
           table: { base: 0x202c38, entries: 0xbf, stride: 0xc },
@@ -111,6 +115,21 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       },
     },
   })), /output facts/);
+  assert.throws(() => validateProofReport(report({
+    stop: {
+      status: 1, target: 0xFE000094, ordinal: 2,
+      service: {
+        ordinal: 2, name: 'AvSendTVEncoderOption', modeled: false,
+        callingConvention: 'stdcall', argumentBytes: 16, returns: 'void',
+        option: { code: 6, name: 'AV_OPTION_WRONG' },
+        resultBits: { pack: 0xff, standard: 0xff00, refresh: 0xc00000 },
+        output: {
+          address: 0x203720, bytes: 4, writable: true, masks: [0xff, 0xff00],
+          table: { base: 0x202c38, entries: 0xbf, stride: 0xc },
+        },
+      },
+    },
+  })), /option\/result-bit/);
   assert.throws(() => validateProofReport(report({
     stop: {
       status: 10, target: 0xFD000100, ordinal: 1,

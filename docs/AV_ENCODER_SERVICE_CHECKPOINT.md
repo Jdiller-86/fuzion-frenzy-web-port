@@ -35,10 +35,19 @@ From the retained translation `ff_title_001FD410` and the reset report:
 | ABI | The call site pushes four arguments and a return address, and the following instruction is not an `add esp, imm`; the translator therefore emits `RECOMP_ICALL_SAFE_AT` (callee-cleans), so the call expects a stdcall/NTAPI callee that pops 16 bytes. The return is `void`-style; the caller reads the 4-byte output at `0x203720`, not an NTSTATUS in EAX. |
 | arguments | `(0, 6, 0, 0x203720)`: first/register-base `0`, option `6`, value `0`, output pointer `0x203720` |
 | call gate | The wrapper calls only when `[0x203720] == 0`. |
-| output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). Bits 16-31 are not consumed on this path; the exact bit meanings are not assigned. The report descriptor records `output: { address: 0x203720, bytes: 4, writable: true, masks: [0xFF, 0xFF00], table: { base: 0x202C38, entries: 0xBF, stride: 0xC } }`. |
+| output | A 4-byte guest value at `0x203720`; the wrapper returns it in EAX, and the caller masks `0xFF`/`0xFF00` and scans a table at `0x202C38` (0xBF entries, 0xC bytes each). The pinned reference defines pack in `0xFF`, standard in `0xFF00` and refresh in `0xC00000`; the caller's observed masks cover pack and standard. The report descriptor records `output: { address: 0x203720, bytes: 4, writable: true, masks: [0xFF, 0xFF00], table: { base: 0x202C38, entries: 0xBF, stride: 0xC } }` and `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }`. |
 | required inputs | A 4-byte writable guest output word at `0x203720`; no encoder handle is passed (first argument `0`). |
-| other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; those are different call sites and do not define option 6. |
-| pinned reference | xemu models the SMBus encoders (`hw/xbox/smbus_cx25871.c`, `smbus_fs454.c`, `smbus_xcalibur.c`) and the machine's `video-encoder` property, not the kernel export's option/return semantics. |
+| other call sites | The retained caller evidence shows options `0xB`, `0xF` and `9` with a handle from `[context + 0x2308]`; the pinned header names `0xB` `AV_OPTION_FLICKER_FILTER` and `9` `AV_OPTION_QUERY_AV_CAPABILITIES`, while `0xF` is not defined there. These are different call sites and do not define option 6. |
+| pinned reference | `xboxrecomp-source/src/kernel/kernel.h` and `kernel_hal.c` implement the export and option layout; xemu models the SMBus encoders and the machine's `video-encoder` property, not the kernel export. |
+
+### Pinned reference semantics
+
+- `src/kernel/kernel.h:1100` declares `VOID __stdcall AvSendTVEncoderOption(PVOID RegisterBase, ULONG Option, ULONG Param, PULONG Result)`.
+- `kernel.h:1147-1157` defines option 6 as `AV_OPTION_QUERY_AVPACK`, plus the other AV option codes.
+- `kernel.h:1124-1145` defines pack (`0xFF`), standard (`0xFF00`) and refresh (`0xC00000`); standard codes are NTSC-M/J and PAL-I, refresh is 60/50 Hz.
+- `kernel_hal.c:1463-1479` returns `AV_PACK_HDTV | (AV_STANDARD_NTSC_M << 8) | AV_REFRESH_60Hz` (`0x00400104`).
+
+That value is a **reference default** for a North-American HDTV/NTSC/60 Hz console, not this player's console. It is not adopted: the service remains unsupported until the player's pack/standard/refresh is grounded. No capability or mode is guessed.
 
 The service remains unsupported: the harness records the call and stops with status 1, leaving EAX and the NTSTATUS unset. It does not return `STATUS_SUCCESS` or any NTSTATUS. The report's `service` descriptor records `callingConvention: 'stdcall'`, `argumentBytes: 16`, `returns: 'void'`, and `proof-report.mjs` requires those facts for ordinal 2.
 
@@ -46,7 +55,7 @@ The service remains unsupported: the harness records the call and stops with sta
 
 - The two admitted helpers execute in the original path; the PFIFO reset path is no longer the blocker for this branch.
 - The next dependency is a kernel service, not an untranslated original routine.
-- The retained callers evidence names ordinal 2 as `AvSendTVEncoderOption`; the run's stack identifies the call site but the exact option value and encoder semantics are not assigned here.
+- The retained callers evidence names ordinal 2 as `AvSendTVEncoderOption`; the pinned reference grounds option 6 as `AV_OPTION_QUERY_AVPACK` and the pack/standard/refresh layout. The specific value is not adopted because the player's console is not grounded.
 
 ## Limits
 

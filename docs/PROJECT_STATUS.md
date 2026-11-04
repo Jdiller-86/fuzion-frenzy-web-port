@@ -1,4 +1,10 @@
-# The ordinal-2 output contract is captured: 4 bytes at 0x203720, masks 0xFF/0xFF00
+# The pinned reference grounds ordinal-2 option 6 and its result bits
+
+November 4: the pinned `xboxrecomp-source` kernel reference grounds the service semantics. Option 6 is `AV_OPTION_QUERY_AVPACK`; the result word uses pack bits `0xFF`, standard bits `0xFF00` and refresh bits `0xC00000`. The reference implements a North-American HDTV/NTSC/60 Hz default (`0x00400104`), but that is a reference default, not the player's console, so no value is adopted. `src/runtime/kernel-service.mjs` now records `option: { code: 6, name: 'AV_OPTION_QUERY_AVPACK' }` and `resultBits: { pack: 0xFF, standard: 0xFF00, refresh: 0xC00000 }`; `proof-report.mjs` requires them for ordinal 2 and rejects them on unknown services. The service remains unsupported; no capability or mode is guessed. **There is no controllable original screen.**
+
+Validation: runtime suite 138/138, `npm run test:evidence` 4/4, `npm run test:native` 14/14, title-seed 25/25, `npm run check` 331 source files and whitespace checks pass. Sol completed the architect review at 2026-11-04T02:46:48-05:00; this cycle follows it. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The ordinal-2 output contract is captured: 4 bytes at 0x203720, masks 0xFF/0xFF00
 
 November 4: the output side of the ordinal-2 contract is now explicit and checkable. The caller consumes only bits 0-15 of the 4-byte output word at `0x203720`, masks `0xFF`/`0xFF00`, and scans a table at `0x202C38` (0xBF entries, 0xC bytes each); bits 16-31 are not consumed on this path. `src/runtime/kernel-service.mjs` records `output: { address: 0x203720, bytes: 4, writable: true, masks: [0xFF, 0xFF00], table: { base: 0x202C38, entries: 0xBF, stride: 0xC } }`; `proof-report.mjs` requires those facts for ordinal 2 and rejects output facts on unknown services. The service remains unsupported; no capability result or bit meaning is fabricated. **There is no controllable original screen.**
 

@@ -47,6 +47,11 @@ export function validateProofReport(report) {
       if (stop.service.callingConvention !== 'stdcall' || stop.service.argumentBytes !== 16 ||
           stop.service.returns !== 'void')
         throw new Error('The AvSendTVEncoderOption descriptor must carry the evidenced stdcall/16-byte/void ABI');
+      const option = stop.service.option;
+      const bits = stop.service.resultBits;
+      if (!option || option.code !== 6 || option.name !== 'AV_OPTION_QUERY_AVPACK' ||
+          !bits || bits.pack !== 0xff || bits.standard !== 0xff00 || bits.refresh !== 0xc00000)
+        throw new Error('The AvSendTVEncoderOption descriptor must carry the pinned option/result-bit facts');
       const output = stop.service.output;
       if (!output || typeof output !== 'object' || output.address !== 0x203720 || output.bytes !== 4 ||
           output.writable !== true || !Array.isArray(output.masks) || output.masks.length !== 2 ||
@@ -54,7 +59,8 @@ export function validateProofReport(report) {
           output.table.base !== 0x202c38 || output.table.entries !== 0xbf || output.table.stride !== 0xc)
         throw new Error('The AvSendTVEncoderOption descriptor must carry the evidenced output facts');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
-               stop.service.returns !== undefined || stop.service.output !== undefined) {
+               stop.service.returns !== undefined || stop.service.option !== undefined ||
+               stop.service.resultBits !== undefined || stop.service.output !== undefined) {
       throw new Error('Only a known service may carry ABI facts');
     }
   } else if (stop.service !== undefined) {
