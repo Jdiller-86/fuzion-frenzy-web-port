@@ -52,3 +52,7 @@ opencode mcp list
 ```
 
 `debug config` should include `.opencode/opencode.jsonc`. `debug agents` should show the four configured roles and their exact provider IDs. `auth list` shows credential presence only; it does not prove a live model request. `mcp list` should report `rea` connected. A live smoke test is separate from these configuration checks and consumes the selected provider's allowance.
+
+## Active architect steering
+
+Each hourly Sol review compares builder commits with its prior directive, assigns a bounded next result and acceptance check to each active lane, and redirects drift or repeated low-value work. It reviews the current main PR head independently of unmerged builder branches and seeks a safe, reviewed source slice for integration rather than waiting for an entire growing branch. A clean approved `GEOMETRY_CYCLE: HOLD` directive defers the geometry lane's scheduled model prompt when no actionable reference exists; `GEOMETRY_CYCLE: RUN` resumes it. The primary builder and overall goal continue during a geometry hold. Existing source, runtime, CI and merge gates still apply.
