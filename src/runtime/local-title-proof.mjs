@@ -228,6 +228,22 @@ export function describeMmioExperiments(profile) {
   if (profile.avQueryWord !== undefined) active.push('avQuery');
   return active;
 }
+
+/* Summarise the synthetic avQuery input from a startup report without upgrading
+ * the result: a completed call, a denial, or a configured prequery. */
+export function describeAvQueryOutcome(report) {
+  if (!report || !Array.isArray(report.experiments) || !report.experiments.includes('avQuery'))
+    return '';
+  const hex = value => Number.isInteger(value)
+    ? '0x' + (value >>> 0).toString(16).toUpperCase().padStart(8, '0') : '?';
+  const calls = Array.isArray(report.calls)
+    ? report.calls.filter(call => call && call.ordinal === 2) : [];
+  const success = calls.find(call => call.status === 0 && call.output && Number.isInteger(call.output.rawWord));
+  if (success) return ` AV query completed: ${hex(success.output.rawWord)} at ${hex(success.output.address)}.`;
+  if (calls.some(call => call.status === 1))
+    return ` AV query denied/unsupported at ordinal 2 (configured ${hex(report.avQueryWord)}).`;
+  return ` AV query configured (${hex(report.avQueryWord)}) but not reached (prequery).`;
+}
 export function parseLocalMemoryProfile(buffer) {
   parseLocalConsoleSettings(buffer);
   const memory=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).memory;

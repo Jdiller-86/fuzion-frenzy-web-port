@@ -18,6 +18,7 @@ The Sol architect approved this binding at `2026-11-04T06:45:32.8167397-05:00` a
 - The probe resolves ordinal 2 to the adapter only when the control is ready. Without it, the existing status-1 unsupported path records the attempt and stops.
 - `proof-report.mjs` accepts `avQuery` and `avQueryWord` as a pair. A `status: 0` call must use exactly the observed `(0, 6, 0, nonzero Result)` shape, carry `output.address` equal to the fourth argument, an `output.rawWord` equal to the declared word, an unchanged `eax`, a non-wrapping `espBefore` and `espAfter === espBefore + 20`. A configured profile may truthfully record a `status: 1` denial with no output, or a prequery run in which ordinal 2 was never reached (no ordinal-2 call); a denial, when present, is the unsupported-service stop itself and must stop at status 1 on ordinal 2, even if an earlier ordinal-2 call completed. A prequery with no call record may not claim the unsupported ordinal-2 stop. Without the field, status-0 or output-bearing ordinal-2 calls remain rejected. The static service descriptor stays neutral.
 - `device-report.mjs` exports one `validateSuppliedDeviceProfile` check used by both `proof-report.mjs` (when `deviceRegisters.supplied` is present) and `tools/compare-proof-profiles.mjs`. It mirrors the parser's bounds: aligned 4096..0x1000000 window, 2-64 distinct in-window registers including `0xfd001804`/`0xfd600140`, and at most eight distinct in-window zero ranges. A report may still omit the profile or carry `null`; the comparison requires it.
+- `local-title-proof.mjs` exports `describeAvQueryOutcome`, used by the local `thread_startup_check.html`. It labels a configured avQuery report as completed (raw word/address), denied/unsupported at ordinal 2, or configured but not reached (prequery), so a denial or prequery is never presented as success. `tests/av-query-outcome.test.mjs` covers the cases.
 
 ## Guest-run VOID/EAX/stack effect
 
@@ -64,4 +65,4 @@ A follow-up narrow GLM review (attempted `2026-11-04T10:05:11`, step-capped afte
 
 ## Validation
 
-Runtime suite 178/178, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 352 source files and whitespace checks pass. Both reset reports validate on module `42ee9909…` and the comparison tool reproduces them. Private profiles, seeds, modules and reports remain local/ignored.
+Runtime suite 179/179, evidence 4/4, native 20/20, title-seed 25/25, `npm run check` 354 source files and whitespace checks pass. Both reset reports validate on module `42ee9909…` and the comparison tool reproduces them. Private profiles, seeds, modules and reports remain local/ignored.

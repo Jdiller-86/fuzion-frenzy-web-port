@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { describeAvQueryOutcome } from '../src/runtime/local-title-proof.mjs';
+
+const report = (edit = {}) => ({
+  experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [], ...edit,
+});
+
+test('the startup checker labels an avQuery completion, denial or prequery truthfully', () => {
+  assert.equal(describeAvQueryOutcome({}), '');
+  assert.equal(describeAvQueryOutcome({ experiments: ['writeClearing'] }), '');
+  assert.match(describeAvQueryOutcome(report({
+    calls: [{
+      ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264],
+      output: { rawWord: 0x00800303, address: 2111264 },
+    }],
+  })), /completed: 0x00800303 at 0x00203720/);
+  assert.match(describeAvQueryOutcome(report({
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  })), /denied\/unsupported at ordinal 2 \(configured 0x00800303\)/);
+  assert.match(describeAvQueryOutcome(report()), /configured \(0x00800303\) but not reached \(prequery\)/);
+  assert.match(describeAvQueryOutcome(report({
+    calls: [{ ordinal: 187, status: 0, arguments: [1] }],
+  })), /prequery/);
+});
