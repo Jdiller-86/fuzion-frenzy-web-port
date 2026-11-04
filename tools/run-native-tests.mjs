@@ -31,6 +31,9 @@ const fixtures = [
   { name: 'recomp_memory_access_vm', sources: ['tests/recomp_memory_access_vm_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
 ];
 const flags = ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-I', 'src/runtime'];
+/* The checkpoints quote sanitizer runs, so the runner reproduces them too. */
+const sanitizer = ['-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-I', 'src/runtime',
+  '-fsanitize=address,undefined', '-fno-sanitize-recover=all'];
 
 /* Build outside the repository so the preparation scanner never sees a binary,
  * and translate the path for WSL when that compiler is used. */
@@ -78,19 +81,23 @@ function run() {
   const scratch = scratchDirectory();
   const failures = [];
   for (const fixture of fixtures) {
-    const binary = compilerPath(path.join(scratch, `${fixture.name}${compiler.wsl ? '' : '.exe'}`), compiler.wsl);
-    try {
-      invoke(['gcc', ...flags, ...fixture.sources, '-o', binary]);
-      invoke([binary]);
-      console.log(`ok ${fixture.name}`);
-    } catch (error) {
-      const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.toString().trim();
-      failures.push(fixture.name);
-      console.error(`not ok ${fixture.name}${output ? `\n${output}` : ''}`);
+    for (const [mode, options] of [['', flags], [' (asan/ubsan)', sanitizer]]) {
+      const binary = compilerPath(path.join(scratch,
+        `${fixture.name}${mode ? '-san' : ''}${compiler.wsl ? '' : '.exe'}`), compiler.wsl);
+      try {
+        invoke(['gcc', ...options, ...fixture.sources, '-o', binary]);
+        invoke([binary]);
+        console.log(`ok ${fixture.name}${mode}`);
+      } catch (error) {
+        const output = `${error.stdout ?? ''}${error.stderr ?? ''}`.toString().trim();
+        failures.push(`${fixture.name}${mode}`);
+        console.error(`not ok ${fixture.name}${mode}${output ? `\n${output}` : ''}`);
+      }
     }
   }
   fs.rmSync(scratch, { recursive: true, force: true });
-  console.log(`${fixtures.length - failures.length}/${fixtures.length} native component fixtures passed`);
+  const total = fixtures.length * 2;
+  console.log(`${total - failures.length}/${total} native component runs passed`);
   return failures.length ? 1 : 0;
 }
 
