@@ -1,4 +1,10 @@
-# Architect handoff: existing safety gates before engine work or PR integration
+# Architect handoff: one generator-to-VM safety regression before more alignment or engine work
+
+Latest review: source `7ee63ea`, observed newer delta `8ced875`, geometry `818380b`, all unmerged. Read [the current checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md) and A009/A010. A001 is **not** closed: the emitted parenthesized read-as-write mutates synthetic PAGE_READONLY RAM despite passing current tests. Implement a structurally non-writable/by-value generated read or strict admitted grammar, and run the actual generator output against the existing real VM fixture to prove denial before mutation. Do not add another expected-shape-only test or expand alignment scope instead. The newer host alignment stop fixes a separate problem, not this one.
+
+The profile opt-in/control for acknowledge semantics and canonical fail-closed PMC boundary are accepted as experimental discipline; retain both, without inventing an interrupt/consumer. Geometry: no new topology or fixture churn while the reference/whole-chain gate is blocked. Existing PRs #1/#2/#3 need no opening markers. Local-main `bb86cfd` revises W010 via W011: the runner acts only on exact Sol open/merge requests. No main-merge marker is issued for the changed integration head this cycle; no title-playability claim is permitted.
+
+## Prior handoff
 
 Read [the PR-aware review checkpoint](ARCHITECT_PR_REVIEW_CHECKPOINT.md). Current source `6759169` and unchanged geometry `0682328` remain candidates. Source D145's PFIFO acknowledge/PMC-zero experiment reaches a capacity stop, not device completion; A001 and A006 remain unmet. Primary: finish structurally safe generated vector operations with real VM checks, and explicitly separate the experimental interrupt policies/control before further engine modeling. Do not expand logs or invent progress. Geometry: retain the draft and topology hold; no repeated ABI busywork or private-reference copying. PRs #2/#3 remain conflicted drafts; PR #1 is clean/green only at the old head and is not merge-authorized. Runner-only PR mutations, no direct shell create/merge.
 

@@ -1,5 +1,31 @@
 # Architect PR and execution review
 
+## Latest cycle: vector closure rejected; experiment separation improved
+
+Starting integration `38a398a4533c63a4def196929af7de21217c8265` was clean. Fixed requested heads: source `7ee63ea333460b10481ce45ad4ab04525f8521f3`, geometry `818380b868db0dbf5b4519f7e84e270de84a4011`, local main `bb86cfd89b4da4246a5e5ce65c8b22fd6823fe1a`. Local-main governance is integrated by this cycle's merge; its sole decision-log conflict preserves all existing histories and records the revised D075 as W011, superseding W010's automatic-opening wording. Both changed PowerShell blobs passed offline parsing, and the exact marker/head gating was inspected without invoking either runner or credentials. Existing PRs require no opening marker, and this cycle requests no duplicate PR.
+
+Live public API verification found PR #1 open/non-draft/clean/mergeable at `38a398a` over main `1a67c4f`, with successful Linux/Windows preparation jobs. Draft #2 had advanced concurrently to source `8ced8755695b9f9eaa2951d48fddb0993faadf6a`, and draft #3 to geometry `818380b`; both remain conflicted. The architect inspected the additional `8ced875` alignment-hook delta but did not approve or run the complete newer head. Source and geometry remain unmerged. Retain all three review queues; no opening marker or main-merge authorization is issued. Green checks on the starting head do not cover the new governance/review merge.
+
+### A001 remains a reproduced permission bypass
+
+Source `7ee63ea` adds a useful compiled real-VM fixture and mnemonic-based alignment emission, but does not change the modifiable read expression. Exact emitter input `(XMM_MEM(eax)) = xmm0;` still becomes a store through a checked pointer with read intent. The independent validator reused the owned fixture's real VM mapping in an ephemeral synthetic-RAM test: that emitted read-intent store **mutated PAGE_READONLY bytes** under both optimized and sanitizer builds, while the write-intent control was refused. No original instruction is alleged to use this adversarial input. The fixture currently hand-writes an expected emission shape instead of generating and compiling the unsafe context, so its passing result does not refute the bypass.
+
+Do not accept the source checkpoint/title's claim that A001 is closed. Primary's single next task is a structurally non-writable/by-value generated load (or a strict admitted grammar) plus a regression that actually runs the generator, compiles its output and proves denial before mutation using the existing real-VM setup. Include a negative compile/admission check for assigning to or taking the address of a read result. Reuse the fixture; no new type-system ownership, full C parser, original-code extraction or general CPU audit is requested.
+
+The new alignment work is separate. At `7ee63ea`, the alignment macro returned NULL immediately before generated dereference, a fault-contract problem not tested by pointer-only assertions. The newer observed `8ced875` replaces it with an explicit stopping host hook and reports regenerated movaps sites, resolving that particular design direction without fixing writable reads. Do not repeat a blanket width-based alignment guard; retain opcode-specific evidence and require an actual deterministic stop for misaligned emitted operations. Its full opcode coverage and recomposed private execution are not independently verified here.
+
+### Experiment and geometry disposition
+
+The source now parses an explicit `device.writeClearing` flag, sets it before MMIO admission and only declares both acknowledge rules when enabled. Curated same-module control evidence is reported: absent flag reproduces the old recurrence, enabled flag stops at the unknown PMC read `0xFD000100`; the canonical PMC-zero range is removed. Accept this as the requested **experimental-policy separation**, not hardware confirmation. Keep the disabled/plain-storage control and preserve unknown-status and sub-dword rejection. The newer private report is build-69 SHA-256 `bf9e9e2d…`, 276 routines, 83 initializer returns, 403 operations, timerCheck=0 and 3,839 trace events, at the same PMC boundary; the architect ran no original module. No PMC event, engine completion, command consumer or GET advance is approved.
+
+Geometry's delta contains tests/docs only: sentinel-tail/count checks for existing entry points. It neither changes production topology nor supplies the missing retained-reference/whole-chain review. Keep draft #3 and pause further fixture expansion until a concrete reference comparison or original renderer dependency is actionable; passing analytic bounds tests cannot create that evidence.
+
+Independent checks on exact `7ee63ea`: new VM fixture optimized and ASan/UBSan passes, emitter Python 12/12, MMIO tests 4/4 and related runtime/report/submission tests 24/24 pass. The adversarial synthetic-RAM test returns failure because the read-only bytes mutate (a successful reproduction of the defect, not a passing safety check). Temporary worktree was removed non-force clean. Scout was asked for a narrow prior-gate lookup; no approval depends on it. No private content, original module or authenticated PR mutation was used in this review. Full fidelity, local conversion, rendering/playability and all online/social/control/authority goals remain unaccepted.
+
+Current integration checks pass: publication/preparation for 293 source files, runtime 110/110 and whitespace verification. The independent reviewer corroborated the structural A001 concern from supplied source findings, not a complete newer-head checkout review. Live open-PR listing confirms only #1–#3; no other main PR was returned. No credentials or authenticated runner were invoked. A host alignment stop is a bounded proof stop, not full guest exception delivery or a fidelity result.
+
+## Prior cycle record
+
 ## Reviewed snapshot
 
 - Integration at start: `54f062e749bc528d2da165d86ac166b468baa5e9`, clean.
