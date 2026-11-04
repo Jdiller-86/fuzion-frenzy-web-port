@@ -31,7 +31,9 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - `385dae5` is an ancestor of local `main` (`98799dc`). `ac207ba` is **not** an ancestor of `main`; it lives on the architect branch. The guarded-promotion PR therefore remains unmerged.
 - `ac207ba` imports the reviewed unconnected `src/runtime/av_query.c`, `av_query.h`, `tests/av_query_fixture_test.c`, and adds Linux plain plus ASan/UBSan fixture checks to `.github/workflows/prepare.yml`. No guest binding, profile activation or title claim.
 - Local `codex/opencode-architect` is `e199a6e`, one commit ahead of the remote `7bf8ed1`; that extra commit is not part of the exact integration head. Local `main` (`98799dc`) and `origin/main` (`1a67c4f`) differ.
-- Remote native CI status for the exact PR head was **not queried in this worktree**; the exact-head GitHub check remains the architect's gate. The local native suite passes 20/20, but that is not the remote CI record.
+- PR [#1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/pull/1) is open from `codex/opencode-architect` at the exact head `7bf8ed1` into `main` (`1a67c4f`). GitHub reports `MERGEABLE`/`CLEAN`; all four preparation checks (Ubuntu and Windows across two workflow runs) completed successfully, including the Linux native AV-query fixture added by `ac207ba`.
+- `reviewDecision` is empty and `reviews` is empty: no architect review is recorded on PR #1 yet, so the hold's review/authorization condition remains unmet. The PR is open and unmerged; `ac207ba` is still not in `main`.
+- The local native suite also passes 20/20, but the exact-head PR checks above are the remote CI record.
 
 ## Hold and next
 
