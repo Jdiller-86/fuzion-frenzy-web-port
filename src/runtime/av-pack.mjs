@@ -14,6 +14,15 @@ export const AV_PACK = Object.freeze({
 });
 export const AV_STANDARD = Object.freeze({ 'ntsc-m': 0x01, 'ntsc-j': 0x02, 'pal-i': 0x03 });
 export const AV_REFRESH = Object.freeze({ 60: 0x00400000, 50: 0x00800000 });
+/* The option-6 naming comes from the pinned xboxrecomp-source reference. A
+ * provisional review cites a Cxbx-Reloaded pin 585c49a conflict, but that
+ * source is not retained locally, so the conflict is unverified. Every modeled
+ * run must state this provenance; the value is not a promoted default. */
+export const AV_PACK_PROVENANCE = Object.freeze({
+  primary: 'xboxrecomp-source',
+  conflict: 'cxbx-585c49a',
+  status: 'unverified',
+});
 
 export function composeAvPackWord(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input))

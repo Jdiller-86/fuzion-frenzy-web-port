@@ -118,6 +118,14 @@ export function validateProofReport(report) {
     throw new Error('The avPack experiment requires the AV pack input');
   if (report.avPack !== undefined && !integer(report.avPack))
     throw new Error('Malformed AV pack input');
+  if (report.avPack !== undefined) {
+    const provenance = report.avPackProvenance;
+    if (!provenance || provenance.primary !== 'xboxrecomp-source' ||
+        provenance.conflict !== 'cxbx-585c49a' || provenance.status !== 'unverified')
+      throw new Error('The AV pack input must carry the unresolved Cxbx provenance');
+  } else if (report.avPackProvenance !== undefined) {
+    throw new Error('The AV pack provenance requires the AV pack input');
+  }
   /* PFIFO reference-reset state, when that experiment was selected. The report
    * must show one initialization, zero consumer updates and LOW_MARK on both
    * status registers; anything else defeats the proof the experiment exists for. */

@@ -1,4 +1,10 @@
-# The observed ordinal-2 call is tied to the declared AV pack; the Cxbx reference is recorded as missing
+# The modeled AV pack run now carries its unresolved Cxbx provenance
+
+November 4: every modeled AV-pack run now states its provenance. `src/runtime/av-pack.mjs` defines `AV_PACK_PROVENANCE`; the worker reports `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present. `proof-report.mjs` requires it and rejects a missing or misleading status, so a modeled run cannot be read as settled provenance. The service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2. **There is no controllable original screen.**
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked. See [the AV encoder checkpoint](AV_ENCODER_SERVICE_CHECKPOINT.md).
+
+## Prior: The observed ordinal-2 call is tied to the declared AV pack; the Cxbx reference is recorded as missing
 
 November 4: the existing report contract now checks the observed call without adding a new framework. Ordinal 2 must carry four observed arguments; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output. The static service descriptor remains free of observed facts. `tools/original-execution-toolchain.json` records the Cxbx `585c49a` reference prefix with `retained: false`, so the option-6 provenance conflict remains unverified. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack run stays fail-closed at ordinal 2. **There is no controllable original screen.**
 

@@ -1,4 +1,10 @@
-# Continue from the observed-call validation and the missing Cxbx reference
+# Continue from the explicit unresolved AV-pack provenance
+
+The latest bounded correction makes the unresolved provenance visible in every modeled run. `src/runtime/av-pack.mjs` defines `AV_PACK_PROVENANCE`; the worker reports `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present, and `proof-report.mjs` requires it. The service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2. The Cxbx source is not retained, so the conflict remains unverified; do not promote the modeled state.
+
+Validation: runtime suite 144/144, `npm run test:evidence` 4/4, `npm run test:native` 16/16, title-seed 25/25, `npm run check` 334 source files and whitespace checks pass. The provisional hourly review was verified independently and not treated as approved design; no new Sol attempt was made, so current availability was not checked.
+
+## Prior: the observed-call validation and missing Cxbx reference
 
 The latest bounded correction ties the observed ordinal-2 call to the declared AV pack in the existing report validator: four arguments are required; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output. The static service descriptor remains free of observed facts. `tools/original-execution-toolchain.json` records the Cxbx `585c49a` prefix with `retained: false`, so the option-6 provenance conflict remains unverified. The modeled service stays explicit/default-off: the AV-pack run still stops at `0x1F79A0`, and the no-pack path stays fail-closed at ordinal 2.
 

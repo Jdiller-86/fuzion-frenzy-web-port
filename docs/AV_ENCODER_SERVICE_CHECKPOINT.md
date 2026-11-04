@@ -35,6 +35,7 @@ The report now also records the attempted call in the standard call list: `{ ord
 
 - `proof-report.mjs` validates the observed call: ordinal 2 must carry four arguments; a status-0 call must carry `output.packWord` equal to `report.avPack`; a non-zero call must carry no output.
 - `tools/original-execution-toolchain.json` records the Cxbx `585c49a` reference prefix with `retained: false`; the conflict remains unverified.
+- The report carries `avPackProvenance: { primary: 'xboxrecomp-source', conflict: 'cxbx-585c49a', status: 'unverified' }` whenever `avPack` is present; `proof-report.mjs` requires it, so a modeled run cannot be read as settled provenance.
 
 ### Unconnected query fixture
 
@@ -85,4 +86,4 @@ A provisional review cites a Cxbx-Reloaded pin `585c49a` conflict for option 6. 
 
 ## Next task
 
-Decide whether to model a bounded, evidence-backed `AvSendTVEncoderOption` service (arguments, return values, supported options) or take another independent prerequisite. Do not infer encoder behaviour or display timing from the call alone. Keep the canonical profile fail-closed and the geometry lane paused.
+Retain the Cxbx pin `585c49a` (or an equivalent authoritative source) to resolve the option-6 provenance conflict before any further service claims. Until then keep the service explicit/default-off and do not admit `0x1F79A0` as grounded progress. No default AV pack, no EAX/NTSTATUS success, and no broad batch.
