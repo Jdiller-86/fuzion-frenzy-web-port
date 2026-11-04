@@ -147,6 +147,14 @@ uint32_t xbox_PortIn(uint32_t port, int width)
     if (ff_port_io_read(&port_io, port, (uint32_t)width, &value)) stop(14, port & 0xFFFFu, (uint32_t)width);
     return value;
 }
+/* Alignment-requiring vector move: a misaligned address faults on the original
+ * CPU, so it stops the proof instead of being served as an unaligned copy. */
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
+void *ff_probe_guest_vector(uint32_t address, uint32_t access, uint32_t site)
+{
+    if (address & 15u) stop(10, address, access);
+    return ff_probe_guest_memory(address, 16u, access, site);
+}
 #ifdef FF_DISK_GEOMETRY_PROOF
 static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif

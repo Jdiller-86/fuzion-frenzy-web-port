@@ -8,6 +8,7 @@
 #include "../src/runtime/recomp_memory_access.h"
 #include "../src/runtime/virtual_memory.h"
 #include <assert.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,7 +21,8 @@ typedef union {
 
 static uint8_t ram[0x40000];
 static ff_virtual_memory vm;
-static uint32_t last_address, last_bytes, last_access, last_site, hook_calls;
+static uint32_t last_address, last_bytes, last_access, last_site, hook_calls, alignment_faults;
+static jmp_buf alignment_fault;
 
 #define FF_READ_ONLY_BASE 0x00010000u
 #define FF_READ_WRITE_BASE 0x00020000u
@@ -36,6 +38,20 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     if (!access || (access & ~(uint64_t)(FF_VM_READ | FF_VM_WRITE | FF_VM_EXECUTE))) return NULL;
     if (ff_vm_check(&vm, address, bytes, access)) return NULL;
     return ram + address;
+}
+
+/* The host stops the machine on a misaligned alignment-requiring move; the test
+ * unwinds to observe it, so the misaligned result is never dereferenced. */
+void *ff_probe_guest_vector(uint32_t address, uint32_t access, uint32_t site)
+{
+    if (address & 15u) {
+        ++alignment_faults;
+        last_address = address;
+        last_access = access;
+        last_site = site;
+        longjmp(alignment_fault, 1);
+    }
+    return ff_probe_guest_memory(address, 16u, access, site);
 }
 
 static void generated_vector_read(void)
@@ -70,15 +86,21 @@ static void denied_vector_accesses_fail_closed(void)
            last_site == 0x001FA460u);
     assert(memcmp(before, ram + FF_READ_ONLY_BASE, sizeof before) == 0);
 
-    /* An alignment-requiring move (movaps/movapd/movdqa) refuses a misaligned
-     * address without calling the host, and serves the aligned one. */
+    /* An alignment-requiring move (movaps/movapd/movdqa) stops the host on a
+     * misaligned address without touching memory, and serves the aligned one. */
     hook_calls = 0;
-    assert(FF_MEMORY_SITE_VECTOR((FF_READ_ONLY_BASE + 4u), 1u, 0x001FA460u) == NULL);
-    assert(hook_calls == 0);
+    alignment_faults = 0;
+    if (!setjmp(alignment_fault)) {
+        (void)FF_MEMORY_SITE_VECTOR((FF_READ_ONLY_BASE + 4u), 1u, 0x001FA460u);
+        assert(0 && "misaligned vector move must fault");
+    }
+    assert(alignment_faults == 1 && last_address == FF_READ_ONLY_BASE + 4u && last_access == 1);
+    assert(last_site == 0x001FA460u && hook_calls == 0);
     assert(FF_MEMORY_SITE_VECTOR((FF_READ_ONLY_BASE), 1u, 0x001FA460u) == ram + FF_READ_ONLY_BASE);
     assert(hook_calls == 1 && last_address == FF_READ_ONLY_BASE && last_bytes == 16 && last_access == 1);
+    /* An aligned move reaches the host and is denied by the region's permission. */
     assert(FF_MEMORY_SITE_VECTOR((FF_READ_ONLY_BASE), 2u, 0x001FA460u) == NULL);
-    assert(hook_calls == 2 && last_access == 2);
+    assert(alignment_faults == 1 && hook_calls == 2 && last_access == 2);
     /* An unaligned-tolerant move (movups/movupd/movdqu) keeps the plain access. */
     assert(FF_MEMORY_SITE_POINTER((FF_READ_ONLY_BASE + 4u), 16u, 1u, 0x001FA460u) == ram + FF_READ_ONLY_BASE + 4u);
 

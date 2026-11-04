@@ -14,12 +14,14 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
 #define FF_MEMORY_POINTER(address, bytes, access) ff_probe_guest_memory((uint32_t)(address), (uint64_t)(bytes), (access), 0u)
 #define FF_MEMORY_SITE_POINTER(address, bytes, access, site) ff_probe_guest_memory((uint32_t)(address), (uint64_t)(bytes), (access), (site))
 /* Emitted vector operand whose original instruction requires 16-byte alignment
- * (movaps/movapd/movdqa and the non-temporal stores). A misaligned guest address
- * faults on the original CPU, so it is refused instead of being served as an
- * unaligned host copy. Unaligned vector moves (movups/movupd/movdqu) keep using
- * FF_MEMORY_SITE_POINTER. */
+ * (movaps/movapd/movdqa and the non-temporal stores). The check lives in the host
+ * hook, not in this macro: a ternary returning NULL would be folded away by the
+ * optimizer because the generated code immediately dereferences the result.
+ * The hook stops the machine on a misaligned address, exactly like a guest #GP.
+ * Unaligned vector moves (movups/movupd/movdqu) keep FF_MEMORY_SITE_POINTER. */
+void *ff_probe_guest_vector(uint32_t address, uint32_t access, uint32_t site);
 #define FF_MEMORY_SITE_VECTOR(address, access, site) \
-    ((((uint32_t)(address)) & 15u) ? (void *)0 : FF_MEMORY_SITE_POINTER((address), 16u, (access), (site)))
+    ff_probe_guest_vector((uint32_t)(address), (access), (site))
 #define FF_MEMORY_TYPE(name, type) typedef struct __attribute__((packed)) { type value; } ff_guest_##name;
 FF_MEMORY_TYPE(U8, uint8_t) FF_MEMORY_TYPE(U16, uint16_t) FF_MEMORY_TYPE(U32, uint32_t) FF_MEMORY_TYPE(U64, uint64_t)
 FF_MEMORY_TYPE(I8, int8_t) FF_MEMORY_TYPE(I16, int16_t) FF_MEMORY_TYPE(I32, int32_t) FF_MEMORY_TYPE(I64, int64_t)
