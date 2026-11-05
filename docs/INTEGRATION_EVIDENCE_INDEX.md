@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: D3DDevice_Release admitted; next stop is another NULL-Result AV call
+## Latest: null-result model generalized; next stop is placeholder 0x1FC910
+
+- [Ordinal-1 checkpoint §10](SERVICE_ORDINAL_1_CHECKPOINT.md#10-generalized-null-result-admission-and-the-next-translation-stop): the pinned HAL tests `Result` before its option switch, so the model now accepts any declared `Result == 0` (nonzero Result stays refused). Native tests cover both observed pairs plus a mechanism-only tuple. Module 124 (profile 86, updated sources): 722,209 bytes, SHA `f9b29aee...`. Control 339/405; inert 340/406 at ordinal 3; experiment accepted both null calls (last `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; checksum unchanged; EAX unchanged; `esp + 20`) and reached **status 2 at `0x001FC910`, 344 routines / 412 kernel ops** — an unadmitted `FUN_001fc910` placeholder (~97 bytes, one stack argument).
+- **No DECISIONS row:** integration head still lacks the lane commits, so the sync-first rule blocks the row.
+
+## Prior: D3DDevice_Release admitted; next stop was another NULL-Result AV call
 
 - [Ordinal-1 checkpoint §9](SERVICE_ORDINAL_1_CHECKPOINT.md#9-admission-of-d3ddevice_release-and-the-next-stop): `0x001F54D0` is `D3DDevice_Release` (18 instructions; refcount at `[device+0x408]`; teardown calls `0x001FC010` and clears `0xAE4` dwords). Admitted as one bounded translation increment via a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` merged into the retained 32-seed set, with `--guard-memory`; profile 86 has 462 functions / 18,958 instructions and agreeing original bytes/decoder instructions. Module 123 (same probe sources): 722,259 bytes, SHA `9f883b09...`. Control 339/405; inert 340/406 at ordinal 3; experiment passes Release (+4 routines) and reaches **status 1 at `0xFE000094`, ordinal 2**, **344/411** — `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return `0x001FB664`), refused because the tuple differs from the authorized exact shape.
 - **No DECISIONS row:** integration head `6bc05f7` contains `c8c965c` but not the lane commits, so the sync-first rule still blocks the row.

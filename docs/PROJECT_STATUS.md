@@ -1,4 +1,12 @@
-# D3DDevice_Release is admitted; the next stop is another NULL-Result AV call
+# The null-result model is generalized; the next stop is placeholder 0x1FC910
+
+November 5: the architect authorized generalizing the declared null-result model because the pinned HAL tests `Result` before its option switch (`if (!Result) return;`), unconditionally on handle/option/param; a nonzero Result still reaches the unmodeled query path and stays refused. `src/runtime/av_null_result.c/.h` now accepts any declared `Result == 0`, with native tests for both observed pairs plus an explicitly labeled mechanism-only tuple, nonzero-Result refusal and undeclared refusal. The harness keeps the default-off `avNullResult` branch (no write, EAX untouched, `esp += 20`, call count and last tuple); the validator requires an observed shape, no write-map delta, equal frame checksum, EAX unchanged, `esp + 20`, and that the pair reproduces both observed shapes.
+
+Module `recomp-post-memory-build-124` (profile 86, updated sources): **722,209 bytes**, SHA-256 `f9b29aee...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment accepted **both** null calls (`calls 2`; last `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; frame checksum unchanged; EAX unchanged; `esp + 20`) and advanced to a **new genuine stop: status 2 at `0x001FC910`**, **344 routines / 412 kernel ops**. That target is another unadmitted placeholder (`FUN_001fc910`, ~97 bytes, one stack argument); admitting it is the next bounded translation increment.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` pass, `check` 475 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: D3DDevice_Release is admitted; the next stop is another NULL-Result AV call
 
 November 5: the prior stop `0x001F54D0` is `D3DDevice_Release` (18 instructions: refcount check at `[device+0x408]`, teardown path calls `0x001FC010` and clears `0xAE4` dwords). It was admitted as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` merged into the retained 32-seed set, then `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 86 (462 functions, 18,958 instructions; original bytes and decoder instructions agree, no unimplemented instructions).
 

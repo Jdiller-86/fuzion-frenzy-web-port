@@ -2103,8 +2103,7 @@ static void av_option_router(void)
     uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
     uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
     if (handle == 0u && option == 6u) { av_send_tv_encoder_option(); return; }
-    if (av_null_enabled && handle == FF_AV_NULL_HANDLE && option == FF_AV_NULL_OPTION &&
-        param == 0u && result == 0u) { av_null_result_call(); return; }
+    if (av_null_enabled && result == 0u) { av_null_result_call(); return; }
     av_unknown_option_call();
 }
 #endif

@@ -117,3 +117,24 @@ Module `recomp-post-memory-build-123` (same probe sources, profile 86): **722,25
 The experiment now passes `D3DDevice_Release` (+4 reached routines) and reaches a **new ordinal-2 call** that the default-off router honestly refuses: `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return address `0x001FB664`). The pinned HAL's `if (!Result) return;` again makes a NULL-Result call a log-and-return, but this handle/option/param tuple differs from the authorized exact tuple, so it needs its own bounded decision. Two ordinal-1 reads and the null-result call still completed in this run.
 
 No DECISIONS row: integration head `6bc05f7` contains `c8c965c` but not the lane commits, so the sync-first rule still blocks it.
+
+## 10. Generalized null-Result admission and the next translation stop
+
+The architect authorized generalizing the declared null-result model because the pinned early return is a causal source fact, not data-fitting: `kernel_hal.c:1458` tests `Result` **before** the option switch, unconditionally on handle, option and param. A nonzero Result still reaches the unmodeled query switch and stays refused.
+
+- `src/runtime/av_null_result.c/.h` now accepts a declared call with `Result == 0` for any handle/option/param, and refuses nonzero Result and undeclared profiles.
+- Native tests cover both observed pairs (the startup-range `0x03920000,9,0` and the device `0xFD000000,9,1`), one deliberately unobserved tuple labeled as a mechanism test, nonzero-Result refusal, and undeclared refusal.
+- Harness: the same default-off `avNullResult` branch accepts any null Result, writes nothing, leaves EAX, pops 20 and records the call count and last full tuple.
+- Validator: an accepted null call must carry `result 0`, an observed shape, no write-map delta, an equal argument-frame checksum, unchanged EAX and `esp + 20`; the pair must reproduce **both** observed shapes; nonzero-Result calls stay on the unmodeled path.
+
+Module `recomp-post-memory-build-124` (same profile 86, updated sources): **722,209 bytes**, SHA-256 `f9b29aeed26b4230ed0d4e0385a7ea507af72fa63e9ab3d1d3720feb6ab54e64`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 2 at `0x001FC910`** | **344** | **412** |
+
+Both null-Result calls were accepted (`calls 2`; last tuple `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; frame checksum unchanged; EAX `0xFD000000` unchanged; `esp + 20`). The run then reaches a **translation placeholder**: `0x001FC910` (`FUN_001fc910`, body `0x001FC910..0x001FC971`, ~97 bytes, one stack argument). Admitting it is the next bounded translation increment; nothing about its behavior is claimed here.
+
+No DECISIONS row: integration head still lacks the lane commits.

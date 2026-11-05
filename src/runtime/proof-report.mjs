@@ -256,10 +256,14 @@ export function validateProofReport(report) {
       throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
   }
 
-  /* Null-result AV query experiment and state pairing. The exact observed tuple
-   * has no output unit, so an accepted call must not write, must not change EAX
-   * or the argument frame, and must pop exactly the measured 20-byte frame. */
+  /* Null-result AV query experiment and state pairing. The pinned early return
+   * is unconditional on handle/option/param: any null Result is a no-op, while a
+   * nonzero Result reaches the unmodeled option switch. The state keeps the last
+   * accepted tuple; the two observed pairs stay pinned pair evidence. */
   const claimsAvNull = experiments.includes('avNullResult');
+  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1]];
+  const isObservedNullShape = (handle, option, param) =>
+    observedNullShapes.some(([h, o, p]) => handle === h && option === o && param === p);
   if (report.avNullResultState !== undefined && !claimsAvNull)
     throw new Error('Null-result state requires the avNullResult experiment');
   if (claimsAvNull && report.avNullResultState === undefined)
@@ -273,16 +277,17 @@ export function validateProofReport(report) {
         !integer(n.eaxAfter) || !integer(n.espAfter))
       throw new Error('Malformed null-result state');
     if (n.decision === 0 &&
-        (n.handle !== 0x03920000 || n.option !== 9 || n.param !== 0 || n.result !== 0 ||
+        (n.result !== 0 || !isObservedNullShape(n.handle, n.option, n.param) ||
          n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
          n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
-      throw new Error('An accepted null-result call must match the pinned no-op contract and 20-byte pop');
+      throw new Error('An accepted null-result call must match the pinned no-op contract, an observed shape and the 20-byte pop');
   }
 
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
+  let sawFirstNullShape = false, sawSecondNullShape = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -302,12 +307,13 @@ export function validateProofReport(report) {
           throw new Error('An unknown AV option call requires the avUnknownOption experiment');
         continue;
       }
-      /* The null-result sibling likewise has its own success shape, validated
-       * by avNullResultState. */
-      if (call.status === 0 && call.arguments[0] === 0x03920000 &&
-          call.arguments[1] === 9 && call.arguments[2] === 0 && call.arguments[3] === 0) {
-        if (!claimsAvNull)
-          throw new Error('A null-result AV call requires the avNullResult experiment');
+      /* The null-result sibling is validated by avNullResultState; the two
+       * observed pairs stay pinned and any other accepted tuple is flagged. */
+      if (claimsAvNull && call.status === 0 && call.arguments[3] === 0) {
+        if (!isObservedNullShape(call.arguments[0], call.arguments[1], call.arguments[2]))
+          throw new Error('An accepted null-result call must use an observed shape');
+        if (call.arguments[0] === 0x03920000) sawFirstNullShape = true;
+        else sawSecondNullShape = true;
         continue;
       }
       if (report.avQueryWord === undefined) {
@@ -355,6 +361,9 @@ export function validateProofReport(report) {
       }
     }
   }
+  if (claimsAvNull && report.calls !== undefined &&
+      (!sawFirstNullShape || !sawSecondNullShape))
+    throw new Error('The avNullResult pair must reproduce both observed null-result shapes');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
    * That is only consistent when the run stopped before the query. A stop at
