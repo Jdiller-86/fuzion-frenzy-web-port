@@ -6,6 +6,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 
 - [The admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md): translation 54 (423 functions / 17,620 instructions), module 75 (664,115 bytes, SHA-256 `687c34c9…`), control 279/404 at ordinal 2 vs experiment 286/405 at untranslated `0x1F70E0`, comparator exit 0 (+7 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0.
 - Executed `0x1F7080` is in the reached list; the observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No Path A/Path B batch was started; the lane stops at the observed stop.
+- [The Path A preflight](FRONTIER_PATH_A_PREFLIGHT_CHECKPOINT.md): `0x1F70E0` is 98 instructions / 329 bytes with four calls; only `0x1FC980` and `0x1FCB70` are untranslated (`0x1F66A0`/`0x1FB3B0` already translated); preflight 98/98. A proposed grouping keeps 32 exports (front seed 30→32 with `0x1F70E0`+`0x1FC980`; `0x1FCB70` merged into an existing seed), 426 functions / 17,760 instructions; no batch started.
 
 ## Source lane
 
