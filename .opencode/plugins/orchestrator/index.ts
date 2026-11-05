@@ -48,6 +48,14 @@ function readJson(path: string): any {
   }
 }
 
+function checkpointBrief(path: string): string {
+  try {
+    return readFileSync(path, "utf8").split(/\r?\n/).slice(0, 7).join(" ").replace(/\s+/g, " ").slice(0, 520)
+  } catch {
+    return "checkpoint unavailable"
+  }
+}
+
 function minutesSince(value: unknown): number {
   if (typeof value !== "string") return Number.POSITIVE_INFINITY
   const parsed = Date.parse(value)
@@ -225,7 +233,8 @@ export default Plugin.define({
             .slice(0, 900)
         : ""
       const snapshot = `architect=${architectGuidance?.head ?? "unknown"}; primary=${heads.primary} (${states.primary?.outcome ?? "unknown"}); geometry=${heads.geometry} (${states.geometry?.outcome ?? "unknown"}); verification=${heads.verification} (${states.verification?.outcome ?? "unknown"})`
-      const prompt = `You are the persistent read-only Fuzion Frenzy delivery manager session; your standing charter from earlier beats still applies. ${snapshot}. Latest approved architect directive: ${architectBrief} ${priorBrief} Assign one bounded task, acceptance check and stop condition to each useful independent lane. If a lane's head advanced after its previous RUN task, assess its result and stop condition before assigning more; hold it for architect review unless an independent result is clearly authorized. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* plus matching tests and its checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD when architect geometryCycle is HOLD. Hold a clean lane without a concrete independent result or awaiting architect review; assign a bounded continuation RUN task to a lane with in-flight edits, because its runner preserves and completes them. You may not edit, merge or push; builders edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task.`
+      const sourceCheckpoint = checkpointBrief(join(repoRoot, ".worktrees", "opencode-source", "docs", "PROJECT_STATUS.md"))
+      const prompt = `Manager heartbeat. ${snapshot}. Source checkpoint: ${sourceCheckpoint}. Architect directive: ${architectBrief}. ${priorBrief} Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is now complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification without a concrete gate task. Follow lane ownership and the architect's route decisions in AGENTS.md; do not edit, merge, push, or claim playability. Reply with ONLY three one-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task.`
 
       await ctx.session.prompt({ sessionID: managerID, text: prompt })
       try {
