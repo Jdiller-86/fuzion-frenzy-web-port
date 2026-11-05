@@ -184,3 +184,20 @@ The experiment accepted **two** contiguous frees (`calls 2`): `0x037F2000` and `
 This is a genuine halt, not a model invariant failure: both free calls matched the pinned declaration-level contract. Whether the bogus field comes from a translation gap, an earlier declaration-only model, or guest data that the pinned allocator would have changed is **not established**; the next task is a bounded read-only investigation of `FUN_001FC010` and the `+0x47C` field, not another model.
 
 No DECISIONS row: integration head still lacks the lane commits.
+
+## 13. Faulting-read characterization (read-only, diagnostic probe)
+
+The faulting access is now located exactly. A default-off diagnostic watch (`guestWatch`) records the first instrumented write and read site covering a selected guest address, and the VM fault record now carries the access site as a fifth word.
+
+Retained run (`browser-130-watch.json`, module 130, 724,074 bytes, same profile 87):
+
+- Fault: `status 10`, address `0x6B6A6968`, 4 bytes, **read**, **site `0x1FC091`**.
+- `0x1FC091` is `MOV EDX,[EAX]` in `FUN_001FC010`; `EAX` was loaded at `0x1FC087` from `[ESI+0x47C]` (after `FUN_001FC010` called `CDevice_FreeFrameBuffers` with `ECX = ESI` at `0x1FC080`).
+- `D3D_g_pDevice` (`0x206720`) has **exactly one write**: site `0x1F7676` in `Direct3D_CreateDevice`, value `0x203B90`; the same site sets `[0x203F98] = 1` (the refcount) and `[0x206724] = 0x203B90`.
+- Watching the device object's `+0x47C` (`0x20400C`) records **zero reads and zero writes** for the whole run.
+
+Consequence: the object whose `[ESI+0x47C]` produced the pointer `0x6B6A6968` is **not** the static object at `0x203B90` reached through `D3D_g_pDevice`, or that field read does not pass through the instrumented access path. The writer of the pointer is therefore **not identified**, and no write-side model is warranted. The probe is diagnostic only: it changes no memory behavior and is default-off.
+
+Next bounded task: record the faulting base (`ESI` at `0x1FC087`) and the `FUN_001FC010` entry `ECX`/caller, so the object is identified before any writer search.
+
+Sync status: integration head `864d33c` now contains the lane commits through `36bf5f7`, and its `D374`/`D376` rows already record the null-result model, the `D3DDevice_Release` and `FUN_001fc910` admissions and the ordinal-171 model. This diagnostic characterization adds no new decision, so no additional DECISIONS row is needed.

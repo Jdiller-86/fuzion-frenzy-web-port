@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -301,6 +301,22 @@ export function validateProofReport(report) {
         (!f.address || (f.address & 3) !== 0 || f.eaxAfter !== 0 ||
          f.espAfter !== ((f.espBefore + 8) >>> 0) || f.writeAfter !== f.writeBefore))
       throw new Error('An accepted contiguous-free call must match the pinned declaration-level effect');
+  }
+
+  /* Diagnostic guest-write watch. It is not a service model: it records the
+   * first translated write site covering the selected device field. */
+  const claimsWatch = experiments.includes('guestWatch');
+  if (report.guestWatchState !== undefined && !claimsWatch)
+    throw new Error('Guest-watch state requires the guestWatch experiment');
+  if (claimsWatch && report.guestWatchState === undefined)
+    throw new Error('The guestWatch experiment requires its state');
+  if (report.guestWatchState !== undefined) {
+    const g = report.guestWatchState;
+    if (!g || !integer(g.address) || !integer(g.site) || !integer(g.count) ||
+        !integer(g.readSite) || !integer(g.readCount))
+      throw new Error('Malformed guest-watch state');
+    if (g.address !== 0x206720)
+      throw new Error('The guest-watch probe must target the selected device field');
   }
 
   /* Ordinal 2 remains unsupported by default: the observed call carries four

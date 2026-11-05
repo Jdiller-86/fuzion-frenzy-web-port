@@ -1,4 +1,12 @@
-# The contiguous-free model passes; the next stop is a guest read fault
+# The faulting read is located; the faulting object is not the static device
+
+November 5: completed the read-only characterization of the fault behind `MmFreeContiguousMemory` with a default-off diagnostic watch (`guestWatch`: first instrumented write/read site per selected address; the VM fault record now carries the access site). The fault is a **read at site `0x1FC091`** (`MOV EDX,[EAX]` in `FUN_001FC010`) of address `0x6B6A6968`; `EAX` came from `[ESI+0x47C]` at `0x1FC087`, after `FUN_001FC010` called `CDevice_FreeFrameBuffers` with `ECX = ESI`. `D3D_g_pDevice` (`0x206720`) has exactly one write — site `0x1F7676` in `Direct3D_CreateDevice`, value `0x203B90`, with `[0x203F98] = 1` and `[0x206724] = 0x203B90`. Watching `0x20400C` (device `+0x47C`) records **zero reads and zero writes**, so the faulting object is not the static device reached through `D3D_g_pDevice` (or that read bypasses the instrumented path); the pointer's writer is **not identified**, and no write-side model is warranted.
+
+Observed stop (module 130, 724,074 bytes, same profile 87): is still **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops, but now located precisely. Next: record `ESI` at `0x1FC087` and `FUN_001FC010`'s entry `ECX`/caller to identify the object before searching for its writer.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` contains the lane commits through `36bf5f7`; its `D374`/`D376` rows already record the models/admissions, so this diagnostic adds no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The contiguous-free model passes; the next stop is a guest read fault
 
 November 5: architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model with binding stipulations — exact one-argument shape (mapped, aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an explicit declaration-level-only disclosure (the harness owns no host allocator and never reuses freed blocks; the pinned arena free changes no guest memory). Implemented `src/runtime/mm_free_contiguous.c/.h`, native tests, default-off `mmFreeContiguous` input, handler diagnostics (argument, EAX/ESP, write-map count) and validator pairing; the observed address is diagnostics, not part of the predicate.
 
