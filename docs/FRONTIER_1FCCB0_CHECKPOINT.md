@@ -37,6 +37,10 @@ The retained exporter reads `0x1FCCB0` as **18 instructions / a 75-byte envelope
 
 The retained project already defines the eight table entries at `0x1FCCFC` as separate 4-byte pointer data. A read-only in-memory body extension (`0x1FCCB0..0x1FCD1F`) plus the existing exporter produces a **112-byte envelope**: 18 instructions, 8 pointer entries and 2 undefined spans; seed SHA-256 `be1dc290a49c30dfc2b3aa108e82f4efb55f112d2579eb4ea3d235252f042f2c`. The actual translator guards accept it: `checked_function_layout` reports `mixed=True`, one table at `0x1FCCFC..0x1FCD1C` with the eight targets; `checked_dispatch_tables` accepts the computed jump at `0x1FCCC0`. Byte identity and independent decoder agreement also pass (18/18 instructions, no normalizations). The seed was not merged into the selection and no recomposition or build was performed; `0x1FCCB0` remains unadmitted pending a fresh directive.
 
+## Caller continuation (static)
+
+The executed caller `0x1F5640` calls `0x1FCCB0` at `0x1F5765` and resumes at `0x1F576A`. A bounded direct-branch worklist from the return finds three untranslated direct call candidates: `0x1F7080` from `0x1F57C4`, `0x1F70E0` from `0x1F5846`, and `0x1F5B70` from `0x1F587D`. These are static candidates; the taken path and the actual next stop are unproven and will be observed only when the `0x1FCCB0` admission executes. No admission or runtime change.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.

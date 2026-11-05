@@ -90,12 +90,37 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
   })), /must not carry an output/);
 });
 
+test('an unconfigured ordinal-2 call must report completed or denied status', () => {
+  for (const status of [2, 9, 10]) {
+    assert.throws(() => validateProofReport(report({
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+    /* A non-denial record cannot satisfy the unsupported ordinal-2 stop. */
+    assert.throws(() => validateProofReport(report({
+      stop: unsupportedOrdinal2(),
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+  }
+  /* The actual denial still pairs with the stop. */
+  const denied = report({
+    stop: unsupportedOrdinal2(),
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  });
+  assert.equal(validateProofReport(denied), denied);
+});
+
 test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
   const call = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
-  /* Any report claiming the unsupported ordinal-2 stop must record the call,
+  /* Any report claiming the unsupported ordinal-2 stop must record the denial,
    * including the unconfigured control path. */
   assert.throws(() => validateProofReport(report({ stop: unsupportedOrdinal2() })),
-    /requires the ordinal-2 call record/);
+    /requires the ordinal-2 denial record/);
+  /* A completed call is not a denial and cannot satisfy the stop pairing. */
+  assert.throws(() => validateProofReport(report({
+    stop: unsupportedOrdinal2(),
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
+  })), /requires the ordinal-2 denial record/);
   assert.throws(() => validateProofReport(report({ calls: [call] })),
     /must stop at the unsupported service/);
   assert.throws(() => validateProofReport(report({
@@ -149,11 +174,12 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   assert.equal(validateProofReport(prequery), prequery);
   const prequeryWithoutCalls = report({ experiments: ['avQuery'], avQueryWord: 0x00800303 });
   assert.equal(validateProofReport(prequeryWithoutCalls), prequeryWithoutCalls);
-  /* A prequery may not claim the unsupported ordinal-2 stop without a call record. */
+  /* A prequery may not claim the unsupported ordinal-2 stop without the denial
+   * record. */
   assert.throws(() => validateProofReport(report({
     stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-  })), /requires the ordinal-2 call record/);
+  })), /requires the ordinal-2 denial record/);
   /* A configured profile may truthfully record a denial; the report must
    * preserve that instead of presenting it as success. */
   const denied = report({
