@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: ordinal-159 wait object characterization (read-only)
+
+- [Vblank object checkpoint](VBLANK_OBJECT_CHECKPOINT.md): object `0x00206080` = D3D device `0x00203B80` + `0x2500`, first dword `0x00040000`, `+4` word 0; static writers treat it as a flag/state field, not a KEVENT. The event gate refusal is confirmed; modeling it as an event would be an assumption. Next: initializer/signal characterization, a D3D-specific path, or hold. This is `D365`.
 ## Latest: ordinal-159 wait model (default-off, gate refused)
 
 - [Vblank wait model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md): architect-authorized default-off model (`pcrtcVblanks` pool, exact five-argument guard, pinned event gate). Module 114 (717,065 bytes, SHA `b3ec6b2b...`). Control unchanged (339/405, status 13); experiment (consumer + 3 vblanks) drains 499 words, releases the fence 3 -> 9, then calls ordinal 159 once with object type `0x40000`, signal 0 → decision 3 (EVENT). Gate refused, no writes, stop unchanged (status 1, `0xFE000094`, ordinal 159, 340/405). The object is not the pinned KEVENT; next is a read-only characterization. This is `D364`.

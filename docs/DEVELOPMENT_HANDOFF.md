@@ -1,4 +1,8 @@
-# The ordinal-159 wait model is default-off and the event gate refused
+# The ordinal-159 wait object is a D3D device field at 0x206080
+
+November 5: read-only follow-up to the refused gate; no code change. The object is `0x00206080` = D3D device `0x00203B80` + `0x2500`, first dword `0x00040000`, `+4` word 0; `BlockUntilVerticalBlank` passes it to ordinal 159. Static writers treat it as a flag/state field, not a KEVENT; modeling it as an event would be an assumption. Next: characterize the initializer/signal word, model a D3D-specific path, or hold. Checks: `check` 460 files, whitespace clean. Integration head `1e35f8a` is an ancestor; main ancestry retained. Consumer/wait path default-off. **No controllable original screen.**
+
+## Prior: The ordinal-159 wait model is default-off and the event gate refused
 
 November 5: architect-authorized bounded model (reuse `pcrtcVblanks`, exact args, pinned event mechanism). Pure `vblank_wait` + native tests; harness handler bound only when vblanks are declared; `vblankWaitState`. Module 114 (717,065 bytes, SHA `b3ec6b2b?`). Control unchanged (339/405, status 13). Experiment (consumer + 3 vblanks): drains 499 words, releases fence 3 -> 9, then ordinal 159 once with object type `0x40000`, signal 0 → decision 3 (EVENT); gate refused, no writes, stop unchanged (status 1, `0xFE000094`, ordinal 159, 340/405). The object is not the pinned KEVENT; next is a read-only characterization. Checks: `test:native` 38/38, `test:runtime` pass, `check` 459 files. Default-off; no ISR/timing claim. **No controllable original screen.**
 
