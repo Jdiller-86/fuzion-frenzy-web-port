@@ -175,7 +175,8 @@ static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_w
 static uint32_t guest_watch_read_site, guest_watch_read_count;
 static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
 static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
-static uint32_t site_watch_field_addr, site_watch_field_count;
+static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
+static uint32_t site_span_esi[4];
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -392,6 +393,11 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
         case 3: return site_watch_entry_ret;
         case 4: return site_watch_field_addr;
         case 5: return site_watch_field_count;
+        case 6: return site_watch_field_esi;
+        case 7: return site_span_esi[0];
+        case 8: return site_span_esi[1];
+        case 9: return site_span_esi[2];
+        case 10: return site_span_esi[3];
         default: return UINT32_MAX;
     }
 }
@@ -656,6 +662,11 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled) {
+        uint32_t *slot = site == 0x001FC01Fu ? &site_span_esi[0]
+                        : site == 0x001FC038u ? &site_span_esi[1]
+                        : site == 0x001FC055u ? &site_span_esi[2]
+                        : site == 0x001FC087u ? &site_span_esi[3] : NULL;
+        if (slot && !*slot) *slot = g_esi;
         if (site == 0x001FC010u && !(access & FF_VM_WRITE)) {
             site_watch_entry_addr = address;
             { uint32_t slot = site_entry_count & 7u;
@@ -667,6 +678,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
             site_watch_entry_ret = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
         } else if (site == 0x001FC087u) {
             if (!site_watch_field_addr) site_watch_field_addr = address;
+            site_watch_field_esi = g_esi;
             ++site_watch_field_count;
         }
     }
@@ -2643,5 +2655,25 @@ void ff_probe_run(void)
  * warnings/errors and scope the exception to generated title code only. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wparentheses-equality"
+#ifdef RECOMP_ABI_CHECK
+/* Toolkit-level callee-saved register check. The translation calls this when a
+ * call returns with ebx/esi/edi/esp changed; it records the offending call
+ * target so the defect family can be identified without backing up registers. */
+static uint32_t abi_violation_count, abi_violation_first, abi_violation_last;
+static uint32_t abi_esi_count, abi_esi_first, abi_esi_last;
+void recomp_abi_violation_log(uint32_t va, uint32_t ebx0, uint32_t esi0,
+                              uint32_t edi0, uint32_t esp0)
+{
+    (void)ebx0; (void)esi0; (void)edi0; (void)esp0;
+    if (!abi_violation_first) abi_violation_first = va;
+    abi_violation_last = va;
+    ++abi_violation_count;
+}
+uint32_t ff_probe_abi_violation_word(uint32_t field)
+{
+    return field == 0u ? abi_violation_count : field == 1u ? abi_violation_first
+         : field == 2u ? abi_violation_last : 0u;
+}
+#endif
 #include "title-functions.inc"
 #pragma clang diagnostic pop

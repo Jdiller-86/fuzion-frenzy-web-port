@@ -253,3 +253,91 @@ The corrected trace (`browser-137-site.json`) does **not** support a synthetic-p
 Classification: this is a **translated-register preservation defect** (or a model/tooling register clobber), not a profile-fidelity gap and not a missing write model or service. The exact callee is not yet identified, so no fix is attempted here. The read-fault recording stays the standard: the run halts at the fault and reports it.
 
 Next bounded task: instrument or scan for the specific callee that leaves `esi` changed (per-function push/pop balance across the reached call chain), then regenerate/fix with evidence. No write-side or pointer model.
+
+## 18. ABI audit result: no ESI violation, and a measurement conflict
+
+The toolkit's own callee-saved check (`RECOMP_ABI_CHECK`, enabled only in the private diagnostic build) was compiled into the probe with a source-owned logger:
+
+- 310 call-target violations were recorded overall (first `0x1E04CC`, last `0x1FB640`), i.e. the translated code has callee-saved-register defects in several places.
+- **ESI violations: 0.** No call returns with `g_esi` changed, including the `CDevice_FreeFrameBuffers` call at `0x1FC080`.
+
+That contradicts the site-watch inference: entry `ESI = 0x203B90`, yet the `0x1FC087` field read appears to use `0x206314`. Since the ABI check is authoritative for callee preservation, the earlier "clobbered register" reading is **not proven**; one of the two measurements (field-address association or entry association) is misleading.
+
+Honest status: the ESI-clobber hypothesis is withdrawn. No fix and no model. The next bounded task is to log `g_esi` **at the field access itself** (site `0x1FC087`) instead of inferring the base from the address, and to confirm how many times `FUN_001FC010` is entered (the ring reported one entry).
+
+## 19. Reconciliation attempt: the two measurements cannot both hold
+
+Read-only checks against the retained translation:
+
+- Site `0x1FC087` occurs exactly once in the translation — the `[ESI+0x47C]` read at line 5240, reached only by fallthrough after the `RECOMP_ABI_CALL(0x001FB640, ...)` at `0x1FC080`. There is no alternate entry or `goto loc_001FC087`.
+- The ABI check wraps that exact call (`RECOMP_ABI_CALL`), and reports 0 ESI changes across all calls. So a direct callee cannot explain a changed `g_esi` at the field read.
+- The site watch recorded exactly one entry (`ESI = 0x203B90`) and one field access (`0x206314`). With the function's only `esi` assignment at entry (`esi = ecx`) and its next assignment at site `0x1FC167` (after the field read), the two records are mutually inconsistent for a single invocation.
+
+Therefore the contradiction is **not resolved**: either the field-address watch sampled an access that is not the instrumented read (association error), or an indirect/tail-call path below `CDevice_FreeFrameBuffers` changes `g_esi` without being covered by the direct-call ABI macro. Both are tooling/measurement questions, not a guest-state or profile question, and neither justifies a workaround or model.
+
+Next bounded task: add an ESI value capture *inside the `0x1FC087` access itself* (record `g_esi` alongside the address) and enlarge/report the entry ring, so the two diagnostics are sampled at the same instant; then re-run and compare.
+
+No DECISIONS row: characterization only.
+
+## 20. Single-record capture: the field access is genuine; the ABI count is the suspect instrument
+
+`siteWatch` now records `g_esi` inside the `0x1FC087` access itself. One run (`browser-140-abi.json`, module 140, private `RECOMP_ABI_CHECK` build):
+
+| Measurement | Value |
+| --- | --- |
+| Entry ESI / ECX (site `0x1FC010`) | `0x203B90` / `0x203B90`, return `0x1F54E9` (from `D3DDevice_Release`) |
+| Field access address (site `0x1FC087`) | `0x206314` |
+| `g_esi` at that access | `0x205E98` |
+| `address - g_esi` | **`0x47C`** (exact) |
+| ABI violations / ESI violations | 310 / **0** |
+| Field access count | 1 |
+
+The exact `0x47C` delta proves the access is the instrumented `[ESI+0x47C]` read and that `g_esi` really was `0x205E98` at that instant. The ABI logger recorded no ESI change across any call. Both instruments are therefore measuring the same run at different instants, and at least one is wrong about the call boundary: the direct-call ABI macro must have missed the `0x1FC080` call (or its comparison is invalid for this call), while the in-access capture cannot be an association error.
+
+Working conclusion: the **ABI instrumentation coverage is the suspect**, not the site watch and not a guest-state/profile divergence. No workaround, no model, no translator edit.
+
+Next bounded task: instrument the `FUN_001FB640` entry access (site `0x1FB640`) to record `g_esi` at callee entry, then compare with the post-call value in the same record; that decides whether the change happens inside that callee and why the direct-call check did not report it.
+
+No DECISIONS row: characterization only.
+
+## 21. Callee-access probe: the transition is inside a callee, before its first access
+
+`siteWatch` now records `g_esi` at the first memory access of each callee of `FUN_001FC010` (sites `0x1FB300`, `0x1FAED0`, `0x1FACA0`, `0x1FB640`). Run `browser-141-abi.json` (module 141, private ABI build):
+
+| Observation point | `g_esi` |
+| --- | --- |
+| `FUN_001FC010` entry | `0x203B90` |
+| first access in `FUN_001FB300` | `0x203B90` |
+| first access in `FUN_001FAED0` | **`0x205E98`** |
+| first access in `FUN_001FACA0` | not observed (no memory access at its entry site) |
+| first access in `FUN_001FB640` | `0x203B90` |
+| `[ESI+0x47C]` read at `0x1FC087` | `0x205E98` |
+| ABI violations / ESI | 310 / 0 |
+
+Interpretation: the probe samples the **first memory access inside each callee**, not the call boundary. `FUN_001FAED0` already shows `0x205E98` at its first access, so ESI changes *before that access* (in the caller tail or the callee prologue); `FUN_001FB640` shows the device value again at its first access, yet the following field read shows `0x205E98`. The ABI check still reports no net ESI change per call.
+
+Conclusion: the transition is **not localised to a single call/return boundary** by this instrument, and the ABI logger's placement (net check after the call) remains inconsistent with the in-access capture. This is a tooling/instrumentation gap, not a guest-state or profile divergence. No workaround, model, or translator edit; halt here.
+
+Next bounded task: capture `g_esi` at the exact call boundary using the translated call site itself (e.g., a hook on the `0x1FC080` return address), which needs either a source-owned call-boundary probe or a translator-level trace — the latter is a tooling finding to record, not a local patch.
+
+No DECISIONS row: characterization only.
+
+## 22. Span probe: ESI is correct after the first two calls and wrong at the field read
+
+The probe now samples `g_esi` at the caller's post-call access sites inside `FUN_001FC010`. Run `browser-142-abi.json` (module 142, private ABI build):
+
+| Sample point | `g_esi` |
+| --- | --- |
+| `FUN_001FC010` entry (`0x1FC010`) | `0x203B90` |
+| after call 1 (`0x1FC01F`, `FUN_001FB300`) | `0x203B90` |
+| after call 2 (`0x1FC038`, `FUN_001FAED0`) | `0x203B90` |
+| loop site `0x1FC055` | not accessed (the loop is skipped on this path) |
+| `[ESI+0x47C]` read (`0x1FC087`) | `0x205E98` |
+
+So `g_esi` is still the device after the second call and has changed by the field read. On this path the only remaining calls are `0x1FC077` → `FUN_001FD630` (and its callees); `FUN_001FD630` itself never assigns `esi` (push/pop/assign all 0), so the change must occur inside **its** call chain — where the direct-call ABI check should have fired but recorded 0 ESI violations.
+
+This narrows the defect to the `0x1FC077` span and to a call form the ABI macro does not cover (indirect/tail path), but the exact edge is still not named. No workaround, model, or translation edit.
+
+Next bounded task: probe `g_esi` around the `0x1FC077` call (`FUN_001FD630`) and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL` (a tooling finding for the translator, not a local patch).
+
+No DECISIONS row: characterization only.

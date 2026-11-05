@@ -319,6 +319,13 @@ export function validateProofReport(report) {
       throw new Error('The guest-watch probe must target the selected device field');
   }
 
+  /* Toolkit ABI-check diagnostic. It records the call target whose callee failed
+   * to preserve ebx/esi/edi/esp; it is evidence, not a service model. */
+  if (report.abiViolationState !== undefined) {
+    const a = report.abiViolationState;
+    if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast))
+      throw new Error('Malformed ABI-violation state');
+  }
   /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
    * the +0x47C field address. Diagnostic only, never a service model. */
   const claimsSiteWatch = experiments.includes('siteWatch');
@@ -329,7 +336,7 @@ export function validateProofReport(report) {
   if (report.siteWatchState !== undefined) {
     const s = report.siteWatchState;
     if (!s || !integer(s.entryAddr) || !integer(s.entryEcx) || !integer(s.entryReturn) ||
-        !integer(s.fieldAddr) || !integer(s.fieldCount) || !Array.isArray(s.entries) || s.entries.length > 8 ||
+        !integer(s.fieldAddr) || !integer(s.fieldCount) || !integer(s.fieldEsi) || !Array.isArray(s.spanEsi) || s.spanEsi.length !== 4 || s.spanEsi.some(x => !integer(x)) || !Array.isArray(s.entries) || s.entries.length > 8 ||
         s.entries.some(e => !Array.isArray(e) || e.length !== 3 || e.some(v => !integer(v))))
       throw new Error('Malformed site-watch state');
   }
