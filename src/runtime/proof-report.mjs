@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -254,10 +254,60 @@ export function validateProofReport(report) {
     if (s.decision === 0 &&
         (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== s.espBefore || s.priorSetter !== 0))
       throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
-  }  /* Ordinal 2 remains unsupported by default: the observed call carries four
+  }
+
+  /* Null-result AV query experiment and state pairing. The pinned early return
+   * is unconditional on handle/option/param: any null Result is a no-op, while a
+   * nonzero Result reaches the unmodeled option switch. The state keeps the last
+   * accepted tuple; the two observed pairs stay pinned pair evidence. */
+  const claimsAvNull = experiments.includes('avNullResult');
+  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1]];
+  const isObservedNullShape = (handle, option, param) =>
+    observedNullShapes.some(([h, o, p]) => handle === h && option === o && param === p);
+  if (report.avNullResultState !== undefined && !claimsAvNull)
+    throw new Error('Null-result state requires the avNullResult experiment');
+  if (claimsAvNull && report.avNullResultState === undefined)
+    throw new Error('The avNullResult experiment requires its state');
+  if (report.avNullResultState !== undefined) {
+    const n = report.avNullResultState;
+    if (!n || !integer(n.calls) || !integer(n.handle) || !integer(n.option) ||
+        !integer(n.param) || !integer(n.result) || !integer(n.decision) ||
+        !integer(n.writeBefore) || !integer(n.writeAfter) || !integer(n.checksumBefore) ||
+        !integer(n.checksumAfter) || !integer(n.eaxBefore) || !integer(n.espBefore) ||
+        !integer(n.eaxAfter) || !integer(n.espAfter))
+      throw new Error('Malformed null-result state');
+    if (n.decision === 0 &&
+        (n.result !== 0 || !isObservedNullShape(n.handle, n.option, n.param) ||
+         n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
+         n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
+      throw new Error('An accepted null-result call must match the pinned no-op contract, an observed shape and the 20-byte pop');
+  }
+
+  /* Contiguous-free experiment and state pairing. The pinned bridge frees the
+   * block and sets EAX 0; this harness owns no host allocator, so the accepted
+   * effect is declaration-level only: no guest write, EAX 0, one-argument pop. */
+  const claimsMmFree = experiments.includes('mmFreeContiguous');
+  if (report.mmFreeContiguousState !== undefined && !claimsMmFree)
+    throw new Error('Contiguous-free state requires the mmFreeContiguous experiment');
+  if (claimsMmFree && report.mmFreeContiguousState === undefined)
+    throw new Error('The mmFreeContiguous experiment requires its state');
+  if (report.mmFreeContiguousState !== undefined) {
+    const f = report.mmFreeContiguousState;
+    if (!f || !integer(f.calls) || !integer(f.address) || !integer(f.decision) ||
+        !integer(f.eaxBefore) || !integer(f.espBefore) || !integer(f.eaxAfter) ||
+        !integer(f.espAfter) || !integer(f.writeBefore) || !integer(f.writeAfter))
+      throw new Error('Malformed contiguous-free state');
+    if (f.decision === 0 &&
+        (!f.address || (f.address & 3) !== 0 || f.eaxAfter !== 0 ||
+         f.espAfter !== ((f.espBefore + 8) >>> 0) || f.writeAfter !== f.writeBefore))
+      throw new Error('An accepted contiguous-free call must match the pinned declaration-level effect');
+  }
+
+  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
+  let sawFirstNullShape = false, sawSecondNullShape = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -275,6 +325,15 @@ export function validateProofReport(report) {
           call.arguments[1] === 0x0F && call.arguments[2] === 0) {
         if (!claimsAvUnknown)
           throw new Error('An unknown AV option call requires the avUnknownOption experiment');
+        continue;
+      }
+      /* The null-result sibling is validated by avNullResultState; the two
+       * observed pairs stay pinned and any other accepted tuple is flagged. */
+      if (claimsAvNull && call.status === 0 && call.arguments[3] === 0) {
+        if (!isObservedNullShape(call.arguments[0], call.arguments[1], call.arguments[2]))
+          throw new Error('An accepted null-result call must use an observed shape');
+        if (call.arguments[0] === 0x03920000) sawFirstNullShape = true;
+        else sawSecondNullShape = true;
         continue;
       }
       if (report.avQueryWord === undefined) {
@@ -322,6 +381,9 @@ export function validateProofReport(report) {
       }
     }
   }
+  if (claimsAvNull && report.calls !== undefined &&
+      (!sawFirstNullShape || !sawSecondNullShape))
+    throw new Error('The avNullResult pair must reproduce both observed null-result shapes');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
    * That is only consistent when the run stopped before the query. A stop at

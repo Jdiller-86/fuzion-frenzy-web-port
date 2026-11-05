@@ -1,4 +1,50 @@
-# The ordinal-1 saved-data model passes; the next stop is a NULL-Result AV query
+# The contiguous-free model passes; the next stop is a guest read fault
+
+November 5: architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model with binding stipulations — exact one-argument shape (mapped, aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an explicit declaration-level-only disclosure (the harness owns no host allocator and never reuses freed blocks; the pinned arena free changes no guest memory). Implemented `src/runtime/mm_free_contiguous.c/.h`, native tests, default-off `mmFreeContiguous` input, handler diagnostics (argument, EAX/ESP, write-map count) and validator pairing; the observed address is diagnostics, not part of the predicate.
+
+Module `recomp-post-memory-build-126` (profile 87, updated sources): **723,629 bytes**, SHA-256 `6849f0b7...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment accepted **two** frees (`0x037F2000`, `0x03920000`; write-map `47 -> 47`; EAX 0; `esp + 8` each) and reached a **new class of stop: status 10 (guest read fault, access 1) at `0x6B6A6968`**, 346 routines / 414 kernel ops. The fault is `MOV EAX,[ESI+0x47c]` then `MOV EDX,[EAX]` at `0x001FC091` in `FUN_001FC010`: the device object's `+0x47C` field holds the ASCII bytes `"hijk"` instead of a pointer.
+
+This is a genuine halt, not a model invariant failure (both free calls matched the pinned declaration-level contract). The field's origin is not established, so the next task is a bounded read-only investigation of `FUN_001FC010` and the `+0x47C` field.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: FUN_001fc910 is admitted; the next stop is MmFreeContiguousMemory
+
+November 5: admitted `0x001FC910` (`FUN_001fc910`, 98 bytes, one stack argument, a D3D format helper) as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` + `0x001FC910` replaced the previous two-function seed, keeping the 32-export set; `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 87 (463 functions, 18,990 instructions). `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing, and the package verifier's translation check reports 554 functions with 0 needing rewriting ("fully instrumented by the current guard"); its controlled-pair sub-check targets the avQuery-pair shape and does not apply here.
+
+Module `recomp-post-memory-build-125` (profile 87, same sources): **722,950 bytes**, SHA-256 `f77f6066...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment advanced to a **new named-service stop: status 1 at `0xFE000004`, ordinal 171**, **346 routines / 412 kernel ops** — `MmFreeContiguousMemory(0x037F2000)` from `CDevice_FreeFrameBuffers` (return `0x001FB6D9`). The pinned bridge frees the contiguous block and returns EAX 0; modeling that allocator behavior is a fresh decision, so the default dispatch refuses it.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` pass, `check` 475 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: The null-result model is generalized; the next stop is placeholder 0x1FC910
+
+November 5: the architect authorized generalizing the declared null-result model because the pinned HAL tests `Result` before its option switch (`if (!Result) return;`), unconditionally on handle/option/param; a nonzero Result still reaches the unmodeled query path and stays refused. `src/runtime/av_null_result.c/.h` now accepts any declared `Result == 0`, with native tests for both observed pairs plus an explicitly labeled mechanism-only tuple, nonzero-Result refusal and undeclared refusal. The harness keeps the default-off `avNullResult` branch (no write, EAX untouched, `esp += 20`, call count and last tuple); the validator requires an observed shape, no write-map delta, equal frame checksum, EAX unchanged, `esp + 20`, and that the pair reproduces both observed shapes.
+
+Module `recomp-post-memory-build-124` (profile 86, updated sources): **722,209 bytes**, SHA-256 `f9b29aee...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment accepted **both** null calls (`calls 2`; last `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; frame checksum unchanged; EAX unchanged; `esp + 20`) and advanced to a **new genuine stop: status 2 at `0x001FC910`**, **344 routines / 412 kernel ops**. That target is another unadmitted placeholder (`FUN_001fc910`, ~97 bytes, one stack argument); admitting it is the next bounded translation increment.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` pass, `check` 475 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: D3DDevice_Release is admitted; the next stop is another NULL-Result AV call
+
+November 5: the prior stop `0x001F54D0` is `D3DDevice_Release` (18 instructions: refcount check at `[device+0x408]`, teardown path calls `0x001FC010` and clears `0xAE4` dwords). It was admitted as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` merged into the retained 32-seed set, then `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 86 (462 functions, 18,958 instructions; original bytes and decoder instructions agree, no unimplemented instructions).
+
+Module `recomp-post-memory-build-123` (same probe sources, profile 86): **722,259 bytes**, SHA-256 `9f883b09...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment now passes `D3DDevice_Release` (+4 routines) and reaches a **new genuine stop: status 1 at `0xFE000094`, ordinal 2**, **344 routines / 411 kernel ops** — `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return `0x001FB664`). The pinned HAL's `if (!Result) return;` makes a NULL-Result call a log-and-return, but this tuple differs from the authorized exact tuple, so the default-off router refuses it pending a bounded decision.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` 199 pass, `check` 475 files, whitespace clean. No source behavior changed in this commit; the admission is private translation evidence. No DECISIONS row: integration head `6bc05f7` lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: The null-result AV model passes; the next stop is translation placeholder 0x1F54D0
+
+November 5: architect-authorized default-off model for the observed third ordinal-2 `AvSendTVEncoderOption` call — exact tuple (`0x03920000`, option 9 = `AV_OPTION_QUERY_AV_CAPABILITIES`, param 0, Result NULL), nonzero Result refused as the unmodeled query path, and a validator no-write assertion (argument-frame checksum and write-map count equal). Implemented `src/runtime/av_null_result.c/.h`, native tests, default-off `avNullResult` input, a third exact ordinal-2 router branch, `avNullResultState` and validator pairing.
+
+Module `recomp-post-memory-build-121`: **721,389 bytes**, SHA-256 `4ec6816d...`. Control unchanged (status 13 at `0xFD800044`, 339/405); inert (display + unknown-option + saved-data inputs, no null-result input) unchanged; the experiment accepted the call with no write (write-map `47 -> 47`, frame checksum unchanged), EAX `0 -> 0`, `esp` +20, and advanced to a **new genuine stop: status 2 at `0x001F54D0`, 340 routines / 410 kernel ops**.
+
+That target is an **unadmitted placeholder** in the retained translation (`void ff_title_001F54D0(void) { ff_probe_stop_direct(0x001F54D0u); }`), reached by `ff_title_00042BE0` tail-jumping there after `D3DDevice_Present` (pop EDI, add `0x38`). Admitting it needs a new translation/seed admission, not a service model, so the run halts here.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` 199 pass, `check` 475 files, whitespace clean. All experimental paths default-off; no display/encoder/rendering/playability claim.
+
+**Sync note:** integration head `6bc05f7` contains `c8c965c` but not `3d4cf7d`/`bfe9dec`/`753711f`/`eb685e0`, so the sync-first rule still blocks a DECISIONS row. No main push/merge; geometry untouched.
+
+## Prior: The ordinal-1 saved-data model passes; the next stop is a NULL-Result AV query
 
 November 5: the architect authorized (then corrected) a default-off fixed-0 `AvGetSavedDataAddress` model. The first guard — "no ordinal-4 setter reference in the translation" — proved **unsatisfiable**: the retained title profile binds `{0x0025345C, 4u}`, and `0x25345C` is a call in `D3DDevice_Present`'s nonzero saved-data branch that the zero branch skips. The architect replaced it with a **runtime no-prior-setter guard**: accept only when the recorded dispatch journal has no ordinal-4 call before the read, and fail closed on an unreadable journal. Implemented `src/runtime/av_saved_data.c/.h` (journal guard + fixed-0 decision), native tests, default-off `avSavedData` input, an ordinal-1 handler returning 0 with no arguments or stack change, `avSavedDataState` and validator pairing. The setter stays unmodeled.
 
@@ -1123,3 +1169,11 @@ Resumed audit: the selected LND references 21 distinct OBE names; 18 occur in th
 Completion audit: G0/G1 cannot be accepted from the current evidence. The [checkpoint](G0_G1_CHECKPOINT.md#completion-audit-and-reference-blocker) specifies the missing matching-build catalog, character, stadium and audible reference scenarios. This same outside-input gap has persisted through the recent investigation turns, and the user confirmed no reference setup is available. Additional speculative level conversion is not a substitute for those observations. Full-level decoding and the release browser matrix are not extra G1 requirements. Preserve the current proof and local evidence pending matching reference input; continuous peak-memory profiling remains separately open before broader production. The latest sky/evidence changes are local and uncommitted; `4e665f8` is the prior local checkpoint.
 
 Public-footage follow-up: the user pointed out the internet reference route. A LongplayArchive NTSC Xbox recording has indexed Coliseum (25:01) and minigame-list (49:58) chapters; see the checkpoint for its URL and provenance limits. This provides an actionable independent investigation, so the earlier claim that local user-supplied captures were the only practical next input was premature. Footage frames/audio and exact revision remain unverified; next inspect the public recording and record timestamped observations, without uploading local game data or claiming its executable digest matches.
+
+## OpenCode architect cost routing (November 5)
+
+Automatic architect cycles are restricted to OpenCode Go GLM-5.3-Flash. A recognized allowance or availability failure permits only a provisional read-only free Flash review; it cannot approve integration or PR promotion. Full Go GLM-5.3 and Sol are absent from automatic architect routing. The model pool and runner enforce this; builder models and original-game execution evidence are unchanged. Validation: PowerShell parser, model-pool inspection, source publication check and whitespace check passed.
+
+## Orchestration throughput update (November 5)
+
+The manager now refreshes stale primary task cards from the current checkpoint without a model call. Routine passing PR metadata is excluded from verification-model work. The Flash architect can approve a newly opened exact-head PR for conditional merge; the existing PR helper performs all live CI, source, ancestry and mergeability gates before the existing 15-minute probe executes it. Builder evidence and original-game execution status are unchanged. Next check: observe one post-commit card refresh and one newly queued PR through a live CI cycle.

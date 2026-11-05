@@ -1,6 +1,6 @@
 # Project instructions
 
-Current OpenCode routing override (November 5): hourly architect and project architect subagent use opencode-go/glm-5.3-flash. Full opencode-go/glm-5.3 is an allowance/availability fallback. Do not call Sol from this project. This supersedes older Sol routing below. The exact-head PR and source/runtime/CI/ancestry/mergeability gates remain binding.
+Current OpenCode routing override (November 5): hourly architect and project architect subagent use opencode-go/glm-5.3-flash. Full opencode-go/glm-5.3 is prohibited in automatic routing, including allowance failures. Do not call Sol from this project. This supersedes older Sol routing below. The exact-head PR and source/runtime/CI/ancestry/mergeability gates remain binding.
 
 
 
@@ -9,6 +9,8 @@ Current throughput policy: the primary builder may group up to eight already-evi
 
 
 Read this file first, then `docs/DEVELOPMENT_HANDOFF.md`, `docs/PROJECT_STATUS.md`, and the relevant part of `DEVELOPMENT_PLAN.md`. In OpenCode, the project default remains **OpenCode Go DeepSeek V4.1 Flash** (`opencode-go/deepseek-v4.1-flash`). A read-only **GLM-5.3-Flash manager** assigns bounded work to up to three distinct-model builder lanes; **GPT-6.1 Sol** (`openai/gpt-6.1-sol`) through the linked ChatGPT/Codex account, or full **Go GLM-5.3** during its usage limit, is the hourly architect. Local Qwen remains a bounded Scout. Read `docs/OPENCODE_WORKFLOW.md` and `docs/OPENCODE_GOAL.md` before using this routing. Existing Codex sessions retain their selected model and project-local `.codex/config.toml`; do not silently change global settings or an active session's model. Keep work reviewable in bounded tasks with explicit acceptance criteria.
+
+Progress reporting policy (November 5): keep `docs/PROJECT_STATUS.md` current with a brief observed stop, checks and next task. Put detailed evidence in the active service/component checkpoint. Update `docs/DEVELOPMENT_HANDOFF.md` and `docs/INTEGRATION_EVIDENCE_INDEX.md` only when an integration milestone or materially new handoff changes them; link to the checkpoint instead of repeating the same proof in four files. Never omit required evidence or source-only checks.
 
 ## Current stage and goal
 
