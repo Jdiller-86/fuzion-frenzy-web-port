@@ -1,4 +1,15 @@
-# The 0x1F7600 batch advances the stop to 0x1F6760
+# The 0x1F6760 batch advances the stop to 0x1F7460
+
+November 5, 2026. `0x1F6760` (`D3DDevice_SetRenderState_ShadowFunc`, table index 135) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 13-instruction / 47-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 13/13, no tables or normalizations. The seed was appended to the merged 25-function seed (`9cb1f5c6?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-76` contains **449 functions / 18,496 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 539/0. Module `recomp-post-memory-build-97` is 701,883 bytes, SHA-256 `c7eb34ab8fd1160cf6211d762f9bf6c0eec505d8cc5e24ab784a310fe407c17e`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7460`** | 319 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +40 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6760` executed; `0x1F7460` was not entered. Frontier: **539 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7600 batch advances the stop to 0x1F6760
 
 November 5, 2026. `0x1F7600` (`D3DDevice_SetRenderState_MultiSampleMask`, table index 133) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 24-function seed (`b95fe13c?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-75` contains **448 functions / 18,483 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 538/0. Module `recomp-post-memory-build-96` is 701,399 bytes, SHA-256 `8da3c4b55a2e453221ef87ca786b49c540bb5ab3c3e679aba177fa87f52c8819`.
 
