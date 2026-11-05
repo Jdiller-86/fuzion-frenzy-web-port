@@ -1,4 +1,125 @@
-# The 0x1F7300 batch advances the stop to 0x1F7370
+# The 0x1F7460 batch advances the stop to 0x1F7490
+
+November 5, 2026. `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 12-instruction / 37-byte leaf calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`; preflight is 12/12, no tables or normalizations. The seed was appended to the merged 26-function seed (`dc0ab154?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-77` contains **450 functions / 18,508 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 540/0. Module `recomp-post-memory-build-98` is 702,324 bytes, SHA-256 `60d2a65f73914f6ed9807516e316aa2d19bdfd2931e562a86eae44714de515e6`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7490`** | 320 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +41 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7460` executed; `0x1F7490` was not entered. Frontier: **540 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6760 batch advances the stop to 0x1F7460
+
+November 5, 2026. `0x1F6760` (`D3DDevice_SetRenderState_ShadowFunc`, table index 135) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 13-instruction / 47-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 13/13, no tables or normalizations. The seed was appended to the merged 25-function seed (`9cb1f5c6?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-76` contains **449 functions / 18,496 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 539/0. Module `recomp-post-memory-build-97` is 701,883 bytes, SHA-256 `c7eb34ab8fd1160cf6211d762f9bf6c0eec505d8cc5e24ab784a310fe407c17e`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7460`** | 319 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +40 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6760` executed; `0x1F7460` was not entered. Frontier: **539 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7600 batch advances the stop to 0x1F6760
+
+November 5, 2026. `0x1F7600` (`D3DDevice_SetRenderState_MultiSampleMask`, table index 133) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 24-function seed (`b95fe13c?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-75` contains **448 functions / 18,483 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 538/0. Module `recomp-post-memory-build-96` is 701,399 bytes, SHA-256 `8da3c4b55a2e453221ef87ca786b49c540bb5ab3c3e679aba177fa87f52c8819`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6760`** | 318 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +39 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7600` executed; `0x1F6760` was not entered. Frontier: **538 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F75B0 batch advances the stop to 0x1F7600
+
+November 5, 2026. Main ancestry was restored from PR #7 (`42287210` merged at `a0be99b`; EOF fix `8c49a22`; rows renumbered `D328`–`D334`). `0x1F75B0` (`D3DDevice_SetRenderState_MultiSampleAntiAlias`, table index 132) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 23-function seed (`d74b0d28?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-74` contains **447 functions / 18,461 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 537/0. Module `recomp-post-memory-build-95` is 700,698 bytes, SHA-256 `286daba75b816b3fb7bf933fc614bc63d5c289c0eca01633d27f87093b77f182`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7600`** | 317 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +38 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F75B0` executed; `0x1F7600` was not entered. Frontier: **537 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6730 batch advances the stop to 0x1F75B0
+
+November 5, 2026. `0x1F6730` (`D3DDevice_SetRenderState_EdgeAntiAlias`, table index 131) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 13-instruction / 44-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 13/13, no tables or normalizations. The seed was appended to the merged 22-function seed (`61fd9a0b?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-73` contains **446 functions / 18,439 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 536/0. Module `recomp-post-memory-build-94` is 700,022 bytes, SHA-256 `e9b108f222addd30b65f9687a63879698d29e8ef41148adff744f696b94b9704`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F75B0`** | 316 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +37 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6730` executed; `0x1F75B0` was not entered. Frontier: **536 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6A70 batch advances the stop to 0x1F6730
+
+November 5, 2026. `0x1F6A70` (`D3DDevice_SetRenderState_LogicOp`, table index 130) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1FB3B0` and has two return sites; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 21-function seed (`ca4e5c98?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-72` contains **445 functions / 18,426 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 535/0. Module `recomp-post-memory-build-93` is 699,510 bytes, SHA-256 `855ce4ec17a8948a71b70547105a72f1525bc6b61f1b1bbf8130a8d0f7cbd1fe`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6730`** | 315 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +36 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6A70` executed; `0x1F6730` was not entered. Frontier: **535 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F69F0 batch advances the stop to 0x1F6A70
+
+November 5, 2026. `0x1F69F0` (`D3DDevice_SetRenderState_ZBias`, table index 129) was already Ghidra-established. Its 41-instruction / 116-byte leaf calls translated `0x1F66A0` five times, performs the FPU sequence `FILD/FADD/FCHS/FST/FMUL/FSTP`, and ends in `RET 4`; preflight is 41/41, no tables or normalizations. The seed was appended to the merged 20-function seed (`846cac1b?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-71` contains **444 functions / 18,404 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 534/0. Module `recomp-post-memory-build-92` is 698,963 bytes, SHA-256 `57e245de1a8ad896f57d1e67bee3fd69eb742f240561eeaacf059fac8f34e9d0`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6A70`** | 314 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +35 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F69F0` executed; `0x1F6A70` was not entered. Frontier: **534 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F68C0 batch advances the stop to 0x1F69F0
+
+November 5, 2026. `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established. Its 25-instruction / 76-byte leaf calls already-translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites; preflight is 25/25, no tables or normalizations. The seed was appended to the merged 19-function seed (`347da100?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-70` contains **443 functions / 18,363 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 533/0. Module `recomp-post-memory-build-91` is 697,055 bytes, SHA-256 `21ef36559c62ea4cce52c9b6719cd3d0ffc69c484bb2ccb5c480b8d6261e45ae`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F69F0`** | 313 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +34 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F68C0` executed; `0x1F69F0` was not entered. Frontier: **533 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6850 tail-call batch advances the stop to 0x1F68C0
+
+November 5, 2026. `0x1F6850` (`D3DDevice_SetRenderState_FrontFace`, table index 126) was a named symbol without a function and ends in a tail `JMP 0x1F67E0`; one bounded persistent create-function preserved that tail, and `0x1F67E0` (`D3DDevice_SetRenderState_CullMode`, table index 127) was already established. Seeds: 14/52 bytes (`80bdcbee?`) and 29/98 (`2d5f7bf5?`), both preflight-clean. They were appended to the merged 18-function seed (`3bbc774a?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-69` contains **442 functions / 18,338 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 532/0. Module `recomp-post-memory-build-90` is 696,254 bytes, SHA-256 `f74a2161de4d8d3761b1ac601bef65913b564b57eaf94d783df4b35cef466a88`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F68C0`** | 312 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +33 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6850` executed and tail-called `0x1F67E0`; `0x1F68C0` was not entered. Frontier: **532 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F73F0 batch advances the stop to 0x1F6850
+
+November 5, 2026. `0x1F73F0` (`D3DDevice_SetRenderState_StencilFail`, table index 125) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 29-instruction / 105-byte leaf calls already-translated `0x1FB3B0`, has internal conditional branches, and ends in `RET 4`; preflight is 29/29, no tables or normalizations. The seed was appended to the merged 16-function seed (`14cc6913?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-68` contains **440 functions / 18,295 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 530/0. Module `recomp-post-memory-build-89` is 694,956 bytes, SHA-256 `4f64855e0f6e39583dd9887da58ffa240ab4b74cefb46d9cbc94c397b4ea36d9`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6850`** | 310 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +31 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F73F0` executed; `0x1F6850` was not entered. Frontier: **530 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7370 batch advances the stop to 0x1F73F0
+
+November 5, 2026. The publication backlog was cleared first (`c28399a` removed the committed EOF blank line; source remote advanced to `c28399a` with CI success). `0x1F7370` (`D3DDevice_SetRenderState_StencilEnable`, table index 124) was already Ghidra-established; its only call was translated. Its 37-instruction / 128-byte leaf has internal branches and ends in `RET 4`; preflight is 37/37, no tables or normalizations. The seed was appended to the merged 15-function seed (`15239924?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-67` contains **439 functions / 18,266 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 529/0. Module `recomp-post-memory-build-88` is 694,246 bytes, SHA-256 `5440f6e0bb7ceb8c27eb0e5f411e66b1dd0e40891b20acdd49bb94c7d709b3ec`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F73F0`** | 309 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +30 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7370` executed; `0x1F73F0` was not entered. Frontier: **529 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7300 batch advances the stop to 0x1F7370
 
 November 5, 2026. `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already a Ghidra-established function; all five calls (`0x1FB3B0` twice, `0x1F85E0`, `0x1F82C0`, `0x1F7080`) were already translated. Its 34-instruction / 108-byte leaf has internal conditional branches and ends in `RET 4`; preflight is 34/34, no tables or normalizations. The seed was appended to the merged 14-function seed (`a48daeda?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-66` contains **438 functions / 18,229 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 528/0. Module `recomp-post-memory-build-87` is 693,474 bytes, SHA-256 `3f001885c215ace4b866ae300a1333c1fd1c803e7afd4f9a7753e07beef66ee9`.
 

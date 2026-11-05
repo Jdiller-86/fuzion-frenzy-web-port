@@ -2,11 +2,66 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7300 admission
+## Latest: 0x1F7460 admission
+
+- [The 0x1F7460 batch](FRONTIER_DEP_1F7460_CHECKPOINT.md): translation 77 (450 functions / 18,508 instructions), module 98 (702,324 bytes, SHA `60d2a65f…`), control 279/404 at ordinal 2 vs experiment 320/405 at untranslated `0x1F7490`, comparator exit 0 (+41 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 540/0, package verifier 37/37 digests.
+- `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 12-instruction / 37-byte seed (`0b8d447b…`) calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`. `0x1F7490` is the next ordinary stop (table index 139).
+- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D338` (primary).
+
+## Prior: 0x1F6760 admission
+
+- [The 0x1F6760 batch](FRONTIER_DEP_1F6760_CHECKPOINT.md): translation 76 (449 functions / 18,496 instructions), module 97 (701,883 bytes, SHA `c7eb34ab…`), control 279/404 at ordinal 2 vs experiment 319/405 at untranslated `0x1F7460`, comparator exit 0 (+40 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 539/0, package verifier 36/36 digests.
+- `0x1F6760` (`D3DDevice_SetRenderState_ShadowFunc`, table index 135) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 47-byte seed (`3a4e953d…`) calls already-translated `0x1FB3B0` and ends in `RET 4`.
+
+## Prior: 0x1F7600 admission
+
+- [The 0x1F7600 batch](FRONTIER_DEP_1F7600_CHECKPOINT.md): translation 75 (448 functions / 18,483 instructions), module 96 (701,399 bytes, SHA `8da3c4b5…`), control 279/404 at ordinal 2 vs experiment 318/405 at untranslated `0x1F6760`, comparator exit 0 (+39 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 538/0, package verifier 35/35 digests.
+- `0x1F7600` (`D3DDevice_SetRenderState_MultiSampleMask`, table index 133) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`68d64fb8…`) calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`.
+
+## Prior: 0x1F75B0 admission
+
+- [The 0x1F75B0 batch](FRONTIER_DEP_1F75B0_CHECKPOINT.md): translation 74 (447 functions / 18,461 instructions), module 95 (700,698 bytes, SHA `286daba7…`), control 279/404 at ordinal 2 vs experiment 317/405 at untranslated `0x1F7600`, comparator exit 0 (+38 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 537/0, package verifier 34/34 digests.
+- `0x1F75B0` (`D3DDevice_SetRenderState_MultiSampleAntiAlias`, table index 132) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`d75806bf…`) calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`.
+
+## Prior: 0x1F6730 admission
+
+- [The 0x1F6730 batch](FRONTIER_DEP_1F6730_CHECKPOINT.md): translation 73 (446 functions / 18,439 instructions), module 94 (700,022 bytes, SHA `e9b108f2…`), control 279/404 at ordinal 2 vs experiment 316/405 at untranslated `0x1F75B0`, comparator exit 0 (+37 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 536/0, package verifier 33/33 digests.
+- `0x1F6730` (`D3DDevice_SetRenderState_EdgeAntiAlias`, table index 131) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 44-byte seed (`fe75b542…`) calls already-translated `0x1FB3B0` and ends in `RET 4`.
+
+## Prior: 0x1F6A70 admission
+
+- [The 0x1F6A70 batch](FRONTIER_DEP_1F6A70_CHECKPOINT.md): translation 72 (445 functions / 18,426 instructions), module 93 (699,510 bytes, SHA `855ce4ec…`), control 279/404 at ordinal 2 vs experiment 315/405 at untranslated `0x1F6730`, comparator exit 0 (+36 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 535/0, package verifier 32/32 digests.
+- `0x1F6A70` (`D3DDevice_SetRenderState_LogicOp`, table index 130) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`187d2bdb…`) calls already-translated `0x1FB3B0` and has two return sites.
+
+## Prior: 0x1F69F0 admission
+
+- [The 0x1F69F0 batch](FRONTIER_DEP_1F69F0_CHECKPOINT.md): translation 71 (444 functions / 18,404 instructions), module 92 (698,963 bytes, SHA `57e245de…`), control 279/404 at ordinal 2 vs experiment 314/405 at untranslated `0x1F6A70`, comparator exit 0 (+35 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 534/0, package verifier 31/31 digests.
+- `0x1F69F0` (`D3DDevice_SetRenderState_ZBias`, table index 129) was already Ghidra-established; its 41-instruction / 116-byte seed (`a0e4178d…`) calls translated `0x1F66A0` five times, performs the FPU sequence, and ends in `RET 4`.
+
+## Prior: 0x1F68C0 admission
+
+- [The 0x1F68C0 batch](FRONTIER_DEP_1F68C0_CHECKPOINT.md): translation 70 (443 functions / 18,363 instructions), module 91 (697,055 bytes, SHA `21ef3655…`), control 279/404 at ordinal 2 vs experiment 313/405 at untranslated `0x1F69F0`, comparator exit 0 (+34 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 533/0, package verifier 30/30 digests.
+- `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established; its 25-instruction / 76-byte seed (`bc293f77…`) calls only translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites.
+
+## Prior: 0x1F6850 tail-call batch
+
+- [The 0x1F6850 batch](FRONTIER_DEP_1F6850_CHECKPOINT.md): translation 69 (442 functions / 18,338 instructions), module 90 (696,254 bytes, SHA `f74a2161…`), control 279/404 at ordinal 2 vs experiment 312/405 at untranslated `0x1F68C0`, comparator exit 0 (+33 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 532/0, package verifier 29/29 digests.
+- `0x1F6850` (`D3DDevice_SetRenderState_FrontFace`, table index 126) was created with its original tail `JMP 0x1F67E0` preserved; `0x1F67E0` (`D3DDevice_SetRenderState_CullMode`, table index 127) was already established. Seeds `80bdcbee…` (14/52) and `2d5f7bf5…` (29/98) both preflight cleanly and were merged into the 18-function seed (`3bbc774a…`).
+
+## Prior: 0x1F73F0 admission
+
+- [The 0x1F73F0 batch](FRONTIER_DEP_1F73F0_CHECKPOINT.md): translation 68 (440 functions / 18,295 instructions), module 89 (694,956 bytes, SHA `4f64855e…`), control 279/404 at ordinal 2 vs experiment 310/405 at untranslated `0x1F6850`, comparator exit 0 (+31 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 530/0, package verifier 27/27 digests.
+- `0x1F73F0` (`D3DDevice_SetRenderState_StencilFail`, table index 125) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 29-instruction / 105-byte seed (`856b5a10…`) calls already-translated `0x1FB3B0`, has internal branches, and preflights 29/29.
+
+## Prior: 0x1F7370 admission
+
+- [The 0x1F7370 batch](FRONTIER_DEP_1F7370_CHECKPOINT.md): translation 67 (439 functions / 18,266 instructions), module 88 (694,246 bytes, SHA `5440f6e0…`), control 279/404 at ordinal 2 vs experiment 309/405 at untranslated `0x1F73F0`, comparator exit 0 (+30 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 529/0, package verifier 26/26 digests.
+- `0x1F7370` (`D3DDevice_SetRenderState_StencilEnable`, table index 124) was already Ghidra-established; its 37-instruction / 128-byte seed (`315b7776…`) calls only translated `0x1FB3B0`, has internal conditional branches, and preflights 37/37.
+
+## Prior: 0x1F7300 admission
 
 - [The 0x1F7300 batch](FRONTIER_DEP_1F7300_CHECKPOINT.md): translation 66 (438 functions / 18,229 instructions), module 87 (693,474 bytes, SHA `3f001885…`), control 279/404 at ordinal 2 vs experiment 308/405 at untranslated `0x1F7370`, comparator exit 0 (+29 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 528/0, package verifier 25/25 digests.
-- `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already Ghidra-established; its 34-instruction / 108-byte seed (`8552c475…`) calls only translated functions, has internal conditional branches, and preflights 34/34. `0x1F7370` is the next ordinary stop (table index 124).
-- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The approved `0x1F6620` work remains at `5e168b4`. The main PR is still pending the fixed published head.
+- `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already Ghidra-established; its 34-instruction / 108-byte seed (`8552c475…`) calls only translated functions and preflights 34/34.
 
 ## Prior: 0x1F6890 admission
 
