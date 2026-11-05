@@ -1,4 +1,15 @@
-# The 0x1F73F0 batch advances the stop to 0x1F6850
+# The 0x1F6850 tail-call batch advances the stop to 0x1F68C0
+
+November 5, 2026. `0x1F6850` (`D3DDevice_SetRenderState_FrontFace`, table index 126) was a named symbol without a function and ends in a tail `JMP 0x1F67E0`; one bounded persistent create-function preserved that tail, and `0x1F67E0` (`D3DDevice_SetRenderState_CullMode`, table index 127) was already established. Seeds: 14/52 bytes (`80bdcbee?`) and 29/98 (`2d5f7bf5?`), both preflight-clean. They were appended to the merged 18-function seed (`3bbc774a?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-69` contains **442 functions / 18,338 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 532/0. Module `recomp-post-memory-build-90` is 696,254 bytes, SHA-256 `f74a2161de4d8d3761b1ac601bef65913b564b57eaf94d783df4b35cef466a88`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F68C0`** | 312 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +33 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6850` executed and tail-called `0x1F67E0`; `0x1F68C0` was not entered. Frontier: **532 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F73F0 batch advances the stop to 0x1F6850
 
 November 5, 2026. `0x1F73F0` (`D3DDevice_SetRenderState_StencilFail`, table index 125) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 29-instruction / 105-byte leaf calls already-translated `0x1FB3B0`, has internal conditional branches, and ends in `RET 4`; preflight is 29/29, no tables or normalizations. The seed was appended to the merged 16-function seed (`14cc6913?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-68` contains **440 functions / 18,295 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 530/0. Module `recomp-post-memory-build-89` is 694,956 bytes, SHA-256 `4f64855e0f6e39583dd9887da58ffa240ab4b74cefb46d9cbc94c397b4ea36d9`.
 
