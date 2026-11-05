@@ -2,12 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6850 tail-call batch
+## Latest: 0x1F68C0 admission
+
+- [The 0x1F68C0 batch](FRONTIER_DEP_1F68C0_CHECKPOINT.md): translation 70 (443 functions / 18,363 instructions), module 91 (697,055 bytes, SHA `21ef3655…`), control 279/404 at ordinal 2 vs experiment 313/405 at untranslated `0x1F69F0`, comparator exit 0 (+34 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 533/0, package verifier 30/30 digests.
+- `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established; its 25-instruction / 76-byte seed (`bc293f77…`) calls only translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites. `0x1F69F0` is the next ordinary stop (table index 129).
+- Publication is current: remote source `47dfb9a`, CI run `41978126792` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+
+## Prior: 0x1F6850 tail-call batch
 
 - [The 0x1F6850 batch](FRONTIER_DEP_1F6850_CHECKPOINT.md): translation 69 (442 functions / 18,338 instructions), module 90 (696,254 bytes, SHA `f74a2161…`), control 279/404 at ordinal 2 vs experiment 312/405 at untranslated `0x1F68C0`, comparator exit 0 (+33 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 532/0, package verifier 29/29 digests.
 - `0x1F6850` (`D3DDevice_SetRenderState_FrontFace`, table index 126) was created with its original tail `JMP 0x1F67E0` preserved; `0x1F67E0` (`D3DDevice_SetRenderState_CullMode`, table index 127) was already established. Seeds `80bdcbee…` (14/52) and `2d5f7bf5…` (29/98) both preflight cleanly and were merged into the 18-function seed (`3bbc774a…`).
-- The pair executed `0x1F6850`, tail-called `0x1F67E0`, and stopped at `0x1F68C0`; the next stop is table index 128.
-- Publication is current: remote source `9b4e49e`, CI run `41976900178` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
 
 ## Prior: 0x1F73F0 admission
 

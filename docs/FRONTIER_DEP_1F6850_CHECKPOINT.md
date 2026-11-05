@@ -14,7 +14,7 @@ November 5, 2026. This cycle admitted `0x1F6850` and its already-established tai
 
 - `0x1F6850` seed: **14 instructions / 52 bytes**, one call to translated `0x1FB3B0`, one established tail to `0x1F67E0`, SHA-256 `80bdcbee9c1fde5fad4da056f5dff191ee1baace87ee64e7687eae5e673eb13e`; preflight 14/14, no tables or normalizations.
 - `0x1F67E0` seed: **29 instructions / 98 bytes**, one call to translated `0x1FB3B0`, two return sites, SHA-256 `2d5f7bf52d0bdf71a189dff150dbc4900cf099feed05726724353785e4eeebf5`; preflight 29/29, no tables or normalizations.
-- Grouping: both appended to the merged 16-function seed → **18 functions**, SHA-256 `3bbc774af2a6e024e193f2a5913bf8054ffa27442aa70d1a9df2ee73e435dc0f`; 32 exports and the front seed are unchanged.
+- Grouping: both appended to the merged 16-function seed â†’ **18 functions**, SHA-256 `3bbc774af2a6e024e193f2a5913bf8054ffa27442aa70d1a9df2ee73e435dc0f`; 32 exports and the front seed are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-69`: **442 functions / 18,338 instructions**; both new bodies are real guarded code; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **532 functions, 0 rewrites**.
 
@@ -49,6 +49,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F68C0` is the next ordinary indirect render-state entry (table index 128); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F68C0` is the next ordinary indirect render-state entry (table index 128); it was not entered. A later â‰¤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The tail-preserving create-function is limited to an established local tail target and does not establish general function-recovery policy or permission to define arbitrary gaps.
