@@ -493,4 +493,28 @@ Report: survival is **not** explained by a second `FUN_001FC010` invocation; the
 
 No DECISIONS row: characterization only.
 
+## 33. Return-boundary samples complete the classification
+
+The tuple probe now also samples the four post-call sites in `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`). Run `browser-153-tuples.json` (module 153), ordered events after the single `FUN_001FC010` entry (`ESI = 0x203B90`):
+
+| Event | `g_esi` |
+| --- | --- |
+| `FUN_001F6240` invocation A entry | `0x203B90` |
+| A's `0x1F62C4` access (before/after assign) | `0` / `0x203BA8` |
+| **A post-call `0x1FB6D0`** | **`0x203B90`** |
+| `FUN_001F6240` invocation B entry | `0x203B90` |
+| B's `0x1F62C4` access (before/after assign) | `0` / `0x203B90` |
+| **B post-call `0x1FB6FD`** | **`0x203B90`** |
+| `0x1FC087` field read | **`0x205E98`** |
+
+Classification is now complete:
+
+- **Not pop-skipped**: both invocations return with `ESI = 0x203B90` at the caller's post-call sites; the pop restores correctly.
+- **Not a different invocation**: exactly one `FUN_001FC010` entry.
+- The writer of `0x205E98` lies **after the `0x1FB6FD` post-call site and before `FUN_001FB640` returns** (the next executed instruction in `FUN_001FC010` after the call at `0x1FC080` is the field read itself).
+
+So the survival is a value written in the tail of `FUN_001FB640`, not a skipped restore and not a re-entry. No fix or model; the next bounded task is to sample the remaining `FUN_001FB640` accesses after `0x1FB6FD` to name the exact instruction.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.

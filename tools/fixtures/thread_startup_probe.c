@@ -689,7 +689,8 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled && !reg_trace_frozen) {
-        if (site == 0x001F6240u || site == 0x001F62C4u || site == 0x001FC010u || site == 0x001FC087u) {
+        if (site == 0x001F6240u || site == 0x001F62C4u || site == 0x001FC010u || site == 0x001FC087u ||
+            site == 0x001FB6D0u || site == 0x001FB6FDu || site == 0x001FB92Cu || site == 0x001FBA0Cu) {
             uint32_t eslot = esi_event_count & 15u;
             esi_event_site[eslot] = site; esi_event_esi[eslot] = g_esi; esi_event_addr[eslot] = address; ++esi_event_count;
         }
