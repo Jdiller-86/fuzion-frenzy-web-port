@@ -28,6 +28,19 @@ The retained experiment reaches this routine from executed `0x1F5640` at return 
 
 The retained exporter reads `0x1F7080` as **27 instructions / an 89-byte envelope**, instruction-only layout, no calls or tables; SHA-256 `4968b4371b592b7269c20cf5e9804b474d3595a34b23fb231e189b121fb1d431`. Byte identity, independent decoder agreement (27/27, no normalizations) and `checked_function_layout` pass. The seed was not merged into the selection, and `0x1F7080` remains unadmitted.
 
+## Review-ready preflight revalidation
+
+Re-ran the retained seed preflight at `2026-11-04T20:26-05:00` with the pinned toolchain: seed SHA `4968b4371b592b7269c20cf5e9804b474d3595a34b23fb231e189b121fb1d431`, `mixed False`, `tables 0`, 27 rows; 27 instructions / 27 decoded / no normalizations; byte identity, decoder agreement and layout pass. This confirms the seed is admission-ready but does not admit it.
+
+## Review-ready admission manifest (not authorized)
+
+- Function `0x1F7080`, 27 instructions / an 89-byte instruction-only envelope; no calls, tails, indirect branches or tables.
+- Seed SHA `4968b437…`, source `45bb49e1…`.
+- Merge: append to the 29-function front seed → 30 functions in one export group; the 32-export / 512-function / 32,768-instruction budgets remain satisfied (expected 423 functions / 17,620 instructions).
+- Acceptance: byte/decoder/layout identity; `verify-seeds` 32/32 (including the recovered seed); no `UNIMPLEMENTED` at `0x1F7080`; same-module control/experiment pair differing only in `avQueryWord` with comparator exit 0; record the next genuine stop.
+- Stop: report the next genuine stop and stop; do not translate dependencies, infer semantics or claim original execution/fidelity.
+- No seed merge, translation, module, report or execution was performed.
+
 ## Boundaries
 
 - Static only: no original execution, browser run or runtime observation.
