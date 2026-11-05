@@ -8,7 +8,7 @@
       "sha256": "b59d2fab9ae8cc285da942dc280cbd9ccaab4d8f72d65d8fd540163b145998ba"
     },
     {
-      "role": "merged 33-function seed",
+      "role": "candidate merged 33-function seed (not used; the pipeline used the 32-function merged seed plus the 0x1F65F0 export)",
       "path": "research/verification/recovered-seed-002022e0/seed-with-1f65f0.json",
       "sha256": "f4dca8ea770fde6dfd2698c99debaa376454aace0c5b0f1c3431b736f9275b7b"
     },

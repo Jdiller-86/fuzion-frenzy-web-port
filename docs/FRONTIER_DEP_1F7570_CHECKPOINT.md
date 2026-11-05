@@ -41,7 +41,7 @@ The experiment's stop is qualitatively different from every previous one:
 - Status **2**, not 3. In the retained harness, status 2 is `ff_probe_stop_direct(target)` — a translated direct call whose target has no translated body; status 3 is the indirect-call failure path. This stop is therefore an ordinary **direct call**, not an indirect dispatch miss.
 - Target `0x00202150` carries the symbol **`D3DDevice_Present`** and decodes as code (`SUB ESP,0x8` at `0x202150`); it is not a data address.
 - The call site is `0x42C5E` (return `0x42C63`) inside `FUN_00042be0`, directly after a `CALL 0x001FC1B0`; static references to `0x202150` are four direct calls (`0x41F3F`, `0x42C5E`, `0x42481`, `0x4249D`).
-- No function was created at `0x202150` and it was not admitted. It is reached but unimplemented, so the run stops there honestly.
+- `0x202150` was already an established Ghidra function (`body 0x202150..0x2022D0`), but it was not admitted, so the run stops there honestly. [The `0x202150` batch](FRONTIER_DEP_202150_CHECKPOINT.md) later admitted it.
 
 ## Package verification
 

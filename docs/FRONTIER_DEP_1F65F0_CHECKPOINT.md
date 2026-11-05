@@ -21,7 +21,7 @@ November 5, 2026. Published head `6cbe40d` was the starting point. The render-st
 The merged seed had reached the pipeline's hard **32-function-per-export** limit (`MAX_EXPANDED_EXPORTS`/`functions_per_export`), so appending the new function failed with `Each seed must contain 1-32 functions`. This was resolved by regrouping, not by raising any limit:
 
 - Two existing single-function exports — `recomp-heap-reallocation-helper-next-01/seed.json` (`0x31973`) and `recomp-after-initializers-02/seed.json` (`0x2D540`) — were combined into one 2-function export `recomp-seeds-merged-01/seed.json`, SHA-256 `25074fa11f024de9e8de36fdc6c86c79795dd744dfed15c28eacea69493aef23`.
-- The new admission was then appended to the merged seed → **33 functions**, SHA-256 `f4dca8ea770fde6dfd2698c99debaa376454aace0c5b0f1c3431b736f9275b7b`.
+- The merged 32-function seed was already at the cap, so the new admission was exported as its own 1-function seed. A 33-function merged candidate (`f4dca8ea...`) was written but **not used**: translation 82 kept the 32-function merged seed plus the new export.
 - Export count stays at **32**, and the original seed files are unchanged on disk.
 
 ## Translation and coverage

@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F65F0 table-coverage completion
+## Latest: 0x202150 present admission and PFIFO boundary
+
+- [The 0x202150 batch](FRONTIER_DEP_202150_CHECKPOINT.md): translation 83 (461 functions / 18,940 instructions), module 104 (714,276 bytes, SHA `ff29e855...`), control 279/404 (status 1, ordinal 2) vs experiment 339/405 (status 13 at `0xFD800044`, ordinal 1), comparator exit 0 (+60 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 554/0, package verifier 46/46 digests, frontier 554/93/92.
+- The post-table region decision was escalated once to the project architect, which authorized one bounded set. `0x202150` (`D3DDevice_Present`) was **already established**, so no create-function was made; Present plus its three untranslated immediate direct callees (`0x201E80`, `0x202060`, `0x1F5520`) were admitted — 4 functions, no transitive expansion — with an existing 2-function export folded into the 6-function seed to keep 32 exports.
+- The status-2 stop at `0x202150` is gone. The new stop is a **PFIFO MMIO register**, not code (`stopReason: "pushbuffer consumption required"`): the title submitted pushbuffer commands and is waiting for consumption, and the synthetic harness has no consumer. PFIFO pushbuffer consumption is the next fresh architect decision. This batch is `D345`.
+
+## Prior: 0x1F65F0 table-coverage completion
 
 - [The 0x1F65F0 batch](FRONTIER_DEP_1F65F0_CHECKPOINT.md): translation 82 (457 functions / 18,626 instructions), module 103 (705,795 bytes, SHA `6e298d44...`), table coverage **28/28**, control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation, unchanged from module 102), `verify-seeds` 32/32, `verify-translation` 547/0, package verifier 45/45 digests.
 - `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`, index 134) is never set by this profile and was the only untranslated table handler. It needed one bounded create-function at that address only; the 9-instruction / 37-byte leaf calls the already-translated `0x1F5640`.

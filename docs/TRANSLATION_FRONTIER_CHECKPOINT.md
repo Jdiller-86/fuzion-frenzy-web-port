@@ -1,4 +1,17 @@
-# The 0x1F65F0 batch closes the last render-state translation gap
+# The 0x202150 batch reaches the PFIFO pushbuffer boundary
+
+November 5, 2026. After Published head `6cbe40d` and local `2618783`, the post-table region decision was escalated once to the project architect, which authorized one bounded `D3DDevice_Present` set. `0x202150` was already an established function (`body 0x202150..0x2022D0`), so no create-function was made; the set admitted it plus its three untranslated immediate direct callees `0x201E80` (125 instructions / 476 bytes), `0x202060` (64 / 228) and `0x1F5520` (10 / 36) — 4 functions, no transitive expansion. A 6-function seed (`6c5a69b4?`) also carries two functions from a replaced 2-function export, keeping 32 exports; all six preflights are clean with 0 tables.
+
+Translation `recomp-title-recomp-title-post-memory-83` contains **461 functions / 18,940 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 554/0. Module `recomp-post-memory-build-104` is 714,276 bytes, SHA-256 `ff29e85547e6567fa417538d713429632c9e46bc8ef374a3366d80586697e543`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE00009C`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 13 at `0xFD800044`**, ordinal 1 | 339 | 405 |
+
+The comparator exits 0 with +60 routines / +1 operation. The status-2 stop at `0x202150` is gone; the new stop is a PFIFO MMIO register (not code), return `0x1FB06E`, call site `0x1FB069` inside `D3D_BlockOnTime`, `stopReason: "pushbuffer consumption required"`. Frontier: **554 functions, 93 placeholders, 92 referenced**. The next boundary is PFIFO pushbuffer consumption, a fresh architect decision; this cycle halts after one set. These are synthetic startup observations, not command-correctness, rendering, gameplay or playability evidence.
+
+## Prior: The 0x1F65F0 batch closes the last render-state translation gap
 
 November 5, 2026. Starting from published head `6cbe40d`, a coverage audit of the completed render-state table found **27 of 28** handlers translated: index 134, `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`), is never set by this profile and was missing. It was admitted this cycle after one bounded create-function at that address only (`body 0x1F65F0..0x1F6614`, index 134, `TABLE_MATCHES 1`). The leaf is 9 instructions / 37 bytes, calls already-translated `0x1F5640`, and ends in `RET 4`; seed `f338d481?`, preflight 9/9, no tables or normalizations.
 
