@@ -1,6 +1,6 @@
-# Service ordinal 1 is AvGetSavedDataAddress (read-only)
+# Service ordinal 1 is AvGetSavedDataAddress
 
-November 5, 2026. Read-only characterization of the new frontier after the unknown-AV-option model. **No implementation, hook change, admission, export, seed or translation change.** The consumer, vblank, display and unknown-option paths remain default-off.
+November 5, 2026. Sections 1-5 are the read-only characterization of the new frontier after the unknown-AV-option model; sections 6-7 record the architect-authorized default-off model, its guard correction, the pair and the next genuine stop. No translation admission, export, seed or hook change beyond the default-off probe input. Every experimental path remains default-off.
 
 ## 1. Service identity
 
@@ -33,4 +33,39 @@ The published integration head `c8c965c` (source `5d7ebf5`) does not contain the
 
 ## 5. Limits
 
-Static references plus the retained synthetic stop; no display, encoder or playability claim.
+Static references plus the retained synthetic runs; the pinned HAL is the retained replacement, not an original-console observation. Only the zero branch is validated. No display, encoder or playability claim.
+
+## 6. Bounded fixed-0 model, guard correction and pair
+
+The architect authorized a default-off fixed-0 model with a machine-checked no-setter guard. The first guard implementation proved **unsatisfiable** and was corrected by the architect:
+
+- The retained title profile `research/verification/recomp-title-recomp-title-post-memory-83/title-profile.h` binds `{0x0025345Cu, 4u}`; `0x25345C` is one of the four calls in `D3DDevice_Present`'s **nonzero** saved-data branch (skipped when the getter returns 0). The guest image therefore legitimately imports and references `AvSetSavedDataAddress`, so neither an import-table check nor a static call-site scan can pass. The first implementation refused with `FF_BOOT_INVALID` before the run — a real blocker, not a model failure.
+- The architect then authorized **option (a): a runtime no-prior-setter guard** — accept only when the recorded dispatch journal contains no ordinal-4 call before the read; the value is fixed at read time, so a later setter cannot invalidate it. The setter itself stays unmodeled.
+
+Implemented (`src/runtime/av_saved_data.c/.h`):
+
+| Function | Contract |
+| --- | --- |
+| `ff_av_saved_data_prior_setter(ordinals, count)` | `1` if any prior ordinal is 4; fails closed on an unreadable journal |
+| `ff_av_saved_data_value(declared, prior_setter, out)` | declared and no prior setter ⇒ write 0; undeclared or prior setter ⇒ refusal with no write |
+
+Harness/tooling: default-off `avSavedData` setter (no static scan), an ordinal-1 handler that copies the recorded journal ordinals, evaluates the guard before recording the read, returns 0 with no arguments or stack change, and reports diagnostics including `priorSetter`; parser input, `avSavedDataState`, validator pairing and pinned acceptance (value 0, EAX = 0, `esp` unchanged, `priorSetter` 0). Native tests cover the clean journal, a prior setter, an unreadable journal, the undeclared refusal, the no-write-on-refusal rule and a repeated read after a recorded setter.
+
+Module `recomp-post-memory-build-120`: **720,149 bytes**, SHA-256 `447c807370f7237994368b4d105ef2bb84906172963f4c5d3407e282c04baa88`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert (display profile, no saved-data input) | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| saved-data input | **status 1 at `0xFE000094`, ordinal 2** | **340** | **409** |
+
+The ordinal-1 read was accepted: `priorSetter 0`, `value 0`, EAX `1 -> 0`, `esp 62983668 -> 62983668` (unchanged). This validates only the zero branch (`0x202284` → `0x20228A`, EDI=0); the nonzero saved-data path remains unmodeled and unclaimed.
+
+## 7. Next genuine stop: a third ordinal-2 call with a NULL Result
+
+After the zero branch the run stops at ordinal 2 (`AvSendTVEncoderOption`), status 1 at `0xFE000094`, 340 routines / 409 kernel operations. Read-only characterization of the observed call:
+
+- Return address `0x2022BD` in `D3DDevice_Present`; stack `[0x03920000, 9, 0, 0]` — handle `0x03920000` (AV encoder register base), option `9` = **`AV_OPTION_QUERY_AV_CAPABILITIES`** (documented, `kernel.h:1152`), param 0, **Result = NULL**.
+- The pinned HAL (`kernel_hal.c:1458`) begins with `if (!Result) return;`, so this shape is a **log-and-return with no write, no failure, EAX untouched and the stdcall frame popped by 20**. That is reference-grounded, but the shape has not been modeled; it is the next bounded decision. The existing default-off ordinal-2 router already refuses it honestly.
+
+No DECISIONS row: the published integration head `c8c965c` predates `3d4cf7d` and is not an ancestor; merge is denied here.

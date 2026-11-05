@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -238,6 +238,22 @@ export function validateProofReport(report) {
         (u.handle !== 0xFD000000 || u.option !== 0x0F || u.param !== 0 || u.written !== 0 ||
          u.eaxAfter !== u.eaxBefore || u.espAfter !== ((u.espBefore + 20) >>> 0)))
       throw new Error('An accepted unknown AV option must match the pinned default');
+  }  /* Saved-data-address experiment and state pairing; the pinned value is 0
+   * with no arguments and no stack change. */
+  const claimsAvSaved = experiments.includes('avSavedData');
+  if (report.avSavedDataState !== undefined && !claimsAvSaved)
+    throw new Error('Saved-data state requires the avSavedData experiment');
+  if (claimsAvSaved && report.avSavedDataState === undefined)
+    throw new Error('The avSavedData experiment requires its state');
+  if (report.avSavedDataState !== undefined) {
+    const s = report.avSavedDataState;
+    if (!s || !integer(s.calls) || !integer(s.value) || !integer(s.decision) ||
+        !integer(s.eaxBefore) || !integer(s.espBefore) || !integer(s.eaxAfter) ||
+        !integer(s.espAfter) || !integer(s.priorSetter))
+      throw new Error('Malformed saved-data state');
+    if (s.decision === 0 &&
+        (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== s.espBefore || s.priorSetter !== 0))
+      throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
   }  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
