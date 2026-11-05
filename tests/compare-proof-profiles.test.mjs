@@ -208,16 +208,21 @@ test('the comparison requires the same ordinal-2 call arguments', () => {
 
 test('the comparison preserves every routine the control reached', () => {
   const reached = count => Array.from({ length: count }, (_, index) => index + 1);
+  const enterTrace = addresses => addresses.map(address => ({ kind: 'enter', address, stack: 1 }));
+  const controlList = reached(279);
+  const experimentList = [...reached(279), 5000];
   const withLists = {
-    control: { ...control(), originalFunctionsReached: reached(279) },
-    experiment: { ...experiment(), originalFunctionsReached: [...reached(279), 5000] },
+    control: { ...control(), originalFunctionsReached: controlList, trace: enterTrace(controlList) },
+    experiment: { ...experiment(), originalFunctionsReached: experimentList, trace: enterTrace(experimentList) },
   };
   assert.equal(compareProofProfiles(withLists.control, withLists.experiment).ok, true);
   /* The experiment keeps 280 unique routines but drops one control routine and
    * adds two others, so the count alone would still pass. */
+  const droppedList = [...reached(280).slice(1), 5000, 5001].slice(1);
   const dropped = {
     ...experiment(),
-    originalFunctionsReached: [...reached(280).slice(1), 5000, 5001].slice(1),
+    originalFunctionsReached: droppedList,
+    trace: enterTrace(droppedList),
   };
   assert.throws(() => compareProofProfiles(withLists.control, dropped),
     /dropped routines the control reached/);

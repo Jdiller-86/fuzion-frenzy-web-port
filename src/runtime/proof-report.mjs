@@ -44,6 +44,9 @@ export function validateProofReport(report) {
         report.originalFunctionsReached.length > TRACE_LIMIT ||
         report.originalFunctionsReached.some(address => !integer(address)))
       throw new Error('The reached original-routine list is malformed or exceeds its bound');
+    if (JSON.stringify(report.originalFunctionsReached) !==
+        JSON.stringify(report.trace.filter(entry => entry.kind === 'enter').map(entry => entry.address)))
+      throw new Error('The reached original-routine list does not match the entry trace');
   }
   const stop = report.stop;
   if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal))
