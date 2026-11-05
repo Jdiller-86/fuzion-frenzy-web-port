@@ -1,4 +1,15 @@
-# The 0x1F68C0 batch advances the stop to 0x1F69F0
+# The 0x1F69F0 batch advances the stop to 0x1F6A70
+
+November 5, 2026. `0x1F69F0` (`D3DDevice_SetRenderState_ZBias`, table index 129) was already Ghidra-established. Its 41-instruction / 116-byte leaf calls translated `0x1F66A0` five times, performs the FPU sequence `FILD/FADD/FCHS/FST/FMUL/FSTP`, and ends in `RET 4`; preflight is 41/41, no tables or normalizations. The seed was appended to the merged 20-function seed (`846cac1b?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-71` contains **444 functions / 18,404 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 534/0. Module `recomp-post-memory-build-92` is 698,963 bytes, SHA-256 `57e245de1a8ad896f57d1e67bee3fd69eb742f240561eeaacf059fac8f34e9d0`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6A70`** | 314 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +35 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F69F0` executed; `0x1F6A70` was not entered. Frontier: **534 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F68C0 batch advances the stop to 0x1F69F0
 
 November 5, 2026. `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established. Its 25-instruction / 76-byte leaf calls already-translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites; preflight is 25/25, no tables or normalizations. The seed was appended to the merged 19-function seed (`347da100?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-70` contains **443 functions / 18,363 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 533/0. Module `recomp-post-memory-build-91` is 697,055 bytes, SHA-256 `21ef36559c62ea4cce52c9b6719cd3d0ffc69c484bb2ccb5c480b8d6261e45ae`.
 

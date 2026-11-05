@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F68C0 admission
+## Latest: 0x1F69F0 admission
+
+- [The 0x1F69F0 batch](FRONTIER_DEP_1F69F0_CHECKPOINT.md): translation 71 (444 functions / 18,404 instructions), module 92 (698,963 bytes, SHA `57e245de…`), control 279/404 at ordinal 2 vs experiment 314/405 at untranslated `0x1F6A70`, comparator exit 0 (+35 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 534/0, package verifier 31/31 digests.
+- `0x1F69F0` (`D3DDevice_SetRenderState_ZBias`, table index 129) was already Ghidra-established; its 41-instruction / 116-byte seed (`a0e4178d…`) calls translated `0x1F66A0` five times, performs the FPU sequence, and ends in `RET 4`. `0x1F6A70` is the next ordinary stop (table index 130).
+- Publication is current: remote source `a66fc26`, CI run `41979595115` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+
+## Prior: 0x1F68C0 admission
 
 - [The 0x1F68C0 batch](FRONTIER_DEP_1F68C0_CHECKPOINT.md): translation 70 (443 functions / 18,363 instructions), module 91 (697,055 bytes, SHA `21ef3655…`), control 279/404 at ordinal 2 vs experiment 313/405 at untranslated `0x1F69F0`, comparator exit 0 (+34 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 533/0, package verifier 30/30 digests.
-- `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established; its 25-instruction / 76-byte seed (`bc293f77…`) calls only translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites. `0x1F69F0` is the next ordinary stop (table index 129).
-- Publication is current: remote source `47dfb9a`, CI run `41978126792` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+- `0x1F68C0` (`D3DDevice_SetRenderState_TextureFactor`, table index 128) was already Ghidra-established; its 25-instruction / 76-byte seed (`bc293f77…`) calls only translated `0x1FB3B0`, performs one `rep stosd` of 16 dwords, and has two return sites.
 
 ## Prior: 0x1F6850 tail-call batch
 
