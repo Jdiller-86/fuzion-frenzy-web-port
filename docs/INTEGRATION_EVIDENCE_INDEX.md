@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F74F0 admission
+## Latest: 0x1F7550 admission
+
+- [The 0x1F7550 batch](FRONTIER_DEP_1F7550_CHECKPOINT.md): translation 80 (454 functions / 18,609 instructions), module 101 (705,079 bytes, SHA `cfb7b918...`), control 279/404 at ordinal 2 vs experiment 324/405 at untranslated `0x1F7570`, comparator exit 0 (+45 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 544/0, package verifier 41/41 digests.
+- `0x1F7550` (`D3DDevice_SetRenderState_RopZCmpAlwaysRead`, table index 141) was a named symbol without a function; one bounded create-function at that address only made it admissible. The 4-instruction / 17-byte seed (`610fda82...`) stores its argument and calls `0x1F7230`, an already-established 45-instruction / 200-byte function (`2038c102...`) that calls translated `0x1FB3B0`.
+- The render-state table still does **not** end here: index 143 (`0x1F7590`) remains and index 144 onward is non-pointer data, so `0x1F7570` is an ordinary in-region stop and no post-table region is declared. This batch is `D342`.
+
+## Prior: 0x1F74F0 admission
 
 - [The 0x1F74F0 batch](FRONTIER_DEP_1F74F0_CHECKPOINT.md): translation 79 (452 functions / 18,560 instructions), module 100 (703,605 bytes, SHA `c0300987...`), control 279/404 at ordinal 2 vs experiment 322/405 at untranslated `0x1F7550`, comparator exit 0 (+43 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 542/0, package verifier 39/39 digests.
 - `0x1F74F0` (`D3DDevice_SetRenderState_StencilCullEnable`, table index 140) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`8b53384b...`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. The render-state table does **not** end at index 140 (indices 141-143 remain), so `0x1F7550` is an ordinary in-region stop.

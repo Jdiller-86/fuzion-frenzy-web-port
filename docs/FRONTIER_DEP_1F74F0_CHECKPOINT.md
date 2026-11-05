@@ -49,6 +49,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F7550` (`RopZCmpAlwaysRead`, table index 141) is an ordinary in-region render-state entry; it was not entered. Indices 142-143 also remain, so the table is not complete and this checkpoint does **not** declare a post-table region. This cycle stops here for review; a later ≤8-function batch may continue only while stops remain ordinary. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F7550` (`RopZCmpAlwaysRead`, table index 141) is an ordinary in-region render-state entry; it was not entered here. It was subsequently established persistently and admitted together with its direct dependency `0x1F7230` in translation 80/module 101, and the new observed stop is `0x1F7570`. See [the 0x1F7550 checkpoint](FRONTIER_DEP_1F7550_CHECKPOINT.md). Indices 142-143 still remain, so no post-table region is declared. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent `0x1F74F0` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.
