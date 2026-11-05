@@ -422,10 +422,10 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     (void)site;
 #ifdef FF_PFIFO_PROOF
     /* Run-level safety for the default-off consumer: a post-consumption wait
-     * that makes no PFIFO progress must not run unbounded. Count guest memory
-     * accesses after the first pusher step and stop with the budget
-     * classification (still status 13, as the authorization requires). */
-    if (pfifo_consumer_enabled && pfifo_consumer_steps &&
+     * that makes no PFIFO progress must not run unbounded. Count only guarded
+     * guest accesses with a real call site; probe reads pass site 0 and must
+     * not consume the budget or trap after the run. */
+    if (pfifo_consumer_enabled && pfifo_consumer_steps && site &&
         ++pfifo_consumer_vm_checks >= FF_PFIFO_CONSUMER_MAX_VM_CHECKS) {
         pfifo_consumer_pusher.classification = FF_PFIFO_PUSH_BUDGET;
         pfifo_consumer_budget_hit = 1;

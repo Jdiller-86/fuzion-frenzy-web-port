@@ -51,6 +51,7 @@ The profile zeroes `0xFD800000+0x1000`, `0xFD003200+0x100`, `0xFD100200+0x1000`,
 - **Control** (consumer absent), module 106 and 107: one stop, **status 13 at `0xFD800044`**, **339 routines / 405 kernel operations**, `pushbuffer consumption required`, no consumer state. The site is reached exactly as before the prototype.
 - **Consumer enabled**, module 106: no report and no termination (300 s, earlier 900 s); the 64-step GET budget did not fire, so the wait was passed.
 - **Consumer enabled**, module 107 (500,000 VM-access budget): the worker writes `{"kind":"error","message":"RuntimeError: unreachable"}`. That is a Wasm trap from a `stop()`, but it is surfaced as a generic error, so the stop record and `pfifoConsumerState` are not classified.
+- **Module 108** scopes the VM budget to guarded accesses with a real call site (probe reads pass site 0). The control still reproduces **339/405 at `0xFD800044`**, but the consumer run still writes the same `RuntimeError: unreachable` at about 180 s. The error is therefore **not** a post-run probe read consuming the budget; the worker's trap classification remains the open gap.
 - Consequence: the GET site is reached and the pusher runs, but the post-consumption sequence is **not yet observable as a classified stop**. The model cannot claim an advance, a refusal class, or a next stop from these runs.
 
 ### Observed control sequence (retained device log, module 107)
