@@ -86,6 +86,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/av_unknown_option.h"
 #include "../../src/runtime/av_saved_data.h"
 #include "../../src/runtime/av_null_result.h"
+#include "../../src/runtime/mm_free_contiguous.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -167,6 +168,9 @@ static uint32_t av_null_handle, av_null_option, av_null_param, av_null_result;
 static uint32_t av_null_write_before, av_null_write_after;
 static uint32_t av_null_checksum_before, av_null_checksum_after;
 static uint32_t av_null_eax_before, av_null_esp_before, av_null_eax_after, av_null_esp_after;
+static uint32_t mm_free_enabled, mm_free_calls, mm_free_decision, mm_free_address;
+static uint32_t mm_free_eax_before, mm_free_esp_before, mm_free_eax_after, mm_free_esp_after;
+static uint32_t mm_free_write_before, mm_free_write_after;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -316,9 +320,32 @@ uint32_t ff_probe_av_null_result_word(uint32_t field)
         default: return UINT32_MAX;
     }
 }
-uint32_t ff_probe_vblank_word(uint32_t field)
+uint32_t ff_probe_mm_free_contiguous(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    mm_free_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_mm_free_contiguous_word(uint32_t field)
 {
     switch (field) {
+        case 0: return mm_free_enabled;
+        case 1: return mm_free_calls;
+        case 2: return mm_free_address;
+        case 3: return mm_free_decision;
+        case 4: return mm_free_eax_before;
+        case 5: return mm_free_esp_before;
+        case 6: return mm_free_eax_after;
+        case 7: return mm_free_esp_after;
+        case 8: return mm_free_write_before;
+        case 9: return mm_free_write_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_vblank_word(uint32_t field)
+{
+        switch (field) {
         case 0: return vblank_wait_calls;
         case 1: return vblank_wait_type;
         case 2: return vblank_wait_signal;
@@ -2103,8 +2130,7 @@ static void av_option_router(void)
     uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
     uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
     if (handle == 0u && option == 6u) { av_send_tv_encoder_option(); return; }
-    if (av_null_enabled && handle == FF_AV_NULL_HANDLE && option == FF_AV_NULL_OPTION &&
-        param == 0u && result == 0u) { av_null_result_call(); return; }
+    if (av_null_enabled && result == 0u) { av_null_result_call(); return; }
     av_unknown_option_call();
 }
 #endif
@@ -2197,6 +2223,34 @@ static void av_get_saved_data(void)
     row[1] = 0u;
     row[2] = value;
 }
+static void mm_free_contiguous_call(void)
+{
+    uint32_t *row = kernel_record(171u, 1u);
+    uint32_t address = MEM32(g_esp + 4u);
+    uint32_t mapped = address && !(address & 3u) && address <= FF_GUEST_BYTES - 4u;
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t decision = ff_mm_free_accept(mm_free_enabled, address, mapped);
+    ++mm_free_calls;
+    mm_free_address = address;
+    mm_free_decision = decision;
+    if (decision != FF_MM_FREE_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, kernel_binding_address(171u), 171u);
+    }
+    /* Pinned declaration-level effect only: no guest write, EAX 0, one-argument
+     * stdcall frame. The harness owns no host allocator and never reuses freed
+     * blocks, so this is not allocator fidelity and makes no reuse claim. */
+    mm_free_write_before = ff_guest_write_map_count(&guest_write_map);
+    g_eax = 0u;
+    g_esp = esp_before + 8u;
+    mm_free_write_after = ff_guest_write_map_count(&guest_write_map);
+    mm_free_eax_before = eax_before;
+    mm_free_esp_before = esp_before;
+    mm_free_eax_after = g_eax;
+    mm_free_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = address;
+}
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
@@ -2272,6 +2326,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 159 && pcrtc_ready && pcrtc_declared) return wait_vblank;
         if (ordinal == 3 && display_mode_enabled) return set_display_mode;
         if (ordinal == 1 && av_saved_enabled) return av_get_saved_data;
+        if (ordinal == 171 && mm_free_enabled) return mm_free_contiguous_call;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is

@@ -117,3 +117,70 @@ Module `recomp-post-memory-build-123` (same probe sources, profile 86): **722,25
 The experiment now passes `D3DDevice_Release` (+4 reached routines) and reaches a **new ordinal-2 call** that the default-off router honestly refuses: `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return address `0x001FB664`). The pinned HAL's `if (!Result) return;` again makes a NULL-Result call a log-and-return, but this handle/option/param tuple differs from the authorized exact tuple, so it needs its own bounded decision. Two ordinal-1 reads and the null-result call still completed in this run.
 
 No DECISIONS row: integration head `6bc05f7` contains `c8c965c` but not the lane commits, so the sync-first rule still blocks it.
+
+## 10. Generalized null-Result admission and the next translation stop
+
+The architect authorized generalizing the declared null-result model because the pinned early return is a causal source fact, not data-fitting: `kernel_hal.c:1458` tests `Result` **before** the option switch, unconditionally on handle, option and param. A nonzero Result still reaches the unmodeled query switch and stays refused.
+
+- `src/runtime/av_null_result.c/.h` now accepts a declared call with `Result == 0` for any handle/option/param, and refuses nonzero Result and undeclared profiles.
+- Native tests cover both observed pairs (the startup-range `0x03920000,9,0` and the device `0xFD000000,9,1`), one deliberately unobserved tuple labeled as a mechanism test, nonzero-Result refusal, and undeclared refusal.
+- Harness: the same default-off `avNullResult` branch accepts any null Result, writes nothing, leaves EAX, pops 20 and records the call count and last full tuple.
+- Validator: an accepted null call must carry `result 0`, an observed shape, no write-map delta, an equal argument-frame checksum, unchanged EAX and `esp + 20`; the pair must reproduce **both** observed shapes; nonzero-Result calls stay on the unmodeled path.
+
+Module `recomp-post-memory-build-124` (same profile 86, updated sources): **722,209 bytes**, SHA-256 `f9b29aeed26b4230ed0d4e0385a7ea507af72fa63e9ab3d1d3720feb6ab54e64`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 2 at `0x001FC910`** | **344** | **412** |
+
+Both null-Result calls were accepted (`calls 2`; last tuple `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; frame checksum unchanged; EAX `0xFD000000` unchanged; `esp + 20`). The run then reaches a **translation placeholder**: `0x001FC910` (`FUN_001fc910`, body `0x001FC910..0x001FC971`, ~97 bytes, one stack argument). Admitting it is the next bounded translation increment; nothing about its behavior is claimed here.
+
+No DECISIONS row: integration head still lacks the lane commits.
+
+## 11. Admission of FUN_001fc910 and the next service stop
+
+`0x001FC910` is `FUN_001fc910` (body `0x001FC910..0x001FC971`, 98 bytes, one stack argument): it inspects a D3D format word (`[arg]` masked with `0x780000`/`0x70000`) and branches, a small format/helper function reached from the device teardown.
+
+Admission was one bounded increment under the standing policy:
+
+- Read-only Ghidra export `research/verification/recomp-admit-1fc910-01/seed-triple.json` (`0x00042BE0` + `0x001F54D0` + `0x001FC910`) replaced the previous two-function seed, keeping the **32-export** set (one function admitted this set, well under the eight-function bound).
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 87: **463 functions, 18,990 instructions** (the new function is 98 bytes / 32 instructions).
+- `verify-seeds.py` against profile 87 reports **32 recorded / 32 offered / 0 unexpected / 0 missing** ("the offered seeds match this translation's record exactly"). `verify-recomp-package.mjs` re-ran the seed check and `verify-translation.py`: 554 functions reached, 0 needing rewriting, "The translation is fully instrumented by the current guard." Its controlled-pair sub-check targets the avQuery-pair shape and does not apply to this staged pair.
+
+Module `recomp-post-memory-build-125` (profile 87, same sources): **722,950 bytes**, SHA-256 `f77f606669311327be9a33424b77ac634f6fe4fce3b35da6e885cf8925f178ea`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 1 at `0xFE000004`, ordinal 171** | **346** | **412** |
+
+The experiment now runs two more original routines and reaches a **named-service stop**: ordinal 171 = `MmFreeContiguousMemory(PVOID BaseAddress)` with argument `0x037F2000`, return address `0x001FB6D9` inside `CDevice_FreeFrameBuffers`. The pinned bridge frees the address from the contiguous arena (falling back to the heap) and returns EAX 0; the stdcall frame is four argument bytes. Modeling that allocator behavior is a fresh service decision, so the default dispatch refuses it and the run halts here. Nothing about the free outcome is claimed.
+
+No DECISIONS row: integration head still lacks the lane commits.
+
+## 12. Ordinal-171 contiguous-free model and the next stop
+
+The architect authorized one default-off model with binding stipulations: exact one-argument service shape (mapped, 4-byte-aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an unconditional disclosure that this is the pinned **declaration-level** effect only.
+
+- `src/runtime/mm_free_contiguous.c/.h`: declared + mapped/aligned address ⇒ accept; zero, unmapped, unaligned or undeclared ⇒ refusal. The observed `0x037F2000` is diagnostics, not part of the predicate.
+- Native tests cover accept, zero/unmapped/unaligned refusal and undeclared refusal.
+- Harness: default-off `mmFreeContiguous` input; the ordinal-171 handler records the argument, EAX and `esp` before/after and the write-map count, sets EAX 0, pops 8, and writes nothing.
+- Validator: pairing plus pinned acceptance (`address` non-zero and aligned, EAX 0, `esp + 8`, write-map count unchanged).
+- Disclosure: the pinned bridge frees from its contiguous arena (heap fallback) and never changes guest memory; this harness owns no host allocator and never reuses freed blocks, so the model reproduces only that observable no-op. It is **not** allocator fidelity and makes no later-reuse claim. Ordinal 170 (`MmAllocateContiguousMemory`) never appears in the retained run, so the freed block's provenance is not determinable from the journal.
+
+Module `recomp-post-memory-build-126` (profile 87, updated sources): **723,629 bytes**, SHA-256 `6849f0b7d76d7e860eb9b37a0ca148965310136bc8c601f577ccf956e29afaa4`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 10 at `0x6B6A6968`** | **346** | **414** |
+
+The experiment accepted **two** contiguous frees (`calls 2`): `0x037F2000` and `0x03920000`, each with write-map `47 -> 47`, EAX 0 and `esp + 8`. The run then reached a **new class of stop: a guest read fault (status 10, access 1) at `0x6B6A6968`** — the ASCII bytes `"hijk"` treated as a pointer — with return address `0x001FC087` inside `FUN_001FC010`: `MOV EAX,[ESI+0x47c]`, then `MOV EDX,[EAX]` at `0x1FC091` reads the bogus pointer. The device object's field `+0x47C` holds non-pointer data in this run.
+
+This is a genuine halt, not a model invariant failure: both free calls matched the pinned declaration-level contract. Whether the bogus field comes from a translation gap, an earlier declaration-only model, or guest data that the pinned allocator would have changed is **not established**; the next task is a bounded read-only investigation of `FUN_001FC010` and the `+0x47C` field, not another model.
+
+No DECISIONS row: integration head still lacks the lane commits.

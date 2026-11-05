@@ -2,13 +2,15 @@
 #define FF_AV_NULL_RESULT_H
 #include <stdint.h>
 
-/* Bounded model for the observed third AvSendTVEncoderOption call. The pinned
- * HAL tests the Result pointer before its option switch (`if (!Result)
- * return;`), so this observed shape logs and returns without writing or
- * failing. Only the exact tuple is admitted; a nonzero Result would reach the
- * option-9 query path, which is a different unmodeled behavior. */
+/* Bounded model for AvSendTVEncoderOption calls whose Result pointer is null.
+ * The pinned HAL tests the pointer before its option switch (`if (!Result)
+ * return;`), unconditionally on handle, option and param, so every null-Result
+ * call logs and returns without writing or failing. A nonzero Result reaches
+ * the option switch, which is a different unmodeled path. */
+/* The two observed null-result shapes retained as pair evidence. */
 #define FF_AV_NULL_HANDLE 0x03920000u
 #define FF_AV_NULL_OPTION 9u
+#define FF_AV_NULL_DEVICE 0xFD000000u
 
 enum {
     FF_AV_NULL_ACCEPT = 0,
