@@ -1,4 +1,15 @@
-# The 0x1F6B50 batch advances the stop to 0x1F6890
+# The 0x1F6890 batch advances the stop to 0x1F7300
+
+November 5, 2026. `0x1F6890` (`D3DDevice_SetRenderState_NormalizeNormals`, table `0x2025D8`, index 122) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 13-instruction / 45-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 13/13, no tables or normalizations. The seed was appended to the merged 13-function seed (`a41d2643?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-65` contains **437 functions / 18,195 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 527/0. Module `recomp-post-memory-build-86` is 692,563 bytes, SHA-256 `2a0ff87ba332b1dda66589dc4270b05dc7a5cda7fdcd77a469f558402d2117ed`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7300`** | 307 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +28 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6890` executed; `0x1F7300` was not entered. Frontier: **527 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6B50 batch advances the stop to 0x1F6890
 
 November 5, 2026. `0x1F6B50` (`D3DDevice_SetRenderState_TwoSidedLighting`, table `0x2025D4`, index 121) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 24-instruction / 84-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6B88`, and ends in `RET 4`; preflight is 24/24, no tables or normalizations. The seed was appended to the merged 12-function seed (`831991b3?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-64` contains **436 functions / 18,182 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 526/0. Module `recomp-post-memory-build-85` is 692,002 bytes, SHA-256 `d136484b1c5460fe17df8db9a2217017cb5d8fbaafdb171b762a262bc9ab8b01`.
 
