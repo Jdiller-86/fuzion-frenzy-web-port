@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6790 admission
+## Latest: 0x1F6AC0 admission
+
+- [The 0x1F6AC0 batch](FRONTIER_DEP_1F6AC0_CHECKPOINT.md): translation 62 (434 functions / 18,136 instructions), module 83 (690,455 bytes, SHA `9a84bdc1…`), control 279/404 at ordinal 2 vs experiment 304/405 at untranslated `0x1F6B00`, comparator exit 0 (+25 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 524/0, package verifier 21/21 digests.
+- `0x1F6AC0` (`D3DDevice_SetRenderState_FillMode`, table `0x2025CC`, index 119) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 18-instruction / 62-byte seed (`628ba62b…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 18/18. `0x1F6B00` is the next ordinary stop (table index 120).
+- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. Architect CI run `41964401675` at `fd0ea19` still fails in `tests/integration-verification.test.mjs:106` because its temporary-repo `git merge` has no committer identity; the main PR remains blocked until that verification-owned test is fixed.
+
+## Prior: 0x1F6790 admission
 
 - [The 0x1F6790 batch](FRONTIER_DEP_1F6790_CHECKPOINT.md): translation 61 (433 functions / 18,118 instructions), module 82 (689,834 bytes, SHA `b3c354bd…`), control 279/404 at ordinal 2 vs experiment 303/405 at untranslated `0x1F6AC0`, comparator exit 0 (+24 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 523/0, package verifier 20/20 digests.
-- `0x1F6790` (`D3DDevice_SetRenderState_FogColor`, table `0x2025C8`, index 118) was already Ghidra-established; the 22-instruction / 71-byte seed (`3de7c154…`) calls already-translated `0x1FB3B0` and preflights 22/22. `0x1F6AC0` is the next ordinary stop (table index 119).
-- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. Architect CI run `41964401675` at `fd0ea19` still fails in `tests/integration-verification.test.mjs:106` because its temporary-repo `git merge` has no committer identity; the main PR remains blocked until that verification-owned test is fixed.
+- `0x1F6790` (`D3DDevice_SetRenderState_FogColor`, table `0x2025C8`, index 118) was already Ghidra-established; the 22-instruction / 71-byte seed (`3de7c154…`) calls already-translated `0x1FB3B0` and preflights 22/22.
 
 ## Prior: 0x1F6BB0 symbol-entry admission
 
