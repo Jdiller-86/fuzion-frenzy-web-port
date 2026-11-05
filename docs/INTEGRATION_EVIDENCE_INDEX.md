@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: vblank wait model passes; ordinal-3 frontier
+
+- [Wait-model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md#type-gate-correction-and-result): architect-accepted correction decodes the full event header (low byte 0/1, Size byte 4) and consumes only Type 1; the title's notification event `0x00040000` is accepted. Module 115 (717,097 bytes, SHA `c7b94e38...`). Control unchanged (339/405, status 13); experiment (consumer + 3 vblanks) decision 0, declared 3 -> 2, the wait exits, and the run advances to **status 1 at `0xFE0000A4`, ordinal 3**, 340/406, return `0x202231` in `D3DDevice_Present`'s submit loop. Supersedes D364's type-1 restriction and D365's flag reading for this object. This is `D366`.
 ## Latest: ordinal-159 wait object characterization (read-only)
 
 - [Vblank object checkpoint](VBLANK_OBJECT_CHECKPOINT.md): object `0x00206080` = D3D device `0x00203B80` + `0x2500`, first dword `0x00040000`, `+4` word 0; static writers treat it as a flag/state field, not a KEVENT. The event gate refusal is confirmed; modeling it as an event would be an assumption. Next: initializer/signal characterization, a D3D-specific path, or hold. This is `D365`.

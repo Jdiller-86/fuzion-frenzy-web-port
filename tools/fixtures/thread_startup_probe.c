@@ -1933,7 +1933,7 @@ static void wait_vblank(void)
     ff_pcrtc_vblank(&pcrtc);
     --pcrtc_declared;
     MEM32(object + 4u) = 1u;
-    MEM32(object + 4u) = 0u;
+    if ((type & 0xFFu) == 1u) MEM32(object + 4u) = 0u;
     row[1] = 0u;
     g_eax = 0u;
 }

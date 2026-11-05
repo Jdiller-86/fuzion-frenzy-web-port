@@ -1,4 +1,8 @@
-# The ordinal-159 wait object is a D3D device field at 0x206080
+# The vblank wait model passes and reaches service ordinal 3
+
+November 5: architect-accepted type-gate correction (decode full header; accept Type 0/1 with Size 4; consume only Type 1). Module 115 (717,097 bytes, SHA `c7b94e38?`). Control unchanged (339/405, status 13). Experiment (consumer + 3 vblanks): decision 0, declared 3 -> 2, wait exits, new stop **status 1 at `0xFE0000A4`, ordinal 3**, 340/406, return `0x202231` in `D3DDevice_Present`'s submit loop; consumer still drains 499 and releases 3 -> 9. Supersedes D364's type-1 restriction and D365's flag reading for this object. Checks: `test:native` 38/38, `test:runtime` pass, `check` 460 files. Default-off; next decision is ordinal 3. **No controllable original screen.**
+
+## Prior: The ordinal-159 wait object is a D3D device field at 0x206080
 
 November 5: read-only follow-up to the refused gate; no code change. The object is `0x00206080` = D3D device `0x00203B80` + `0x2500`, first dword `0x00040000`, `+4` word 0; `BlockUntilVerticalBlank` passes it to ordinal 159. Static writers treat it as a flag/state field, not a KEVENT; modeling it as an event would be an assumption. Next: characterize the initializer/signal word, model a D3D-specific path, or hold. Checks: `check` 460 files, whitespace clean. Integration head `1e35f8a` is an ancestor; main ancestry retained. Consumer/wait path default-off. **No controllable original screen.**
 

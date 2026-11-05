@@ -1,4 +1,10 @@
-# The ordinal-159 wait object is a D3D device field at 0x206080
+# The vblank wait model passes and reaches service ordinal 3
+
+November 5: the architect accepted the type-gate correction (decode the full event header: low byte 0/1, Size byte 4; consume only Type 1). The model now accepts the title's **notification** event `0x00040000` (Type 0), signals it, leaves it signaled, and the wait exits. Module 115 is **717,097 bytes**, SHA `c7b94e38?`. Control unchanged (status 13 at `0xFD800044`, 339/405). The experiment (consumer + 3 vblanks) accepted the wait once (`decision 0`, `declared` 3 -> 2) and advanced to a **new service boundary: status 1 at `0xFE0000A4`, ordinal 3**, **340 routines / 406 kernel ops**, return `0x202231` inside `D3DDevice_Present`'s submit loop; the consumer still drained 499 words and released the fence 3 -> 9. This supersedes D364's type-1 restriction and D365's flag-field reading for this object; the static writers are the direct SignalState reset path. Checks: `test:native` 38/38, `test:runtime` pass, `check` 460 files, whitespace clean.
+
+The consumer and wait path remain default-off; no ISR/IRQ/timing or rendering claim. The next decision is ordinal 3. Integration head `1e35f8a` is an ancestor; main ancestry is retained. **There is no controllable original screen.**
+
+## Prior: The ordinal-159 wait object is a D3D device field at 0x206080
 
 November 5: read-only follow-up to the refused event gate — no implementation, hook change, admission, export, seed or translation change. [The checkpoint](VBLANK_OBJECT_CHECKPOINT.md): the object is **`0x00206080` = D3D device `0x00203B80` + `0x2500`**; its first dword is **`0x00040000`**, its `+4` word is 0. `D3DDevice_BlockUntilVerticalBlank` passes it to ordinal 159. Static writers (`FUN_001FDC30`, `FUN_001FE928`, `FUN_00200143`, `FUN_00200352`, `FUN_0020107C`) treat it as a flag/state field, not a KEVENT type/signal pair; `0x40000` appears throughout the title as a D3D resource/flag. Treating it as a KEVENT would be an unsupported assumption, so the gate refused and wrote nothing. Next decision: characterize the `device+0x2500` initializer/signal word, model a D3D-specific vblank path, or hold. Checks: `check` 460 files, whitespace clean; no code change this cycle.
 

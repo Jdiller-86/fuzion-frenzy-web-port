@@ -33,3 +33,7 @@ The pinned bridge's `KeWaitForSingleObject` path is still the correct service se
 ## Halt
 
 No model change, no writes, no new service. The next decision is whether to (a) characterize the `device+0x2500` initializer and signal word further, (b) model a D3D-specific vblank event path, or (c) hold. The consumer and wait path remain default-off; no ISR/IRQ/timing or rendering claim.
+
+## Correction (same day)
+
+The pinned bridge's title-event recognition (`kernel_bridge.c:7646-7648`) decodes the **full first header dword**: low byte 0 (notification) or 1 (synchronization) and Size byte (bits 16-23) == 4. `0x00040000` is therefore **Type 0 notification, Size 4, SignalState 0** — a valid title-built notification event. D365's "not a KEVENT" reading is superseded **for this object under ordinal 159**; the static writers it lists are the direct SignalState reset path the bridge expects (XDK code resets the field itself). The corrected gate accepted the event and the run advanced; see [the wait-model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md#type-gate-correction-and-result).

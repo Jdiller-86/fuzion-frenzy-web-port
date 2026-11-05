@@ -30,3 +30,18 @@ The object at `0x00206080` does **not** have the pinned generic event layout: it
 ## Checks
 
 `test:native` **38/38** (optimized and ASan/UBSan) · `test:runtime` pass · `check` 458 files · whitespace clean. No original content; no rendering or playability claim.
+
+## Type-gate correction and result
+
+The pinned bridge (`kernel_bridge.c:7646-7648`, `:8342`, `:2021`, `:2056-2057`) recognizes title-built events by decoding the **full first header dword**: low byte 0 (notification) or 1 (synchronization) and Size byte (bits 16-23) == 4. The refused header `0x00040000` is therefore a valid **notification** event, and the original type-1-only gate was too strict. The architect accepted the correction: decode the header, accept either type, and consume (write 0 at `object+4`) **only for type 1**; notification leaves SignalState = 1.
+
+Module `recomp-post-memory-build-115`: **717,097 bytes**, SHA-256 `c7b94e38d9a8313450e5e32b99aa944afb7293eedcf26da2d1495ba5092081f5`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no vblanks) | status 13 at `0xFD800044` | 339 | 405 |
+| consumer + 3 vblanks | **status 1 at `0xFE0000A4`, ordinal 3** | **340** | **406** |
+
+The experiment accepted the wait once (`calls 1`, header `0x00040000`, signal 0, decision **0**, `declared` 3 -> 2), and `D3DDevice_BlockUntilVerticalBlank` exited. The run advanced to a **new service boundary**: ordinal **3**, status 1, return `0x202231` inside `D3DDevice_Present`'s submit loop. The consumer still drained 499 words and released the fence 3 -> 9.
+
+This supersedes D364's "unsignaled synchronization event" restriction and D365's flag-field reading **for this object under ordinal 159**; the static writers recorded in D365 are the direct SignalState reset path the pinned bridge expects. The next decision is ordinal 3; no ISR/IRQ/timing was executed and no rendering or playability is claimed.
