@@ -12,7 +12,7 @@ November 5, 2026. This cycle admitted the next ordinary stop, `0x1F7300`. It was
 
 - Seed: **34 instructions / a 108-byte instruction-only envelope**, five calls, no tables, SHA-256 `8552c4757db47c0e343176dc3ff7a15a9eb506178041b9736331cb49543f423a`.
 - Preflight with the pinned toolchain: `mixed False`, `tables 0`, 34 rows; **34/34 decoded**, no normalizations; byte identity, decoder agreement and layout pass.
-- Grouping: append to the merged 13-function seed → **14 functions**, SHA-256 `a48daeda50b87793c8df28f254de204abd4fabc54eb844b43aded7a8b4dbbc2a`; the 32-function front seed and 32-export count are unchanged.
+- Grouping: append to the merged 13-function seed â†’ **14 functions**, SHA-256 `a48daeda50b87793c8df28f254de204abd4fabc54eb844b43aded7a8b4dbbc2a`; the 32-function front seed and 32-export count are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-66`: **438 functions / 18,229 instructions**; `0x1F7300` has a real guarded body; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **528 functions, 0 rewrites**.
 
@@ -46,4 +46,4 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F7370` is the next ordinary indirect render-state entry (table index 124); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F7370` is the next ordinary indirect render-state entry (table index 124); it was not entered. A later â‰¤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.

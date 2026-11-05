@@ -2,11 +2,17 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7300 admission
+## Latest: 0x1F7370 admission
+
+- [The 0x1F7370 batch](FRONTIER_DEP_1F7370_CHECKPOINT.md): translation 67 (439 functions / 18,266 instructions), module 88 (694,246 bytes, SHA `5440f6e0…`), control 279/404 at ordinal 2 vs experiment 309/405 at untranslated `0x1F73F0`, comparator exit 0 (+30 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 529/0, package verifier 26/26 digests.
+- `0x1F7370` (`D3DDevice_SetRenderState_StencilEnable`, table index 124) was already Ghidra-established; its 37-instruction / 128-byte seed (`315b7776…`) calls only translated `0x1FB3B0`, has internal conditional branches, and preflights 37/37. `0x1F73F0` is the next ordinary stop (table index 125).
+- Publication is unblocked: `c28399a` fixed the committed EOF blank line; remote source advanced to `c28399a` and CI run `41974509024` succeeded.
+- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The main PR is still pending the architect's integration of the published head.
+
+## Prior: 0x1F7300 admission
 
 - [The 0x1F7300 batch](FRONTIER_DEP_1F7300_CHECKPOINT.md): translation 66 (438 functions / 18,229 instructions), module 87 (693,474 bytes, SHA `3f001885…`), control 279/404 at ordinal 2 vs experiment 308/405 at untranslated `0x1F7370`, comparator exit 0 (+29 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 528/0, package verifier 25/25 digests.
-- `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already Ghidra-established; its 34-instruction / 108-byte seed (`8552c475…`) calls only translated functions, has internal conditional branches, and preflights 34/34. `0x1F7370` is the next ordinary stop (table index 124).
-- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The approved `0x1F6620` work remains at `5e168b4`. The main PR is still pending the fixed published head.
+- `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already Ghidra-established; its 34-instruction / 108-byte seed (`8552c475…`) calls only translated functions and preflights 34/34.
 
 ## Prior: 0x1F6890 admission
 
