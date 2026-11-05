@@ -1,4 +1,10 @@
-# The PFIFO completion flag is D3D's fence word at 0x03BFF000
+# The PFIFO responder exits the fence wait and reaches service 159
+
+November 5: the architect authorized one bounded, default-off responder step. It drains GET to PUT with the existing rules, then once writes the current context sequence to the fence word at `[context+0x3F0]` (never the pointer field), with the PGRAPH latch explicitly unmodeled. Module 112 is **716,327 bytes**, SHA `0304f2f6?`. Control unchanged: status 13 at `0xFD800044`, 339/405. The consumer **drained 173 packets / 499 words** to PUT, released the fence **3 -> 9** at `0x03BFF000`, and made only 15 VM checks; `D3D_BlockOnTime` exited and the run reached a **new stop: status 1 at `0xFE000094`, ordinal 159 (unsupported service, unmodeled, one argument), 340 routines / 405 ops**, return `0x1F5543` at the `BlockUntilVerticalBlank` site. The release value is modeled (current sequence, not the stream's kick-marker fence bits), the latch is unmodeled, and the write is one-shot; GET is never initialized and the pointer is unchanged. Checks: `test:native` 36/36 (release cases added), `test:runtime` 198/0, `check` 454 files, whitespace clean.
+
+The consumer remains default-off. New boundary: unsupported service ordinal 159 on the VBlank path; the next decision is whether to model it or hold. Main `52b3fa1` (PR #9 merged) is still not an ancestor; architect head `460549e` is not integrated here and this session denies `git merge`. **There is no controllable original screen.**
+
+## Prior: The PFIFO completion flag is D3D's fence word at 0x03BFF000
 
 November 5: directed read-only characterization of the post-consumption boundary — **no implementation, hook change, admission, export, seed or translation change**. [The checkpoint](PFIFO_COMPLETION_FLAG_CHECKPOINT.md) pins the flag: `D3D_BlockOnTime` (`0x1FB020..0x1FB106`) polls the dword at **`0x03BFF000`**, reached through `[context 0x00203B90 + 0x3F0]`, at PC **`0x1FB0D4`**; it loops while `(seq - target) < (seq - fence)`, i.e. until **`fence >= target`** in 32-bit wrap arithmetic. Observed: fence word **3**, context sequence **9**, sequence after the first packet GET `0x03B7D008`, PUT `0x03B7D7CC`, ring `0x03B7D000..0x03BFD000`.
 

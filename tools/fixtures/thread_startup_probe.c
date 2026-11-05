@@ -358,9 +358,12 @@ static uint32_t pfifo_profile_ready;
  * DMA_GET read and only advances GET over words the guest CPU wrote. The
  * default path is unchanged and still stops at status 13. */
 static uint32_t pfifo_consumer_enabled, pfifo_consumer_configured, pfifo_consumer_ready;
-#define FF_PFIFO_CONSUMER_MAX_STEPS 64u
+#define FF_PFIFO_CONSUMER_MAX_STEPS 512u
+#define FF_PFIFO_CONSUMER_MAX_WORDS 4096u
 #define FF_PFIFO_CONSUMER_MAX_VM_CHECKS 500000u
-static uint32_t pfifo_consumer_steps, pfifo_consumer_words;
+static uint32_t pfifo_consumer_steps, pfifo_consumer_words, pfifo_consumer_drained;
+static uint32_t pfifo_release_attempted, pfifo_release_fired, pfifo_release_reason;
+static uint32_t pfifo_release_va, pfifo_release_before, pfifo_release_written, pfifo_release_seq;
 static uint32_t pfifo_consumer_vm_checks, pfifo_consumer_budget_hit;
 static ff_pfifo_pusher pfifo_consumer_pusher;
 static ff_pfifo_status mmio_pfifo_status;
@@ -480,21 +483,53 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                 uint32_t end = pfifo_profile_channel.ready ? pfifo_profile_channel.end : 0u;
                 uint32_t result;
                 pfifo_consumer_ready = 1;
-                if (pfifo_consumer_steps >= FF_PFIFO_CONSUMER_MAX_STEPS) {
-                    /* The wait persisted past the bounded step budget. Refuse
-                     * further consumption and stop at the status-13 site. */
-                    ff_pfifo_pusher_init(&pfifo_consumer_pusher, base, end, *get, *put);
-                    pfifo_consumer_pusher.classification = FF_PFIFO_PUSH_BUDGET;
-                } else {
+                /* Drain GET to PUT with the existing decode/refusal rules. This
+                 * replaces the single-packet activation for this experiment; it
+                 * adds no packet class and executes no method. */
+                while (*get != *put && pfifo_consumer_steps < FF_PFIFO_CONSUMER_MAX_STEPS &&
+                       pfifo_consumer_drained < FF_PFIFO_CONSUMER_MAX_WORDS) {
                     ff_pfifo_pusher_init(&pfifo_consumer_pusher, base, end, *get, *put);
                     result = ff_pfifo_pusher_step(&pfifo_consumer_pusher, pfifo_consumer_read_word,
                                                   pfifo_consumer_span_written, NULL,
                                                   &mmio_pfifo_status, FF_PFIFO_PUSHER_MAX_WORDS);
-                    ++pfifo_consumer_steps;
                     if (result == FF_PFIFO_PUSH_OK) {
                         pfifo_consumer_words += pfifo_consumer_pusher.words_consumed;
+                        pfifo_consumer_drained += pfifo_consumer_pusher.words_consumed;
                         *get = pfifo_consumer_pusher.get;
+                        ++pfifo_consumer_steps;
                         pfifo_served = 1;
+                    } else if (result == FF_PFIFO_PUSH_EMPTY) {
+                        break;
+                    } else {
+                        pfifo_consumer_pusher.classification = result;
+                        break;
+                    }
+                }
+                /* Modeled fence release: one shot, only after GET reaches PUT,
+                 * writing the current context sequence to the guest VA held by
+                 * [context+0x3F0] -- never into the pointer field itself. */
+                if (*get == *put && !pfifo_release_attempted) {
+                    uint32_t context = MEM32(0x00206720u);
+                    uint32_t va = context ? MEM32(context + 0x3F0u) : 0u;
+                    uint32_t seq = context ? MEM32(context + 0x1Cu) : 0u;
+                    uint32_t mapped = va && !(va & 3u) && va <= FF_GUEST_BYTES - 4u;
+                    pfifo_release_attempted = 1;
+                    pfifo_release_va = va;
+                    pfifo_release_seq = seq;
+                    if (!mapped) {
+                        pfifo_release_reason = FF_PFIFO_RELEASE_NO_VA;
+                    } else {
+                        uint32_t before = MEM32(va);
+                        uint32_t ready;
+                        pfifo_release_before = before;
+                        ready = ff_pfifo_release_ready(seq, before, 1u);
+                        pfifo_release_reason = ready;
+                        if (ready == FF_PFIFO_RELEASE_READY) {
+                            MEM32(va) = seq;
+                            (void)ff_guest_write_map_mark(&guest_write_map, va, 4u);
+                            pfifo_release_fired = 1;
+                            pfifo_release_written = seq;
+                        }
                     }
                 }
             }
@@ -997,6 +1032,14 @@ uint32_t ff_probe_pfifo_consumer_word(uint32_t field)
         case 11: return pfifo_consumer_words;
         case 12: return pfifo_consumer_budget_hit;
         case 13: return pfifo_consumer_vm_checks;
+        case 14: return pfifo_release_attempted;
+        case 15: return pfifo_release_fired;
+        case 16: return pfifo_release_reason;
+        case 17: return pfifo_release_va;
+        case 18: return pfifo_release_before;
+        case 19: return pfifo_release_written;
+        case 20: return pfifo_release_seq;
+        case 21: return pfifo_consumer_drained;
         default: return 0;
     }
 }

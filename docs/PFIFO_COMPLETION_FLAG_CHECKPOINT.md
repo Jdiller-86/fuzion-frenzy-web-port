@@ -62,3 +62,18 @@ This is a design requirement, not an implementation. The exact value written, th
 ## 6. Limits
 
 The evidence is a synthetic harness run with a retained module and the pinned project mirrors. It establishes the polled address, condition, polling site and documented writer path; it does not establish original GPU timing, rendering or playability. No consumer path was enabled in any committed profile.
+
+## 7. Bounded responder result (authorized)
+
+One default-off responder step was authorized with binding corrections: drain GET to PUT using the existing decode/refusal rules, then, once only, write the current context sequence to the guest VA held by `[context+0x3F0]` (the fence word, never the pointer field), with the PGRAPH latch `0x400B10` explicitly unmodeled.
+
+Module `recomp-post-memory-build-112`: **716,327 bytes**, SHA-256 `0304f2f6f8b103cf03365ab88ec62253742e9101e57857b559edcb13a6eb8d65`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no consumer) | status 13 at `0xFD800044` | 339 | 405 |
+| consumer | **status 1 at `0xFE000094`**, ordinal **159** | **340** | 405 |
+
+The consumer drained **173 packets / 499 words** to PUT (`GET == PUT == 0x03B7D7CC`), released the fence **3 -> 9** at `0x03BFF000`, and made **15** VM checks — no budget stop. `D3D_BlockOnTime` exited. The new stop is an **unsupported Xbox service**: ordinal 159, `modeled: false`, one argument, status 1, return `0x1F5543` (the `D3DDevice_BlockUntilVerticalBlank` site). The run advanced one routine beyond the control.
+
+**Disclosures:** the release value is the current context sequence (modeled), not the stream's kick-marker fence bits; the PGRAPH latch is unmodeled; the one-shot write can pre-satisfy a later wait on an unsubmitted fence; GET is never initialized and the pointer field is unchanged. The next stop is a service, not a latched wait, so the latch and a second fence wait remain open. The consumer remains default-off.

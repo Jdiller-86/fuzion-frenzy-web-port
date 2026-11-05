@@ -173,7 +173,7 @@ export function validateProofReport(report) {
         consumer.classification > 10 || !integer(consumer.get) || !integer(consumer.put) ||
         !integer(consumer.base) || !integer(consumer.end) || !integer(consumer.wordsConsumed) ||
         consumer.wordsConsumed > 4096 || !integer(consumer.consumerUpdates) ||
-        !integer(consumer.lastHeader) || !integer(consumer.steps) || consumer.steps > 64 ||
+        !integer(consumer.lastHeader) || !integer(consumer.steps) || consumer.steps > 512 ||
         !integer(consumer.words) || consumer.words > 262144 || !integer(consumer.budgetHit) ||
         consumer.budgetHit > 1 || !integer(consumer.vmChecks) || consumer.vmChecks > 500000)
       throw new Error('Malformed PFIFO consumer state');
@@ -185,7 +185,22 @@ export function validateProofReport(report) {
       throw new Error('A refused PFIFO pusher step must not consume a word');
     if (consumer.classification === 1 && consumer.wordsConsumed !== 0)
       throw new Error('An empty PFIFO pusher step must not consume a word');
-    if (consumer.classification === 8 && consumer.budgetHit !== 1)
+    if (consumer.releaseAttempted !== undefined) {
+      if (!integer(consumer.releaseAttempted) || consumer.releaseAttempted > 1 ||
+          !integer(consumer.releaseFired) || consumer.releaseFired > 1 ||
+          !integer(consumer.releaseReason) || consumer.releaseReason > 3 ||
+          !integer(consumer.fenceVa) || !integer(consumer.releaseBefore) ||
+          !integer(consumer.releaseWritten) || !integer(consumer.releaseSeq) ||
+          !integer(consumer.drainedWords) || consumer.drainedWords > 4096)
+        throw new Error('Malformed PFIFO consumer release state');
+      if (consumer.releaseFired === 1 &&
+          (consumer.releaseReason !== 0 || consumer.releaseWritten !== consumer.releaseSeq ||
+           consumer.releaseBefore === consumer.releaseWritten))
+        throw new Error('A fired PFIFO release must write the sequence over a behind value');
+      if (consumer.releaseAttempted === 1 && consumer.releaseFired === 0 &&
+          consumer.releaseReason === 0)
+        throw new Error('A refused PFIFO release must report its reason');
+    }    if (consumer.classification === 8 && consumer.budgetHit !== 1)
       throw new Error('A PFIFO consumer budget stop must report the budget hit');
   }
   /* Ordinal 2 remains unsupported by default: the observed call carries four

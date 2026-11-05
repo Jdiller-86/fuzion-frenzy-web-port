@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: PFIFO responder reaches service 159
+
+- [Completion-flag checkpoint §7](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): architect-authorized default-off responder (drain to PUT + one-shot sequence release; latch unmodeled). Module 112 (716,327 bytes, SHA `0304f2f6...`). Control unchanged (status 13 at `0xFD800044`, 339/405); consumer drained 173 packets / 499 words, released the fence 3 -> 9, exited the wait, and stopped at status 1, `0xFE000094`, ordinal 159 (unsupported service), 340/405. This is `D354`.
 ## Latest: PFIFO completion-flag characterization (read-only)
 
 - [The completion-flag checkpoint](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): the post-consumption wait polls the dword at **`0x03BFF000`** (`[context 0x00203B90 + 0x3F0]`) from `D3D_BlockOnTime` at PC `0x1FB0D4`, looping until `fence >= target`. Observed fence 3, context sequence 9, GET `0x03B7D008`, PUT `0x03B7D7CC`. The value comes from the GPU semaphore release (`0x1D70`) with the kick marker `0x0310`/PGRAPH `0x400B10` latch; a responder must consume the stream and publish the release. No implementation, hook or admission. This is `D353`.
