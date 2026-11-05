@@ -165,13 +165,14 @@ try {
     $state.finishedHead = $after
     $state.outcome = if ($exitCode -ne 0) { 'retry' } elseif ($dirtyAfter.Count -gt 0) { 'resume' } elseif ($after -ne $head) { 'integrated' } else { 'reviewed' }
     $response = ($output | Out-String).Trim()
+    $fullResponse = $response
     if ($response.Length -gt 1800) { $response = $response.Substring($response.Length - 1800) }
     $state.lastSummary = $response
     if ($exitCode -eq 0) {
-        $match = [regex]::Match($response, '(?m)^ARCHITECT_REVIEW:\s*(.+)$')
+        $match = [regex]::Match($fullResponse, '(?m)^ARCHITECT_REVIEW:\s*(.+)$')
         $summary = if ($match.Success) { $match.Groups[1].Value.Trim() } else { $response }
         if ($summary.Length -gt 1200) { $summary = $summary.Substring(0, 1200) }
-        $geometryCycleMatch = [regex]::Match($response, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
+        $geometryCycleMatch = [regex]::Match($fullResponse, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
         $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3') -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
         $tempPath = $guidancePath + '.tmp'
         $guidance | ConvertTo-Json | Set-Content -LiteralPath $tempPath -Encoding utf8
@@ -190,11 +191,11 @@ try {
         if ($guidance.approved -and $state.publication -eq 'published') {
             try {
                 $openArgs = @('-Action', 'Ensure', '-ExpectedHead', $after)
-                $openMain = [regex]::Match($response, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+                $openMain = [regex]::Match($fullResponse, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openMain.Success -and $openMain.Groups[1].Value -eq $after) { $openArgs += '-OpenMain' }
-                $openSource = [regex]::Match($response, '(?m)^OPEN_SOURCE_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
+                $openSource = [regex]::Match($fullResponse, '(?m)^OPEN_SOURCE_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openSource.Success -and $openSource.Groups[1].Value -eq $sourceHead) { $openArgs += @('-OpenSourceHead', $sourceHead) }
-                $openGeometry = [regex]::Match($response, '(?m)^OPEN_GEOMETRY_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
+                $openGeometry = [regex]::Match($fullResponse, '(?m)^OPEN_GEOMETRY_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openGeometry.Success -and $openGeometry.Groups[1].Value -eq $geometryHead) { $openArgs += @('-OpenGeometryHead', $geometryHead) }
                 if ($openArgs.Count -gt 4) {
                     $prOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager @openArgs 2>&1
@@ -208,7 +209,7 @@ try {
                 $state.prError = $_.Exception.Message
             }
         }
-        $promotion = [regex]::Match($response, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+        $promotion = [regex]::Match($fullResponse, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
         if ($guidance.approved -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
             try {
                 $mergeOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action MergeMain -ExpectedHead $after 2>&1

@@ -2,7 +2,23 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7080 admission and observed branch
+## Latest: 0x1F6AC0 admission
+
+- [The 0x1F6AC0 batch](FRONTIER_DEP_1F6AC0_CHECKPOINT.md): translation 62 (434 functions / 18,136 instructions), module 83 (690,455 bytes, SHA `9a84bdc1…`), control 279/404 at ordinal 2 vs experiment 304/405 at untranslated `0x1F6B00`, comparator exit 0 (+25 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 524/0, package verifier 21/21 digests.
+- `0x1F6AC0` (`D3DDevice_SetRenderState_FillMode`, table `0x2025CC`, index 119) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 18-instruction / 62-byte seed (`628ba62b…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 18/18. `0x1F6B00` is the next ordinary stop (table index 120).
+- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. Architect CI run `41964401675` at `fd0ea19` still fails in `tests/integration-verification.test.mjs:106` because its temporary-repo `git merge` has no committer identity; the main PR remains blocked until that verification-owned test is fixed.
+
+## Prior: 0x1F6790 admission
+
+- [The 0x1F6790 batch](FRONTIER_DEP_1F6790_CHECKPOINT.md): translation 61 (433 functions / 18,118 instructions), module 82 (689,834 bytes, SHA `b3c354bd…`), control 279/404 at ordinal 2 vs experiment 303/405 at untranslated `0x1F6AC0`, comparator exit 0 (+24 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 523/0, package verifier 20/20 digests.
+- `0x1F6790` (`D3DDevice_SetRenderState_FogColor`, table `0x2025C8`, index 118) was already Ghidra-established; the 22-instruction / 71-byte seed (`3de7c154…`) calls already-translated `0x1FB3B0` and preflights 22/22.
+
+## Prior: 0x1F6BB0 symbol-entry admission
+
+- [The 0x1F6BB0 batch](FRONTIER_DEP_1F6BB0_CHECKPOINT.md): translation 60 (432 functions / 18,096 instructions), module 81 (689,176 bytes, SHA `d795973b…`), control 279/404 at ordinal 2 vs experiment 302/405 at untranslated `0x1F6790`, comparator exit 0 (+23 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 522/0, package verifier 19/19 digests.
+- `0x1F6BB0` (`D3DDevice_SetRenderState_VertexBlend`, table `0x2025C4`, index 117) was established persistently at that address only; the 15-instruction / 50-byte seed (`70add3a6…`) calls already-translated `0x1FB3B0` and preflights 15/15 with no tables or normalizations.
+
+## Prior: 0x1F7080 admission and observed branch
 
 - [The admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md): translation 54 (423 functions / 17,620 instructions), module 75 (664,115 bytes, SHA-256 `687c34c9…`), control 279/404 at ordinal 2 vs experiment 286/405 at untranslated `0x1F70E0`, comparator exit 0 (+7 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0.
 - Executed `0x1F7080` is in the reached list; the observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No Path A/Path B batch was started; the lane stops at the observed stop.
@@ -18,7 +34,12 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - `0x1F5B70`/`0x1F6300` executed; `0x1F6970` is the next ordinary stop. No further batch this cycle; the provisional continuation remains `approved: false`.
 
 - [The 0x1F6970 dependency batch](FRONTIER_DEP_1F6970_CHECKPOINT.md): translation 58 (430 functions / 18,073 instructions), module 79 (688,315 bytes, SHA `8baa111d…`), control 279/404 at ordinal 2 vs experiment 300/405 at untranslated `0x1F6620`, comparator exit 0 (+21 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 520/0, package verifier 17/17 digests.
-- The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). A batch needs a bounded function-definition/analysis decision; the closure halts at this failed gate. No further batch.
+- The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). It is a named symbol reached through indirect table `0x2025C0` (index 116); a later bounded read-only in-memory definition exported a clean seed. It was admitted in translation 59/module 80; see the next entry.
+
+- [The 0x1F6620 symbol-entry batch](FRONTIER_DEP_1F6620_CHECKPOINT.md): translation 59 (431 functions / 18,081 instructions), module 80 (688,623 bytes, SHA `cfc5786a…`), control 279/404 at ordinal 2 vs experiment 301/405 at untranslated `0x1F6BB0`, comparator exit 0 (+22 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 521/0, package verifier 18/18 digests.
+- `0x1F6620` executed; `0x1F6BB0` is the next ordinary indirect render-state entry (table `0x2025C4`, index 117). No further batch this cycle.
+- The approved architect directive then authorized a persistent create-function at `0x1F6620` only. A read-only re-open reports `FUNCTION_AT 001f6620`; the re-export is byte-identical (`55977f49…`), and the same 18/18 package verifies. No duplicate translation was run.
+- Runner fix: `tools/Invoke-OpenCodeArchitect.ps1` now captures `$fullResponse` before the 1800-character `lastSummary` truncation and parses all six markers from it; `lastSummary`/1200 cap unchanged, PowerShell AST parse 0 errors, no other behavior change.
 
 ## Source lane
 
