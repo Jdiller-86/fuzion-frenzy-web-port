@@ -6,6 +6,19 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 
 - [The admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md): translation 54 (423 functions / 17,620 instructions), module 75 (664,115 bytes, SHA-256 `687c34c9…`), control 279/404 at ordinal 2 vs experiment 286/405 at untranslated `0x1F70E0`, comparator exit 0 (+7 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0.
 - Executed `0x1F7080` is in the reached list; the observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No Path A/Path B batch was started; the lane stops at the observed stop.
+- [The Path A preflight](FRONTIER_PATH_A_PREFLIGHT_CHECKPOINT.md): `0x1F70E0` is 98 instructions / 329 bytes with four calls; only `0x1FC980` and `0x1FCB70` are untranslated (`0x1F66A0`/`0x1FB3B0` already translated); preflight 98/98. A proposed grouping keeps 32 exports (front seed 30→32 with `0x1F70E0`+`0x1FC980`; `0x1FCB70` merged into an existing seed), 426 functions / 17,760 instructions; no batch started.
+
+- [The Path A admission](FRONTIER_PATH_A_ADMISSION_CHECKPOINT.md): translation 55 (426 functions / 17,779 instructions), module 76 (675,058 bytes, SHA `5d596ab2…`), control 279/404 at ordinal 2 vs experiment 289/405 at untranslated `0x1F6910`, comparator exit 0 (+10 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0, package verifier 13/13 digests.
+- The provisional acceptance's 35 offered seeds were corrected to the frozen 32-export limit; no tooling change was made. `0x1F70E0`/`0x1FC980` executed; `0x1FCB70` was translated but not reached. The next stop `0x1F6910` is ordinary; no further batch this cycle.
+
+- [The 0x1F6910 dependency batch](FRONTIER_DEP_1F6910_CHECKPOINT.md): translation 56 (427 functions / 17,807 instructions), module 77 (676,813 bytes, SHA `0f41fd06…`), control 279/404 at ordinal 2 vs experiment 292/405 at untranslated `0x1F5B70`, comparator exit 0 (+13 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 518/0, package verifier 14/14 digests.
+- The next stop is ordinary Path B (`0x1F5B70` + `0x1F6300` + translated `0x1FC980`); no batch this cycle. The provisional continuation remains `approved: false`.
+
+- [The Path B admission](FRONTIER_PATH_B_ADMISSION_CHECKPOINT.md): translation 57 (429 functions / 18,038 instructions), module 78 (687,271 bytes, SHA `d6540c1b…`), control 279/404 at ordinal 2 vs experiment 296/405 at untranslated `0x1F6970`, comparator exit 0 (+17 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 519/0, package verifier 16/16 digests.
+- `0x1F5B70`/`0x1F6300` executed; `0x1F6970` is the next ordinary stop. No further batch this cycle; the provisional continuation remains `approved: false`.
+
+- [The 0x1F6970 dependency batch](FRONTIER_DEP_1F6970_CHECKPOINT.md): translation 58 (430 functions / 18,073 instructions), module 79 (688,315 bytes, SHA `8baa111d…`), control 279/404 at ordinal 2 vs experiment 300/405 at untranslated `0x1F6620`, comparator exit 0 (+21 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 520/0, package verifier 17/17 digests.
+- The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). A batch needs a bounded function-definition/analysis decision; the closure halts at this failed gate. No further batch.
 
 ## Source lane
 
