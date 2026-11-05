@@ -2,7 +2,13 @@ param([switch]$DryRun)
 
 $ErrorActionPreference = 'Stop'
 if (-not $env:UNSLOTH_API_KEY) { $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User') }
-$repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$repo = $null
+foreach ($rootCandidate in @((Join-Path $PSScriptRoot '..'), (Join-Path $PSScriptRoot '..\..\..'))) {
+    $markerWorktree = Join-Path $rootCandidate '.worktrees\opencode-architect'
+    $markerModels = Join-Path $rootCandidate 'tools\opencode-builder-models.json'
+    if ((Test-Path -LiteralPath $markerWorktree) -and (Test-Path -LiteralPath $markerModels)) { $repo = (Resolve-Path -LiteralPath $rootCandidate).Path; break }
+}
+if (-not $repo) { throw 'Could not locate the repository root from the script location.' }
 $worktree = Join-Path $repo '.worktrees\opencode-architect'
 $statePath = Join-Path $repo '.worktrees\opencode-architect-cycle-state.json'
 $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
@@ -115,7 +121,9 @@ try {
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
                     $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3') { "Linked Sol is usage-limited. Act as the authorized hourly architect under AGENTS.md and docs/OPENCODE_GOAL.md. Integration HEAD=$head; primary=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Review latest committed evidence and the manager's three lane directions. Finish one bounded integration or management decision; check the existing main PR independently of unfinished builder work. Use Qwen Scout once for narrow source reconnaissance if useful. Give Primary, Geometry and Verification one task or hold, acceptance check, and stop condition. Preserve source-only, original-browser-execution, exact-head, runtime, CI, ancestry, and mergeability gates. Never request a merge from metadata alone. Do not push or operate GitHub directly. Conclude with GEOMETRY_CYCLE: HOLD or RUN; then only justified exact-head OPEN_*_PR or MERGE_MAIN_PR markers; and a final ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration review: ... . Reserve steps to finish this directive." } elseif ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol and the full Go architect are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
-                    $agent = if ($candidate -eq 'openai/gpt-6.1-sol') { 'architect' } elseif ($candidate -eq 'opencode-go/glm-5.3') { 'architect_fallback' } else { 'reviewer' }
+                    # The project defines no dedicated "architect" agent in this worktree;
+                    # both Sol and Go GLM run under the proven architect_fallback charter.
+                    $agent = if ($candidate -eq 'opencode/glm-5.3-flash-free') { 'reviewer' } else { 'architect_fallback' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
                     } else {
@@ -223,6 +231,28 @@ try {
     } catch {
         $state.statusPublication = 'retry'
         $state.statusError = $_.Exception.Message
+    }
+    # Manager watchdog (W012): the hourly architect ensures the in-OpenCode
+    # orchestrator plugin is always running. A stale heartbeat triggers one
+    # direct fallback manager cycle; the result is recorded in cycle state.
+    $state.managerWatchdog = 'healthy'
+    try {
+        $managerHeartbeatPath = Join-Path $repo '.worktrees\opencode-manager-heartbeat.json'
+        $heartbeatFresh = $false
+        if (Test-Path -LiteralPath $managerHeartbeatPath) {
+            $heartbeat = Get-Content -LiteralPath $managerHeartbeatPath -Raw | ConvertFrom-Json
+            $beat = [DateTimeOffset]::MinValue
+            if ($heartbeat.beat -and [DateTimeOffset]::TryParse([string]$heartbeat.beat, [ref]$beat) -and [DateTimeOffset]::Now.Subtract($beat).TotalMinutes -le 20) { $heartbeatFresh = $true }
+        }
+        if (-not $heartbeatFresh) {
+            $state.managerWatchdog = 'recovering'
+            $recoverOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repo 'tools\Invoke-OpenCodeManager.ps1') -Force 2>&1
+            $state.managerWatchdog = if ($LASTEXITCODE -eq 0) { 'recovered' } else { 'recovery_failed' }
+            $state.managerWatchdogOutput = (($recoverOutput | Out-String).Trim())
+        }
+    } catch {
+        $state.managerWatchdog = 'recovery_error'
+        $state.managerWatchdogError = $_.Exception.Message
     }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('Architect audit: ' + $state.outcome + ' model=' + $modelUsed)

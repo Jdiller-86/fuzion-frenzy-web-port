@@ -1,15 +1,32 @@
-param([switch]$DryRun)
+param([switch]$DryRun, [switch]$Force)
 
+# Unified orchestration (W012): this script is the watchdog probe and fallback
+# for the in-OpenCode orchestrator plugin (.opencode/plugins/orchestrator).
+# While the plugin heartbeat (.worktrees/opencode-manager-heartbeat.json) is
+# fresh, the probe exits without any model call. Otherwise it runs the same
+# persistent pinned manager session, records the same MANAGER_* lane cards,
+# and starts the registered builder lane tasks on demand. The hourly architect
+# script invokes it with -Force when it detects a stale heartbeat.
 $ErrorActionPreference = 'Stop'
-$repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$repo = $null
+foreach ($rootCandidate in @((Join-Path $PSScriptRoot '..'), (Join-Path $PSScriptRoot '..\..\..'))) {
+    $markerWorktree = Join-Path $rootCandidate '.worktrees\opencode-architect'
+    $markerModels = Join-Path $rootCandidate 'tools\opencode-builder-models.json'
+    if ((Test-Path -LiteralPath $markerWorktree) -and (Test-Path -LiteralPath $markerModels)) { $repo = (Resolve-Path -LiteralPath $rootCandidate).Path; break }
+}
+if (-not $repo) { throw 'Could not locate the repository root from the script location.' }
 $statePath = Join-Path $repo '.worktrees\opencode-manager-cycle-state.json'
 $guidancePath = Join-Path $repo '.worktrees\opencode-manager-guidance.json'
+$heartbeatPath = Join-Path $repo '.worktrees\opencode-manager-heartbeat.json'
+$sessionPath = Join-Path $repo '.worktrees\opencode-manager-cycle-session.txt'
 $lockPath = Join-Path $repo '.worktrees\opencode-manager-cycle.lock'
 $logPath = Join-Path $repo '.worktrees\opencode-manager-cycle.log'
+$architectWorktree = Join-Path $repo '.worktrees\opencode-architect'
 $pool = Get-Content (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
 $model = [string]$pool.manager
 $builderModels = @($pool.builders.primary.model, $pool.builders.geometry.model, $pool.builders.verification.model)
 if (($builderModels | Sort-Object -Unique).Count -ne 3 -or $builderModels -contains $model) { throw 'Builder models must be distinct from one another and from the manager.' }
+$laneTasks = @{ primary = 'FuzionFrenzy-OpenCode-Cycle'; geometry = 'FuzionFrenzy-OpenCode-Geometry'; verification = 'FuzionFrenzy-OpenCode-Verification' }
 
 function Read-Cycle([string]$name) {
     $path = Join-Path $repo ('.worktrees\' + $name + '-cycle-state.json')
@@ -21,50 +38,63 @@ $lock = $null
 try {
     try { $lock = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') }
     catch [IO.IOException] { Write-Output 'Manager cycle already running.'; return }
+    if (-not $Force -and (Test-Path -LiteralPath $heartbeatPath)) {
+        try {
+            $heartbeat = Get-Content -LiteralPath $heartbeatPath -Raw | ConvertFrom-Json
+            $beat = [DateTimeOffset]::MinValue
+            if ($heartbeat.beat -and [string]$heartbeat.outcome -ne 'marker_error' -and [DateTimeOffset]::TryParse([string]$heartbeat.beat, [ref]$beat) -and [DateTimeOffset]::Now.Subtract($beat).TotalMinutes -le 12) {
+                Write-Output 'Manager plugin heartbeat is fresh; watchdog probe exits without a model call.'
+                return
+            }
+        } catch { Write-Warning 'Could not read the manager heartbeat; running the fallback manager cycle.' }
+    }
     $heads = @{}
-    $dirty = @{}
     foreach ($lane in @('primary', 'geometry', 'verification')) {
         $branch = if ($lane -eq 'primary') { 'codex/opencode-source' } else { 'codex/opencode-' + $lane }
         $heads[$lane] = (git -C $repo rev-parse $branch).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Missing builder branch: $branch" }
-        $path = if ($lane -eq 'primary') { Join-Path $repo '.worktrees\opencode-source' } else { Join-Path $repo ('.worktrees\opencode-' + $lane) }
-        $dirty[$lane] = @(git -C $path status --porcelain).Count -gt 0
-        if ($LASTEXITCODE -ne 0) { throw "Could not inspect builder worktree: $lane" }
     }
     $architectHead = (git -C $repo rev-parse codex/opencode-architect).Trim()
     $architect = $null
     $architectPath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
-    if (Test-Path -LiteralPath $architectPath) { try { $architect = Get-Content $architectPath -Raw | ConvertFrom-Json } catch {} }
+    if (Test-Path -LiteralPath $architectPath) { try { $architect = Get-Content -LiteralPath $architectPath -Raw | ConvertFrom-Json } catch {} }
     $previousGuidance = $null
-    if (Test-Path -LiteralPath $guidancePath) { try { $previousGuidance = Get-Content $guidancePath -Raw | ConvertFrom-Json } catch {} }
+    if (Test-Path -LiteralPath $guidancePath) { try { $previousGuidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json } catch {} }
     $source = Read-Cycle 'opencode'
     $geometry = Read-Cycle 'opencode-geometry'
     $verification = Read-Cycle 'opencode-verification'
-    $prior = $null
-    if (Test-Path -LiteralPath $statePath) { try { $prior = Get-Content $statePath -Raw | ConvertFrom-Json } catch {} }
-    $snapshot = "architect=$architectHead; primary=$($heads.primary) ($($source.outcome), dirty=$($dirty.primary)); geometry=$($heads.geometry) ($($geometry.outcome), dirty=$($dirty.geometry)); verification=$($heads.verification) ($($verification.outcome), dirty=$($dirty.verification))"
-    if ($DryRun) { Write-Output "Ready: manager=$model $snapshot"; return }
-    $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; model = $model; snapshot = $snapshot }
+    $sessionId = $null
+    if (Test-Path -LiteralPath $sessionPath) {
+        $sessionId = (Get-Content -LiteralPath $sessionPath -Raw).Trim()
+        if ($sessionId -notmatch '^ses_[A-Za-z0-9]+$') { throw 'Invalid pinned manager session ID.' }
+    }
+    $snapshot = "architect=$architectHead; primary=$($heads.primary) ($($source.outcome)); geometry=$($heads.geometry) ($($geometry.outcome)); verification=$($heads.verification) ($($verification.outcome))"
+    if ($DryRun) { Write-Output "Ready: manager=$model $snapshot session=$sessionId force=$Force"; return }
+    $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; model = $model; snapshot = $snapshot; forced = [bool]$Force }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     $architectBrief = if ($architect -and $architect.approved) { [string]$architect.summary } else { 'No approved architect directive; preserve the current original-execution route and integration hold.' }
     if ($architectBrief.Length -gt 900) { $architectBrief = $architectBrief.Substring(0, 900) }
     $priorBrief = if ($previousGuidance) { "Previous manager tasks: primary $($previousGuidance.lanes.primary.head) $($previousGuidance.lanes.primary.action) $($previousGuidance.lanes.primary.task); geometry $($previousGuidance.lanes.geometry.head) $($previousGuidance.lanes.geometry.action); verification $($previousGuidance.lanes.verification.head) $($previousGuidance.lanes.verification.action) $($previousGuidance.lanes.verification.task)." } else { '' }
     if ($priorBrief.Length -gt 900) { $priorBrief = $priorBrief.Substring(0, 900) }
-    $prompt = "You are the read-only Fuzion Frenzy delivery manager. Work from source-only metadata and AGENTS.md. $snapshot. Latest approved architect directive: $architectBrief. $priorBrief Assign one bounded task, acceptance check and stop condition to each useful independent lane. If a lane's head advanced after its previous RUN task, assess its result and stop condition before assigning more; hold it for architect review unless an independent result is clearly authorized. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* and its matching tests/checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD if architect geometryCycle is HOLD. Hold any lane without a concrete independent result or with in-flight edits. You may not edit, merge or push; builders may edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
+    $prompt = "You are the persistent read-only Fuzion Frenzy delivery manager session; your standing charter from earlier beats still applies. Work from source-only metadata and AGENTS.md. $snapshot. Latest approved architect directive: $architectBrief. $priorBrief Assign one bounded task, acceptance check and stop condition to each useful independent lane. If a lane's head advanced after its previous RUN task, assess its result and stop condition before assigning more; hold it for architect review unless an independent result is clearly authorized. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* and its matching tests/checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD if architect geometryCycle is HOLD. Hold a clean lane without a concrete independent result or awaiting architect review; assign a bounded continuation RUN task to a lane with in-flight edits, because its runner preserves and completes them. You may not edit, merge or push; builders may edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
     $output = @()
     $exitCode = 1
     try {
-        Push-Location -LiteralPath $repo
+        Push-Location -LiteralPath $architectWorktree
         try {
+            if (-not (Test-Path -LiteralPath '.opencode\opencode.jsonc')) { throw 'Architect worktree project configuration is not visible.' }
             $old = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
-            try { $output = @(opencode run --auto --agent manager --model $model --title 'Fuzion Frenzy manager' $prompt 2>&1); $exitCode = $LASTEXITCODE }
-            finally { $ErrorActionPreference = $old }
+            try {
+                if ($sessionId) { $output = @(opencode run --auto --session $sessionId --agent manager --model $model --title 'Fuzion Frenzy manager' $prompt 2>&1) }
+                else { $output = @(opencode run --auto --agent manager --model $model --title 'Fuzion Frenzy manager' $prompt 2>&1) }
+                $exitCode = $LASTEXITCODE
+            } finally { $ErrorActionPreference = $old }
         } finally { Pop-Location }
     } catch { $output += $_.Exception.Message }
-    if ((Test-Path $logPath) -and (Get-Item $logPath).Length -gt 2097152) { Clear-Content $logPath }
+    if ((Test-Path -LiteralPath $logPath) -and (Get-Item -LiteralPath $logPath).Length -gt 2097152) { Clear-Content -LiteralPath $logPath }
     Add-Content $logPath ((Get-Date).ToString('o') + ' exit=' + $exitCode)
-    $output | Add-Content $logPath
+    $output | Add-Content -LiteralPath $logPath
     $response = ($output | Out-String)
     $lanes = @{}
     foreach ($lane in @('primary', 'geometry', 'verification')) {
@@ -77,8 +107,20 @@ try {
         $temp = $guidancePath + '.tmp'
         $guidance | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $temp -Encoding utf8
         Move-Item -LiteralPath $temp -Destination $guidancePath -Force
+        $state.spawned = @()
+        foreach ($lane in @('primary', 'geometry', 'verification')) {
+            if ($lanes[$lane].action -ne 'RUN') { continue }
+            $task = Get-ScheduledTask -TaskName $laneTasks[$lane] -ErrorAction SilentlyContinue
+            if ($task) { Start-ScheduledTask -TaskName $laneTasks[$lane]; $state.spawned += $lane }
+            else { $state.spawnError = "Missing lane task: $($laneTasks[$lane])" }
+        }
+        $heartbeat = @{ beat = (Get-Date).ToString('o'); outcome = 'directed'; source = 'powershell'; spawned = $state.spawned }
+        $heartbeat | ConvertTo-Json | Set-Content -LiteralPath $heartbeatPath -Encoding utf8
         $state.outcome = 'directed'
-    } else { $state.outcome = 'retry'; $state.error = 'Manager did not finish all three bounded lane markers.' }
+    } else {
+        $state.outcome = 'retry'
+        $state.error = 'Manager did not finish all three bounded lane markers.'
+    }
     $state.finished = (Get-Date).ToString('o')
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('Manager cycle: ' + $state.outcome)
