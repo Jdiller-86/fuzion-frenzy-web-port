@@ -46,6 +46,8 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 
 Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The frontier tool on translation 53 reports 517 functions, 95 placeholders and 94 referenced placeholders, with `0x1F7080` referenced by `0x1F5640`, matching the checkpoint. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), and requires an actual denial record for any unsupported ordinal-2 stop; a completed call alone cannot satisfy the stop. These close the remaining unexercised control paths noted by the narrow review, and the retained pair still validates. No translation, module or profile content changed.
 
+`tools/verify-recomp-package.mjs` reruns the package with `--manifest docs/FRONTIER_1FCCB0_PACKAGE_MANIFEST.json`: it discovers the recorded seed files by digest, runs `verify-seeds.py` and `verify-translation.py`, applies `compareProofProfiles`, and checks the ten declared artifact digests. On the retained package it reports 32/32 seeds, 422 admitted / 517 generated / 0 rewrites, 10/10 digests, the controlled pair ok (+6 routines / +1 operation), next stop `0x1F7080`, exit 0. `tests/verify-recomp-package.test.mjs` covers seed discovery, a missing root, and manifest digest matching/malformed input.
+
 ## Seed retention recovery
 
 The translation's `generation.json` records 32 seed digests; only 31 seed files were retained, and the missing digest was `ca2e5d57df7e25270dbc2ce2bc3ab4d326bd1d0b62310ac57d9adc0d0b593b4b` at generation index 20. Comparing the retained seed function set with the translation's 422 admitted functions isolated the missing seed's only contribution: `0x002022E0` (8-byte body, 2 instructions).
@@ -58,6 +60,6 @@ The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI 
 
 ## Next and limits
 
-The next genuine stop is untranslated **`0x1F7080`**, called by executed `0x1F5640`. It is **not admitted or analyzed further**. Per the directive, the lane stops here.
+The next genuine stop was untranslated **`0x1F7080`**, called by executed `0x1F5640`. It was subsequently admitted at translation 54/module 75; see [the 0x1F7080 admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md). Per that directive, the lane stopped there.
 
 These are synthetic startup observations with a synthetic avQuery word. They are not console settings, fidelity, renderer, gameplay or original service semantics. No host/Wasm memory substitution was used.
