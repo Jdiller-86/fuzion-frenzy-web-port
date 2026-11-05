@@ -1,4 +1,8 @@
-# The PFIFO pusher prototype passes its component tests but the consumer run is unbounded
+# The PFIFO boundary design note validates the prototype and lists the minimal responder
+
+November 5: design-only cycle — no runtime hook, guest connection, admission, export, seed or translation change. [The design note](PFIFO_BOUNDARY_DESIGN_NOTE.md): decode/jump/ring-jump masks match `pfifo-decode.mjs`; ring bounds match `pfifo_channel`/`pfifo-ring`; LOW_MARK ordering matches `pfifo_status`; DMA classification matches `pfifo_dma`. Stricter by design: GET must be inside the ring and the packet span must be CPU-written. The note records the MMIO sequence (USER `0xFD800040/44/48` aliased to `0xFD003240/44/48`; CACHE1_STATUS `0xFD003214`, RUNOUT `0xFD002400`, DMA_PUSH `0xFD003220`, PFB WBC `0xFD100410`; ring `0x03B7D000..0x03BFD000`), the GET-site order, and the observations: control 339/405 at `0xFD800044` on modules 106/107; the consumer run passes the wait but ends in a generic `RuntimeError: unreachable` trap with no classified stop. Minimal responder requirements and the evidence gate are listed. Checks: `test:native` 36/36, PFIFO JS component tests 19/19, `test:runtime` 197/0. Consumer default-off; halt for design review. Main `4b94a64` still not an ancestor; architect head `460549e` not integrated; merge denied. **No controllable original screen.**
+
+## Prior: The PFIFO pusher prototype passes its component tests but the consumer run is unbounded
 
 November 5: default-off PFIFO pusher prototype added under the architect-subagent authorization (~04:10 local): pure `pfifo_pusher.c/.h` (one packet/jump/ring-jump per step; call/return, unknown, budget, protection and span refusals; LOW_MARK ordering; no execution, no guest writes), native fixture, `pfifoConsumer` input, report state, and a gated hook at the status-13 GET site with a 64-step budget. No translation admission/export/seed change.
 

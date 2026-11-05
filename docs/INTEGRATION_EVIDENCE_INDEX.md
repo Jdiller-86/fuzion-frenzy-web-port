@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: PFIFO pusher prototype (default-off)
+## Latest: PFIFO boundary design note (design-only)
+
+- [The PFIFO boundary design note](PFIFO_BOUNDARY_DESIGN_NOTE.md): validates the default-off pusher against `pfifo-decode.mjs`, `pfifo-ring.mjs`, `pfifo_channel.c`, `pfifo_status.c` and `pfifo_dma.c`; records the exact MMIO sequence, the GET-site order, the control/consumer observations, and the minimal responder requirements. No hook, guest connection, admission, export, seed or translation change.
+- Checks: `test:native` 36/36, PFIFO JS component tests 19/19, `test:runtime` 197/0. Control remains 339/405 at `0xFD800044`; the consumer run still ends in a generic `RuntimeError: unreachable` trap with no classified stop. This record is `D349`.
+
+## Prior: PFIFO pusher prototype (default-off)
 
 - [PFIFO consumer prototype](PFIFO_CONSUMER_PROTOTYPE_CHECKPOINT.md): new `src/runtime/pfifo_pusher.c/.h` with a native fixture (36/36 component runs, optimized + ASan/UBSan), `pfifoConsumer` profile input, report state and validator, and a gated 64-step hook at the status-13 DMA_GET site. No admission, export or seed change.
 - Control on module 107 (715,740 bytes, SHA `03f94490...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
