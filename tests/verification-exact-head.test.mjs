@@ -198,7 +198,7 @@ test('the architect head containing the published base passes and reports local 
   git(['branch', '-f', 'architect', mainName], directory);
   git(['branch', '-f', 'published', 'published~1'], directory);
   const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
-    baseRef: 'published', localRef: mainName });
+    publishedRef: 'architect', baseRef: 'published', localRef: mainName });
   assert.equal(result.ok, true, result.errors.join(' '));
   assert.equal(result.exitCode, 0);
   assert.equal(result.facts.head.matchesArchitect, true);
@@ -206,6 +206,42 @@ test('the architect head containing the published base passes and reports local 
   assert.equal(result.facts.local.contained, true);
   assert.equal(result.facts.trackedPathsAtHead, 2);
   assert.equal(result.notes.length, 0);
+});
+
+test('a candidate that is the published architect head passes while the local branch differs', () => {
+  const { directory, mainName } = makeRepo();
+  git(['branch', 'origin/codex/opencode-architect', 'HEAD'], directory);
+  const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
+    publishedRef: 'origin/codex/opencode-architect', baseRef: mainName, localRef: mainName });
+  assert.equal(result.ok, true, result.errors.join(' '));
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.facts.head.matchesArchitect, false);
+  assert.equal(result.facts.head.matchesPublishedArchitect, true);
+  assert.match(result.notes.join(' '), /is the published architect head/);
+  const report = formatReport(result);
+  assert.match(report, /published head .*match/);
+  assert.match(report, /exact-head marker: [0-9a-f]{40}/);
+});
+
+test('a candidate that is neither the local nor the published architect head is rejected', () => {
+  const { directory, mainName } = makeRepo();
+  git(['branch', 'origin/codex/opencode-architect', 'architect'], directory);
+  const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
+    publishedRef: 'origin/codex/opencode-architect', baseRef: mainName, localRef: mainName });
+  assert.equal(result.ok, false);
+  assert.equal(result.exitCode, 1);
+  assert.match(result.errors.join(' '), /is not the architect head/);
+  assert.equal(result.facts.head.matchesPublishedArchitect, false);
+});
+
+test('an unresolvable published ref is reported instead of silently compared', () => {
+  const { directory, mainName } = makeRepo();
+  git(['branch', '-f', 'architect', mainName], directory);
+  const result = runExactHeadCheck({ repo: directory, commit: 'HEAD', architectRef: 'architect',
+    publishedRef: 'origin/codex/opencode-architect', baseRef: mainName, localRef: mainName });
+  assert.equal(result.ok, true, result.errors.join(' '));
+  assert.equal(result.facts.publishedArchitect.checked, false);
+  assert.match(result.notes.join(' '), /only architect was compared/);
 });
 
 test('an unresolvable candidate or architect ref is a usage error, not a gate failure', () => {

@@ -15,9 +15,15 @@
  * original content, never changes a ref, never issues or accepts a marker,
  * and never decides that a candidate is correct.
  *
+ * The candidate must be the architect head. It may be the local architect
+ * branch head or the published one (`origin/codex/opencode-architect`); the
+ * report names which one matched, because the local branch often carries
+ * unpublished work that is ahead of the published head.
+ *
  * Usage:
  *   node tools/verify-exact-head.mjs [--repo <dir>] <commit>
- *       [--architect-ref <ref>] [--base-ref <ref>] [--local-ref <ref>]
+ *       [--architect-ref <ref>] [--published-ref <ref>] [--base-ref <ref>]
+ *       [--local-ref <ref>]
  *
  * Exit codes: 0 = locally checkable preconditions hold, 1 = a precondition
  * fails, 2 = usage or unresolved-reference error.
@@ -26,6 +32,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 export const DEFAULT_ARCHITECT_REF = 'codex/opencode-architect';
+export const DEFAULT_PUBLISHED_REF = 'origin/codex/opencode-architect';
 export const DEFAULT_BASE_REF = 'origin/main';
 export const DEFAULT_LOCAL_REF = 'main';
 
@@ -179,6 +186,7 @@ export function runExactHeadCheck(options = {}) {
   const repo = options.repo ?? process.cwd();
   const commit = options.commit;
   const architectRef = options.architectRef ?? DEFAULT_ARCHITECT_REF;
+  const publishedRef = options.publishedRef ?? DEFAULT_PUBLISHED_REF;
   const baseRef = options.baseRef ?? DEFAULT_BASE_REF;
   const localRef = options.localRef ?? DEFAULT_LOCAL_REF;
 
@@ -187,10 +195,12 @@ export function runExactHeadCheck(options = {}) {
   const facts = {
     repo,
     architectRef,
+    publishedRef,
     baseRef,
     localRef,
     head: null,
     architect: null,
+    publishedArchitect: null,
     base: null,
     local: null,
     trackedPathsAtHead: null,
@@ -215,9 +225,31 @@ export function runExactHeadCheck(options = {}) {
   }
   facts.architect = { ref: architectRef, sha: architectSha };
   facts.head.matchesArchitect = headIsArchitectHead(headSha, architectSha);
-  if (!facts.head.matchesArchitect) {
+
+  const publishedSha = resolveCommit(publishedRef, repo);
+  if (!publishedSha) {
+    notes.push(`published ref ${publishedRef} is not resolvable here; only ${architectRef} was compared`);
+    facts.publishedArchitect = { ref: publishedRef, sha: null, checked: false };
+  } else {
+    facts.publishedArchitect = {
+      ref: publishedRef,
+      sha: publishedSha,
+      checked: true,
+      matchesHead: headIsArchitectHead(headSha, publishedSha),
+    };
+  }
+
+  const matchesPublished = facts.publishedArchitect.checked && facts.publishedArchitect.matchesHead;
+  facts.head.matchesPublishedArchitect = matchesPublished;
+  if (!facts.head.matchesArchitect && !matchesPublished) {
     errors.push(
       `candidate ${shortSha(headSha)} is not the architect head ${shortSha(architectSha)} (${architectRef})`,
+    );
+  }
+  if (!facts.head.matchesArchitect && matchesPublished) {
+    notes.push(
+      `candidate ${shortSha(headSha)} is the published architect head (${publishedRef}); the local `
+        + `${architectRef} is ahead at ${shortSha(architectSha)} with unpublished work`,
     );
   }
 
@@ -297,6 +329,12 @@ export function formatReport(result) {
   lines.push(`  head            ${facts.head.sha}  ${facts.head.subject}`);
   lines.push(`  architect head  ${facts.architect.sha}  (${facts.architect.ref})  `
     + `${facts.head.matchesArchitect ? 'match' : 'MISMATCH'}`);
+  if (facts.publishedArchitect.checked) {
+    lines.push(`  published head  ${facts.publishedArchitect.sha}  (${facts.publishedArchitect.ref})  `
+      + `${facts.publishedArchitect.matchesHead ? 'match' : 'MISMATCH'}`);
+  } else {
+    lines.push(`  published head  unresolved (${facts.publishedArchitect.ref}); not compared`);
+  }
   if (facts.base.checked) {
     lines.push(`  published base  ${facts.base.sha}  (${facts.base.ref})  `
       + `${facts.base.relation} `
@@ -317,7 +355,7 @@ export function formatReport(result) {
   for (const error of result.errors) lines.push(`  ERROR           ${error}`);
   lines.push('external promotion gates (listed here, not asserted by this tool):');
   lines.push(formatExternalGates());
-  lines.push(facts.head.matchesArchitect
+  lines.push(facts.head.matchesArchitect || facts.head.matchesPublishedArchitect
     ? `exact-head marker: ${facts.head.sha}`
     : 'exact-head marker: none (the candidate is not the architect head)');
   return lines.join('\n');
@@ -325,11 +363,12 @@ export function formatReport(result) {
 
 function parseArgs(argv) {
   const options = { repo: process.cwd(), commit: null, architectRef: DEFAULT_ARCHITECT_REF,
-    baseRef: DEFAULT_BASE_REF, localRef: DEFAULT_LOCAL_REF };
+    publishedRef: DEFAULT_PUBLISHED_REF, baseRef: DEFAULT_BASE_REF, localRef: DEFAULT_LOCAL_REF };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--repo') options.repo = argv[++index];
     else if (arg === '--architect-ref') options.architectRef = argv[++index];
+    else if (arg === '--published-ref') options.publishedRef = argv[++index];
     else if (arg === '--base-ref') options.baseRef = argv[++index];
     else if (arg === '--local-ref') options.localRef = argv[++index];
     else if (arg.startsWith('--')) {
@@ -346,7 +385,7 @@ function main(argv) {
     options = parseArgs(argv);
   } catch (error) {
     console.error(`usage: node tools/verify-exact-head.mjs [--repo <dir>] <commit> `
-      + '[--architect-ref <ref>] [--base-ref <ref>] [--local-ref <ref>]');
+      + '[--architect-ref <ref>] [--published-ref <ref>] [--base-ref <ref>] [--local-ref <ref>]');
     console.error(error.message);
     return 2;
   }
