@@ -354,3 +354,19 @@ Conclusion: `g_esi` is `RECOMP_TLS` storage, and the harness models thread/TLS c
 No workaround, model, or translator edit. The ABI-clobber hunt is halted pending a context-aware probe (record the TLS/thread identity with each read) or a translator-level register trace supplied as tooling evidence.
 
 No DECISIONS row: characterization only.
+
+## 24. Thread-scoped logger repair and its residual limit
+
+Authorized tooling repair (not a workaround): a pure `ff_tls_same_context(entry_fs, current_fs)` predicate (new `src/runtime/tls_scope.c/.h`, native test `tests/tls_scope_test.c`) now gates both diagnostics:
+
+- The ESI-change log only records a change when the TLS base is unchanged; a context switch resets the baseline instead of being logged as a register change.
+- The ABI logger skips its ESI comparison when the TLS base differs from the previous call's.
+
+Re-run `browser-144-abi.json` (module 144, 50/50 native fixtures green):
+
+- The log still reports `0x03F0xxxx`/`0x55667788` values at sites `0x1DF9C0`/`0x1DF9F3`/site 0 **within one `g_fs_base`**, i.e. these are real transient register uses by those functions, not TLS switches.
+- The `0x1FC087` field access still reports `g_esi = 0x205E98` and the entry `0x203B90`, but **no transition to `0x205E98` is logged**, and the same call's change-check baseline differs from the captured field ESI.
+
+Conclusion: thread-scoping removed the TLS confound but did not reconcile the samples. The remaining inconsistency means the diagnostic cannot yet observe the field access's register state consistently — a harness/instrumentation limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The repair is committed with its fixture test; the ESI-clobber hunt remains halted pending a translator-level register trace or a single-view register capture.
+
+No DECISIONS row: tooling characterization.

@@ -1,4 +1,12 @@
-# ESI-change log confounded by TLS/thread-context switching; hunt halted
+# Thread-scoped register logger repaired; residual capture limit remains
+
+November 5: authorized tooling repair. A pure `ff_tls_same_context(entry_fs, current_fs)` predicate (`src/runtime/tls_scope.c/.h`, native test `tests/tls_scope_test.c`) now gates both diagnostics: the ESI-change log only records changes within one TLS base, and the ABI logger skips its ESI comparison across a TLS switch. Re-run (module 144, native 50/50) still reports `0x03F0xxxx`/`0x55667788` values at `0x1DF9C0`/`0x1DF9F3`/site 0 **within one `g_fs_base`** (real transient uses, not TLS switches), while the `0x1FC087` access reports `g_esi = 0x205E98` and entry `0x203B90` with **no logged transition** and a differing baseline at the same call. Thread-scoping removed the TLS confound but did not reconcile the samples; this is a harness/instrumentation capture limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The hunt stays halted pending a translator-level register trace or single-view capture.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: single-view register capture or translator-level trace as tooling evidence.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 480 files, whitespace clean. Integration head `12f0818` (per directive) — no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ESI-change log confounded by TLS/thread-context switching; hunt halted
 
 November 5: the probe now logs every observed `g_esi` change (site, address, new value). One run reports changes at `0x03F0xxxx`/`0x55667788` values from sites `0x1DF9C0`, `0x1DF9F3` and site 0 — other thread/TLS contexts — while the `0x1FC087` field access still reports `0x205E98` and the entry reports `0x203B90`, with no logged transition to `0x205E98`. `g_esi` is `RECOMP_TLS` storage and the harness models TLS/thread switches, so the diagnostic reads are **not from a single register context**; the earlier ESI-clobber readings are unreliable. This is a harness/tooling instrumentation limit, not a demonstrated guest-state, profile, or translator defect. No workaround, model, or translator edit; the ABI-clobber hunt is halted pending a context-aware probe (record TLS/thread identity) or a translator-level register trace supplied as tooling evidence.
 

@@ -87,6 +87,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/av_saved_data.h"
 #include "../../src/runtime/av_null_result.h"
 #include "../../src/runtime/mm_free_contiguous.h"
+#include "../../src/runtime/tls_scope.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -178,6 +179,7 @@ static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_e
 static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
 static uint32_t site_span_esi[4];
 static uint32_t esi_change_last, esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
+static uint32_t esi_change_ctx, abi_last_fs;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -383,7 +385,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
     site_entry_count = 0u;
-    esi_change_count = 0u; esi_change_last = 0u;
+    esi_change_count = 0u; esi_change_last = 0u; esi_change_ctx = 0u;
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -671,11 +673,12 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled) {
-        if (g_esi != esi_change_last) {
+        if (g_esi != esi_change_last && ff_tls_same_context(esi_change_ctx, g_fs_base)) {
             uint32_t slot = esi_change_count & 7u;
             esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
             esi_change_last = g_esi; ++esi_change_count;
         }
+        if (!ff_tls_same_context(esi_change_ctx, g_fs_base)) { esi_change_ctx = g_fs_base; esi_change_last = g_esi; }
         uint32_t *slot = site == 0x001FC01Fu ? &site_span_esi[0]
                         : site == 0x001FC038u ? &site_span_esi[1]
                         : site == 0x001FC055u ? &site_span_esi[2]
