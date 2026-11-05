@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: null-result AV model passes; next stop is translation placeholder 0x1F54D0
+## Latest: D3DDevice_Release admitted; next stop is another NULL-Result AV call
+
+- [Ordinal-1 checkpoint §9](SERVICE_ORDINAL_1_CHECKPOINT.md#9-admission-of-d3ddevice_release-and-the-next-stop): `0x001F54D0` is `D3DDevice_Release` (18 instructions; refcount at `[device+0x408]`; teardown calls `0x001FC010` and clears `0xAE4` dwords). Admitted as one bounded translation increment via a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` merged into the retained 32-seed set, with `--guard-memory`; profile 86 has 462 functions / 18,958 instructions and agreeing original bytes/decoder instructions. Module 123 (same probe sources): 722,259 bytes, SHA `9f883b09...`. Control 339/405; inert 340/406 at ordinal 3; experiment passes Release (+4 routines) and reaches **status 1 at `0xFE000094`, ordinal 2**, **344/411** — `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return `0x001FB664`), refused because the tuple differs from the authorized exact shape.
+- **No DECISIONS row:** integration head `6bc05f7` contains `c8c965c` but not the lane commits, so the sync-first rule still blocks the row.
+
+## Prior: null-result AV model passes; next stop was translation placeholder 0x1F54D0
 
 - [Ordinal-1 checkpoint §8](SERVICE_ORDINAL_1_CHECKPOINT.md#8-bounded-null-result-model-authorized-and-the-next-stop): architect-authorized default-off model for the observed third ordinal-2 call, exact tuple (`0x03920000`, option 9, param 0, Result NULL) with nonzero Result refused. Module 121 (721,389 bytes, SHA `4ec6816d...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted with no write (write-map `47 -> 47`, frame checksum unchanged), EAX `0 -> 0`, `esp` +20, then **status 2 at `0x001F54D0`, 340 routines / 410 kernel ops**. That target is an unadmitted translation placeholder reached by `ff_title_00042BE0` tail-jumping there after `D3DDevice_Present`; admission needs a new translation/seed step.
 - **No DECISIONS row:** integration head `6bc05f7` contains `c8c965c` but not `3d4cf7d`/`bfe9dec`/`753711f`/`eb685e0`, so the sync-first rule still blocks the row.
