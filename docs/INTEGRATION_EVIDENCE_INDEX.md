@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6890 admission
+## Latest: 0x1F7300 admission
+
+- [The 0x1F7300 batch](FRONTIER_DEP_1F7300_CHECKPOINT.md): translation 66 (438 functions / 18,229 instructions), module 87 (693,474 bytes, SHA `3f001885…`), control 279/404 at ordinal 2 vs experiment 308/405 at untranslated `0x1F7370`, comparator exit 0 (+29 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 528/0, package verifier 25/25 digests.
+- `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already Ghidra-established; its 34-instruction / 108-byte seed (`8552c475…`) calls only translated functions, has internal conditional branches, and preflights 34/34. `0x1F7370` is the next ordinary stop (table index 124).
+- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The approved `0x1F6620` work remains at `5e168b4`. The main PR is still pending the fixed published head.
+
+## Prior: 0x1F6890 admission
 
 - [The 0x1F6890 batch](FRONTIER_DEP_1F6890_CHECKPOINT.md): translation 65 (437 functions / 18,195 instructions), module 86 (692,563 bytes, SHA `2a0ff87b…`), control 279/404 at ordinal 2 vs experiment 307/405 at untranslated `0x1F7300`, comparator exit 0 (+28 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 527/0, package verifier 24/24 digests.
-- `0x1F6890` (`D3DDevice_SetRenderState_NormalizeNormals`, table `0x2025D8`, index 122) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 45-byte seed (`67887947…`) calls already-translated `0x1FB3B0` and preflights 13/13. `0x1F7300` is the next ordinary stop (table index 123).
-- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The approved `0x1F6620` work remains at `5e168b4`. The main PR is still pending the fixed head.
+- `0x1F6890` (`D3DDevice_SetRenderState_NormalizeNormals`, table `0x2025D8`, index 122) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 45-byte seed (`67887947…`) calls already-translated `0x1FB3B0` and preflights 13/13.
 
 ## Prior: 0x1F6B50 admission
 
