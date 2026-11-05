@@ -18,7 +18,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - `0x1F5B70`/`0x1F6300` executed; `0x1F6970` is the next ordinary stop. No further batch this cycle; the provisional continuation remains `approved: false`.
 
 - [The 0x1F6970 dependency batch](FRONTIER_DEP_1F6970_CHECKPOINT.md): translation 58 (430 functions / 18,073 instructions), module 79 (688,315 bytes, SHA `8baa111d…`), control 279/404 at ordinal 2 vs experiment 300/405 at untranslated `0x1F6620`, comparator exit 0 (+21 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 520/0, package verifier 17/17 digests.
-- The next stop `0x1F6620` is ordinary; no further batch this cycle. The provisional continuation remains `approved: false`.
+- The next stop `0x1F6620` is ordinary, but a read-only export returned `established: false` (no entry/instructions): it is not an established function in the retained project. The closure halts at this failed gate; creating/analyzing it is outside the read-only export and frozen tooling. No further batch.
 
 ## Source lane
 

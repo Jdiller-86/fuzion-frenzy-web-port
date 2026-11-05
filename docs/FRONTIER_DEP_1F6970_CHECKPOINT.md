@@ -40,4 +40,4 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6620` is an ordinary untranslated routine. Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6620` was not entered.
+The observed stop `0x1F6620` is an ordinary untranslated routine, but a read-only export returned **`established: false`** with no entry or instructions: the address is not an established function in the retained Ghidra project. A dependency batch cannot be formed without creating/analyzing that function, which is outside the read-only export and the frozen tooling. The lane **halts at this failed gate**; the provisional chain ends at the observed `0x1F6620` stop. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6620` was not entered.
