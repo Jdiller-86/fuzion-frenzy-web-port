@@ -61,6 +61,20 @@ class VerifySeedsTests(unittest.TestCase):
         (self.translation / "generation.json").unlink()
         self.assertEqual(self.run_main(self.first, self.second), 2)
 
+    def test_missing_seed_reports_its_recorded_index(self):
+        import contextlib
+        import io
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(self.run_main(self.first), 1)
+        self.assertIn(f"missing {digest(self.second)} (recorded index 1)",
+                      output.getvalue())
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(self.run_main(self.second), 1)
+        self.assertIn(f"missing {digest(self.first)} (recorded index 0) [first recorded seed]",
+                      output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
