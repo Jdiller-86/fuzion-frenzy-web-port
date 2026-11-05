@@ -40,6 +40,7 @@ Re-ran the retained seed preflight at `2026-11-04T20:26-05:00` with the pinned t
 - Acceptance: byte/decoder/layout identity; `verify-seeds` 32/32 (including the recovered seed); no `UNIMPLEMENTED` at `0x1F7080`; same-module control/experiment pair differing only in `avQueryWord` with comparator exit 0; record the next genuine stop.
 - Stop: report the next genuine stop and stop; do not translate dependencies, infer semantics or claim original execution/fidelity.
 - No seed merge, translation, module, report or execution was performed.
+- Manifest preflight (read-only, `2026-11-04T20:30-05:00`): all 32 seeds are retained; the next seed's source digest matches; `0x1F7080` is absent from every retained seed and the merged front seed; the 29-function front seed merges to 30 (≤32 per export); 422→423 functions (≤512) and 17,593→17,620 instructions (≤32,768); exports stay 32 (≤32). No merge was performed.
 
 ## Boundaries
 
