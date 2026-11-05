@@ -7,6 +7,119 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
+## PR #11 exact-head evidence at `6bc05f7`, and the `c8c965c..6bc05f7` attribution (November 5, 2026)
+
+### Head/base SHA equality for PR #11 at its current head
+
+| Item | Value |
+| --- | --- |
+| PR #11 | `codex/opencode-architect@6bc05f766dd23f31130872df2ac3b6316786967e` -> `main@ea6e15e1a5cbe43cc54735f808f0f5c235307293` |
+| Head equals the published architect head | yes: `origin/codex/opencode-architect` is `6bc05f766dd23f31130872df2ac3b6316786967e` |
+| Base equals the published main | yes: `origin/main` is `ea6e15e1a5cbe43cc54735f808f0f5c235307293`, and it is a **strict ancestor** of the head |
+| PR state | open, not a draft, `mergeable: true`, `mergeable_state: clean`, updated 2026-11-05T14:35:59Z |
+
+### Both green check-runs at the exact head (read-only, GitHub API)
+
+| Run | Event | State | Jobs |
+| --- | --- | --- | --- |
+| `42046563845` | `push`, branch `codex/opencode-architect` | `completed` / **success** (14:36:00Z -> 14:36:58Z) | `127310984199` "preparation (ubuntu-latest)" success; `127310984627` "preparation (windows-latest)" success |
+| `42046577727` | `pull_request` | `completed` / **success** (14:36:05Z -> 14:37:33Z) | `127311032968` "preparation (windows-latest)" success; `127311033638` "preparation (ubuntu-latest)" success |
+
+Both runs report head `6bc05f766dd23f31130872df2ac3b6316786967e`.
+
+### `verify-exact-head` pass at `6bc05f7`
+
+`node tools/verify-exact-head.mjs 6bc05f7` -> **exit 0**: the candidate is the
+published architect head; the published base `ea6e15e` is a strict
+**ancestor** (head ahead 12, behind 0, **0 missing base paths**); 465 tracked
+paths at the head. The local `main` branch is `7452dca` and has **two**
+commits the head does not contain; that divergence is recorded for the
+architect, not decided here.
+
+### Merge outcome: still pending
+
+PR #11 has **not** merged, so no merge commit exists to record. The
+`merge_commit_sha` reported for an open pull request is its *test* merge
+commit, not a landed merge, and is deliberately not repeated here as if it were
+one. The three promotion gates the architect named - green CI at the exact
+head, a current base, and clean mergeability - remain **observed** at
+`6bc05f7`.
+
+### Attribution of the `c8c965c..6bc05f7` delta
+
+The architect asked for every commit in that range to be attributed before
+integrating. The range is exactly three commits, all lane-orchestration and
+routing governance, with no source, runtime, fixture or game-content change:
+
+| Commit | Subject | Paths |
+| --- | --- | --- |
+| `d8c6fa5` | Use Go GLM Flash for project architect routing | `.opencode/agents/architect_fallback.md`, `.opencode/opencode.jsonc`, `AGENTS.md` |
+| `7fb64e1` | Use GLM Flash first in scheduled architect runner | `tools/Invoke-OpenCodeArchitect.ps1`, `tools/opencode-builder-models.json` |
+| `6bc05f7` | Use current checkpoints and concise prompts for orchestration | `.opencode/plugins/orchestrator/index.ts`, `AGENTS.md`, `docs/OPENCODE_GOAL.md`, `tools/Invoke-OpenCodeArchitect.ps1`, `tools/Invoke-OpenCodeManager.ps1` |
+
+The local architect branch also carries one further **unpublished** commit on
+top of the published head (`edc8540` "Give scheduled Flash architect bounded
+review tools", touching `.opencode/agents/architect_primary.md` and
+`tools/Invoke-OpenCodeArchitect.ps1`), so the next publication will move the
+head past `6bc05f7` and the exact-head evidence will have to be re-read then.
+
+### Tool change in this cycle
+
+The precheck now compares the candidate against **both** the local architect
+branch and the published architect head (`origin/codex/opencode-architect`),
+and the report names which one matched. Before this change the tool compared
+only the local branch, so a published candidate whose branch had unpublished
+work on top was reported as a mismatch - a false failure that appeared exactly
+this cycle, when the local branch was ahead at `17b5775` while the published
+head was `6bc05f7`. A candidate that matches neither reference is still
+rejected. The CI/PR/marker gates remain listed and never asserted.
+
+### Publication state
+
+- The lane's PR #9 records (`cc64854`, `ca0b495`) are in the published main
+  `ea6e15e`; the lane's later records (`c466018`, `4585f05`) are still
+  lane-local and reach the published line when the architect integrates this
+  lane branch.
+- `origin/codex/opencode-verification` remains the pre-rebase `077ee14`, so the
+  runner's plain lane push still cannot fast-forward it; this is the recorded
+  runner-side limitation, not a content divergence.
+
+### Evidence limits
+
+- The CI and pull-request facts are a read-only observation of the public
+  GitHub API without credentials on 2026-11-05, while PR #11 was open.
+- The attribution table lists commit subjects and changed paths read from the
+  local repository. It says nothing about whether the orchestration changes are
+  correct or desirable; that review is the architect's.
+- The vblank/display-mode ratification, the ordinal-159 frontier, the second
+  ordinal-2 stop and the documented unknown-option default are the primary and
+  architect lanes' reviewed results. This lane checked head identity,
+  ancestry, CI, mergeability and commit attribution only.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs 6bc05f7` -> exit 0.
+- `git merge-base --is-ancestor ea6e15e 6bc05f7` -> 0 (the PR #11 base is
+  contained in the head).
+- `git log --oneline c8c965c..6bc05f7` -> three commits, all orchestration or
+  routing governance.
+- `node --test tests/verification-exact-head.test.mjs` -> 17/17 pass.
+- `node --test tests/integration-verification.test.mjs` -> 8/8 pass.
+- `npm run test:runtime` -> 200 tests, 199 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 465 source files.
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the next
+published architect head and its main pull request, and to the merge commit
+once it lands; the same command checks that head against the then-current
+architect head and the published merge target. No further tooling work is
+authorized until the architect asks for it.
+
 ## PR #11 exact-head evidence at `7fb64e1` (open, not yet merged) (November 5, 2026)
 
 ### Lane and head context

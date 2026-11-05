@@ -136,3 +136,30 @@ test('the exact-head precheck accepts a published target that merged the branch 
   assert.match(result.stdout, /parents-contained/);
   assert.match(result.stdout, /missing base paths 0/);
 });
+
+test('the exact-head precheck accepts the published architect head while the local branch differs', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'exact-head-published-'));
+  const git = (args) => execFileSync('git', args, {
+    cwd: directory, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  git(['init', '--quiet']);
+  fs.writeFileSync(path.join(directory, 'a.txt'), 'one\n');
+  git(['add', '-A']);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'commit', '--quiet', '-m', 'first']);
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+  git(['branch', 'architect']);
+  fs.writeFileSync(path.join(directory, 'b.txt'), 'two\n');
+  git(['add', '-A']);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'commit', '--quiet', '-m', 'second']);
+  git(['branch', 'origin/codex/opencode-architect', 'HEAD']);
+
+  const result = spawnSync(process.execPath, [
+    path.resolve('tools/verify-exact-head.mjs'), '--repo', directory, 'HEAD',
+    '--architect-ref', 'architect', '--base-ref', branch, '--local-ref', branch,
+  ], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /published head .*match/);
+  assert.match(result.stdout, /exact-head marker: [0-9a-f]{40}/);
+});
