@@ -28,7 +28,6 @@ The streamlined flow keeps exactly two persistent main sessions: the pinned hour
 - **Application record:** the user explicitly authorized the hourly architect to apply this package directly (2026-11-04), so it was committed on `codex/opencode-architect` by the architect session instead of being imported by the primary lane; the next hourly review still verifies it before publication.
 - **Architect model (current):** scheduled architect runs use Go GLM-5.3-Flash only; a free Flash reviewer may give provisional read-only findings on allowance failure. Full Go GLM-5.3 and Sol are excluded from automatic routing.
 - **Rollout:** per-lane periodic triggers are disabled once the orchestrator is live; the lane tasks stay registered for on-demand starts, and the Architect plus Manager tasks remain permanently as the watchdog ladder. Model routing, lane ownership, source-only publication, exact-head PR markers and every evidence gate are unchanged; this is workflow tooling, not original-game execution or playability evidence.
-
 Current architect model policy (November 5): automatic architect runs use only `opencode-go/glm-5.3-flash`. If it fails or exhausts allowance, a free Flash reviewer may provide provisional read-only findings; it cannot direct builders or approve integration or PRs. Never select full `opencode-go/glm-5.3` automatically. The scheduled runner enforces a one-model architect allowlist.
 
 ## Current three-lane scheduler
