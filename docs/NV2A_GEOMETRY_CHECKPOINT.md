@@ -212,6 +212,8 @@ Pause verification, not repeated per cycle: all three native targets pass optimi
 
 Fresh re-run this cycle (WSL/Linux): the three targets pass optimized (`-std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off`) and ASan/UBSan (`-O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all`), and `-fanalyzer` reports no diagnostics for `nv2a_triangle.c`, `nv2a_line.c` and `nv2a_quad.c`. A bounded read of `src/runtime/nv2a_line.c` found no demonstrated defect: the per-pair provoking-color selection is consistent between strip (`input[i + flat_offset]`) and loop (`input[i]`/`input[next]`), and the capacity and size guards are present. That is a targeted self-check only; it is not the whole-chain review the gate requires, and it establishes no reference parity.
 
+CI wiring verified against published `origin/main` (`c543720`): `.github/workflows/prepare.yml` there still compiles and runs `tests/nv2a_triangle_test.c`, `tests/nv2a_line_test.c` and `tests/nv2a_quad_test.c` with the same `-std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off` flags on Linux, so the lane's three checks survived the large integration merge; that workflow has since gained unrelated primary-lane steps, which this lane did not edit. A bounded read of `src/runtime/nv2a_quad.c` found no demonstrated defect: every quad and quad-strip line edge is given the depth slope of the triangle whose vertices contain both edge endpoints, and the point modes map each of the four outputs to its own input position row. That is likewise a targeted self-check only, not the whole-chain review and not reference parity.
+
 Resumption requires all of:
 
 1. an actionable retained reference admissible under the contract above and covering one existing component;
