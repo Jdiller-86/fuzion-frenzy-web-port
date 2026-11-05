@@ -119,6 +119,41 @@ class MixedLayoutContractTest(unittest.TestCase):
         self.assertEqual([table["targets"] for table in layout["tables"]],
                          [[0x100000, 0x100000], [0x100000]])
 
+    def test_twenty_eight_byte_gap_is_accepted(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00001000"
+        memory["00100008"] = "00001000"
+        parts = [instruction("00100000", 4),
+                 data("00100004", "00001000"),
+                 data("00100008", "00001000")]
+        for index in range(28):
+            address = 0x10000c + index
+            value = f"{index:02x}"
+            memory[f"{address:08x}"] = value
+            parts.append(data(f"{address:08x}", value, "byte"))
+        memory["00100028"] = "00001000"
+        parts.append(data("00100028", "00001000"))
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "0010002b"}], 44, 44,
+            parts), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 40)
+        self.assertEqual([len(table["targets"]) for table in layout["tables"]],
+                         [2, 1])
+
+    def test_defined_byte_budget_is_bounded(self):
+        memory = dict(CODE)
+        parts = [instruction("00100000", 4)]
+        for index in range(257):
+            address = 0x100004 + index
+            value = f"{index % 256:02x}"
+            memory[f"{address:08x}"] = value
+            parts.append(data(f"{address:08x}", value, "byte"))
+        with self.assertRaisesRegex(ValueError, "Defined byte-data budget exceeded"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100104"}], 261, 261,
+                parts), reader(memory))
+
     def test_pointer_target_must_be_local_instruction(self):
         memory = dict(CODE)
         memory["00100004"] = "00200000"

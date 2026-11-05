@@ -273,6 +273,7 @@ def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries
     if not isinstance(layout, list) or not 1 <= len(layout) <= 8192:
         raise ValueError("Invalid bounded envelope layout")
     cursor, seen, tables, padding_bytes, data_bytes = start, set(), [], 0, 0
+    byte_bytes = 0
     for part in layout:
         address, size, kind = int(part["start"], 16), part["bytes"], part["kind"]
         if address != cursor or type(size) is not int or size <= 0 or address + size > end:
@@ -308,6 +309,9 @@ def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries
                     # Defined non-pointer byte data (for example a byte lookup
                     # table between two pointer tables). The exact byte was
                     # already checked above; it is neither a table nor code.
+                    byte_bytes += 1
+                    if byte_bytes > 256:
+                        raise ValueError("Defined byte-data budget exceeded")
                     data_bytes += 1
                 else:
                     raise ValueError("Only declared 32-bit local pointer-table data or single defined bytes are supported")
