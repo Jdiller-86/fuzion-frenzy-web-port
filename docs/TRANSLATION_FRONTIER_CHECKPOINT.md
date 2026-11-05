@@ -1,4 +1,17 @@
-# The 0x1F7550 batch advances the stop to 0x1F7570
+# The 0x1F7570 batch completes the render-state table; the run stops at D3DDevice_Present
+
+November 5, 2026. Starting from published head `45c0327`, this cycle admitted the last two render-state handlers, `0x1F7570` (`RopZRead`, index 142) and `0x1F7590` (`DoNotCullUncompressed`, index 143). Both are 4-instruction / 17-byte wrappers that store their argument and call the already-admitted `0x1F7230`; each needed one bounded create-function at that address only. Seeds `8f6f0496?` and `024f834b?`; preflights 4/4, no tables or normalizations. They were appended to the merged 30-function seed (`8f1b7667?`, 32 functions), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-81` contains **456 functions / 18,617 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 546/0. Module `recomp-post-memory-build-102` is 705,414 bytes, SHA-256 `27ceaa9eb30f413d456692333f6d303fbdc75db780b829b88617d355b3489453`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x00202150`** | 332 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +53 routines, +1 operation. Both new handlers executed; `0x202150` was not entered. Frontier: **546 functions, 90 placeholders, 89 referenced**, 354 direct call targets.
+
+The table is complete (index 144 onward is non-pointer data). The post-table stop is a status-2 direct call to the code symbol `D3DDevice_Present` from `0x42C5E` in `FUN_00042be0`; it was not admitted and the next region is a fresh architect decision. These are synthetic startup observations, not fidelity, renderer, gameplay or playability evidence.
+
+## Prior: The 0x1F7550 batch advances the stop to 0x1F7570
 
 November 5, 2026. Starting from published head `b576fa2`, this cycle admitted `0x1F7550` (`D3DDevice_SetRenderState_RopZCmpAlwaysRead`, dispatch table index 141) plus its direct dependency `0x1F7230` (`D3D_CommonSetDebugRegisters`, already established). The new leaf is 4 instructions / 17 bytes and calls `0x1F7230`; only it needed a bounded create-function at that address only. The callee is 45 instructions / 200 bytes and calls translated `0x1FB3B0`. Seeds: `610fda82?` and `2038c102?`; preflights 4/4 and 45/45, no tables or normalizations. The pair was appended to the merged 28-function seed (`adce1396?`, 30 functions), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-80` contains **454 functions / 18,609 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 544/0. Module `recomp-post-memory-build-101` is 705,079 bytes, SHA-256 `cfb7b918eb44ba742a34d51371c2e762f839b47916063785da1911f60a77047e`.
 

@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7550 admission
+## Latest: 0x1F7570 admission and render-state table completion
+
+- [The 0x1F7570 batch](FRONTIER_DEP_1F7570_CHECKPOINT.md): translation 81 (456 functions / 18,617 instructions), module 102 (705,414 bytes, SHA `27ceaa9e...`), control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 546/0, package verifier 43/43 digests.
+- `0x1F7570` (index 142) and `0x1F7590` (index 143) were the last render-state handlers; each needed one bounded create-function at that address only. Both are 4-instruction / 17-byte wrappers calling the already-admitted `0x1F7230`.
+- **The render-state table is complete.** The new stop is status 2 at `0x00202150`, the code symbol `D3DDevice_Present`, called from `0x42C5E` in `FUN_00042be0`. It was not admitted; the next region is a fresh architect decision. This batch is `D343`.
+
+## Prior: 0x1F7550 admission
 
 - [The 0x1F7550 batch](FRONTIER_DEP_1F7550_CHECKPOINT.md): translation 80 (454 functions / 18,609 instructions), module 101 (705,079 bytes, SHA `cfb7b918...`), control 279/404 at ordinal 2 vs experiment 324/405 at untranslated `0x1F7570`, comparator exit 0 (+45 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 544/0, package verifier 41/41 digests.
 - `0x1F7550` (`D3DDevice_SetRenderState_RopZCmpAlwaysRead`, table index 141) was a named symbol without a function; one bounded create-function at that address only made it admissible. The 4-instruction / 17-byte seed (`610fda82...`) stores its argument and calls `0x1F7230`, an already-established 45-instruction / 200-byte function (`2038c102...`) that calls translated `0x1FB3B0`.

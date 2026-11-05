@@ -54,6 +54,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F7570` (`RopZRead`, table index 142) is an ordinary in-region render-state entry; it was not entered. Index 143 (`0x1F7590`, `DoNotCullUncompressed`) also remains and index 144 onward is non-pointer data, so the table is still not complete and no post-table region is declared. This cycle stops here for review; a later ≤8-function batch may continue only while stops remain ordinary. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F7570` (`RopZRead`, table index 142) is an ordinary in-region render-state entry; it was not entered here. It and the final handler `0x1F7590` were subsequently admitted in translation 81/module 102, completing the render-state table; the run now stops after the table at `0x00202150` (`D3DDevice_Present`, status 2 direct call). See [the 0x1F7570 checkpoint](FRONTIER_DEP_1F7570_CHECKPOINT.md). These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent `0x1F7550` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.
