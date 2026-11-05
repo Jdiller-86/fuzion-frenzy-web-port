@@ -1,4 +1,10 @@
-# The 0x202150 static characterization confirms a PFIFO runtime boundary
+# The PFIFO pusher prototype passes its component tests but the consumer run is unbounded
+
+November 5: default-off PFIFO pusher prototype added under the architect-subagent authorization (~04:10 local): pure `pfifo_pusher.c/.h` (one packet/jump/ring-jump per step; call/return, unknown, budget, protection and span refusals; LOW_MARK ordering; no execution, no guest writes), native fixture, `pfifoConsumer` input, report state, and a gated hook at the status-13 GET site with a 64-step budget. No translation admission/export/seed change.
+
+Checks: `test:native` 36/36 (optimized + ASan/UBSan), `test:runtime` 197/0, `check` 452 files, `test:evidence` 6/6, whitespace clean. Control on module 106 (715,696 bytes, SHA `6b578577?`): status 13 at `0xFD800044`, 339/405, no consumer state — default unchanged. Consumer run: no report, did not terminate within 300 s (earlier 900 s); the GET budget did not fire, so the run passed the wait into an unbounded CPU-side wait. Halted, not chased; the consumer stays default-off. Next: an execution budget or evidence about the post-consumption wait — a fresh architect decision. Main `4b94a64` still not an ancestor; merge denied. **No controllable original screen.**
+
+## Prior: The 0x202150 static characterization confirms a PFIFO runtime boundary
 
 November 5: directed read-only characterization of `0x00202150` (`D3DDevice_Present`) with **no admission, export or seed change**. Conflict recorded: commit `7dae2e4` already admitted Present plus its three untranslated direct callees under the previous architect-subagent authorization, so the directive's "post-table stop, no admission" premise is stale; the run now stops at the PFIFO boundary instead. The architect also has not yet integrated `2618783` (head still `d4e0107`).
 

@@ -1,4 +1,16 @@
-# The 0x202150 static characterization confirms a PFIFO runtime boundary
+# The PFIFO pusher prototype passes its component tests but the consumer run is unbounded
+
+November 5: under the architect-subagent authorization of about 04:10 local (opencode-go GLM-5.3), this cycle added a **default-off** PFIFO pusher prototype: a pure `src/runtime/pfifo_pusher.c/.h` step (one method packet, jump or ring jump; call/return, unknown, budget, protection and span refusals; LOW_MARK clear-then-set through the existing status seam; no method execution, no guest writes), a native fixture, a parser/report input (`pfifoConsumer`), and one gated hook at the status-13 DMA_GET site with a 64-step budget. No translation admission, export or seed change was made.
+
+Checks: `npm run test:native` **36/36** runs (including the new fixture, optimized and ASan/UBSan), `test:runtime` 196 pass/0 fail, `check` 452 files, `test:evidence` 6/6, `git diff --check` clean.
+
+**Control** (retained avQuery profile, consumer absent) on module 106 (**715,696 bytes**, SHA `6b578577?`): **status 13 at `0xFD800044`, 339 routines / 405 kernel operations**, `stopReason: "pushbuffer consumption required"`, no consumer state — the default path is unchanged and fail-closed.
+
+**Consumer run** (synthetic profile with `"pfifoConsumer": true`): wrote no report and did **not terminate** within 300 seconds (an earlier attempt exceeded 900 seconds). The 64-step GET budget did not fire, so the run passed the PFIFO wait and entered an **unbounded CPU-side wait** the harness cannot classify. No stop or refusal classification was produced; the run was halted and not chased. This is a new boundary: after consumption the title waits on a condition the harness neither models nor bounds. The next step is an execution/instruction budget or evidence about that completion condition — a fresh architect decision.
+
+The consumer remains **default-off** and must not be enabled in retained runs until bounded. Main `4b94a64` is still not an ancestor and this session denies `git merge`, so ancestry sync remains deferred. **There is no controllable original screen**; the prototype is not a rendering, command-correctness or playability claim.
+
+## Prior: The 0x202150 static characterization confirms a PFIFO runtime boundary
 
 November 5: this cycle performed the directed **read-only** characterization of `0x00202150` (`D3DDevice_Present`) with **no admission, export or seed change**. It records a conflict: the directive's premise (post-table stop, not yet admitted) is stale — commit `7dae2e4` already admitted Present and its three untranslated direct callees under the previous architect-subagent authorization, and the run now stops later at the PFIFO boundary. It also records that the architect has not yet integrated `2618783` (architect head remains `d4e0107`).
 

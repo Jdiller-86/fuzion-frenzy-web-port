@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x202150 read-only characterization
+## Latest: PFIFO pusher prototype (default-off)
+
+- [PFIFO consumer prototype](PFIFO_CONSUMER_PROTOTYPE_CHECKPOINT.md): new `src/runtime/pfifo_pusher.c/.h` with a native fixture (36/36 component runs, optimized + ASan/UBSan), `pfifoConsumer` profile input, report state and validator, and a gated 64-step hook at the status-13 DMA_GET site. No admission, export or seed change.
+- Control on module 106 (715,696 bytes, SHA `6b578577...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
+- The opt-in consumer run wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait into an unbounded CPU-side wait. Halted and not chased; the consumer remains default-off. The next step is an execution/instruction budget or evidence about the post-consumption completion condition — a fresh architect decision. This record is `D347`.
+
+## Prior: 0x202150 read-only characterization
 
 - [Present characterization](PRESENT_STATIC_CHARACTERIZATION_CHECKPOINT.md): no admission, export or seed change. `0x202150` (`D3DDevice_Present`) is `body 0x202150..0x2022D0`, 115 instructions / 385 bytes, 115/115 decoded, one `RET 0x10`, 20 basic blocks, no tables; two loops (fence wait, submit retry).
 - Conflict recorded: Present and its three untranslated direct callees were already admitted in `7dae2e4` under the previous architect-subagent authorization, so the directive's post-table/no-admission premise is stale. Seven direct callees classified: `D3D_SetFence`, `0x1FACA0`, `CDevice_KickOff`, `D3D_KickOffAndWaitForIdle` pre-existing; `0x201E80`, `0x202060`, `0x1F5520` added in translation 83. Nine calls use seven kernel-ordinal pointer sites (`0x80000001/2/3/4/0xAB/0xB2/0xB4`), not code. Caller `0x42C5E` in `FUN_00042be0` builds a 640×480 format-7 descriptor first.
