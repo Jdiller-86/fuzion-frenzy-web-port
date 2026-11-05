@@ -174,6 +174,7 @@ static uint32_t mm_free_write_before, mm_free_write_after;
 static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_watch_count;
 static uint32_t guest_watch_read_site, guest_watch_read_count;
 static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
+static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
 static uint32_t site_watch_field_addr, site_watch_field_count;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
@@ -379,6 +380,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_entry_ret = 0u;
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
+    site_entry_count = 0u;
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -393,6 +395,13 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
         default: return UINT32_MAX;
     }
 }
+uint32_t ff_probe_site_entry_word(uint32_t index)
+{
+    if (index >= 24u) return 0u;
+    uint32_t slot = index / 3u, field = index % 3u;
+    return field == 0u ? site_entry_addr[slot] : field == 1u ? site_entry_ecx[slot] : site_entry_ret[slot];
+}
+uint32_t ff_probe_site_entry_count(void) { return site_entry_count; }
 uint32_t ff_probe_guest_watch_target(uint32_t address)
 {
     if (!guest_watch_enabled) return FF_BOOT_INVALID;
@@ -647,10 +656,15 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled) {
-        if (site == 0x001FC010u && !site_watch_entry_addr) {
+        if (site == 0x001FC010u && !(access & FF_VM_WRITE)) {
             site_watch_entry_addr = address;
-            site_watch_entry_ecx = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
-            site_watch_entry_ret = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 12u) : 0u;
+            { uint32_t slot = site_entry_count & 7u;
+              site_entry_addr[slot] = address;
+              site_entry_ecx[slot] = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 4u) : 0u;
+              site_entry_ret[slot] = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
+              ++site_entry_count; }
+            site_watch_entry_ecx = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 4u) : 0u;
+            site_watch_entry_ret = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
         } else if (site == 0x001FC087u) {
             if (!site_watch_field_addr) site_watch_field_addr = address;
             ++site_watch_field_count;
