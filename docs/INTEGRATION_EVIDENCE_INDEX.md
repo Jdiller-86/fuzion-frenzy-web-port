@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6730 admission
+## Latest: 0x1F75B0 admission
+
+- [The 0x1F75B0 batch](FRONTIER_DEP_1F75B0_CHECKPOINT.md): translation 74 (447 functions / 18,461 instructions), module 95 (700,698 bytes, SHA `286daba7…`), control 279/404 at ordinal 2 vs experiment 317/405 at untranslated `0x1F7600`, comparator exit 0 (+38 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 537/0, package verifier 34/34 digests.
+- `0x1F75B0` (`D3DDevice_SetRenderState_MultiSampleAntiAlias`, table index 132) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`d75806bf…`) calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`. `0x1F7600` is the next ordinary stop (table index 133).
+- Main ancestry is restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D335` (primary).
+
+## Prior: 0x1F6730 admission
 
 - [The 0x1F6730 batch](FRONTIER_DEP_1F6730_CHECKPOINT.md): translation 73 (446 functions / 18,439 instructions), module 94 (700,022 bytes, SHA `e9b108f2…`), control 279/404 at ordinal 2 vs experiment 316/405 at untranslated `0x1F75B0`, comparator exit 0 (+37 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 536/0, package verifier 33/33 digests.
-- `0x1F6730` (`D3DDevice_SetRenderState_EdgeAntiAlias`, table index 131) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 44-byte seed (`fe75b542…`) calls already-translated `0x1FB3B0` and ends in `RET 4`. `0x1F75B0` is the next ordinary stop (table index 132).
-- Publication is current: remote source `b470521`, CI run `41981829155` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+- `0x1F6730` (`D3DDevice_SetRenderState_EdgeAntiAlias`, table index 131) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 44-byte seed (`fe75b542…`) calls already-translated `0x1FB3B0` and ends in `RET 4`.
 
 ## Prior: 0x1F6A70 admission
 
