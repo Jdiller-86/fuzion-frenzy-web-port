@@ -1,3 +1,5 @@
+OpenCode throughput policy (November 5): scheduled builder prompts now use the top current checkpoint, a bounded batch allowance for related reached functions, shorter prior-cycle context and concise outcome reports. The manager/architect prompts were shortened in the active architect worktree; the architect checks the current main PR before editing its branch so a reviewed exact head can be promoted. This is orchestration only and adds no original-game browser-execution evidence.
+
 OpenCode routing update (November 5): Go GLM-5.3-Flash is the hourly architect and reviewed PR authority; Sol is excluded from scheduled and project subagent routing. Full Go GLM-5.3 is an allowance/availability fallback, and free review remains provisional. The three distinct low-cost builder lanes and GLM Flash manager remain in place. This changes workflow only; it adds no original-game browser-execution evidence.
 
 # Original memory statistics return and code reaches renderer initialization
