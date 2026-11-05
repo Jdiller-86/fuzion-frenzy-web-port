@@ -7,6 +7,116 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
+## PR #7 exact-head evidence and merge outcome (November 5, 2026)
+
+### Pre-merge head/base SHA equality
+
+| Item | Value |
+| --- | --- |
+| PR #7 | `codex/opencode-architect@2d6f770ea680b74c28bd96e8eb5e93a1384b4702` -> `main@c543720d5cf838e80f645de15c85789f2bcbd44c` |
+| Head equals the architect branch head | yes: `codex/opencode-architect` and `origin/codex/opencode-architect` are both `2d6f770ea680b74c28bd96e8eb5e93a1384b4702` |
+| Base equals the published main at PR creation | yes: published `main` was `c543720d5cf838e80f645de15c85789f2bcbd44c` |
+| PR size | 74 commits, 65 changed files, +5377/-111 |
+| Opened / closed | created 2026-11-05T04:47:53Z, updated 2026-11-05T06:41:12Z |
+
+### Green preparation check-runs at the exact head (read-only, GitHub API)
+
+| Run | Event | State | Jobs |
+| --- | --- | --- | --- |
+| `41975739180` | `push`, branch `codex/opencode-architect` | `completed` / **success** (05:42:54Z -> 05:43:42Z) | `127074034541` "preparation (ubuntu-latest)" success; `127074035031` "preparation (windows-latest)" success |
+| `41975745063` | `pull_request` | `completed` / **success** (05:42:57Z -> 05:43:47Z) | `127074054986` "preparation (windows-latest)" success; `127074055144` "preparation (ubuntu-latest)" success |
+
+Both runs report head `2d6f770ea680b74c28bd96e8eb5e93a1384b4702`.
+
+### `verify-exact-head` pass at `2d6f770`
+
+`node tools/verify-exact-head.mjs 2d6f770` -> **exit 0**: the candidate is the
+architect head; the published base (now the merge commit `4228721`, whose two
+sides are both in the head's history) is **parents-contained**, head ahead 0 /
+behind 1, **0 missing base paths**; 413 tracked paths at the head. Running the
+tool against the merge commit itself (`4228721`) exits 1 with "not the
+architect head", which is structural: a merge commit lives on `main` while the
+architect branch head stays at `2d6f770`.
+
+### Merge outcome
+
+| Item | Value |
+| --- | --- |
+| PR #7 | **merged** at 2026-11-05T06:41:12Z |
+| Merge commit | `42287210e508575e82951fbd8dd2f9b413721bce` "Merge reviewed architect integration", parents `c5437200…` and `2d6f770e…` |
+| Published main | `main` -> `42287210e508575e82951fbd8dd2f9b413721bce` |
+| Merge content delta | `git diff 2d6f770 4228721` changes **no** path |
+| CI at the merge commit | run `41982077791` "Preparation checks", event `push`, branch `main`, `completed` / **success** (06:41:14Z -> 06:42:04Z); jobs `127094245244` "preparation (ubuntu-latest)" success, `127094244913` "preparation (windows-latest)" success |
+
+### The verification record is now published
+
+The lane head `92b84bb` is an ancestor of both `2d6f770` and the merged main
+`4228721`: the architect integrated this lane's work, and the published line
+now carries `docs/INTEGRATION_VERIFICATION_CHECKPOINT.md` (blob `e1cf2149`),
+`tools/verify-exact-head.mjs` (blob `64f4f86a`) and
+`tests/verification-exact-head.test.mjs` (blob `a1acb07f`). The lane-publication
+gap recorded in the previous cycle is therefore closed through the architect's
+integration. The lane's own published ref `origin/codex/opencode-verification`
+is still the pre-rebase `077ee14`, so the runner's plain lane push still cannot
+fast-forward it; the content reached the published line by the integration
+route instead.
+
+### Lane resync and one owned fix in this cycle
+
+- The lane branch was fast-forwarded onto the published integration head
+  `2d6f770` (a plain fast-forward, no merge commit, no history rewrite; the
+  lane's earlier commits stay in that history). This picks up the architect's
+  CI identity fix (`d0c38c2`) to `tests/integration-verification.test.mjs`,
+  which the lane would otherwise have replayed unchanged.
+- The lane's own standalone `tests/verification-exact-head.test.mjs` created its
+  temporary merge commits **without an explicit identity**, the same ambient
+  git-identity dependency the architect removed from the CI-wired sibling file.
+  The lane now passes `-c user.email=… -c user.name=…` on those two merge
+  calls as well. Both test files pass with `GIT_CONFIG_GLOBAL` and
+  `GIT_CONFIG_SYSTEM` pointed at non-existent files, so neither depends on a
+  machine-level git identity. A local reproduction of an identity-less merge
+  succeeded here through git's hostname fallback, so the original CI failure was
+  environment-dependent rather than universal; the dependency is removed
+  regardless.
+- The standalone file is not listed in `package.json`'s `test:runtime`, and
+  that file is outside this lane's ownership, so CI exercises only the wired
+  sibling file. The lane has not changed `package.json`.
+
+### Evidence limits
+
+- The merge, CI and pull-request facts are a read-only observation of the public
+  GitHub API without credentials on 2026-11-05.
+- The lane resync and the identity fix are local, verified changes. The
+  architect's integration of them is its own action.
+- The `0x1FCCB0` and `0x1F6730` admission work is the primary lane's reviewed
+  result. This lane checked head identity, ancestry and CI only.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs 2d6f770` -> exit 0.
+- `node tools/verify-exact-head.mjs 4228721` -> exit 1 (merge commit, not the
+  architect head; expected).
+- `git merge-base --is-ancestor 92b84bb 4228721` -> 0 (the lane record is in the
+  published main).
+- `git diff --name-only 2d6f770 4228721` -> no path.
+- `node --test tests/verification-exact-head.test.mjs` -> 14/14 pass, also with
+  `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_SYSTEM` suppressed.
+- `node --test tests/integration-verification.test.mjs` -> 7/7 pass, also with
+  the global/system git config suppressed.
+- `npm run test:runtime` -> 196 tests, 195 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 413 source files.
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the next
+published architect head and its main pull request; the same command checks
+that head against the then-current architect head and the published merge
+target. No further tooling work is authorized until the architect asks for it.
+
 ## Post-merge state after PR #6 (November 4, 2026)
 
 **PR #6 is merged.** The runner merged the reviewed architect head into GitHub
