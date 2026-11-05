@@ -126,17 +126,17 @@ try {
         $prompt = 'Work in the independent verification worktree on one bounded source-owned integration/check tooling task. Read AGENTS.md and docs/OPENCODE_GOAL.md. Own only tools/verify-*, tools/check-*, tests/integration-*, tests/verification-* and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Do not edit the runtime, general status, model/scheduler scripts or builder-owned tests. Do not access private research, delegate, merge or push. Run targeted checks, inspect staged paths and commit a verified result.'
         if ($dirty) { $prompt += ' Preserve and finish existing edits before new work.' }
     } elseif ($dirty -and $sessionId) {
-        $prompt = 'Continue the unfinished Fuzion Frenzy milestone in this same project session. Inspect the current diff and the previous cycle result, then complete the pending implementation, targeted checks, status/decision updates, source-only staged-path review and bounded commit. Preserve all worktree edits. Do not restart discovery or switch tasks unless the current task is demonstrably blocked. Never push or merge to main.'
+        $prompt = 'Continue the unfinished task in this pinned session. Inspect the diff, finish one bounded result with targeted checks and a source-only commit. Preserve edits; switch tasks only on a verified blocker. Do not push or merge to main.'
     } else {
-        $prompt = 'Work in this dedicated source-only worktree. Read AGENTS.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md and docs/OPENCODE_GOAL.md. Execute one bounded unowned milestone toward original-game browser execution; do not stop at a plan. Preserve existing edits. If ignored private evidence is unavailable here, choose a source-owned prerequisite instead of inventing an original-runtime proof. Use the model escalation and evidence rules. Run targeted checks, update status/decisions, review staged paths, and commit a verified source-only result. Never push or merge to main.'
+        $prompt = 'Use the standing AGENTS.md and OPENCODE_GOAL.md rules. Read the TOP current status and the active checkpoint; execute its next unowned bounded original-browser-execution task. Batch related reached functions when evidenced, keep existing guards, run targeted checks, and make one source-only commit with a short status paragraph. Stop at an unsupported service/register/resource or failed gate. If private evidence is unavailable, name the blocker and choose independent source-owned work. Do not push or merge to main.'
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
-    if ($Lane -eq 'primary') { $prompt += ' Treat model availability as time-specific: do not repeat an old Sol usage-limit result as current. If Sol was not attempted this cycle, say its current availability was not checked; if it was attempted, record the new result and time.' }
     $prompt += ' Use only this lane runner selected model or its configured cheap/free fallback; do not switch providers yourself or consume Codex allowance. If unavailable, preserve edits for the next cycle.'
-    if ($Lane -eq 'primary') { $prompt += ' If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.' }
-    if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
-    if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
+    $prompt += ' Final report: result and exact observed stop, checks, next task or blocker in at most four short lines; do not recap settled history.'
+    if ($Lane -eq 'primary') { $prompt += ' Do not invent architect approval. Use the latest verified checkpoint when an older task card is already complete.' }
+    if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, request a bounded GLM Flash architect decision if needed, or choose another unowned task.' }
+    if (-not $sessionId -and $previous -and $previous.lastSummary) { $lastBrief = [string]$previous.lastSummary; if ($lastBrief.Length -gt 500) { $lastBrief = $lastBrief.Substring($lastBrief.Length - 500) }; $prompt += ' Previous cycle (verify): ' + $lastBrief }
     $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
     if (Test-Path -LiteralPath $guidancePath) {
         try {
@@ -144,18 +144,17 @@ try {
             $created = [DateTimeOffset]::MinValue
             if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
                 $brief = [string]$guidance.summary
-                if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
-                if ($guidance.approved -and $guidance.model -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3')) {
+                if ($brief.Length -gt 650) { $brief = $brief.Substring(0, 650) }
+                if ($guidance.approved -and $guidance.model -in @('opencode-go/glm-5.3-flash', 'opencode-go/glm-5.3')) {
                     if ($Lane -eq 'geometry' -and $guidance.geometryCycle -eq 'HOLD') {
                         $state.outcome = 'deferred_architect'
                         $state.finished = (Get-Date).ToString('o')
                         $state.architectHead = [string]$guidance.head
                         $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
-                        Write-Output 'Geometry cycle deferred by the Sol architect; primary development continues.'
+                        Write-Output 'Geometry cycle deferred by the hourly architect; primary development continues.'
                         return
                     }
                     $prompt += " The project architect using $($guidance.model) approved this current priority directive for lane $Lane from integration head $($guidance.head): $brief Follow it within your lane ownership after checking current evidence; report any conflict with the user's requirements or a newer verified result."
-                    if ($guidance.model -eq 'openai/gpt-6.1-sol') { $prompt += " Sol completed this architect review at $($guidance.created). Any older 'Sol unavailable' or usage-limit report in this persistent session is superseded. Do not repeat that claim unless a new Sol attempt actually fails; record the new error and time if it does. This past success does not guarantee current quota." }
                 } else {
                     $prompt += " Provisional hourly review for lane $Lane (not an approved design decision): $brief Verify independently and do not change the project route on this advice alone."
                 }
@@ -178,7 +177,7 @@ try {
                     Write-Output ("Lane $Lane held by the GLM Flash manager; other lanes continue.")
                     return
                 }
-                if ($taskCard.action -eq 'RUN') { $prompt += " The GLM Flash manager assigned this bounded task: $($taskCard.task) Verify it against the latest architect directive; the architect prevails on conflict." }
+                if ($taskCard.action -eq 'RUN') { $prompt += " The GLM Flash manager assigned this bounded task: $($taskCard.task) If already complete in the current checkpoint, advance its next task; architect route decisions prevail." }
             }
         } catch { Write-Warning 'Manager directive unavailable; continuing current lane rules.' }
     }
