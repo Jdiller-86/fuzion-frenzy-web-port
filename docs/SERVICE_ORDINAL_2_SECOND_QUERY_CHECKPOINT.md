@@ -28,3 +28,28 @@ No modeled success without the documented unknown-option behavior; the Result wr
 ## 4. Limits
 
 Static references plus the retained synthetic stop; no display, encoder or playability claim.
+
+## 5. Bounded unknown-option model (authorized)
+
+The architect subagent authorized one default-off sibling model with binding corrections: exact observed tuple only, one zero write through `Result`, EAX untouched, `esp += 20`, and no extension of the startup adapter. Implemented:
+
+| Path | Purpose |
+| --- | --- |
+| `src/runtime/av_unknown_option.c/.h` | Pure decision: handle `0xFD000000`, option `0x0F`, param 0, mapped/aligned/writable Result |
+| `tests/av_unknown_option_test.c` | Accept; wrong handle/option/param; unmapped pointer; documented-option refusal |
+| `tools/fixtures/thread_startup_probe.c` | Default-off `avUnknownOption` setter; ordinal-2 router that keeps the startup `(0,6,0,Result)` path and routes other shapes to the unknown model; one zero write, EAX untouched, `esp += 20`; diagnostics |
+| `local-title-proof.mjs` / `thread-proof-worker.mjs` / `proof-report.mjs` | Input parsing, `avUnknownOptionState`, pairing and pinned-acceptance validation; the late unknown-shape call is excluded from the startup-avQuery success checks |
+
+Module `recomp-post-memory-build-118`: **719,152 bytes**, SHA-256 `0b24204ea2b92268bacd347af3d07ec00f4d066ec31a0a1acb3ee436b50d52d7`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert (display profile, no unknown-option input) | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| unknown-option input | **status 1 at `0xFE000098`, ordinal 1** | **340** | **408** |
+
+The late call was accepted (`calls 1`, handle `0xFD000000`, option `0x0F`, param 0, written 0, EAX unchanged `62983692`, ESP `62983652 -> 62983672` = +20) and the run advanced to a **new service boundary**: ordinal 1 at `0xFE000098`, 340 routines / 408 kernel operations. The startup `(0,6,0,Result)` query still completed through its existing adapter unchanged.
+
+Provenance caveat: the pinned HAL is the retained xboxrecomp kernel replacement, not an original-console observation; 0 is the documented unknown-option default output, not a guessed capability value. The caller's post-call EAX/Result use is not determined in retained evidence; the run's next stop is reported as the honest boundary.
+
+Checks: `test:native` **42/42**, proof-report **23/23**, `test:runtime` pass, `check` **468 files**, whitespace clean. Consumer, display and unknown-option paths remain default-off. The next decision is ordinal 1.

@@ -151,7 +151,7 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avQueryWord'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avUnknownOption', 'avQueryWord'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
@@ -161,6 +161,7 @@ export function parseLocalMmioProfile(buffer) {
   /* Default-off prototype input: run one bounded pusher step at a DMA_GET read. */
   const pfifoConsumer = device?.pfifoConsumer === true;
   const displayMode = device?.displayMode === true;
+  const avUnknownOption = device?.avUnknownOption === true;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
@@ -215,7 +216,7 @@ export function parseLocalMmioProfile(buffer) {
     throw new Error('The synthetic AV query word must be an explicit 32-bit value');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avQueryWord };
+    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avUnknownOption, avQueryWord };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -230,6 +231,7 @@ export function describeMmioExperiments(profile) {
   if (profile.pfifoReset) active.push('pfifoReset');
   if (profile.pfifoConsumer) active.push('pfifoConsumer');
   if (profile.displayMode) active.push('displayMode');
+  if (profile.avUnknownOption) active.push('avUnknownOption');
   if (profile.avQueryWord !== undefined) active.push('avQuery');
   return active;
 }

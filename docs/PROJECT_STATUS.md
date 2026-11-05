@@ -1,4 +1,10 @@
-# The later ordinal-2 call is an unknown AV option 0x0F
+# The unknown AV option model advances the run to ordinal 1
+
+November 5: the architect subagent authorized one default-off unknown-option model (exact observed tuple, one zero write through Result, EAX untouched, `esp += 20`, no startup-adapter change). Implemented `src/runtime/av_unknown_option.c/.h`, native tests, an ordinal-2 router that keeps the startup `(0,6,0,Result)` path and routes the late call to the unknown model, and `avUnknownOptionState` with validator pairing. Module 118 is **719,152 bytes**, SHA `0b24204e?`. Control unchanged (status 13 at `0xFD800044`, 339/405); inert (display profile, no unknown input) unchanged at ordinal 3 (`0xFE0000A4`, 340/406); the experiment accepted the late call (handle `0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to a **new service boundary: status 1 at `0xFE000098`, ordinal 1**, **340/408**. The startup query still completed through the unchanged adapter. Provenance: the pinned HAL is the retained replacement, and 0 is the documented unknown-option default, not a guessed capability.
+
+Checks: `test:native` 42/42, proof-report 23/23, `test:runtime` pass, `check` 468 files, whitespace clean. All experimental paths remain default-off. Next decision: ordinal 1. Integration head `1e35f8a` is an ancestor; main `ea6e15e` cannot be merged here. **There is no controllable original screen.**
+
+## Prior: The later ordinal-2 call is an unknown AV option 0x0F
 
 November 5: read-only characterization — no implementation, hook change, admission, export, seed or translation change. [The checkpoint](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md): `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with arguments **`0xFD000000`, option `0x0F`, `0`, Result pointer**; the pinned HAL handles documented options `0x01`-`0x0E` and treats **unknown options** by writing 0 through `Result` without failing (`kernel_hal.c:1455-1520`, `kernel.h:1148-1157`). The synthetic adapter only accepts the startup `(0,6,0,Result)` query, so this call is denied (status 1). Next decision: model the documented unknown-option default with the exact observed shape (write 0, success) with native tests and a pair, or hold. Checks: `check` 465 files, whitespace clean; no code change.
 

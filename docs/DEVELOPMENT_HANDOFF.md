@@ -1,4 +1,8 @@
-# The later ordinal-2 call is an unknown AV option 0x0F
+# The unknown AV option model advances the run to ordinal 1
+
+November 5: architect-authorized default-off unknown-option model (exact tuple, zero write, EAX untouched, ESP +20). Module 118 (719,152 bytes, SHA `0b24204e?`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted (handle `0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to **status 1 at `0xFE000098`, ordinal 1**, 340/408. Startup query unchanged. Checks: `test:native` 42/42, proof-report 23/23, `test:runtime` pass, `check` 468 files. Default-off; next decision is ordinal 1. Integration head `1e35f8a` ancestor; main `ea6e15e` not mergeable here. **No controllable original screen.**
+
+## Prior: The later ordinal-2 call is an unknown AV option 0x0F
 
 November 5: read-only characterization; no code change. `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with args `0xFD000000`, option `0x0F`, `0`, Result pointer. The pinned HAL handles `0x01`-`0x0E` and documents the unknown-option default as writing 0 through `Result` without failing; the synthetic adapter only accepts the startup `(0,6,0,Result)` query, hence the status-1 stop. Next: model the documented unknown-option default with the exact shape, or hold. Checks: `check` 465 files. Consumer/display paths default-off. Integration head `1e35f8a` ancestor; main `ea6e15e` not mergeable here. **No controllable original screen.**
 

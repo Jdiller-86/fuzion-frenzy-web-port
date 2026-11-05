@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: unknown AV option model passes; ordinal-1 frontier
+
+- [Second-query checkpoint §5](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md#5-bounded-unknown-option-model-authorized): architect-authorized default-off sibling model (exact tuple, one zero write, EAX untouched, ESP +20). Module 118 (719,152 bytes, SHA `0b24204e...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted the late call (`0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to **status 1 at `0xFE000098`, ordinal 1**, 340/408. This is `D370`.
 ## Latest: later ordinal-2 unknown-option characterization (read-only)
 
 - [Second-query checkpoint](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md): `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with `0xFD000000`, option `0x0F`, `0`, Result pointer. The pinned HAL handles options `0x01`-`0x0E` and documents the unknown-option default as writing 0 through `Result` without failing; the synthetic adapter only accepts the startup `(0,6,0,Result)` query, so this call is denied (status 1). Next: model the documented unknown-option default with the exact shape, or hold. This is `D369`.

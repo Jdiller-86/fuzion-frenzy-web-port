@@ -38,6 +38,7 @@ const fixtures = [
   { name: 'pfifo_pusher', sources: ['tests/pfifo_pusher_test.c', runtime('pfifo_pusher.c'), runtime('pfifo_status.c')] },
   { name: 'vblank_wait', sources: ['tests/vblank_wait_test.c', runtime('vblank_wait.c')] },
   { name: 'display_mode', sources: ['tests/display_mode_test.c', runtime('display_mode.c')] },
+  { name: 'av_unknown_option', sources: ['tests/av_unknown_option_test.c', runtime('av_unknown_option.c')] },
   { name: 'av_query_fixture', sources: ['tests/av_query_fixture_test.c', runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'av_query_adapter', sources: ['tests/av_query_adapter_test.c', runtime('av_query_adapter.c'), runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'fatx_volume', sources: ['tests/fatx_volume_test.c', runtime('fatx_volume.c'), runtime('local_disk.c'), runtime('file_namespace.c'), runtime('local_volume.c'), runtime('local_directories.c'), runtime('object_namespace.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },

@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -220,6 +220,24 @@ export function validateProofReport(report) {
         (d.addr !== 0x3C10CFC || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0 ||
          d.pitch !== 0xA00 || d.fb !== 0x03920000 || d.window !== 0x83920000 || d.decision !== 0))
       throw new Error('A display-mode acceptance must match the pinned declaration');
+  }  /* Unknown-AV-option experiment and state pairing; acceptance requires the
+   * exact observed tuple, one zero write, an untouched EAX and a 20-byte pop. */
+  const claimsAvUnknown = experiments.includes('avUnknownOption');
+  if (report.avUnknownOptionState !== undefined && !claimsAvUnknown)
+    throw new Error('Unknown-AV-option state requires the avUnknownOption experiment');
+  if (claimsAvUnknown && report.avUnknownOptionState === undefined)
+    throw new Error('The avUnknownOption experiment requires its state');
+  if (report.avUnknownOptionState !== undefined) {
+    const u = report.avUnknownOptionState;
+    if (!u || !integer(u.calls) || !integer(u.handle) || !integer(u.option) ||
+        !integer(u.param) || !integer(u.result) || !integer(u.decision) ||
+        !integer(u.written) || !integer(u.eaxBefore) || !integer(u.espBefore) ||
+        !integer(u.eaxAfter) || !integer(u.espAfter))
+      throw new Error('Malformed unknown-AV-option state');
+    if (u.decision === 0 &&
+        (u.handle !== 0xFD000000 || u.option !== 0x0F || u.param !== 0 || u.written !== 0 ||
+         u.eaxAfter !== u.eaxBefore || u.espAfter !== ((u.espBefore + 20) >>> 0)))
+      throw new Error('An accepted unknown AV option must match the pinned default');
   }  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
@@ -235,6 +253,14 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
+      /* The unknown-option sibling has its own success shape; it is validated
+       * by avUnknownOptionState, not by the startup avQuery adapter rules. */
+      if (call.status === 0 && call.arguments[0] === 0xFD000000 &&
+          call.arguments[1] === 0x0F && call.arguments[2] === 0) {
+        if (!claimsAvUnknown)
+          throw new Error('An unknown AV option call requires the avUnknownOption experiment');
+        continue;
+      }
       if (report.avQueryWord === undefined) {
         if (call.status === 0)
           throw new Error('An unsupported ordinal-2 call must not report success');

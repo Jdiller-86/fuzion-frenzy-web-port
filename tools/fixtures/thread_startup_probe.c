@@ -83,6 +83,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/pfifo_pusher.h"
 #include "../../src/runtime/vblank_wait.h"
 #include "../../src/runtime/display_mode.h"
+#include "../../src/runtime/av_unknown_option.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -153,6 +154,9 @@ static uint32_t vblank_wait_calls, vblank_wait_type, vblank_wait_signal, vblank_
 static uint32_t display_mode_enabled, display_mode_ready, display_mode_decision;
 static uint32_t display_mode_addr, display_mode_step, display_mode_mode, display_mode_format;
 static uint32_t display_mode_pitch, display_mode_fb, display_mode_window;
+static uint32_t av_unknown_enabled, av_unknown_calls, av_unknown_decision, av_unknown_written;
+static uint32_t av_unknown_handle, av_unknown_option, av_unknown_param, av_unknown_result;
+static uint32_t av_unknown_eax_before, av_unknown_esp_before, av_unknown_eax_after, av_unknown_esp_after;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -221,6 +225,31 @@ uint32_t ff_probe_display_mode_word(uint32_t field)
         case 7: return display_mode_window;
         case 8: return display_mode_decision;
         case 9: return display_mode_enabled;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_unknown(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    av_unknown_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_unknown_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_unknown_enabled;
+        case 1: return av_unknown_calls;
+        case 2: return av_unknown_handle;
+        case 3: return av_unknown_option;
+        case 4: return av_unknown_param;
+        case 5: return av_unknown_result;
+        case 6: return av_unknown_decision;
+        case 7: return av_unknown_written;
+        case 8: return av_unknown_eax_before;
+        case 9: return av_unknown_esp_before;
+        case 10: return av_unknown_eax_after;
+        case 11: return av_unknown_esp_after;
         default: return UINT32_MAX;
     }
 }
@@ -1926,6 +1955,50 @@ static void av_send_tv_encoder_option(void)
     row[10] = cpu.esp;
     row[11] = args[3]; /* output address the adapter wrote through */
 }
+/* Unknown-option sibling: the pinned HAL default writes 0 through Result and
+ * does not fail. Exact observed tuple only; every other shape keeps the
+ * unsupported-service stop. EAX is untouched and the stdcall frame pops 20. */
+static void av_unknown_option_call(void)
+{
+    uint32_t *row = kernel_record(2u, 4u);
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
+    uint32_t mapped = result && !(result & 3u) && result <= FF_GUEST_BYTES - 4u;
+    uint32_t eax_before, esp_before;
+    ++av_unknown_calls;
+    av_unknown_handle = handle;
+    av_unknown_option = option;
+    av_unknown_param = param;
+    av_unknown_result = result;
+    av_unknown_decision = ff_av_unknown_accept(handle, option, param, result, mapped);
+    if (av_unknown_decision != FF_AV_UNKNOWN_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    eax_before = g_eax;
+    esp_before = g_esp;
+    MEM32(result) = 0u;
+    (void)ff_guest_write_map_mark(&guest_write_map, result, 4u);
+    g_esp = esp_before + 20u;
+    av_unknown_written = 0u;
+    av_unknown_eax_before = eax_before;
+    av_unknown_esp_before = esp_before;
+    av_unknown_eax_after = g_eax;
+    av_unknown_esp_after = g_esp;
+    row[1] = 0u;
+    row[6] = 0u;
+    row[7] = eax_before;
+    row[8] = esp_before;
+    row[9] = g_eax;
+    row[10] = g_esp;
+    row[11] = result;
+}
+static void av_option_router(void)
+{
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    if (handle == 0u && option == 6u) { av_send_tv_encoder_option(); return; }
+    av_unknown_option_call();
+}
 #endif
 /* Ordinal 159 on the observed vblank event. One declared delivery per matching
  * call: produce the PCRTC pending state, signal then consume the guest
@@ -2056,6 +2129,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 67) return create_symbolic_link;
 #endif
 #if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+        if (ordinal == 2 && av_unknown_enabled) return av_option_router;
         if (ordinal == 2 && av_query_ready) return av_send_tv_encoder_option;
         if (ordinal == 159 && pcrtc_ready && pcrtc_declared) return wait_vblank;
         if (ordinal == 3 && display_mode_enabled) return set_display_mode;
