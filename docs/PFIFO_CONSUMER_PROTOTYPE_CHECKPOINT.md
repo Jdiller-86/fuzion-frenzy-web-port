@@ -41,6 +41,15 @@ A copy of the profile with `"pfifoConsumer": true` was run against the same modu
 
 **This is a new boundary:** after PFIFO consumption the title waits on a condition the synthetic harness neither models nor bounds. The next step is an explicit execution/instruction budget or evidence about that completion condition — a fresh architect decision.
 
+## VM-access budget attempt (this cycle)
+
+A run-level guard was added: after the first pusher step, the harness counts guarded guest-memory accesses and stops at the existing status-13 site with the budget classification after 500,000 accesses. Module `recomp-post-memory-build-107` is **715,740 bytes**, SHA-256 `03f9449053c9aac2eb31f82c24fa0d756cb8bab562e39db96061a4a934048527`.
+
+- **Control** on module 107 still reproduces the boundary exactly: status 13 at `0xFD800044`, **339 routines / 405 kernel operations**, no consumer state.
+- **Consumer run with the budget** no longer hangs silently: it wrote `{"kind":"error","message":"RuntimeError: unreachable"}`. That is a Wasm trap from a `stop()`, but the worker surfaced it as a generic error instead of a classified stop record, and no `pfifoConsumerState` was captured.
+- The budget stop therefore cannot yet be distinguished from another trap, and the run still does not yield a usable next-stop classification. The consumer remains **unproven and default-off**.
+- The next step is a worker-level fix: when the trap is an expected stop, read the probe stop record and classify it, then re-run. That is report plumbing, not more model widening.
+
 ## Safety and status
 
 - The consumer is **default-off**; the committed profiles do not enable it, and the control above proves the default is unchanged.

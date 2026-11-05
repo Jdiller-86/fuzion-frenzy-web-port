@@ -173,16 +173,19 @@ export function validateProofReport(report) {
         !integer(consumer.base) || !integer(consumer.end) || !integer(consumer.wordsConsumed) ||
         consumer.wordsConsumed > 4096 || !integer(consumer.consumerUpdates) ||
         !integer(consumer.lastHeader) || !integer(consumer.steps) || consumer.steps > 64 ||
-        !integer(consumer.words) || consumer.words > 262144)
+        !integer(consumer.words) || consumer.words > 262144 || !integer(consumer.budgetHit) ||
+        consumer.budgetHit > 1 || !integer(consumer.vmChecks) || consumer.vmChecks > 500000)
       throw new Error('Malformed PFIFO consumer state');
     if (consumer.classification === 0 &&
         (consumer.wordsConsumed < 1 || consumer.consumerUpdates < 2))
       throw new Error('A completed PFIFO pusher step must consume a word and update the seam');
-    if (consumer.classification !== 0 && consumer.classification !== 1 &&
+    if (consumer.classification !== 0 && consumer.classification !== 1 && consumer.classification !== 8 &&
         consumer.wordsConsumed !== 0)
       throw new Error('A refused PFIFO pusher step must not consume a word');
     if (consumer.classification === 1 && consumer.wordsConsumed !== 0)
       throw new Error('An empty PFIFO pusher step must not consume a word');
+    if (consumer.classification === 8 && consumer.budgetHit !== 1)
+      throw new Error('A PFIFO consumer budget stop must report the budget hit');
   }
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make

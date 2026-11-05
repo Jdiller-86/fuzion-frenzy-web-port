@@ -5,8 +5,8 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 ## Latest: PFIFO pusher prototype (default-off)
 
 - [PFIFO consumer prototype](PFIFO_CONSUMER_PROTOTYPE_CHECKPOINT.md): new `src/runtime/pfifo_pusher.c/.h` with a native fixture (36/36 component runs, optimized + ASan/UBSan), `pfifoConsumer` profile input, report state and validator, and a gated 64-step hook at the status-13 DMA_GET site. No admission, export or seed change.
-- Control on module 106 (715,696 bytes, SHA `6b578577...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
-- The opt-in consumer run wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait into an unbounded CPU-side wait. Halted and not chased; the consumer remains default-off. The next step is an execution/instruction budget or evidence about the post-consumption completion condition — a fresh architect decision. This record is `D347`.
+- Control on module 107 (715,740 bytes, SHA `03f94490...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
+- The opt-in consumer run originally wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait. A 500,000-access VM budget was then added: the consumer now writes `{"kind":"error","message":"RuntimeError: unreachable"}` — a stop trap surfaced as a generic error, with no classified stop or consumer state. The consumer remains unproven and default-off. The next step is a worker-level fix that classifies an expected stop trap, then re-run. This record is `D348` (prototype `D347`).
 
 ## Prior: 0x202150 read-only characterization
 

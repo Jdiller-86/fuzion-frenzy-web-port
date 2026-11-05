@@ -359,7 +359,9 @@ static uint32_t pfifo_profile_ready;
  * default path is unchanged and still stops at status 13. */
 static uint32_t pfifo_consumer_enabled, pfifo_consumer_ready;
 #define FF_PFIFO_CONSUMER_MAX_STEPS 64u
+#define FF_PFIFO_CONSUMER_MAX_VM_CHECKS 500000u
 static uint32_t pfifo_consumer_steps, pfifo_consumer_words;
+static uint32_t pfifo_consumer_vm_checks, pfifo_consumer_budget_hit;
 static ff_pfifo_pusher pfifo_consumer_pusher;
 static ff_pfifo_status mmio_pfifo_status;
 static uint32_t pfifo_consumer_read_word(void *context, uint32_t address, uint32_t *value)
@@ -418,6 +420,18 @@ static void pfifo_ring_sync(void)
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
     (void)site;
+#ifdef FF_PFIFO_PROOF
+    /* Run-level safety for the default-off consumer: a post-consumption wait
+     * that makes no PFIFO progress must not run unbounded. Count guest memory
+     * accesses after the first pusher step and stop with the budget
+     * classification (still status 13, as the authorization requires). */
+    if (pfifo_consumer_enabled && pfifo_consumer_steps &&
+        ++pfifo_consumer_vm_checks >= FF_PFIFO_CONSUMER_MAX_VM_CHECKS) {
+        pfifo_consumer_pusher.classification = FF_PFIFO_PUSH_BUDGET;
+        pfifo_consumer_budget_hit = 1;
+        stop(13, address, access);
+    }
+#endif
     /* The PCRTC path is served from its own explicit state when the profile
      * supplies display events; without that it falls through to the aperture and
      * ultimately to the fail-closed stop. */
@@ -978,6 +992,8 @@ uint32_t ff_probe_pfifo_consumer_word(uint32_t field)
         case 9: return pfifo_consumer_pusher.last_header;
         case 10: return pfifo_consumer_steps;
         case 11: return pfifo_consumer_words;
+        case 12: return pfifo_consumer_budget_hit;
+        case 13: return pfifo_consumer_vm_checks;
         default: return 0;
     }
 }
