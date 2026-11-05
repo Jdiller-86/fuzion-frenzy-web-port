@@ -44,7 +44,7 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 
 ## Review-package revalidation
 
-Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), closing the remaining unexercised unconfigured control path noted by the narrow review; the retained pair still validates. No translation, module or profile content changed.
+Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The frontier tool on translation 53 reports 517 functions, 95 placeholders and 94 referenced placeholders, with `0x1F7080` referenced by `0x1F5640`, matching the checkpoint. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), and requires an actual denial record for any unsupported ordinal-2 stop; a completed call alone cannot satisfy the stop. These close the remaining unexercised control paths noted by the narrow review, and the retained pair still validates. No translation, module or profile content changed.
 
 ## Next and limits
 
