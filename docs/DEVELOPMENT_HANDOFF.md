@@ -1,4 +1,12 @@
-# The 0x202150 batch reaches the PFIFO pushbuffer boundary
+# The 0x202150 static characterization confirms a PFIFO runtime boundary
+
+November 5: directed read-only characterization of `0x00202150` (`D3DDevice_Present`) with **no admission, export or seed change**. Conflict recorded: commit `7dae2e4` already admitted Present plus its three untranslated direct callees under the previous architect-subagent authorization, so the directive's "post-table stop, no admission" premise is stale; the run now stops at the PFIFO boundary instead. The architect also has not yet integrated `2618783` (head still `d4e0107`).
+
+Findings: `body 0x202150..0x2022D0`, 115 instructions / 385 bytes, 115/115 decoded, one `RET 0x10`, 20 basic blocks, no tail calls, no tables; two loops (fence wait, submit retry). Seven direct callees — `D3D_SetFence`, `0x1FACA0`, `CDevice_KickOff`, `D3D_KickOffAndWaitForIdle` were already translated; `0x201E80` (476 bytes), `0x202060` (228) and `0x1F5520` (`BlockUntilVerticalBlank`, 36) came in translation 83. Nine calls resolve through seven pointer sites holding kernel-ordinal thunks (`0x80000001/2/3/4/0xAB/0xB2/0xB4`), not code; `0x1F5520` uses `0x00253448 → 0x8000009F`. Caller `0x42C5E` in `FUN_00042be0` builds a 640×480 format-7 descriptor before calling Present; four static callers reference it. No ambiguous or undecodable boundary.
+
+The retained experiment stops after Present: status 13 at `0xFD800044` (PFIFO MMIO), return `0x1FB06E`, call site `0x1FB069` in `D3D_BlockOnTime`, `stopReason: "pushbuffer consumption required"` — a runtime consumer gap, not missing translation. Main `4b94a64` is still not an ancestor and this session denies `git merge`, so sync is deferred; no push or main merge was attempted. **There is no controllable original screen.**
+
+## Prior: The 0x202150 batch reaches the PFIFO pushbuffer boundary
 
 November 5: the render-state table being exhausted, the post-table region decision was escalated once to the project architect, which authorized exactly one bounded `D3DDevice_Present` set. **Correction:** `0x202150` was already an established Ghidra function (`body 0x202150..0x2022D0`), so no create-function was needed. The set admitted Present plus its three untranslated immediate direct callees (`0x201E80`, `0x202060`, `0x1F5520`) — 4 functions, no transitive expansion — and kept 32 exports by replacing an existing 2-function export with a 6-function seed that also carries its two functions (`0x1FE0C6`, `0x1FCA20`); no function was lost. Seed `6c5a69b4?`; all six preflights clean, 0 tables.
 

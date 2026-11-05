@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x202150 present admission and PFIFO boundary
+## Latest: 0x202150 read-only characterization
+
+- [Present characterization](PRESENT_STATIC_CHARACTERIZATION_CHECKPOINT.md): no admission, export or seed change. `0x202150` (`D3DDevice_Present`) is `body 0x202150..0x2022D0`, 115 instructions / 385 bytes, 115/115 decoded, one `RET 0x10`, 20 basic blocks, no tables; two loops (fence wait, submit retry).
+- Conflict recorded: Present and its three untranslated direct callees were already admitted in `7dae2e4` under the previous architect-subagent authorization, so the directive's post-table/no-admission premise is stale. Seven direct callees classified: `D3D_SetFence`, `0x1FACA0`, `CDevice_KickOff`, `D3D_KickOffAndWaitForIdle` pre-existing; `0x201E80`, `0x202060`, `0x1F5520` added in translation 83. Nine calls use seven kernel-ordinal pointer sites (`0x80000001/2/3/4/0xAB/0xB2/0xB4`), not code. Caller `0x42C5E` in `FUN_00042be0` builds a 640×480 format-7 descriptor first.
+- The retained run still stops at status 13, `0xFD800044` (PFIFO MMIO), `stopReason: "pushbuffer consumption required"`: the next requirement is a runtime pushbuffer consumer, not translation. No ambiguous boundary was found. This record is `D346`.
+
+## Prior: 0x202150 present admission and PFIFO boundary
 
 - [The 0x202150 batch](FRONTIER_DEP_202150_CHECKPOINT.md): translation 83 (461 functions / 18,940 instructions), module 104 (714,276 bytes, SHA `ff29e855...`), control 279/404 (status 1, ordinal 2) vs experiment 339/405 (status 13 at `0xFD800044`, ordinal 1), comparator exit 0 (+60 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 554/0, package verifier 46/46 digests, frontier 554/93/92.
 - The post-table region decision was escalated once to the project architect, which authorized one bounded set. `0x202150` (`D3DDevice_Present`) was **already established**, so no create-function was made; Present plus its three untranslated immediate direct callees (`0x201E80`, `0x202060`, `0x1F5520`) were admitted — 4 functions, no transitive expansion — with an existing 2-function export folded into the 6-function seed to keep 32 exports.

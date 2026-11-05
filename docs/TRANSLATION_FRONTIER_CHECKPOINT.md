@@ -1,4 +1,8 @@
-# The 0x202150 batch reaches the PFIFO pushbuffer boundary
+# Read-only characterization of the 0x202150 call surface
+
+November 5, 2026. No admission, export or seed change. The directive's premise is stale: `0x202150` (`D3DDevice_Present`) was already admitted in `7dae2e4` under the previous architect-subagent authorization. Characterization confirms `body 0x202150..0x2022D0`: 115 instructions / 385 bytes, 115/115 decoded, one `RET 0x10`, 20 basic blocks, no tables, two loops (fence wait, submit retry). Seven direct callees — `0x1FAF80` `D3D_SetFence`, `0x1FACA0`, `0x1FAED0` `CDevice_KickOff`, `0x1FB300` `D3D_KickOffAndWaitForIdle` pre-existing; `0x201E80` (476 bytes), `0x202060` (228), `0x1F5520` (36) added in translation 83. Nine calls resolve through seven pointer sites whose targets are kernel ordinals (`0x80000001/2/3/4/0xAB/0xB2/0xB4`), not code. Caller `0x42C5E` in `FUN_00042be0` builds a 640×480 format-7 descriptor first. Retained run: status 13 at `0xFD800044` (PFIFO MMIO), `pushbuffer consumption required`. Frontier at translation 83 remains 554 functions / 93 placeholders / 92 referenced. These are static facts and a retained synthetic stop, not rendering/gameplay evidence.
+
+## Prior: The 0x202150 batch reaches the PFIFO pushbuffer boundary
 
 November 5, 2026. After Published head `6cbe40d` and local `2618783`, the post-table region decision was escalated once to the project architect, which authorized one bounded `D3DDevice_Present` set. `0x202150` was already an established function (`body 0x202150..0x2022D0`), so no create-function was made; the set admitted it plus its three untranslated immediate direct callees `0x201E80` (125 instructions / 476 bytes), `0x202060` (64 / 228) and `0x1F5520` (10 / 36) — 4 functions, no transitive expansion. A 6-function seed (`6c5a69b4?`) also carries two functions from a replaced 2-function export, keeping 32 exports; all six preflights are clean with 0 tables.
 
