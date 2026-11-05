@@ -85,20 +85,21 @@ class MixedLayoutContractTest(unittest.TestCase):
         self.assertEqual(len(layout["tables"]), 1)
         self.assertEqual(layout["tables"][0]["targets"], [0x100000, 0x100000])
 
-    def test_byte_data_is_rejected(self):
+    def test_contiguous_defined_bytes_are_accepted(self):
         memory = dict(CODE)
         for offset in range(4):
             memory[f"{0x100004 + offset:08x}"] = "00"
-        with self.assertRaisesRegex(
-                ValueError, "Only declared 32-bit local pointer-table data is supported"):
-            PREP.checked_function_layout(item(
-                [{"start": "00100000", "endInclusive": "00100003"},
-                 {"start": "00100004", "endInclusive": "00100007"}], 8, 8,
-                [instruction("00100000", 4),
-                 data("00100004", "00", "byte"),
-                 data("00100005", "00", "byte"),
-                 data("00100006", "00", "byte"),
-                 data("00100007", "00", "byte")]), reader(memory))
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100003"},
+             {"start": "00100004", "endInclusive": "00100007"}], 8, 8,
+            [instruction("00100000", 4),
+             data("00100004", "00", "byte"),
+             data("00100005", "00", "byte"),
+             data("00100006", "00", "byte"),
+             data("00100007", "00", "byte")]), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 4)
+        self.assertEqual(layout["tables"], [])
 
     def test_pointer_target_must_be_local_instruction(self):
         memory = dict(CODE)
@@ -121,6 +122,51 @@ class MixedLayoutContractTest(unittest.TestCase):
             reader(memory))
         self.assertTrue(layout["mixed"])
         self.assertEqual(layout["paddingBytes"], 1)
+
+    def test_defined_byte_data_is_accepted_without_becoming_a_table(self):
+        memory = dict(CODE)
+        memory["00100004"] = "ab"
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100004"}], 5, 5,
+            [instruction("00100000", 4), data("00100004", "ab", "byte")]),
+            reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 1)
+        self.assertEqual(layout["tables"], [])
+
+    def test_flow_into_defined_byte_data_is_rejected(self):
+        memory = dict(CODE)
+        memory["00100004"] = "ab"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Mixed-layout control flow must remain in checked local code"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100004"}], 5, 5,
+                [instruction("00100000", 4), data("00100004", "ab", "byte")],
+                rows=[mov_row(flows=["00100004"])]),
+                reader(memory))
+
+    def test_byte_data_must_be_one_byte(self):
+        memory = dict(CODE)
+        memory["00100004"] = "abcd"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Only declared 32-bit local pointer-table data or single defined bytes are supported"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100005"}], 6, 6,
+                [instruction("00100000", 4), data("00100004", "abcd", "byte")]),
+                reader(memory))
+
+    def test_unknown_data_type_is_rejected(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00000000"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Only declared 32-bit local pointer-table data or single defined bytes are supported"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100007"}], 8, 8,
+                [instruction("00100000", 4), data("00100004", "00000000", "dword")]),
+                reader(memory))
 
     def test_non_padding_undefined_is_rejected(self):
         memory = dict(CODE)
