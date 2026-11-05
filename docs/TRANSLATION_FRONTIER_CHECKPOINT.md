@@ -1,4 +1,17 @@
-# The 0x1F7570 batch completes the render-state table; the run stops at D3DDevice_Present
+# The 0x1F65F0 batch closes the last render-state translation gap
+
+November 5, 2026. Starting from published head `6cbe40d`, a coverage audit of the completed render-state table found **27 of 28** handlers translated: index 134, `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`), is never set by this profile and was missing. It was admitted this cycle after one bounded create-function at that address only (`body 0x1F65F0..0x1F6614`, index 134, `TABLE_MATCHES 1`). The leaf is 9 instructions / 37 bytes, calls already-translated `0x1F5640`, and ends in `RET 4`; seed `f338d481?`, preflight 9/9, no tables or normalizations.
+
+The merged seed had reached the pipeline's 32-function-per-export limit, so two existing single-function exports (`0x31973`, `0x2D540`) were regrouped into one 2-function export (`25074fa1?`), keeping 32 exports; the new function was appended to the merged seed (33 functions, `f4dca8ea?`). Translation `recomp-title-recomp-title-post-memory-82` contains **457 functions / 18,626 instructions** with table coverage **28/28**; `verify-seeds` 32/32/0/0 and `verify-translation` 547/0. Module `recomp-post-memory-build-103` is 705,795 bytes, SHA-256 `6e298d4440194fa7373cbe6b93de2014e124d04899c80b99931a67db21f592ff`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x00202150`** | 332 | 405 |
+
+The comparator exits 0 with +53 routines / +1 operation; the stop and counts are unchanged from module 102 because this profile never sets the new state. `0x1F65F0` was not reached. Frontier: **547 functions, 90 placeholders, 89 referenced**. The post-table `D3DDevice_Present` stop remains unadmitted and the next region is a fresh architect decision. These are synthetic startup observations, not fidelity, renderer, gameplay or playability evidence; translated coverage is not proof that a render state is exercised or correct.
+
+## Prior: The 0x1F7570 batch completes the render-state table; the run stops at D3DDevice_Present
 
 November 5, 2026. Starting from published head `45c0327`, this cycle admitted the last two render-state handlers, `0x1F7570` (`RopZRead`, index 142) and `0x1F7590` (`DoNotCullUncompressed`, index 143). Both are 4-instruction / 17-byte wrappers that store their argument and call the already-admitted `0x1F7230`; each needed one bounded create-function at that address only. Seeds `8f6f0496?` and `024f834b?`; preflights 4/4, no tables or normalizations. They were appended to the merged 30-function seed (`8f1b7667?`, 32 functions), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-81` contains **456 functions / 18,617 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 546/0. Module `recomp-post-memory-build-102` is 705,414 bytes, SHA-256 `27ceaa9eb30f413d456692333f6d303fbdc75db780b829b88617d355b3489453`.
 

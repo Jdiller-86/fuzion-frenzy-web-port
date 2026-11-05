@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7570 admission and render-state table completion
+## Latest: 0x1F65F0 table-coverage completion
+
+- [The 0x1F65F0 batch](FRONTIER_DEP_1F65F0_CHECKPOINT.md): translation 82 (457 functions / 18,626 instructions), module 103 (705,795 bytes, SHA `6e298d44...`), table coverage **28/28**, control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation, unchanged from module 102), `verify-seeds` 32/32, `verify-translation` 547/0, package verifier 45/45 digests.
+- `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`, index 134) is never set by this profile and was the only untranslated table handler. It needed one bounded create-function at that address only; the 9-instruction / 37-byte leaf calls the already-translated `0x1F5640`.
+- The merged seed hit the 32-function-per-export limit; two existing single-function exports were regrouped into one 2-function export, keeping **32 exports**. The post-table `D3DDevice_Present` stop is still unadmitted and the next region remains a fresh architect decision. This batch is `D344`.
+
+## Prior: 0x1F7570 admission and render-state table completion
 
 - [The 0x1F7570 batch](FRONTIER_DEP_1F7570_CHECKPOINT.md): translation 81 (456 functions / 18,617 instructions), module 102 (705,414 bytes, SHA `27ceaa9e...`), control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 546/0, package verifier 43/43 digests.
 - `0x1F7570` (index 142) and `0x1F7590` (index 143) were the last render-state handlers; each needed one bounded create-function at that address only. Both are 4-instruction / 17-byte wrappers calling the already-admitted `0x1F7230`.

@@ -63,6 +63,6 @@ The experiment's stop is qualitatively different from every previous one:
 
 ## Next and limits
 
-The render-state table is **complete**: indices 116-143 are admitted or already translated, and index 144 onward is non-pointer data. The observed next stop `0x00202150` (`D3DDevice_Present`) is a **post-table direct call**, and this checkpoint deliberately does not admit it. The next region is a fresh architect decision, not an automatic continuation.
+The render-state table is **complete in the observed run**: the experiment reaches its end, and index 144 onward is non-pointer data. At this checkpoint 27 of the 28 handlers were translated: index 134 (`0x1F65F0`, `MultiSampleType`) is never set by this profile and remained untranslated. [The 0x1F65F0 batch](FRONTIER_DEP_1F65F0_CHECKPOINT.md) subsequently closed that gap (28/28). The observed next stop `0x00202150` (`D3DDevice_Present`) is a **post-table direct call**, and this checkpoint deliberately does not admit it. The next region is a fresh architect decision, not an automatic continuation.
 
 These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `D3DDevice_Present` being reached does not establish that presenting, rendering or a playable frame works.
