@@ -1,4 +1,10 @@
-# Thread-scoped register logger repaired; residual capture limit remains
+# Per-context ESI baselines still do not observe the field access's value
+
+November 5: the change logger now keeps per-TLS-context baselines (up to eight) and reports `entryFs`/`fieldFs`. Run (module 147): entry and field access share TLS context `0x03C00200` (not a thread switch); `g_esi` is `0x203B90` at entry and `0x205E98` at the field access, yet the change log still contains only the `0x03F0xxxx`/`0x55667788` transitions at `0x1DF9C0`/`0x1DF9F3`/site 0 and **no `0x205E98` transition**. The log therefore does not observe the same register value the field capture reports — two register views or a capture outside the translated `esi` storage; a harness/instrumentation limit, not a guest-state, profile, or translator defect. No workaround; the hunt stays halted pending a single-view capture or translator-level trace.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Thread-scoped register logger repaired; residual capture limit remains
 
 November 5: authorized tooling repair. A pure `ff_tls_same_context(entry_fs, current_fs)` predicate (`src/runtime/tls_scope.c/.h`, native test `tests/tls_scope_test.c`) now gates both diagnostics: the ESI-change log only records changes within one TLS base, and the ABI logger skips its ESI comparison across a TLS switch. Re-run (module 144, native 50/50) still reports `0x03F0xxxx`/`0x55667788` values at `0x1DF9C0`/`0x1DF9F3`/site 0 **within one `g_fs_base`** (real transient uses, not TLS switches), while the `0x1FC087` access reports `g_esi = 0x205E98` and entry `0x203B90` with **no logged transition** and a differing baseline at the same call. Thread-scoping removed the TLS confound but did not reconcile the samples; this is a harness/instrumentation capture limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The hunt stays halted pending a translator-level register trace or single-view capture.
 

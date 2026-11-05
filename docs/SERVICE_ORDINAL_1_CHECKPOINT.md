@@ -370,3 +370,16 @@ Re-run `browser-144-abi.json` (module 144, 50/50 native fixtures green):
 Conclusion: thread-scoping removed the TLS confound but did not reconcile the samples. The remaining inconsistency means the diagnostic cannot yet observe the field access's register state consistently — a harness/instrumentation limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The repair is committed with its fixture test; the ESI-clobber hunt remains halted pending a translator-level register trace or a single-view register capture.
 
 No DECISIONS row: tooling characterization.
+
+## 25. Per-context ESI baselines and the remaining capture gap
+
+The logger was extended to keep per-TLS-context baselines (up to eight contexts) so another thread's interleaved accesses cannot swallow the device context's transition; `entryFs`/`fieldFs` are now reported alongside the samples.
+
+Run `browser-147-abi.json` (module 147):
+
+- Entry and field access are in the **same** TLS context (`0x03C00200`), so this is not a thread switch.
+- `g_esi` is `0x203B90` at entry and `0x205E98` at the field access, yet the change log still contains only the `0x03F0xxxx`/`0x55667788` transitions at `0x1DF9C0`/`0x1DF9F3`/site 0 and **no `0x205E98` transition** — even with per-context baselines and sixteen change slots available.
+
+Conclusion: the change log is not observing the same register value that the field capture reports for that access. Two register views (or a capture that runs outside the translated `esi` storage) remain the only consistent explanation; this is a harness/instrumentation limit, not a guest-state, profile, or translator defect. The repair is committed; the hunt stays halted pending a single-view capture or a translator-level register trace, and no workaround is applied.
+
+No DECISIONS row: tooling characterization.

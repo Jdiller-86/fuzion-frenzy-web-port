@@ -178,8 +178,9 @@ static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx,
 static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
 static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
 static uint32_t site_span_esi[4];
-static uint32_t esi_change_last, esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
-static uint32_t esi_change_ctx, abi_last_fs;
+static uint32_t site_entry_fs, site_field_fs;
+static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
+static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -385,7 +386,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
     site_entry_count = 0u;
-    esi_change_count = 0u; esi_change_last = 0u; esi_change_ctx = 0u;
+    esi_change_count = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -402,6 +403,8 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
         case 8: return site_span_esi[1];
         case 9: return site_span_esi[2];
         case 10: return site_span_esi[3];
+        case 11: return site_entry_fs;
+        case 12: return site_field_fs;
         default: return UINT32_MAX;
     }
 }
@@ -673,12 +676,22 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled) {
-        if (g_esi != esi_change_last && ff_tls_same_context(esi_change_ctx, g_fs_base)) {
-            uint32_t slot = esi_change_count & 7u;
-            esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
-            esi_change_last = g_esi; ++esi_change_count;
+        {
+            /* Per-context baselines: another thread's interleaved accesses must
+             * not swallow this context's register transition. */
+            uint32_t ctxslot = 0u, found = 0u;
+            for (uint32_t k = 0; k < 8u; ++k)
+                if (esi_ctx[k] && esi_ctx[k] == g_fs_base) { ctxslot = k; found = 1u; break; }
+            if (!found)
+                for (uint32_t k = 0; k < 8u; ++k)
+                    if (!esi_ctx[k]) { esi_ctx[k] = g_fs_base; ctxslot = k; found = 2u; break; }
+            if (found == 2u) esi_ctx_last[ctxslot] = g_esi;
+            else if (found == 1u && g_esi != esi_ctx_last[ctxslot]) {
+                uint32_t slot = esi_change_count & 7u;
+                esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
+                esi_ctx_last[ctxslot] = g_esi; ++esi_change_count;
+            }
         }
-        if (!ff_tls_same_context(esi_change_ctx, g_fs_base)) { esi_change_ctx = g_fs_base; esi_change_last = g_esi; }
         uint32_t *slot = site == 0x001FC01Fu ? &site_span_esi[0]
                         : site == 0x001FC038u ? &site_span_esi[1]
                         : site == 0x001FC055u ? &site_span_esi[2]
@@ -686,6 +699,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
         if (slot && !*slot) *slot = g_esi;
         if (site == 0x001FC010u && !(access & FF_VM_WRITE)) {
             site_watch_entry_addr = address;
+            site_entry_fs = g_fs_base;
             { uint32_t slot = site_entry_count & 7u;
               site_entry_addr[slot] = address;
               site_entry_ecx[slot] = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 4u) : 0u;
@@ -696,6 +710,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
         } else if (site == 0x001FC087u) {
             if (!site_watch_field_addr) site_watch_field_addr = address;
             site_watch_field_esi = g_esi;
+            site_field_fs = g_fs_base;
             ++site_watch_field_count;
         }
     }
