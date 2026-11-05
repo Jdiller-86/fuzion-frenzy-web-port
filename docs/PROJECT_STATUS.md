@@ -1,4 +1,12 @@
-# The faulting base is a clobbered register, not an object
+# Provenance: a translated-register defect, not a profile gap; halt
+
+November 5: provenance record added. The corrected trace does not support a synthetic-profile state divergence: the profile is not involved in the object register; `FUN_001FC010` runs once, entered from `D3DDevice_Release` with `ECX = ESI = 0x203B90`, yet the `[ESI+0x47C]` read uses a heap-like run-varying base (`0x205E98`, earlier `0x205D58`), and no guest write touches `0x20400C`. Callee accounting in the retained translation shows `FUN_001FB300`/`FUN_001FAED0`/`FUN_001FACA0` never assign `esi`, `FUN_001FB640` pushes/pops it once, and `FUN_001FC010` pushes `esi` twice but pops once — so the global `esi` changes across the chain without a matching restore. This is a **translated-register preservation defect** (or tooling/model clobber), not a profile-fidelity gap and not a missing write model; the exact callee is still unidentified, so no fix is attempted and the run halts at the fault.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: per-function push/pop balance scan across the reached call chain to name the callee that leaves `esi` changed.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The faulting base is a clobbered register, not an object
 
 November 5: corrected site watch (records the `[ESI]` read, keeps an entry ring) shows `FUN_001FC010` entered from `D3DDevice_Release` (return `0x1F54E9`) with **`ECX = ESI = 0x203B90`** (the correct device), but the `[ESI+0x47C]` read at `0x1FC087` used **`0x206314`** (base `0x205E98`) and in the earlier run `0x2061D4` (base `0x205D58`). The base is a run-varying guest address, so the global translated `esi` is clobbered between entry and that read (the `CDevice_FreeFrameBuffers` call at `0x1FC080` is the only intervening call) — a register-preservation/ABI defect, not a missing write model.
 
