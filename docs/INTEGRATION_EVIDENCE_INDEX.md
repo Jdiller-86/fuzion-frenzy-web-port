@@ -6,7 +6,8 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 
 - [The 0x1F6B00 batch](FRONTIER_DEP_1F6B00_CHECKPOINT.md): translation 63 (435 functions / 18,158 instructions), module 84 (691,173 bytes, SHA `e1f59842…`), control 279/404 at ordinal 2 vs experiment 305/405 at untranslated `0x1F6B50`, comparator exit 0 (+26 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 525/0, package verifier 22/22 digests.
 - `0x1F6B00` (`D3DDevice_SetRenderState_BackFillMode`, table `0x2025D0`, index 120) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 75-byte seed (`b126ca7b…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 22/22. `0x1F6B50` is the next ordinary stop (table index 121).
-- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. Architect CI run `41964401675` at `fd0ea19` still fails in `tests/integration-verification.test.mjs:106` because its temporary-repo `git merge` has no committer identity; the main PR remains blocked until that verification-owned test is fixed.
+- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. The architect head `b4a7c60` also fails CI run `41970017253` in `tests/integration-verification.test.mjs:124` for the same temporary-repo identity; the merged `d0c38c2` fix addresses those two merge calls, and the main PR remains blocked until that fixed head is integrated.
+- Integration merge `d0c38c2` brings the published architect head `b4a7c60` into source, keeps the architect's `D321`/`D322`, renumbers the `0x1F6B00` admission to `D323`, and fixes the exact-head test's two merge calls with the surrounding `-c user.email`/`-c user.name`. Merged checks: 407 source files, runtime 196/196, evidence 6/6, whitespace clean.
 
 ## Prior: 0x1F6AC0 admission
 
