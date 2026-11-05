@@ -60,6 +60,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6BB0` is an ordinary untranslated routine and the next indirect render-state entry (index 117). The approved directive required persistent establishment and a re-export, both are now recorded; the byte-identical seed means no duplicate translation or comparison was needed. A later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6BB0` was not entered.
+The observed stop `0x1F6BB0` is an ordinary untranslated routine and the next indirect render-state entry (index 117). The approved directive required persistent establishment and a re-export, both are now recorded; the byte-identical seed means no duplicate translation or comparison was needed. `0x1F6BB0` was subsequently established persistently and admitted in translation 60/module 81; the new observed stop is `0x1F6790`. See [the 0x1F6BB0 checkpoint](FRONTIER_DEP_1F6BB0_CHECKPOINT.md). These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent function at `0x1F6620` is a bounded, authorized exception for one named indirect-dispatch leaf; it does not establish general function-recovery policy, original execution, or permission to define arbitrary gaps.
