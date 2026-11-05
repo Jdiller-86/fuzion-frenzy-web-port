@@ -1,4 +1,8 @@
-# The PFIFO responder exits the fence wait and reaches service 159
+# Service ordinal 159 is KeWaitForSingleObject on the vblank event
+
+November 5: read-only characterization, no implementation/hook/admission. Ordinal 159 (`0x9F`) = `KeWaitForSingleObject` (5 args, NTSTATUS), called from `D3DDevice_BlockUntilVerticalBlank` (`0x1F5520..0x1F5543`) with Object `0x00206080`, WaitReason 6, WaitMode 1, Alertable 0, Timeout NULL, retrying while nonzero. Pinned bridge: guest-event SignalState is truth, synchronization signal consumed; vblank must be delivered via PCRTC_INTR_0 bit 0 + PMC_INTR_0 bit 24 before the ISR; current profile has no vblanks. No modeled success without delivery. Branch fast-forwarded to the published integration head `1e35f8a`, restoring main ancestry. Checks: `check` 455 files, whitespace clean. Halt for the service decision. **No controllable original screen.**
+
+## Prior: The PFIFO responder exits the fence wait and reaches service 159
 
 November 5: architect-authorized default-off responder step (drain + one-shot sequence release, latch unmodeled). Module 112 (716,327 bytes, SHA `0304f2f6?`). Control unchanged (status 13 at `0xFD800044`, 339/405). Consumer drained 173 packets / 499 words, released the fence 3 -> 9, exited `D3D_BlockOnTime`, and stopped at **status 1, `0xFE000094`, ordinal 159** (unsupported service, unmodeled), **340/405**, return `0x1F5543` (VBlank site). Release value modeled (not stream-decoded), latch unmodeled, one-shot, GET never initialized. Checks: `test:native` 36/36, `test:runtime` 198/0, `check` 454. Consumer default-off; next decision is ordinal 159 or hold. Main `52b3fa1` not an ancestor; architect `460549e` not integrated; merge denied. **No controllable original screen.**
 

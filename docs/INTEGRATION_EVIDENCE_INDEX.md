@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: service ordinal 159 characterization (read-only)
+
+- [Ordinal-159 checkpoint](SERVICE_ORDINAL_159_CHECKPOINT.md): ordinal 159 (`0x9F`) = `KeWaitForSingleObject` (5 arguments, NTSTATUS); `D3DDevice_BlockUntilVerticalBlank` calls it with Object `0x00206080`, WaitReason 6, WaitMode 1, Alertable 0, Timeout NULL, retrying while nonzero. The pinned bridge treats the guest event SignalState as truth and delivers vblank via PCRTC_INTR_0 bit 0 + PMC_INTR_0 bit 24; the current profile delivers none, so no modeled success is permitted. Branch fast-forwarded to `1e35f8a` (main ancestry restored). This is `D363`.
 ## Latest: PFIFO responder reaches service 159
 
 - [Completion-flag checkpoint §7](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): architect-authorized default-off responder (drain to PUT + one-shot sequence release; latch unmodeled). Module 112 (716,327 bytes, SHA `0304f2f6...`). Control unchanged (status 13 at `0xFD800044`, 339/405); consumer drained 173 packets / 499 words, released the fence 3 -> 9, exited the wait, and stopped at status 1, `0xFE000094`, ordinal 159 (unsupported service), 340/405. This is `D354`.
