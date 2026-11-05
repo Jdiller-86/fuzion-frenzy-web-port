@@ -253,3 +253,16 @@ The corrected trace (`browser-137-site.json`) does **not** support a synthetic-p
 Classification: this is a **translated-register preservation defect** (or a model/tooling register clobber), not a profile-fidelity gap and not a missing write model or service. The exact callee is not yet identified, so no fix is attempted here. The read-fault recording stays the standard: the run halts at the fault and reports it.
 
 Next bounded task: instrument or scan for the specific callee that leaves `esi` changed (per-function push/pop balance across the reached call chain), then regenerate/fix with evidence. No write-side or pointer model.
+
+## 18. ABI audit result: no ESI violation, and a measurement conflict
+
+The toolkit's own callee-saved check (`RECOMP_ABI_CHECK`, enabled only in the private diagnostic build) was compiled into the probe with a source-owned logger:
+
+- 310 call-target violations were recorded overall (first `0x1E04CC`, last `0x1FB640`), i.e. the translated code has callee-saved-register defects in several places.
+- **ESI violations: 0.** No call returns with `g_esi` changed, including the `CDevice_FreeFrameBuffers` call at `0x1FC080`.
+
+That contradicts the site-watch inference: entry `ESI = 0x203B90`, yet the `0x1FC087` field read appears to use `0x206314`. Since the ABI check is authoritative for callee preservation, the earlier "clobbered register" reading is **not proven**; one of the two measurements (field-address association or entry association) is misleading.
+
+Honest status: the ESI-clobber hypothesis is withdrawn. No fix and no model. The next bounded task is to log `g_esi` **at the field access itself** (site `0x1FC087`) instead of inferring the base from the address, and to confirm how many times `FUN_001FC010` is entered (the ring reported one entry).
+
+No DECISIONS row: characterization only.

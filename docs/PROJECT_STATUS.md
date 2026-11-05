@@ -1,4 +1,10 @@
-# Provenance: a translated-register defect, not a profile gap; halt
+# ABI audit finds no ESI violation; the clobber hypothesis is withdrawn
+
+November 5: the toolkit's own callee-saved check (`RECOMP_ABI_CHECK`, private diagnostic build) was compiled into the probe with a source-owned logger. It records **310 call-target violations overall** (first `0x1E04CC`, last `0x1FB640`) but **0 ESI violations** — no call returns with `g_esi` changed, including `CDevice_FreeFrameBuffers` at `0x1FC080`. That contradicts the site-watch inference (entry `ESI=0x203B90`, field read appears to use `0x206314`), so the ESI-clobber hypothesis is **withdrawn**: one of the two measurements is misleading, and no fix or model is warranted. Next: log `g_esi` at the `0x1FC087` field access itself and confirm the entry count.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Provenance: a translated-register defect, not a profile gap; halt
 
 November 5: provenance record added. The corrected trace does not support a synthetic-profile state divergence: the profile is not involved in the object register; `FUN_001FC010` runs once, entered from `D3DDevice_Release` with `ECX = ESI = 0x203B90`, yet the `[ESI+0x47C]` read uses a heap-like run-varying base (`0x205E98`, earlier `0x205D58`), and no guest write touches `0x20400C`. Callee accounting in the retained translation shows `FUN_001FB300`/`FUN_001FAED0`/`FUN_001FACA0` never assign `esi`, `FUN_001FB640` pushes/pops it once, and `FUN_001FC010` pushes `esi` twice but pops once — so the global `esi` changes across the chain without a matching restore. This is a **translated-register preservation defect** (or tooling/model clobber), not a profile-fidelity gap and not a missing write model; the exact callee is still unidentified, so no fix is attempted and the run halts at the fault.
 
