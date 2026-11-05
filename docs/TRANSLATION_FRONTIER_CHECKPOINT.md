@@ -1,4 +1,15 @@
-# The 0x1F6AC0 batch advances the stop to 0x1F6B00
+# The 0x1F6B00 batch advances the stop to 0x1F6B50
+
+November 4, 2026. `0x1F6B00` (`D3DDevice_SetRenderState_BackFillMode`, table `0x2025D0`, index 120) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 75-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6B2F`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 11-function seed (`e4c3222d?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-63` contains **435 functions / 18,158 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 525/0. Module `recomp-post-memory-build-84` is 691,173 bytes, SHA-256 `e1f59842bf7dcd58720f54ee41e421a8a8e704dd3398dea57c3c255b8e03bfec`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6B50`** | 305 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +26 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6B00` executed; `0x1F6B50` was not entered. Frontier: **525 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6AC0 batch advances the stop to 0x1F6B00
 
 November 4, 2026. `0x1F6AC0` (`D3DDevice_SetRenderState_FillMode`, table `0x2025CC`, index 119) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 18-instruction / 62-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6AE3`, and ends in `RET 4`; preflight is 18/18, no tables or normalizations. The seed was appended to the merged 10-function seed (`aeb158b5?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-62` contains **434 functions / 18,136 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 524/0. Module `recomp-post-memory-build-83` is 690,455 bytes, SHA-256 `9a84bdc1cfe8ac7e1a56871b4415d0a2f6ed2bd33475be93eb71b93cfa95cf15`.
 

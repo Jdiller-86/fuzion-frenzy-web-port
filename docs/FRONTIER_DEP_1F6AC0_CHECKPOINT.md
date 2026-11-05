@@ -14,7 +14,7 @@ November 4, 2026. This cycle admitted the next ordinary stop, `0x1F6AC0`. It was
 
 - Seed: **18 instructions / a 62-byte instruction-only envelope**, one call, no tables, SHA-256 `628ba62b1ad406e38ece04dc96994625c81e5f022e3428f38dcaa47d56fc3ec8`.
 - Preflight with the pinned toolchain: `mixed False`, `tables 0`, 18 rows; **18/18 decoded**, no normalizations; byte identity, decoder agreement and layout pass.
-- Grouping: append to the merged 9-function seed → **10 functions**, SHA-256 `aeb158b5520c6684d8e87304ec410ec7dce42ae8484da3948b634793fed91e83`; the 32-function front seed and 32-export count are unchanged.
+- Grouping: append to the merged 9-function seed â†’ **10 functions**, SHA-256 `aeb158b5520c6684d8e87304ec410ec7dce42ae8484da3948b634793fed91e83`; the 32-function front seed and 32-export count are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-62`: **434 functions / 18,136 instructions**; `0x1F6AC0` has a real guarded body; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **524 functions, 0 rewrites**.
 
@@ -48,6 +48,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6B00` is the next ordinary indirect render-state entry (table index 120); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F6B00` is the next ordinary indirect render-state entry (table index 120); it was not entered. A later â‰¤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent `0x1F6AC0` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.
