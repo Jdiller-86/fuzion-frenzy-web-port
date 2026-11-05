@@ -76,6 +76,12 @@ try {
 
     $recentIntegration = (@(git -C $worktree log -4 --pretty=format:'%h %s') | Where-Object { $_ }) -join '; '
     $prompt = "Hourly GLM Flash architect review. Integration=$head; source=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Recent integration commits: $recentIntegration. Read AGENTS.md, docs/OPENCODE_GOAL.md and the TOP of current status/handoff/checkpoint; use Git for exact changed paths. Decide the existing main PR first. If its exact head equals your clean integration HEAD and passes reviewed source/runtime/CI/ancestry/mergeability gates, emit MERGE_MAIN_PR and make no branch edits or new integration commit this cycle; the runner rechecks before merging. Otherwise name the specific gate, then review one committed builder slice for integration. Attribute any new integration commits with git show before describing them as unexplained. Keep the original-game browser route and local content boundary. Use Qwen Scout for one narrow lookup only when useful. Direct each lane to one bounded result or HOLD; prefer the next genuine execution blocker, not repeated documentation or test-only churn. The primary may batch related reached functions under the standing policy, stopping on unsupported service/register/resource or failed checks. Do not push, operate GitHub directly, discard edits, invent evidence, or claim playability. If justified, emit exact 40-character OPEN_SOURCE_REVIEW_PR, OPEN_GEOMETRY_REVIEW_PR or OPEN_MAIN_PR markers; emit MERGE_MAIN_PR only for the exact reviewed clean integration HEAD. End with GEOMETRY_CYCLE: HOLD or RUN, any justified PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration: ... . Keep the review under 300 words before markers."
+    $mainIsIntegrated = $false
+    git -C $worktree merge-base --is-ancestor $mainHead $head 2>$null
+    if ($LASTEXITCODE -eq 0) { $mainIsIntegrated = $true }
+    if (-not $mainIsIntegrated) {
+        $prompt = "PR merge prerequisite: local main $mainHead is not in integration HEAD $head. Resolve and integrate local main under lane ownership first; review conflicts and run the relevant gates. Do not emit MERGE_MAIN_PR this cycle. Then give the builders one bounded next task. " + $prompt
+    }
     if (Test-Path -LiteralPath $guidancePath) {
         try {
             $priorGuidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
