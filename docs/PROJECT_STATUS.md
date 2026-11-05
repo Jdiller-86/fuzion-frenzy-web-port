@@ -1,4 +1,48 @@
-# Span probe: ESI correct after two calls, wrong at the field read
+# Tooling repair finalized: transition is FUN_001F6240 (non-call-site write)
+
+November 5: final tooling-repair result. `FUN_001F6240` assigns `esi` in-body at `0x1F62C4` (`esi = edx + ecx*8`, `ecx = 3*MEM[esp+0x24]`) and its four callers are direct `RECOMP_ABI_CALL` sites (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`); its ESI accounting is unbalanced (one push, two pops, three assignments), and `0x205E98` is the computed pointer later read as `[ESI+0x47C]`. The ABI logger sees only **net** changes at wrapped call boundaries, so an in-body write is outside its coverage — the coverage class is now pinned by `ff_reg_change_observable` with assertions in `tests/tls_scope_test.c`. This is a translator/translation register save/restore defect, not guest state, profile, or a harness workaround; no translator edit is made here.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Freeze-at-stop fixes the trace; transition is FUN_001F6240 at 0x1F62C4
+
+November 5: the register trace is frozen at the observed stop (`reg_trace_frozen` set in `stop()`, reset when the site watch is enabled), so post-run copy/ABI canaries no longer overwrite it. Run (module 149): device-context changes drop from 31,724 to **16**, last value **`0x205E98`**. Last transitions include `0x1F62C4 -> 0x203B90` and then `0x205E98` at the next stack push. Site `0x1F62C4` is in `FUN_001F6240`: `esi = edx + ecx*8` with `ecx = 3*MEM[esp+0x24]` — it assigns ESI to the computed pointer later read as `[ESI+0x47C]`. That function's ESI accounting is unbalanced (1 push, 2 pops, 3 assignments), and the ABI logger missed it because the call form is indirect/tail. Named translated-register/tooling finding; no workaround, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: confirm the call form reaching `FUN_001F6240` and its per-exit ESI restore, then report the exact defect for the translator owner.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: The ESI trace is polluted by the probe's own copy-proof canary
+
+November 5: the change logger keeps a dedicated last-change record for the device TLS context. Run (module 148): **31,724** device-context changes, last value `0x55667788` at site 0. That value is written by the probe's own copy-proof canary in `ff_probe_copy_case` (`tools/fixtures/thread_startup_probe.c:1194`), which sets `g_ebx/g_esi/g_edi/g_ebp` canaries to verify register preservation. The canary shares the same TLS register storage the diagnostics sample, so it masks the genuine `0x203B90 → 0x205E98` transition. The ESI trace is polluted by the fixture, not the guest or the translation; no translator edit, model, or guest-path `esi` backup. The hunt is halted pending fixture isolation of diagnostic register writes.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: save/restore guest registers around `ff_probe_copy_case` (or suppress logging during canary probes), then re-run the span probe.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Per-context ESI baselines still do not observe the field access's value
+
+November 5: the change logger now keeps per-TLS-context baselines (up to eight) and reports `entryFs`/`fieldFs`. Run (module 147): entry and field access share TLS context `0x03C00200` (not a thread switch); `g_esi` is `0x203B90` at entry and `0x205E98` at the field access, yet the change log still contains only the `0x03F0xxxx`/`0x55667788` transitions at `0x1DF9C0`/`0x1DF9F3`/site 0 and **no `0x205E98` transition**. The log therefore does not observe the same register value the field capture reports — two register views or a capture outside the translated `esi` storage; a harness/instrumentation limit, not a guest-state, profile, or translator defect. No workaround; the hunt stays halted pending a single-view capture or translator-level trace.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Thread-scoped register logger repaired; residual capture limit remains
+
+November 5: authorized tooling repair. A pure `ff_tls_same_context(entry_fs, current_fs)` predicate (`src/runtime/tls_scope.c/.h`, native test `tests/tls_scope_test.c`) now gates both diagnostics: the ESI-change log only records changes within one TLS base, and the ABI logger skips its ESI comparison across a TLS switch. Re-run (module 144, native 50/50) still reports `0x03F0xxxx`/`0x55667788` values at `0x1DF9C0`/`0x1DF9F3`/site 0 **within one `g_fs_base`** (real transient uses, not TLS switches), while the `0x1FC087` access reports `g_esi = 0x205E98` and entry `0x203B90` with **no logged transition** and a differing baseline at the same call. Thread-scoping removed the TLS confound but did not reconcile the samples; this is a harness/instrumentation capture limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The hunt stays halted pending a translator-level register trace or single-view capture.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: single-view register capture or translator-level trace as tooling evidence.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 480 files, whitespace clean. Integration head `12f0818` (per directive) — no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ESI-change log confounded by TLS/thread-context switching; hunt halted
+
+November 5: the probe now logs every observed `g_esi` change (site, address, new value). One run reports changes at `0x03F0xxxx`/`0x55667788` values from sites `0x1DF9C0`, `0x1DF9F3` and site 0 — other thread/TLS contexts — while the `0x1FC087` field access still reports `0x205E98` and the entry reports `0x203B90`, with no logged transition to `0x205E98`. `g_esi` is `RECOMP_TLS` storage and the harness models TLS/thread switches, so the diagnostic reads are **not from a single register context**; the earlier ESI-clobber readings are unreliable. This is a harness/tooling instrumentation limit, not a demonstrated guest-state, profile, or translator defect. No workaround, model, or translator edit; the ABI-clobber hunt is halted pending a context-aware probe (record TLS/thread identity) or a translator-level register trace supplied as tooling evidence.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: add TLS/thread identity to the register probes before any further ESI inference.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Span probe: ESI correct after two calls, wrong at the field read
 
 November 5: the probe now samples `g_esi` at the caller's post-call access sites. One run: entry `0x203B90`; after call 1 (`0x1FC01F`, `FUN_001FB300`) `0x203B90`; after call 2 (`0x1FC038`, `FUN_001FAED0`) `0x203B90`; loop site `0x1FC055` not accessed (loop skipped); field read `0x1FC087` `0x205E98`. On this path the remaining calls are `0x1FC077` → `FUN_001FD630` (which never assigns `esi`) and its callees, so the change lies inside that chain, where the direct-call ABI check should have fired but recorded 0 ESI violations. The defect is narrowed to the `0x1FC077` span and a call form the ABI macro may not cover (indirect/tail path); exact edge still unnamed. No workaround, model, or translation edit.
 

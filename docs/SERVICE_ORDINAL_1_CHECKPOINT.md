@@ -341,3 +341,88 @@ This narrows the defect to the `0x1FC077` span and to a call form the ABI macro 
 Next bounded task: probe `g_esi` around the `0x1FC077` call (`FUN_001FD630`) and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL` (a tooling finding for the translator, not a local patch).
 
 No DECISIONS row: characterization only.
+
+## 23. ESI-change log: the probes are confounded by TLS/thread-context switching
+
+The probe now records every observed change of `g_esi` (site, access address, new value) and reports the last eight. Run `browser-143-abi.json` (module 143):
+
+- The reported changes are `0x03F0xxxx` values and `0x55667788` at sites `0x1DF9C0`, `0x1DF9F3` and site `0`, i.e. values belonging to **other thread/TLS contexts**, not the device sequence `0x203B90 -> 0x205E98`.
+- The `0x1FC087` field access still reports `g_esi = 0x205E98`, while the change log contains no transition to that value and `FUN_001FC010`'s entry still reports `0x203B90`.
+
+Conclusion: `g_esi` is `RECOMP_TLS` storage, and the harness models thread/TLS context switches; the diagnostic reads are therefore **not from a single register context**. The ESI sequence cannot be reconstructed with these probes, and the earlier "clobber" readings are unreliable. This is a **harness/tooling instrumentation limit**, not a guest-state, profile, or translator defect demonstrated by this evidence.
+
+No workaround, model, or translator edit. The ABI-clobber hunt is halted pending a context-aware probe (record the TLS/thread identity with each read) or a translator-level register trace supplied as tooling evidence.
+
+No DECISIONS row: characterization only.
+
+## 24. Thread-scoped logger repair and its residual limit
+
+Authorized tooling repair (not a workaround): a pure `ff_tls_same_context(entry_fs, current_fs)` predicate (new `src/runtime/tls_scope.c/.h`, native test `tests/tls_scope_test.c`) now gates both diagnostics:
+
+- The ESI-change log only records a change when the TLS base is unchanged; a context switch resets the baseline instead of being logged as a register change.
+- The ABI logger skips its ESI comparison when the TLS base differs from the previous call's.
+
+Re-run `browser-144-abi.json` (module 144, 50/50 native fixtures green):
+
+- The log still reports `0x03F0xxxx`/`0x55667788` values at sites `0x1DF9C0`/`0x1DF9F3`/site 0 **within one `g_fs_base`**, i.e. these are real transient register uses by those functions, not TLS switches.
+- The `0x1FC087` field access still reports `g_esi = 0x205E98` and the entry `0x203B90`, but **no transition to `0x205E98` is logged**, and the same call's change-check baseline differs from the captured field ESI.
+
+Conclusion: thread-scoping removed the TLS confound but did not reconcile the samples. The remaining inconsistency means the diagnostic cannot yet observe the field access's register state consistently — a harness/instrumentation limit (possibly two register views), not a demonstrated guest-state, profile, or translator defect. The repair is committed with its fixture test; the ESI-clobber hunt remains halted pending a translator-level register trace or a single-view register capture.
+
+No DECISIONS row: tooling characterization.
+
+## 25. Per-context ESI baselines and the remaining capture gap
+
+The logger was extended to keep per-TLS-context baselines (up to eight contexts) so another thread's interleaved accesses cannot swallow the device context's transition; `entryFs`/`fieldFs` are now reported alongside the samples.
+
+Run `browser-147-abi.json` (module 147):
+
+- Entry and field access are in the **same** TLS context (`0x03C00200`), so this is not a thread switch.
+- `g_esi` is `0x203B90` at entry and `0x205E98` at the field access, yet the change log still contains only the `0x03F0xxxx`/`0x55667788` transitions at `0x1DF9C0`/`0x1DF9F3`/site 0 and **no `0x205E98` transition** — even with per-context baselines and sixteen change slots available.
+
+Conclusion: the change log is not observing the same register value that the field capture reports for that access. Two register views (or a capture that runs outside the translated `esi` storage) remain the only consistent explanation; this is a harness/instrumentation limit, not a guest-state, profile, or translator defect. The repair is committed; the hunt stays halted pending a single-view capture or a translator-level register trace, and no workaround is applied.
+
+No DECISIONS row: tooling characterization.
+
+## 26. The polluter is the probe's own register canary
+
+The change logger now also keeps a dedicated last-change record for the device TLS context. Run `browser-148-abi.json` (module 148):
+
+- Device-context changes: **31,724**, last value `0x55667788` at site 0.
+- `g_esi = 0x55667788` is written by the probe's own copy-proof canary in `ff_probe_copy_case` (`tools/fixtures/thread_startup_probe.c:1194`), which sets `g_ebx/g_esi/g_edi/g_ebp` canaries to verify register preservation.
+- The canary value therefore appears in the same TLS register storage the diagnostics sample, at stack-push sites (site 0), tens of thousands of times, and masks the genuine device transition.
+
+Conclusion: the ESI trace is polluted by the **fixture's own register canaries**, not by the guest or the translation. The 0x205E98 capture at the field access cannot be attributed until diagnostic register writes are separated from the guest view (e.g., the canary tests must save/restore the guest registers around their probes, or the trace must ignore writes made by diagnostic code). This is a source-owned fixture defect; no translator edit, no model, no `esi` backup in the guest path.
+
+Next bounded task: isolate the copy/ABI canary writes from the guest TLS view (fixture-side save/restore around `ff_probe_copy_case`, or a diagnostic flag that suppresses logging during canary probes), then re-run the span probe.
+
+No DECISIONS row: tooling characterization.
+
+## 27. Freeze-at-stop fixes the trace; the transition is `FUN_001F6240` at `0x1F62C4`
+
+The register trace is now **frozen when the run stops** (`reg_trace_frozen` set in `stop()`, reset when the site watch is enabled), so post-run copy/ABI canaries can no longer overwrite the recorded transitions. Run `browser-149-abi.json` (module 149):
+
+- Device-context changes drop from 31,724 to **16**; the last value is **`0x205E98`**.
+- Last transitions include `0x1F62C4 -> 0x203B90` and then `0x205E98` observed at the next stack-push site.
+- Site `0x1F62C4` is in `FUN_001F6240`: the translated instruction is `esi = edx + ecx * 8` (with `ecx = 3 * MEM[esp+0x24]`), i.e. it assigns ESI to a computed pointer — the exact `0x205E98` pointer later read as `[ESI+0x47C]`.
+- Translation accounting for `FUN_001F6240`: 1 ESI push, 2 ESI pops, 3 ESI assignments — an unbalanced save/restore with an in-body assignment.
+
+Conclusion: the `0x203B90 -> 0x205E98` transition is produced by `FUN_001F6240` at `0x1F62C4` (`esi = edx + ecx*8`), whose ESI handling is unbalanced; the ABI logger did not attribute it because that call form is not covered by the direct-call macro (indirect/tail path). This is a translated-register/tooling finding tied to one named function — no workaround, no model, no translator edit.
+
+Next bounded task: confirm the call form that reaches `FUN_001F6240` (direct `RECOMP_ABI_CALL` vs `RECOMP_ICALL_SAFE_AT`/tail) and its per-exit ESI restore, then report the exact defect for the translator owner.
+
+## 28. Coverage-gap class: non-call-site register writes
+
+Final characterization of the localized write and the logger gap:
+
+- `FUN_001F6240` assigns `esi` in-body at `0x1F62C4` (`esi = edx + ecx*8`, with `ecx = 3*MEM[esp+0x24]`) and its four callers are direct `RECOMP_ABI_CALL` sites (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`).
+- Its ESI accounting is unbalanced: one `PUSH esi`, two `POP esi`, three assignments. The value `0x205E98` is the computed pointer later read as `[ESI+0x47C]`.
+- The ABI logger reports zero ESI violations because it only compares **net** register values at wrapped call boundaries; an in-body write that is consumed before the boundary (or whose save/restore is path-dependent) is invisible to it. The fixture trace could see it only because it samples every guest access and is frozen at the stop.
+
+Coverage class: **non-call-site register writes** are outside the call-boundary ABI check. That is now pinned in the native fixture: `ff_reg_change_observable(at_call_boundary)` returns 1 only for a wrapped boundary, with assertions in `tests/tls_scope_test.c`.
+
+This is the final tooling-repair result: the instrument localizes the transition to `FUN_001F6240`/`0x1F62C4` and names the coverage class; the defect belongs to the translator/translation (register save/restore imbalance), not to the guest, the profile, or a harness workaround. No translator edit is made here.
+
+No DECISIONS row: tooling characterization.
+
+No DECISIONS row: tooling characterization.
