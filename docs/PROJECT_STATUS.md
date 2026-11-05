@@ -1,4 +1,10 @@
-# The display-mode declaration advances the run to a later AV query
+# The later ordinal-2 call is an unknown AV option 0x0F
+
+November 5: read-only characterization — no implementation, hook change, admission, export, seed or translation change. [The checkpoint](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md): `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with arguments **`0xFD000000`, option `0x0F`, `0`, Result pointer**; the pinned HAL handles documented options `0x01`-`0x0E` and treats **unknown options** by writing 0 through `Result` without failing (`kernel_hal.c:1455-1520`, `kernel.h:1148-1157`). The synthetic adapter only accepts the startup `(0,6,0,Result)` query, so this call is denied (status 1). Next decision: model the documented unknown-option default with the exact observed shape (write 0, success) with native tests and a pair, or hold. Checks: `check` 465 files, whitespace clean; no code change.
+
+No display/encoder/playability claim. Integration head `1e35f8a` is an ancestor; main `ea6e15e` cannot be merged here (merge denied). Consumer/display paths default-off. **There is no controllable original screen.**
+
+## Prior: The display-mode declaration advances the run to a later AV query
 
 November 5: the architect subagent authorized one default-off ordinal-3 declaration model with binding corrections (exact tuple, no descriptor decode, no writes, success as declaration acceptance). Implemented `src/runtime/display_mode.c/.h`, native tests, a gated ordinal-3 handler, `displayMode` parsing and `displayModeState` with validator pairing. Module 117 is **718,230 bytes**, SHA `05f9ecad?`. Control unchanged (status 13 at `0xFD800044`, 339/405); inert (consumer + vblanks) still stops at ordinal 3 (`0xFE0000A4`, 340/406); the display run accepted the declaration (`mode 0x60030307`, `pitch 0xA00`, `fb 0x03920000`, window `0x83920000` computed-not-applied) and advanced to a **later ordinal-2 query** at `0xFE000094`, **340/407**, recorded as a truthful denial. The earlier recorded mode `0x600302C7` was a transcription error and is corrected. The configured-avQuery validator now accepts a genuine bridge NTSTATUS denial without an output word.
 

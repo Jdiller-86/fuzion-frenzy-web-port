@@ -1,4 +1,8 @@
-# The display-mode declaration advances the run to a later AV query
+# The later ordinal-2 call is an unknown AV option 0x0F
+
+November 5: read-only characterization; no code change. `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with args `0xFD000000`, option `0x0F`, `0`, Result pointer. The pinned HAL handles `0x01`-`0x0E` and documents the unknown-option default as writing 0 through `Result` without failing; the synthetic adapter only accepts the startup `(0,6,0,Result)` query, hence the status-1 stop. Next: model the documented unknown-option default with the exact shape, or hold. Checks: `check` 465 files. Consumer/display paths default-off. Integration head `1e35f8a` ancestor; main `ea6e15e` not mergeable here. **No controllable original screen.**
+
+## Prior: The display-mode declaration advances the run to a later AV query
 
 November 5: architect-authorized default-off ordinal-3 declaration model (exact tuple, no descriptor decode, no writes, success as declaration acceptance). Module 117 (718,230 bytes, SHA `05f9ecad?`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; display run accepted (`mode 0x60030307`, `pitch 0xA00`, `fb 0x03920000`, window `0x83920000` computed-not-applied) and advanced to a later ordinal-2 query at `0xFE000094`, 340/407, recorded as a truthful denial. Mode transcription corrected from `0x600302C7`. No framebuffer/PCRTC/scanout/rendering. Checks: `test:native` 40/40, `test:runtime` 199/0, `check` 464 files. Default-off; next decision is the later AV query or display application. Integration head `1e35f8a` ancestor; main `ea6e15e` not mergeable here. **No controllable original screen.**
 
