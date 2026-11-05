@@ -1,4 +1,15 @@
-# The 0x1F6910 dependency batch advances the stop to 0x1F5B70
+# The Path B batch advances the stop to 0x1F6970
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-57` admits the observed Path B set `0x1F5B70` + `0x1F6300` (with `0x1F85E0`, `0x1FB3B0`, `0x1F6EB0` and `0x1FC980` already translated). It contains **429 functions / 18,038 instructions**; both new bodies are real and guarded; `verify-seeds` 32/32/0/0 and `verify-translation` 519/0. Module `recomp-post-memory-build-78` is 687,271 bytes, SHA-256 `d6540c1b2259c2b9025f7e8786f7cc2510480ef0c28f3cb2675a86835cc7fa92`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6970`** | 296 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +17 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F5B70` and `0x1F6300` executed; `0x1F6970` was not entered. Frontier: **519 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6910 dependency batch advances the stop to 0x1F5B70
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-56` admits the ordinary dependency `0x1F6910` (28 instructions / 95 bytes) in the merged 3-function seed while keeping 32 exports. It contains **427 functions / 17,807 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 518/0. Module `recomp-post-memory-build-77` is 676,813 bytes, SHA-256 `0f41fd06b47743dc7c86cbdb6f566fa4689bcc5d32ba92155e26d30309e86635`.
 

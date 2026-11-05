@@ -57,4 +57,4 @@ package verified
 
 ## Next and limits
 
-The observed stop `0x1F5B70` is an ordinary untranslated routine and the **Path B** continuation (`0x1F5B70` + `0x1F6300` + the already-translated `0x1FC980`). Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F5B70` was not entered.
+The observed stop `0x1F5B70` is an ordinary untranslated routine and the **Path B** continuation (`0x1F5B70` + `0x1F6300` + the already-translated `0x1FC980`). Path B was subsequently admitted in translation 57/module 78; the observed next stop is `0x1F6970` (ordinary). Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
