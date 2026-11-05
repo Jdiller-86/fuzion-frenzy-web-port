@@ -2,6 +2,7 @@
 
 Current OpenCode routing override (November 5): hourly architect and project architect subagent use opencode-go/glm-5.3-flash. Full opencode-go/glm-5.3 is an allowance/availability fallback. Do not call Sol from this project. This supersedes older Sol routing below. The exact-head PR and source/runtime/CI/ancestry/mergeability gates remain binding.
 
+
 Current throughput policy: the primary builder may group up to eight already-evidenced, related reached functions (about 2,000 instructions) into one bounded translation and one control/experiment comparison. Use one coherent commit and a short checkpoint paragraph with the observed next stop. Keep existing byte, decoder, layout, memory, source-only and targeted runtime gates; stop immediately on an unsupported service/register/resource or failed gate. Do not create separate preflight, manifest, validator or recap commits unless they resolve a demonstrated blocker. The manager must derive fresh tasks from the top current checkpoint and must not reassign an already completed task. The architect reviews one integrated slice and the existing main PR each cycle, with exact gates; lane holds do not pause primary development.
 
 
