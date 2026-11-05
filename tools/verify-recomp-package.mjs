@@ -63,6 +63,27 @@ export function findSeeds(directories, digests) {
   };
 }
 
+/* Verify the declared artifact digests. Paths are resolved relative to the
+ * manifest's working root; the manifest carries only roles, paths and digests,
+ * never artifact content. */
+export function verifyManifest(manifest, root = process.cwd()) {
+  if (!manifest || !Array.isArray(manifest.artifacts) || !manifest.artifacts.length)
+    throw new Error('The manifest must list artifacts');
+  return manifest.artifacts.map(artifact => {
+    if (!artifact || typeof artifact.role !== 'string' || typeof artifact.path !== 'string' ||
+        !/^[0-9a-f]{64}$/.test(artifact.sha256))
+      throw new Error('Malformed manifest artifact');
+    const actual = sha256(fs.readFileSync(path.resolve(root, artifact.path)));
+    return {
+      role: artifact.role,
+      path: artifact.path,
+      expected: artifact.sha256,
+      actual,
+      ok: actual === artifact.sha256,
+    };
+  });
+}
+
 function runPython(python, args) {
   const result = spawnSync(python, args, { encoding: 'utf8', timeout: 600000 });
   if (result.error) throw new Error(`Cannot run ${python}: ${result.error.message}`);
@@ -93,12 +114,13 @@ function main(argv) {
     if (argument === '--translation') options.translation = next();
     else if (argument === '--control') options.control = next();
     else if (argument === '--experiment') options.experiment = next();
+    else if (argument === '--manifest') options.manifest = next();
     else if (argument === '--seed-dir') options.seedDirs.push(next());
     else if (argument === '--python') options.python = next();
     else throw new Error(`Unknown argument: ${argument}`);
   }
   if (!options.translation || !options.control || !options.experiment) {
-    console.error('Usage: node tools/verify-recomp-package.mjs --translation <dir> --control <json> --experiment <json> [--seed-dir <dir>]... [--python <interpreter>] [--json]');
+    console.error('Usage: node tools/verify-recomp-package.mjs --translation <dir> --control <json> --experiment <json> [--seed-dir <dir>]... [--manifest <json>] [--python <interpreter>] [--json]');
     return 2;
   }
   const python = options.python ?? process.env.FF_PYTHON ?? 'python3';
@@ -128,15 +150,26 @@ function main(argv) {
     const experiment = JSON.parse(fs.readFileSync(path.resolve(options.experiment), 'utf8'));
     const pair = compareProofProfiles(control, experiment);
 
+    let digests = [];
+    if (options.manifest) {
+      const manifest = JSON.parse(fs.readFileSync(path.resolve(options.manifest), 'utf8'));
+      digests = verifyManifest(manifest, process.cwd());
+      const failed = digests.filter(row => !row.ok);
+      if (failed.length)
+        throw new Error(`Digest mismatch: ${failed.map(row => row.role).join(', ')}`);
+    }
+
     const summary = {
       seeds: { recorded: generation.seedSha256s.length, offered: seeds.seeds.length, missing: 0 },
       translation: { admitted: generation.functions.length, generated, rewrites },
       pair: { ok: pair.ok, delta: pair.delta, nextStop: pair.nextStop },
+      digests: { checked: digests.length, failed: 0 },
     };
     if (options.json) console.log(JSON.stringify(summary, null, 2));
     else {
       console.log(`seeds: ${summary.seeds.recorded}/${summary.seeds.recorded} (0 missing)`);
       console.log(`translation: ${summary.translation.admitted} admitted functions; guard: ${generated} generated / ${rewrites} rewrites`);
+      if (digests.length) console.log(`digests: ${digests.length}/${digests.length}`);
       console.log(`controlled pair: ok; +${pair.delta.routines} routines / +${pair.delta.kernelOperations} operations; next stop 0x${(pair.nextStop.target >>> 0).toString(16).toUpperCase()}`);
       console.log('package verified');
     }

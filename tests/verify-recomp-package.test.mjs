@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { findSeeds } from '../tools/verify-recomp-package.mjs';
+import { findSeeds, verifyManifest } from '../tools/verify-recomp-package.mjs';
 
 const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
@@ -27,4 +27,26 @@ test('findSeeds matches recorded digests and reports missing seeds', () => {
 
 test('findSeeds rejects a missing seed root', () => {
   assert.throws(() => findSeeds([path.join(os.tmpdir(), 'absent-recomp-package-root')], []));
+});
+
+test('verifyManifest checks declared artifact digests', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'recomp-manifest-'));
+  try {
+    const first = path.join(root, 'a.bin');
+    const second = path.join(root, 'b.bin');
+    fs.writeFileSync(first, 'alpha');
+    fs.writeFileSync(second, 'bravo');
+    const results = verifyManifest({ artifacts: [
+      { role: 'a', path: 'a.bin', sha256: digest(first) },
+      { role: 'b', path: 'b.bin', sha256: '0'.repeat(64) },
+    ] }, root);
+    assert.equal(results[0].ok, true);
+    assert.equal(results[1].ok, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('verifyManifest rejects an empty artifact list', () => {
+  assert.throws(() => verifyManifest({ artifacts: [] }, os.tmpdir()));
 });
