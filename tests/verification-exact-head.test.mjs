@@ -62,9 +62,11 @@ function makeMergeRepo() {
   commit(directory, 'side');
   git(['switch', '--quiet', mainName], directory);
   git(['switch', '--quiet', '-c', 'published'], directory);
-  git(['merge', '--quiet', '--no-ff', '-m', 'published merge', 'side'], directory);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'merge', '--quiet', '--no-ff', '-m', 'published merge', 'side'], directory);
   git(['switch', '--quiet', '-c', 'candidate', mainName], directory);
-  git(['merge', '--quiet', '--no-ff', '-m', 'candidate merge', 'side'], directory);
+  git(['-c', 'user.email=lane@example.invalid', '-c', 'user.name=Lane Test',
+    'merge', '--quiet', '--no-ff', '-m', 'candidate merge', 'side'], directory);
   commit(directory, 'candidate');
   git(['branch', '--quiet', 'architect', 'candidate'], directory);
   return { directory, mainName };
