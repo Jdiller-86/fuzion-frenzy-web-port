@@ -425,4 +425,16 @@ This is the final tooling-repair result: the instrument localizes the transition
 
 No DECISIONS row: tooling characterization.
 
+## 29. Confirm-and-report: FUN_001F6240 restores ESI; the earlier defect claim is retracted
+
+Final confirmation of the call form and per-exit restore (read-only):
+
+- All four callers of `FUN_001F6240` are **direct** `RECOMP_ABI_CALL` sites inside `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`), so the ABI check covers them.
+- The function pushes `esi` once at entry and **pops `esi` before every return** (`POP esp, esi` immediately precedes each `esp += 12; return /* ret 8 */`). The `esi = edx + ecx*8` assignment at `0x1F62C4` is therefore **transient**: it is restored before the function returns.
+- The static "1 push / 2 pops / 3 assignments" count is an artifact of two mutually exclusive exit paths sharing one entry push; it is not an unbalanced save.
+
+Formal translator-owner finding: **no register-preservation defect is demonstrated at `FUN_001F6240`/`0x1F62C4`.** The `0x205E98` value recorded by the trace is the transient computed pointer inside that function, and the ABI check's zero ESI violations is consistent with the pop-before-return evidence. The earlier claim that this function leaks `esi` is **retracted**. The synthetic-run fault at `0x6B6A6968` therefore remains unattributed to this function; the next investigation must explain why `FUN_001FC010`'s `[ESI+0x47C]` read reports `0x205E98` even though the callee restores ESI (a remaining capture/instrument question, not a translator defect).
+
+No translator edit is made; the repair decision belongs to the translator owner/user. No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
