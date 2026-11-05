@@ -2,7 +2,11 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: PFIFO boundary design note (design-only)
+## Latest: PFIFO completion-flag characterization (read-only)
+
+- [The completion-flag checkpoint](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): the post-consumption wait polls the dword at **`0x03BFF000`** (`[context 0x00203B90 + 0x3F0]`) from `D3D_BlockOnTime` at PC `0x1FB0D4`, looping until `fence >= target`. Observed fence 3, context sequence 9, GET `0x03B7D008`, PUT `0x03B7D7CC`. The value comes from the GPU semaphore release (`0x1D70`) with the kick marker `0x0310`/PGRAPH `0x400B10` latch; a responder must consume the stream and publish the release. No implementation, hook or admission. This is `D353`.
+
+## Prior: PFIFO boundary design note (design-only)
 
 - [The PFIFO boundary design note](PFIFO_BOUNDARY_DESIGN_NOTE.md): validates the default-off pusher against `pfifo-decode.mjs`, `pfifo-ring.mjs`, `pfifo_channel.c`, `pfifo_status.c` and `pfifo_dma.c`; records the exact MMIO sequence, the GET-site order, the control/consumer observations, and the minimal responder requirements. No hook, guest connection, admission, export, seed or translation change.
 - Checks: `test:native` 36/36, PFIFO JS component tests 19/19, `test:runtime` 197/0. Control remains 339/405 at `0xFD800044`; the consumer run still ends in a generic `RuntimeError: unreachable` trap with no classified stop. This record is `D349`.
