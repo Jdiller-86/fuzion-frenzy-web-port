@@ -1,4 +1,12 @@
-# ABI audit finds no ESI violation; the clobber hypothesis is withdrawn
+# ABI audit vs site watch: measurements conflict; no resolution yet
+
+November 5: reconciliation attempt recorded. Site `0x1FC087` occurs exactly once (the `[ESI+0x47C]` read at line 5240, reached only after the `RECOMP_ABI_CALL(0x001FB640)` at `0x1FC080`); there is no alternate entry. The ABI check wraps that call and reports **0 ESI changes**, while the site watch recorded one entry (`ESI=0x203B90`) and one field access (`0x206314`) — mutually inconsistent for a single invocation. The contradiction is unresolved: either the field watch sampled a different access (association error) or an indirect/tail-call path below `CDevice_FreeFrameBuffers` changes `g_esi` outside the direct-call ABI macro. This is a tooling/measurement question, not guest state or profile; no workaround and no model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture `g_esi` inside the `0x1FC087` access itself and enlarge/report the entry ring so both diagnostics sample the same instant.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ABI audit finds no ESI violation; the clobber hypothesis is withdrawn
 
 November 5: the toolkit's own callee-saved check (`RECOMP_ABI_CHECK`, private diagnostic build) was compiled into the probe with a source-owned logger. It records **310 call-target violations overall** (first `0x1E04CC`, last `0x1FB640`) but **0 ESI violations** — no call returns with `g_esi` changed, including `CDevice_FreeFrameBuffers` at `0x1FC080`. That contradicts the site-watch inference (entry `ESI=0x203B90`, field read appears to use `0x206314`), so the ESI-clobber hypothesis is **withdrawn**: one of the two measurements is misleading, and no fix or model is warranted. Next: log `g_esi` at the `0x1FC087` field access itself and confirm the entry count.
 

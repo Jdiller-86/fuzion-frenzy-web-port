@@ -265,4 +265,16 @@ That contradicts the site-watch inference: entry `ESI = 0x203B90`, yet the `0x1F
 
 Honest status: the ESI-clobber hypothesis is withdrawn. No fix and no model. The next bounded task is to log `g_esi` **at the field access itself** (site `0x1FC087`) instead of inferring the base from the address, and to confirm how many times `FUN_001FC010` is entered (the ring reported one entry).
 
+## 19. Reconciliation attempt: the two measurements cannot both hold
+
+Read-only checks against the retained translation:
+
+- Site `0x1FC087` occurs exactly once in the translation — the `[ESI+0x47C]` read at line 5240, reached only by fallthrough after the `RECOMP_ABI_CALL(0x001FB640, ...)` at `0x1FC080`. There is no alternate entry or `goto loc_001FC087`.
+- The ABI check wraps that exact call (`RECOMP_ABI_CALL`), and reports 0 ESI changes across all calls. So a direct callee cannot explain a changed `g_esi` at the field read.
+- The site watch recorded exactly one entry (`ESI = 0x203B90`) and one field access (`0x206314`). With the function's only `esi` assignment at entry (`esi = ecx`) and its next assignment at site `0x1FC167` (after the field read), the two records are mutually inconsistent for a single invocation.
+
+Therefore the contradiction is **not resolved**: either the field-address watch sampled an access that is not the instrumented read (association error), or an indirect/tail-call path below `CDevice_FreeFrameBuffers` changes `g_esi` without being covered by the direct-call ABI macro. Both are tooling/measurement questions, not a guest-state or profile question, and neither justifies a workaround or model.
+
+Next bounded task: add an ESI value capture *inside the `0x1FC087` access itself* (record `g_esi` alongside the address) and enlarge/report the entry ring, so the two diagnostics are sampled at the same instant; then re-run and compare.
+
 No DECISIONS row: characterization only.
