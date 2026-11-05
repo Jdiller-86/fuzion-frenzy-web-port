@@ -1,4 +1,10 @@
-# Tooling repair finalized: transition is FUN_001F6240 (non-call-site write)
+# Confirm-and-report: FUN_001F6240 restores ESI; the defect claim is retracted
+
+November 5: read-only confirmation. All four callers of `FUN_001F6240` are direct `RECOMP_ABI_CALL` sites inside `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`), and the function **pops `esi` before every return** (the `esi = edx + ecx*8` at `0x1F62C4` is transient). The static 1-push/2-pop count is two mutually exclusive exits sharing one entry push, not an unbalanced save. **No register-preservation defect is demonstrated at `FUN_001F6240`; the earlier claim is retracted.** The `0x205E98` trace value is that transient, and the ABI check's zero ESI violations is consistent. The fault at `0x6B6A6968` remains unattributed to this function; the next question is why the `0x1FC087` read reports `0x205E98` despite the restore — a capture/instrument question, not a translator defect. No translator edit; repair decision belongs to the translator owner/user.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Tooling repair finalized: transition is FUN_001F6240 (non-call-site write)
 
 November 5: final tooling-repair result. `FUN_001F6240` assigns `esi` in-body at `0x1F62C4` (`esi = edx + ecx*8`, `ecx = 3*MEM[esp+0x24]`) and its four callers are direct `RECOMP_ABI_CALL` sites (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`); its ESI accounting is unbalanced (one push, two pops, three assignments), and `0x205E98` is the computed pointer later read as `[ESI+0x47C]`. The ABI logger sees only **net** changes at wrapped call boundaries, so an in-body write is outside its coverage — the coverage class is now pinned by `ff_reg_change_observable` with assertions in `tests/tls_scope_test.c`. This is a translator/translation register save/restore defect, not guest state, profile, or a harness workaround; no translator edit is made here.
 
