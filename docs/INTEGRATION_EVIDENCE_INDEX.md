@@ -2,12 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6B00 admission
+## Latest: 0x1F6B50 admission
+
+- [The 0x1F6B50 batch](FRONTIER_DEP_1F6B50_CHECKPOINT.md): translation 64 (436 functions / 18,182 instructions), module 85 (692,002 bytes, SHA `d136484b…`), control 279/404 at ordinal 2 vs experiment 306/405 at untranslated `0x1F6890`, comparator exit 0 (+27 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 526/0, package verifier 23/23 digests.
+- `0x1F6B50` (`D3DDevice_SetRenderState_TwoSidedLighting`, table `0x2025D4`, index 121) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 24-instruction / 84-byte seed (`f520ecd5…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 24/24. `0x1F6890` is the next ordinary stop (table index 122).
+- The approved `0x1F6620` work remains at `5e168b4`. The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The main PR is still pending that fixed head.
+
+## Prior: 0x1F6B00 admission
 
 - [The 0x1F6B00 batch](FRONTIER_DEP_1F6B00_CHECKPOINT.md): translation 63 (435 functions / 18,158 instructions), module 84 (691,173 bytes, SHA `e1f59842…`), control 279/404 at ordinal 2 vs experiment 305/405 at untranslated `0x1F6B50`, comparator exit 0 (+26 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 525/0, package verifier 22/22 digests.
-- `0x1F6B00` (`D3DDevice_SetRenderState_BackFillMode`, table `0x2025D0`, index 120) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 75-byte seed (`b126ca7b…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 22/22. `0x1F6B50` is the next ordinary stop (table index 121).
-- The approved `0x1F6620` work remains at `5e168b4`; source CI run `41964958580` is green. The architect head `b4a7c60` also fails CI run `41970017253` in `tests/integration-verification.test.mjs:124` for the same temporary-repo identity; the merged `d0c38c2` fix addresses those two merge calls, and the main PR remains blocked until that fixed head is integrated.
-- Integration merge `d0c38c2` brings the published architect head `b4a7c60` into source, keeps the architect's `D321`/`D322`, renumbers the `0x1F6B00` admission to `D323`, and fixes the exact-head test's two merge calls with the surrounding `-c user.email`/`-c user.name`. Merged checks: 407 source files, runtime 196/196, evidence 6/6, whitespace clean.
+- `0x1F6B00` (`D3DDevice_SetRenderState_BackFillMode`, table `0x2025D0`, index 120) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 75-byte seed (`b126ca7b…`) calls already-translated `0x1FB3B0`, has one internal `JNE`, and preflights 22/22.
 
 ## Prior: 0x1F6AC0 admission
 
