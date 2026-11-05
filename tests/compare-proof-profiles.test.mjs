@@ -206,6 +206,28 @@ test('the comparison requires the same ordinal-2 call arguments', () => {
     /different ordinal-2 call arguments/);
 });
 
+test('the comparison preserves every routine the control reached', () => {
+  const reached = count => Array.from({ length: count }, (_, index) => index + 1);
+  const withLists = {
+    control: { ...control(), originalFunctionsReached: reached(279) },
+    experiment: { ...experiment(), originalFunctionsReached: [...reached(279), 5000] },
+  };
+  assert.equal(compareProofProfiles(withLists.control, withLists.experiment).ok, true);
+  /* The experiment keeps 280 unique routines but drops one control routine and
+   * adds two others, so the count alone would still pass. */
+  const dropped = {
+    ...experiment(),
+    originalFunctionsReached: [...reached(280).slice(1), 5000, 5001].slice(1),
+  };
+  assert.throws(() => compareProofProfiles(withLists.control, dropped),
+    /dropped routines the control reached/);
+  /* One list cannot stand in for both reports' evidence. */
+  assert.throws(() => compareProofProfiles(withLists.control, experiment()),
+    /Both profiles must carry their reached-routine list/);
+  assert.throws(() => compareProofProfiles(control(), withLists.experiment),
+    /Both profiles must carry their reached-routine list/);
+});
+
 test('a truthful configured denial validates but is not a progress comparison', () => {
   const denied = {
     ...experiment(),
