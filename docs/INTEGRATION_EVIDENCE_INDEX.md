@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7460 admission
+## Latest: 0x1F7490 admission
+
+- [The 0x1F7490 batch](FRONTIER_DEP_1F7490_CHECKPOINT.md): translation 78 (451 functions / 18,534 instructions), module 99 (702,974 bytes, SHA `29e93797…`), control 279/404 at ordinal 2 vs experiment 321/405 at untranslated `0x1F74F0`, comparator exit 0 (+42 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 541/0, package verifier 38/38 digests.
+- `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`7dfc9582…`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. `0x1F74F0` is the next ordinary stop (table index 140).
+- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D339` (primary).
+
+## Prior: 0x1F7460 admission
 
 - [The 0x1F7460 batch](FRONTIER_DEP_1F7460_CHECKPOINT.md): translation 77 (450 functions / 18,508 instructions), module 98 (702,324 bytes, SHA `60d2a65f…`), control 279/404 at ordinal 2 vs experiment 320/405 at untranslated `0x1F7490`, comparator exit 0 (+41 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 540/0, package verifier 37/37 digests.
-- `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 12-instruction / 37-byte seed (`0b8d447b…`) calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`. `0x1F7490` is the next ordinary stop (table index 139).
-- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D338` (primary).
+- `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 12-instruction / 37-byte seed (`0b8d447b…`) calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`.
 
 ## Prior: 0x1F6760 admission
 

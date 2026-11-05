@@ -1,4 +1,15 @@
-# The 0x1F7460 batch advances the stop to 0x1F7490
+# The 0x1F7490 batch advances the stop to 0x1F74F0
+
+November 5, 2026. `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 26-instruction / 92-byte leaf calls already-translated `0x1FB3B0`, has internal conditional branches, and ends in `RET 4`; preflight is 26/26, no tables or normalizations. The seed was appended to the merged 27-function seed (`df3d4c44?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-78` contains **451 functions / 18,534 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 541/0. Module `recomp-post-memory-build-99` is 702,974 bytes, SHA-256 `29e937977e0c435d12dcb1d253eef090d0cb4ad88354f0b1fa5e224bc4e529b5`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F74F0`** | 321 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +42 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7490` executed; `0x1F74F0` was not entered. Frontier: **541 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7460 batch advances the stop to 0x1F7490
 
 November 5, 2026. `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 12-instruction / 37-byte leaf calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`; preflight is 12/12, no tables or normalizations. The seed was appended to the merged 26-function seed (`dc0ab154?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-77` contains **450 functions / 18,508 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 540/0. Module `recomp-post-memory-build-98` is 702,324 bytes, SHA-256 `60d2a65f73914f6ed9807516e316aa2d19bdfd2931e562a86eae44714de515e6`.
 
