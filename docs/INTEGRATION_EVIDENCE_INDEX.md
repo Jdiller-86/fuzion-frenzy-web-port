@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: FUN_001fc910 admitted; next stop is MmFreeContiguousMemory
+## Latest: contiguous-free model passes; next stop is a guest read fault
+
+- [Ordinal-1 checkpoint §12](SERVICE_ORDINAL_1_CHECKPOINT.md#12-ordinal-171-contiguous-free-model-and-the-next-stop): architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model (exact mapped/aligned one-argument shape, EAX 0, `esp + 8`, no guest write, declaration-level-only disclosure; the observed address is diagnostics, not the predicate). Module 126 (profile 87, updated sources): 723,629 bytes, SHA `6849f0b7...`. Control 339/405; inert 340/406 at ordinal 3; experiment accepted two frees (`0x037F2000`, `0x03920000`; write-map `47 -> 47`; EAX 0; `esp + 8` each) and reached **status 10 (guest read fault, access 1) at `0x6B6A6968`, 346 routines / 414 kernel ops** — `MOV EAX,[ESI+0x47c]` then `MOV EDX,[EAX]` at `0x001FC091` in `FUN_001FC010`, where the device field `+0x47C` holds ASCII `"hijk"`.
+- **No DECISIONS row:** integration head still lacks the lane commits.
+
+## Prior: FUN_001fc910 admitted; next stop was MmFreeContiguousMemory
 
 - [Ordinal-1 checkpoint §11](SERVICE_ORDINAL_1_CHECKPOINT.md#11-admission-of-fun_001fc910-and-the-next-service-stop): `0x001FC910` is `FUN_001fc910` (98 bytes, one stack argument, D3D format helper). Admitted as one bounded increment via a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` + `0x001FC910` replacing the previous two-function seed; profile 87 has 463 functions / 18,990 instructions. `verify-seeds.py` 32 recorded / 32 offered / 0 unexpected / 0 missing; translation check 554 functions, 0 needing rewriting. Module 125 (profile 87, same sources): 722,950 bytes, SHA `f77f6066...`. Control 339/405; inert 340/406 at ordinal 3; experiment **status 1 at `0xFE000004`, ordinal 171**, **346/412** — `MmFreeContiguousMemory(0x037F2000)` from `CDevice_FreeFrameBuffers` (return `0x001FB6D9`), refused pending a bounded allocator-service decision.
 - **No DECISIONS row:** integration head still lacks the lane commits.

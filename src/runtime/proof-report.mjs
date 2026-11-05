@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -281,6 +281,26 @@ export function validateProofReport(report) {
          n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
          n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
       throw new Error('An accepted null-result call must match the pinned no-op contract, an observed shape and the 20-byte pop');
+  }
+
+  /* Contiguous-free experiment and state pairing. The pinned bridge frees the
+   * block and sets EAX 0; this harness owns no host allocator, so the accepted
+   * effect is declaration-level only: no guest write, EAX 0, one-argument pop. */
+  const claimsMmFree = experiments.includes('mmFreeContiguous');
+  if (report.mmFreeContiguousState !== undefined && !claimsMmFree)
+    throw new Error('Contiguous-free state requires the mmFreeContiguous experiment');
+  if (claimsMmFree && report.mmFreeContiguousState === undefined)
+    throw new Error('The mmFreeContiguous experiment requires its state');
+  if (report.mmFreeContiguousState !== undefined) {
+    const f = report.mmFreeContiguousState;
+    if (!f || !integer(f.calls) || !integer(f.address) || !integer(f.decision) ||
+        !integer(f.eaxBefore) || !integer(f.espBefore) || !integer(f.eaxAfter) ||
+        !integer(f.espAfter) || !integer(f.writeBefore) || !integer(f.writeAfter))
+      throw new Error('Malformed contiguous-free state');
+    if (f.decision === 0 &&
+        (!f.address || (f.address & 3) !== 0 || f.eaxAfter !== 0 ||
+         f.espAfter !== ((f.espBefore + 8) >>> 0) || f.writeAfter !== f.writeBefore))
+      throw new Error('An accepted contiguous-free call must match the pinned declaration-level effect');
   }
 
   /* Ordinal 2 remains unsupported by default: the observed call carries four

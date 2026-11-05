@@ -160,3 +160,27 @@ Module `recomp-post-memory-build-125` (profile 87, same sources): **722,950 byte
 The experiment now runs two more original routines and reaches a **named-service stop**: ordinal 171 = `MmFreeContiguousMemory(PVOID BaseAddress)` with argument `0x037F2000`, return address `0x001FB6D9` inside `CDevice_FreeFrameBuffers`. The pinned bridge frees the address from the contiguous arena (falling back to the heap) and returns EAX 0; the stdcall frame is four argument bytes. Modeling that allocator behavior is a fresh service decision, so the default dispatch refuses it and the run halts here. Nothing about the free outcome is claimed.
 
 No DECISIONS row: integration head still lacks the lane commits.
+
+## 12. Ordinal-171 contiguous-free model and the next stop
+
+The architect authorized one default-off model with binding stipulations: exact one-argument service shape (mapped, 4-byte-aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an unconditional disclosure that this is the pinned **declaration-level** effect only.
+
+- `src/runtime/mm_free_contiguous.c/.h`: declared + mapped/aligned address ⇒ accept; zero, unmapped, unaligned or undeclared ⇒ refusal. The observed `0x037F2000` is diagnostics, not part of the predicate.
+- Native tests cover accept, zero/unmapped/unaligned refusal and undeclared refusal.
+- Harness: default-off `mmFreeContiguous` input; the ordinal-171 handler records the argument, EAX and `esp` before/after and the write-map count, sets EAX 0, pops 8, and writes nothing.
+- Validator: pairing plus pinned acceptance (`address` non-zero and aligned, EAX 0, `esp + 8`, write-map count unchanged).
+- Disclosure: the pinned bridge frees from its contiguous arena (heap fallback) and never changes guest memory; this harness owns no host allocator and never reuses freed blocks, so the model reproduces only that observable no-op. It is **not** allocator fidelity and makes no later-reuse claim. Ordinal 170 (`MmAllocateContiguousMemory`) never appears in the retained run, so the freed block's provenance is not determinable from the journal.
+
+Module `recomp-post-memory-build-126` (profile 87, updated sources): **723,629 bytes**, SHA-256 `6849f0b7d76d7e860eb9b37a0ca148965310136bc8c601f577ccf956e29afaa4`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 10 at `0x6B6A6968`** | **346** | **414** |
+
+The experiment accepted **two** contiguous frees (`calls 2`): `0x037F2000` and `0x03920000`, each with write-map `47 -> 47`, EAX 0 and `esp + 8`. The run then reached a **new class of stop: a guest read fault (status 10, access 1) at `0x6B6A6968`** — the ASCII bytes `"hijk"` treated as a pointer — with return address `0x001FC087` inside `FUN_001FC010`: `MOV EAX,[ESI+0x47c]`, then `MOV EDX,[EAX]` at `0x1FC091` reads the bogus pointer. The device object's field `+0x47C` holds non-pointer data in this run.
+
+This is a genuine halt, not a model invariant failure: both free calls matched the pinned declaration-level contract. Whether the bogus field comes from a translation gap, an earlier declaration-only model, or guest data that the pinned allocator would have changed is **not established**; the next task is a bounded read-only investigation of `FUN_001FC010` and the `+0x47C` field, not another model.
+
+No DECISIONS row: integration head still lacks the lane commits.

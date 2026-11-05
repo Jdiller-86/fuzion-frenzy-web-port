@@ -1,4 +1,14 @@
-# FUN_001fc910 is admitted; the next stop is MmFreeContiguousMemory
+# The contiguous-free model passes; the next stop is a guest read fault
+
+November 5: architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model with binding stipulations — exact one-argument shape (mapped, aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an explicit declaration-level-only disclosure (the harness owns no host allocator and never reuses freed blocks; the pinned arena free changes no guest memory). Implemented `src/runtime/mm_free_contiguous.c/.h`, native tests, default-off `mmFreeContiguous` input, handler diagnostics (argument, EAX/ESP, write-map count) and validator pairing; the observed address is diagnostics, not part of the predicate.
+
+Module `recomp-post-memory-build-126` (profile 87, updated sources): **723,629 bytes**, SHA-256 `6849f0b7...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment accepted **two** frees (`0x037F2000`, `0x03920000`; write-map `47 -> 47`; EAX 0; `esp + 8` each) and reached a **new class of stop: status 10 (guest read fault, access 1) at `0x6B6A6968`**, 346 routines / 414 kernel ops. The fault is `MOV EAX,[ESI+0x47c]` then `MOV EDX,[EAX]` at `0x001FC091` in `FUN_001FC010`: the device object's `+0x47C` field holds the ASCII bytes `"hijk"` instead of a pointer.
+
+This is a genuine halt, not a model invariant failure (both free calls matched the pinned declaration-level contract). The field's origin is not established, so the next task is a bounded read-only investigation of `FUN_001FC010` and the `+0x47C` field.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: FUN_001fc910 is admitted; the next stop is MmFreeContiguousMemory
 
 November 5: admitted `0x001FC910` (`FUN_001fc910`, 98 bytes, one stack argument, a D3D format helper) as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` + `0x001FC910` replaced the previous two-function seed, keeping the 32-export set; `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 87 (463 functions, 18,990 instructions). `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing, and the package verifier's translation check reports 554 functions with 0 needing rewriting ("fully instrumented by the current guard"); its controlled-pair sub-check targets the avQuery-pair shape and does not apply here.
 
