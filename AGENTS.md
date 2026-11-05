@@ -1,6 +1,6 @@
 # Project instructions
 
-Current OpenCode routing override (November 5): hourly architect and project architect subagent use opencode-go/glm-5.3-flash. Full opencode-go/glm-5.3 is an allowance/availability fallback. Do not call Sol from this project. This supersedes older Sol routing below. The exact-head PR and source/runtime/CI/ancestry/mergeability gates remain binding.
+Current OpenCode routing override (November 5): hourly architect and project architect subagent use opencode-go/glm-5.3-flash. Full opencode-go/glm-5.3 is prohibited in automatic routing, including allowance failures. Do not call Sol from this project. This supersedes older Sol routing below. The exact-head PR and source/runtime/CI/ancestry/mergeability gates remain binding.
 
 
 
