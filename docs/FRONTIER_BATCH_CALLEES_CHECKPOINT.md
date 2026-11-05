@@ -17,7 +17,7 @@ November 4, 2026. Bounded read-only scoping of the callees named by the two stat
 
 ## Exported shared seed (read-only, not admitted)
 
-`0x1FC980` is shared by both candidate paths. The retained exporter reads it as **2 instructions / a 9-byte instruction-only envelope**, no calls; SHA-256 `18744bb385b803cd8d67c0d4c2e26d02c30e005e6b0a8f8c11e7d31972e23d4b`. Byte identity, independent decoder agreement (2/2, no normalizations) and `checked_function_layout` pass. The seed was not merged into the selection, and `0x1FC980` remains unadmitted.
+`0x1FC980` is shared by both candidate paths. The retained exporter reads it as **2 instructions / a 9-byte instruction-only envelope**, no calls; SHA-256 `18744bb385b803cd8d67c0d4c2e26d02c30e005e6b0a8f8c11e7d31972e23d4b`. Byte identity, independent decoder agreement (2/2, no normalizations) and `checked_function_layout` pass. Re-preflighted at `2026-11-04T20:50-05:00` with the same result; with the `0x1FCB70` table-aware validation, both Path A dependencies are now preflighted. The seed was not merged into the selection, and `0x1FC980` remains unadmitted.
 
 ## 0x1FCB70 two-table shape (read-only)
 
