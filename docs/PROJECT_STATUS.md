@@ -1,4 +1,42 @@
-# Provenance: a translated-register defect, not a profile gap; halt
+# Span probe: ESI correct after two calls, wrong at the field read
+
+November 5: the probe now samples `g_esi` at the caller's post-call access sites. One run: entry `0x203B90`; after call 1 (`0x1FC01F`, `FUN_001FB300`) `0x203B90`; after call 2 (`0x1FC038`, `FUN_001FAED0`) `0x203B90`; loop site `0x1FC055` not accessed (loop skipped); field read `0x1FC087` `0x205E98`. On this path the remaining calls are `0x1FC077` → `FUN_001FD630` (which never assigns `esi`) and its callees, so the change lies inside that chain, where the direct-call ABI check should have fired but recorded 0 ESI violations. The defect is narrowed to the `0x1FC077` span and a call form the ABI macro may not cover (indirect/tail path); exact edge still unnamed. No workaround, model, or translation edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: probe `g_esi` around `0x1FC077`/`FUN_001FD630` and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Callee-access probe: transition is inside a callee, boundary not localised
+
+November 5: `siteWatch` now records `g_esi` at the first memory access of each `FUN_001FC010` callee. One run: entry `0x203B90`; `FUN_001FB300` first access `0x203B90`; `FUN_001FAED0` first access **`0x205E98`**; `FUN_001FACA0` not observed (no access at its entry site); `FUN_001FB640` first access `0x203B90`; field read at `0x1FC087` `0x205E98`; ABI 310 violations, **0 ESI**. The probe samples inside callees, not call boundaries, so the transition is not localised to one call/return; the ABI net check still reports no ESI change, leaving a tooling/instrumentation gap (not guest state or profile). No workaround, model, or translator edit; halt.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture `g_esi` at the exact call boundary (call-site return hook or translator-level trace, recorded as a tooling finding, not a local patch).
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Single-record capture: the field access is genuine, the ABI count is suspect
+
+November 5: `siteWatch` now records `g_esi` inside the `0x1FC087` access. One run shows entry `ESI=ECX=0x203B90` (return `0x1F54E9` from `D3DDevice_Release`), field address `0x206314`, `g_esi=0x205E98`, and **`address-g_esi = 0x47C` exactly** with one field access. That proves the read is the instrumented `[ESI+0x47C]` and `g_esi` was genuinely `0x205E98` then, while the ABI logger reports 310 violations but **0 ESI changes**. At least one instrument is wrong about the call boundary; the exact delta rules out an association error in the site watch, so the **ABI instrumentation coverage is the suspect** — not guest state, not the profile. No workaround, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: record `g_esi` at the `FUN_001FB640` entry access (site `0x1FB640`) and compare with the post-call value to decide why the direct-call check missed the change.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ABI audit vs site watch: measurements conflict; no resolution yet
+
+November 5: reconciliation attempt recorded. Site `0x1FC087` occurs exactly once (the `[ESI+0x47C]` read at line 5240, reached only after the `RECOMP_ABI_CALL(0x001FB640)` at `0x1FC080`); there is no alternate entry. The ABI check wraps that call and reports **0 ESI changes**, while the site watch recorded one entry (`ESI=0x203B90`) and one field access (`0x206314`) — mutually inconsistent for a single invocation. The contradiction is unresolved: either the field watch sampled a different access (association error) or an indirect/tail-call path below `CDevice_FreeFrameBuffers` changes `g_esi` outside the direct-call ABI macro. This is a tooling/measurement question, not guest state or profile; no workaround and no model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture `g_esi` inside the `0x1FC087` access itself and enlarge/report the entry ring so both diagnostics sample the same instant.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ABI audit finds no ESI violation; the clobber hypothesis is withdrawn
+
+November 5: the toolkit's own callee-saved check (`RECOMP_ABI_CHECK`, private diagnostic build) was compiled into the probe with a source-owned logger. It records **310 call-target violations overall** (first `0x1E04CC`, last `0x1FB640`) but **0 ESI violations** — no call returns with `g_esi` changed, including `CDevice_FreeFrameBuffers` at `0x1FC080`. That contradicts the site-watch inference (entry `ESI=0x203B90`, field read appears to use `0x206314`), so the ESI-clobber hypothesis is **withdrawn**: one of the two measurements is misleading, and no fix or model is warranted. Next: log `g_esi` at the `0x1FC087` field access itself and confirm the entry count.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Provenance: a translated-register defect, not a profile gap; halt
 
 November 5: provenance record added. The corrected trace does not support a synthetic-profile state divergence: the profile is not involved in the object register; `FUN_001FC010` runs once, entered from `D3DDevice_Release` with `ECX = ESI = 0x203B90`, yet the `[ESI+0x47C]` read uses a heap-like run-varying base (`0x205E98`, earlier `0x205D58`), and no guest write touches `0x20400C`. Callee accounting in the retained translation shows `FUN_001FB300`/`FUN_001FAED0`/`FUN_001FACA0` never assign `esi`, `FUN_001FB640` pushes/pops it once, and `FUN_001FC010` pushes `esi` twice but pops once — so the global `esi` changes across the chain without a matching restore. This is a **translated-register preservation defect** (or tooling/model clobber), not a profile-fidelity gap and not a missing write model; the exact callee is still unidentified, so no fix is attempted and the run halts at the fault.
 
