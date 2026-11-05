@@ -11,7 +11,7 @@ A source-owned 96-byte synthetic fixture uses a prologue dispatcher, an 8-entry 
 - Table-aware seed: **112-byte envelope**, 18 instructions, 8 four-byte pointer entries at `0x1FCCFC`, 2 undefined spans; SHA-256 `be1dc290a49c30dfc2b3aa108e82f4efb55f112d2579eb4ea3d235252f042f2c`.
 - Merged into the front seed (29 functions) to keep **32 exports**; merged seed SHA-256 `3d2597e06a51748f9f113bedd82ee6448edb6f408ea29c92e828e7b99730190e`.
 - Translation `recomp-title-recomp-title-post-memory-53`: **422 functions / 17,593 instructions** with `--guard-memory`; `0x1FCCB0` is a mixed layout (32 data bytes, 5 padding bytes, 1 table/site/anchor).
-- Source-owned guards: `verify-seeds` **32/32/0/0**; `verify-translation` **517 functions, 0 rewrites**.
+- Source-owned guards: `verify-translation` re-runs at **517 functions, 0 rewrites**; `verify-seeds` re-runs at **32 recorded / 31 offered / 0 unexpected / 1 missing** (`ca2e5d57df7e25270dbc2ce2bc3ab4d326bd1d0b62310ac57d9adc0d0b593b4b`, generation index 20). The original 32/32 result is not reproducible because that seed file is not retained in this worktree, the main project, or the architect/verification/geometry worktrees. The built translation, module, profiles and reports are unaffected and their digests match.
 
 ## Module and controlled pair
 
@@ -46,9 +46,13 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 
 Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The frontier tool on translation 53 reports 517 functions, 95 placeholders and 94 referenced placeholders, with `0x1F7080` referenced by `0x1F5640`, matching the checkpoint. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), and requires an actual denial record for any unsupported ordinal-2 stop; a completed call alone cannot satisfy the stop. These close the remaining unexercised control paths noted by the narrow review, and the retained pair still validates. No translation, module or profile content changed.
 
+## Seed retention gap
+
+The translation's `generation.json` records 32 seed digests, but only 31 of those seed files are retained. The missing digest is `ca2e5d57df7e25270dbc2ce2bc3ab4d326bd1d0b62310ac57d9adc0d0b593b4b` at generation index 20; it was not found by content hash anywhere under this worktree's `research/`, the main project's `research/`, or the architect, verification and geometry worktrees. `tools/verify-seeds.py` therefore reports **32 recorded / 31 offered / 0 unexpected / 1 missing** and exits 1. The original "32/32/0/0" claim is not reproducible from retained files. The missing seed's functions are already in the built translation, and the translation, module, profiles and reports still match their recorded digests; no seed was regenerated or substituted, because that could not reproduce the recorded bytes. The architect should decide whether the retention gap blocks revalidation or requires a separate recovery step.
+
 ## Review outcome
 
-The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI run `41940691880`, clean ancestry and source-only delta) after the report-contract and guard hardening. The slice is no longer pending review. The next stop remains untranslated `0x1F7080`, unadmitted; no further admission follows from the integration.
+The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI run `41940691880`, clean ancestry and source-only delta) after the report-contract and guard hardening. The slice is no longer pending review. This post-integration recheck found one recorded seed file missing, so the original `verify-seeds` 32/32 result is not reproducible; that is recorded above for the architect. The next stop remains untranslated `0x1F7080`, unadmitted; no further admission follows from the integration.
 
 ## Next and limits
 
