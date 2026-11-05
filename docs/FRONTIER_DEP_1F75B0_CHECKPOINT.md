@@ -6,7 +6,7 @@ November 5, 2026. This cycle admitted the next ordinary stop, `0x1F75B0`, on top
 
 - PR #7 merged to main as `42287210`.
 - The source branch was two commits behind main; `origin/main` was merged locally at `a0be99b`, restoring ancestry.
-- Main's `D327` row was kept; the seven newer primary rows were renumbered to `D328`–`D334`, and this batch uses `D335`.
+- Main's `D327` row was kept; the seven newer primary rows were renumbered to `D328`â€“`D334`, and this batch uses `D335`.
 - A merge-introduced EOF blank line was removed at `8c49a22`; the publication whitespace gate is clean.
 
 ## Selection and establishment
@@ -21,7 +21,7 @@ November 5, 2026. This cycle admitted the next ordinary stop, `0x1F75B0`, on top
 
 - Seed: **22 instructions / a 76-byte instruction-only envelope**, three calls, no tables, SHA-256 `d75806bfff6f17ec89b54d5babc53f57c190365773c83c83bb3257d8afd7832c`.
 - Preflight with the pinned toolchain: `mixed False`, `tables 0`, 22 rows; **22/22 decoded**, no normalizations; byte identity, decoder agreement and layout pass.
-- Grouping: append to the merged 22-function seed → **23 functions**, SHA-256 `d74b0d28de532c51ca42614108b1ef2ed36aaec2e37be18af534716b8ff60810`; the 32-function front seed and 32-export count are unchanged.
+- Grouping: append to the merged 22-function seed â†’ **23 functions**, SHA-256 `d74b0d28de532c51ca42614108b1ef2ed36aaec2e37be18af534716b8ff60810`; the 32-function front seed and 32-export count are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-74`: **447 functions / 18,461 instructions**; `0x1F75B0` has a real guarded body; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **537 functions, 0 rewrites**.
 
@@ -55,6 +55,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F7600` is the next ordinary indirect render-state entry (table index 133); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F7600` is the next ordinary indirect render-state entry (table index 133); it was not entered. A later â‰¤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent `0x1F75B0` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.

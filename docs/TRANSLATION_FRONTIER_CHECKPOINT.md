@@ -1,4 +1,15 @@
-# The 0x1F75B0 batch advances the stop to 0x1F7600
+# The 0x1F7600 batch advances the stop to 0x1F6760
+
+November 5, 2026. `0x1F7600` (`D3DDevice_SetRenderState_MultiSampleMask`, table index 133) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 24-function seed (`b95fe13c?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-75` contains **448 functions / 18,483 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 538/0. Module `recomp-post-memory-build-96` is 701,399 bytes, SHA-256 `8da3c4b55a2e453221ef87ca786b49c540bb5ab3c3e679aba177fa87f52c8819`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6760`** | 318 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +39 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7600` executed; `0x1F6760` was not entered. Frontier: **538 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F75B0 batch advances the stop to 0x1F7600
 
 November 5, 2026. Main ancestry was restored from PR #7 (`42287210` merged at `a0be99b`; EOF fix `8c49a22`; rows renumbered `D328`–`D334`). `0x1F75B0` (`D3DDevice_SetRenderState_MultiSampleAntiAlias`, table index 132) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 76-byte leaf calls already-translated `0x1F82C0`, `0x1FB3B0` and `0x1F6EB0`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 23-function seed (`d74b0d28?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-74` contains **447 functions / 18,461 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 537/0. Module `recomp-post-memory-build-95` is 700,698 bytes, SHA-256 `286daba75b816b3fb7bf933fc614bc63d5c289c0eca01633d27f87093b77f182`.
 
