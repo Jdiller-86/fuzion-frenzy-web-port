@@ -73,6 +73,20 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
+test('PFIFO reset state allows consumer updates when the consumer is declared', () => {
+  const valid = report({
+    experiments: ['pfifoReset', 'pfifoConsumer'],
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 2, resets: 1 },
+    pfifoConsumerState: { scope: 'prototype', classification: 0, get: 0x1004, put: 0x1008,
+      base: 0x1000, end: 0x2000, wordsConsumed: 1, consumerUpdates: 2, lastHeader: 0, steps: 1,
+      words: 1, budgetHit: 0, vmChecks: 0 },
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoReset'],
+    pfifoResetState: { scope: 'seam', cache1: 0x10, runout: 0x10, dmaPush: 0, consumerUpdates: 2, resets: 1 },
+  })), /consumer update/);
+});
 test('PFIFO consumer state requires the experiment and consistent accounting', () => {
   const advance = report({
     experiments: ['pfifoConsumer'],

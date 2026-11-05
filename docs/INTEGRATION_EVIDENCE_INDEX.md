@@ -8,6 +8,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Checks: `test:native` 36/36, PFIFO JS component tests 19/19, `test:runtime` 197/0. Control remains 339/405 at `0xFD800044`; the consumer run still ends in a generic `RuntimeError: unreachable` trap with no classified stop. This record is `D349`.
 - The retained control device log pins the GET-site sequence: 93 PFIFO accesses, GET served as the ring base (`0x03B7D000`) while PUT equals the base, status LOW_MARK/LOW_MARK and DMA_PUSH=1, then submissions at `0x03B7D7B4`/`0x03B7D7CC` and the unlogged status-13 stop. At the consumer site: base `0x03B7D000`, GET `0x03B7D000`, PUT `0x03B7D7CC`, span just under 2 KiB. This refinement is `D350`.
 - Module 108 scopes the VM budget to real call sites (excluding probe reads): control still 339/405 at `0xFD800044`, consumer still the same generic trap, so the trap is not a probe read consuming the budget. The worker trap classification remains the open gap. This fix is `D351`.
+- Module 110 completes the evidence path (post-run disarm; reset-seam consumer updates allowed when declared): the consumer run now classifies as **status 13 at `0x03BFF000`** (guest RAM), 339/405, classification **8 (budget)**, `budgetHit 1`, `steps 1`, `words 2`, GET `0x03B7D008`, PUT `0x03B7D7CC`, `vmChecks 500000`; one packet consumed, then a guest-memory completion-flag poll. This is `D352`.
 
 ## Prior: PFIFO pusher prototype (default-off)
 

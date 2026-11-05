@@ -357,7 +357,7 @@ static uint32_t pfifo_profile_ready;
 /* Default-off consumer prototype. It runs one bounded pusher step per PFIFO
  * DMA_GET read and only advances GET over words the guest CPU wrote. The
  * default path is unchanged and still stops at status 13. */
-static uint32_t pfifo_consumer_enabled, pfifo_consumer_ready;
+static uint32_t pfifo_consumer_enabled, pfifo_consumer_configured, pfifo_consumer_ready;
 #define FF_PFIFO_CONSUMER_MAX_STEPS 64u
 #define FF_PFIFO_CONSUMER_MAX_VM_CHECKS 500000u
 static uint32_t pfifo_consumer_steps, pfifo_consumer_words;
@@ -970,7 +970,10 @@ uint32_t ff_probe_pfifo_status_word(uint32_t field)
  * unchanged. No method is executed and no guest word is written. */
 uint32_t ff_probe_pfifo_consumer(uint32_t enable)
 {
-    if (enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    if (enable > 1u) return FF_BOOT_INVALID;
+    /* Enabling is initialization-only; disarming after the run is always safe. */
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    if (enable) pfifo_consumer_configured = 1u;
     pfifo_consumer_enabled = enable;
     return 0;
 }
@@ -980,7 +983,7 @@ uint32_t ff_probe_pfifo_consumer(uint32_t enable)
 uint32_t ff_probe_pfifo_consumer_word(uint32_t field)
 {
     switch (field) {
-        case 0: return pfifo_consumer_enabled ? 1u : 0u;
+        case 0: return pfifo_consumer_configured ? 1u : 0u;
         case 1: return pfifo_consumer_ready;
         case 2: return pfifo_consumer_pusher.classification;
         case 3: return pfifo_consumer_pusher.get;

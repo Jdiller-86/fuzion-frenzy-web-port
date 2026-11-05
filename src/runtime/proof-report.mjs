@@ -154,7 +154,8 @@ export function validateProofReport(report) {
         !integer(pfifo.consumerUpdates) || !integer(pfifo.resets))
       throw new Error('Malformed PFIFO reset state');
     if (pfifo.resets !== 1) throw new Error('PFIFO reset must be applied exactly once');
-    if (pfifo.consumerUpdates !== 0) throw new Error('PFIFO reset must not make a consumer update');
+    if (pfifo.consumerUpdates !== 0 && !experiments.includes('pfifoConsumer'))
+      throw new Error('PFIFO reset must not make a consumer update');
     if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
       throw new Error('PFIFO reset must set LOW_MARK on both status registers');
   }

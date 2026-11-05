@@ -51,8 +51,13 @@ The profile zeroes `0xFD800000+0x1000`, `0xFD003200+0x100`, `0xFD100200+0x1000`,
 - **Control** (consumer absent), module 106 and 107: one stop, **status 13 at `0xFD800044`**, **339 routines / 405 kernel operations**, `pushbuffer consumption required`, no consumer state. The site is reached exactly as before the prototype.
 - **Consumer enabled**, module 106: no report and no termination (300 s, earlier 900 s); the 64-step GET budget did not fire, so the wait was passed.
 - **Consumer enabled**, module 107 (500,000 VM-access budget): the worker writes `{"kind":"error","message":"RuntimeError: unreachable"}`. That is a Wasm trap from a `stop()`, but it is surfaced as a generic error, so the stop record and `pfifoConsumerState` are not classified.
-- **Module 108** scopes the VM budget to guarded accesses with a real call site (probe reads pass site 0). The control still reproduces **339/405 at `0xFD800044`**, but the consumer run still writes the same `RuntimeError: unreachable` at about 180 s. The error is therefore **not** a post-run probe read consuming the budget; the worker's trap classification remains the open gap.
-- Consequence: the GET site is reached and the pusher runs, but the post-consumption sequence is **not yet observable as a classified stop**. The model cannot claim an advance, a refusal class, or a next stop from these runs.
+- **Module 108** scopes the VM budget to guarded accesses with a real call site (probe reads pass site 0). The control still reproduces **339/405 at `0xFD800044`**, but the consumer run still wrote the same `RuntimeError: unreachable` at about 180 s.
+- **Module 110** fixes the remaining report path: the consumer is disarmed after the run (enabling stays initialization-only, disarming is allowed post-init), the copy proof therefore runs normally, and the validator allows consumer updates on the shared reset seam when the consumer is declared. The opt-in consumer run then produces a **classified report**:
+  - stop **status 13 at `0x03BFF000`** (a guest RAM address, not an MMIO register), ordinal 1, **339 routines / 405 kernel operations**;
+  - `pfifoConsumerState`: classification **8 (budget)**, `budgetHit 1`, `steps 1`, `words 2`, `wordsConsumed 2`, `consumerUpdates 2`, `vmChecks 500000`, base `0x03B7D000`, GET `0x03B7D008`, PUT `0x03B7D7CC`, last header `0x00044000`;
+  - reset state unchanged: `resets 1`, LOW_MARK on both registers.
+- Interpretation: the pusher consumed **one packet (2 words)** and advanced GET from the base to `0x03B7D008`. The run then left the GET site and polled a **guest-memory completion flag** until the 500,000-access budget stopped it at `0x03BFF000`. The post-consumption wait is therefore a guest-RAM poll, not another PFIFO GET loop; the "pushbuffer consumption required" stop text is the status-13 label, while classification 8 and `budgetHit` identify the real cause.
+- Consequence: the GET site, the first consumption and the next wait are now observable. A minimal responder must model the completion flag the guest polls, not just advance GET.
 
 ### Observed control sequence (retained device log, module 107)
 
@@ -77,6 +82,8 @@ Interpretation: GET is served as the ring base only while PUT equals the base. O
 6. **Refusal-first**: any unmodeled condition keeps status 13 with a classification; never initialize GET, never synthesize kernel channel setup, never widen the model to pass a refusal.
 7. **Report plumbing**: classify an expected stop trap in the worker (the current gap) so a budget or refusal stop is a record, not a generic error.
 8. **Evidence gate**: the pinned reference lines, the retained channel-programming values, and no claim beyond the synthetic harness.
+
+**Newly identified requirement:** after consuming one packet the title polls a guest-memory completion flag (`0x03BFF000` in the module-110 run). A responder or wait model must account for that flag; until then the 500,000-access VM budget is the honest bound, and classification 8 with `budgetHit 1` identifies the stop.
 
 ## 5. Halt
 

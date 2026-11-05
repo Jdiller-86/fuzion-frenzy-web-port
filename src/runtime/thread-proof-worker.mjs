@@ -176,6 +176,12 @@ self.onmessage = async event => {
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
     if(fileClockWindow) fileClockWindow.afterSystemTicks=clock.sample().system.toString();
+    /* The run is over; disarm the consumer so later diagnostic guest code
+     * (copy proof, denial probes) cannot consume the run budget. The report
+     * still marks the experiment through the sticky configured flag. */
+    if (mmioProfile.pfifoConsumer && typeof api.ff_probe_pfifo_consumer === 'function' &&
+        api.ff_probe_pfifo_consumer(0))
+      throw new Error('Cannot disarm the experimental PFIFO consumer');
     const floatingPointState=api.ff_probe_abi()>=15?Object.fromEntries(
       ['x87ControlWord','mxcsr','representedConditionBits','x87StackTop'].map((name,i)=>[name,api.ff_probe_fp_word(i)>>>0])):undefined;
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
