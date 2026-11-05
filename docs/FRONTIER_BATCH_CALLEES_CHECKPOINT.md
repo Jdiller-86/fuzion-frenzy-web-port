@@ -32,7 +32,7 @@ The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`
 
 ### Path A blocker
 
-The gap `0x1FCC7C..0x1FCC97` is **28 bytes of defined byte data** between the 11-entry pointer table and the 2-entry pointer table. The exporter would emit non-pointer `data` parts; `checked_function_layout` accepts only 4-byte pointer data, so a table-aware envelope spanning both tables fails. Do not clear or redefine the byte data to satisfy the guard. Path A needs a byte-data layout capability; Path B (`0x1F5B70` + `0x1F6300` + `0x1FC980`) remains seed-ready. The pointer-only contract is pinned by `tests/bounded_layout_test.py` (six synthetic cases), and its dispatch-table cases (five) pin the accepted/rejected computed-jump contract; a byte-data extension is a guard change, not a seed workaround.
+The gap `0x1FCC7C..0x1FCC97` is **28 bytes of defined byte data** between the 11-entry pointer table and the 2-entry pointer table. The exporter would emit non-pointer `data` parts; `checked_function_layout` accepts only 4-byte pointer data, so a table-aware envelope spanning both tables fails. Do not clear or redefine the byte data to satisfy the guard. Path A needs a byte-data layout capability; Path B (`0x1F5B70` + `0x1F6300` + `0x1FC980`) remains seed-ready. The guard contracts are pinned by `tests/bounded_layout_test.py`: six layout cases (pointer/table/padding accepted; byte data and non-local targets rejected), four flow/envelope cases (data fallthrough/flow, split-envelope export, unestablished function), and five dispatch-table cases. A byte-data extension is a guard change, not a seed workaround.
 
 ## Boundaries
 

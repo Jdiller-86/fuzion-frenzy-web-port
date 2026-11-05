@@ -35,7 +35,7 @@ def reader(memory):
     return read
 
 
-def item(ranges, body_bytes, envelope_bytes, layout):
+def item(ranges, body_bytes, envelope_bytes, layout, rows=None):
     return {
         "established": True,
         "external": False,
@@ -44,7 +44,7 @@ def item(ranges, body_bytes, envelope_bytes, layout):
         "bodyRanges": ranges,
         "bodyBytes": body_bytes,
         "envelopeBytes": envelope_bytes,
-        "instructions": MOV,
+        "instructions": MOV if rows is None else rows,
         "layout": layout,
     }
 
@@ -132,6 +132,61 @@ class MixedLayoutContractTest(unittest.TestCase):
                  {"start": "00100004", "endInclusive": "00100004"}], 5, 5,
                 [instruction("00100000", 4), undefined("00100004", "00")]),
                 reader(memory))
+
+
+def mov_row(flows=None, fallthrough=None):
+    row = {"address": "00100000", "length": 4, "mnemonic": "MOV",
+           "analysisBytesHex": "8b442404", "call": False, "flows": flows or []}
+    if fallthrough is not None:
+        row["fallthrough"] = fallthrough
+    return row
+
+
+def pointer_memory():
+    memory = dict(CODE)
+    memory["00100004"] = "00001000"
+    return memory
+
+
+POINTER_LAYOUT = [instruction("00100000", 4), data("00100004", "00001000")]
+
+
+class FlowAndEnvelopeContractTest(unittest.TestCase):
+    def test_fallthrough_to_data_is_rejected(self):
+        with self.assertRaisesRegex(
+                ValueError, "Fallthrough reaches data or excluded padding"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100007"}], 8, 8,
+                POINTER_LAYOUT, rows=[mov_row(fallthrough="00100004")]),
+                reader(pointer_memory()))
+
+    def test_flow_to_data_is_rejected(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "Mixed-layout control flow must remain in checked local code"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100007"}], 8, 8,
+                POINTER_LAYOUT, rows=[mov_row(flows=["00100004"])]),
+                reader(pointer_memory()))
+
+    def test_split_envelope_requires_exported_full_envelope(self):
+        with self.assertRaisesRegex(
+                ValueError,
+                "Split functions require an explicitly exported full envelope"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100003"},
+                 {"start": "00100008", "endInclusive": "0010000b"}], 8, 8,
+                [instruction("00100000", 4), instruction("00100008", 4)]),
+                reader(CODE))
+
+    def test_unestablished_function_is_rejected(self):
+        record = item(
+            [{"start": "00100000", "endInclusive": "00100003"}], 4, 4,
+            [instruction("00100000", 4)])
+        record["established"] = False
+        with self.assertRaisesRegex(
+                ValueError, "Only established local functions are admitted"):
+            PREP.checked_function_layout(record, reader(CODE))
 
 
 def dispatch_layout(flows, tables):
