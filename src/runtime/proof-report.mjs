@@ -36,6 +36,15 @@ export function validateProofReport(report) {
     if (!entry || typeof entry.kind !== 'string' || !integer(entry.address) || !integer(entry.stack))
       throw new Error('Malformed trace entry');
   }
+  /* The reached-routine list is derived from the bounded trace; a hand-written
+   * report must not smuggle an unbounded or malformed list past the contract.
+   * Repeated addresses are expected: this is an entry sequence, not a set. */
+  if (report.originalFunctionsReached !== undefined) {
+    if (!Array.isArray(report.originalFunctionsReached) ||
+        report.originalFunctionsReached.length > TRACE_LIMIT ||
+        report.originalFunctionsReached.some(address => !integer(address)))
+      throw new Error('The reached original-routine list is malformed or exceeds its bound');
+  }
   const stop = report.stop;
   if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal))
     throw new Error('Proof report stop record is incomplete or out of range');

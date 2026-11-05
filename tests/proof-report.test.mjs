@@ -350,6 +350,20 @@ test('trace entries and capacities are bounded', () => {
   assert.equal(validateProofReport(atLimit), atLimit);
 });
 
+test('the reached original-routine list is bounded and type-checked when present', () => {
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: 'nope' })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: [1, 'x'] })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: new Array(TRACE_LIMIT + 1).fill(1),
+  })), /reached original-routine list/);
+  const repeated = report({ originalFunctionsReached: [1, 1, 2] });
+  assert.equal(validateProofReport(repeated), repeated);
+  const absent = report();
+  assert.equal(validateProofReport(absent), absent);
+});
+
 test('startup counters must stay in range and partial progress must be explained', () => {
   assert.throws(() => validateProofReport(report({
     originalStartup: { totalInitializers: 83, completedInitializers: 84, distinctOriginalFunctions: 1, completedKernelOperations: 1 },
