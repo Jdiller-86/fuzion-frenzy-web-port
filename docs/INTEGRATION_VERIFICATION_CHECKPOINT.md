@@ -7,6 +7,94 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
+## PR #9 merge outcome and the next published head (November 5, 2026)
+
+### PR #9 landed
+
+| Item | Value |
+| --- | --- |
+| PR #9 | `codex/opencode-architect@460549ed5c0a537b08528917cf06562a091b4fa3` -> `main@4b94a64aebc5d3bbf69629df67f37c19328610ac`; **merged** 2026-11-05T10:40:58Z |
+| Merge commit | `52b3fa1642bc2379072334c42422601d6e2584f3` "Merge reviewed architect integration", parents `4b94a64a…` and `460549ed…` |
+| Published main | `main` -> `52b3fa1642bc2379072334c42422601d6e2584f3`, 452 tracked paths |
+| Merge content delta | `git diff 460549e 52b3fa1` changes **no** path |
+| CI at the merge commit | run `42012737484` "Preparation checks", event `push`, branch `main`, `completed` / **success** (10:41:00Z -> 10:41:48Z); jobs `127195570927` "preparation (ubuntu-latest)" success, `127195571213` "preparation (windows-latest)" success |
+
+The pre-merge evidence recorded while PR #9 was open still holds and was
+re-read unchanged: run `42004605504` (`push`, branch `codex/opencode-architect`,
+`completed` / **success**, jobs `127168093982` ubuntu-latest and `127168094439`
+windows-latest both success) and run `42004623787` (`pull_request`,
+`completed` / **success**, jobs `127168155897` ubuntu-latest and `127168155491`
+windows-latest both success), both at head
+`460549ed5c0a537b08528917cf06562a091b4fa3`.
+
+### `verify-exact-head` against the landed base
+
+`node tools/verify-exact-head.mjs 460549e` -> **exit 0** with the published
+base now at the merge commit `52b3fa1`: the candidate is still the architect
+head, the base is **parents-contained** (both of its sides are in the head's
+history), head ahead 0 / behind 1, **0 missing base paths**, 452 tracked paths.
+Against the merge commit itself the tool exits 1 with "not the architect head",
+which is structural: a merge commit lives on `main` while the architect branch
+head stays at `460549e`.
+
+### The next head has not been published yet
+
+The architect branch head is still `460549ed5c0a537b08528917cf06562a091b4fa3`
+on both `codex/opencode-architect` and `origin/codex/opencode-architect`, and
+**no new main pull request is open** (only the geometry draft PR #3). The
+source lane has advanced to `bd3b1cb` ("Complete the PFIFO consumer evidence
+path and classify the wait"), but the architect has not published or integrated
+it, so there is no new head/base pair and no new check-run set to record this
+cycle. The lane therefore records the PR #9 outcome and holds for the next
+published head rather than inventing one.
+
+### Publication state
+
+- The PR #7 record `fe1b98e` **is** an ancestor of the merged main `52b3fa1`,
+  so the verification record and its tooling are published in `main`.
+- The PR #9 record `cc64854` is still lane-local: it is **not** an ancestor of
+  `52b3fa1`, and it reaches the published line only when the architect
+  integrates this lane branch.
+- The lane's own published ref `origin/codex/opencode-verification` is still
+  the pre-rebase `077ee14`, so the runner's plain lane push still cannot
+  fast-forward it; the content reaches the published line through the
+  architect's integration, unchanged from the previous cycles.
+
+### Evidence limits
+
+- The merge, CI and pull-request facts are a read-only observation of the
+  public GitHub API without credentials on 2026-11-05, after PR #9 landed.
+- The absence of a next head is the state observed at that moment; the
+  architect may publish one immediately afterwards.
+- The PFIFO consumer evidence and the planned completion-flag
+  characterization belong to the primary and architect lanes. This lane
+  checked head identity, ancestry and CI only.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs 460549e` -> exit 0.
+- `git diff --name-only 460549e 52b3fa1` -> no path.
+- `git merge-base --is-ancestor fe1b98e 52b3fa1` -> 0 (the PR #7 record is in
+  the published main).
+- `git merge-base --is-ancestor cc64854 52b3fa1` -> 1 (the PR #9 record is
+  still lane-local).
+- `node --test tests/verification-exact-head.test.mjs` -> 14/14 pass.
+- `node --test tests/integration-verification.test.mjs` -> 7/7 pass.
+- `npm run test:runtime` -> 197 tests, 196 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 452 source files.
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the next
+published architect head and its main pull request, and to the merge commit
+once it lands; the same command checks that head against the then-current
+architect head and the published merge target. No further tooling work is
+authorized until the architect asks for it.
+
 ## PR #9 exact-head evidence (open, not yet merged) (November 5, 2026)
 
 The lane task's condition is met: `460549e` is published as the architect head
