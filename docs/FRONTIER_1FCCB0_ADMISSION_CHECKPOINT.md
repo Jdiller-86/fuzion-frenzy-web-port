@@ -4,7 +4,7 @@ November 4, 2026. The architect directive from integration head `b5294fa` author
 
 ## Resync fixture (synthetic, read-only)
 
-A source-owned 96-byte synthetic fixture uses a prologue dispatcher, an 8-entry absolute jump table at `0x11030`, four `ret 8` case blocks and padding. The pinned translator emitted all four case targets with no `UNIMPLEMENTED`; fixture SHA-256 `402462c08d414a58196bb7529c9cb36a2b0f3350e892c4a39df10e372383b12b`, generated C SHA-256 `e11bc5905f4115371d7c0752f02d607c2f72091fffaec4f918f69aaaac61ad38`. The check used no original content and did not execute anything.
+A source-owned 96-byte synthetic fixture uses a prologue dispatcher, an 8-entry absolute jump table at `0x11030`, four `ret 8` case blocks and padding. The pinned translator emitted all four case targets with no `UNIMPLEMENTED`; fixture SHA-256 `402462c08d414a58196bb7529c9cb36a2b0f3350e892c4a39df10e372383b12b`, generated C SHA-256 `e11bc5905f4115371d7c0752f02d607c2f72091fffaec4f918f69aaaac61ad38`. The check used no original content and did not execute anything. The fixture and the LF-normalized generated C are committed as `tests/mixed_dispatch_fixture_test.py` and `tests/fixtures/mixed-dispatch.generated.c`; the regression reproduces the fixture digest, the generated-text digest, the four targets and the layout/dispatch census without the private toolchain. The retained Windows copy has the same text with CRLF endings and hashes to `f7d4011cc2522568ccd863b4224427b34a4602fc5592cdd80cab6184fc3a96b4`, so the recorded `e11bc590…` digest is the LF-normalized text, not that file's raw bytes.
 
 ## Selection and translation
 
