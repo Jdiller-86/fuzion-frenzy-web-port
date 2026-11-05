@@ -1,4 +1,12 @@
-# The ESI trace is polluted by the probe's own copy-proof canary
+# Freeze-at-stop fixes the trace; transition is FUN_001F6240 at 0x1F62C4
+
+November 5: the register trace is frozen at the observed stop (`reg_trace_frozen` set in `stop()`, reset when the site watch is enabled), so post-run copy/ABI canaries no longer overwrite it. Run (module 149): device-context changes drop from 31,724 to **16**, last value **`0x205E98`**. Last transitions include `0x1F62C4 -> 0x203B90` and then `0x205E98` at the next stack push. Site `0x1F62C4` is in `FUN_001F6240`: `esi = edx + ecx*8` with `ecx = 3*MEM[esp+0x24]` — it assigns ESI to the computed pointer later read as `[ESI+0x47C]`. That function's ESI accounting is unbalanced (1 push, 2 pops, 3 assignments), and the ABI logger missed it because the call form is indirect/tail. Named translated-register/tooling finding; no workaround, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: confirm the call form reaching `FUN_001F6240` and its per-exit ESI restore, then report the exact defect for the translator owner.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: The ESI trace is polluted by the probe's own copy-proof canary
 
 November 5: the change logger keeps a dedicated last-change record for the device TLS context. Run (module 148): **31,724** device-context changes, last value `0x55667788` at site 0. That value is written by the probe's own copy-proof canary in `ff_probe_copy_case` (`tools/fixtures/thread_startup_probe.c:1194`), which sets `g_ebx/g_esi/g_edi/g_ebp` canaries to verify register preservation. The canary shares the same TLS register storage the diagnostics sample, so it masks the genuine `0x203B90 → 0x205E98` transition. The ESI trace is polluted by the fixture, not the guest or the translation; no translator edit, model, or guest-path `esi` backup. The hunt is halted pending fixture isolation of diagnostic register writes.
 

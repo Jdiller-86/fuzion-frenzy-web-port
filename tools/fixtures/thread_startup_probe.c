@@ -179,6 +179,7 @@ static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_e
 static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
 static uint32_t site_span_esi[4];
 static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev_change_count;
+static uint32_t reg_trace_frozen;
 static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
 static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
@@ -386,7 +387,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
     site_entry_count = 0u;
-    esi_change_count = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
+    esi_change_count = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -591,6 +592,7 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 #ifdef FF_MMIO_PROOF
     (void)ff_device_registers_commit(&device_registers);
 #endif
+    reg_trace_frozen = 1u; /* freeze the register trace at the observed stop */
     probe_state[0] = status; probe_state[1] = target; probe_state[2] = ordinal; probe_state[3] = g_esp;
     if (g_esp <= FF_GUEST_BYTES - 44u && !(g_esp & 3u)) {
         probe_state[4] = 10; probe_state[5] = MEM32(g_esp);
@@ -678,7 +680,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
 {
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
-    if (site_watch_enabled) {
+    if (site_watch_enabled && !reg_trace_frozen) {
         {
             /* Per-context baselines: another thread's interleaved accesses must
              * not swallow this context's register transition. */

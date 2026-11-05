@@ -397,3 +397,18 @@ Conclusion: the ESI trace is polluted by the **fixture's own register canaries**
 Next bounded task: isolate the copy/ABI canary writes from the guest TLS view (fixture-side save/restore around `ff_probe_copy_case`, or a diagnostic flag that suppresses logging during canary probes), then re-run the span probe.
 
 No DECISIONS row: tooling characterization.
+
+## 27. Freeze-at-stop fixes the trace; the transition is `FUN_001F6240` at `0x1F62C4`
+
+The register trace is now **frozen when the run stops** (`reg_trace_frozen` set in `stop()`, reset when the site watch is enabled), so post-run copy/ABI canaries can no longer overwrite the recorded transitions. Run `browser-149-abi.json` (module 149):
+
+- Device-context changes drop from 31,724 to **16**; the last value is **`0x205E98`**.
+- Last transitions include `0x1F62C4 -> 0x203B90` and then `0x205E98` observed at the next stack-push site.
+- Site `0x1F62C4` is in `FUN_001F6240`: the translated instruction is `esi = edx + ecx * 8` (with `ecx = 3 * MEM[esp+0x24]`), i.e. it assigns ESI to a computed pointer — the exact `0x205E98` pointer later read as `[ESI+0x47C]`.
+- Translation accounting for `FUN_001F6240`: 1 ESI push, 2 ESI pops, 3 ESI assignments — an unbalanced save/restore with an in-body assignment.
+
+Conclusion: the `0x203B90 -> 0x205E98` transition is produced by `FUN_001F6240` at `0x1F62C4` (`esi = edx + ecx*8`), whose ESI handling is unbalanced; the ABI logger did not attribute it because that call form is not covered by the direct-call macro (indirect/tail path). This is a translated-register/tooling finding tied to one named function — no workaround, no model, no translator edit.
+
+Next bounded task: confirm the call form that reaches `FUN_001F6240` (direct `RECOMP_ABI_CALL` vs `RECOMP_ICALL_SAFE_AT`/tail) and its per-exit ESI restore, then report the exact defect for the translator owner.
+
+No DECISIONS row: tooling characterization.
