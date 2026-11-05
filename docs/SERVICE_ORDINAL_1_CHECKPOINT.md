@@ -450,4 +450,21 @@ The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sa
 
 No DECISIONS row: characterization only.
 
+## 31. Transition frame: writer is `0x1F62C4`; the push frame carries a sentinel return
+
+The frozen trace now records the return word (`MEM32(g_esp+4)`) with each ESI change. Run `browser-151-writer.json` (module 151):
+
+| Site | Access address | `g_esi` | return word |
+| --- | --- | --- | --- |
+| `0x1F62C4` (in `FUN_001F6240`) | `0x205D60` | `0x203B90` | `0x203B90` |
+| `0` (stack push) | `0x3C10E38` | **`0x205E98`** | **`0xFFFFFFFF`** |
+
+- The change from `0x203B90` to `0x205E98` is first observed at the access immediately after `FUN_001F6240`'s `esi = edx + ecx*8` at `0x1F62C4`; that instruction is the writer.
+- The observing access is a stack push at `0x3C10E38`, whose frame word is `0xFFFFFFFF` — a sentinel, not a valid caller return address, so this frame does not name the caller and is consistent with synthetic stack use (the `FF_MEMORY_PUSH` site 0 path).
+- The later `[ESI+0x47C]` read still reports `0x205E98` (arbiter-confirmed), so the value survives past the function's `POP esi` on the executed path, or the field read occurs in a different invocation before that pop.
+
+Report: this is **translated-path behavior** (the writer instruction is identified: `0x1F62C4`, `esi = edx + ecx*8`), not a probe artifact of the value; the sentinel frame is a probe-frame limitation. Whether the pop is skipped on the executed path remains open. No fix or model is attempted.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.

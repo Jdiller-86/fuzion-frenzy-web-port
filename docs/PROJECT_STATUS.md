@@ -1,4 +1,10 @@
-# ESI arbiter verdict: the register genuinely held 0x205E98 at the read
+# Transition writer identified: FUN_001F6240 at 0x1F62C4 (sentinel push frame)
+
+November 5: the frozen trace now records the return word with each ESI change. Run (module 151): the change `0x203B90 → 0x205E98` first appears at site `0x1F62C4` in `FUN_001F6240` (`esi = edx + ecx*8`), observed at a stack push `0x3C10E38` whose frame word is `0xFFFFFFFF` (a sentinel, not a valid caller return). The later `[ESI+0x47C]` read still reports `0x205E98` (arbiter-confirmed). Report: the **writer instruction is identified (`0x1F62C4`)** — translated-path behavior, not a value artifact; the sentinel frame is a probe-frame limitation, and whether the function's `POP esi` is skipped on the executed path remains open. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: ESI arbiter verdict: the register genuinely held 0x205E98 at the read
 
 November 5: ground-truth arbiter implemented and run. The field capture at site `0x1FC087` reports address `0x206314`, `g_esi = 0x205E98` (delta `0x47C` exactly), and the physical fault frame at the following read (site `0x1FC091`) independently reports faulting address `0x6B6A6968` with `g_esi = 0x205E98`. The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sameEsi }` and the validator rejects any disagreement; run `browser-150-arbiter.json` gives `sameEsi=true`, `deltaOk=true`. **Verdict: the register genuinely held `0x205E98` at the read; the instrument is not misreporting.** The remaining question is which executed path leaves `0x205E98` in `esi` even though `FUN_001F6240` pops it before both returns — a genuine register-state question, not instrumentation. No fix, model, or translator edit.
 

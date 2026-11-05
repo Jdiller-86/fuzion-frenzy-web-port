@@ -341,7 +341,7 @@ export function validateProofReport(report) {
   if (report.siteWatchState !== undefined) {
     const s = report.siteWatchState;
     if (!s || !integer(s.entryAddr) || !integer(s.entryEcx) || !integer(s.entryReturn) ||
-        !integer(s.fieldAddr) || !integer(s.fieldCount) || !integer(s.fieldEsi) || !integer(s.entryFs) || !integer(s.fieldFs) || !integer(s.devLastSite) || !integer(s.devLastValue) || !integer(s.devChangeCount) || !Array.isArray(s.spanEsi) || s.spanEsi.length !== 4 || s.spanEsi.some(x => !integer(x)) || !Array.isArray(s.esiChanges) || s.esiChanges.length > 8 || s.esiChanges.some(e => !Array.isArray(e) || e.length !== 3 || e.some(x => !integer(x))) || !Array.isArray(s.entries) || s.entries.length > 8 ||
+        !integer(s.fieldAddr) || !integer(s.fieldCount) || !integer(s.fieldEsi) || !integer(s.entryFs) || !integer(s.fieldFs) || !integer(s.devLastSite) || !integer(s.devLastValue) || !integer(s.devChangeCount) || !Array.isArray(s.spanEsi) || s.spanEsi.length !== 4 || s.spanEsi.some(x => !integer(x)) || !Array.isArray(s.esiChanges) || s.esiChanges.length > 8 || s.esiChanges.some(e => !Array.isArray(e) || e.length !== 4 || e.some(x => !integer(x))) || !Array.isArray(s.entries) || s.entries.length > 8 ||
         s.entries.some(e => !Array.isArray(e) || e.length !== 3 || e.some(v => !integer(v))))
       throw new Error('Malformed site-watch state');
   }
