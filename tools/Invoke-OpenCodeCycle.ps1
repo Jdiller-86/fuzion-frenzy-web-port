@@ -128,7 +128,7 @@ try {
     } elseif ($dirty -and $sessionId) {
         $prompt = 'Continue the unfinished task in this pinned session. Inspect the diff, finish one bounded result with targeted checks and a source-only commit. Preserve edits; switch tasks only on a verified blocker. Do not push or merge to main.'
     } else {
-        $prompt = 'Use the standing AGENTS.md and OPENCODE_GOAL.md rules. Read the TOP current status and the active checkpoint; execute its next unowned bounded original-browser-execution task. Batch related reached functions when evidenced, keep existing guards, run targeted checks, and make one source-only commit with a short status paragraph. Stop at an unsupported service/register/resource or failed gate. If private evidence is unavailable, name the blocker and choose independent source-owned work. Do not push or merge to main.'
+        $prompt = 'Use the standing AGENTS.md and OPENCODE_GOAL.md rules. Read the TOP current status and the active checkpoint; execute its next unowned bounded original-browser-execution task. Batch related reached functions when evidenced, keep existing guards, run targeted checks, and make one source-only commit. Keep PROJECT_STATUS to the observed stop/check/next task; detailed proof belongs in the active checkpoint. Update handoff and evidence index only when their integration facts change. Stop at an unsupported service/register/resource or failed gate. If private evidence is unavailable, name the blocker and choose independent source-owned work. Do not push or merge to main.'
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
@@ -170,6 +170,15 @@ try {
             $taskCard = $manager.lanes.$Lane
             if ($taskCard -and $taskCard.head -eq $head -and [DateTimeOffset]::TryParse([string]$manager.created, [ref]$managerCreated) -and [DateTimeOffset]::Now.Subtract($managerCreated).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($managerCreated).TotalHours -lt 2) {
                 $managerTaskValid = $true
+                if ($Lane -eq 'verification' -and $taskCard.action -eq 'RUN' -and
+                    $taskCard.task -match '(?i)\brecord\b.*\b(PR|merge outcome|exact-head)' -and
+                    $taskCard.task -notmatch '(?i)\b(fail|failed|uncertain|mismatch|defect|regression)\b') {
+                    $state.outcome = 'deferred_metadata_only'
+                    $state.finished = (Get-Date).ToString('o')
+                    $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+                    Write-Output 'Verification lane skipped a PR metadata recap; exact-head and CI gates remain with the architect runner.'
+                    return
+                }
                 if ($taskCard.action -eq 'HOLD' -and -not $dirty) {
                     $state.outcome = 'deferred_manager'
                     $state.finished = (Get-Date).ToString('o')

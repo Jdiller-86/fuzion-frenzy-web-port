@@ -1147,3 +1147,7 @@ Public-footage follow-up: the user pointed out the internet reference route. A L
 ## OpenCode architect cost routing (November 5)
 
 Automatic architect cycles are restricted to OpenCode Go GLM-5.3-Flash. A recognized allowance or availability failure permits only a provisional read-only free Flash review; it cannot approve integration or PR promotion. Full Go GLM-5.3 and Sol are absent from automatic architect routing. The model pool and runner enforce this; builder models and original-game execution evidence are unchanged. Validation: PowerShell parser, model-pool inspection, source publication check and whitespace check passed.
+
+## Orchestration throughput update (November 5)
+
+The manager now refreshes stale primary task cards from the current checkpoint without a model call. Routine passing PR metadata is excluded from verification-model work. The Flash architect can approve a newly opened exact-head PR for conditional merge; the existing PR helper performs all live CI, source, ancestry and mergeability gates before the existing 15-minute probe executes it. Builder evidence and original-game execution status are unchanged. Next check: observe one post-commit card refresh and one newly queued PR through a live CI cycle.

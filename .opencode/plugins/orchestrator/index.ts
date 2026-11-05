@@ -177,7 +177,26 @@ export default Plugin.define({
         }
       }
       const architectGuidance = readJson(join(repoRoot, ".worktrees", "opencode-architect-guidance.json"))
-      const cards = readJson(guidancePath)
+      let cards = readJson(guidancePath)
+      // A completed primary cycle can move the branch while another lane is
+      // running. Refresh its card from the current checkpoint without another
+      // manager model call; the builder still decides the exact bounded step.
+      if (cards?.lanes?.primary?.action === "RUN" && cards.lanes.primary.head !== heads.primary) {
+        cards = {
+          ...cards,
+          created: new Date().toISOString(),
+          source: "checkpoint_refresh",
+          lanes: {
+            ...cards.lanes,
+            primary: {
+              action: "RUN",
+              head: heads.primary,
+              task: "Read the top current PROJECT_STATUS checkpoint; advance its next reached original-execution stop under the approved architect route. One bounded checked source-only commit; halt on unsupported behavior.",
+            },
+          },
+        }
+        writeAtomic(guidancePath, cards)
+      }
       const last: any = (await ctx.storage.get("lastBeat")) ?? {}
       const laneRunning = (lane: Lane) =>
         states[lane]?.outcome === "running" && minutesSince(states[lane]?.started) <= RUN_MAX_MINUTES
@@ -234,7 +253,7 @@ export default Plugin.define({
         : ""
       const snapshot = `architect=${architectGuidance?.head ?? "unknown"}; primary=${heads.primary} (${states.primary?.outcome ?? "unknown"}); geometry=${heads.geometry} (${states.geometry?.outcome ?? "unknown"}); verification=${heads.verification} (${states.verification?.outcome ?? "unknown"})`
       const sourceCheckpoint = checkpointBrief(join(repoRoot, ".worktrees", "opencode-source", "docs", "PROJECT_STATUS.md"))
-      const prompt = `Manager heartbeat. ${snapshot}. Source checkpoint: ${sourceCheckpoint}. Architect directive: ${architectBrief}. ${priorBrief} Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is now complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification without a concrete gate task. Follow lane ownership and the architect's route decisions in AGENTS.md; do not edit, merge, push, or claim playability. Reply with ONLY three one-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task.`
+      const prompt = `Manager heartbeat. ${snapshot}. Source checkpoint: ${sourceCheckpoint}. Architect directive: ${architectBrief}. ${priorBrief} Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is now complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification when exact-head/CI gates pass; RUN only for a failed or uncertain gate or a demonstrated checker defect, never a PR metadata recap. Follow lane ownership and the architect's route decisions in AGENTS.md; do not edit, merge, push, or claim playability. Reply with ONLY three one-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task.`
 
       await ctx.session.prompt({ sessionID: managerID, text: prompt })
       try {

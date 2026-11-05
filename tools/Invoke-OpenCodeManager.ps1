@@ -22,6 +22,7 @@ $sessionPath = Join-Path $repo '.worktrees\opencode-manager-cycle-session.txt'
 $lockPath = Join-Path $repo '.worktrees\opencode-manager-cycle.lock'
 $logPath = Join-Path $repo '.worktrees\opencode-manager-cycle.log'
 $architectWorktree = Join-Path $repo '.worktrees\opencode-architect'
+$pendingMergeProbe = Join-Path $architectWorktree 'tools\Invoke-OpenCodePendingMerge.ps1'
 $pool = Get-Content (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
 $model = [string]$pool.manager
 $builderModels = @($pool.builders.primary.model, $pool.builders.geometry.model, $pool.builders.verification.model)
@@ -38,6 +39,10 @@ $lock = $null
 try {
     try { $lock = [IO.File]::Open($lockPath, 'OpenOrCreate', 'ReadWrite', 'None') }
     catch [IO.IOException] { Write-Output 'Manager cycle already running.'; return }
+    # Mechanical promotion of an exact head already approved by the Flash
+    # architect consumes no model call. The PR helper rechecks all live gates.
+    try { & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $pendingMergeProbe | Out-Null }
+    catch { Write-Warning 'Could not probe the pending architect-approved PR merge.' }
     if (-not $Force -and (Test-Path -LiteralPath $heartbeatPath)) {
         try {
             $heartbeat = Get-Content -LiteralPath $heartbeatPath -Raw | ConvertFrom-Json
@@ -79,7 +84,7 @@ try {
     $checkpointPath = Join-Path $repo '.worktrees\opencode-source\docs\PROJECT_STATUS.md'
     $checkpoint = if (Test-Path -LiteralPath $checkpointPath) { ((Get-Content -LiteralPath $checkpointPath -TotalCount 7) -join ' ') -replace '\s+', ' ' } else { 'checkpoint unavailable' }
     if ($checkpoint.Length -gt 520) { $checkpoint = $checkpoint.Substring(0, 520) }
-    $prompt = "Manager watchdog fallback. $snapshot. Source checkpoint: $checkpoint. Architect directive: $architectBrief. $priorBrief Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification without a concrete gate task. Follow lane ownership and architect route decisions in AGENTS.md; do not edit, merge, push or claim playability. Reply with ONLY three single-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
+    $prompt = "Manager watchdog fallback. $snapshot. Source checkpoint: $checkpoint. Architect directive: $architectBrief. $priorBrief Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification when exact-head/CI gates pass; RUN only for a failed or uncertain gate or a demonstrated checker defect, never a PR metadata recap. Follow lane ownership and architect route decisions in AGENTS.md; do not edit, merge, push or claim playability. Reply with ONLY three single-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
 
     $output = @()
     $exitCode = 1
