@@ -23,4 +23,4 @@ Current translation 54: 32 exports / 423 functions / 17,620 instructions. Adding
 
 ## Next and limits
 
-A fresh decision may authorize the Path A batch with this grouping. Until then, no Path A or Path B batch runs. These are synthetic/static observations, not original service semantics, fidelity, renderer or playability; the `0x1F70E0` body did not execute.
+The Path A batch was subsequently admitted in translation 55/module 76 using the frozen 32-export grouping (the provisional acceptance's 35 offered seeds were corrected to 32; 33 are rejected by the tooling). See [the Path A admission checkpoint](FRONTIER_PATH_A_ADMISSION_CHECKPOINT.md). The observed next stop is `0x1F6910`; no further batch this cycle. These are synthetic/static observations, not original service semantics, fidelity, renderer or playability.

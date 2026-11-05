@@ -1,4 +1,17 @@
-# The 0x1F7080 admission observes the stop at 0x1F70E0
+# The Path A admission advances the stop to 0x1F6910
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-55` admits the observed Path A set `0x1F70E0` + `0x1FC980` + table-aware `0x1FCB70` under the frozen 32-export grouping. It contains **426 functions / 17,779 instructions**; all three new functions have real guarded bodies; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-76` is 675,058 bytes, SHA-256 `5d596ab2c24d022b267faf4409fcd189ee62bcd059004662fdae885062dd5518`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6910`** | 289 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +10 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F70E0` and `0x1FC980` executed; `0x1FCB70` was translated but not on this path. The next stop `0x1F6910` returns to `0x1F66F6` (call site `0x1F66F1`) from translated `0x1F66A0`. Frontier: **517 functions, 91 placeholders, 90 referenced**.
+
+The observed stop is an ordinary untranslated routine; no further batch this cycle. The package verifier reports 32/32 seeds, 426/517/0, 13/13 digests. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7080 admission observes the stop at 0x1F70E0
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-54` admits the reached `0x1F7080` leaf (27 instructions / 89 bytes, no calls/tables) after merging its seed into the 29-function front seed. It contains **423 functions / 17,620 instructions** from 32 seed exports; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-75` is 664,115 bytes, SHA-256 `687c34c98794d8ac71387ec1bf00aec9e88e4c23a38463746a725008b39b133f`.
 

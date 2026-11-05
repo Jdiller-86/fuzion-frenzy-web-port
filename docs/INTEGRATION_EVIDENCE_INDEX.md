@@ -8,6 +8,9 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - Executed `0x1F7080` is in the reached list; the observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No Path A/Path B batch was started; the lane stops at the observed stop.
 - [The Path A preflight](FRONTIER_PATH_A_PREFLIGHT_CHECKPOINT.md): `0x1F70E0` is 98 instructions / 329 bytes with four calls; only `0x1FC980` and `0x1FCB70` are untranslated (`0x1F66A0`/`0x1FB3B0` already translated); preflight 98/98. A proposed grouping keeps 32 exports (front seed 30→32 with `0x1F70E0`+`0x1FC980`; `0x1FCB70` merged into an existing seed), 426 functions / 17,760 instructions; no batch started.
 
+- [The Path A admission](FRONTIER_PATH_A_ADMISSION_CHECKPOINT.md): translation 55 (426 functions / 17,779 instructions), module 76 (675,058 bytes, SHA `5d596ab2…`), control 279/404 at ordinal 2 vs experiment 289/405 at untranslated `0x1F6910`, comparator exit 0 (+10 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0, package verifier 13/13 digests.
+- The provisional acceptance's 35 offered seeds were corrected to the frozen 32-export limit; no tooling change was made. `0x1F70E0`/`0x1FC980` executed; `0x1FCB70` was translated but not reached. The next stop `0x1F6910` is ordinary; no further batch this cycle.
+
 ## Source lane
 
 - Branch/head: `codex/opencode-source`, last source/CI commit `3ef6024` (`Run the full Python evidence suite in preparation CI`); docs-only hold records follow.
