@@ -7,6 +7,115 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
+## PR #11 exact-head evidence at `2cf7aa4` and the `6bc05f7..2cf7aa4` attribution (November 5, 2026)
+
+The merge has not landed, so this cycle advances the lane's next task: the
+exact-head evidence for PR #11 at its current published head.
+
+### Head/base SHA equality for PR #11
+
+| Item | Value |
+| --- | --- |
+| PR #11 | `codex/opencode-architect@2cf7aa42feb13fdfb36008371460ca62e3255a50` -> `main@ea6e15e1a5cbe43cc54735f808f0f5c235307293` |
+| Head equals the published architect head | yes: `origin/codex/opencode-architect` is `2cf7aa42feb13fdfb36008371460ca62e3255a50` |
+| Base equals the published main | yes: `origin/main` is `ea6e15e1a5cbe43cc54735f808f0f5c235307293`, and it is a **strict ancestor** of the head |
+| PR state | open, not a draft, `mergeable: true`, `mergeable_state: clean`, 24 commits, 39 changed paths, +1449/-57, updated 2026-11-05T14:45:21Z |
+
+### Both green check-runs at the exact head (read-only, GitHub API)
+
+| Run | Event | State | Jobs |
+| --- | --- | --- | --- |
+| `42048076575` | `push`, branch `codex/opencode-architect` | `completed` / **success** (14:45:22Z -> 14:46:11Z) | `127316397656` "preparation (windows-latest)" success; `127316398298` "preparation (ubuntu-latest)" success |
+| `42048088801` | `pull_request` | `completed` / **success** (14:45:26Z -> 14:46:20Z) | `127316440669` "preparation (windows-latest)" success; `127316441304` "preparation (ubuntu-latest)" success |
+
+Both runs report head `2cf7aa42feb13fdfb36008371460ca62e3255a50`.
+
+### `verify-exact-head` pass at `2cf7aa4`
+
+`node tools/verify-exact-head.mjs 2cf7aa4` -> **exit 0**: the candidate is the
+**published** architect head; the published base `ea6e15e` is a strict
+**ancestor** (head ahead 24, behind 0, **0 missing base paths**); 473 tracked
+paths at the head. The local `codex/opencode-architect` is ahead at `cc82d86`
+("Gate architect merge requests on local main ancestry", unpublished), and the
+local `main` branch is `7452dca` with **two** commits the head does not contain.
+Both divergences are recorded for the architect, not decided here.
+
+### Merge outcome: still pending
+
+Published `main` is still `ea6e15e`, so no merge commit exists for PR #11. The
+`merge_commit_sha` GitHub reports for an open pull request is its *test* merge
+commit, not a landed merge, and is deliberately not repeated as if it were one.
+The three promotion gates the architect named - green CI at the exact head, a
+current base, and clean mergeability - remain **observed** at `2cf7aa4`.
+
+### Attribution of the `6bc05f7..2cf7aa4` delta
+
+Twelve commits, in order: two lane records, three source-lane commits, three
+routing/governance commits, two source-lane integrations, and two architect
+commits.
+
+| Commit | Subject | Paths |
+| --- | --- | --- |
+| `c466018` | Record PR #10 merge outcome, PR #11 exact-head evidence and the checkpoint state (this lane) | `docs/INTEGRATION_VERIFICATION_CHECKPOINT.md` |
+| `3d4cf7d` | Add a default-off unknown-AV-option model and record ordinal 1 | `src/runtime/av_unknown_option.c`, `src/runtime/av_unknown_option.h`, `src/runtime/local-title-proof.mjs`, `src/runtime/proof-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `tests/av_unknown_option_test.c`, `tools/fixtures/thread_startup_probe.c`, `tools/run-native-tests.mjs`, and five `docs/` checkpoints |
+| `bfe9dec` | Characterize service ordinal 1 read-only | `docs/DEVELOPMENT_HANDOFF.md`, `docs/INTEGRATION_EVIDENCE_INDEX.md`, `docs/PROJECT_STATUS.md`, `docs/SERVICE_ORDINAL_1_CHECKPOINT.md` |
+| `89922a4` | Use Go GLM Flash for project architect routing (this lane's branch) | `AGENTS.md` |
+| `753711f` | Use Go GLM Flash for project architect routing (source lane) | `AGENTS.md` |
+| `4585f05` | Record PR #11 exact-head evidence at 7fb64e1 and the lane publication state (this lane) | `docs/INTEGRATION_VERIFICATION_CHECKPOINT.md` |
+| `edc8540` | Give scheduled Flash architect bounded review tools | `tools/Invoke-OpenCodeArchitect.ps1` |
+| `17b5775` | Resume in-flight source edits instead of repeating stale task cards | `tools/Invoke-OpenCodeManager.ps1` |
+| `eb685e0` | Implement the default-off saved-data model with a runtime guard | `src/runtime/av_saved_data.c`, `src/runtime/av_saved_data.h`, `src/runtime/local-title-proof.mjs`, `src/runtime/proof-report.mjs`, `src/runtime/thread-proof-worker.mjs`, `tests/av_saved_data_test.c`, `tools/fixtures/thread_startup_probe.c`, `tools/run-native-tests.mjs`, `docs/DEVELOPMENT_HANDOFF.md`, `docs/INTEGRATION_EVIDENCE_INDEX.md`, `docs/PROJECT_STATUS.md`, `docs/SERVICE_ORDINAL_1_CHECKPOINT.md` |
+| `9469d55` | Integrate reviewed AvGetSavedDataAddress guard correction and ordinal-1 model | documentation only |
+| `87283ab` | Integrate reviewed PR 10 and PR 11 verification evidence | this lane's earlier records |
+| `2cf7aa4` | Attribute governance commits and record the saved-data integration | `docs/ARCHITECT_PR_REVIEW_CHECKPOINT.md`, `docs/DECISIONS.md` |
+
+### Publication state
+
+- The architect integrated this lane's earlier records: `c466018` and `4585f05`
+  are in the published head `2cf7aa4` through `87283ab`.
+- The lane's most recent record `f87eed9` is still **lane-local**: the
+  published copy of this checkpoint at `2cf7aa4` is blob `a83ae8eb`, while the
+  lane copy is `b017bb30`, and the difference is exactly the "PR #11 exact-head
+  evidence at `6bc05f7`, and the `c8c965c..6bc05f7` attribution" section.
+- `origin/codex/opencode-verification` remains the pre-rebase `077ee14`, so the
+  runner's plain lane push still cannot fast-forward it; the recorded
+  runner-side limitation, not a content divergence.
+
+### Evidence limits
+
+- The CI and pull-request facts are a read-only observation of the public
+  GitHub API without credentials on 2026-11-05, while PR #11 was open.
+- The attribution table lists commit subjects and changed paths read from the
+  local repository. It says nothing about whether those changes are correct or
+  desirable; that review is the architect's.
+- The saved-data model, the unknown-AV-option model and the ordinal-1
+  characterization are the primary lane's results. This lane checked head
+  identity, ancestry, CI, mergeability and commit attribution only.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs 2cf7aa4` -> exit 0.
+- `git merge-base --is-ancestor ea6e15e 2cf7aa4` -> 0 (the PR #11 base is
+  contained in the head).
+- `git log --oneline 6bc05f7..2cf7aa4` -> twelve commits, attributed above.
+- `node --test tests/verification-exact-head.test.mjs` -> 17/17 pass.
+- `node --test tests/integration-verification.test.mjs` -> 8/8 pass.
+- `npm run test:runtime` -> 200 tests, 199 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 465 source files in this lane's
+  tree (the published head `2cf7aa4` tracks 473 paths).
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the merge
+commit once PR #11 lands and to the next published architect head and its pull
+request; the same command checks that head against the then-current architect
+head and the published merge target. No further tooling work is authorized
+until the architect asks for it.
+
 ## PR #11 exact-head evidence at `6bc05f7`, and the `c8c965c..6bc05f7` attribution (November 5, 2026)
 
 ### Head/base SHA equality for PR #11 at its current head
