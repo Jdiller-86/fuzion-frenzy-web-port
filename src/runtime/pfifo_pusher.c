@@ -54,6 +54,7 @@ static uint32_t dispatch(ff_pfifo_pusher *pusher, ff_pfifo_status *status, uint3
     pusher->words_consumed += words;
     low_mark_set(status);
     if (status) ++pusher->consumer_updates;
+    pusher->classification = FF_PFIFO_PUSH_OK;
     return FF_PFIFO_PUSH_OK;
 }
 
@@ -108,4 +109,14 @@ uint32_t ff_pfifo_pusher_step(ff_pfifo_pusher *pusher, ff_pfifo_read_word_fn rea
 
     pusher->get += bytes;
     return dispatch(pusher, status, count + 1u);
+}
+
+uint32_t ff_pfifo_release_ready(uint32_t sequence, uint32_t word, uint32_t va_mapped_aligned)
+{
+    uint32_t distance;
+    if (!sequence) return FF_PFIFO_RELEASE_NO_SEQUENCE;
+    if (!va_mapped_aligned) return FF_PFIFO_RELEASE_NO_VA;
+    distance = sequence - word;
+    if (!distance || distance >= 0x80000000u) return FF_PFIFO_RELEASE_NOT_BEHIND;
+    return FF_PFIFO_RELEASE_READY;
 }
