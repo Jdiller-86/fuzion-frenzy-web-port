@@ -12,7 +12,7 @@ November 5, 2026. This cycle admitted the next ordinary stop, `0x1F69F0`. It was
 
 - Seed: **41 instructions / a 116-byte instruction-only envelope**, five calls, no tables, SHA-256 `a0e4178d55e6c00992468c19553fa8f0f4769f8c6efbf389a249e6f290cbf201`.
 - Preflight with the pinned toolchain: `mixed False`, `tables 0`, 41 rows; **41/41 decoded**, no normalizations; byte identity, decoder agreement and layout pass.
-- Grouping: append to the merged 19-function seed → **20 functions**, SHA-256 `846cac1bd3a8518f346e2789f7e705d40f7049e891a2b24e11d9855dde4641b6`; the 32-function front seed and 32-export count are unchanged.
+- Grouping: append to the merged 19-function seed â†’ **20 functions**, SHA-256 `846cac1bd3a8518f346e2789f7e705d40f7049e891a2b24e11d9855dde4641b6`; the 32-function front seed and 32-export count are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-71`: **444 functions / 18,404 instructions**; `0x1F69F0` has a real guarded body with the FPU sequence; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **534 functions, 0 rewrites**.
 
@@ -46,4 +46,4 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6A70` is the next ordinary indirect render-state entry (table index 130); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F6A70` is the next ordinary indirect render-state entry (table index 130); it was not entered. A later â‰¤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
