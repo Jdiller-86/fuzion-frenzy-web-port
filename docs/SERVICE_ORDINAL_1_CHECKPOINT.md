@@ -69,3 +69,30 @@ After the zero branch the run stops at ordinal 2 (`AvSendTVEncoderOption`), stat
 - The pinned HAL (`kernel_hal.c:1458`) begins with `if (!Result) return;`, so this shape is a **log-and-return with no write, no failure, EAX untouched and the stdcall frame popped by 20**. That is reference-grounded, but the shape has not been modeled; it is the next bounded decision. The existing default-off ordinal-2 router already refuses it honestly.
 
 No DECISIONS row: the published integration head `c8c965c` predates `3d4cf7d` and is not an ancestor; merge is denied here.
+## 8. Bounded null-Result model (authorized) and the next stop
+
+The architect authorized one default-off sibling model for the observed third ordinal-2 call with binding amendments: exact tuple only (a nonzero Result reaches the option-9 query path and must be refused), a validator no-write assertion (guest-window checksum equality **and** no new write-map mark), and a measured 20-byte pop.
+
+| Path | Purpose |
+| --- | --- |
+| `src/runtime/av_null_result.c/.h` | Pure decision: declared + exact tuple (`0x03920000`, option 9, param 0, Result 0) ⇒ accept; nonzero Result ⇒ separate refusal; every other handle/option/param ⇒ refusal |
+| `tests/av_null_result_test.c` | Exact tuple, wrong handle/option/param, nonzero Result, undeclared refusal |
+| `tools/fixtures/thread_startup_probe.c` | Default-off `avNullResult` setter; a third exact router branch that performs no write, leaves EAX, pops 20 bytes, and records the argument-frame checksum and write-map count before/after |
+| parser/worker/report | `avNullResult` input, `avNullResultState`, validator pairing and pinned no-op acceptance (no write, equal frame checksum, equal write-map count, EAX unchanged, `esp + 20`); the accepted null shape is excluded from the startup-avQuery success checks |
+
+Module `recomp-post-memory-build-121`: **721,389 bytes**, SHA-256 `4ec6816d1c1fb0aec3e1974666fa3957c59fa1daf0b22b1418fb0454feb26a52`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert (display + unknown-option + saved-data inputs, no null-result input) | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| null-result input | **status 2 at `0x001F54D0`** | **340** | **410** |
+
+The call was accepted with the exact observed tuple (`handle 0x03920000`, option 9, param 0, Result 0): write-map marks `47 -> 47` and argument-frame checksum unchanged, EAX `0 -> 0`, `esp 62983648 -> 62983668` (**+20**, matching the measured stdcall pop). The run then advanced past Present to a translation boundary:
+
+- `ff_title_00042BE0` (`0x00042BE0`) calls `D3DDevice_Present`, then pops EDI, adds `0x38` and **tail-jumps to `0x001F54D0`** (`title-functions.inc:29512-29519`).
+- `0x001F54D0` is an **unadmitted placeholder** in the retained private translation: `void ff_title_001F54D0(void) { ff_probe_stop_direct(0x001F54D0u); }` (`title-functions.inc:43832`). Status 2 is the probe's direct-stop record; the stop's stack carries `[640, 480, 7, 1, 0, 1, 0, 0, 1, 42]`.
+
+This is a genuine stop: admitting `0x001F54D0` needs a new translation/seed admission, not a service model. The next bounded task is to characterize and admit it (or hold); nothing about it is claimed here.
+
+No DECISIONS row: integration head `6bc05f7` contains `c8c965c` but not `3d4cf7d`/`bfe9dec`/`753711f`/`eb685e0`, so the sync-first rule still blocks it.
