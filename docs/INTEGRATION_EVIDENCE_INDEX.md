@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: null-result model generalized; next stop is placeholder 0x1FC910
+## Latest: FUN_001fc910 admitted; next stop is MmFreeContiguousMemory
+
+- [Ordinal-1 checkpoint §11](SERVICE_ORDINAL_1_CHECKPOINT.md#11-admission-of-fun_001fc910-and-the-next-service-stop): `0x001FC910` is `FUN_001fc910` (98 bytes, one stack argument, D3D format helper). Admitted as one bounded increment via a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` + `0x001FC910` replacing the previous two-function seed; profile 87 has 463 functions / 18,990 instructions. `verify-seeds.py` 32 recorded / 32 offered / 0 unexpected / 0 missing; translation check 554 functions, 0 needing rewriting. Module 125 (profile 87, same sources): 722,950 bytes, SHA `f77f6066...`. Control 339/405; inert 340/406 at ordinal 3; experiment **status 1 at `0xFE000004`, ordinal 171**, **346/412** — `MmFreeContiguousMemory(0x037F2000)` from `CDevice_FreeFrameBuffers` (return `0x001FB6D9`), refused pending a bounded allocator-service decision.
+- **No DECISIONS row:** integration head still lacks the lane commits.
+
+## Prior: null-result model generalized; next stop was placeholder 0x1FC910
 
 - [Ordinal-1 checkpoint §10](SERVICE_ORDINAL_1_CHECKPOINT.md#10-generalized-null-result-admission-and-the-next-translation-stop): the pinned HAL tests `Result` before its option switch, so the model now accepts any declared `Result == 0` (nonzero Result stays refused). Native tests cover both observed pairs plus a mechanism-only tuple. Module 124 (profile 86, updated sources): 722,209 bytes, SHA `f9b29aee...`. Control 339/405; inert 340/406 at ordinal 3; experiment accepted both null calls (last `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; checksum unchanged; EAX unchanged; `esp + 20`) and reached **status 2 at `0x001FC910`, 344 routines / 412 kernel ops** — an unadmitted `FUN_001fc910` placeholder (~97 bytes, one stack argument).
 - **No DECISIONS row:** integration head still lacks the lane commits, so the sync-first rule blocks the row.

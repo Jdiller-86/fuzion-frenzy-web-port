@@ -138,3 +138,25 @@ Module `recomp-post-memory-build-124` (same profile 86, updated sources): **722,
 Both null-Result calls were accepted (`calls 2`; last tuple `0xFD000000`, option 9, param 1, Result 0; write-map `47 -> 47`; frame checksum unchanged; EAX `0xFD000000` unchanged; `esp + 20`). The run then reaches a **translation placeholder**: `0x001FC910` (`FUN_001fc910`, body `0x001FC910..0x001FC971`, ~97 bytes, one stack argument). Admitting it is the next bounded translation increment; nothing about its behavior is claimed here.
 
 No DECISIONS row: integration head still lacks the lane commits.
+
+## 11. Admission of FUN_001fc910 and the next service stop
+
+`0x001FC910` is `FUN_001fc910` (body `0x001FC910..0x001FC971`, 98 bytes, one stack argument): it inspects a D3D format word (`[arg]` masked with `0x780000`/`0x70000`) and branches, a small format/helper function reached from the device teardown.
+
+Admission was one bounded increment under the standing policy:
+
+- Read-only Ghidra export `research/verification/recomp-admit-1fc910-01/seed-triple.json` (`0x00042BE0` + `0x001F54D0` + `0x001FC910`) replaced the previous two-function seed, keeping the **32-export** set (one function admitted this set, well under the eight-function bound).
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 87: **463 functions, 18,990 instructions** (the new function is 98 bytes / 32 instructions).
+- `verify-seeds.py` against profile 87 reports **32 recorded / 32 offered / 0 unexpected / 0 missing** ("the offered seeds match this translation's record exactly"). `verify-recomp-package.mjs` re-ran the seed check and `verify-translation.py`: 554 functions reached, 0 needing rewriting, "The translation is fully instrumented by the current guard." Its controlled-pair sub-check targets the avQuery-pair shape and does not apply to this staged pair.
+
+Module `recomp-post-memory-build-125` (profile 87, same sources): **722,950 bytes**, SHA-256 `f77f606669311327be9a33424b77ac634f6fe4fce3b35da6e885cf8925f178ea`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| experiment | **status 1 at `0xFE000004`, ordinal 171** | **346** | **412** |
+
+The experiment now runs two more original routines and reaches a **named-service stop**: ordinal 171 = `MmFreeContiguousMemory(PVOID BaseAddress)` with argument `0x037F2000`, return address `0x001FB6D9` inside `CDevice_FreeFrameBuffers`. The pinned bridge frees the address from the contiguous arena (falling back to the heap) and returns EAX 0; the stdcall frame is four argument bytes. Modeling that allocator behavior is a fresh service decision, so the default dispatch refuses it and the run halts here. Nothing about the free outcome is claimed.
+
+No DECISIONS row: integration head still lacks the lane commits.

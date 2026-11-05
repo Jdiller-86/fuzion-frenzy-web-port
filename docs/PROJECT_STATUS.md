@@ -1,4 +1,12 @@
-# The null-result model is generalized; the next stop is placeholder 0x1FC910
+# FUN_001fc910 is admitted; the next stop is MmFreeContiguousMemory
+
+November 5: admitted `0x001FC910` (`FUN_001fc910`, 98 bytes, one stack argument, a D3D format helper) as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` + `0x001FC910` replaced the previous two-function seed, keeping the 32-export set; `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 87 (463 functions, 18,990 instructions). `verify-seeds.py` reports 32 recorded / 32 offered / 0 unexpected / 0 missing, and the package verifier's translation check reports 554 functions with 0 needing rewriting ("fully instrumented by the current guard"); its controlled-pair sub-check targets the avQuery-pair shape and does not apply here.
+
+Module `recomp-post-memory-build-125` (profile 87, same sources): **722,950 bytes**, SHA-256 `f77f6066...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment advanced to a **new named-service stop: status 1 at `0xFE000004`, ordinal 171**, **346 routines / 412 kernel ops** — `MmFreeContiguousMemory(0x037F2000)` from `CDevice_FreeFrameBuffers` (return `0x001FB6D9`). The pinned bridge frees the contiguous block and returns EAX 0; modeling that allocator behavior is a fresh decision, so the default dispatch refuses it.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` pass, `check` 475 files, whitespace clean. No DECISIONS row: integration head lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: The null-result model is generalized; the next stop is placeholder 0x1FC910
 
 November 5: the architect authorized generalizing the declared null-result model because the pinned HAL tests `Result` before its option switch (`if (!Result) return;`), unconditionally on handle/option/param; a nonzero Result still reaches the unmodeled query path and stays refused. `src/runtime/av_null_result.c/.h` now accepts any declared `Result == 0`, with native tests for both observed pairs plus an explicitly labeled mechanism-only tuple, nonzero-Result refusal and undeclared refusal. The harness keeps the default-off `avNullResult` branch (no write, EAX untouched, `esp += 20`, call count and last tuple); the validator requires an observed shape, no write-map delta, equal frame checksum, EAX unchanged, `esp + 20`, and that the pair reproduces both observed shapes.
 
