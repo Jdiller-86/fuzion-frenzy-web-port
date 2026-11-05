@@ -437,4 +437,17 @@ Formal translator-owner finding: **no register-preservation defect is demonstrat
 
 No translator edit is made; the repair decision belongs to the translator owner/user. No DECISIONS row: characterization only.
 
+## 30. Ground-truth ESI arbiter: verdict is a genuine register value
+
+The arbiter compares two independent records of the same read:
+
+- **Field capture** (memory hook at site `0x1FC087`): address `0x206314`, `g_esi = 0x205E98`; `address - g_esi = 0x47C` exactly.
+- **Fault frame** (physical memory-guard path at the following read, site `0x1FC091`): faulting address `0x6B6A6968`, 4 bytes, read, **`g_esi = 0x205E98`**.
+
+The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sameEsi }` whenever the fault site is `0x1FC091` and a field capture exists; the validator rejects any report where the two disagree. Run `browser-150-arbiter.json` (module 150): `faultEsi = fieldEsi = 0x205E98`, `deltaOk = true`, `sameEsi = true`.
+
+**Verdict: the register genuinely held `0x205E98` at the read; the instrument does not misreport it.** The value changed from the entry's `0x203B90` (the fault-frame address chain and the exact `0x47C` delta rule out an association error). The remaining question is which executed path leaves `0x205E98` in `esi` even though `FUN_001F6240` pops it before both returns; that is a genuine register-state question, not an instrumentation one, and no fix or model is attempted here.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.

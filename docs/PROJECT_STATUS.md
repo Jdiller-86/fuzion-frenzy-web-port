@@ -1,4 +1,10 @@
-# Confirm-and-report: FUN_001F6240 restores ESI; the defect claim is retracted
+# ESI arbiter verdict: the register genuinely held 0x205E98 at the read
+
+November 5: ground-truth arbiter implemented and run. The field capture at site `0x1FC087` reports address `0x206314`, `g_esi = 0x205E98` (delta `0x47C` exactly), and the physical fault frame at the following read (site `0x1FC091`) independently reports faulting address `0x6B6A6968` with `g_esi = 0x205E98`. The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sameEsi }` and the validator rejects any disagreement; run `browser-150-arbiter.json` gives `sameEsi=true`, `deltaOk=true`. **Verdict: the register genuinely held `0x205E98` at the read; the instrument is not misreporting.** The remaining question is which executed path leaves `0x205E98` in `esi` even though `FUN_001F6240` pops it before both returns — a genuine register-state question, not instrumentation. No fix, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Confirm-and-report: FUN_001F6240 restores ESI; the defect claim is retracted
 
 November 5: read-only confirmation. All four callers of `FUN_001F6240` are direct `RECOMP_ABI_CALL` sites inside `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`), and the function **pops `esi` before every return** (the `esi = edx + ecx*8` at `0x1F62C4` is transient). The static 1-push/2-pop count is two mutually exclusive exits sharing one entry push, not an unbalanced save. **No register-preservation defect is demonstrated at `FUN_001F6240`; the earlier claim is retracted.** The `0x205E98` trace value is that transient, and the ABI check's zero ESI violations is consistent. The fault at `0x6B6A6968` remains unattributed to this function; the next question is why the `0x1FC087` read reports `0x205E98` despite the restore — a capture/instrument question, not a translator defect. No translator edit; repair decision belongs to the translator owner/user.
 

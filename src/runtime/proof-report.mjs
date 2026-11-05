@@ -319,6 +319,11 @@ export function validateProofReport(report) {
       throw new Error('The guest-watch probe must target the selected device field');
   }
 
+  if (report.esiArbiter !== undefined) {
+    const q = report.esiArbiter;
+    if (!q || !integer(q.faultEsi) || !integer(q.fieldEsi) || !integer(q.fieldAddr) || q.deltaOk !== true || q.sameEsi !== true)
+      throw new Error('The ESI arbiter must agree with the fault frame and the field capture');
+  }
   /* Toolkit ABI-check diagnostic. It records the call target whose callee failed
    * to preserve ebx/esi/edi/esp; it is evidence, not a service model. */
   if (report.abiViolationState !== undefined) {

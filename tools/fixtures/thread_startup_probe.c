@@ -519,7 +519,7 @@ static uint32_t namespace_ready;
 static ff_virtual_memory virtual_memory;
 static ff_guest_mirror guest_mirror;
 static ff_guest_write_map guest_write_map;
-static uint32_t vm_ready, vm_access_count, vm_fault[5];
+static uint32_t vm_ready, vm_access_count, vm_fault[6];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
 #ifdef FF_SECTION_PROOF
@@ -875,7 +875,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
-        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access; vm_fault[4] = site;
+        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access; vm_fault[4] = site; vm_fault[5] = g_esi;
         stop(10, address, access);
     }
     ++vm_access_count;
@@ -942,7 +942,7 @@ uint32_t ff_probe_context_word(uint32_t index)
 uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
 uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
 uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
-uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 5 ? vm_fault[index] : 0; }
+uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 6 ? vm_fault[index] : 0; }
 uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
 {
     if (access == FF_VM_READ) return FF_MEMORY_U8(address, FF_VM_READ);
