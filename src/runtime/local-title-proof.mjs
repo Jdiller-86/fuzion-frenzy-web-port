@@ -238,10 +238,15 @@ export function describeAvQueryOutcome(report) {
     ? '0x' + (value >>> 0).toString(16).toUpperCase().padStart(8, '0') : '?';
   const calls = Array.isArray(report.calls)
     ? report.calls.filter(call => call && call.ordinal === 2) : [];
+  /* The run's outcome is its stop, not the first successful call: a completed
+   * query followed by a denied ordinal-2 call still ended in the denial and
+   * must not be presented as success. */
+  const denied = (report.stop && report.stop.status === 1 && report.stop.ordinal === 2) ||
+    calls.some(call => call.status === 1);
+  if (denied)
+    return ` AV query denied/unsupported at ordinal 2 (configured ${hex(report.avQueryWord)}).`;
   const success = calls.find(call => call.status === 0 && call.output && Number.isInteger(call.output.rawWord));
   if (success) return ` AV query completed: ${hex(success.output.rawWord)} at ${hex(success.output.address)}.`;
-  if (calls.some(call => call.status === 1))
-    return ` AV query denied/unsupported at ordinal 2 (configured ${hex(report.avQueryWord)}).`;
   return ` AV query configured (${hex(report.avQueryWord)}) but not reached (prequery).`;
 }
 export function parseLocalMemoryProfile(buffer) {

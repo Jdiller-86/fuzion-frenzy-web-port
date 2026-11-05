@@ -25,7 +25,7 @@ const control = () => ({
   verified: false,
   trace: [],
   stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
-  originalStartup: startup(279, 404),
+  originalStartup: startup(279, 0),
   sourceSha256: digest('a'),
   moduleSha256: digest('b'),
   experiments: ['writeClearing'],
@@ -54,7 +54,7 @@ const control = () => ({
 const experiment = () => ({
   ...control(),
   stop: { status: 2, target: 0x1F79A0, ordinal: 0 },
-  originalStartup: startup(280, 405),
+  originalStartup: startup(280, 1),
   experiments: ['writeClearing', 'avQuery'],
   avQueryWord: 0x00800303,
   calls: [{
@@ -95,10 +95,33 @@ test('the comparison rejects a control whose ordinal-2 denial does not stop ther
 });
 
 test('the comparison rejects an experiment that does not progress past ordinal 2', () => {
+  /* An experiment that stops on the unsupported ordinal-2 service without a
+   * denial record is already invalid at the report layer. */
   assert.throws(() => compareProofProfiles(control(), {
     ...experiment(),
     stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
-  }), /experiment must progress past the ordinal-2 call/);
+  }), /requires the ordinal-2 denial record/);
+  /* A valid report can still stop on ordinal 2: a completed call plus a denial
+   * pairs with the stop, but it is not a progress comparison. The control has
+   * two matching denial arguments so the paired-argument check passes first. */
+  const argumentsPair = [0, 6, 0, 2111264];
+  const pairedControl = {
+    ...control(),
+    calls: [
+      { ordinal: 2, status: 1, arguments: argumentsPair },
+      { ordinal: 2, status: 1, arguments: argumentsPair },
+    ],
+  };
+  const pairedExperiment = {
+    ...experiment(),
+    stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
+    calls: [
+      experiment().calls[0],
+      { ordinal: 2, status: 1, arguments: argumentsPair },
+    ],
+  };
+  assert.throws(() => compareProofProfiles(pairedControl, pairedExperiment),
+    /experiment must progress past the ordinal-2 call/);
 });
 
 test('the comparison requires the avQuery experiment to be the only added input', () => {
@@ -183,11 +206,48 @@ test('the comparison requires the same ordinal-2 call arguments', () => {
     /different ordinal-2 call arguments/);
 });
 
+test('the comparison preserves every routine the control reached', () => {
+  const reached = count => Array.from({ length: count }, (_, index) => index + 1);
+  const enterTrace = addresses => addresses.map(address => ({ kind: 'enter', address, stack: 1 }));
+  const controlList = reached(279);
+  const experimentList = [...reached(279), 5000];
+  const withLists = {
+    control: { ...control(), originalFunctionsReached: controlList, trace: enterTrace(controlList) },
+    experiment: { ...experiment(), originalFunctionsReached: experimentList, trace: enterTrace(experimentList) },
+  };
+  assert.equal(compareProofProfiles(withLists.control, withLists.experiment).ok, true);
+  /* The experiment keeps 280 unique routines but drops one control routine and
+   * adds two others, so the count alone would still pass. */
+  const droppedList = [...reached(280).slice(1), 5000, 5001].slice(1);
+  const dropped = {
+    ...experiment(),
+    originalFunctionsReached: droppedList,
+    trace: enterTrace(droppedList),
+  };
+  assert.throws(() => compareProofProfiles(withLists.control, dropped),
+    /dropped routines the control reached/);
+  /* One list cannot stand in for both reports' evidence. */
+  assert.throws(() => compareProofProfiles(withLists.control, experiment()),
+    /Both profiles must carry their reached-routine list/);
+  assert.throws(() => compareProofProfiles(control(), withLists.experiment),
+    /Both profiles must carry their reached-routine list/);
+});
+
+test('the comparison requires the operation count to match successful calls', () => {
+  assert.throws(() => compareProofProfiles(control(), {
+    ...experiment(), originalStartup: startup(280, 2),
+  }), /completed kernel-operation count/);
+  assert.throws(() => compareProofProfiles({
+    ...control(), originalStartup: startup(279, 1),
+  }, experiment()), /completed kernel-operation count/);
+});
+
 test('a truthful configured denial validates but is not a progress comparison', () => {
   const denied = {
     ...experiment(),
     stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+    originalStartup: startup(280, 0),
   };
   assert.throws(() => compareProofProfiles(control(), denied),
     /must complete ordinal 2 with its declared raw word/);
@@ -202,11 +262,11 @@ test('the comparison rejects repeated experiment names', () => {
   }), /must not repeat an experiment/);
 });
 
-test('the comparison requires the control call record and a non-decreasing run', () => {
+test('the comparison requires the control denial record and a non-decreasing run', () => {
   assert.throws(() => compareProofProfiles({ ...control(), calls: undefined }, experiment()),
-    /requires the ordinal-2 call record/);
+    /requires the ordinal-2 denial record/);
   assert.throws(() => compareProofProfiles(control(), {
-    ...experiment(), originalStartup: startup(278, 405),
+    ...experiment(), originalStartup: startup(278, 1),
   }), /must not report fewer functions or kernel operations/);
 });
 

@@ -90,12 +90,37 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
   })), /must not carry an output/);
 });
 
+test('an unconfigured ordinal-2 call must report completed or denied status', () => {
+  for (const status of [2, 9, 10]) {
+    assert.throws(() => validateProofReport(report({
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+    /* A non-denial record cannot satisfy the unsupported ordinal-2 stop. */
+    assert.throws(() => validateProofReport(report({
+      stop: unsupportedOrdinal2(),
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+  }
+  /* The actual denial still pairs with the stop. */
+  const denied = report({
+    stop: unsupportedOrdinal2(),
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  });
+  assert.equal(validateProofReport(denied), denied);
+});
+
 test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
   const call = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
-  /* Any report claiming the unsupported ordinal-2 stop must record the call,
+  /* Any report claiming the unsupported ordinal-2 stop must record the denial,
    * including the unconfigured control path. */
   assert.throws(() => validateProofReport(report({ stop: unsupportedOrdinal2() })),
-    /requires the ordinal-2 call record/);
+    /requires the ordinal-2 denial record/);
+  /* A completed call is not a denial and cannot satisfy the stop pairing. */
+  assert.throws(() => validateProofReport(report({
+    stop: unsupportedOrdinal2(),
+    experiments: ['avQuery'], avQueryWord: 0x00800303,
+    calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264], output: avOutput(0x00800303) }],
+  })), /requires the ordinal-2 denial record/);
   assert.throws(() => validateProofReport(report({ calls: [call] })),
     /must stop at the unsupported service/);
   assert.throws(() => validateProofReport(report({
@@ -149,11 +174,12 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
   assert.equal(validateProofReport(prequery), prequery);
   const prequeryWithoutCalls = report({ experiments: ['avQuery'], avQueryWord: 0x00800303 });
   assert.equal(validateProofReport(prequeryWithoutCalls), prequeryWithoutCalls);
-  /* A prequery may not claim the unsupported ordinal-2 stop without a call record. */
+  /* A prequery may not claim the unsupported ordinal-2 stop without the denial
+   * record. */
   assert.throws(() => validateProofReport(report({
     stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
-  })), /requires the ordinal-2 call record/);
+  })), /requires the ordinal-2 denial record/);
   /* A configured profile may truthfully record a denial; the report must
    * preserve that instead of presenting it as success. */
   const denied = report({
@@ -322,6 +348,39 @@ test('trace entries and capacities are bounded', () => {
     trace: new Array(TRACE_LIMIT).fill({ kind: 'enter', address: 1, stack: 2 }),
   });
   assert.equal(validateProofReport(atLimit), atLimit);
+});
+
+test('the reached original-routine list is bounded and type-checked when present', () => {
+  const entered = values => values.map(address => ({ kind: 'enter', address, stack: 1 }));
+  const counters = distinct => ({
+    totalInitializers: 83, completedInitializers: 83,
+    distinctOriginalFunctions: distinct, completedKernelOperations: 403,
+  });
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: 'nope' })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: [1, 'x'] })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: new Array(TRACE_LIMIT + 1).fill(1),
+  })), /reached original-routine list/);
+  const repeated = report({ originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 1, 2]) });
+  assert.equal(validateProofReport(repeated), repeated);
+  const absent = report();
+  assert.equal(validateProofReport(absent), absent);
+  /* The distinct count is derived from the same entry sequence. */
+  const matching = report({ originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 1, 2]) });
+  assert.equal(validateProofReport(matching), matching);
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: [1, 1, 2], originalStartup: counters(3),
+    trace: entered([1, 1, 2]),
+  })), /does not match the distinct function count/);
+  /* The list must be the trace's enter sequence, not a separate claim. */
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 2, 3]),
+  })), /does not match the entry trace/);
 });
 
 test('startup counters must stay in range and partial progress must be explained', () => {

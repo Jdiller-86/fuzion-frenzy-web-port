@@ -36,6 +36,18 @@ export function validateProofReport(report) {
     if (!entry || typeof entry.kind !== 'string' || !integer(entry.address) || !integer(entry.stack))
       throw new Error('Malformed trace entry');
   }
+  /* The reached-routine list is derived from the bounded trace; a hand-written
+   * report must not smuggle an unbounded or malformed list past the contract.
+   * Repeated addresses are expected: this is an entry sequence, not a set. */
+  if (report.originalFunctionsReached !== undefined) {
+    if (!Array.isArray(report.originalFunctionsReached) ||
+        report.originalFunctionsReached.length > TRACE_LIMIT ||
+        report.originalFunctionsReached.some(address => !integer(address)))
+      throw new Error('The reached original-routine list is malformed or exceeds its bound');
+    if (JSON.stringify(report.originalFunctionsReached) !==
+        JSON.stringify(report.trace.filter(entry => entry.kind === 'enter').map(entry => entry.address)))
+      throw new Error('The reached original-routine list does not match the entry trace');
+  }
   const stop = report.stop;
   if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal))
     throw new Error('Proof report stop record is incomplete or out of range');
@@ -72,6 +84,12 @@ export function validateProofReport(report) {
     if (typeof startup.stopReason !== 'string' || !startup.stopReason)
       throw new Error('An incomplete initializer run must state its stop reason');
   }
+  /* The producer derives the distinct count from the reached-entry sequence.
+   * When both are present they must agree; otherwise a report could inflate the
+   * progress metric the comparison relies on without the corresponding list. */
+  if (report.originalFunctionsReached !== undefined &&
+      new Set(report.originalFunctionsReached).size !== startup.distinctOriginalFunctions)
+    throw new Error('The reached original-routine list does not match the distinct function count');
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
@@ -144,7 +162,6 @@ export function validateProofReport(report) {
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
-  let ordinalTwoRecorded = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -156,13 +173,17 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
-      ordinalTwoRecorded = true;
       if (report.avQueryWord === undefined) {
         if (call.status === 0)
           throw new Error('An unsupported ordinal-2 call must not report success');
         if (call.output !== undefined)
           throw new Error('Unsupported ordinal-2 calls must not carry an output word');
-        if (call.status === 1) avQueryDenied = true;
+        /* The unconfigured record is the denial the unsupported stop names, so
+         * it cannot carry an unrelated status. A non-denial record must not be
+         * able to satisfy the ordinal-2 stop pairing below. */
+        if (call.status !== 1)
+          throw new Error('An unsupported ordinal-2 call must report the unsupported status');
+        avQueryDenied = true;
       } else if (call.status === 0) {
         /* The adapter exists for the observed (0, 6, 0, Result) query, so a
          * successful call must carry exactly that shape and write through its
@@ -201,13 +222,13 @@ export function validateProofReport(report) {
   }
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
-   * That is only consistent when the run stopped before the query: a stop at
-   * the unsupported ordinal-2 service must carry the call record, with or
-   * without the avQuery experiment. A denial, when present, is the
-   * unsupported-service stop itself, even if an earlier ordinal-2 call
-   * completed. */
-  if (!ordinalTwoRecorded && stop.status === 1 && stop.ordinal === 2)
-    throw new Error('An unsupported ordinal-2 stop requires the ordinal-2 call record');
+   * That is only consistent when the run stopped before the query. A stop at
+   * the unsupported ordinal-2 service must carry the denial record itself, with
+   * or without the avQuery experiment; a completed call is not a denial and
+   * cannot stand in for one. A denial, when present, is the unsupported-service
+   * stop itself, even if an earlier ordinal-2 call completed. */
+  if (stop.status === 1 && stop.ordinal === 2 && !avQueryDenied)
+    throw new Error('An unsupported ordinal-2 stop requires the ordinal-2 denial record');
   if (avQueryDenied && (stop.status !== 1 || stop.ordinal !== 2))
     throw new Error('An ordinal-2 denial must stop at the unsupported service');
   return report;

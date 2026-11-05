@@ -1,4 +1,164 @@
-# The 0x1FC780 admission advances the stop to 0x1FCCB0
+# The 0x1F7300 batch advances the stop to 0x1F7370
+
+November 5, 2026. `0x1F7300` (`D3DDevice_SetRenderState_ZEnable`, table index 123) was already a Ghidra-established function; all five calls (`0x1FB3B0` twice, `0x1F85E0`, `0x1F82C0`, `0x1F7080`) were already translated. Its 34-instruction / 108-byte leaf has internal conditional branches and ends in `RET 4`; preflight is 34/34, no tables or normalizations. The seed was appended to the merged 14-function seed (`a48daeda?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-66` contains **438 functions / 18,229 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 528/0. Module `recomp-post-memory-build-87` is 693,474 bytes, SHA-256 `3f001885c215ace4b866ae300a1333c1fd1c803e7afd4f9a7753e07beef66ee9`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7370`** | 308 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +29 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7300` executed; `0x1F7370` was not entered. Frontier: **528 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6890 batch advances the stop to 0x1F7300
+
+November 5, 2026. `0x1F6890` (`D3DDevice_SetRenderState_NormalizeNormals`, table `0x2025D8`, index 122) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 13-instruction / 45-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 13/13, no tables or normalizations. The seed was appended to the merged 13-function seed (`a41d2643?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-65` contains **437 functions / 18,195 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 527/0. Module `recomp-post-memory-build-86` is 692,563 bytes, SHA-256 `2a0ff87ba332b1dda66589dc4270b05dc7a5cda7fdcd77a469f558402d2117ed`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7300`** | 307 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +28 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6890` executed; `0x1F7300` was not entered. Frontier: **527 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6B50 batch advances the stop to 0x1F6890
+
+November 5, 2026. `0x1F6B50` (`D3DDevice_SetRenderState_TwoSidedLighting`, table `0x2025D4`, index 121) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 24-instruction / 84-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6B88`, and ends in `RET 4`; preflight is 24/24, no tables or normalizations. The seed was appended to the merged 12-function seed (`831991b3?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-64` contains **436 functions / 18,182 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 526/0. Module `recomp-post-memory-build-85` is 692,002 bytes, SHA-256 `d136484b1c5460fe17df8db9a2217017cb5d8fbaafdb171b762a262bc9ab8b01`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6890`** | 306 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +27 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6B50` executed; `0x1F6890` was not entered. Frontier: **526 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6B00 batch advances the stop to 0x1F6B50
+
+November 4, 2026. `0x1F6B00` (`D3DDevice_SetRenderState_BackFillMode`, table `0x2025D0`, index 120) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 22-instruction / 75-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6B2F`, and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 11-function seed (`e4c3222d?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-63` contains **435 functions / 18,158 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 525/0. Module `recomp-post-memory-build-84` is 691,173 bytes, SHA-256 `e1f59842bf7dcd58720f54ee41e421a8a8e704dd3398dea57c3c255b8e03bfec`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6B50`** | 305 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +26 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6B00` executed; `0x1F6B50` was not entered. Frontier: **525 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6AC0 batch advances the stop to 0x1F6B00
+
+November 4, 2026. `0x1F6AC0` (`D3DDevice_SetRenderState_FillMode`, table `0x2025CC`, index 119) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 18-instruction / 62-byte leaf calls already-translated `0x1FB3B0`, contains one internal `JNE` to `0x1F6AE3`, and ends in `RET 4`; preflight is 18/18, no tables or normalizations. The seed was appended to the merged 10-function seed (`aeb158b5?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-62` contains **434 functions / 18,136 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 524/0. Module `recomp-post-memory-build-83` is 690,455 bytes, SHA-256 `9a84bdc1cfe8ac7e1a56871b4415d0a2f6ed2bd33475be93eb71b93cfa95cf15`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6B00`** | 304 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +25 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6AC0` executed; `0x1F6B00` was not entered. Frontier: **524 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6790 batch advances the stop to 0x1F6AC0
+
+November 4, 2026. `0x1F6790` (`D3DDevice_SetRenderState_FogColor`, table `0x2025C8`, index 118) was already a Ghidra-established function. Its 22-instruction / 71-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 9-function seed (`f7a2ee44?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-61` contains **433 functions / 18,118 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 523/0. Module `recomp-post-memory-build-82` is 689,834 bytes, SHA-256 `b3c354bdb3c561924f2d76c1018166a91a3136c2c63b2c704d5f0f68742f0bf0`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6AC0`** | 303 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +24 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6790` executed; `0x1F6AC0` was not entered. Frontier: **523 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6BB0 symbol-entry batch advances the stop to 0x1F6790
+
+November 4, 2026. `0x1F6BB0` (`D3DDevice_SetRenderState_VertexBlend`, table `0x2025C4`, index 117) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 15-instruction / 50-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 15/15, no tables or normalizations. The seed was appended to the merged 8-function seed (`4fcdcd02?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-60` contains **432 functions / 18,096 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 522/0. Module `recomp-post-memory-build-81` is 689,176 bytes, SHA-256 `d795973beea54c70344e363f587206f1268c98dbdac86c951c647f412cdc3d67`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6790`** | 302 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +23 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6BB0` executed; `0x1F6790` was not entered. Frontier: **522 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6620 symbol-entry batch advances the stop to 0x1F6BB0
+
+November 4, 2026. The observed `0x1F6620` stop was a named indirect-dispatch symbol (`D3DDevice_SetRenderState_PSTextureModes`, table `0x2025C0`, index 116) without a Ghidra function. The initial admission used a bounded read-only in-memory definition; the approved architect directive then authorized a persistent create-function at that address only. A read-only re-open reports `FUNCTION_AT 001f6620`, and the re-export is byte-identical (SHA `55977f49…`), so the seed and admission are unchanged. The seed was appended to the merged 7-function seed, keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-59` contains **431 functions / 18,081 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 521/0. Module `recomp-post-memory-build-80` is 688,623 bytes, SHA-256 `cfc5786ab4fb9cbe365f4bf662be6fe62333c26e5701427264e65249fc450c90`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6BB0`** | 301 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +22 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6620` executed; `0x1F6BB0` was not entered. Frontier: **521 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6970 dependency batch advances the stop to 0x1F6620
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-58` admits the ordinary dependency `0x1F6970` (35 instructions / 119 bytes) in the merged 6-function seed, keeping 32 exports. It contains **430 functions / 18,073 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 520/0. Module `recomp-post-memory-build-79` is 688,315 bytes, SHA-256 `8baa111d9e5a1505f719a2086ccdd5952eb9a7d833194d6118208791c3467e39`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6620`** | 300 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +21 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6970` executed; `0x1F6620` was not entered. Frontier: **520 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The Path B batch advances the stop to 0x1F6970
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-57` admits the observed Path B set `0x1F5B70` + `0x1F6300` (with `0x1F85E0`, `0x1FB3B0`, `0x1F6EB0` and `0x1FC980` already translated). It contains **429 functions / 18,038 instructions**; both new bodies are real and guarded; `verify-seeds` 32/32/0/0 and `verify-translation` 519/0. Module `recomp-post-memory-build-78` is 687,271 bytes, SHA-256 `d6540c1b2259c2b9025f7e8786f7cc2510480ef0c28f3cb2675a86835cc7fa92`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6970`** | 296 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +17 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F5B70` and `0x1F6300` executed; `0x1F6970` was not entered. Frontier: **519 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6910 dependency batch advances the stop to 0x1F5B70
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-56` admits the ordinary dependency `0x1F6910` (28 instructions / 95 bytes) in the merged 3-function seed while keeping 32 exports. It contains **427 functions / 17,807 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 518/0. Module `recomp-post-memory-build-77` is 676,813 bytes, SHA-256 `0f41fd06b47743dc7c86cbdb6f566fa4689bcc5d32ba92155e26d30309e86635`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F5B70`** | 292 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +13 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6910` executed; `0x1F5B70` was not entered. The next stop is Path B (`0x1F5B70` + `0x1F6300` + the translated `0x1FC980`). Frontier: **518 functions, 91 placeholders, 90 referenced**; `0x1F5B70` called by executed `0x1F5640`. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The Path A admission advances the stop to 0x1F6910
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-55` admits the observed Path A set `0x1F70E0` + `0x1FC980` + table-aware `0x1FCB70` under the frozen 32-export grouping. It contains **426 functions / 17,779 instructions**; all three new functions have real guarded bodies; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-76` is 675,058 bytes, SHA-256 `5d596ab2c24d022b267faf4409fcd189ee62bcd059004662fdae885062dd5518`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6910`** | 289 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +10 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F70E0` and `0x1FC980` executed; `0x1FCB70` was translated but not on this path. The next stop `0x1F6910` returns to `0x1F66F6` (call site `0x1F66F1`) from translated `0x1F66A0`. Frontier: **517 functions, 91 placeholders, 90 referenced**.
+
+The observed stop is an ordinary untranslated routine; no further batch this cycle. The package verifier reports 32/32 seeds, 426/517/0, 13/13 digests. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F7080 admission observes the stop at 0x1F70E0
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-54` admits the reached `0x1F7080` leaf (27 instructions / 89 bytes, no calls/tables) after merging its seed into the 29-function front seed. It contains **423 functions / 17,620 instructions** from 32 seed exports; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-75` is 664,115 bytes, SHA-256 `687c34c98794d8ac71387ec1bf00aec9e88e4c23a38463746a725008b39b133f`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F70E0`** | 286 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +7 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7080` executed and returned; `0x1F70E0` is the next untranslated call target (not entered), returning to `0x1F57CB` from call site `0x1F57C6` in executed `0x1F5640`. The frontier has **94 placeholders, 93 referenced**.
+
+The observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No batch was started; the lane stops here. These are synthetic startup observations, not fidelity, gameplay or original service semantics.
+
+## Prior: The 0x1FCCB0 admission advances the stop to 0x1F7080
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-53` admits the reached mixed-layout function `0x1FCCB0` (112-byte envelope, 8-entry table, four `ret 8` cases) after a synthetic resync fixture passed. It contains **422 functions / 17,593 instructions** from 32 seed exports. Module `recomp-post-memory-build-74` is 663,028 bytes, SHA-256 `c8c27cb4ec232cff478d16752d649767a34c30ebca45cb8c38195c552aa67657`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F7080`** | 285 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +6 routines, +1 kernel operation. The experiment reaches and executes `0x1FCCB0`. The frontier has **95 placeholders, 1 entered**: `0x1F7080` called by executed `0x1F5640` (71 called by an executed caller, 22 static-only).
+
+`0x1F7080` is **not** admitted or analyzed further. The lane stops here. These are synthetic startup observations, not fidelity, renderer, gameplay or original service semantics.
+
+## Prior: The 0x1FC780 admission advances the stop to 0x1FCCB0
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-52` admits the reached leaf `0x1FC780` (53 bytes / 17 instructions, one self-recursive call) and contains **421 functions / 17,575 instructions** from the same 32 seed exports. Module `recomp-post-memory-build-73` is 662,080 bytes, SHA-256 `f89016609cde54d9fd0a612d9da5cb6f6ae24d0999391760ac27ef2c9ccc7326`.
 

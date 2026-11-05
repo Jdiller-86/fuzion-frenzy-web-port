@@ -1,4 +1,17 @@
-# 0x1FC780 admitted; next stop 0x1FCCB0
+# 0x1FCCB0 admitted; next stop 0x1F7080
+
+November 4, 2026. The bounded admission follows the utility-mount lineage through the startup/D3D frontier. The mixed `0x1FCCB0` dispatcher was admitted after a synthetic resync fixture; translation 53 has 422 functions / 17,593 instructions; module 74 is 663,028 bytes, SHA-256 `c8c27cb4?`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F7080`** | 285 | 405 |
+
+Same module and supplied profile; `avQueryWord` is the only added input. The comparison exits 0. The next genuine stop is untranslated `0x1F7080`, called by executed `0x1F5640`. It is not admitted and was not analyzed further. The lane stops immediately after this report.
+
+These are synthetic startup observations, not console settings, fidelity, renderer, gameplay or original service semantics.
+
+## Prior: 0x1FC780 admitted; next stop 0x1FCCB0
 
 November 4, 2026. The next bounded admission follows the utility-mount lineage through the startup/D3D frontier. Translation `recomp-title-recomp-title-post-memory-52` (421 functions / 17,575 instructions, 32 seed exports, `--guard-memory`) admits the reached leaf `0x1FC780` (53 bytes / 17 instructions, one self-recursive call). Module `recomp-post-memory-build-73` is 662,080 bytes, SHA-256 `f89016609cde54d9fd0a612d9da5cb6f6ae24d0999391760ac27ef2c9ccc7326`.
 
