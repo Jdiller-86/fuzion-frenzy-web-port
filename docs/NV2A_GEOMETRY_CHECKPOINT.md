@@ -2,7 +2,7 @@
 
 The product target remains the actual original game executing entirely in the browser with the full planned features. No original instructions have executed here and no xemu executable has linked. This checkpoint covers the source-owned post-vertex geometry components, not the complete NV2A renderer or original-game fidelity.
 
-Directive status, November 4 (integration head `fd31b2bcabe465d69dd3395cecf88d319c9113be`): stay paused and reference-gated without fixture churn or idle audits. Drafts #2/#3 are retained as-is; draft #2 remains unapproved. Neither builder branch is merged, and this directive authorizes no merge or promotion. The Sol architect review completed at 2026-11-04T06:45:32.8167397-05:00 produced this directive; it is an architect-level review, not a geometry whole-chain or retained-reference review, and older Sol-unavailability reports are superseded. Reported startup progress under synthetic inputs is not rendering, fidelity or playability, and no controllable original screen exists. No component is integration-approved.
+Directive status, November 4 (integration head `fd0ea19c1c56de9b06ee04a3f66578804ebc4284`): the architect re-issues RUN once more for the line/quad browser prepass and requires the manager/runner to record the lane-start failure reason; a third silent cycle escalates the task-registration problem to the user. The reference gate itself is unchanged: no fixture, capture or topology churn, and no component may look integration-ready without an actionable retained reference and a whole-chain review. Drafts #2/#3 are retained as-is; draft #2 remains unapproved. Neither builder branch is merged, and this directive authorizes no merge or promotion. The architect record at this head covers the Path A/B batch integration, the `0x1F6620` establishment decision and the runner marker-truncation fix; it is not a geometry whole-chain or retained-reference review, and older Sol-unavailability reports are superseded. Reported startup progress under synthetic inputs is not rendering, fidelity or playability, and no controllable original screen exists. No component is integration-approved.
 
 Next-task update, November 1: the user confirmed no local boot firmware and asked about a native web port. The [native-web checkpoint](NATIVE_WEB_FEASIBILITY.md) now scopes an original initialization-function proof. A native line/quad reference has been captured; its browser prepass remains pending. Preserve this triangle component and both references for either runtime route.
 
@@ -175,6 +175,23 @@ A source-owned ABI guard in `tests/nv2a_triangle_test.c` allocates the four-word
 
 The status above is unchanged: no actionable reference was added or accessed since the pause began. The private triangle reference and the line/quad captures remain outside this source-only worktree.
 
+### Line/quad browser prepass attempt, November 4
+
+Directive verified at its source: the architect record at `fd0ea19c1c56de9b06ee04a3f66578804ebc4284` states that geometry produced no commit for a second consecutive RUN cycle, that RUN is issued once more for the line/quad browser prepass, and that the manager/runner must record the lane-start failure reason because a third silent cycle escalates the task-registration problem to the user. That head is not an ancestor of `main` (`ebd1ebf`).
+
+Lane-start failure reason, recorded as required: the prepass could not be started in this source-only worktree because every input it depends on is absent here. Checked this cycle:
+
+- `.tools/emulation/` contains 22 entries, all `sdl-browser-test-*`; there is no line/quad reference directory and no `geom-reference-01` or triangle-prepass directory.
+- `research/` is absent, so no comparison-report location exists in this worktree.
+- `tools/fixtures/nv2a_geometry_check.html` is triangle-only: it calls `_ff_nv2a_expand_triangle` and expects the 126-input / 4-state / 153-output triangle schema. It contains no `_ff_nv2a_expand_line` or `_ff_nv2a_expand_quad` entry point, so no line/quad browser harness exists to run.
+- No compiled `check.js` module exists under `tools/`, `src/` or `scripts/`, and `emcc` is not on PATH, so the Wasm module the browser fixture loads cannot be rebuilt here.
+
+Result: no comparison ran, no fixture server or browser tab was opened, and no screenshot, DOM result or report was produced. Nothing was captured, generated or inferred.
+
+Blocker for the primary lane: the retained native line/quad reference is private and unavailable in this source-only worktree, so no exact-bit line/quad comparison against the measured arithmetic profile is possible here. A synthetic-only harness would compare the source-owned component against itself and could not support any fidelity or original-rendering claim, so none was built. Unblocking needs either the retained line/quad reference supplied to this lane in an admissible source-owned form, or an authorized reference capture; capture work, new fixtures and comparator exports remain outside this lane's source-only boundary.
+
+Limits: no geometry source, matching test, fixture, reference, comparator, export or topology was added or modified; no ignored game or research input was read; no model was delegated to; no fidelity claim is made.
+
 ### Pause status and resumption criteria
 
 Per the current directive the lane is paused for:
@@ -204,4 +221,4 @@ The evidence supports a CPU prepass followed by WebGL2 as a candidate replacemen
 
 Unknown/unimplemented: primitive assembly from vertex streams for quad strips (triangle strip/fan and line strip/loop assembly are now source-owned), vertex-program/fixed-function translation, original fragment/texture/depth/blend behavior, shared-context/thread integration, complete GL host adaptation, performance, release-browser coverage and original-title execution. The synthetic forwarded positions are post-vertex inputs, not a substitute for that missing vertex path. An Xbox test/capture would still be needed to establish original behavior; no game/firmware download or native-game streaming is authorized.
 
-Next concrete task: paused by the current directive. No actionable retained reference or whole-chain review exists in this source-only worktree, and this lane may not request another model. The next actor is the primary lane/architect: supply an admissible reference and the five-word strip adapter decision, perform the whole-chain review, and decide integration. This lane should not add fixtures or topology while paused; if the directive changes, resume with a component the review names. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
+Next concrete task: blocked on the line/quad browser prepass attempt recorded above. The prepass cannot start until an admissible line/quad reference or an authorized capture reaches this source-only worktree, and no whole-chain review exists here either; this lane may not request another model. The next actor is the primary lane/architect: supply the reference (or authorize the capture) and the five-word strip adapter decision, perform the whole-chain review, and decide integration. This lane should not add fixtures or topology until then; once the reference arrives, resume with the line/quad prepass the directive names, under a stated arithmetic profile. Keep arithmetic choice explicit. Do not integrate a partial geometry path as if it covered the renderer or advertise the synthetic drawing as Fuzion Frenzy. Boot inputs remain unresolved; the full browser/online/social objective stays active and incomplete.
