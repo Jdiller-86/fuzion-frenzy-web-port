@@ -4,14 +4,14 @@ November 4, 2026. The architect directive from integration head `b5294fa` author
 
 ## Resync fixture (synthetic, read-only)
 
-A source-owned 96-byte synthetic fixture uses a prologue dispatcher, an 8-entry absolute jump table at `0x11030`, four `ret 8` case blocks and padding. The pinned translator emitted all four case targets with no `UNIMPLEMENTED`; fixture SHA-256 `402462c08d414a58196bb7529c9cb36a2b0f3350e892c4a39df10e372383b12b`, generated C SHA-256 `e11bc5905f4115371d7c0752f02d607c2f72091fffaec4f918f69aaaac61ad38`. The check used no original content and did not execute anything.
+A source-owned 96-byte synthetic fixture uses a prologue dispatcher, an 8-entry absolute jump table at `0x11030`, four `ret 8` case blocks and padding. The pinned translator emitted all four case targets with no `UNIMPLEMENTED`; fixture SHA-256 `402462c08d414a58196bb7529c9cb36a2b0f3350e892c4a39df10e372383b12b`, generated C SHA-256 `e11bc5905f4115371d7c0752f02d607c2f72091fffaec4f918f69aaaac61ad38`. The check used no original content and did not execute anything. The fixture and the LF-normalized generated C are committed as `tests/mixed_dispatch_fixture_test.py` and `tests/fixtures/mixed-dispatch.generated.c`; the regression reproduces the fixture digest, the generated-text digest, the four targets and the layout/dispatch census without the private toolchain. The retained Windows copy has the same text with CRLF endings and hashes to `f7d4011cc2522568ccd863b4224427b34a4602fc5592cdd80cab6184fc3a96b4`, so the recorded `e11bc590…` digest is the LF-normalized text, not that file's raw bytes.
 
 ## Selection and translation
 
 - Table-aware seed: **112-byte envelope**, 18 instructions, 8 four-byte pointer entries at `0x1FCCFC`, 2 undefined spans; SHA-256 `be1dc290a49c30dfc2b3aa108e82f4efb55f112d2579eb4ea3d235252f042f2c`.
 - Merged into the front seed (29 functions) to keep **32 exports**; merged seed SHA-256 `3d2597e06a51748f9f113bedd82ee6448edb6f408ea29c92e828e7b99730190e`.
 - Translation `recomp-title-recomp-title-post-memory-53`: **422 functions / 17,593 instructions** with `--guard-memory`; `0x1FCCB0` is a mixed layout (32 data bytes, 5 padding bytes, 1 table/site/anchor).
-- Source-owned guards: `verify-seeds` **32/32/0/0**; `verify-translation` **517 functions, 0 rewrites**.
+- Source-owned guards: `verify-translation` re-runs at **517 functions, 0 rewrites**; `verify-seeds` re-runs at **32 recorded / 32 offered / 0 unexpected / 0 missing**. The one missing seed (`ca2e5d57…`, generation index 20) was re-exported read-only from the retained Ghidra project and matches the recorded digest exactly, so the 32/32 result is reproducible again.
 
 ## Module and controlled pair
 
@@ -45,6 +45,16 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 ## Review-package revalidation
 
 Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The frontier tool on translation 53 reports 517 functions, 95 placeholders and 94 referenced placeholders, with `0x1F7080` referenced by `0x1F5640`, matching the checkpoint. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), and requires an actual denial record for any unsupported ordinal-2 stop; a completed call alone cannot satisfy the stop. These close the remaining unexercised control paths noted by the narrow review, and the retained pair still validates. No translation, module or profile content changed.
+
+## Seed retention recovery
+
+The translation's `generation.json` records 32 seed digests; only 31 seed files were retained, and the missing digest was `ca2e5d57df7e25270dbc2ce2bc3ab4d326bd1d0b62310ac57d9adc0d0b593b4b` at generation index 20. Comparing the retained seed function set with the translation's 422 admitted functions isolated the missing seed's only contribution: `0x002022E0` (8-byte body, 2 instructions).
+
+A read-only `ExportRecompilationSeed.java` run on the retained `FuzionFrenzySetup` project (`-noanalysis -readOnly`) exported that function to `research/verification/recovered-seed-002022e0/seed.json` (916 bytes). Its SHA-256 is exactly `ca2e5d57…`, matching the recorded digest. `tools/verify-seeds.py` now reports **32 recorded / 32 offered / 0 unexpected / 0 missing** and exits 0, so the original 32/32 claim is reproducible again. The recovered seed contains original instruction bytes and stays local/ignored; no original content is committed and no seed was substituted or regenerated with different bytes.
+
+## Review outcome
+
+The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI run `41940691880`, clean ancestry and source-only delta) after the report-contract and guard hardening. The slice is no longer pending review. The post-integration seed-retention gap was resolved by the exact re-export, and `verify-seeds` now reproduces 32/32. The next stop remains untranslated `0x1F7080`, unadmitted; no further admission follows from the integration.
 
 ## Next and limits
 

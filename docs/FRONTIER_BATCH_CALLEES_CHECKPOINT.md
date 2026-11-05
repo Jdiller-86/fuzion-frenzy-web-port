@@ -17,11 +17,11 @@ November 4, 2026. Bounded read-only scoping of the callees named by the two stat
 
 ## Exported shared seed (read-only, not admitted)
 
-`0x1FC980` is shared by both candidate paths. The retained exporter reads it as **2 instructions / a 9-byte instruction-only envelope**, no calls; SHA-256 `18744bb385b803cd8d67c0d4c2e26d02c30e005e6b0a8f8c11e7d31972e23d4b`. Byte identity, independent decoder agreement (2/2, no normalizations) and `checked_function_layout` pass. The seed was not merged into the selection, and `0x1FC980` remains unadmitted.
+`0x1FC980` is shared by both candidate paths. The retained exporter reads it as **2 instructions / a 9-byte instruction-only envelope**, no calls; SHA-256 `18744bb385b803cd8d67c0d4c2e26d02c30e005e6b0a8f8c11e7d31972e23d4b`. Byte identity, independent decoder agreement (2/2, no normalizations) and `checked_function_layout` pass. Re-preflighted at `2026-11-04T20:50-05:00` with the same result; with the `0x1FCB70` table-aware validation, both Path A dependencies are now preflighted. The seed was not merged into the selection, and `0x1FC980` remains unadmitted.
 
 ## 0x1FCB70 two-table shape (read-only)
 
-The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`, with two computed jumps: `0x1FCB8B` through the **11-target** table at `0x1FCC50`, and `0x1FCBC6` through the **2-target** table at `0x1FCC98`. Both tables are outside the body, with a gap at `0x1FCC7C..0x1FCC97` between them. A table-aware batch export would need both tables and the gap; it was not attempted because the post-`0x1F7080` path is unproven. `0x1FCB70` remains unadmitted.
+The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`, with two computed jumps: `0x1FCB8B` through the **11-target** table at `0x1FCC50`, and `0x1FCBC6` through the **2-target** table at `0x1FCC98`. Both tables are outside the body, with a gap at `0x1FCC7C..0x1FCC97` between them. A table-aware envelope needs both tables and the gap; its read-only layout and dispatch-census validation now passes, but no seed merge or export was performed and the post-`0x1F7080` path is unproven. `0x1FCB70` remains unadmitted.
 
 ## Path B seed preflight (read-only)
 
@@ -32,7 +32,7 @@ The retained export is a **224-byte / 59-instruction body** ending at `0x1FCC4F`
 
 ### Path A blocker
 
-The gap `0x1FCC7C..0x1FCC97` is **28 bytes of defined byte data** between the 11-entry pointer table and the 2-entry pointer table. The exporter would emit non-pointer `data` parts; `checked_function_layout` accepts only 4-byte pointer data, so a table-aware envelope spanning both tables fails. Do not clear or redefine the byte data to satisfy the guard. Path A needs a byte-data layout capability; Path B (`0x1F5B70` + `0x1F6300` + `0x1FC980`) remains seed-ready. The guard contracts are pinned by `tests/bounded_layout_test.py`: six layout cases (pointer/table/padding accepted; byte data and non-local targets rejected), four flow/envelope cases (data fallthrough/flow, split-envelope export, unestablished function), and five dispatch-table cases. A byte-data extension is a guard change, not a seed workaround.
+The gap `0x1FCC7C..0x1FCC97` is **28 bytes of defined 1-byte data** between the 11-entry pointer table and the 2-entry pointer table. The guard now accepts bounded defined 1-byte data: the exact byte is checked, it never becomes a table, and control flow into it is rejected. A read-only table-aware envelope of the real `0x1FCB70` now passes: mixed layout, 80 data bytes (44 pointer + 28 byte + 8 pointer), 0 padding, tables 11+2, and dispatch census `{0x1FCC50: 11, 0x1FCC98: 2}`. The byte data is not cleared or redefined. Path A is structurally unblocked but still needs a fresh directive before any seed merge or admission; Path B (`0x1F5B70` + `0x1F6300` + `0x1FC980`) remains seed-ready. The guard contracts are pinned by `tests/bounded_layout_test.py` (23 cases: instruction-only, pointer/table/padding, bounded defined bytes with a 256-byte budget, the 28-byte Path A gap, flow/envelope, two tables separated by defined bytes, and dispatch-table). A byte-data extension is a guard capability, not a seed workaround.
 
 ## Boundaries
 

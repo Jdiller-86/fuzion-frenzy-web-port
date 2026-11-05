@@ -9,9 +9,9 @@ recorded translation still claims the old inputs.
 Usage:
   python tools/verify-seeds.py --translation <directory> --seed <file> [--seed <file> ...]
 
-Prints counts and mismatched digests only; it never reproduces seed contents. A
-missing translation or seed, a duplicate seed, a missing recorded digest or an
-unexpected seed is an error.
+Prints counts, mismatched digests and their recorded indices only; it never
+reproduces seed contents. A missing translation or seed, a duplicate seed, a
+missing recorded digest or an unexpected seed is an error.
 """
 import argparse
 import hashlib
@@ -56,7 +56,9 @@ def main(argv):
 
     expected = set(recorded)
     unexpected = sorted(value for value in offered if value not in expected)
-    missing = sorted(expected - set(offered))
+    missing = sorted(expected - set(offered), key=recorded.index)
+    index = {value: position for position, value in enumerate(recorded)}
+    first = recorded[0]
 
     print(f"recorded seeds: {len(recorded)}")
     print(f"offered seeds: {len(offered)}")
@@ -65,7 +67,8 @@ def main(argv):
     for value in unexpected:
         print(f"  unexpected {value} from {offered[value]}")
     for value in missing:
-        print(f"  missing {value}")
+        marker = " [first recorded seed]" if value == first else ""
+        print(f"  missing {value} (recorded index {index[value]}){marker}")
     if unexpected or missing:
         print("The offered seeds do not match this translation's record.", file=sys.stderr)
         return 1

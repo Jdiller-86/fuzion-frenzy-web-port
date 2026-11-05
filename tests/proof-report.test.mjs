@@ -350,6 +350,39 @@ test('trace entries and capacities are bounded', () => {
   assert.equal(validateProofReport(atLimit), atLimit);
 });
 
+test('the reached original-routine list is bounded and type-checked when present', () => {
+  const entered = values => values.map(address => ({ kind: 'enter', address, stack: 1 }));
+  const counters = distinct => ({
+    totalInitializers: 83, completedInitializers: 83,
+    distinctOriginalFunctions: distinct, completedKernelOperations: 403,
+  });
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: 'nope' })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({ originalFunctionsReached: [1, 'x'] })),
+    /reached original-routine list/);
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: new Array(TRACE_LIMIT + 1).fill(1),
+  })), /reached original-routine list/);
+  const repeated = report({ originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 1, 2]) });
+  assert.equal(validateProofReport(repeated), repeated);
+  const absent = report();
+  assert.equal(validateProofReport(absent), absent);
+  /* The distinct count is derived from the same entry sequence. */
+  const matching = report({ originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 1, 2]) });
+  assert.equal(validateProofReport(matching), matching);
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: [1, 1, 2], originalStartup: counters(3),
+    trace: entered([1, 1, 2]),
+  })), /does not match the distinct function count/);
+  /* The list must be the trace's enter sequence, not a separate claim. */
+  assert.throws(() => validateProofReport(report({
+    originalFunctionsReached: [1, 1, 2], originalStartup: counters(2),
+    trace: entered([1, 2, 3]),
+  })), /does not match the entry trace/);
+});
+
 test('startup counters must stay in range and partial progress must be explained', () => {
   assert.throws(() => validateProofReport(report({
     originalStartup: { totalInitializers: 83, completedInitializers: 84, distinctOriginalFunctions: 1, completedKernelOperations: 1 },

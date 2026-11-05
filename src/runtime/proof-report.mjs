@@ -36,6 +36,18 @@ export function validateProofReport(report) {
     if (!entry || typeof entry.kind !== 'string' || !integer(entry.address) || !integer(entry.stack))
       throw new Error('Malformed trace entry');
   }
+  /* The reached-routine list is derived from the bounded trace; a hand-written
+   * report must not smuggle an unbounded or malformed list past the contract.
+   * Repeated addresses are expected: this is an entry sequence, not a set. */
+  if (report.originalFunctionsReached !== undefined) {
+    if (!Array.isArray(report.originalFunctionsReached) ||
+        report.originalFunctionsReached.length > TRACE_LIMIT ||
+        report.originalFunctionsReached.some(address => !integer(address)))
+      throw new Error('The reached original-routine list is malformed or exceeds its bound');
+    if (JSON.stringify(report.originalFunctionsReached) !==
+        JSON.stringify(report.trace.filter(entry => entry.kind === 'enter').map(entry => entry.address)))
+      throw new Error('The reached original-routine list does not match the entry trace');
+  }
   const stop = report.stop;
   if (!stop || !STOP_STATUSES.has(stop.status) || !integer(stop.target) || !integer(stop.ordinal))
     throw new Error('Proof report stop record is incomplete or out of range');
@@ -72,6 +84,12 @@ export function validateProofReport(report) {
     if (typeof startup.stopReason !== 'string' || !startup.stopReason)
       throw new Error('An incomplete initializer run must state its stop reason');
   }
+  /* The producer derives the distinct count from the reached-entry sequence.
+   * When both are present they must agree; otherwise a report could inflate the
+   * progress metric the comparison relies on without the corresponding list. */
+  if (report.originalFunctionsReached !== undefined &&
+      new Set(report.originalFunctionsReached).size !== startup.distinctOriginalFunctions)
+    throw new Error('The reached original-routine list does not match the distinct function count');
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {

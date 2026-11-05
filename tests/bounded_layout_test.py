@@ -85,20 +85,74 @@ class MixedLayoutContractTest(unittest.TestCase):
         self.assertEqual(len(layout["tables"]), 1)
         self.assertEqual(layout["tables"][0]["targets"], [0x100000, 0x100000])
 
-    def test_byte_data_is_rejected(self):
+    def test_contiguous_defined_bytes_are_accepted(self):
         memory = dict(CODE)
         for offset in range(4):
             memory[f"{0x100004 + offset:08x}"] = "00"
-        with self.assertRaisesRegex(
-                ValueError, "Only declared 32-bit local pointer-table data is supported"):
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100003"},
+             {"start": "00100004", "endInclusive": "00100007"}], 8, 8,
+            [instruction("00100000", 4),
+             data("00100004", "00", "byte"),
+             data("00100005", "00", "byte"),
+             data("00100006", "00", "byte"),
+             data("00100007", "00", "byte")]), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 4)
+        self.assertEqual(layout["tables"], [])
+
+    def test_two_pointer_tables_separated_by_defined_byte(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00001000"
+        memory["00100008"] = "00001000"
+        memory["0010000c"] = "ab"
+        memory["0010000d"] = "00001000"
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100010"}], 17, 17,
+            [instruction("00100000", 4),
+             data("00100004", "00001000"),
+             data("00100008", "00001000"),
+             data("0010000c", "ab", "byte"),
+             data("0010000d", "00001000")]), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 13)
+        self.assertEqual([table["targets"] for table in layout["tables"]],
+                         [[0x100000, 0x100000], [0x100000]])
+
+    def test_twenty_eight_byte_gap_is_accepted(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00001000"
+        memory["00100008"] = "00001000"
+        parts = [instruction("00100000", 4),
+                 data("00100004", "00001000"),
+                 data("00100008", "00001000")]
+        for index in range(28):
+            address = 0x10000c + index
+            value = f"{index:02x}"
+            memory[f"{address:08x}"] = value
+            parts.append(data(f"{address:08x}", value, "byte"))
+        memory["00100028"] = "00001000"
+        parts.append(data("00100028", "00001000"))
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "0010002b"}], 44, 44,
+            parts), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 40)
+        self.assertEqual([len(table["targets"]) for table in layout["tables"]],
+                         [2, 1])
+
+    def test_defined_byte_budget_is_bounded(self):
+        memory = dict(CODE)
+        parts = [instruction("00100000", 4)]
+        for index in range(257):
+            address = 0x100004 + index
+            value = f"{index % 256:02x}"
+            memory[f"{address:08x}"] = value
+            parts.append(data(f"{address:08x}", value, "byte"))
+        with self.assertRaisesRegex(ValueError, "Defined byte-data budget exceeded"):
             PREP.checked_function_layout(item(
-                [{"start": "00100000", "endInclusive": "00100003"},
-                 {"start": "00100004", "endInclusive": "00100007"}], 8, 8,
-                [instruction("00100000", 4),
-                 data("00100004", "00", "byte"),
-                 data("00100005", "00", "byte"),
-                 data("00100006", "00", "byte"),
-                 data("00100007", "00", "byte")]), reader(memory))
+                [{"start": "00100000", "endInclusive": "00100104"}], 261, 261,
+                parts), reader(memory))
 
     def test_pointer_target_must_be_local_instruction(self):
         memory = dict(CODE)
@@ -121,6 +175,51 @@ class MixedLayoutContractTest(unittest.TestCase):
             reader(memory))
         self.assertTrue(layout["mixed"])
         self.assertEqual(layout["paddingBytes"], 1)
+
+    def test_defined_byte_data_is_accepted_without_becoming_a_table(self):
+        memory = dict(CODE)
+        memory["00100004"] = "ab"
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100004"}], 5, 5,
+            [instruction("00100000", 4), data("00100004", "ab", "byte")]),
+            reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 1)
+        self.assertEqual(layout["tables"], [])
+
+    def test_flow_into_defined_byte_data_is_rejected(self):
+        memory = dict(CODE)
+        memory["00100004"] = "ab"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Mixed-layout control flow must remain in checked local code"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100004"}], 5, 5,
+                [instruction("00100000", 4), data("00100004", "ab", "byte")],
+                rows=[mov_row(flows=["00100004"])]),
+                reader(memory))
+
+    def test_byte_data_must_be_one_byte(self):
+        memory = dict(CODE)
+        memory["00100004"] = "abcd"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Only declared 32-bit local pointer-table data or single defined bytes are supported"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100005"}], 6, 6,
+                [instruction("00100000", 4), data("00100004", "abcd", "byte")]),
+                reader(memory))
+
+    def test_unknown_data_type_is_rejected(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00000000"
+        with self.assertRaisesRegex(
+                ValueError,
+                "Only declared 32-bit local pointer-table data or single defined bytes are supported"):
+            PREP.checked_function_layout(item(
+                [{"start": "00100000", "endInclusive": "00100007"}], 8, 8,
+                [instruction("00100000", 4), data("00100004", "00000000", "dword")]),
+                reader(memory))
 
     def test_non_padding_undefined_is_rejected(self):
         memory = dict(CODE)
@@ -206,6 +305,22 @@ def site(anchor=0x100004):
 
 
 class DispatchTableContractTest(unittest.TestCase):
+    def test_two_tables_and_sites_are_censused(self):
+        rows = [
+            {"address": "00100004", "computed": True, "call": False,
+             "mnemonic": "JMP", "flows": ["00100000"]},
+            {"address": "00100008", "computed": True, "call": False,
+             "mnemonic": "JMP", "flows": ["00100000"]},
+        ]
+        layout = {"start": 0x100000, "end": 0x100011, "rows": rows,
+                  "tables": [table(0x100004, [0x100000, 0x100000]),
+                             table(0x10000d, [0x100000])], "mixed": True}
+        second = site(anchor=0x10000d)
+        second["address"] = 0x100008
+        census = PREP.checked_dispatch_tables(layout, [site(anchor=0x100004), second])
+        self.assertEqual(census, {0x100004: [0x100000, 0x100000],
+                                  0x10000d: [0x100000]})
+
     def test_matching_table_and_flows_are_accepted(self):
         layout = dispatch_layout([0x100000], [table(0x100004, [0x100000, 0x100000])])
         census = PREP.checked_dispatch_tables(layout, [site()])

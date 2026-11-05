@@ -23,6 +23,7 @@ const suites = [
   'tests/title_seed_test.py',
   'tests/verify_seeds_test.py',
   'tests/bounded_layout_test.py',
+  'tests/mixed_dispatch_fixture_test.py',
 ];
 
 function probe(command, prefix) {
