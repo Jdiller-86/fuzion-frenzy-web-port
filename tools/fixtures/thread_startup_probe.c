@@ -180,7 +180,7 @@ static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_
 static uint32_t site_span_esi[4];
 static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev_change_count;
 static uint32_t reg_trace_frozen;
-static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
+static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8], esi_change_ret[8];
 static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
@@ -414,14 +414,14 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
 }
 uint32_t ff_probe_site_entry_word(uint32_t index)
 {
-    if (index >= 24u) return 0u;
+    if (index >= 24u) return index < 32u ? esi_change_ret[index - 24u] : 0u;
     uint32_t slot = index / 3u, field = index % 3u;
     return field == 0u ? site_entry_addr[slot] : field == 1u ? site_entry_ecx[slot] : site_entry_ret[slot];
 }
 uint32_t ff_probe_site_entry_count(void) { return site_entry_count; }
 uint32_t ff_probe_esi_change_word(uint32_t index)
 {
-    if (index >= 24u) return 0u;
+    if (index >= 24u) return index < 32u ? esi_change_ret[index - 24u] : 0u;
     uint32_t slot = index / 3u, field = index % 3u;
     return field == 0u ? esi_change_site[slot] : field == 1u ? esi_change_addr[slot] : esi_change_value[slot];
 }
@@ -695,6 +695,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                 if (site_entry_fs && g_fs_base == site_entry_fs) { dev_last_site = site; dev_last_value = g_esi; ++dev_change_count; }
                 uint32_t slot = esi_change_count & 7u;
                 esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
+                esi_change_ret[slot] = (g_esp >= 0x03C00000u && g_esp < FF_GUEST_BYTES - 8u && !(g_esp & 3u)) ? MEM32(g_esp + 4u) : 0u;
                 esi_ctx_last[ctxslot] = g_esi; ++esi_change_count;
             }
         }
