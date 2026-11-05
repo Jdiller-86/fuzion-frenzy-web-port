@@ -411,4 +411,18 @@ Conclusion: the `0x203B90 -> 0x205E98` transition is produced by `FUN_001F6240` 
 
 Next bounded task: confirm the call form that reaches `FUN_001F6240` (direct `RECOMP_ABI_CALL` vs `RECOMP_ICALL_SAFE_AT`/tail) and its per-exit ESI restore, then report the exact defect for the translator owner.
 
+## 28. Coverage-gap class: non-call-site register writes
+
+Final characterization of the localized write and the logger gap:
+
+- `FUN_001F6240` assigns `esi` in-body at `0x1F62C4` (`esi = edx + ecx*8`, with `ecx = 3*MEM[esp+0x24]`) and its four callers are direct `RECOMP_ABI_CALL` sites (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`).
+- Its ESI accounting is unbalanced: one `PUSH esi`, two `POP esi`, three assignments. The value `0x205E98` is the computed pointer later read as `[ESI+0x47C]`.
+- The ABI logger reports zero ESI violations because it only compares **net** register values at wrapped call boundaries; an in-body write that is consumed before the boundary (or whose save/restore is path-dependent) is invisible to it. The fixture trace could see it only because it samples every guest access and is frozen at the stop.
+
+Coverage class: **non-call-site register writes** are outside the call-boundary ABI check. That is now pinned in the native fixture: `ff_reg_change_observable(at_call_boundary)` returns 1 only for a wrapped boundary, with assertions in `tests/tls_scope_test.c`.
+
+This is the final tooling-repair result: the instrument localizes the transition to `FUN_001F6240`/`0x1F62C4` and names the coverage class; the defect belongs to the translator/translation (register save/restore imbalance), not to the guest, the profile, or a harness workaround. No translator edit is made here.
+
+No DECISIONS row: tooling characterization.
+
 No DECISIONS row: tooling characterization.

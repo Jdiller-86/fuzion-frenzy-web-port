@@ -13,6 +13,11 @@ int main(void)
     assert(ff_tls_same_context(0u, 0u) == 0u);
     assert(ff_tls_same_context(0u, 0x03f00020u) == 0u);
 
+    /* ABI coverage class: only a wrapped call boundary can report a change;
+     * an in-body register write is outside the logger's coverage. */
+    assert(ff_reg_change_observable(1u) == 1u);
+    assert(ff_reg_change_observable(0u) == 0u);
+
     printf("tls_scope: ok\n");
     return 0;
 }
