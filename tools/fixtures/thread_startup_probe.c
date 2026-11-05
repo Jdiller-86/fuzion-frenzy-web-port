@@ -81,6 +81,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/pfifo_dma.h"
 #include "../../src/runtime/pfifo_status.h"
 #include "../../src/runtime/pfifo_pusher.h"
+#include "../../src/runtime/vblank_wait.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -146,7 +147,8 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
  * register contract and PMC aggregation come from the retained NV2A reference;
  * no timing source exists here, so nothing is raised unless the profile says so. */
 static ff_pcrtc_state pcrtc;
-static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site;
+static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site, pcrtc_declared;
+static uint32_t vblank_wait_calls, vblank_wait_type, vblank_wait_signal, vblank_wait_decision;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -190,8 +192,21 @@ uint32_t ff_probe_pcrtc(uint32_t vblanks)
     if (vblanks > 64u) return FF_BOOT_INVALID;
     ff_pcrtc_init(&pcrtc);
     for (uint32_t i = 0; i < vblanks; ++i) ff_pcrtc_vblank(&pcrtc);
+    pcrtc_declared = vblanks;
     pcrtc_ready = 1;
     return 0;
+}
+/* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
+uint32_t ff_probe_vblank_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return vblank_wait_calls;
+        case 1: return vblank_wait_type;
+        case 2: return vblank_wait_signal;
+        case 3: return vblank_wait_decision;
+        case 4: return pcrtc_declared;
+        default: return UINT32_MAX;
+    }
 }
 /* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
 uint32_t ff_probe_pcrtc_word(uint32_t field)
@@ -1885,6 +1900,43 @@ static void av_send_tv_encoder_option(void)
     row[11] = args[3]; /* output address the adapter wrote through */
 }
 #endif
+/* Ordinal 159 on the observed vblank event. One declared delivery per matching
+ * call: produce the PCRTC pending state, signal then consume the guest
+ * synchronization event, and return STATUS_SUCCESS. Any mismatch, exhaustion
+ * or non-event object keeps the unsupported-service stop. The ISR is not
+ * executed; its observable event signal is substituted. */
+static uint32_t kernel_binding_address(uint32_t ordinal)
+{
+    for (uint32_t i = 0; i < FF_KERNEL_BINDING_COUNT; ++i)
+        if (bindings[i].ordinal == ordinal) return FF_KERNEL_BASE + i * 4u;
+    return 0u;
+}
+static void wait_vblank(void)
+{
+    uint32_t *row = kernel_record(159u, 5u);
+    uint32_t object = MEM32(g_esp + 4u), reason = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
+    uint32_t alertable = MEM32(g_esp + 16u), timeout = MEM32(g_esp + 20u);
+    uint32_t type = 0u, signal = 0u;
+    if (object && object <= FF_GUEST_BYTES - 8u) {
+        type = MEM32(object);
+        signal = MEM32(object + 4u);
+    }
+    ++vblank_wait_calls;
+    vblank_wait_type = type;
+    vblank_wait_signal = signal;
+    vblank_wait_decision = ff_vblank_wait_accept(pcrtc_declared, object, reason, mode, alertable, timeout,
+                                                 type, signal);
+    if (vblank_wait_decision != FF_VBLANK_WAIT_ACCEPT) {
+        row[1] = 1u;
+        stop(1, kernel_binding_address(159u), 159u);
+    }
+    ff_pcrtc_vblank(&pcrtc);
+    --pcrtc_declared;
+    MEM32(object + 4u) = 1u;
+    MEM32(object + 4u) = 0u;
+    row[1] = 0u;
+    g_eax = 0u;
+}
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
     uint32_t offset = address - FF_KERNEL_BASE;
@@ -1957,6 +2009,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #endif
 #if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
         if (ordinal == 2 && av_query_ready) return av_send_tv_encoder_option;
+        if (ordinal == 159 && pcrtc_ready && pcrtc_declared) return wait_vblank;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is

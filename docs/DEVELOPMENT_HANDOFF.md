@@ -1,4 +1,8 @@
-# Service ordinal 159 is KeWaitForSingleObject on the vblank event
+# The ordinal-159 wait model is default-off and the event gate refused
+
+November 5: architect-authorized bounded model (reuse `pcrtcVblanks`, exact args, pinned event mechanism). Pure `vblank_wait` + native tests; harness handler bound only when vblanks are declared; `vblankWaitState`. Module 114 (717,065 bytes, SHA `b3ec6b2b?`). Control unchanged (339/405, status 13). Experiment (consumer + 3 vblanks): drains 499 words, releases fence 3 -> 9, then ordinal 159 once with object type `0x40000`, signal 0 → decision 3 (EVENT); gate refused, no writes, stop unchanged (status 1, `0xFE000094`, ordinal 159, 340/405). The object is not the pinned KEVENT; next is a read-only characterization. Checks: `test:native` 38/38, `test:runtime` pass, `check` 459 files. Default-off; no ISR/timing claim. **No controllable original screen.**
+
+## Prior: Service ordinal 159 is KeWaitForSingleObject on the vblank event
 
 November 5: read-only characterization, no implementation/hook/admission. Ordinal 159 (`0x9F`) = `KeWaitForSingleObject` (5 args, NTSTATUS), called from `D3DDevice_BlockUntilVerticalBlank` (`0x1F5520..0x1F5543`) with Object `0x00206080`, WaitReason 6, WaitMode 1, Alertable 0, Timeout NULL, retrying while nonzero. Pinned bridge: guest-event SignalState is truth, synchronization signal consumed; vblank must be delivered via PCRTC_INTR_0 bit 0 + PMC_INTR_0 bit 24 before the ISR; current profile has no vblanks. No modeled success without delivery. Branch fast-forwarded to the published integration head `1e35f8a`, restoring main ancestry. Checks: `check` 455 files, whitespace clean. Halt for the service decision. **No controllable original screen.**
 
