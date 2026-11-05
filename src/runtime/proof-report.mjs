@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -157,6 +157,32 @@ export function validateProofReport(report) {
     if (pfifo.consumerUpdates !== 0) throw new Error('PFIFO reset must not make a consumer update');
     if (!(pfifo.cache1 & 0x10) || !(pfifo.runout & 0x10))
       throw new Error('PFIFO reset must set LOW_MARK on both status registers');
+  }
+  /* The consumer prototype and its experiment declaration are a pair. A refused
+   * step must not advance GET; a completed one must consume at least one word
+   * and update the seam twice (LOW_MARK clear then set). */
+  const claimsConsumer = experiments.includes('pfifoConsumer');
+  if (report.pfifoConsumerState !== undefined && !claimsConsumer)
+    throw new Error('PFIFO consumer state requires the pfifoConsumer experiment');
+  if (claimsConsumer && report.pfifoConsumerState === undefined)
+    throw new Error('The pfifoConsumer experiment requires PFIFO consumer state');
+  if (report.pfifoConsumerState !== undefined) {
+    const consumer = report.pfifoConsumerState;
+    if (!consumer || consumer.scope !== 'prototype' || !integer(consumer.classification) ||
+        consumer.classification > 10 || !integer(consumer.get) || !integer(consumer.put) ||
+        !integer(consumer.base) || !integer(consumer.end) || !integer(consumer.wordsConsumed) ||
+        consumer.wordsConsumed > 4096 || !integer(consumer.consumerUpdates) ||
+        !integer(consumer.lastHeader) || !integer(consumer.steps) || consumer.steps > 64 ||
+        !integer(consumer.words) || consumer.words > 262144)
+      throw new Error('Malformed PFIFO consumer state');
+    if (consumer.classification === 0 &&
+        (consumer.wordsConsumed < 1 || consumer.consumerUpdates < 2))
+      throw new Error('A completed PFIFO pusher step must consume a word and update the seam');
+    if (consumer.classification !== 0 && consumer.classification !== 1 &&
+        consumer.wordsConsumed !== 0)
+      throw new Error('A refused PFIFO pusher step must not consume a word');
+    if (consumer.classification === 1 && consumer.wordsConsumed !== 0)
+      throw new Error('An empty PFIFO pusher step must not consume a word');
   }
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make

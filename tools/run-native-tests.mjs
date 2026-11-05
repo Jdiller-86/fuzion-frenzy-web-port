@@ -35,6 +35,7 @@ const fixtures = [
   { name: 'guest_write_map', sources: ['tests/guest_write_map_test.c', runtime('guest_write_map.c')] },
   { name: 'pfifo_channel', sources: ['tests/pfifo_channel_test.c', runtime('pfifo_channel.c')] },
   { name: 'pfifo_dma', sources: ['tests/pfifo_dma_test.c', runtime('pfifo_dma.c')] },
+  { name: 'pfifo_pusher', sources: ['tests/pfifo_pusher_test.c', runtime('pfifo_pusher.c'), runtime('pfifo_status.c')] },
   { name: 'av_query_fixture', sources: ['tests/av_query_fixture_test.c', runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'av_query_adapter', sources: ['tests/av_query_adapter_test.c', runtime('av_query_adapter.c'), runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'fatx_volume', sources: ['tests/fatx_volume_test.c', runtime('fatx_volume.c'), runtime('local_disk.c'), runtime('file_namespace.c'), runtime('local_volume.c'), runtime('local_directories.c'), runtime('object_namespace.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },

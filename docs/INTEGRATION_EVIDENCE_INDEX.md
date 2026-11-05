@@ -2,11 +2,58 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7460 admission
+## Latest: PFIFO pusher prototype (default-off)
+
+- [PFIFO consumer prototype](PFIFO_CONSUMER_PROTOTYPE_CHECKPOINT.md): new `src/runtime/pfifo_pusher.c/.h` with a native fixture (36/36 component runs, optimized + ASan/UBSan), `pfifoConsumer` profile input, report state and validator, and a gated 64-step hook at the status-13 DMA_GET site. No admission, export or seed change.
+- Control on module 106 (715,696 bytes, SHA `6b578577...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
+- The opt-in consumer run wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait into an unbounded CPU-side wait. Halted and not chased; the consumer remains default-off. The next step is an execution/instruction budget or evidence about the post-consumption completion condition — a fresh architect decision. This record is `D347`.
+
+## Prior: 0x202150 read-only characterization
+
+- [Present characterization](PRESENT_STATIC_CHARACTERIZATION_CHECKPOINT.md): no admission, export or seed change. `0x202150` (`D3DDevice_Present`) is `body 0x202150..0x2022D0`, 115 instructions / 385 bytes, 115/115 decoded, one `RET 0x10`, 20 basic blocks, no tables; two loops (fence wait, submit retry).
+- Conflict recorded: Present and its three untranslated direct callees were already admitted in `7dae2e4` under the previous architect-subagent authorization, so the directive's post-table/no-admission premise is stale. Seven direct callees classified: `D3D_SetFence`, `0x1FACA0`, `CDevice_KickOff`, `D3D_KickOffAndWaitForIdle` pre-existing; `0x201E80`, `0x202060`, `0x1F5520` added in translation 83. Nine calls use seven kernel-ordinal pointer sites (`0x80000001/2/3/4/0xAB/0xB2/0xB4`), not code. Caller `0x42C5E` in `FUN_00042be0` builds a 640×480 format-7 descriptor first.
+- The retained run still stops at status 13, `0xFD800044` (PFIFO MMIO), `stopReason: "pushbuffer consumption required"`: the next requirement is a runtime pushbuffer consumer, not translation. No ambiguous boundary was found. This record is `D346`.
+
+## Prior: 0x202150 present admission and PFIFO boundary
+
+- [The 0x202150 batch](FRONTIER_DEP_202150_CHECKPOINT.md): translation 83 (461 functions / 18,940 instructions), module 104 (714,276 bytes, SHA `ff29e855...`), control 279/404 (status 1, ordinal 2) vs experiment 339/405 (status 13 at `0xFD800044`, ordinal 1), comparator exit 0 (+60 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 554/0, package verifier 46/46 digests, frontier 554/93/92.
+- The post-table region decision was escalated once to the project architect, which authorized one bounded set. `0x202150` (`D3DDevice_Present`) was **already established**, so no create-function was made; Present plus its three untranslated immediate direct callees (`0x201E80`, `0x202060`, `0x1F5520`) were admitted — 4 functions, no transitive expansion — with an existing 2-function export folded into the 6-function seed to keep 32 exports.
+- The status-2 stop at `0x202150` is gone. The new stop is a **PFIFO MMIO register**, not code (`stopReason: "pushbuffer consumption required"`): the title submitted pushbuffer commands and is waiting for consumption, and the synthetic harness has no consumer. PFIFO pushbuffer consumption is the next fresh architect decision. This batch is `D345`.
+
+## Prior: 0x1F65F0 table-coverage completion
+
+- [The 0x1F65F0 batch](FRONTIER_DEP_1F65F0_CHECKPOINT.md): translation 82 (457 functions / 18,626 instructions), module 103 (705,795 bytes, SHA `6e298d44...`), table coverage **28/28**, control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation, unchanged from module 102), `verify-seeds` 32/32, `verify-translation` 547/0, package verifier 45/45 digests.
+- `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`, index 134) is never set by this profile and was the only untranslated table handler. It needed one bounded create-function at that address only; the 9-instruction / 37-byte leaf calls the already-translated `0x1F5640`.
+- The merged seed hit the 32-function-per-export limit; two existing single-function exports were regrouped into one 2-function export, keeping **32 exports**. The post-table `D3DDevice_Present` stop is still unadmitted and the next region remains a fresh architect decision. This batch is `D344`.
+
+## Prior: 0x1F7570 admission and render-state table completion
+
+- [The 0x1F7570 batch](FRONTIER_DEP_1F7570_CHECKPOINT.md): translation 81 (456 functions / 18,617 instructions), module 102 (705,414 bytes, SHA `27ceaa9e...`), control 279/404 at ordinal 2 vs experiment 332/405 at post-table `0x00202150`, comparator exit 0 (+53 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 546/0, package verifier 43/43 digests.
+- `0x1F7570` (index 142) and `0x1F7590` (index 143) were the last render-state handlers; each needed one bounded create-function at that address only. Both are 4-instruction / 17-byte wrappers calling the already-admitted `0x1F7230`.
+- **The render-state table is complete.** The new stop is status 2 at `0x00202150`, the code symbol `D3DDevice_Present`, called from `0x42C5E` in `FUN_00042be0`. It was not admitted; the next region is a fresh architect decision. This batch is `D343`.
+
+## Prior: 0x1F7550 admission
+
+- [The 0x1F7550 batch](FRONTIER_DEP_1F7550_CHECKPOINT.md): translation 80 (454 functions / 18,609 instructions), module 101 (705,079 bytes, SHA `cfb7b918...`), control 279/404 at ordinal 2 vs experiment 324/405 at untranslated `0x1F7570`, comparator exit 0 (+45 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 544/0, package verifier 41/41 digests.
+- `0x1F7550` (`D3DDevice_SetRenderState_RopZCmpAlwaysRead`, table index 141) was a named symbol without a function; one bounded create-function at that address only made it admissible. The 4-instruction / 17-byte seed (`610fda82...`) stores its argument and calls `0x1F7230`, an already-established 45-instruction / 200-byte function (`2038c102...`) that calls translated `0x1FB3B0`.
+- The render-state table still does **not** end here: index 143 (`0x1F7590`) remains and index 144 onward is non-pointer data, so `0x1F7570` is an ordinary in-region stop and no post-table region is declared. This batch is `D342`.
+
+## Prior: 0x1F74F0 admission
+
+- [The 0x1F74F0 batch](FRONTIER_DEP_1F74F0_CHECKPOINT.md): translation 79 (452 functions / 18,560 instructions), module 100 (703,605 bytes, SHA `c0300987...`), control 279/404 at ordinal 2 vs experiment 322/405 at untranslated `0x1F7550`, comparator exit 0 (+43 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 542/0, package verifier 39/39 digests.
+- `0x1F74F0` (`D3DDevice_SetRenderState_StencilCullEnable`, table index 140) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`8b53384b...`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. The render-state table does **not** end at index 140 (indices 141-143 remain), so `0x1F7550` is an ordinary in-region stop.
+- Published architect `d4e0107` was merged at `a4c7f7c` before this row, with the `D339` collision resolved by keeping the architect merge row and renumbering the `0x1F7490` admission to `D340`; this batch is `D341`.
+
+## Prior: 0x1F7490 admission
+
+- [The 0x1F7490 batch](FRONTIER_DEP_1F7490_CHECKPOINT.md): translation 78 (451 functions / 18,534 instructions), module 99 (702,974 bytes, SHA `29e93797…`), control 279/404 at ordinal 2 vs experiment 321/405 at untranslated `0x1F74F0`, comparator exit 0 (+42 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 541/0, package verifier 38/38 digests.
+- `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`7dfc9582…`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. `0x1F74F0` is the next ordinary stop (table index 140).
+- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D340` (primary; `D339` is the architect merge row).
+
+## Prior: 0x1F7460 admission
 
 - [The 0x1F7460 batch](FRONTIER_DEP_1F7460_CHECKPOINT.md): translation 77 (450 functions / 18,508 instructions), module 98 (702,324 bytes, SHA `60d2a65f…`), control 279/404 at ordinal 2 vs experiment 320/405 at untranslated `0x1F7490`, comparator exit 0 (+41 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 540/0, package verifier 37/37 digests.
-- `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 12-instruction / 37-byte seed (`0b8d447b…`) calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`. `0x1F7490` is the next ordinary stop (table index 139).
-- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D338` (primary).
+- `0x1F7460` (`D3DDevice_SetRenderState_YuvEnable`, table index 138) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 12-instruction / 37-byte seed (`0b8d447b…`) calls already-translated `0x1FB3B0` and `0x1F7080`, and ends in `RET 4`.
 
 ## Prior: 0x1F6760 admission
 

@@ -7,6 +7,98 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
+## PR #8 exact-head evidence and merge outcome (November 5, 2026)
+
+### Pre-merge head/base SHA equality
+
+| Item | Value |
+| --- | --- |
+| PR #8 | `codex/opencode-architect@d4e0107ec1ca1cd2bac245cecffcc165778f88d8` -> `main@42287210e508575e82951fbd8dd2f9b413721bce` |
+| Head equals the architect branch head | yes: `codex/opencode-architect` and `origin/codex/opencode-architect` are both `d4e0107ec1ca1cd2bac245cecffcc165778f88d8` |
+| Base equals the published main at PR creation | yes: published `main` was `42287210e508575e82951fbd8dd2f9b413721bce`, and it is an ancestor of the head |
+| PR size | 17 commits, 31 changed files, +2797/-10 |
+| Opened / merged | created 2026-11-05T07:42:01Z, merged 2026-11-05T08:41:06Z |
+
+### Green preparation check-runs at the exact head (read-only, GitHub API)
+
+| Run | Event | State | Jobs |
+| --- | --- | --- | --- |
+| `41989058506` | `push`, branch `codex/opencode-architect` | `completed` / **success** (07:41:58Z -> 07:42:44Z) | `127116665260` "preparation (windows-latest)" success; `127116665622` "preparation (ubuntu-latest)" success |
+| `41989072434` | `pull_request` | `completed` / **success** (07:42:05Z -> 07:42:55Z) | `127116710662` "preparation (ubuntu-latest)" success; `127116710973` "preparation (windows-latest)" success |
+
+Both runs report head `d4e0107ec1ca1cd2bac245cecffcc165778f88d8`.
+
+### `verify-exact-head` pass at `d4e0107`
+
+`node tools/verify-exact-head.mjs d4e0107` -> **exit 0**: the candidate is the
+architect head; the published base (the merge commit `4b94a64`, whose two sides
+are both in the head's history) is **parents-contained**, head ahead 0 / behind
+1, **0 missing base paths**; 435 tracked paths at the head. Against the merge
+commit itself the tool exits 1 with "not the architect head", which is
+structural: a merge commit lives on `main` while the architect branch head
+stays at `d4e0107`.
+
+### Merge outcome
+
+| Item | Value |
+| --- | --- |
+| PR #8 | **merged** at 2026-11-05T08:41:06Z |
+| Merge commit | `4b94a64aebc5d3bbf69629df67f37c19328610ac` "Merge reviewed architect integration", parents `42287210…` and `d4e0107e…` |
+| Published main | `main` -> `4b94a64aebc5d3bbf69629df67f37c19328610ac` |
+| Merge content delta | `git diff d4e0107 4b94a64a` changes **no** path |
+| CI at the merge commit | run `41996378818` "Preparation checks", event `push`, branch `main`, `completed` / **success** (08:41:08Z -> 08:41:57Z); jobs `127140449105` "preparation (windows-latest)" success, `127140449344` "preparation (ubuntu-latest)" success |
+
+### Publication state
+
+The lane head `2c8af62` (the PR #7 record and the identity fix) is an ancestor
+of both `d4e0107` and the merged main `4b94a64a`, so the verification record
+and its tooling are published in `main` again. The lane's own published ref
+`origin/codex/opencode-verification` is still the pre-rebase `077ee14`, so the
+runner's plain lane push still cannot fast-forward it; the content reaches the
+published line through the architect's integration, as in the previous cycle.
+
+The lane branch was fast-forwarded onto the new published integration head
+`d4e0107` (a plain fast-forward, no merge commit, no history rewrite; the
+lane's earlier record commit stays in that history), so this record sits on the
+same base as the candidate it describes.
+
+### Evidence limits
+
+- The merge, CI and pull-request facts are a read-only observation of the public
+  GitHub API without credentials on 2026-11-05.
+- The lane resync is a local, verified change; the architect's integration of
+  it is its own action.
+- The render-state batch admissions through `0x1F7460` and the planned
+  read-only `0x00202150` (`D3DDevice_Present`) characterization are the primary
+  and architect lanes' work. This lane checked head identity, ancestry and CI
+  only, and makes no claim about admission, export, seed or translation state.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs d4e0107` -> exit 0.
+- `node tools/verify-exact-head.mjs 4b94a64a` -> exit 1 (merge commit, not the
+  architect head; expected).
+- `git merge-base --is-ancestor 2c8af62 4b94a64a` -> 0 (the lane record is in
+  the published main).
+- `git merge-base --is-ancestor 4228721 d4e0107` -> 0 (the PR #8 base is
+  contained in the head).
+- `git diff --name-only d4e0107 4b94a64a` -> no path.
+- `node --test tests/verification-exact-head.test.mjs` -> 14/14 pass.
+- `node --test tests/integration-verification.test.mjs` -> 7/7 pass.
+- `npm run test:runtime` -> 196 tests, 195 pass, 0 fail, 1 pre-existing skip
+  (the absent private production XBE).
+- `npm run check` -> publication guard passed for 435 source files.
+- `git diff --check` -> clean.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the next
+published architect head and its main pull request; the same command checks
+that head against the then-current architect head and the published merge
+target. No further tooling work is authorized until the architect asks for it.
+
 ## PR #7 exact-head evidence and merge outcome (November 5, 2026)
 
 ### Pre-merge head/base SHA equality

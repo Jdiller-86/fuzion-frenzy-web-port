@@ -80,6 +80,7 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/pcrtc_state.h"
 #include "../../src/runtime/pfifo_dma.h"
 #include "../../src/runtime/pfifo_status.h"
+#include "../../src/runtime/pfifo_pusher.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -353,6 +354,34 @@ static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0)
 #ifdef FF_PFIFO_PROOF
 static ff_pfifo_channel pfifo_profile_channel;
 static uint32_t pfifo_profile_ready;
+/* Default-off consumer prototype. It runs one bounded pusher step per PFIFO
+ * DMA_GET read and only advances GET over words the guest CPU wrote. The
+ * default path is unchanged and still stops at status 13. */
+static uint32_t pfifo_consumer_enabled, pfifo_consumer_ready;
+#define FF_PFIFO_CONSUMER_MAX_STEPS 64u
+static uint32_t pfifo_consumer_steps, pfifo_consumer_words;
+static ff_pfifo_pusher pfifo_consumer_pusher;
+static ff_pfifo_status mmio_pfifo_status;
+static uint32_t pfifo_consumer_read_word(void *context, uint32_t address, uint32_t *value)
+{
+    (void)context;
+    if ((address & 3u) || address > FF_GUEST_BYTES - 4u) return 1;
+    *value = MEM32(address);
+    return 0;
+}
+static uint32_t pfifo_consumer_span_written(void *context, uint32_t address, uint32_t bytes)
+{
+    (void)context;
+    if (!bytes || (address & 3u) || address > FF_GUEST_BYTES || bytes > FF_GUEST_BYTES - address)
+        return 0;
+    for (uint32_t offset = 0; offset < bytes; offset += 4u) {
+        uint32_t page = (address + offset) / FF_GUEST_WRITE_MAP_PAGE;
+        if (page >= FF_GUEST_WRITE_MAP_PAGES) return 0;
+        if (!(ff_guest_write_map_word(&guest_write_map, page / 32u) & (1u << (page % 32u))))
+            return 0;
+    }
+    return 1;
+}
 uint32_t ff_probe_pfifo_profile(uint32_t base, uint32_t end, uint32_t put)
 {
     if (ff_pfifo_channel_configure(&pfifo_profile_channel, base, end)) return FF_BOOT_INVALID;
@@ -424,6 +453,36 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
             if (pfifo_ring.enabled && ff_pfifo_channel_empty(&pfifo_ring)) {
                 uint32_t *get = ff_device_registers_slot(&device_registers, address);
                 if (get) { *get = ff_pfifo_channel_read_get(&pfifo_ring); pfifo_served = 1; }
+            }
+        }
+#endif
+#ifdef FF_PFIFO_PROOF
+        if (!pfifo_served && pfifo_consumer_enabled && access == FF_VM_READ &&
+            ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            uint32_t *get = ff_device_registers_slot(&device_registers, address);
+            if (put && get) {
+                uint32_t base = pfifo_profile_channel.ready ? pfifo_profile_channel.base : 0u;
+                uint32_t end = pfifo_profile_channel.ready ? pfifo_profile_channel.end : 0u;
+                uint32_t result;
+                pfifo_consumer_ready = 1;
+                if (pfifo_consumer_steps >= FF_PFIFO_CONSUMER_MAX_STEPS) {
+                    /* The wait persisted past the bounded step budget. Refuse
+                     * further consumption and stop at the status-13 site. */
+                    ff_pfifo_pusher_init(&pfifo_consumer_pusher, base, end, *get, *put);
+                    pfifo_consumer_pusher.classification = FF_PFIFO_PUSH_BUDGET;
+                } else {
+                    ff_pfifo_pusher_init(&pfifo_consumer_pusher, base, end, *get, *put);
+                    result = ff_pfifo_pusher_step(&pfifo_consumer_pusher, pfifo_consumer_read_word,
+                                                  pfifo_consumer_span_written, NULL,
+                                                  &mmio_pfifo_status, FF_PFIFO_PUSHER_MAX_WORDS);
+                    ++pfifo_consumer_steps;
+                    if (result == FF_PFIFO_PUSH_OK) {
+                        pfifo_consumer_words += pfifo_consumer_pusher.words_consumed;
+                        *get = pfifo_consumer_pusher.get;
+                        pfifo_served = 1;
+                    }
+                }
             }
         }
 #endif
@@ -828,7 +887,6 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
 }
 #ifdef FF_MMIO_PROOF
 static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset, mmio_pfifo_reset_count;
-static ff_pfifo_status mmio_pfifo_status;
 static uint32_t av_query_word, av_query_ready;
 /* Explicit, default-off synthetic raw DWORD for the observed ordinal-2 query.
  * The worker must call this before the run; without it the service stays
@@ -890,6 +948,36 @@ uint32_t ff_probe_pfifo_status_word(uint32_t field)
         case 3: return mmio_pfifo_status.dma_push;
         case 4: return mmio_pfifo_status.consumer_updates;
         case 5: return mmio_pfifo_reset_count;
+        default: return 0;
+    }
+}
+/* Explicitly experimental and default-off: run one bounded PFIFO pusher step at
+ * a DMA_GET read. Without this input the status-13 fail-closed path is
+ * unchanged. No method is executed and no guest word is written. */
+uint32_t ff_probe_pfifo_consumer(uint32_t enable)
+{
+    if (enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    pfifo_consumer_enabled = enable;
+    return 0;
+}
+/* Consumer accounting for the report. Field 0 is the opt-in flag, 1 the
+ * reached flag, 2 the refusal/advance classification, 3-6 the pointers, 7-8 the
+ * word and seam-update counters, 9 the last decoded header. */
+uint32_t ff_probe_pfifo_consumer_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return pfifo_consumer_enabled ? 1u : 0u;
+        case 1: return pfifo_consumer_ready;
+        case 2: return pfifo_consumer_pusher.classification;
+        case 3: return pfifo_consumer_pusher.get;
+        case 4: return pfifo_consumer_pusher.put;
+        case 5: return pfifo_consumer_pusher.base;
+        case 6: return pfifo_consumer_pusher.end;
+        case 7: return pfifo_consumer_pusher.words_consumed;
+        case 8: return pfifo_consumer_pusher.consumer_updates;
+        case 9: return pfifo_consumer_pusher.last_header;
+        case 10: return pfifo_consumer_steps;
+        case 11: return pfifo_consumer_words;
         default: return 0;
     }
 }
