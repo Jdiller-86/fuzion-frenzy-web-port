@@ -48,6 +48,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F74F0` is the next ordinary indirect render-state entry (table index 140); it was not entered. A later ≤8-function batch may continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
+The observed stop `0x1F74F0` is the next ordinary indirect render-state entry (table index 140); it was not entered here. It was subsequently established persistently and admitted in translation 79/module 100, and the new observed stop is `0x1F7550`. See [the 0x1F74F0 checkpoint](FRONTIER_DEP_1F74F0_CHECKPOINT.md). These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability.
 
 The persistent `0x1F7490` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.

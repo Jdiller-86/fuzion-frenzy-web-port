@@ -2,7 +2,13 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7490 admission
+## Latest: 0x1F74F0 admission
+
+- [The 0x1F74F0 batch](FRONTIER_DEP_1F74F0_CHECKPOINT.md): translation 79 (452 functions / 18,560 instructions), module 100 (703,605 bytes, SHA `c0300987...`), control 279/404 at ordinal 2 vs experiment 322/405 at untranslated `0x1F7550`, comparator exit 0 (+43 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 542/0, package verifier 39/39 digests.
+- `0x1F74F0` (`D3DDevice_SetRenderState_StencilCullEnable`, table index 140) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`8b53384b...`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. The render-state table does **not** end at index 140 (indices 141-143 remain), so `0x1F7550` is an ordinary in-region stop.
+- Published architect `d4e0107` was merged at `a4c7f7c` before this row, with the `D339` collision resolved by keeping the architect merge row and renumbering the `0x1F7490` admission to `D340`; this batch is `D341`.
+
+## Prior: 0x1F7490 admission
 
 - [The 0x1F7490 batch](FRONTIER_DEP_1F7490_CHECKPOINT.md): translation 78 (451 functions / 18,534 instructions), module 99 (702,974 bytes, SHA `29e93797…`), control 279/404 at ordinal 2 vs experiment 321/405 at untranslated `0x1F74F0`, comparator exit 0 (+42 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 541/0, package verifier 38/38 digests.
 - `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`7dfc9582…`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. `0x1F74F0` is the next ordinary stop (table index 140).

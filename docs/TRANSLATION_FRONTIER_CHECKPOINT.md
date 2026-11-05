@@ -1,4 +1,15 @@
-# The 0x1F7490 batch advances the stop to 0x1F74F0
+# The 0x1F74F0 batch advances the stop to 0x1F7550
+
+November 5, 2026. After syncing the published architect head `d4e0107` (rows renumbered so `D339` stays the architect merge row and the `0x1F7490` admission is `D340`), this cycle admitted `0x1F74F0` (`D3DDevice_SetRenderState_StencilCullEnable`, dispatch table index 140). It was a named symbol without a function, so one bounded create-function at that address only was added (`body 0x1F74F0..0x1F754B`); the table does not end there (indices 141-143 remain), so this is not a post-table region. Its 26-instruction / 92-byte leaf calls already-translated `0x1FB3B0`, has internal conditional branches, and ends in `RET 4`; preflight is 26/26, no tables or normalizations. The seed was appended to the merged 27-function seed (`877657f2?`, 28 functions), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-79` contains **452 functions / 18,560 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 542/0. Module `recomp-post-memory-build-100` is 703,605 bytes, SHA-256 `c03009873b3f46c7a248da4abcad6b74a34af8d5862305108afd8aaf88adcf96`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F7550`** | 322 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +43 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F74F0` executed; `0x1F7550` was not entered. Frontier: **542 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics; the render-state table is not complete and no post-table region is declared.
+
+## Prior: The 0x1F7490 batch advances the stop to 0x1F74F0
 
 November 5, 2026. `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 26-instruction / 92-byte leaf calls already-translated `0x1FB3B0`, has internal conditional branches, and ends in `RET 4`; preflight is 26/26, no tables or normalizations. The seed was appended to the merged 27-function seed (`df3d4c44?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-78` contains **451 functions / 18,534 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 541/0. Module `recomp-post-memory-build-99` is 702,974 bytes, SHA-256 `29e937977e0c435d12dcb1d253eef090d0cb4ad88354f0b1fa5e224bc4e529b5`.
 
