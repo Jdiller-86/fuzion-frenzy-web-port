@@ -151,7 +151,7 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avUnknownOption', 'avSavedData', 'avNullResult', 'mmFreeContiguous', 'avQueryWord'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avUnknownOption', 'avSavedData', 'avNullResult', 'mmFreeContiguous', 'guestWatch', 'guestWatchAddr', 'siteWatch', 'avQueryWord'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
@@ -165,6 +165,9 @@ export function parseLocalMmioProfile(buffer) {
   const avSavedData = device?.avSavedData === true;
   const avNullResult = device?.avNullResult === true;
   const mmFreeContiguous = device?.mmFreeContiguous === true;
+  const guestWatch = device?.guestWatch === true;
+  const guestWatchAddr = device?.guestWatchAddr;
+  const siteWatch = device?.siteWatch === true;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
@@ -217,9 +220,12 @@ export function parseLocalMmioProfile(buffer) {
   if (avQueryWord !== undefined &&
       (!Number.isInteger(avQueryWord) || avQueryWord < 0 || avQueryWord > 0xffffffff))
     throw new Error('The synthetic AV query word must be an explicit 32-bit value');
+  if (guestWatchAddr !== undefined &&
+      (!Number.isInteger(guestWatchAddr) || guestWatchAddr < 0 || guestWatchAddr > 0xffffffff))
+    throw new Error('The guest-watch address must be an explicit 32-bit value');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avUnknownOption, avSavedData, avNullResult, mmFreeContiguous, avQueryWord };
+    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avUnknownOption, avSavedData, avNullResult, mmFreeContiguous, guestWatch, guestWatchAddr, siteWatch, avQueryWord };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -238,6 +244,8 @@ export function describeMmioExperiments(profile) {
   if (profile.avSavedData) active.push('avSavedData');
   if (profile.avNullResult) active.push('avNullResult');
   if (profile.mmFreeContiguous) active.push('mmFreeContiguous');
+  if (profile.guestWatch) active.push('guestWatch');
+  if (profile.siteWatch) active.push('siteWatch');
   if (profile.avQueryWord !== undefined) active.push('avQuery');
   return active;
 }
