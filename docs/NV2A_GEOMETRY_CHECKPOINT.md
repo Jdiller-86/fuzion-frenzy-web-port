@@ -181,12 +181,14 @@ Directive verified at its source: the architect record at `fd0ea19c1c56de9b06ee0
 
 Lane-start failure reason, recorded as required: the prepass could not be started in this source-only worktree because every input it depends on is absent here. Checked this cycle:
 
-- `.tools/emulation/` contains 22 entries, all `sdl-browser-test-*`; there is no line/quad reference directory and no `geom-reference-01` or triangle-prepass directory.
+- `.tools/emulation/` contains only `sdl-browser-test-*` scratch directories (23 at this re-check, the newest created by an unrelated SDL browser lane); there is no line/quad reference directory and no `geom-reference-01` or triangle-prepass directory.
 - `research/` is absent, so no comparison-report location exists in this worktree.
 - `tools/fixtures/nv2a_geometry_check.html` is triangle-only: it calls `_ff_nv2a_expand_triangle` and expects the 126-input / 4-state / 153-output triangle schema. It contains no `_ff_nv2a_expand_line` or `_ff_nv2a_expand_quad` entry point, so no line/quad browser harness exists to run.
 - No compiled `check.js` module exists under `tools/`, `src/` or `scripts/`, and `emcc` is not on PATH, so the Wasm module the browser fixture loads cannot be rebuilt here.
 
 Result: no comparison ran, no fixture server or browser tab was opened, and no screenshot, DOM result or report was produced. Nothing was captured, generated or inferred.
+
+Re-check under the re-issued directive: all four preconditions above were re-run this cycle and are unchanged, so the failure reason stands and the lane-start recording requirement is satisfied by the commit that first recorded it (`5ffaebe`); this cycle is not silent.
 
 Blocker for the primary lane: the retained native line/quad reference is private and unavailable in this source-only worktree, so no exact-bit line/quad comparison against the measured arithmetic profile is possible here. A synthetic-only harness would compare the source-owned component against itself and could not support any fidelity or original-rendering claim, so none was built. Unblocking needs either the retained line/quad reference supplied to this lane in an admissible source-owned form, or an authorized reference capture; capture work, new fixtures and comparator exports remain outside this lane's source-only boundary.
 
