@@ -59,4 +59,4 @@ package verified
 
 ## Next and limits
 
-The observed stop `0x1F6910` is an ordinary untranslated routine. Per the directive, a later dependency-closure batch (≤8 functions/set) may continue only while stops remain ordinary and after the required review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1FCB70` was translated but did not execute in this run.
+The observed stop `0x1F6910` is an ordinary untranslated routine. Per the directive, a later dependency-closure batch (≤8 functions/set) may continue only while stops remain ordinary and after the required review; this cycle stops here. `0x1F6910` was subsequently admitted in translation 56/module 77; the observed next stop is `0x1F5B70` (Path B). See [the 0x1F6910 checkpoint](FRONTIER_DEP_1F6910_CHECKPOINT.md). These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1FCB70` was translated but did not execute in this run.

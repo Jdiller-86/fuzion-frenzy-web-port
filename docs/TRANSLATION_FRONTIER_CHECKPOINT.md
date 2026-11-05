@@ -1,4 +1,15 @@
-# The Path A admission advances the stop to 0x1F6910
+# The 0x1F6910 dependency batch advances the stop to 0x1F5B70
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-56` admits the ordinary dependency `0x1F6910` (28 instructions / 95 bytes) in the merged 3-function seed while keeping 32 exports. It contains **427 functions / 17,807 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 518/0. Module `recomp-post-memory-build-77` is 676,813 bytes, SHA-256 `0f41fd06b47743dc7c86cbdb6f566fa4689bcc5d32ba92155e26d30309e86635`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F5B70`** | 292 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +13 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6910` executed; `0x1F5B70` was not entered. The next stop is Path B (`0x1F5B70` + `0x1F6300` + the translated `0x1FC980`). Frontier: **518 functions, 91 placeholders, 90 referenced**; `0x1F5B70` called by executed `0x1F5640`. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The Path A admission advances the stop to 0x1F6910
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-55` admits the observed Path A set `0x1F70E0` + `0x1FC980` + table-aware `0x1FCB70` under the frozen 32-export grouping. It contains **426 functions / 17,779 instructions**; all three new functions have real guarded bodies; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-76` is 675,058 bytes, SHA-256 `5d596ab2c24d022b267faf4409fcd189ee62bcd059004662fdae885062dd5518`.
 

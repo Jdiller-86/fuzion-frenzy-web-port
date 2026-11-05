@@ -11,6 +11,9 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - [The Path A admission](FRONTIER_PATH_A_ADMISSION_CHECKPOINT.md): translation 55 (426 functions / 17,779 instructions), module 76 (675,058 bytes, SHA `5d596ab2…`), control 279/404 at ordinal 2 vs experiment 289/405 at untranslated `0x1F6910`, comparator exit 0 (+10 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0, package verifier 13/13 digests.
 - The provisional acceptance's 35 offered seeds were corrected to the frozen 32-export limit; no tooling change was made. `0x1F70E0`/`0x1FC980` executed; `0x1FCB70` was translated but not reached. The next stop `0x1F6910` is ordinary; no further batch this cycle.
 
+- [The 0x1F6910 dependency batch](FRONTIER_DEP_1F6910_CHECKPOINT.md): translation 56 (427 functions / 17,807 instructions), module 77 (676,813 bytes, SHA `0f41fd06…`), control 279/404 at ordinal 2 vs experiment 292/405 at untranslated `0x1F5B70`, comparator exit 0 (+13 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 518/0, package verifier 14/14 digests.
+- The next stop is ordinary Path B (`0x1F5B70` + `0x1F6300` + translated `0x1FC980`); no batch this cycle. The provisional continuation remains `approved: false`.
+
 ## Source lane
 
 - Branch/head: `codex/opencode-source`, last source/CI commit `3ef6024` (`Run the full Python evidence suite in preparation CI`); docs-only hold records follow.
