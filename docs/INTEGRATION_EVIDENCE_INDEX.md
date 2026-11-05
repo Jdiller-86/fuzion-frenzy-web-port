@@ -2,11 +2,26 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: PFIFO pusher prototype (default-off)
+## Latest: PFIFO responder reaches service 159
+
+- [Completion-flag checkpoint §7](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): architect-authorized default-off responder (drain to PUT + one-shot sequence release; latch unmodeled). Module 112 (716,327 bytes, SHA `0304f2f6...`). Control unchanged (status 13 at `0xFD800044`, 339/405); consumer drained 173 packets / 499 words, released the fence 3 -> 9, exited the wait, and stopped at status 1, `0xFE000094`, ordinal 159 (unsupported service), 340/405. This is `D354`.
+## Latest: PFIFO completion-flag characterization (read-only)
+
+- [The completion-flag checkpoint](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): the post-consumption wait polls the dword at **`0x03BFF000`** (`[context 0x00203B90 + 0x3F0]`) from `D3D_BlockOnTime` at PC `0x1FB0D4`, looping until `fence >= target`. Observed fence 3, context sequence 9, GET `0x03B7D008`, PUT `0x03B7D7CC`. The value comes from the GPU semaphore release (`0x1D70`) with the kick marker `0x0310`/PGRAPH `0x400B10` latch; a responder must consume the stream and publish the release. No implementation, hook or admission. This is `D353`.
+
+## Prior: PFIFO boundary design note (design-only)
+
+- [The PFIFO boundary design note](PFIFO_BOUNDARY_DESIGN_NOTE.md): validates the default-off pusher against `pfifo-decode.mjs`, `pfifo-ring.mjs`, `pfifo_channel.c`, `pfifo_status.c` and `pfifo_dma.c`; records the exact MMIO sequence, the GET-site order, the control/consumer observations, and the minimal responder requirements. No hook, guest connection, admission, export, seed or translation change.
+- Checks: `test:native` 36/36, PFIFO JS component tests 19/19, `test:runtime` 197/0. Control remains 339/405 at `0xFD800044`; the consumer run still ends in a generic `RuntimeError: unreachable` trap with no classified stop. This record is `D349`.
+- The retained control device log pins the GET-site sequence: 93 PFIFO accesses, GET served as the ring base (`0x03B7D000`) while PUT equals the base, status LOW_MARK/LOW_MARK and DMA_PUSH=1, then submissions at `0x03B7D7B4`/`0x03B7D7CC` and the unlogged status-13 stop. At the consumer site: base `0x03B7D000`, GET `0x03B7D000`, PUT `0x03B7D7CC`, span just under 2 KiB. This refinement is `D350`.
+- Module 108 scopes the VM budget to real call sites (excluding probe reads): control still 339/405 at `0xFD800044`, consumer still the same generic trap, so the trap is not a probe read consuming the budget. The worker trap classification remains the open gap. This fix is `D351`.
+- Module 110 completes the evidence path (post-run disarm; reset-seam consumer updates allowed when declared): the consumer run now classifies as **status 13 at `0x03BFF000`** (guest RAM), 339/405, classification **8 (budget)**, `budgetHit 1`, `steps 1`, `words 2`, GET `0x03B7D008`, PUT `0x03B7D7CC`, `vmChecks 500000`; one packet consumed, then a guest-memory completion-flag poll. This is `D352`.
+
+## Prior: PFIFO pusher prototype (default-off)
 
 - [PFIFO consumer prototype](PFIFO_CONSUMER_PROTOTYPE_CHECKPOINT.md): new `src/runtime/pfifo_pusher.c/.h` with a native fixture (36/36 component runs, optimized + ASan/UBSan), `pfifoConsumer` profile input, report state and validator, and a gated 64-step hook at the status-13 DMA_GET site. No admission, export or seed change.
-- Control on module 106 (715,696 bytes, SHA `6b578577...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
-- The opt-in consumer run wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait into an unbounded CPU-side wait. Halted and not chased; the consumer remains default-off. The next step is an execution/instruction budget or evidence about the post-consumption completion condition — a fresh architect decision. This record is `D347`.
+- Control on module 107 (715,740 bytes, SHA `03f94490...`): status 13 at `0xFD800044`, 339/405, no consumer state — the default is unchanged.
+- The opt-in consumer run originally wrote no report and did not terminate within 300 s (an earlier attempt exceeded 900 s); the 64-step GET budget did not fire, so the run passed the PFIFO wait. A 500,000-access VM budget was then added: the consumer now writes `{"kind":"error","message":"RuntimeError: unreachable"}` — a stop trap surfaced as a generic error, with no classified stop or consumer state. The consumer remains unproven and default-off. The next step is a worker-level fix that classifies an expected stop trap, then re-run. This record is `D348` (prototype `D347`).
 
 ## Prior: 0x202150 read-only characterization
 

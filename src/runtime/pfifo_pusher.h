@@ -59,3 +59,16 @@ uint32_t ff_pfifo_pusher_step(ff_pfifo_pusher *pusher, ff_pfifo_read_word_fn rea
                               ff_pfifo_status *status, uint32_t max_words);
 
 #endif
+
+/* Fence-release decision for the bounded responder. The caller supplies the
+ * current context sequence and the fence word read from the guest VA held by
+ * [context+0x3F0]; the pointer field itself is never written. Ready only when
+ * the word is strictly behind the sequence in the wait loop's 32-bit wrap
+ * arithmetic. */
+enum {
+    FF_PFIFO_RELEASE_READY = 0,
+    FF_PFIFO_RELEASE_NO_SEQUENCE = 1,
+    FF_PFIFO_RELEASE_NO_VA = 2,
+    FF_PFIFO_RELEASE_NOT_BEHIND = 3
+};
+uint32_t ff_pfifo_release_ready(uint32_t sequence, uint32_t word, uint32_t va_mapped_aligned);

@@ -174,6 +174,16 @@ int main(void)
     assert(ff_pfifo_pusher_step(NULL, read_word, span_written, NULL, NULL, 64u) ==
            FF_PFIFO_PUSH_RING);
 
+    /* Fence-release decision: ready only when the word is strictly behind the
+     * sequence in the wait loop's wrap arithmetic, with a mapped VA. */
+    assert(ff_pfifo_release_ready(9u, 3u, 1u) == FF_PFIFO_RELEASE_READY);
+    assert(ff_pfifo_release_ready(2u, 0xFFFFFFFEu, 1u) == FF_PFIFO_RELEASE_READY);
+    assert(ff_pfifo_release_ready(0u, 3u, 1u) == FF_PFIFO_RELEASE_NO_SEQUENCE);
+    assert(ff_pfifo_release_ready(9u, 3u, 0u) == FF_PFIFO_RELEASE_NO_VA);
+    assert(ff_pfifo_release_ready(9u, 9u, 1u) == FF_PFIFO_RELEASE_NOT_BEHIND);
+    assert(ff_pfifo_release_ready(9u, 10u, 1u) == FF_PFIFO_RELEASE_NOT_BEHIND);
+    assert(ff_pfifo_release_ready(9u, 0x80000004u, 1u) == FF_PFIFO_RELEASE_NOT_BEHIND);
+
     printf("pfifo_pusher: ok\n");
     return 0;
 }
