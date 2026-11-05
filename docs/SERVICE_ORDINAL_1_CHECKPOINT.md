@@ -215,3 +215,15 @@ Run `browser-133-writer.json` (module 133, same profile 87):
 Consequence: the fault is a read of a bogus pointer field on an object that is not the created device. No write-side or object model is warranted yet; the next bounded task is to identify the object at `0x205D58` (creator and initialization) and the exact store that leaves `0x6B6A6968`, with the fill argument/`CL` recorded.
 
 Sync status unchanged: integration head `864d33c` contains the lane commits through `36bf5f7`; `D374`/`D376` already record the models/admissions, so this diagnostic adds no new decision.
+
+## 15. Writer classification: the `"hijk"` value is palette ramp data
+
+Read-only classification of the writer and the region:
+
+- `FUN_001fdf83` (body `0x1FDF83..0x1FDFC2`) computes `base = ECX + arg*0x300 + 0x214`, then fills a 0x100-byte lane with incrementing bytes (`CL` from 0 upward): a **3-lane x 0x100 palette/ramp initializer**. It is called once from `FUN_001fe0c6` at `0x1FE1A4`, immediately before that function sets `[ESI+0x134] = 2` and calls `FUN_001ffff4`/`FUN_0020002a`/`FUN_0020005a` with `ECX = ESI` — a D3D device/state initialization sequence.
+- The two instrumented stores at `0x2061D4` come from that ramp loop. Consecutive ramp bytes are exactly `0x68, 0x69, 0x6A, 0x6B`, i.e. the `0x6B6A6968` "pointer" is a run of ramp values, not a pointer.
+- `0x2061D4` lies in image section 1's zero-filled virtual tail (`0x1F5340..0x206970`; file-backed only to `0x20371C`), so the ramp initializer is the only source of those bytes.
+
+Conclusion: the field `+0x47C` of the faulting base `0x205D58` falls inside a palette-ramp-initialized region, so it holds ramp bytes rather than a pointer. The anomaly is therefore the **object base passed to `FUN_001FC010`** (`0x205D58`), not a missing write model. The caller that supplied that ECX is still unidentified (the earlier entry capture recorded the prologue stack push, not the object register). Next bounded task: capture the caller return address and ECX at the `[ESI]` read of `FUN_001FC010` (filtering out stack-push accesses), then trace whoever passes `0x205D58`.
+
+No write-side model: the observed ramp writer is explained and the fault value is not a pointer. No DECISIONS row needed (D374/D376 cover the related models; this is characterization).

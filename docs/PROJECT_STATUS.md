@@ -1,4 +1,12 @@
-# The faulting object is 0x205D58, not the created device
+# The "hijk" fault value is palette ramp data; the object base is the anomaly
+
+November 5: read-only classification completed. `FUN_001fdf83` (`0x1FDF83..0x1FDFC2`) is a **3-lane × 0x100 palette/ramp initializer** (`base = ECX + arg*0x300 + 0x214`, incrementing bytes), called from `FUN_001fe0c6` at `0x1FE1A4` in a D3D device/state setup sequence. Its stores at `0x2061D4` produce consecutive ramp bytes `0x68,0x69,0x6A,0x6B`, so the `0x6B6A6968` "pointer" read at the fault is **palette data, not a pointer**. `0x2061D4` is in image section 1's zero-filled virtual tail, so the ramp fill is its only source; the faulting base `0x205D58` (field `0x2061D4`) is the anomaly, not a missing write model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture the caller return address/ECX at `FUN_001FC010`'s `[ESI]` read (excluding stack-push accesses) and trace who passes `0x205D58`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The faulting object is 0x205D58, not the created device
 
 November 5: second read-only diagnostic (`siteWatch` + retargetable `guestWatchAddr`) locates the faulting object: the `[ESI+0x47C]` read at site `0x1FC087` accesses **`0x2061D4`**, so the base is **`0x205D58`**, not `D3D_g_pDevice` (`0x203B90`). Watching `0x2061D4` records two writes, both from site `0x1FDFAA` in `FUN_001fdf83` (a strided byte-fill helper computing `arg*3<<8 + ecx + 0x214`, storing `CL`); no other instrumented write covers the field, and that fill does not explain the `"hijk"` bytes. The final writer and the object's creator are **not established**, so no write-side model is warranted.
 
