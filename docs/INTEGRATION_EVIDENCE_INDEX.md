@@ -18,7 +18,10 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - `0x1F5B70`/`0x1F6300` executed; `0x1F6970` is the next ordinary stop. No further batch this cycle; the provisional continuation remains `approved: false`.
 
 - [The 0x1F6970 dependency batch](FRONTIER_DEP_1F6970_CHECKPOINT.md): translation 58 (430 functions / 18,073 instructions), module 79 (688,315 bytes, SHA `8baa111d…`), control 279/404 at ordinal 2 vs experiment 300/405 at untranslated `0x1F6620`, comparator exit 0 (+21 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 520/0, package verifier 17/17 digests.
-- The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). A batch needs a bounded function-definition/analysis decision; the closure halts at this failed gate. No further batch.
+- The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). It is a named symbol reached through indirect table `0x2025C0` (index 116); a later bounded read-only in-memory definition exported a clean seed. It was admitted in translation 59/module 80; see the next entry.
+
+- [The 0x1F6620 symbol-entry batch](FRONTIER_DEP_1F6620_CHECKPOINT.md): translation 59 (431 functions / 18,081 instructions), module 80 (688,623 bytes, SHA `cfc5786a…`), control 279/404 at ordinal 2 vs experiment 301/405 at untranslated `0x1F6BB0`, comparator exit 0 (+22 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 521/0, package verifier 18/18 digests.
+- `0x1F6620` executed; `0x1F6BB0` is the next ordinary indirect render-state entry (table `0x2025C4`, index 117). No further batch this cycle; the provisional continuation remains `approved: false`.
 
 ## Source lane
 

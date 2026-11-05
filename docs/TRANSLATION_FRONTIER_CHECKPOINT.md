@@ -1,4 +1,15 @@
-# The 0x1F6970 dependency batch advances the stop to 0x1F6620
+# The 0x1F6620 symbol-entry batch advances the stop to 0x1F6BB0
+
+November 4, 2026. The observed `0x1F6620` stop was a named indirect-dispatch symbol (`D3DDevice_SetRenderState_PSTextureModes`, table `0x2025C0`, index 116) without a Ghidra function. A bounded read-only in-memory definition of its 8-instruction / 36-byte leaf let the retained exporter produce a clean seed; the persistent project was not modified. The seed was appended to the merged 7-function seed, keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-59` contains **431 functions / 18,081 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 521/0. Module `recomp-post-memory-build-80` is 688,623 bytes, SHA-256 `cfc5786ab4fb9cbe365f4bf662be6fe62333c26e5701427264e65249fc450c90`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6BB0`** | 301 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +22 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6620` executed; `0x1F6BB0` was not entered. Frontier: **521 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6970 dependency batch advances the stop to 0x1F6620
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-58` admits the ordinary dependency `0x1F6970` (35 instructions / 119 bytes) in the merged 6-function seed, keeping 32 exports. It contains **430 functions / 18,073 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 520/0. Module `recomp-post-memory-build-79` is 688,315 bytes, SHA-256 `8baa111d9e5a1505f719a2086ccdd5952eb9a7d833194d6118208791c3467e39`.
 
