@@ -2,7 +2,12 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: contiguous-free model passes; next stop is a guest read fault
+## Latest: faulting read located at 0x1FC091; object is not the static device
+
+- [Ordinal-1 checkpoint §13](SERVICE_ORDINAL_1_CHECKPOINT.md#13-faulting-read-characterization-read-only-diagnostic-probe): default-off `guestWatch` diagnostic (first write/read site per address; VM fault record now carries the access site). Fault is a **read at site `0x1FC091`** (`MOV EDX,[EAX]` in `FUN_001FC010`) of `0x6B6A6968`; `EAX` from `[ESI+0x47C]` at `0x1FC087`. `D3D_g_pDevice` (`0x206720`) has exactly one write — site `0x1F7676` in `Direct3D_CreateDevice`, value `0x203B90`, refcount 1 at `0x203F98` — and `0x20400C` (device `+0x47C`) has **zero reads and zero writes**, so the faulting object is not the static device (or the read bypasses the instrumented path); the writer is not identified. Module 130 (724,074 bytes, profile 87); stop remains **status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops**.
+- **Integration facts:** published lane head `36bf5f7`; integration head `864d33c` contains the lane commits through `36bf5f7`; main `3a5be52`. D374/D376 already record the models/admissions, so this diagnostic adds no new row.
+
+## Prior: contiguous-free model passes; next stop was a guest read fault
 
 - [Ordinal-1 checkpoint §12](SERVICE_ORDINAL_1_CHECKPOINT.md#12-ordinal-171-contiguous-free-model-and-the-next-stop): architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model (exact mapped/aligned one-argument shape, EAX 0, `esp + 8`, no guest write, declaration-level-only disclosure; the observed address is diagnostics, not the predicate). Module 126 (profile 87, updated sources): 723,629 bytes, SHA `6849f0b7...`. Control 339/405; inert 340/406 at ordinal 3; experiment accepted two frees (`0x037F2000`, `0x03920000`; write-map `47 -> 47`; EAX 0; `esp + 8` each) and reached **status 10 (guest read fault, access 1) at `0x6B6A6968`, 346 routines / 414 kernel ops** — `MOV EAX,[ESI+0x47c]` then `MOV EDX,[EAX]` at `0x001FC091` in `FUN_001FC010`, where the device field `+0x47C` holds ASCII `"hijk"`.
 - **No DECISIONS row:** integration head still lacks the lane commits.

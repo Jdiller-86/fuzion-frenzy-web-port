@@ -171,6 +171,10 @@ static uint32_t av_null_eax_before, av_null_esp_before, av_null_eax_after, av_nu
 static uint32_t mm_free_enabled, mm_free_calls, mm_free_decision, mm_free_address;
 static uint32_t mm_free_eax_before, mm_free_esp_before, mm_free_eax_after, mm_free_esp_after;
 static uint32_t mm_free_write_before, mm_free_write_after;
+static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_watch_count;
+static uint32_t guest_watch_read_site, guest_watch_read_count;
+static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
+static uint32_t site_watch_field_addr, site_watch_field_count;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -343,6 +347,63 @@ uint32_t ff_probe_mm_free_contiguous_word(uint32_t field)
         default: return UINT32_MAX;
     }
 }
+uint32_t ff_probe_guest_watch(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    guest_watch_enabled = enable;
+    guest_watch_addr = 0x00206720u;
+    guest_watch_site = 0u;
+    guest_watch_count = 0u;
+    return 0;
+}
+uint32_t ff_probe_guest_watch_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return guest_watch_enabled;
+        case 1: return guest_watch_addr;
+        case 2: return guest_watch_site;
+        case 3: return guest_watch_count;
+        case 4: return guest_watch_read_site;
+        case 5: return guest_watch_read_count;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_site_watch(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    site_watch_enabled = enable;
+    site_watch_entry_addr = 0u;
+    site_watch_entry_ecx = 0u;
+    site_watch_entry_ret = 0u;
+    site_watch_field_addr = 0u;
+    site_watch_field_count = 0u;
+    return 0;
+}
+uint32_t ff_probe_site_watch_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return site_watch_enabled;
+        case 1: return site_watch_entry_addr;
+        case 2: return site_watch_entry_ecx;
+        case 3: return site_watch_entry_ret;
+        case 4: return site_watch_field_addr;
+        case 5: return site_watch_field_count;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_guest_watch_target(uint32_t address)
+{
+    if (!guest_watch_enabled) return FF_BOOT_INVALID;
+    if (!address || (address & 3u) || address > FF_GUEST_BYTES - 4u) return FF_BOOT_INVALID;
+    guest_watch_addr = address;
+    guest_watch_site = 0u;
+    guest_watch_count = 0u;
+    guest_watch_read_site = 0u;
+    guest_watch_read_count = 0u;
+    return 0;
+}
 uint32_t ff_probe_vblank_word(uint32_t field)
 {
         switch (field) {
@@ -425,7 +486,7 @@ static uint32_t namespace_ready;
 static ff_virtual_memory virtual_memory;
 static ff_guest_mirror guest_mirror;
 static ff_guest_write_map guest_write_map;
-static uint32_t vm_ready, vm_access_count, vm_fault[4];
+static uint32_t vm_ready, vm_access_count, vm_fault[5];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
 #ifdef FF_SECTION_PROOF
@@ -583,6 +644,28 @@ static void pfifo_ring_sync(void)
 #ifdef FF_VM_PROOF
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
 {
+    /* Default-off diagnostic watch: record the first translated write site that
+     * covers the selected guest address. It changes no memory behavior. */
+    if (site_watch_enabled) {
+        if (site == 0x001FC010u && !site_watch_entry_addr) {
+            site_watch_entry_addr = address;
+            site_watch_entry_ecx = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
+            site_watch_entry_ret = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 12u) : 0u;
+        } else if (site == 0x001FC087u) {
+            if (!site_watch_field_addr) site_watch_field_addr = address;
+            ++site_watch_field_count;
+        }
+    }
+    if (guest_watch_enabled && (access & FF_VM_WRITE) && bytes &&
+        address <= guest_watch_addr && guest_watch_addr < address + bytes) {
+        if (!guest_watch_site) guest_watch_site = site;
+        ++guest_watch_count;
+    }
+    if (guest_watch_enabled && (access & FF_VM_READ) && bytes &&
+        address <= guest_watch_addr && guest_watch_addr < address + bytes) {
+        if (!guest_watch_read_site) guest_watch_read_site = site;
+        ++guest_watch_read_count;
+    }
     (void)site;
 #ifdef FF_PFIFO_PROOF
     /* Run-level safety for the default-off consumer: a post-consumption wait
@@ -728,7 +811,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
-        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access;
+        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access; vm_fault[4] = site;
         stop(10, address, access);
     }
     ++vm_access_count;
@@ -795,7 +878,7 @@ uint32_t ff_probe_context_word(uint32_t index)
 uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
 uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
 uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
-uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 4 ? vm_fault[index] : 0; }
+uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 5 ? vm_fault[index] : 0; }
 uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
 {
     if (access == FF_VM_READ) return FF_MEMORY_U8(address, FF_VM_READ);

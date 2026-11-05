@@ -1,4 +1,28 @@
-# The contiguous-free model passes; the next stop is a guest read fault
+# The "hijk" fault value is palette ramp data; the object base is the anomaly
+
+November 5: read-only classification completed. `FUN_001fdf83` (`0x1FDF83..0x1FDFC2`) is a **3-lane × 0x100 palette/ramp initializer** (`base = ECX + arg*0x300 + 0x214`, incrementing bytes), called from `FUN_001fe0c6` at `0x1FE1A4` in a D3D device/state setup sequence. Its stores at `0x2061D4` produce consecutive ramp bytes `0x68,0x69,0x6A,0x6B`, so the `0x6B6A6968` "pointer" read at the fault is **palette data, not a pointer**. `0x2061D4` is in image section 1's zero-filled virtual tail, so the ramp fill is its only source; the faulting base `0x205D58` (field `0x2061D4`) is the anomaly, not a missing write model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture the caller return address/ECX at `FUN_001FC010`'s `[ESI]` read (excluding stack-push accesses) and trace who passes `0x205D58`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The faulting object is 0x205D58, not the created device
+
+November 5: second read-only diagnostic (`siteWatch` + retargetable `guestWatchAddr`) locates the faulting object: the `[ESI+0x47C]` read at site `0x1FC087` accesses **`0x2061D4`**, so the base is **`0x205D58`**, not `D3D_g_pDevice` (`0x203B90`). Watching `0x2061D4` records two writes, both from site `0x1FDFAA` in `FUN_001fdf83` (a strided byte-fill helper computing `arg*3<<8 + ecx + 0x214`, storing `CL`); no other instrumented write covers the field, and that fill does not explain the `"hijk"` bytes. The final writer and the object's creator are **not established**, so no write-side model is warranted.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops (module 133, same profile 87). Next: identify the creator/initializer of `0x205D58` and the exact store leaving `0x6B6A6968`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` contains the lane commits through `36bf5f7`; `D374`/`D376` already record the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The faulting read is located; the faulting object was not the static device
+
+November 5: completed the read-only characterization of the fault behind `MmFreeContiguousMemory` with a default-off diagnostic watch (`guestWatch`: first instrumented write/read site per selected address; the VM fault record now carries the access site). The fault is a **read at site `0x1FC091`** (`MOV EDX,[EAX]` in `FUN_001FC010`) of address `0x6B6A6968`; `EAX` came from `[ESI+0x47C]` at `0x1FC087`, after `FUN_001FC010` called `CDevice_FreeFrameBuffers` with `ECX = ESI`. `D3D_g_pDevice` (`0x206720`) has exactly one write — site `0x1F7676` in `Direct3D_CreateDevice`, value `0x203B90`, with `[0x203F98] = 1` and `[0x206724] = 0x203B90`. Watching `0x20400C` (device `+0x47C`) records **zero reads and zero writes**, so the faulting object is not the static device reached through `D3D_g_pDevice` (or that read bypasses the instrumented path); the pointer's writer is **not identified**, and no write-side model is warranted.
+
+Observed stop (module 130, 724,074 bytes, same profile 87): is still **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops, but now located precisely. Next: record `ESI` at `0x1FC087` and `FUN_001FC010`'s entry `ECX`/caller to identify the object before searching for its writer.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` contains the lane commits through `36bf5f7`; its `D374`/`D376` rows already record the models/admissions, so this diagnostic adds no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The contiguous-free model passes; the next stop is a guest read fault
 
 November 5: architect-authorized default-off ordinal-171 `MmFreeContiguousMemory` model with binding stipulations — exact one-argument shape (mapped, aligned, non-zero guest address), EAX 0, `esp += 8`, no guest write, no allocator state, and an explicit declaration-level-only disclosure (the harness owns no host allocator and never reuses freed blocks; the pinned arena free changes no guest memory). Implemented `src/runtime/mm_free_contiguous.c/.h`, native tests, default-off `mmFreeContiguous` input, handler diagnostics (argument, EAX/ESP, write-map count) and validator pairing; the observed address is diagnostics, not part of the predicate.
 
