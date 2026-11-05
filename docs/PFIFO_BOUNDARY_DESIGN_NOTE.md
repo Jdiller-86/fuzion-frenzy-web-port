@@ -53,6 +53,19 @@ The profile zeroes `0xFD800000+0x1000`, `0xFD003200+0x100`, `0xFD100200+0x1000`,
 - **Consumer enabled**, module 107 (500,000 VM-access budget): the worker writes `{"kind":"error","message":"RuntimeError: unreachable"}`. That is a Wasm trap from a `stop()`, but it is surfaced as a generic error, so the stop record and `pfifoConsumerState` are not classified.
 - Consequence: the GET site is reached and the pusher runs, but the post-consumption sequence is **not yet observable as a classified stop**. The model cannot claim an advance, a refusal class, or a next stop from these runs.
 
+### Observed control sequence (retained device log, module 107)
+
+The control report's device log contains **93** PFIFO accesses. In order:
+
+1. **Channel setup** — writes to CACHE1 `0xFD003210`, `0xFD003270`, `0xFD003240`, `0xFD003244`, `0xFD003258`, `0xFD003228`, `0xFD002410`, `0xFD002420`; then `0xFD003224 = 0x000F0078`, `0xFD003200/250/220 = 0`; a read-back pass over `0xFD003200..0xFD00326C`; then `0xFD003204 = 0x100`, `0xFD00322C = 0x11C`, `0xFD003224 = 0x00086078`, `0xFD003220 = 1`, `0xFD003250 = 1`, `0xFD003200 = 1`.
+2. **PFB flush** — `0xFD100410` read `0`, write `0x00010000`, read `0`.
+3. **Empty-ring GET** — USER PUT `0xFD800040 = 0x03B7D000`, then GET read `0xFD800044 = 0x03B7D000` at site `0x1FBEAE`, served by the profile empty-ring path.
+4. **Status wait** — CACHE1_STATUS `0xFD003214 = 0x10`, RUNOUT `0xFD002400 = 0x10`, DMA_PUSH `0xFD003220 = 1`; DMA_PUSH then toggles `1 → 0 → 1` twice.
+5. **Submissions** — USER PUT `0xFD800040 = 0x03B7D7B4`, PFB flush, then USER PUT `= 0x03B7D7CC`.
+6. **Stop** — the next GET read is the status-13 stop at `0xFD800044`; it is not logged because the harness stops before recording the access.
+
+Interpretation: GET is served as the ring base only while PUT equals the base. Once the title submits at `0x03B7D7B4` / `0x03B7D7CC`, the empty-ring condition no longer holds, so the next GET read observes `0x03B7D000 != PUT` and stops. At the consumer's GET site the inputs are therefore: base `0x03B7D000`, GET `0x03B7D000`, PUT `0x03B7D7CC`, and a span of just under 2 KiB to check for CPU-written pages.
+
 ## 4. What a minimal gated PFIFO responder would require
 
 1. **Preconditions** (not checked by the prototype today): PUSH0.ACCESS, DMA_PUSH.ACCESS set, STATUS not suspended, channel MODE = DMA. Without them a responder must refuse.
