@@ -21,7 +21,9 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 - The next stop `0x1F6620` is ordinary but not a Ghidra-established function (`established: false`). A read-only worklist characterizes it as an 8-instruction / 36-byte D3D leaf (one return `0x1F6641`; no calls, tails or unresolved branches). It is a named symbol reached through indirect table `0x2025C0` (index 116); a later bounded read-only in-memory definition exported a clean seed. It was admitted in translation 59/module 80; see the next entry.
 
 - [The 0x1F6620 symbol-entry batch](FRONTIER_DEP_1F6620_CHECKPOINT.md): translation 59 (431 functions / 18,081 instructions), module 80 (688,623 bytes, SHA `cfc5786a…`), control 279/404 at ordinal 2 vs experiment 301/405 at untranslated `0x1F6BB0`, comparator exit 0 (+22 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 521/0, package verifier 18/18 digests.
-- `0x1F6620` executed; `0x1F6BB0` is the next ordinary indirect render-state entry (table `0x2025C4`, index 117). No further batch this cycle; the provisional continuation remains `approved: false`.
+- `0x1F6620` executed; `0x1F6BB0` is the next ordinary indirect render-state entry (table `0x2025C4`, index 117). No further batch this cycle.
+- The approved architect directive then authorized a persistent create-function at `0x1F6620` only. A read-only re-open reports `FUNCTION_AT 001f6620`; the re-export is byte-identical (`55977f49…`), and the same 18/18 package verifies. No duplicate translation was run.
+- Runner fix: `tools/Invoke-OpenCodeArchitect.ps1` now captures `$fullResponse` before the 1800-character `lastSummary` truncation and parses all six markers from it; `lastSummary`/1200 cap unchanged, PowerShell AST parse 0 errors, no other behavior change.
 
 ## Source lane
 

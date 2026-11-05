@@ -1,6 +1,6 @@
 # The `0x1F6620` symbol-entry batch advances the stop to `0x1F6BB0`
 
-November 4, 2026. Provisional continuation after Path B/`0x1F6970`: the observed stop `0x1F6620` was ordinary, but the retained exporter reported `established: false`. Read-only inspection resolved the gate: `0x1F6620` is a **named symbol** (`D3DDevice_SetRenderState_PSTextureModes`) reached through an indirect call table, not a direct call target, so Ghidra never created a function there. This cycle defined the bounded leaf in memory only and exported it with the retained exporter. It is **not an approved design decision**; architect guidance remains `approved: false`. **There is no controllable original screen.**
+November 4, 2026. Continuation after Path B/`0x1F6970`: the observed stop `0x1F6620` was ordinary, but the retained exporter reported `established: false`. Read-only inspection resolved the gate: `0x1F6620` is a **named symbol** (`D3DDevice_SetRenderState_PSTextureModes`) reached through an indirect call table, not a direct call target, so Ghidra never created a function there. The initial admission used a bounded in-memory definition; the approved architect directive then authorized a persistent create-function at that address only, and the re-export is byte-identical. The admission evidence remains labeled by its original provisional status; this cycle records the persistent establishment. **There is no controllable original screen.**
 
 ## Why the previous gate failed
 
@@ -9,17 +9,18 @@ November 4, 2026. Provisional continuation after Path B/`0x1F6970`: the observed
 - The table entry for `0x1F6620` is `0x2025C0`, **index 116** (`0x74`); the next entry `0x2025C4` (index 117) is `0x1F6BB0`.
 - The observed experiment stack previously carried render-state value `116`; after this batch it carries `117`, matching the next table entry.
 
-## Read-only symbol-entry export
+## Persistent establishment and re-export
 
-The ignored research script `research/verification/frontier-1f6620/ExportSymbolEntry.java`:
+The approved architect directive authorized a bounded create-function at `0x1F6620` only, with no broad re-analysis. The ignored research script `research/verification/frontier-1f6620/ExportSymbolEntry.java` was run **without `-readOnly`** and performed the following:
 
-1. Checks the retained executable SHA-256 (`45bb49e1…`).
-2. Requires a primary symbol at `0x1F6620` and no existing function there.
-3. Decodes exactly 8 contiguous instructions ending at `0x1F6641` (`RET 4`, three bytes) with no calls, jumps, or trailing bytes.
-4. Finds exactly one reference in the bounded indirect-call table (`0x2025C0`, index 116).
-5. Creates the function **in memory only** under `-readOnly` and calls the retained `ExportRecompilationSeed.java`.
+1. Checked the retained executable SHA-256 (`45bb49e1…`).
+2. Required the primary symbol at `0x1F6620` and no existing function there.
+3. Decoded exactly 8 contiguous instructions ending at `0x1F6641` (`RET 4`, three bytes) with no calls, jumps, or trailing bytes.
+4. Found exactly one reference in the bounded indirect-call table (`0x2025C0`, index 116).
+5. Created the function in the retained project (`CREATED 001f6620 D3DDevice_SetRenderState_PSTextureModes body=001f6620..001f6643`), and the headless run reported `Save succeeded`.
+6. Re-exported with the retained `ExportRecompilationSeed.java`.
 
-The persistent Ghidra project and original executable were not modified. This is a read-only evidence technique, not a new source-owned tool. The seed exporter remains the normal admission path.
+A separate read-only re-open now reports `FUNCTION_AT 001f6620 D3DDevice_SetRenderState_PSTextureModes`; the function is persistent, not an in-memory-only definition. The original executable is unchanged, and no other function was created or analyzed. The re-export is **byte-identical** to the previously admitted seed, SHA-256 `55977f4921d0cc94c576876fc7eefeaf7d7c834bb6f92c76d9005ed55fc66473`, and passes the same preflight: `mixed False`, 0 tables, 8/8 decoded, no normalizations, byte identity and layout. Because the seed is identical, translation 59/module 80 and the controlled pair remain the one translation/comparison evidence; no duplicate translation was run.
 
 ## Seed and preflight
 
@@ -49,7 +50,7 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 | Artifact | SHA-256 |
 | --- | --- |
 | Merged 7-function seed | `31c0a3d71bce4677e6ce2ea196425c1d03a49186e66b80f3ba1757f528eb2ee0` |
-| `0x1F6620` symbol-entry seed | `55977f4921d0cc94c576876fc7eefeaf7d7c834bb6f92c76d9005ed55fc66473` |
+| `0x1F6620` established-symbol seed | `55977f4921d0cc94c576876fc7eefeaf7d7c834bb6f92c76d9005ed55fc66473` |
 | `generation.json` | `c0b150c49ff4ea9dd4992bc0b41a27b63df30c6c51df137e6efb993af7b8c561` |
 | `title-functions.inc` | `9a0861285ae04b3d39b339f9f7978f297d22c045592f8fbc9fc5442cff9f9c43` |
 | `title-profile.h` | `9922ad6702426d445619ec5361625953684b5e24eefbd788fc56dc511d5d76a2` |
@@ -59,6 +60,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6BB0` is an ordinary untranslated routine and the next indirect render-state entry (index 117). Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6BB0` was not entered.
+The observed stop `0x1F6BB0` is an ordinary untranslated routine and the next indirect render-state entry (index 117). The approved directive required persistent establishment and a re-export, both are now recorded; the byte-identical seed means no duplicate translation or comparison was needed. A later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6BB0` was not entered.
 
-The symbol-entry definition is a bounded read-only exception for a named indirect-dispatch leaf; it does not establish general function-recovery policy, original execution, or permission to define arbitrary gaps.
+The persistent function at `0x1F6620` is a bounded, authorized exception for one named indirect-dispatch leaf; it does not establish general function-recovery policy, original execution, or permission to define arbitrary gaps.
