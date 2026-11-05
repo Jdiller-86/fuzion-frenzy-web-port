@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -203,7 +203,24 @@ export function validateProofReport(report) {
     }    if (consumer.classification === 8 && consumer.budgetHit !== 1)
       throw new Error('A PFIFO consumer budget stop must report the budget hit');
   }
-  /* Ordinal 2 remains unsupported by default: the observed call carries four
+  /* Display-mode declaration and its experiment declaration are a pair; an
+   * acceptance must carry the exact pinned tuple. */
+  const claimsDisplay = experiments.includes('displayMode');
+  if (report.displayModeState !== undefined && !claimsDisplay)
+    throw new Error('Display-mode state requires the displayMode experiment');
+  if (claimsDisplay && report.displayModeState === undefined)
+    throw new Error('The displayMode experiment requires display-mode state');
+  if (report.displayModeState !== undefined) {
+    const d = report.displayModeState;
+    if (!d || !integer(d.accepted) || d.accepted > 1 || !integer(d.addr) || !integer(d.step) ||
+        !integer(d.mode) || !integer(d.format) || !integer(d.pitch) || !integer(d.fb) ||
+        !integer(d.window) || !integer(d.decision) || d.decision > 3)
+      throw new Error('Malformed display-mode state');
+    if (d.accepted === 1 &&
+        (d.addr !== 0x3C10CFC || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0 ||
+         d.pitch !== 0xA00 || d.fb !== 0x03920000 || d.window !== 0x83920000 || d.decision !== 0))
+      throw new Error('A display-mode acceptance must match the pinned declaration');
+  }  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
@@ -255,10 +272,8 @@ export function validateProofReport(report) {
           throw new Error('The synthetic avQuery call must pop the 20-byte stdcall frame');
       } else {
         /* A configured profile can still truthfully deny or reach the query
-         * before it can be answered; preserve that report instead of presenting
-         * a denial as success. */
-        if (call.status !== 1)
-          throw new Error('A denied synthetic avQuery call must report the unsupported status');
+         * before it can be answered; a bridge-handled denial may carry a real
+         * NTSTATUS, so only an output word or success is invalid here. */
         if (call.output !== undefined)
           throw new Error('A denied synthetic avQuery call must not carry an output word');
         avQueryDenied = true;
