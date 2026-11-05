@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -254,7 +254,32 @@ export function validateProofReport(report) {
     if (s.decision === 0 &&
         (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== s.espBefore || s.priorSetter !== 0))
       throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
-  }  /* Ordinal 2 remains unsupported by default: the observed call carries four
+  }
+
+  /* Null-result AV query experiment and state pairing. The exact observed tuple
+   * has no output unit, so an accepted call must not write, must not change EAX
+   * or the argument frame, and must pop exactly the measured 20-byte frame. */
+  const claimsAvNull = experiments.includes('avNullResult');
+  if (report.avNullResultState !== undefined && !claimsAvNull)
+    throw new Error('Null-result state requires the avNullResult experiment');
+  if (claimsAvNull && report.avNullResultState === undefined)
+    throw new Error('The avNullResult experiment requires its state');
+  if (report.avNullResultState !== undefined) {
+    const n = report.avNullResultState;
+    if (!n || !integer(n.calls) || !integer(n.handle) || !integer(n.option) ||
+        !integer(n.param) || !integer(n.result) || !integer(n.decision) ||
+        !integer(n.writeBefore) || !integer(n.writeAfter) || !integer(n.checksumBefore) ||
+        !integer(n.checksumAfter) || !integer(n.eaxBefore) || !integer(n.espBefore) ||
+        !integer(n.eaxAfter) || !integer(n.espAfter))
+      throw new Error('Malformed null-result state');
+    if (n.decision === 0 &&
+        (n.handle !== 0x03920000 || n.option !== 9 || n.param !== 0 || n.result !== 0 ||
+         n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
+         n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
+      throw new Error('An accepted null-result call must match the pinned no-op contract and 20-byte pop');
+  }
+
+  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
@@ -275,6 +300,14 @@ export function validateProofReport(report) {
           call.arguments[1] === 0x0F && call.arguments[2] === 0) {
         if (!claimsAvUnknown)
           throw new Error('An unknown AV option call requires the avUnknownOption experiment');
+        continue;
+      }
+      /* The null-result sibling likewise has its own success shape, validated
+       * by avNullResultState. */
+      if (call.status === 0 && call.arguments[0] === 0x03920000 &&
+          call.arguments[1] === 9 && call.arguments[2] === 0 && call.arguments[3] === 0) {
+        if (!claimsAvNull)
+          throw new Error('A null-result AV call requires the avNullResult experiment');
         continue;
       }
       if (report.avQueryWord === undefined) {

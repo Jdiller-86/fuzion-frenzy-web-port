@@ -1,4 +1,24 @@
-# The ordinal-1 saved-data model passes; the next stop is a NULL-Result AV query
+# D3DDevice_Release is admitted; the next stop is another NULL-Result AV call
+
+November 5: the prior stop `0x001F54D0` is `D3DDevice_Release` (18 instructions: refcount check at `[device+0x408]`, teardown path calls `0x001FC010` and clears `0xAE4` dwords). It was admitted as one bounded translation increment — a read-only Ghidra export of `0x00042BE0` + `0x001F54D0` merged into the retained 32-seed set, then `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 86 (462 functions, 18,958 instructions; original bytes and decoder instructions agree, no unimplemented instructions).
+
+Module `recomp-post-memory-build-123` (same probe sources, profile 86): **722,259 bytes**, SHA-256 `9f883b09...`. Control unchanged (339/405 at `0xFD800044`); inert unchanged (340/406 at ordinal 3); the experiment now passes `D3DDevice_Release` (+4 routines) and reaches a **new genuine stop: status 1 at `0xFE000094`, ordinal 2**, **344 routines / 411 kernel ops** — `AvSendTVEncoderOption(0xFD000000, 9, 1, NULL)` from `CDevice_FreeFrameBuffers` (return `0x001FB664`). The pinned HAL's `if (!Result) return;` makes a NULL-Result call a log-and-return, but this tuple differs from the authorized exact tuple, so the default-off router refuses it pending a bounded decision.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` 199 pass, `check` 475 files, whitespace clean. No source behavior changed in this commit; the admission is private translation evidence. No DECISIONS row: integration head `6bc05f7` lacks the lane commits. No main push/merge; geometry untouched.
+
+## Prior: The null-result AV model passes; the next stop is translation placeholder 0x1F54D0
+
+November 5: architect-authorized default-off model for the observed third ordinal-2 `AvSendTVEncoderOption` call — exact tuple (`0x03920000`, option 9 = `AV_OPTION_QUERY_AV_CAPABILITIES`, param 0, Result NULL), nonzero Result refused as the unmodeled query path, and a validator no-write assertion (argument-frame checksum and write-map count equal). Implemented `src/runtime/av_null_result.c/.h`, native tests, default-off `avNullResult` input, a third exact ordinal-2 router branch, `avNullResultState` and validator pairing.
+
+Module `recomp-post-memory-build-121`: **721,389 bytes**, SHA-256 `4ec6816d...`. Control unchanged (status 13 at `0xFD800044`, 339/405); inert (display + unknown-option + saved-data inputs, no null-result input) unchanged; the experiment accepted the call with no write (write-map `47 -> 47`, frame checksum unchanged), EAX `0 -> 0`, `esp` +20, and advanced to a **new genuine stop: status 2 at `0x001F54D0`, 340 routines / 410 kernel ops**.
+
+That target is an **unadmitted placeholder** in the retained translation (`void ff_title_001F54D0(void) { ff_probe_stop_direct(0x001F54D0u); }`), reached by `ff_title_00042BE0` tail-jumping there after `D3DDevice_Present` (pop EDI, add `0x38`). Admitting it needs a new translation/seed admission, not a service model, so the run halts here.
+
+Checks: `test:native` 46/46, proof-report 23/23, `test:runtime` 199 pass, `check` 475 files, whitespace clean. All experimental paths default-off; no display/encoder/rendering/playability claim.
+
+**Sync note:** integration head `6bc05f7` contains `c8c965c` but not `3d4cf7d`/`bfe9dec`/`753711f`/`eb685e0`, so the sync-first rule still blocks a DECISIONS row. No main push/merge; geometry untouched.
+
+## Prior: The ordinal-1 saved-data model passes; the next stop is a NULL-Result AV query
 
 November 5: the architect authorized (then corrected) a default-off fixed-0 `AvGetSavedDataAddress` model. The first guard — "no ordinal-4 setter reference in the translation" — proved **unsatisfiable**: the retained title profile binds `{0x0025345C, 4u}`, and `0x25345C` is a call in `D3DDevice_Present`'s nonzero saved-data branch that the zero branch skips. The architect replaced it with a **runtime no-prior-setter guard**: accept only when the recorded dispatch journal has no ordinal-4 call before the read, and fail closed on an unreadable journal. Implemented `src/runtime/av_saved_data.c/.h` (journal guard + fixed-0 decision), native tests, default-off `avSavedData` input, an ordinal-1 handler returning 0 with no arguments or stack change, `avSavedDataState` and validator pairing. The setter stays unmodeled.
 
