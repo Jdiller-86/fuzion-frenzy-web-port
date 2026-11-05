@@ -2,11 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F6A70 admission
+## Latest: 0x1F6730 admission
+
+- [The 0x1F6730 batch](FRONTIER_DEP_1F6730_CHECKPOINT.md): translation 73 (446 functions / 18,439 instructions), module 94 (700,022 bytes, SHA `e9b108f2…`), control 279/404 at ordinal 2 vs experiment 316/405 at untranslated `0x1F75B0`, comparator exit 0 (+37 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 536/0, package verifier 33/33 digests.
+- `0x1F6730` (`D3DDevice_SetRenderState_EdgeAntiAlias`, table index 131) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 13-instruction / 44-byte seed (`fe75b542…`) calls already-translated `0x1FB3B0` and ends in `RET 4`. `0x1F75B0` is the next ordinary stop (table index 132).
+- Publication is current: remote source `b470521`, CI run `41981829155` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+
+## Prior: 0x1F6A70 admission
 
 - [The 0x1F6A70 batch](FRONTIER_DEP_1F6A70_CHECKPOINT.md): translation 72 (445 functions / 18,426 instructions), module 93 (699,510 bytes, SHA `855ce4ec…`), control 279/404 at ordinal 2 vs experiment 315/405 at untranslated `0x1F6730`, comparator exit 0 (+36 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 535/0, package verifier 32/32 digests.
-- `0x1F6A70` (`D3DDevice_SetRenderState_LogicOp`, table index 130) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`187d2bdb…`) calls already-translated `0x1FB3B0` and has two return sites. `0x1F6730` is the next ordinary stop (table index 131).
-- Publication is current: remote source `aa25cf7`, CI run `41980713693` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; this batch is newer than that PR head.
+- `0x1F6A70` (`D3DDevice_SetRenderState_LogicOp`, table index 130) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 22-instruction / 76-byte seed (`187d2bdb…`) calls already-translated `0x1FB3B0` and has two return sites.
 
 ## Prior: 0x1F69F0 admission
 
