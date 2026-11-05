@@ -2,6 +2,11 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: 0x1F7080 admission and observed branch
+
+- [The admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md): translation 54 (423 functions / 17,620 instructions), module 75 (664,115 bytes, SHA-256 `687c34c9…`), control 279/404 at ordinal 2 vs experiment 286/405 at untranslated `0x1F70E0`, comparator exit 0 (+7 routines / +1 operation), `verify-seeds` 32/32/0/0, `verify-translation` 517/0.
+- Executed `0x1F7080` is in the reached list; the observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No Path A/Path B batch was started; the lane stops at the observed stop.
+
 ## Source lane
 
 - Branch/head: `codex/opencode-source`, last source/CI commit `3ef6024` (`Run the full Python evidence suite in preparation CI`); docs-only hold records follow.

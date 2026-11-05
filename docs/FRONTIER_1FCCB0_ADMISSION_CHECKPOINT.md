@@ -60,6 +60,6 @@ The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI 
 
 ## Next and limits
 
-The next genuine stop is untranslated **`0x1F7080`**, called by executed `0x1F5640`. It is **not admitted or analyzed further**. Per the directive, the lane stops here.
+The next genuine stop was untranslated **`0x1F7080`**, called by executed `0x1F5640`. It was subsequently admitted at translation 54/module 75; see [the 0x1F7080 admission checkpoint](FRONTIER_1F7080_ADMISSION_CHECKPOINT.md). Per that directive, the lane stopped there.
 
 These are synthetic startup observations with a synthetic avQuery word. They are not console settings, fidelity, renderer, gameplay or original service semantics. No host/Wasm memory substitution was used.

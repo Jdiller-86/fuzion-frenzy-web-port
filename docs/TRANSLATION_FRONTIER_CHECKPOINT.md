@@ -1,4 +1,17 @@
-# The 0x1FCCB0 admission advances the stop to 0x1F7080
+# The 0x1F7080 admission observes the stop at 0x1F70E0
+
+November 4, 2026. Translation `recomp-title-recomp-title-post-memory-54` admits the reached `0x1F7080` leaf (27 instructions / 89 bytes, no calls/tables) after merging its seed into the 29-function front seed. It contains **423 functions / 17,620 instructions** from 32 seed exports; `verify-seeds` 32/32/0/0 and `verify-translation` 517/0. Module `recomp-post-memory-build-75` is 664,115 bytes, SHA-256 `687c34c98794d8ac71387ec1bf00aec9e88e4c23a38463746a725008b39b133f`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 2 at `0x1F70E0`** | 286 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +7 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F7080` executed and returned; `0x1F70E0` is the next untranslated call target (not entered), returning to `0x1F57CB` from call site `0x1F57C6` in executed `0x1F5640`. The frontier has **94 placeholders, 93 referenced**.
+
+The observed taken branch is Path A (`0x1F70E0` needs `0x1FC980`+`0x1FCB70`). No batch was started; the lane stops here. These are synthetic startup observations, not fidelity, gameplay or original service semantics.
+
+## Prior: The 0x1FCCB0 admission advances the stop to 0x1F7080
 
 November 4, 2026. Translation `recomp-title-recomp-title-post-memory-53` admits the reached mixed-layout function `0x1FCCB0` (112-byte envelope, 8-entry table, four `ret 8` cases) after a synthetic resync fixture passed. It contains **422 functions / 17,593 instructions** from 32 seed exports. Module `recomp-post-memory-build-74` is 663,028 bytes, SHA-256 `c8c27cb4ec232cff478d16752d649767a34c30ebca45cb8c38195c552aa67657`.
 
