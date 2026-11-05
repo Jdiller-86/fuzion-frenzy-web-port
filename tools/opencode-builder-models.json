@@ -1,6 +1,6 @@
 {
   "manager": "opencode-go/glm-5.3-flash",
-  "hourlyReview": ["openai/gpt-6.1-sol", "opencode-go/glm-5.3"],
+  "hourlyReview": ["opencode-go/glm-5.3-flash", "opencode-go/glm-5.3"],
   "builders": {
     "primary": {
       "model": "opencode-go/deepseek-v4.1-flash",

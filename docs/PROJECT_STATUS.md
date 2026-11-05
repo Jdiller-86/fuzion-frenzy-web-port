@@ -1,3 +1,5 @@
+OpenCode routing update (November 5): Go GLM-5.3-Flash is the hourly architect and reviewed PR authority; Sol is excluded from scheduled and project subagent routing. Full Go GLM-5.3 is an allowance/availability fallback, and free review remains provisional. The three distinct low-cost builder lanes and GLM Flash manager remain in place. This changes workflow only; it adds no original-game browser-execution evidence.
+
 # Original memory statistics return and code reaches renderer initialization
 
 OpenCode orchestration update (November 4): a read-only GLM-5.3-Flash manager assigns bounded work to three distinct-model builder lanes (DeepSeek Go original startup, MiMo Go geometry, MiniMax Go source-owned verification). The hourly architect uses linked Sol or full Go GLM-5.3 on Sol cooldown. The new verification lane is isolated and publishes only owned source paths; manager holds and fresh exact-head guidance avoid idle duplicate work. This is workflow configuration only. The latest original-runtime evidence and browser playability must be read from the current source worktree checkpoint; no new original-game execution is established by this change.

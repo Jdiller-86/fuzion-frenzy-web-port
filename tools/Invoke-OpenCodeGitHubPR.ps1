@@ -113,7 +113,7 @@ try {
     if ($Action -eq 'Ensure') {
         if ($OpenMain -or $OpenSourceHead -or $OpenGeometryHead) { Assert-Integration $ExpectedHead }
         if ($OpenMain -and $mainHead -ne $ExpectedHead -and -not $mainPR) {
-            $body = "Automated Sol architect integration candidate. Source-owned changes and evidence are recorded in docs/ARCHITECT_INTEGRATION_CHECKPOINT.md and docs/PROJECT_STATUS.md. Original game playability is not claimed. The runner will merge only an exact Sol-approved head after local source/runtime checks, both GitHub preparation jobs, clean mergeability and current-base checks."
+            $body = "Automated GLM Flash architect integration candidate. Source-owned changes and evidence are recorded in docs/ARCHITECT_INTEGRATION_CHECKPOINT.md and docs/PROJECT_STATUS.md. Original game playability is not claimed. The runner will merge only an exact architect-approved head after local source/runtime checks, both GitHub preparation jobs, clean mergeability and current-base checks."
             $mainPR = Invoke-GitHub 'POST' '/pulls' @{ title = 'Integrate reviewed source progress toward browser execution'; head = 'codex/opencode-architect'; base = 'main'; body = $body; draft = $false }
             $result.mainPR = [int]$mainPR.number
             $result.openedMainPR = $true
@@ -130,7 +130,7 @@ try {
             Assert-SafePaths ($ExpectedHead + '..' + $localHead)
             $existing = Get-OpenPR $open 'codex/opencode-architect' $branch
             if ($existing) { continue }
-            $review = Invoke-GitHub 'POST' '/pulls' @{ title = ('Review ' + $lane + ' lane for architect integration'); head = $branch; base = 'codex/opencode-architect'; body = 'Source-only builder branch for Sol architect review. This draft is not approval or original-game playability evidence. Merge only after the architect reviews the diff, checks, conflicts and lane ownership.'; draft = $true }
+            $review = Invoke-GitHub 'POST' '/pulls' @{ title = ('Review ' + $lane + ' lane for architect integration'); head = $branch; base = 'codex/opencode-architect'; body = 'Source-only builder branch for architect review. This draft is not approval or original-game playability evidence. Merge only after the architect reviews the diff, checks, conflicts and lane ownership.'; draft = $true }
             $result[($lane + 'ReviewPR')] = [int]$review.number
             $result[('opened' + $lane.Substring(0,1).ToUpper() + $lane.Substring(1) + 'ReviewPR')] = $true
         }

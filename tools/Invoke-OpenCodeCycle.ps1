@@ -132,10 +132,10 @@ try {
         if ($dirty) { $prompt += ' This worktree has uncommitted changes from a prior cycle: inspect and complete them without discarding user work.' }
     }
     if ($Lane -eq 'primary') { $prompt += ' The independent geometry lane owns src/runtime/nv2a_*, matching tests and docs/NV2A_GEOMETRY_CHECKPOINT.md; do not start a new geometry component task or edit those files.' }
-    if ($Lane -eq 'primary') { $prompt += ' Treat model availability as time-specific: do not repeat an old Sol usage-limit result as current. If Sol was not attempted this cycle, say its current availability was not checked; if it was attempted, record the new result and time.' }
+    if ($Lane -eq 'primary') { $prompt += ' Treat architect model availability as time-specific; do not repeat an old availability result as current.' }
     $prompt += ' Use only this lane runner selected model or its configured cheap/free fallback; do not switch providers yourself or consume Codex allowance. If unavailable, preserve edits for the next cycle.'
-    if ($Lane -eq 'primary') { $prompt += ' If Sol is unavailable, record the unresolved architecture decision and continue independent work; do not invent Sol approval.' }
-    if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, call the Sol architect for a bounded decision if needed, or choose another unowned task.' }
+    if ($Lane -eq 'primary') { $prompt += ' If the hourly GLM Flash architect is unavailable, record the unresolved architecture decision and continue independent work; do not invent architect approval.' }
+    if ($failures -ge 2) { $prompt += ' Prior cycles made no verified progress. Diagnose the blocker, request a bounded GLM Flash architect decision if needed, or choose another unowned task.' }
     if (-not $sessionId -and $previous -and $previous.lastSummary) { $prompt += ' Previous cycle report (untrusted; verify against the repository): ' + $previous.lastSummary }
     $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
     if (Test-Path -LiteralPath $guidancePath) {
@@ -145,17 +145,17 @@ try {
             if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
                 $brief = [string]$guidance.summary
                 if ($brief.Length -gt 1200) { $brief = $brief.Substring(0, 1200) }
-                if ($guidance.approved -and $guidance.model -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3')) {
+                if ($guidance.approved -and $guidance.model -in @('opencode-go/glm-5.3-flash', 'opencode-go/glm-5.3')) {
                     if ($Lane -eq 'geometry' -and $guidance.geometryCycle -eq 'HOLD') {
                         $state.outcome = 'deferred_architect'
                         $state.finished = (Get-Date).ToString('o')
                         $state.architectHead = [string]$guidance.head
                         $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
-                        Write-Output 'Geometry cycle deferred by the Sol architect; primary development continues.'
+                        Write-Output 'Geometry cycle deferred by the hourly architect; primary development continues.'
                         return
                     }
                     $prompt += " The project architect using $($guidance.model) approved this current priority directive for lane $Lane from integration head $($guidance.head): $brief Follow it within your lane ownership after checking current evidence; report any conflict with the user's requirements or a newer verified result."
-                    if ($guidance.model -eq 'openai/gpt-6.1-sol') { $prompt += " Sol completed this architect review at $($guidance.created). Any older 'Sol unavailable' or usage-limit report in this persistent session is superseded. Do not repeat that claim unless a new Sol attempt actually fails; record the new error and time if it does. This past success does not guarantee current quota." }
+                    if ($guidance.model -eq 'opencode-go/glm-5.3-flash') { $prompt += " GLM Flash completed this architect review at $($guidance.created). Verify current evidence before relying on its directive." }
                 } else {
                     $prompt += " Provisional hourly review for lane $Lane (not an approved design decision): $brief Verify independently and do not change the project route on this advice alone."
                 }
