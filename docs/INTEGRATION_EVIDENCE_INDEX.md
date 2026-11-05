@@ -2,12 +2,16 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: 0x1F7370 admission
+## Latest: 0x1F73F0 admission
+
+- [The 0x1F73F0 batch](FRONTIER_DEP_1F73F0_CHECKPOINT.md): translation 68 (440 functions / 18,295 instructions), module 89 (694,956 bytes, SHA `4f64855e…`), control 279/404 at ordinal 2 vs experiment 310/405 at untranslated `0x1F6850`, comparator exit 0 (+31 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 530/0, package verifier 27/27 digests.
+- `0x1F73F0` (`D3DDevice_SetRenderState_StencilFail`, table index 125) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 29-instruction / 105-byte seed (`856b5a10…`) calls already-translated `0x1FB3B0`, has internal branches, and preflights 29/29. `0x1F6850` is the next ordinary stop (table index 126).
+- Publication remains clean: remote source is `b481b6d`, CI run `41975877975` succeeded. Main PR #7 is open, mergeable and green at `2d6f770`; the new batch is newer than that PR head.
+
+## Prior: 0x1F7370 admission
 
 - [The 0x1F7370 batch](FRONTIER_DEP_1F7370_CHECKPOINT.md): translation 67 (439 functions / 18,266 instructions), module 88 (694,246 bytes, SHA `5440f6e0…`), control 279/404 at ordinal 2 vs experiment 309/405 at untranslated `0x1F73F0`, comparator exit 0 (+30 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 529/0, package verifier 26/26 digests.
-- `0x1F7370` (`D3DDevice_SetRenderState_StencilEnable`, table index 124) was already Ghidra-established; its 37-instruction / 128-byte seed (`315b7776…`) calls only translated `0x1FB3B0`, has internal conditional branches, and preflights 37/37. `0x1F73F0` is the next ordinary stop (table index 125).
-- Publication is unblocked: `c28399a` fixed the committed EOF blank line; remote source advanced to `c28399a` and CI run `41974509024` succeeded.
-- The merged integration head `d0c38c2` fixes the exact-head test's temporary-repo merge identity; `50a2733` records it. The main PR is still pending the architect's integration of the published head.
+- `0x1F7370` (`D3DDevice_SetRenderState_StencilEnable`, table index 124) was already Ghidra-established; its 37-instruction / 128-byte seed (`315b7776…`) calls only translated `0x1FB3B0`, has internal conditional branches, and preflights 37/37.
 
 ## Prior: 0x1F7300 admission
 
