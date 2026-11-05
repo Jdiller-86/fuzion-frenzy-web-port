@@ -1,4 +1,12 @@
-# The faulting read is located; the faulting object is not the static device
+# The faulting object is 0x205D58, not the created device
+
+November 5: second read-only diagnostic (`siteWatch` + retargetable `guestWatchAddr`) locates the faulting object: the `[ESI+0x47C]` read at site `0x1FC087` accesses **`0x2061D4`**, so the base is **`0x205D58`**, not `D3D_g_pDevice` (`0x203B90`). Watching `0x2061D4` records two writes, both from site `0x1FDFAA` in `FUN_001fdf83` (a strided byte-fill helper computing `arg*3<<8 + ecx + 0x214`, storing `CL`); no other instrumented write covers the field, and that fill does not explain the `"hijk"` bytes. The final writer and the object's creator are **not established**, so no write-side model is warranted.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops (module 133, same profile 87). Next: identify the creator/initializer of `0x205D58` and the exact store leaving `0x6B6A6968`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` contains the lane commits through `36bf5f7`; `D374`/`D376` already record the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The faulting read is located; the faulting object was not the static device
 
 November 5: completed the read-only characterization of the fault behind `MmFreeContiguousMemory` with a default-off diagnostic watch (`guestWatch`: first instrumented write/read site per selected address; the VM fault record now carries the access site). The fault is a **read at site `0x1FC091`** (`MOV EDX,[EAX]` in `FUN_001FC010`) of address `0x6B6A6968`; `EAX` came from `[ESI+0x47C]` at `0x1FC087`, after `FUN_001FC010` called `CDevice_FreeFrameBuffers` with `ECX = ESI`. `D3D_g_pDevice` (`0x206720`) has exactly one write — site `0x1F7676` in `Direct3D_CreateDevice`, value `0x203B90`, with `[0x203F98] = 1` and `[0x206724] = 0x203B90`. Watching `0x20400C` (device `+0x47C`) records **zero reads and zero writes**, so the faulting object is not the static device reached through `D3D_g_pDevice` (or that read bypasses the instrumented path); the pointer's writer is **not identified**, and no write-side model is warranted.
 

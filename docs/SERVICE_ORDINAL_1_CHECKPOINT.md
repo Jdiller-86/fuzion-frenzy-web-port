@@ -201,3 +201,17 @@ Consequence: the object whose `[ESI+0x47C]` produced the pointer `0x6B6A6968` is
 Next bounded task: record the faulting base (`ESI` at `0x1FC087`) and the `FUN_001FC010` entry `ECX`/caller, so the object is identified before any writer search.
 
 Sync status: integration head `864d33c` now contains the lane commits through `36bf5f7`, and its `D374`/`D376` rows already record the null-result model, the `D3DDevice_Release` and `FUN_001fc910` admissions and the ordinal-171 model. This diagnostic characterization adds no new decision, so no additional DECISIONS row is needed.
+
+## 14. Faulting object and its instrumented writers (read-only)
+
+A second default-off diagnostic (`siteWatch`) records the guest address and stack words at the `FUN_001FC010` entry access (`0x1FC010`) and the `[ESI+0x47C]` read (`0x1FC087`); `guestWatchAddr` retargets the write/read watch to any 32-bit guest address.
+
+Run `browser-133-writer.json` (module 133, same profile 87):
+
+- The `[ESI+0x47C]` read at `0x1FC087` accessed **`0x2061D4`**, so the faulting object base is **`0x205D58`** — not `D3D_g_pDevice` (`0x203B90`). The pointer value read through it is `0x6B6A6968`.
+- Watching `0x2061D4` records **two writes**, both first seen at site **`0x1FDFAA`** in `FUN_001fdf83` — a strided byte-fill helper that computes `arg*3<<8 + ecx + 0x214` and stores `CL` to several planes. No other instrumented write covers the field.
+- That fill does not explain the `"hijk"` bytes: its `CL` value would have to differ per store, and the recorded site alone is not enough to show the final stored value. The final writer is therefore **not established**, nor is the object's creator/initializer.
+
+Consequence: the fault is a read of a bogus pointer field on an object that is not the created device. No write-side or object model is warranted yet; the next bounded task is to identify the object at `0x205D58` (creator and initialization) and the exact store that leaves `0x6B6A6968`, with the fill argument/`CL` recorded.
+
+Sync status unchanged: integration head `864d33c` contains the lane commits through `36bf5f7`; `D374`/`D376` already record the models/admissions, so this diagnostic adds no new decision.

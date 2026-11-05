@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -315,10 +315,23 @@ export function validateProofReport(report) {
     if (!g || !integer(g.address) || !integer(g.site) || !integer(g.count) ||
         !integer(g.readSite) || !integer(g.readCount))
       throw new Error('Malformed guest-watch state');
-    if (g.address !== 0x206720)
+    if (!g.address)
       throw new Error('The guest-watch probe must target the selected device field');
   }
 
+  /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
+   * the +0x47C field address. Diagnostic only, never a service model. */
+  const claimsSiteWatch = experiments.includes('siteWatch');
+  if (report.siteWatchState !== undefined && !claimsSiteWatch)
+    throw new Error('Site-watch state requires the siteWatch experiment');
+  if (claimsSiteWatch && report.siteWatchState === undefined)
+    throw new Error('The siteWatch experiment requires its state');
+  if (report.siteWatchState !== undefined) {
+    const s = report.siteWatchState;
+    if (!s || !integer(s.entryAddr) || !integer(s.entryEcx) || !integer(s.entryReturn) ||
+        !integer(s.fieldAddr) || !integer(s.fieldCount))
+      throw new Error('Malformed site-watch state');
+  }
   /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
