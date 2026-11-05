@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -203,7 +203,58 @@ export function validateProofReport(report) {
     }    if (consumer.classification === 8 && consumer.budgetHit !== 1)
       throw new Error('A PFIFO consumer budget stop must report the budget hit');
   }
-  /* Ordinal 2 remains unsupported by default: the observed call carries four
+  /* Display-mode declaration and its experiment declaration are a pair; an
+   * acceptance must carry the exact pinned tuple. */
+  const claimsDisplay = experiments.includes('displayMode');
+  if (report.displayModeState !== undefined && !claimsDisplay)
+    throw new Error('Display-mode state requires the displayMode experiment');
+  if (claimsDisplay && report.displayModeState === undefined)
+    throw new Error('The displayMode experiment requires display-mode state');
+  if (report.displayModeState !== undefined) {
+    const d = report.displayModeState;
+    if (!d || !integer(d.accepted) || d.accepted > 1 || !integer(d.addr) || !integer(d.step) ||
+        !integer(d.mode) || !integer(d.format) || !integer(d.pitch) || !integer(d.fb) ||
+        !integer(d.window) || !integer(d.decision) || d.decision > 3)
+      throw new Error('Malformed display-mode state');
+    if (d.accepted === 1 &&
+        (d.addr !== 0x3C10CFC || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0 ||
+         d.pitch !== 0xA00 || d.fb !== 0x03920000 || d.window !== 0x83920000 || d.decision !== 0))
+      throw new Error('A display-mode acceptance must match the pinned declaration');
+  }  /* Unknown-AV-option experiment and state pairing; acceptance requires the
+   * exact observed tuple, one zero write, an untouched EAX and a 20-byte pop. */
+  const claimsAvUnknown = experiments.includes('avUnknownOption');
+  if (report.avUnknownOptionState !== undefined && !claimsAvUnknown)
+    throw new Error('Unknown-AV-option state requires the avUnknownOption experiment');
+  if (claimsAvUnknown && report.avUnknownOptionState === undefined)
+    throw new Error('The avUnknownOption experiment requires its state');
+  if (report.avUnknownOptionState !== undefined) {
+    const u = report.avUnknownOptionState;
+    if (!u || !integer(u.calls) || !integer(u.handle) || !integer(u.option) ||
+        !integer(u.param) || !integer(u.result) || !integer(u.decision) ||
+        !integer(u.written) || !integer(u.eaxBefore) || !integer(u.espBefore) ||
+        !integer(u.eaxAfter) || !integer(u.espAfter))
+      throw new Error('Malformed unknown-AV-option state');
+    if (u.decision === 0 &&
+        (u.handle !== 0xFD000000 || u.option !== 0x0F || u.param !== 0 || u.written !== 0 ||
+         u.eaxAfter !== u.eaxBefore || u.espAfter !== ((u.espBefore + 20) >>> 0)))
+      throw new Error('An accepted unknown AV option must match the pinned default');
+  }  /* Saved-data-address experiment and state pairing; the pinned value is 0
+   * with no arguments and no stack change. */
+  const claimsAvSaved = experiments.includes('avSavedData');
+  if (report.avSavedDataState !== undefined && !claimsAvSaved)
+    throw new Error('Saved-data state requires the avSavedData experiment');
+  if (claimsAvSaved && report.avSavedDataState === undefined)
+    throw new Error('The avSavedData experiment requires its state');
+  if (report.avSavedDataState !== undefined) {
+    const s = report.avSavedDataState;
+    if (!s || !integer(s.calls) || !integer(s.value) || !integer(s.decision) ||
+        !integer(s.eaxBefore) || !integer(s.espBefore) || !integer(s.eaxAfter) ||
+        !integer(s.espAfter) || !integer(s.priorSetter))
+      throw new Error('Malformed saved-data state');
+    if (s.decision === 0 &&
+        (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== s.espBefore || s.priorSetter !== 0))
+      throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
+  }  /* Ordinal 2 remains unsupported by default: the observed call carries four
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
@@ -218,6 +269,14 @@ export function validateProofReport(report) {
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
+      /* The unknown-option sibling has its own success shape; it is validated
+       * by avUnknownOptionState, not by the startup avQuery adapter rules. */
+      if (call.status === 0 && call.arguments[0] === 0xFD000000 &&
+          call.arguments[1] === 0x0F && call.arguments[2] === 0) {
+        if (!claimsAvUnknown)
+          throw new Error('An unknown AV option call requires the avUnknownOption experiment');
+        continue;
+      }
       if (report.avQueryWord === undefined) {
         if (call.status === 0)
           throw new Error('An unsupported ordinal-2 call must not report success');
@@ -255,10 +314,8 @@ export function validateProofReport(report) {
           throw new Error('The synthetic avQuery call must pop the 20-byte stdcall frame');
       } else {
         /* A configured profile can still truthfully deny or reach the query
-         * before it can be answered; preserve that report instead of presenting
-         * a denial as success. */
-        if (call.status !== 1)
-          throw new Error('A denied synthetic avQuery call must report the unsupported status');
+         * before it can be answered; a bridge-handled denial may carry a real
+         * NTSTATUS, so only an output word or success is invalid here. */
         if (call.output !== undefined)
           throw new Error('A denied synthetic avQuery call must not carry an output word');
         avQueryDenied = true;

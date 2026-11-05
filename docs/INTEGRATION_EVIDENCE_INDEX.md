@@ -2,6 +2,39 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: ordinal-1 saved-data model passes; NULL-Result AV query is next
+
+- [Ordinal-1 checkpoint §6-§7](SERVICE_ORDINAL_1_CHECKPOINT.md#6-bounded-fixed-0-model-guard-correction-and-pair): architect-authorized default-off fixed-0 `AvGetSavedDataAddress` model. The authorized static no-setter guard was proven unsatisfiable — the retained profile binds `{0x0025345C, 4u}` and that call site is in Present's nonzero saved-data branch — and the architect replaced it with a runtime invariant: accept only when the recorded journal has no prior ordinal-4 dispatch, fail closed on an unreadable journal. Module 120 (720,149 bytes, SHA `447c8073...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted (`priorSetter 0`, value 0, EAX 1→0, ESP unchanged) and advanced to **status 1 at `0xFE000094`, ordinal 2**, **340/409**. Next stop: `AvSendTVEncoderOption(0x03920000, 9, 0, NULL)` — documented `AV_OPTION_QUERY_AV_CAPABILITIES` with a NULL Result, which the pinned HAL's `if (!Result) return;` makes a log-and-return with no write. Characterized read-only, not modeled. Setter and nonzero path unmodeled.
+- **No DECISIONS row:** integration head `6bc05f7` contains `c8c965c` but not `3d4cf7d`/`bfe9dec`/`753711f`, so the sync-first rule still blocks the row.
+
+## Prior: ordinal-1 read-only characterization
+
+- [Ordinal-1 checkpoint](SERVICE_ORDINAL_1_CHECKPOINT.md): ordinal 1 = `AvGetSavedDataAddress`, no arguments, pinned static return `g_av_saved_data_address` = **0** (no `AvSetSavedDataAddress` call). `D3DDevice_Present` calls it at `0x202284` (return `0x20228A`) and skips the saved-data block when zero. Next: model the documented 0 return with the exact no-argument shape, or hold. **No DECISIONS row this cycle:** the published integration head `c8c965c` (source `5d7ebf5`) predates `3d4cf7d` and is not an ancestor; merge denied, no fast-forward possible.
+
+## Prior: unknown AV option model passes; ordinal-1 frontier
+
+- [Second-query checkpoint §5](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md#5-bounded-unknown-option-model-authorized): architect-authorized default-off sibling model (exact tuple, one zero write, EAX untouched, ESP +20). Module 118 (719,152 bytes, SHA `0b24204e...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted the late call (`0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to **status 1 at `0xFE000098`, ordinal 1**, 340/408. This is `D370`.
+## Latest: later ordinal-2 unknown-option characterization (read-only)
+
+- [Second-query checkpoint](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md): `D3DDevice_Present` calls `AvSendTVEncoderOption` again at `0x202268` with `0xFD000000`, option `0x0F`, `0`, Result pointer. The pinned HAL handles options `0x01`-`0x0E` and documents the unknown-option default as writing 0 through `Result` without failing; the synthetic adapter only accepts the startup `(0,6,0,Result)` query, so this call is denied (status 1). Next: model the documented unknown-option default with the exact shape, or hold. This is `D369`.
+## Latest: ordinal-3 display-mode declaration model
+
+- [Ordinal-3 checkpoint §6](SERVICE_ORDINAL_3_CHECKPOINT.md#6-bounded-declaration-model-authorized): architect-authorized default-off declaration model (exact tuple, no descriptor decode, no writes, success as declaration acceptance). Module 117 (718,230 bytes, SHA `05f9ecad...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; display run accepted `mode 0x60030307`, `pitch 0xA00`, `fb 0x03920000`, window `0x83920000` computed-not-applied, and advanced to a later ordinal-2 query at `0xFE000094`, 340/407. The earlier mode value `0x600302C7` is corrected. This is `D368`.
+## Latest: service ordinal 3 characterization (read-only)
+
+- [Ordinal-3 checkpoint](SERVICE_ORDINAL_3_CHECKPOINT.md): ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)`, returning 0; called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x600302C7`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. This is `D367`.
+## Latest: vblank wait model passes; ordinal-3 frontier
+
+- [Wait-model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md#type-gate-correction-and-result): architect-accepted correction decodes the full event header (low byte 0/1, Size byte 4) and consumes only Type 1; the title's notification event `0x00040000` is accepted. Module 115 (717,097 bytes, SHA `c7b94e38...`). Control unchanged (339/405, status 13); experiment (consumer + 3 vblanks) decision 0, declared 3 -> 2, the wait exits, and the run advances to **status 1 at `0xFE0000A4`, ordinal 3**, 340/406, return `0x202231` in `D3DDevice_Present`'s submit loop. Supersedes D364's type-1 restriction and D365's flag reading for this object. This is `D366`.
+## Latest: ordinal-159 wait object characterization (read-only)
+
+- [Vblank object checkpoint](VBLANK_OBJECT_CHECKPOINT.md): object `0x00206080` = D3D device `0x00203B80` + `0x2500`, first dword `0x00040000`, `+4` word 0; static writers treat it as a flag/state field, not a KEVENT. The event gate refusal is confirmed; modeling it as an event would be an assumption. Next: initializer/signal characterization, a D3D-specific path, or hold. This is `D365`.
+## Latest: ordinal-159 wait model (default-off, gate refused)
+
+- [Vblank wait model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md): architect-authorized default-off model (`pcrtcVblanks` pool, exact five-argument guard, pinned event gate). Module 114 (717,065 bytes, SHA `b3ec6b2b...`). Control unchanged (339/405, status 13); experiment (consumer + 3 vblanks) drains 499 words, releases the fence 3 -> 9, then calls ordinal 159 once with object type `0x40000`, signal 0 → decision 3 (EVENT). Gate refused, no writes, stop unchanged (status 1, `0xFE000094`, ordinal 159, 340/405). The object is not the pinned KEVENT; next is a read-only characterization. This is `D364`.
+## Latest: service ordinal 159 characterization (read-only)
+
+- [Ordinal-159 checkpoint](SERVICE_ORDINAL_159_CHECKPOINT.md): ordinal 159 (`0x9F`) = `KeWaitForSingleObject` (5 arguments, NTSTATUS); `D3DDevice_BlockUntilVerticalBlank` calls it with Object `0x00206080`, WaitReason 6, WaitMode 1, Alertable 0, Timeout NULL, retrying while nonzero. The pinned bridge treats the guest event SignalState as truth and delivers vblank via PCRTC_INTR_0 bit 0 + PMC_INTR_0 bit 24; the current profile delivers none, so no modeled success is permitted. Branch fast-forwarded to `1e35f8a` (main ancestry restored). This is `D363`.
 ## Latest: PFIFO responder reaches service 159
 
 - [Completion-flag checkpoint §7](PFIFO_COMPLETION_FLAG_CHECKPOINT.md): architect-authorized default-off responder (drain to PUT + one-shot sequence release; latch unmodeled). Module 112 (716,327 bytes, SHA `0304f2f6...`). Control unchanged (status 13 at `0xFD800044`, 339/405); consumer drained 173 packets / 499 words, released the fence 3 -> 9, exited the wait, and stopped at status 1, `0xFE000094`, ordinal 159 (unsupported service), 340/405. This is `D354`.

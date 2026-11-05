@@ -76,7 +76,11 @@ try {
     if ($architectBrief.Length -gt 900) { $architectBrief = $architectBrief.Substring(0, 900) }
     $priorBrief = if ($previousGuidance) { "Previous manager tasks: primary $($previousGuidance.lanes.primary.head) $($previousGuidance.lanes.primary.action) $($previousGuidance.lanes.primary.task); geometry $($previousGuidance.lanes.geometry.head) $($previousGuidance.lanes.geometry.action); verification $($previousGuidance.lanes.verification.head) $($previousGuidance.lanes.verification.action) $($previousGuidance.lanes.verification.task)." } else { '' }
     if ($priorBrief.Length -gt 900) { $priorBrief = $priorBrief.Substring(0, 900) }
-    $prompt = "You are the persistent read-only Fuzion Frenzy delivery manager session; your standing charter from earlier beats still applies. Work from source-only metadata and AGENTS.md. $snapshot. Latest approved architect directive: $architectBrief. $priorBrief Assign one bounded task, acceptance check and stop condition to each useful independent lane. If a lane's head advanced after its previous RUN task, assess its result and stop condition before assigning more; hold it for architect review unless an independent result is clearly authorized. Primary owns original startup/runtime; Geometry owns only src/runtime/nv2a_* and its matching tests/checkpoint; Verification owns only source-owned integration/check tooling, matching tests and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Follow the architect's hold or route decision; do not override it. Geometry is HOLD if architect geometryCycle is HOLD. Hold a clean lane without a concrete independent result or awaiting architect review; assign a bounded continuation RUN task to a lane with in-flight edits, because its runner preserves and completes them. You may not edit, merge or push; builders may edit and commit their owned files. Never claim original playability from component tests. Keep answers short. Output exactly three final single-line markers, each with RUN or HOLD and a task under 300 characters: MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
+    $checkpointPath = Join-Path $repo '.worktrees\opencode-source\docs\PROJECT_STATUS.md'
+    $checkpoint = if (Test-Path -LiteralPath $checkpointPath) { ((Get-Content -LiteralPath $checkpointPath -TotalCount 7) -join ' ') -replace '\s+', ' ' } else { 'checkpoint unavailable' }
+    if ($checkpoint.Length -gt 520) { $checkpoint = $checkpoint.Substring(0, 520) }
+    $prompt = "Manager watchdog fallback. $snapshot. Source checkpoint: $checkpoint. Architect directive: $architectBrief. $priorBrief Assign the next useful bounded result from the CURRENT checkpoint; if a previous task is complete or its head advanced, do not reissue it. Dirty lanes continue their edits. HOLD geometry when the architect says HOLD or reference evidence is absent; HOLD verification without a concrete gate task. Follow lane ownership and architect route decisions in AGENTS.md; do not edit, merge, push or claim playability. Reply with ONLY three single-line markers (task <=300 characters, include acceptance and stop): MANAGER_PRIMARY: RUN|HOLD | task; MANAGER_GEOMETRY: RUN|HOLD | task; MANAGER_VERIFICATION: RUN|HOLD | task."
+
     $output = @()
     $exitCode = 1
     try {
@@ -100,6 +104,9 @@ try {
     foreach ($lane in @('primary', 'geometry', 'verification')) {
         $match = [regex]::Match($response, '(?m)^MANAGER_' + $lane.ToUpperInvariant() + ':\s*(RUN|HOLD)\s*\|\s*(.{1,300})\s*$')
         if ($match.Success) { $lanes[$lane] = @{ action = $match.Groups[1].Value; task = $match.Groups[2].Value.Trim(); head = $heads[$lane] } }
+    }
+    if ($source.outcome -eq 'resume' -and $lanes.primary.action -eq 'RUN') {
+        $lanes.primary.task = 'Continue only the in-flight source edits; use the current diff and top checkpoint, finish targeted checks and one source-only commit, then report the observed next stop.'
     }
     if ($exitCode -eq 0 -and $lanes.Count -eq 3) {
         if ($architect -and $architect.approved -and $architect.geometryCycle -eq 'HOLD') { $lanes.geometry.action = 'HOLD' }

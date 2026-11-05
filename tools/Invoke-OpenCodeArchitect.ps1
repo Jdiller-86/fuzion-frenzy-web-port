@@ -61,18 +61,10 @@ try {
     $geometryHead = (git -C $repo rev-parse codex/opencode-geometry).Trim()
     $verificationHead = (git -C $repo rev-parse codex/opencode-verification).Trim()
     $mainHead = (git -C $repo rev-parse main).Trim()
-    $solCooldownUntil = [DateTimeOffset]::MinValue
-    if (Test-Path -LiteralPath $statePath) {
-        try {
-            $previousState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
-            if ($previousState.solCooldownUntil) {
-                $parsedCooldown = [DateTimeOffset]::MinValue
-                if ([DateTimeOffset]::TryParse([string]$previousState.solCooldownUntil, [ref]$parsedCooldown)) { $solCooldownUntil = $parsedCooldown }
-            }
-        } catch { Write-Warning 'Previous architect state unavailable; checking Sol normally.' }
-    }
-    $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; head = $head; sourceHead = $sourceHead; geometryHead = $geometryHead; verificationHead = $verificationHead; mainHead = $mainHead; model = 'openai/gpt-6.1-sol'; sessionId = $sessionId }
-    if ($solCooldownUntil -gt [DateTimeOffset]::Now) { $state.solCooldownUntil = $solCooldownUntil.ToString('o') }
+    $modelPool = Get-Content -LiteralPath (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
+    $architectModels = @($modelPool.hourlyReview)
+    if ($architectModels.Count -lt 1 -or $architectModels[0] -ne 'opencode-go/glm-5.3-flash' -or $architectModels -contains 'openai/gpt-6.1-sol') { throw 'Architect model pool must start with Go GLM 5.3 Flash and exclude Sol.' }
+    $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; head = $head; sourceHead = $sourceHead; geometryHead = $geometryHead; verificationHead = $verificationHead; mainHead = $mainHead; model = $architectModels[0]; sessionId = $sessionId }
     $prSnapshot = 'GitHub PR snapshot unavailable; inspect again before approving a merge.'
     try {
         $snapshotOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action Snapshot 2>&1
@@ -82,10 +74,14 @@ try {
     $state.prSnapshot = $prSnapshot
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
 
-    $prompt = "You are the hourly Sol project architect and authority for bounded design decisions, priority changes, reviewed merges and GitHub PR management. This is the persistent integration branch codex/opencode-architect at $head; committed builder heads are source=$sourceHead, geometry=$geometryHead, local main=$mainHead. GitHub PR snapshot (metadata only; verify current state): $prSnapshot. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md, the current checkpoints, decisions and the corrected top of DEVELOPMENT_PLAN.md. Use git show/diff/log on those branch refs for current facts; your own branch may lag until you merge. Inspect any unfinished integration changes before new work. Each cycle decide whether committed source/geometry work merits a draft review PR into the integration branch, whether a clean integration head merits a PR into main, and whether an existing main PR is ready to merge. You must initiate PR creation yourself with exact markers at the end of your answer: OPEN_SOURCE_REVIEW_PR: <exact committed source HEAD>, OPEN_GEOMETRY_REVIEW_PR: <exact committed geometry HEAD>, or OPEN_MAIN_PR: <exact clean integration HEAD>. Emit only the markers you approve; omit any already-open PR. The runner is an authenticated actuator that rechecks and executes your requests; it never decides to open PRs on its own. Do not use shell commands to create or merge PRs. Compare actual original-game browser execution with the full fidelity, local-content and eventual online/social goal. Before spending Sol steps on broad source reconnaissance, delegate one useful narrow read-only source lookup or commit classification to local Scout (unsloth/qwen3.8-27b), which now has a 32K configured context; give it exact paths, a small answer limit and no private content. Verify material Scout findings yourself. If Scout is unavailable or no useful bounded question exists, continue and report that in the review. Approve or revise consequential design decisions in docs/DECISIONS.md, update governing docs when evidence changes, and send concise priority directives to both builders. You may delegate other narrow work when useful, but do not duplicate the primary or geometry owners. You may merge reviewed committed branches into your integration branch after checking diff, source-only paths, targeted tests and conflicts; never discard edits or force a merge. Keep game files and private research local. Do not push: the runner publishes checked commits. Only if the exact clean integration HEAD is fully reviewed for main, all intended commits including local main are integrated, and GitHub checks and PR status can pass, end with MERGE_MAIN_PR: <your exact 40-character integration HEAD>. The runner will recheck and merge that PR without a direct push. Otherwise omit the marker and state the blocker. Put all PR markers immediately before the final ARCHITECT_REVIEW: <at most 700 characters of authoritative priorities for the primary and geometry builders, with evidence limits>. Do not claim playability without a controllable original screen."
-    $prompt += ' Make integration a concrete hourly deliverable. Review the current exact head of the existing main PR independently from unmerged builder branches: their conflicts or unfinished work do not by themselves block a previously reviewed integration head. If that PR head is fully reviewed, source-only, current with local main, and passes its exact-head checks, request MERGE_MAIN_PR for it; otherwise identify the specific unreviewed paths or failing gate on that PR head. Also inspect the oldest bounded committed builder change not yet integrated. If an independent slice can be reviewed and integrated safely, cherry-pick or merge that slice into this branch, run its targeted checks and record the accepted evidence; do not wait for an entire growing builder branch to become reviewable. If no slice qualifies, name the exact reason rather than adding another general review-only checkpoint. Never use a main merge marker to bypass the existing source, runtime, CI, ancestry or GitHub protections.'
-    $prompt += ' Actively manage both builders: compare their latest commits and outcomes with your last directive, identify task drift, repeated low-value documentation or fixture churn, and any stalled critical path. Give each active lane one specific next bounded result, acceptance check and stop condition. Redirect work when evidence changes; do not let a lane keep making unrelated prerequisites without a concrete link to the original-browser-execution milestone. If geometry lacks actionable reference evidence, emit GEOMETRY_CYCLE: HOLD before any PR markers; the runner will defer its hourly prompt to save free-model usage while primary continues. Otherwise emit GEOMETRY_CYCLE: RUN with a concrete geometry task. Keep any PR markers immediately before the final ARCHITECT_REVIEW as already specified. In ARCHITECT_REVIEW, lead with Primary: and Geometry: directives that builders can execute, and state exactly what you will review for integration next hour. A held lane is a resource decision, never a pause of the overall goal.'
-    $prompt += " A third verification builder at $verificationHead owns only source-owned integration/check tooling and matching tests. Review its exact head and give it a bounded task or HOLD, with a clear acceptance check. The GLM Flash manager assigns the three builders between your hourly reviews; you remain the design and merge authority. Include Verification: in the final directive."
+    $recentIntegration = (@(git -C $worktree log -4 --pretty=format:'%h %s') | Where-Object { $_ }) -join '; '
+    $prompt = "Hourly GLM Flash architect review. Integration=$head; source=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Recent integration commits: $recentIntegration. Read AGENTS.md, docs/OPENCODE_GOAL.md and the TOP of current status/handoff/checkpoint; use Git for exact changed paths. Decide the existing main PR first. If its exact head equals your clean integration HEAD and passes reviewed source/runtime/CI/ancestry/mergeability gates, emit MERGE_MAIN_PR and make no branch edits or new integration commit this cycle; the runner rechecks before merging. Otherwise name the specific gate, then review one committed builder slice for integration. Attribute any new integration commits with git show before describing them as unexplained. Keep the original-game browser route and local content boundary. Use Qwen Scout for one narrow lookup only when useful. Direct each lane to one bounded result or HOLD; prefer the next genuine execution blocker, not repeated documentation or test-only churn. The primary may batch related reached functions under the standing policy, stopping on unsupported service/register/resource or failed checks. Do not push, operate GitHub directly, discard edits, invent evidence, or claim playability. If justified, emit exact 40-character OPEN_SOURCE_REVIEW_PR, OPEN_GEOMETRY_REVIEW_PR or OPEN_MAIN_PR markers; emit MERGE_MAIN_PR only for the exact reviewed clean integration HEAD. End with GEOMETRY_CYCLE: HOLD or RUN, any justified PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration: ... . Keep the review under 300 words before markers."
+    $mainIsIntegrated = $false
+    git -C $worktree merge-base --is-ancestor $mainHead $head 2>$null
+    if ($LASTEXITCODE -eq 0) { $mainIsIntegrated = $true }
+    if (-not $mainIsIntegrated) {
+        $prompt = "PR merge prerequisite: local main $mainHead is not in integration HEAD $head. Resolve and integrate local main under lane ownership first; review conflicts and run the relevant gates. Do not emit MERGE_MAIN_PR this cycle. Then give the builders one bounded next task. " + $prompt
+    }
     if (Test-Path -LiteralPath $guidancePath) {
         try {
             $priorGuidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
@@ -109,7 +105,7 @@ try {
     if ($dirty.Count -gt 0) { $prompt += ' This integration worktree is dirty from an earlier cycle; finish or resolve those exact changes without resetting them before considering new merges.' }
     $output = @()
     $exitCode = 1
-    $modelUsed = 'openai/gpt-6.1-sol'
+    $modelUsed = $architectModels[0]
     try {
         Push-Location -LiteralPath $worktree
         try {
@@ -117,22 +113,20 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
-                # W013: GLM-5.3 is the permanent architect model; flash-free is the
-                # availability fallback. Sol is manual-only and never auto-attempted.
-                $candidates = @('opencode-go/glm-5.3', 'opencode/glm-5.3-flash-free')
+                # Flash is the normal architect; full GLM is used only after a
+                # recognized allowance or model-availability failure.
+                $candidates = @($architectModels) + @('opencode/glm-5.3-flash-free')
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
-                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3') { "You are the authorized permanent hourly project architect (GLM-5.3, W013). Act under AGENTS.md and docs/OPENCODE_GOAL.md. Integration HEAD=$head; primary=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Review latest committed evidence and the manager's three lane directions. Finish one bounded integration or management decision; check the existing main PR independently of unfinished builder work. Use Qwen Scout once for narrow source reconnaissance if useful. Give Primary, Geometry and Verification one task or hold, acceptance check, and stop condition. Preserve source-only, original-browser-execution, exact-head, runtime, CI, ancestry, and mergeability gates. Never request a merge from metadata alone. Do not push or operate GitHub directly. Conclude with GEOMETRY_CYCLE: HOLD or RUN; then only justified exact-head OPEN_*_PR or MERGE_MAIN_PR markers; and a final ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration review: ... . Reserve steps to finish this directive." } elseif ($candidate -eq 'openai/gpt-6.1-sol') { $prompt } else { "Sol and the full Go architect are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
-                    # The project defines no dedicated "architect" agent in this worktree;
-                    # both Sol and Go GLM run under the proven architect_fallback charter.
-                    $agent = if ($candidate -eq 'opencode/glm-5.3-flash-free') { 'reviewer' } else { 'architect_fallback' }
+                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { $prompt } elseif ($candidate -eq 'opencode-go/glm-5.3') { "GLM 5.3 Flash is usage-limited. Act as the authorized hourly architect under AGENTS.md and docs/OPENCODE_GOAL.md. Integration HEAD=$head; primary=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Review latest committed evidence and the manager's three lane directions. Finish one bounded integration or management decision; check the existing main PR independently of unfinished builder work. Use Qwen Scout once for narrow source reconnaissance if useful. Give Primary, Geometry and Verification one task or hold, acceptance check, and stop condition. Preserve source-only, original-browser-execution, exact-head, runtime, CI, ancestry, and mergeability gates. Never request a merge from metadata alone. Do not push or operate GitHub directly. Conclude with GEOMETRY_CYCLE: HOLD or RUN; then only justified exact-head OPEN_*_PR or MERGE_MAIN_PR markers; and a final ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration review: ... . Reserve steps to finish this directive." } else { "Both Go architect models are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
+                    $agent = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect_primary' } elseif ($candidate -eq 'opencode-go/glm-5.3') { 'architect_fallback' } else { 'reviewer' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
                     } else {
                         $runOutput = & opencode run --auto --agent $agent --model $candidate $runPrompt 2>&1
                     }
                     $exitCode = $LASTEXITCODE
-                    if ($exitCode -eq 0 -and $candidate -eq 'opencode-go/glm-5.3' -and (($runOutput | Out-String) -notmatch '(?m)^ARCHITECT_REVIEW:\s*\S')) {
+                    if ($exitCode -eq 0 -and $candidate -in @('opencode-go/glm-5.3-flash', 'opencode-go/glm-5.3') -and (($runOutput | Out-String) -notmatch '(?m)^ARCHITECT_REVIEW:\s*\S')) {
                         $finalPrompt = 'Finish this architect cycle now. No tools or additional investigation. Based on the evidence already checked, state the next bounded Primary and Geometry tasks, acceptance checks, and stop conditions. If a main PR merge was not fully proven, omit MERGE_MAIN_PR. End with GEOMETRY_CYCLE: HOLD or RUN, followed by any already justified exact-head PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Next integration review: ... .'
                         if ($sessionId) { $finalOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $finalPrompt 2>&1 }
                         else { $finalOutput = & opencode run --auto --agent $agent --model $candidate $finalPrompt 2>&1 }
@@ -142,10 +136,6 @@ try {
                     $output += @('model=' + $candidate) + @($runOutput)
                     if ($exitCode -eq 0) { break }
                     $failureText = ($runOutput | Out-String)
-                    if ($candidate -eq 'openai/gpt-6.1-sol' -and $failureText -match '(?i)ChatGPT usage limit|subscription_sharing_usage_limit_exceeded') {
-                        $solCooldownUntil = [DateTimeOffset]::Now.AddHours(6)
-                        $state.solCooldownUntil = $solCooldownUntil.ToString('o')
-                    }
                     if ($candidate -eq 'opencode/glm-5.3-flash-free' -or $failureText -notmatch '(?i)quota|usage\s+limit|rate\s+limit|allowance|insufficient\s+credits|insufficient\s+balance|\b429\b|model\s+unavailable|model\s+not\s+found') { break }
                 }
             } finally { $ErrorActionPreference = $oldPreference }
@@ -173,7 +163,7 @@ try {
         $summary = if ($match.Success) { $match.Groups[1].Value.Trim() } else { $response }
         if ($summary.Length -gt 1200) { $summary = $summary.Substring(0, 1200) }
         $geometryCycleMatch = [regex]::Match($fullResponse, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
-        $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -in @('openai/gpt-6.1-sol', 'opencode-go/glm-5.3') -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
+        $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -in $architectModels -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
         $tempPath = $guidancePath + '.tmp'
         $guidance | ConvertTo-Json | Set-Content -LiteralPath $tempPath -Encoding utf8
         Move-Item -LiteralPath $tempPath -Destination $guidancePath -Force
@@ -249,7 +239,7 @@ try {
         }
         if (-not $heartbeatFresh) {
             $state.managerWatchdog = 'recovering'
-            $recoverOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $repo 'tools\Invoke-OpenCodeManager.ps1') -Force 2>&1
+            $recoverOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $worktree 'tools\Invoke-OpenCodeManager.ps1') -Force 2>&1
             $state.managerWatchdog = if ($LASTEXITCODE -eq 0) { 'recovered' } else { 'recovery_failed' }
             $state.managerWatchdogOutput = (($recoverOutput | Out-String).Trim())
         }

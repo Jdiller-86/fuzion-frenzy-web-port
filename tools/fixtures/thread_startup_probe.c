@@ -81,6 +81,10 @@ static uint32_t memory_statistics_ready;
 #include "../../src/runtime/pfifo_dma.h"
 #include "../../src/runtime/pfifo_status.h"
 #include "../../src/runtime/pfifo_pusher.h"
+#include "../../src/runtime/vblank_wait.h"
+#include "../../src/runtime/display_mode.h"
+#include "../../src/runtime/av_unknown_option.h"
+#include "../../src/runtime/av_saved_data.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -146,7 +150,17 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
  * register contract and PMC aggregation come from the retained NV2A reference;
  * no timing source exists here, so nothing is raised unless the profile says so. */
 static ff_pcrtc_state pcrtc;
-static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site;
+static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site, pcrtc_declared;
+static uint32_t vblank_wait_calls, vblank_wait_type, vblank_wait_signal, vblank_wait_decision;
+static uint32_t display_mode_enabled, display_mode_ready, display_mode_decision;
+static uint32_t display_mode_addr, display_mode_step, display_mode_mode, display_mode_format;
+static uint32_t display_mode_pitch, display_mode_fb, display_mode_window;
+static uint32_t av_unknown_enabled, av_unknown_calls, av_unknown_decision, av_unknown_written;
+static uint32_t av_unknown_handle, av_unknown_option, av_unknown_param, av_unknown_result;
+static uint32_t av_unknown_eax_before, av_unknown_esp_before, av_unknown_eax_after, av_unknown_esp_after;
+static uint32_t av_saved_enabled, av_saved_calls, av_saved_value, av_saved_decision;
+static uint32_t av_saved_prior, av_saved_eax_before, av_saved_esp_before, av_saved_eax_after, av_saved_esp_after;
+static uint32_t av_saved_journal[FF_KERNEL_CAPACITY];
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -190,8 +204,94 @@ uint32_t ff_probe_pcrtc(uint32_t vblanks)
     if (vblanks > 64u) return FF_BOOT_INVALID;
     ff_pcrtc_init(&pcrtc);
     for (uint32_t i = 0; i < vblanks; ++i) ff_pcrtc_vblank(&pcrtc);
+    pcrtc_declared = vblanks;
     pcrtc_ready = 1;
     return 0;
+}
+/* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
+uint32_t ff_probe_display_mode(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    display_mode_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_display_mode_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return display_mode_ready ? 1u : 0u;
+        case 1: return display_mode_addr;
+        case 2: return display_mode_step;
+        case 3: return display_mode_mode;
+        case 4: return display_mode_format;
+        case 5: return display_mode_pitch;
+        case 6: return display_mode_fb;
+        case 7: return display_mode_window;
+        case 8: return display_mode_decision;
+        case 9: return display_mode_enabled;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_unknown(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    av_unknown_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_unknown_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_unknown_enabled;
+        case 1: return av_unknown_calls;
+        case 2: return av_unknown_handle;
+        case 3: return av_unknown_option;
+        case 4: return av_unknown_param;
+        case 5: return av_unknown_result;
+        case 6: return av_unknown_decision;
+        case 7: return av_unknown_written;
+        case 8: return av_unknown_eax_before;
+        case 9: return av_unknown_esp_before;
+        case 10: return av_unknown_eax_after;
+        case 11: return av_unknown_esp_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_saved_data(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    /* The guest translation legitimately binds ordinal 4 in Present's nonzero
+     * branch, so absence cannot be proven statically. The guard is the runtime
+     * journal invariant checked at each ordinal-1 dispatch instead. */
+    av_saved_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_saved_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_saved_enabled;
+        case 1: return av_saved_calls;
+        case 2: return av_saved_value;
+        case 3: return av_saved_decision;
+        case 4: return av_saved_eax_before;
+        case 5: return av_saved_esp_before;
+        case 6: return av_saved_eax_after;
+        case 7: return av_saved_esp_after;
+        case 8: return av_saved_prior;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_vblank_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return vblank_wait_calls;
+        case 1: return vblank_wait_type;
+        case 2: return vblank_wait_signal;
+        case 3: return vblank_wait_decision;
+        case 4: return pcrtc_declared;
+        default: return UINT32_MAX;
+    }
 }
 /* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
 uint32_t ff_probe_pcrtc_word(uint32_t field)
@@ -1884,11 +1984,143 @@ static void av_send_tv_encoder_option(void)
     row[10] = cpu.esp;
     row[11] = args[3]; /* output address the adapter wrote through */
 }
+/* Unknown-option sibling: the pinned HAL default writes 0 through Result and
+ * does not fail. Exact observed tuple only; every other shape keeps the
+ * unsupported-service stop. EAX is untouched and the stdcall frame pops 20. */
+static void av_unknown_option_call(void)
+{
+    uint32_t *row = kernel_record(2u, 4u);
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
+    uint32_t mapped = result && !(result & 3u) && result <= FF_GUEST_BYTES - 4u;
+    uint32_t eax_before, esp_before;
+    ++av_unknown_calls;
+    av_unknown_handle = handle;
+    av_unknown_option = option;
+    av_unknown_param = param;
+    av_unknown_result = result;
+    av_unknown_decision = ff_av_unknown_accept(handle, option, param, result, mapped);
+    if (av_unknown_decision != FF_AV_UNKNOWN_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    eax_before = g_eax;
+    esp_before = g_esp;
+    MEM32(result) = 0u;
+    (void)ff_guest_write_map_mark(&guest_write_map, result, 4u);
+    g_esp = esp_before + 20u;
+    av_unknown_written = 0u;
+    av_unknown_eax_before = eax_before;
+    av_unknown_esp_before = esp_before;
+    av_unknown_eax_after = g_eax;
+    av_unknown_esp_after = g_esp;
+    row[1] = 0u;
+    row[6] = 0u;
+    row[7] = eax_before;
+    row[8] = esp_before;
+    row[9] = g_eax;
+    row[10] = g_esp;
+    row[11] = result;
+}
+static void av_option_router(void)
+{
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    if (handle == 0u && option == 6u) { av_send_tv_encoder_option(); return; }
+    av_unknown_option_call();
+}
 #endif
+/* Ordinal 159 on the observed vblank event. One declared delivery per matching
+ * call: produce the PCRTC pending state, signal then consume the guest
+ * synchronization event, and return STATUS_SUCCESS. Any mismatch, exhaustion
+ * or non-event object keeps the unsupported-service stop. The ISR is not
+ * executed; its observable event signal is substituted. */
+static uint32_t kernel_binding_address(uint32_t ordinal)
+{
+    for (uint32_t i = 0; i < FF_KERNEL_BINDING_COUNT; ++i)
+        if (bindings[i].ordinal == ordinal) return FF_KERNEL_BASE + i * 4u;
+    return 0u;
+}
+static void wait_vblank(void)
+{
+    uint32_t *row = kernel_record(159u, 5u);
+    uint32_t object = MEM32(g_esp + 4u), reason = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
+    uint32_t alertable = MEM32(g_esp + 16u), timeout = MEM32(g_esp + 20u);
+    uint32_t type = 0u, signal = 0u;
+    if (object && object <= FF_GUEST_BYTES - 8u) {
+        type = MEM32(object);
+        signal = MEM32(object + 4u);
+    }
+    ++vblank_wait_calls;
+    vblank_wait_type = type;
+    vblank_wait_signal = signal;
+    vblank_wait_decision = ff_vblank_wait_accept(pcrtc_declared, object, reason, mode, alertable, timeout,
+                                                 type, signal);
+    if (vblank_wait_decision != FF_VBLANK_WAIT_ACCEPT) {
+        row[1] = 1u;
+        stop(1, kernel_binding_address(159u), 159u);
+    }
+    ff_pcrtc_vblank(&pcrtc);
+    --pcrtc_declared;
+    MEM32(object + 4u) = 1u;
+    if ((type & 0xFFu) == 1u) MEM32(object + 4u) = 0u;
+    row[1] = 0u;
+    g_eax = 0u;
+}
+static void set_display_mode(void)
+{
+    uint32_t *row = kernel_record(3u, 6u);
+    uint32_t addr = MEM32(g_esp + 4u), step = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
+    uint32_t format = MEM32(g_esp + 16u), pitch = MEM32(g_esp + 20u), fb = MEM32(g_esp + 24u);
+    uint32_t mapped = addr && !(addr & 3u) && addr <= FF_GUEST_BYTES - 4u;
+    display_mode_addr = addr;
+    display_mode_step = step;
+    display_mode_mode = mode;
+    display_mode_format = format;
+    display_mode_pitch = pitch;
+    display_mode_fb = fb;
+    display_mode_decision = ff_display_mode_accept(mapped, addr, step, mode, format, pitch, fb);
+    if (display_mode_decision != FF_DISPLAY_OK) {
+        row[1] = 1u;
+        stop(1, kernel_binding_address(3u), 3u);
+    }
+    display_mode_window = ff_display_mode_window(fb);
+    display_mode_ready = 1;
+    row[1] = 0u;
+    g_eax = 0u;
+}
+static uint32_t av_saved_prior_setter(void)
+{
+    uint32_t count = kernel_call_count;
+    if (count > FF_KERNEL_CAPACITY) count = FF_KERNEL_CAPACITY;
+    for (uint32_t i = 0; i < count; ++i) av_saved_journal[i] = kernel_calls[i][0];
+    return ff_av_saved_data_prior_setter(av_saved_journal, count);
+}
+static void av_get_saved_data(void)
+{
+    uint32_t prior = av_saved_prior_setter();
+    uint32_t *row = kernel_record(1u, 0u);
+    uint32_t value = 0xDEADBEEFu;
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t decision = ff_av_saved_data_value(av_saved_enabled, prior, &value);
+    ++av_saved_calls;
+    av_saved_prior = prior;
+    av_saved_decision = decision;
+    if (decision != FF_AV_SAVED_OK) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, kernel_binding_address(1u), 1u);
+    }
+    g_eax = value;
+    av_saved_value = value;
+    av_saved_eax_before = eax_before;
+    av_saved_esp_before = esp_before;
+    av_saved_eax_after = g_eax;
+    av_saved_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = value;
+}
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
-    uint32_t offset = address - FF_KERNEL_BASE;
-    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
+    uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
@@ -1956,7 +2188,11 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 67) return create_symbolic_link;
 #endif
 #if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+        if (ordinal == 2 && av_unknown_enabled) return av_option_router;
         if (ordinal == 2 && av_query_ready) return av_send_tv_encoder_option;
+        if (ordinal == 159 && pcrtc_ready && pcrtc_declared) return wait_vblank;
+        if (ordinal == 3 && display_mode_enabled) return set_display_mode;
+        if (ordinal == 1 && av_saved_enabled) return av_get_saved_data;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is
