@@ -176,7 +176,7 @@ static uint32_t guest_watch_read_site, guest_watch_read_count;
 static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
 static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
 static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
-static uint32_t site_callee_esi[4];
+static uint32_t site_span_esi[4];
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
 {
@@ -394,10 +394,10 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
         case 4: return site_watch_field_addr;
         case 5: return site_watch_field_count;
         case 6: return site_watch_field_esi;
-        case 7: return site_callee_esi[0];
-        case 8: return site_callee_esi[1];
-        case 9: return site_callee_esi[2];
-        case 10: return site_callee_esi[3];
+        case 7: return site_span_esi[0];
+        case 8: return site_span_esi[1];
+        case 9: return site_span_esi[2];
+        case 10: return site_span_esi[3];
         default: return UINT32_MAX;
     }
 }
@@ -662,10 +662,10 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled) {
-        uint32_t *slot = site == 0x001FB300u ? &site_callee_esi[0]
-                        : site == 0x001FAED0u ? &site_callee_esi[1]
-                        : site == 0x001FACA0u ? &site_callee_esi[2]
-                        : site == 0x001FB640u ? &site_callee_esi[3] : NULL;
+        uint32_t *slot = site == 0x001FC01Fu ? &site_span_esi[0]
+                        : site == 0x001FC038u ? &site_span_esi[1]
+                        : site == 0x001FC055u ? &site_span_esi[2]
+                        : site == 0x001FC087u ? &site_span_esi[3] : NULL;
         if (slot && !*slot) *slot = g_esi;
         if (site == 0x001FC010u && !(access & FF_VM_WRITE)) {
             site_watch_entry_addr = address;

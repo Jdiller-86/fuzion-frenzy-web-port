@@ -321,3 +321,23 @@ Conclusion: the transition is **not localised to a single call/return boundary**
 Next bounded task: capture `g_esi` at the exact call boundary using the translated call site itself (e.g., a hook on the `0x1FC080` return address), which needs either a source-owned call-boundary probe or a translator-level trace — the latter is a tooling finding to record, not a local patch.
 
 No DECISIONS row: characterization only.
+
+## 22. Span probe: ESI is correct after the first two calls and wrong at the field read
+
+The probe now samples `g_esi` at the caller's post-call access sites inside `FUN_001FC010`. Run `browser-142-abi.json` (module 142, private ABI build):
+
+| Sample point | `g_esi` |
+| --- | --- |
+| `FUN_001FC010` entry (`0x1FC010`) | `0x203B90` |
+| after call 1 (`0x1FC01F`, `FUN_001FB300`) | `0x203B90` |
+| after call 2 (`0x1FC038`, `FUN_001FAED0`) | `0x203B90` |
+| loop site `0x1FC055` | not accessed (the loop is skipped on this path) |
+| `[ESI+0x47C]` read (`0x1FC087`) | `0x205E98` |
+
+So `g_esi` is still the device after the second call and has changed by the field read. On this path the only remaining calls are `0x1FC077` → `FUN_001FD630` (and its callees); `FUN_001FD630` itself never assigns `esi` (push/pop/assign all 0), so the change must occur inside **its** call chain — where the direct-call ABI check should have fired but recorded 0 ESI violations.
+
+This narrows the defect to the `0x1FC077` span and to a call form the ABI macro does not cover (indirect/tail path), but the exact edge is still not named. No workaround, model, or translation edit.
+
+Next bounded task: probe `g_esi` around the `0x1FC077` call (`FUN_001FD630`) and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL` (a tooling finding for the translator, not a local patch).
+
+No DECISIONS row: characterization only.

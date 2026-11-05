@@ -1,4 +1,12 @@
-# Callee-access probe: transition is inside a callee, boundary not localised
+# Span probe: ESI correct after two calls, wrong at the field read
+
+November 5: the probe now samples `g_esi` at the caller's post-call access sites. One run: entry `0x203B90`; after call 1 (`0x1FC01F`, `FUN_001FB300`) `0x203B90`; after call 2 (`0x1FC038`, `FUN_001FAED0`) `0x203B90`; loop site `0x1FC055` not accessed (loop skipped); field read `0x1FC087` `0x205E98`. On this path the remaining calls are `0x1FC077` → `FUN_001FD630` (which never assigns `esi`) and its callees, so the change lies inside that chain, where the direct-call ABI check should have fired but recorded 0 ESI violations. The defect is narrowed to the `0x1FC077` span and a call form the ABI macro may not cover (indirect/tail path); exact edge still unnamed. No workaround, model, or translation edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: probe `g_esi` around `0x1FC077`/`FUN_001FD630` and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL`.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Callee-access probe: transition is inside a callee, boundary not localised
 
 November 5: `siteWatch` now records `g_esi` at the first memory access of each `FUN_001FC010` callee. One run: entry `0x203B90`; `FUN_001FB300` first access `0x203B90`; `FUN_001FAED0` first access **`0x205E98`**; `FUN_001FACA0` not observed (no access at its entry site); `FUN_001FB640` first access `0x203B90`; field read at `0x1FC087` `0x205E98`; ABI 310 violations, **0 ESI**. The probe samples inside callees, not call boundaries, so the transition is not localised to one call/return; the ABI net check still reports no ESI change, leaving a tooling/instrumentation gap (not guest state or profile). No workaround, model, or translator edit; halt.
 
