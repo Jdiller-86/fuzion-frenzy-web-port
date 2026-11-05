@@ -73,6 +73,37 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
+test('PFIFO consumer state requires the experiment and consistent accounting', () => {
+  const advance = report({
+    experiments: ['pfifoConsumer'],
+    pfifoConsumerState: { scope: 'prototype', classification: 0, get: 0x1004, put: 0x1008,
+      base: 0x1000, end: 0x2000, wordsConsumed: 1, consumerUpdates: 2, lastHeader: 0, steps: 1, words: 1 },
+  });
+  assert.equal(validateProofReport(advance), advance);
+  const refusal = report({
+    experiments: ['pfifoConsumer'],
+    pfifoConsumerState: { scope: 'prototype', classification: 3, get: 0, put: 0x1008,
+      base: 0x1000, end: 0x2000, wordsConsumed: 0, consumerUpdates: 0, lastHeader: 0, steps: 1, words: 0 },
+  });
+  assert.equal(validateProofReport(refusal), refusal);
+  assert.throws(() => validateProofReport(report({
+    pfifoConsumerState: { scope: 'prototype', classification: 0, get: 0, put: 0, base: 0, end: 0,
+      wordsConsumed: 0, consumerUpdates: 0, lastHeader: 0, steps: 0, words: 0 },
+  })), /requires the pfifoConsumer experiment/);
+  assert.throws(() => validateProofReport(report({ experiments: ['pfifoConsumer'] })),
+    /requires PFIFO consumer state/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoConsumer'],
+    pfifoConsumerState: { scope: 'prototype', classification: 0, get: 0, put: 0, base: 0, end: 0,
+      wordsConsumed: 0, consumerUpdates: 2, lastHeader: 0, steps: 1, words: 0 },
+  })), /must consume a word/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['pfifoConsumer'],
+    pfifoConsumerState: { scope: 'prototype', classification: 3, get: 0, put: 0, base: 0, end: 0,
+      wordsConsumed: 1, consumerUpdates: 0, lastHeader: 0, steps: 1, words: 1 },
+  })), /must not consume a word/);
+});
+
 test('an unsupported ordinal-2 call carries four arguments and no output', () => {
   const valid = report({
     stop: unsupportedOrdinal2(),
