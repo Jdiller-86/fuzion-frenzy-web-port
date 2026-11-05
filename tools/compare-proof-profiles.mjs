@@ -161,6 +161,14 @@ export function compareProofProfiles(control, experiment) {
   if (after.distinctOriginalFunctions < before.distinctOriginalFunctions ||
       after.completedKernelOperations < before.completedKernelOperations)
     throw new Error('The experiment must not report fewer functions or kernel operations');
+  /* The completed-operation count is derived from the successful call records;
+   * when the calls are present, a count-only increase cannot stand in for them. */
+  for (const [name, report] of [['control', control], ['experiment', experiment]]) {
+    if (report.calls !== undefined &&
+        report.originalStartup.completedKernelOperations !==
+          report.calls.filter(call => call.status === 0).length)
+      throw new Error(`The ${name} completed kernel-operation count does not match its successful call records`);
+  }
   /* When the reached lists are present, the experiment must preserve every
    * routine the control reached. A count-only increase could otherwise hide a
    * different execution path or a dropped routine. Both lists are required as

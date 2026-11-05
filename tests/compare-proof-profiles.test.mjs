@@ -25,7 +25,7 @@ const control = () => ({
   verified: false,
   trace: [],
   stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
-  originalStartup: startup(279, 404),
+  originalStartup: startup(279, 0),
   sourceSha256: digest('a'),
   moduleSha256: digest('b'),
   experiments: ['writeClearing'],
@@ -54,7 +54,7 @@ const control = () => ({
 const experiment = () => ({
   ...control(),
   stop: { status: 2, target: 0x1F79A0, ordinal: 0 },
-  originalStartup: startup(280, 405),
+  originalStartup: startup(280, 1),
   experiments: ['writeClearing', 'avQuery'],
   avQueryWord: 0x00800303,
   calls: [{
@@ -228,11 +228,21 @@ test('the comparison preserves every routine the control reached', () => {
     /Both profiles must carry their reached-routine list/);
 });
 
+test('the comparison requires the operation count to match successful calls', () => {
+  assert.throws(() => compareProofProfiles(control(), {
+    ...experiment(), originalStartup: startup(280, 2),
+  }), /completed kernel-operation count/);
+  assert.throws(() => compareProofProfiles({
+    ...control(), originalStartup: startup(279, 1),
+  }, experiment()), /completed kernel-operation count/);
+});
+
 test('a truthful configured denial validates but is not a progress comparison', () => {
   const denied = {
     ...experiment(),
     stop: { status: 1, target: 0xFE000094, ordinal: 2, service },
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+    originalStartup: startup(280, 0),
   };
   assert.throws(() => compareProofProfiles(control(), denied),
     /must complete ordinal 2 with its declared raw word/);
@@ -251,7 +261,7 @@ test('the comparison requires the control denial record and a non-decreasing run
   assert.throws(() => compareProofProfiles({ ...control(), calls: undefined }, experiment()),
     /requires the ordinal-2 denial record/);
   assert.throws(() => compareProofProfiles(control(), {
-    ...experiment(), originalStartup: startup(278, 405),
+    ...experiment(), originalStartup: startup(278, 1),
   }), /must not report fewer functions or kernel operations/);
 });
 
