@@ -178,7 +178,7 @@ static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx,
 static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
 static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
 static uint32_t site_span_esi[4];
-static uint32_t site_entry_fs, site_field_fs;
+static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev_change_count;
 static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
 static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
@@ -405,6 +405,9 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
         case 10: return site_span_esi[3];
         case 11: return site_entry_fs;
         case 12: return site_field_fs;
+        case 13: return dev_last_site;
+        case 14: return dev_last_value;
+        case 15: return dev_change_count;
         default: return UINT32_MAX;
     }
 }
@@ -687,6 +690,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                     if (!esi_ctx[k]) { esi_ctx[k] = g_fs_base; ctxslot = k; found = 2u; break; }
             if (found == 2u) esi_ctx_last[ctxslot] = g_esi;
             else if (found == 1u && g_esi != esi_ctx_last[ctxslot]) {
+                if (site_entry_fs && g_fs_base == site_entry_fs) { dev_last_site = site; dev_last_value = g_esi; ++dev_change_count; }
                 uint32_t slot = esi_change_count & 7u;
                 esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
                 esi_ctx_last[ctxslot] = g_esi; ++esi_change_count;

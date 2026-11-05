@@ -383,3 +383,17 @@ Run `browser-147-abi.json` (module 147):
 Conclusion: the change log is not observing the same register value that the field capture reports for that access. Two register views (or a capture that runs outside the translated `esi` storage) remain the only consistent explanation; this is a harness/instrumentation limit, not a guest-state, profile, or translator defect. The repair is committed; the hunt stays halted pending a single-view capture or a translator-level register trace, and no workaround is applied.
 
 No DECISIONS row: tooling characterization.
+
+## 26. The polluter is the probe's own register canary
+
+The change logger now also keeps a dedicated last-change record for the device TLS context. Run `browser-148-abi.json` (module 148):
+
+- Device-context changes: **31,724**, last value `0x55667788` at site 0.
+- `g_esi = 0x55667788` is written by the probe's own copy-proof canary in `ff_probe_copy_case` (`tools/fixtures/thread_startup_probe.c:1194`), which sets `g_ebx/g_esi/g_edi/g_ebp` canaries to verify register preservation.
+- The canary value therefore appears in the same TLS register storage the diagnostics sample, at stack-push sites (site 0), tens of thousands of times, and masks the genuine device transition.
+
+Conclusion: the ESI trace is polluted by the **fixture's own register canaries**, not by the guest or the translation. The 0x205E98 capture at the field access cannot be attributed until diagnostic register writes are separated from the guest view (e.g., the canary tests must save/restore the guest registers around their probes, or the trace must ignore writes made by diagnostic code). This is a source-owned fixture defect; no translator edit, no model, no `esi` backup in the guest path.
+
+Next bounded task: isolate the copy/ABI canary writes from the guest TLS view (fixture-side save/restore around `ff_probe_copy_case`, or a diagnostic flag that suppresses logging during canary probes), then re-run the span probe.
+
+No DECISIONS row: tooling characterization.

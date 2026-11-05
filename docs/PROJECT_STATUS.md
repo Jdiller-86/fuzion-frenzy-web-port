@@ -1,4 +1,12 @@
-# Per-context ESI baselines still do not observe the field access's value
+# The ESI trace is polluted by the probe's own copy-proof canary
+
+November 5: the change logger keeps a dedicated last-change record for the device TLS context. Run (module 148): **31,724** device-context changes, last value `0x55667788` at site 0. That value is written by the probe's own copy-proof canary in `ff_probe_copy_case` (`tools/fixtures/thread_startup_probe.c:1194`), which sets `g_ebx/g_esi/g_edi/g_ebp` canaries to verify register preservation. The canary shares the same TLS register storage the diagnostics sample, so it masks the genuine `0x203B90 → 0x205E98` transition. The ESI trace is polluted by the fixture, not the guest or the translation; no translator edit, model, or guest-path `esi` backup. The hunt is halted pending fixture isolation of diagnostic register writes.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: save/restore guest registers around `ff_probe_copy_case` (or suppress logging during canary probes), then re-run the span probe.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Per-context ESI baselines still do not observe the field access's value
 
 November 5: the change logger now keeps per-TLS-context baselines (up to eight) and reports `entryFs`/`fieldFs`. Run (module 147): entry and field access share TLS context `0x03C00200` (not a thread switch); `g_esi` is `0x203B90` at entry and `0x205E98` at the field access, yet the change log still contains only the `0x03F0xxxx`/`0x55667788` transitions at `0x1DF9C0`/`0x1DF9F3`/site 0 and **no `0x205E98` transition**. The log therefore does not observe the same register value the field capture reports — two register views or a capture outside the translated `esi` storage; a harness/instrumentation limit, not a guest-state, profile, or translator defect. No workaround; the hunt stays halted pending a single-view capture or translator-level trace.
 
