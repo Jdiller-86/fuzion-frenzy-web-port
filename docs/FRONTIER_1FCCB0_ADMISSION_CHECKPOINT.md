@@ -42,6 +42,10 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 | Control report | `db2937a2f44357c6a2fa1812e1b34276f45e39224bbe2d440c12ab9a1427281b` |
 | Experiment report | `97a539801de0522631511fac8b76f8a2d2809ef94ebffe1e183b2ce987ee4a21` |
 
+## Review-package revalidation
+
+Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), closing the remaining unexercised unconfigured control path noted by the narrow review; the retained pair still validates. No translation, module or profile content changed.
+
 ## Next and limits
 
 The next genuine stop is untranslated **`0x1F7080`**, called by executed `0x1F5640`. It is **not admitted or analyzed further**. Per the directive, the lane stops here.

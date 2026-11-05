@@ -90,6 +90,25 @@ test('an unsupported ordinal-2 call carries four arguments and no output', () =>
   })), /must not carry an output/);
 });
 
+test('an unconfigured ordinal-2 call must report completed or denied status', () => {
+  for (const status of [2, 9, 10]) {
+    assert.throws(() => validateProofReport(report({
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+    /* A non-denial record cannot satisfy the unsupported ordinal-2 stop. */
+    assert.throws(() => validateProofReport(report({
+      stop: unsupportedOrdinal2(),
+      calls: [{ ordinal: 2, status, arguments: [0, 6, 0, 2111264] }],
+    })), /must report the unsupported status/);
+  }
+  /* The actual denial still pairs with the stop. */
+  const denied = report({
+    stop: unsupportedOrdinal2(),
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] }],
+  });
+  assert.equal(validateProofReport(denied), denied);
+});
+
 test('an ordinal-2 denial must pair with the unsupported-service stop', () => {
   const call = { ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264] };
   /* Any report claiming the unsupported ordinal-2 stop must record the call,

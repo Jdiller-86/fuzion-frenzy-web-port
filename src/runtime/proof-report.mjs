@@ -162,7 +162,12 @@ export function validateProofReport(report) {
           throw new Error('An unsupported ordinal-2 call must not report success');
         if (call.output !== undefined)
           throw new Error('Unsupported ordinal-2 calls must not carry an output word');
-        if (call.status === 1) avQueryDenied = true;
+        /* The unconfigured record is the denial the unsupported stop names, so
+         * it cannot carry an unrelated status. A non-denial record must not be
+         * able to satisfy the ordinal-2 stop pairing below. */
+        if (call.status !== 1)
+          throw new Error('An unsupported ordinal-2 call must report the unsupported status');
+        avQueryDenied = true;
       } else if (call.status === 0) {
         /* The adapter exists for the observed (0, 6, 0, Result) query, so a
          * successful call must carry exactly that shape and write through its
