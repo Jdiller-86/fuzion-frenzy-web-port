@@ -341,3 +341,16 @@ This narrows the defect to the `0x1FC077` span and to a call form the ABI macro 
 Next bounded task: probe `g_esi` around the `0x1FC077` call (`FUN_001FD630`) and its indirect callees, and check whether that call form bypasses `RECOMP_ABI_CALL` (a tooling finding for the translator, not a local patch).
 
 No DECISIONS row: characterization only.
+
+## 23. ESI-change log: the probes are confounded by TLS/thread-context switching
+
+The probe now records every observed change of `g_esi` (site, access address, new value) and reports the last eight. Run `browser-143-abi.json` (module 143):
+
+- The reported changes are `0x03F0xxxx` values and `0x55667788` at sites `0x1DF9C0`, `0x1DF9F3` and site `0`, i.e. values belonging to **other thread/TLS contexts**, not the device sequence `0x203B90 -> 0x205E98`.
+- The `0x1FC087` field access still reports `g_esi = 0x205E98`, while the change log contains no transition to that value and `FUN_001FC010`'s entry still reports `0x203B90`.
+
+Conclusion: `g_esi` is `RECOMP_TLS` storage, and the harness models thread/TLS context switches; the diagnostic reads are therefore **not from a single register context**. The ESI sequence cannot be reconstructed with these probes, and the earlier "clobber" readings are unreliable. This is a **harness/tooling instrumentation limit**, not a guest-state, profile, or translator defect demonstrated by this evidence.
+
+No workaround, model, or translator edit. The ABI-clobber hunt is halted pending a context-aware probe (record the TLS/thread identity with each read) or a translator-level register trace supplied as tooling evidence.
+
+No DECISIONS row: characterization only.

@@ -1,4 +1,12 @@
-# Span probe: ESI correct after two calls, wrong at the field read
+# ESI-change log confounded by TLS/thread-context switching; hunt halted
+
+November 5: the probe now logs every observed `g_esi` change (site, address, new value). One run reports changes at `0x03F0xxxx`/`0x55667788` values from sites `0x1DF9C0`, `0x1DF9F3` and site 0 — other thread/TLS contexts — while the `0x1FC087` field access still reports `0x205E98` and the entry reports `0x203B90`, with no logged transition to `0x205E98`. `g_esi` is `RECOMP_TLS` storage and the harness models TLS/thread switches, so the diagnostic reads are **not from a single register context**; the earlier ESI-clobber readings are unreliable. This is a harness/tooling instrumentation limit, not a demonstrated guest-state, profile, or translator defect. No workaround, model, or translator edit; the ABI-clobber hunt is halted pending a context-aware probe (record TLS/thread identity) or a translator-level register trace supplied as tooling evidence.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: add TLS/thread identity to the register probes before any further ESI inference.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Span probe: ESI correct after two calls, wrong at the field read
 
 November 5: the probe now samples `g_esi` at the caller's post-call access sites. One run: entry `0x203B90`; after call 1 (`0x1FC01F`, `FUN_001FB300`) `0x203B90`; after call 2 (`0x1FC038`, `FUN_001FAED0`) `0x203B90`; loop site `0x1FC055` not accessed (loop skipped); field read `0x1FC087` `0x205E98`. On this path the remaining calls are `0x1FC077` → `FUN_001FD630` (which never assigns `esi`) and its callees, so the change lies inside that chain, where the direct-call ABI check should have fired but recorded 0 ESI violations. The defect is narrowed to the `0x1FC077` span and a call form the ABI macro may not cover (indirect/tail path); exact edge still unnamed. No workaround, model, or translation edit.
 
