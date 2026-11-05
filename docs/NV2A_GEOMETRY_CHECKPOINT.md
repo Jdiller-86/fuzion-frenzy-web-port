@@ -210,6 +210,8 @@ Earlier provisional reviews: the hourly provisional reviews (explicitly not appr
 
 Pause verification, not repeated per cycle: all three native targets pass optimized and ASan/UBSan; GCC `-fanalyzer` is clean; no geometry source or matching test file has changed since `818380b`; and `tools/compare-nv2a-geometry.mjs` still enforces the documented 16 MiB/4096-record limits, 126-input/4-state/153-output schema, state-word ranges and four-word state allocation. No fixture, reference, comparator, export or topology was added or modified.
 
+Fresh re-run this cycle (WSL/Linux): the three targets pass optimized (`-std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off`) and ASan/UBSan (`-O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all`), and `-fanalyzer` reports no diagnostics for `nv2a_triangle.c`, `nv2a_line.c` and `nv2a_quad.c`. A bounded read of `src/runtime/nv2a_line.c` found no demonstrated defect: the per-pair provoking-color selection is consistent between strip (`input[i + flat_offset]`) and loop (`input[i]`/`input[next]`), and the capacity and size guards are present. That is a targeted self-check only; it is not the whole-chain review the gate requires, and it establishes no reference parity.
+
 Resumption requires all of:
 
 1. an actionable retained reference admissible under the contract above and covering one existing component;
