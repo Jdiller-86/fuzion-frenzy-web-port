@@ -299,3 +299,25 @@ Working conclusion: the **ABI instrumentation coverage is the suspect**, not the
 Next bounded task: instrument the `FUN_001FB640` entry access (site `0x1FB640`) to record `g_esi` at callee entry, then compare with the post-call value in the same record; that decides whether the change happens inside that callee and why the direct-call check did not report it.
 
 No DECISIONS row: characterization only.
+
+## 21. Callee-access probe: the transition is inside a callee, before its first access
+
+`siteWatch` now records `g_esi` at the first memory access of each callee of `FUN_001FC010` (sites `0x1FB300`, `0x1FAED0`, `0x1FACA0`, `0x1FB640`). Run `browser-141-abi.json` (module 141, private ABI build):
+
+| Observation point | `g_esi` |
+| --- | --- |
+| `FUN_001FC010` entry | `0x203B90` |
+| first access in `FUN_001FB300` | `0x203B90` |
+| first access in `FUN_001FAED0` | **`0x205E98`** |
+| first access in `FUN_001FACA0` | not observed (no memory access at its entry site) |
+| first access in `FUN_001FB640` | `0x203B90` |
+| `[ESI+0x47C]` read at `0x1FC087` | `0x205E98` |
+| ABI violations / ESI | 310 / 0 |
+
+Interpretation: the probe samples the **first memory access inside each callee**, not the call boundary. `FUN_001FAED0` already shows `0x205E98` at its first access, so ESI changes *before that access* (in the caller tail or the callee prologue); `FUN_001FB640` shows the device value again at its first access, yet the following field read shows `0x205E98`. The ABI check still reports no net ESI change per call.
+
+Conclusion: the transition is **not localised to a single call/return boundary** by this instrument, and the ABI logger's placement (net check after the call) remains inconsistent with the in-access capture. This is a tooling/instrumentation gap, not a guest-state or profile divergence. No workaround, model, or translator edit; halt here.
+
+Next bounded task: capture `g_esi` at the exact call boundary using the translated call site itself (e.g., a hook on the `0x1FC080` return address), which needs either a source-owned call-boundary probe or a translator-level trace — the latter is a tooling finding to record, not a local patch.
+
+No DECISIONS row: characterization only.

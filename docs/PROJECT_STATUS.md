@@ -1,4 +1,12 @@
-# Single-record capture: the field access is genuine, the ABI count is suspect
+# Callee-access probe: transition is inside a callee, boundary not localised
+
+November 5: `siteWatch` now records `g_esi` at the first memory access of each `FUN_001FC010` callee. One run: entry `0x203B90`; `FUN_001FB300` first access `0x203B90`; `FUN_001FAED0` first access **`0x205E98`**; `FUN_001FACA0` not observed (no access at its entry site); `FUN_001FB640` first access `0x203B90`; field read at `0x1FC087` `0x205E98`; ABI 310 violations, **0 ESI**. The probe samples inside callees, not call boundaries, so the transition is not localised to one call/return; the ABI net check still reports no ESI change, leaving a tooling/instrumentation gap (not guest state or profile). No workaround, model, or translator edit; halt.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture `g_esi` at the exact call boundary (call-site return hook or translator-level trace, recorded as a tooling finding, not a local patch).
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: Single-record capture: the field access is genuine, the ABI count is suspect
 
 November 5: `siteWatch` now records `g_esi` inside the `0x1FC087` access. One run shows entry `ESI=ECX=0x203B90` (return `0x1F54E9` from `D3DDevice_Release`), field address `0x206314`, `g_esi=0x205E98`, and **`address-g_esi = 0x47C` exactly** with one field access. That proves the read is the instrumented `[ESI+0x47C]` and `g_esi` was genuinely `0x205E98` then, while the ABI logger reports 310 violations but **0 ESI changes**. At least one instrument is wrong about the call boundary; the exact delta rules out an association error in the site watch, so the **ABI instrumentation coverage is the suspect** — not guest state, not the profile. No workaround, model, or translator edit.
 
