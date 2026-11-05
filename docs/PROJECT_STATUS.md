@@ -2,7 +2,7 @@
 
 November 5: final tooling-repair result. `FUN_001F6240` assigns `esi` in-body at `0x1F62C4` (`esi = edx + ecx*8`, `ecx = 3*MEM[esp+0x24]`) and its four callers are direct `RECOMP_ABI_CALL` sites (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`); its ESI accounting is unbalanced (one push, two pops, three assignments), and `0x205E98` is the computed pointer later read as `[ESI+0x47C]`. The ABI logger sees only **net** changes at wrapped call boundaries, so an in-body write is outside its coverage — the coverage class is now pinned by `ff_reg_change_observable` with assertions in `tests/tls_scope_test.c`. This is a translator/translation register save/restore defect, not guest state, profile, or a harness workaround; no translator edit is made here.
 
-Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 482 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
 
 ## Prior: Freeze-at-stop fixes the trace; transition is FUN_001F6240 at 0x1F62C4
 
