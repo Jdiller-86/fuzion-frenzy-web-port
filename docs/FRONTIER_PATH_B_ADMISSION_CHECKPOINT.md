@@ -55,4 +55,4 @@ package verified
 
 ## Next and limits
 
-The observed stop `0x1F6970` is an ordinary untranslated routine. Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6970` was not entered.
+The observed stop `0x1F6970` is an ordinary untranslated routine. `0x1F6970` was subsequently admitted in translation 58/module 79; the observed next stop is `0x1F6620` (ordinary). Per the provisional directive, a later ≤8-function dependency batch could continue only while stops remain ordinary and after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6970` was not entered.
