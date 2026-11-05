@@ -1,4 +1,12 @@
-# The unknown AV option model advances the run to ordinal 1
+# The unknown-option model is complete; ordinal 1 is AvGetSavedDataAddress
+
+November 5: the ratified unknown-option model (`3d4cf7d`, module 118) passed its pair and advanced the run to **ordinal 1** at `0xFE000098` (340/408). This cycle characterized the new frontier read-only: ordinal **1 = `AvGetSavedDataAddress`**, no arguments, returning the pinned static `g_av_saved_data_address` (**0**, since no `AvSetSavedDataAddress` call occurs). `D3DDevice_Present` calls it at `0x202284` (return `0x20228A`), tests the result, and skips the saved-data block when zero. [The checkpoint](SERVICE_ORDINAL_1_CHECKPOINT.md) records it; next decision: model the documented 0 return with the exact no-argument shape, or hold.
+
+**Sync note:** the published integration head `c8c965c` (source `5d7ebf5`) does not contain `3d4cf7d` and is not an ancestor of the lane head; a merge is denied here and no fast-forward is possible, so the binding "sync before a DECISIONS row" rule blocks a row this cycle. Checks: `check` 469 files, whitespace clean; no code change.
+
+No display/encoder/rendering claim. Main `ea6e15e` is not an ancestor and cannot be merged here. **There is no controllable original screen.**
+
+## Prior: The unknown AV option model advances the run to ordinal 1
 
 November 5: the architect subagent authorized one default-off unknown-option model (exact observed tuple, one zero write through Result, EAX untouched, `esp += 20`, no startup-adapter change). Implemented `src/runtime/av_unknown_option.c/.h`, native tests, an ordinal-2 router that keeps the startup `(0,6,0,Result)` path and routes the late call to the unknown model, and `avUnknownOptionState` with validator pairing. Module 118 is **719,152 bytes**, SHA `0b24204e?`. Control unchanged (status 13 at `0xFD800044`, 339/405); inert (display profile, no unknown input) unchanged at ordinal 3 (`0xFE0000A4`, 340/406); the experiment accepted the late call (handle `0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to a **new service boundary: status 1 at `0xFE000098`, ordinal 1**, **340/408**. The startup query still completed through the unchanged adapter. Provenance: the pinned HAL is the retained replacement, and 0 is the documented unknown-option default, not a guessed capability.
 

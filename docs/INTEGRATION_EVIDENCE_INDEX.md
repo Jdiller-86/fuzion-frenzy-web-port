@@ -2,7 +2,11 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
-## Latest: unknown AV option model passes; ordinal-1 frontier
+## Latest: ordinal-1 read-only characterization
+
+- [Ordinal-1 checkpoint](SERVICE_ORDINAL_1_CHECKPOINT.md): ordinal 1 = `AvGetSavedDataAddress`, no arguments, pinned static return `g_av_saved_data_address` = **0** (no `AvSetSavedDataAddress` call). `D3DDevice_Present` calls it at `0x202284` (return `0x20228A`) and skips the saved-data block when zero. Next: model the documented 0 return with the exact no-argument shape, or hold. **No DECISIONS row this cycle:** the published integration head `c8c965c` (source `5d7ebf5`) predates `3d4cf7d` and is not an ancestor; merge denied, no fast-forward possible.
+
+## Prior: unknown AV option model passes; ordinal-1 frontier
 
 - [Second-query checkpoint §5](SERVICE_ORDINAL_2_SECOND_QUERY_CHECKPOINT.md#5-bounded-unknown-option-model-authorized): architect-authorized default-off sibling model (exact tuple, one zero write, EAX untouched, ESP +20). Module 118 (719,152 bytes, SHA `0b24204e...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; experiment accepted the late call (`0xFD000000`, option `0x0F`, written 0, EAX unchanged, ESP +20) and advanced to **status 1 at `0xFE000098`, ordinal 1**, 340/408. This is `D370`.
 ## Latest: later ordinal-2 unknown-option characterization (read-only)
