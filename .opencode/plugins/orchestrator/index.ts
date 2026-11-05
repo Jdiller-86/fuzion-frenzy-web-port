@@ -258,6 +258,11 @@ export default Plugin.define({
 
       const parsed: Partial<Record<Lane, { action: string; task: string }>> = {}
       for (const lane of LANES) parsed[lane] = parseMarker(reply, lane)
+      // A resumed source cycle has unfinished edits. Do not let an older
+      // architect directive reassign its already completed prior milestone.
+      if (states.primary?.outcome === "resume" && parsed.primary?.action === "RUN") {
+        parsed.primary.task = "Continue only the in-flight source edits; use the current diff and top checkpoint, finish targeted checks and one source-only commit, then report the observed next stop."
+      }
       const complete = LANES.every((lane) => parsed[lane])
       let spawned: string[] = []
       if (complete) {

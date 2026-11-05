@@ -105,6 +105,9 @@ try {
         $match = [regex]::Match($response, '(?m)^MANAGER_' + $lane.ToUpperInvariant() + ':\s*(RUN|HOLD)\s*\|\s*(.{1,300})\s*$')
         if ($match.Success) { $lanes[$lane] = @{ action = $match.Groups[1].Value; task = $match.Groups[2].Value.Trim(); head = $heads[$lane] } }
     }
+    if ($source.outcome -eq 'resume' -and $lanes.primary.action -eq 'RUN') {
+        $lanes.primary.task = 'Continue only the in-flight source edits; use the current diff and top checkpoint, finish targeted checks and one source-only commit, then report the observed next stop.'
+    }
     if ($exitCode -eq 0 -and $lanes.Count -eq 3) {
         if ($architect -and $architect.approved -and $architect.geometryCycle -eq 'HOLD') { $lanes.geometry.action = 'HOLD' }
         $guidance = @{ created = (Get-Date).ToString('o'); model = $model; architectHead = $architectHead; lanes = $lanes }
