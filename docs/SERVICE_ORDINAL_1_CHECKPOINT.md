@@ -467,4 +467,30 @@ Report: this is **translated-path behavior** (the writer instruction is identifi
 
 No DECISIONS row: characterization only.
 
+## 32. Per-invocation tuples: one FUN_001FC010 entry, two FUN_001F6240 invocations, no monitored writer
+
+The probe now records every access at `0x1F6240`, `0x1F62C4`, `0x1FC010` and `0x1FC087` in one ring (`esiEvents`). Run `browser-152-tuples.json` (module 152), last events in order:
+
+| Site | `g_esi` | Access address |
+| --- | --- | --- |
+| `0x1F6240` | `0x280` | `0x206720` / stack (earlier invocations) |
+| `0x1FC010` | `0x203B90` | `0x203B90` |
+| `0x1F6240` | `0x203B90` | `0x206720`, stack |
+| `0x1F62C4` | `0` | stack |
+| `0x1F62C4` | `0x203BA8` | `0x205D78` |
+| `0x1F6240` | `0x203B90` | `0x206720`, stack |
+| `0x1F62C4` | `0` | stack |
+| `0x1F62C4` | `0x203B90` | `0x205D60` |
+| **`0x1FC087`** | **`0x205E98`** | `0x206314` |
+
+Classification:
+
+- **Not a different invocation of `FUN_001FC010`**: exactly one `0x1FC010` entry is recorded, and the field read follows it.
+- The field read is the next monitored event after the second `FUN_001F6240`'s `0x1F62C4` access (where `g_esi` was `0x203B90`); the `0x205E98` value appears in the **unmonitored span** between that access and the field read.
+- Because the function's exit is not at a monitored site (push/pop use site 0), the probe cannot yet distinguish "pop skipped" from "value written in the unmonitored span".
+
+Report: survival is **not** explained by a second `FUN_001FC010` invocation; the pop-skip question remains open and requires a return-boundary sample (caller post-call site) rather than more sites inside the callee. No fix or model.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.

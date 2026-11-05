@@ -1,4 +1,10 @@
-# Transition writer identified: FUN_001F6240 at 0x1F62C4 (sentinel push frame)
+# Per-invocation tuples: one 1FC010 entry, no monitored writer of 0x205E98
+
+November 5: per-invocation tuple probe (`esiEvents` at sites `0x1F6240`, `0x1F62C4`, `0x1FC010`, `0x1FC087`). Run (module 152): exactly **one** `0x1FC010` entry (`ESI=0x203B90`); two `FUN_001F6240` invocations after it, whose `0x1F62C4` accesses show `ESI=0x203BA8` and `0x203B90`; the next monitored event is the **`0x1FC087` field read with `ESI=0x205E98`** (`addr 0x206314`). The value appears in the **unmonitored span** after the second `0x1F62C4` access. Classification: survival is **not** a different `FUN_001FC010` invocation; the pop-skip question remains open because the callee exit (push/pop, site 0) is not monitored — a return-boundary sample is needed. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Transition writer identified: FUN_001F6240 at 0x1F62C4 (sentinel push frame)
 
 November 5: the frozen trace now records the return word with each ESI change. Run (module 151): the change `0x203B90 → 0x205E98` first appears at site `0x1F62C4` in `FUN_001F6240` (`esi = edx + ecx*8`), observed at a stack push `0x3C10E38` whose frame word is `0xFFFFFFFF` (a sentinel, not a valid caller return). The later `[ESI+0x47C]` read still reports `0x205E98` (arbiter-confirmed). Report: the **writer instruction is identified (`0x1F62C4`)** — translated-path behavior, not a value artifact; the sentinel frame is a probe-frame limitation, and whether the function's `POP esi` is skipped on the executed path remains open. No fix or model.
 
