@@ -18,7 +18,7 @@ The bridge records the scanout address and format, resolves the framebuffer VA (
 
 - Call site: `D3DDevice_Present` (`0x00202150..0x002022D0`), after `D3DDevice_BlockUntilVerticalBlank` returns: the six pushed arguments, `CALL [0x00253458]` (ordinal 3), return `0x00202231`; the result in `EDI` drives the submit loop (`TEST EDI,EDI; JNZ`).
 - Stop: status 1 at `0xFE0000A4`, ordinal 3, `modeled: false`.
-- Observed arguments: `addr 0x3C10CFC` (a stack-resident display-mode descriptor), `step 0`, `mode 0x600302C7`, `format 0`, `pitch 0xA00` (2560), `fb 0x03920000`.
+- Observed arguments: `addr 0x3C10CFC` (a stack-resident display-mode descriptor), `step 0`, `mode 0x60030307`, `format 0`, `pitch 0xA00` (2560), `fb 0x03920000`.
 - Kernel-operation count: 406 (the accepted vblank wait is the 406th completed operation); routines 340.
 
 ## 3. Pinned references on the display path
@@ -40,3 +40,26 @@ Options: model the documented `AvSetDisplayMode` state and return 0 with native 
 ## 5. Limits
 
 Static references plus the retained synthetic stop; no display timing, scanout, rendering or playability is established.
+
+## 6. Bounded declaration model (authorized)
+
+The architect subagent authorized exactly one default-off declaration model with binding corrections: exact six-argument equality against the observed tuple, no descriptor decoding, no display writes, success as declaration acceptance only, and refusal-first. The observed mode value is **`0x60030307`** (the earlier `0x600302C7` was a transcription error and is corrected here).
+
+| Path | Purpose |
+| --- | --- |
+| `src/runtime/display_mode.c/.h` | Pure decision: exact tuple, mapped/aligned descriptor pointer (contents not interpreted), fb within the documented contiguous rule; computed window `XBOX_CONTIG_BASE + fb` |
+| `tests/display_mode_test.c` | Accept, per-argument mismatch, unmapped pointer, fb bounds, window computation |
+| `tools/fixtures/thread_startup_probe.c` | Default-off `displayMode` setter, gated ordinal-3 handler, `ff_probe_display_mode_word` diagnostics; success writes nothing |
+| `local-title-proof.mjs` / `thread-proof-worker.mjs` / `proof-report.mjs` | Input parsing, `displayModeState` report, experiment/state pairing with the pinned declaration |
+
+Module `recomp-post-memory-build-117`: **718,230 bytes**, SHA-256 `05f9ecade97e82d045996720f1af7884b42a49d76b11306e044e984b0ddb134d`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 | 405 |
+| inert (consumer + vblanks, no displayMode) | status 1 at `0xFE0000A4`, ordinal 3 | 340 | 406 |
+| displayMode | **status 1 at `0xFE000094`, ordinal 2 (later AV query)** | **340** | **407** |
+
+The display declaration was accepted (`accepted 1`, `addr 0x3C10CFC`, `step 0`, `mode 0x60030307`, `format 0`, `pitch 0xA00`, `fb 0x03920000`, window **`0x83920000`** computed-not-applied, `decision 0`) and the run advanced past ordinal 3 to a later ordinal-2 query, which the report records as a truthful denial. No framebuffer window was started, `PCRTC_START` was never written, `xbox_AvSetDisplayMode` was not executed, and no scanout or rendering occurred. The configured-avQuery validator now accepts a genuine bridge NTSTATUS denial without an output word (still forbidding success without output); its test suite is 23/23.
+
+Checks: `test:native` **40/40**, `test:runtime` **199/0**, `check` **464 files**, whitespace clean. The next decision is the later ordinal-2 query or the display application path.

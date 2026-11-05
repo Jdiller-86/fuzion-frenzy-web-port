@@ -1,6 +1,10 @@
-# Service ordinal 3 is AvSetDisplayMode at the present boundary
+# The display-mode declaration advances the run to a later AV query
 
-November 5: read-only characterization; no code change. Ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)` returning 0, called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x600302C7`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. Checks: `check` 461 files. Consumer/wait path default-off. **No controllable original screen.**
+November 5: architect-authorized default-off ordinal-3 declaration model (exact tuple, no descriptor decode, no writes, success as declaration acceptance). Module 117 (718,230 bytes, SHA `05f9ecad?`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; display run accepted (`mode 0x60030307`, `pitch 0xA00`, `fb 0x03920000`, window `0x83920000` computed-not-applied) and advanced to a later ordinal-2 query at `0xFE000094`, 340/407, recorded as a truthful denial. Mode transcription corrected from `0x600302C7`. No framebuffer/PCRTC/scanout/rendering. Checks: `test:native` 40/40, `test:runtime` 199/0, `check` 464 files. Default-off; next decision is the later AV query or display application. Integration head `1e35f8a` ancestor; main `ea6e15e` not mergeable here. **No controllable original screen.**
+
+## Prior: Service ordinal 3 is AvSetDisplayMode at the present boundary
+
+November 5: read-only characterization; no code change. Ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)` returning 0, called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x60030307`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. Checks: `check` 461 files. Consumer/wait path default-off. **No controllable original screen.**
 
 ## Prior: The vblank wait model passes and reaches service ordinal 3
 

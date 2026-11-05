@@ -73,6 +73,20 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
   })), /Malformed/);
 });
 
+test('display-mode state requires the experiment and the pinned declaration', () => {
+  const state = { accepted: 1, addr: 0x3C10CFC, step: 0, mode: 0x60030307, format: 0,
+    pitch: 0xA00, fb: 0x03920000, window: 0x83920000, decision: 0 };
+  const valid = report({ experiments: ['displayMode'], displayModeState: state });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({ displayModeState: state })),
+    /requires the displayMode experiment/);
+  assert.throws(() => validateProofReport(report({ experiments: ['displayMode'] })),
+    /requires display-mode state/);
+  assert.throws(() => validateProofReport(report({
+    experiments: ['displayMode'], displayModeState: { ...state, fb: 0x04000000 },
+  })), /pinned declaration/);
+});
+
 test('PFIFO reset state allows consumer updates when the consumer is declared', () => {
   const valid = report({
     experiments: ['pfifoReset', 'pfifoConsumer'],
@@ -250,10 +264,12 @@ test('an explicit synthetic avQuery word completes ordinal 2 with its raw word',
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 2111264], output: { rawWord: 1 } }],
   })), /must not carry an output word/);
-  assert.throws(() => validateProofReport(report({
+  const configuredDenial = report({
+    stop: unsupportedOrdinal2(),
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 4, arguments: [0, 6, 0, 2111264] }],
-  })), /must report the unsupported status/);
+  });
+  assert.equal(validateProofReport(configuredDenial), configuredDenial);
   assert.throws(() => validateProofReport(report({
     experiments: ['avQuery'], avQueryWord: 0x00800303,
     calls: [{ ordinal: 2, status: 0, arguments: [0, 6, 0, 2111264] }],

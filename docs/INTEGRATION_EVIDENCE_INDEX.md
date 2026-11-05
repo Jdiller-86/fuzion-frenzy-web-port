@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: ordinal-3 display-mode declaration model
+
+- [Ordinal-3 checkpoint §6](SERVICE_ORDINAL_3_CHECKPOINT.md#6-bounded-declaration-model-authorized): architect-authorized default-off declaration model (exact tuple, no descriptor decode, no writes, success as declaration acceptance). Module 117 (718,230 bytes, SHA `05f9ecad...`). Control 339/405 at `0xFD800044`; inert 340/406 at ordinal 3; display run accepted `mode 0x60030307`, `pitch 0xA00`, `fb 0x03920000`, window `0x83920000` computed-not-applied, and advanced to a later ordinal-2 query at `0xFE000094`, 340/407. The earlier mode value `0x600302C7` is corrected. This is `D368`.
 ## Latest: service ordinal 3 characterization (read-only)
 
 - [Ordinal-3 checkpoint](SERVICE_ORDINAL_3_CHECKPOINT.md): ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)`, returning 0; called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x600302C7`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. This is `D367`.
