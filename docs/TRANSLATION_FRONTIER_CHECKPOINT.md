@@ -1,4 +1,15 @@
-# The 0x1F6BB0 symbol-entry batch advances the stop to 0x1F6790
+# The 0x1F6790 batch advances the stop to 0x1F6AC0
+
+November 4, 2026. `0x1F6790` (`D3DDevice_SetRenderState_FogColor`, table `0x2025C8`, index 118) was already a Ghidra-established function. Its 22-instruction / 71-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 22/22, no tables or normalizations. The seed was appended to the merged 9-function seed (`f7a2ee44?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-61` contains **433 functions / 18,118 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 523/0. Module `recomp-post-memory-build-82` is 689,834 bytes, SHA-256 `b3c354bdb3c561924f2d76c1018166a91a3136c2c63b2c704d5f0f68742f0bf0`.
+
+| run | stop | routines | kernel ops |
+| --- | --- | --- | --- |
+| control (no `avQueryWord`) | status 1 at `0xFE000094`, ordinal 2 | 279 | 404 |
+| explicit `0x00800303` | **status 3 at `0x1F6AC0`** | 303 | 405 |
+
+The comparison exits 0: same module, same full supplied profile, `avQueryWord` the only added input, +24 routines, +1 operation; the experiment preserves every control-reached routine. `0x1F6790` executed; `0x1F6AC0` was not entered. Frontier: **523 functions, 90 placeholders, 89 referenced**. These are synthetic startup observations, not fidelity/gameplay/original service semantics.
+
+## Prior: The 0x1F6BB0 symbol-entry batch advances the stop to 0x1F6790
 
 November 4, 2026. `0x1F6BB0` (`D3DDevice_SetRenderState_VertexBlend`, table `0x2025C4`, index 117) was a named symbol without a function; a bounded persistent create-function at that address only made it admissible. Its 15-instruction / 50-byte leaf calls already-translated `0x1FB3B0` and ends in `RET 4`; preflight is 15/15, no tables or normalizations. The seed was appended to the merged 8-function seed (`4fcdcd02?`), keeping 32 exports. Translation `recomp-title-recomp-title-post-memory-60` contains **432 functions / 18,096 instructions**; `verify-seeds` 32/32/0/0 and `verify-translation` 522/0. Module `recomp-post-memory-build-81` is 689,176 bytes, SHA-256 `d795973beea54c70344e363f587206f1268c98dbdac86c951c647f412cdc3d67`.
 

@@ -14,7 +14,7 @@ November 4, 2026. After the approved `0x1F6620` work was already complete and th
 
 - Seed: **15 instructions / a 50-byte instruction-only envelope**, one call, no tables, SHA-256 `70add3a6e6e1d595e83e805eb4231e89414ed41f7c3594a9da9661a58b5324e9`.
 - Preflight with the pinned toolchain: `mixed False`, `tables 0`, 15 rows; **15/15 decoded**, no normalizations; byte identity, decoder agreement and layout pass.
-- Grouping: append to the merged 7-function seed → **8 functions**, SHA-256 `4fcdcd022b61125afd09a7b58102dfd77d7049a72fed7b127d34671bb639d55f`; the 32-function front seed and 32-export count are unchanged.
+- Grouping: append to the merged 7-function seed â†’ **8 functions**, SHA-256 `4fcdcd022b61125afd09a7b58102dfd77d7049a72fed7b127d34671bb639d55f`; the 32-function front seed and 32-export count are unchanged.
 - Translation `recomp-title-recomp-title-post-memory-60`: **432 functions / 18,096 instructions**; `0x1F6BB0` has a real guarded body; 90 placeholders remain.
 - `verify-seeds` **32/32/0/0**; `verify-translation` **522 functions, 0 rewrites**.
 
@@ -48,6 +48,6 @@ The comparison exits 0: same module, same full supplied profile, `avQueryWord` t
 
 ## Next and limits
 
-The observed stop `0x1F6790` is an ordinary untranslated routine, already a Ghidra-established function (`D3DDevice_SetRenderState_FogColor`), so the next batch does not need a create-function step for it. Per the standing ≤8-function policy, a later batch may continue only after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6790` was not entered.
+The observed stop `0x1F6790` is an ordinary untranslated routine, already a Ghidra-established function (`D3DDevice_SetRenderState_FogColor`), so the next batch does not need a create-function step for it. Per the standing â‰¤8-function policy, a later batch may continue only after review; this cycle stops here. These are synthetic startup observations, not original service semantics, fidelity, renderer, gameplay or playability. `0x1F6790` was not entered.
 
 The persistent `0x1F6BB0` function is a bounded, evidence-based definition for one named indirect-dispatch leaf; it does not establish general function-recovery policy or permission to define arbitrary gaps.
