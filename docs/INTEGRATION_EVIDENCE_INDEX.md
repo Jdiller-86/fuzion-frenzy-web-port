@@ -6,7 +6,7 @@ November 4, 2026. This index hands off the corrected report/helper slice and the
 
 - [The 0x1F7490 batch](FRONTIER_DEP_1F7490_CHECKPOINT.md): translation 78 (451 functions / 18,534 instructions), module 99 (702,974 bytes, SHA `29e93797…`), control 279/404 at ordinal 2 vs experiment 321/405 at untranslated `0x1F74F0`, comparator exit 0 (+42 routines / +1 operation), `verify-seeds` 32/32, `verify-translation` 541/0, package verifier 38/38 digests.
 - `0x1F7490` (`D3DDevice_SetRenderState_OcclusionCullEnable`, table index 139) was a named symbol without a function; one bounded persistent create-function at that address only made it admissible. The 26-instruction / 92-byte seed (`7dfc9582…`) calls already-translated `0x1FB3B0`, has internal branches, and ends in `RET 4`. `0x1F74F0` is the next ordinary stop (table index 140).
-- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D339` (primary).
+- Main ancestry remains restored: PR #7 merged at `42287210`, source merged it at `a0be99b`, and `8c49a22` cleared the publication whitespace gate. Rows run `D327` (main) then `D328`–`D340` (primary; `D339` is the architect merge row).
 
 ## Prior: 0x1F7460 admission
 
