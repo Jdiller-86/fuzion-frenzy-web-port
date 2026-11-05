@@ -227,3 +227,29 @@ Read-only classification of the writer and the region:
 Conclusion: the field `+0x47C` of the faulting base `0x205D58` falls inside a palette-ramp-initialized region, so it holds ramp bytes rather than a pointer. The anomaly is therefore the **object base passed to `FUN_001FC010`** (`0x205D58`), not a missing write model. The caller that supplied that ECX is still unidentified (the earlier entry capture recorded the prologue stack push, not the object register). Next bounded task: capture the caller return address and ECX at the `[ESI]` read of `FUN_001FC010` (filtering out stack-push accesses), then trace whoever passes `0x205D58`.
 
 No write-side model: the observed ramp writer is explained and the fault value is not a pointer. No DECISIONS row needed (D374/D376 cover the related models; this is characterization).
+
+## 16. The faulting base is a clobbered register, not an object
+
+The site watch was corrected to record the `[ESI]` read of `FUN_001FC010` (not the prologue stack pushes) and to keep a small ring of entry tuples. Run `browser-137-site.json` (module 137, profile 87):
+
+- `FUN_001FC010` was entered from `D3DDevice_Release` (return `0x1F54E9`) with **`ECX = ESI = 0x203B90`** — the correct static device.
+- The `[ESI+0x47C]` read at `0x1FC087` then used address **`0x206314`**, i.e. base **`0x205E98`**, not `0x203B90 + 0x47C = 0x20400C`. In the earlier run the same access used `0x2061D4` (base `0x205D58`).
+- The base is therefore a **run-varying guest address**, not a stable object, and it differs from the entry value across runs.
+
+Conclusion: the global translated `esi` is **clobbered between the entry of `FUN_001FC010` and the `+0x47C` read** (the call to `CDevice_FreeFrameBuffers` at `0x1FC080` is the only intervening call), or the translated callee chain fails to preserve it. This is a register-preservation/ABI defect in the translated path, not a missing write model and not a missing service. The `0x20400C` field is never accessed because the register no longer points at the device.
+
+Next bounded task: identify the callee that leaves `esi` changed (scan the retained translation for functions that assign `esi` without a matching push/pop, and inspect `CDevice_FreeFrameBuffers`' callees), then fix or report with evidence. No model change is warranted before that.
+
+No DECISIONS row: characterization only.
+
+## 17. Provenance record and honest classification
+
+The corrected trace (`browser-137-site.json`) does **not** support a synthetic-profile state divergence:
+
+- The supplied profile is not involved in the object register. `FUN_001FC010` runs once, entered from `D3DDevice_Release` (`ECX = ESI = 0x203B90`, the device global written only by `Direct3D_CreateDevice` at site `0x1F7676`).
+- The `[ESI+0x47C]` read then uses a **heap-like, run-varying** base (`0x205E98` this run, `0x205D58` before), not `0x203B90 + 0x47C`. No guest write to the device field occurs (`0x20400C` reads/writes = 0).
+- Callee register accounting in the retained translation: `FUN_001FB300`, `FUN_001FAED0`, `FUN_001FACA0` assign `esi` zero times; `FUN_001FB640` pushes and pops it once; `FUN_001FC010` itself pushes `esi` twice and pops it once. The global `esi` therefore changes across the call chain without a matching restore somewhere below this level.
+
+Classification: this is a **translated-register preservation defect** (or a model/tooling register clobber), not a profile-fidelity gap and not a missing write model or service. The exact callee is not yet identified, so no fix is attempted here. The read-fault recording stays the standard: the run halts at the fault and reports it.
+
+Next bounded task: instrument or scan for the specific callee that leaves `esi` changed (per-function push/pop balance across the reached call chain), then regenerate/fix with evidence. No write-side or pointer model.
