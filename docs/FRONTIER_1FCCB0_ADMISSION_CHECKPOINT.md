@@ -46,6 +46,10 @@ Module `recomp-post-memory-build-74`: **663,028 bytes**, SHA-256 `c8c27cb4ec232c
 
 Before review, the declared artifacts were rechecked against the retained local copies: the module, the three translation outputs, both settings profiles and both reports all match the digests below. `tools/compare-proof-profiles.mjs` on `browser-74-reset3.json` / `browser-74-reset-avquery.json` exits 0 with the pair table above. The frontier tool on translation 53 reports 517 functions, 95 placeholders and 94 referenced placeholders, with `0x1F7080` referenced by `0x1F5640`, matching the checkpoint. The shared report contract now also rejects an unconfigured ordinal-2 call record whose status is neither completed (0) nor denied (1), and requires an actual denial record for any unsupported ordinal-2 stop; a completed call alone cannot satisfy the stop. These close the remaining unexercised control paths noted by the narrow review, and the retained pair still validates. No translation, module or profile content changed.
 
+## Review outcome
+
+The architect integrated this slice at `92c31ef` (merge of source `33cfb36`, CI run `41940691880`, clean ancestry and source-only delta) after the report-contract and guard hardening. The slice is no longer pending review. The next stop remains untranslated `0x1F7080`, unadmitted; no further admission follows from the integration.
+
 ## Next and limits
 
 The next genuine stop is untranslated **`0x1F7080`**, called by executed `0x1F5640`. It is **not admitted or analyzed further**. Per the directive, the lane stops here.

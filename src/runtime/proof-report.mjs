@@ -81,6 +81,12 @@ export function validateProofReport(report) {
     if (typeof startup.stopReason !== 'string' || !startup.stopReason)
       throw new Error('An incomplete initializer run must state its stop reason');
   }
+  /* The producer derives the distinct count from the reached-entry sequence.
+   * When both are present they must agree; otherwise a report could inflate the
+   * progress metric the comparison relies on without the corresponding list. */
+  if (report.originalFunctionsReached !== undefined &&
+      new Set(report.originalFunctionsReached).size !== startup.distinctOriginalFunctions)
+    throw new Error('The reached original-routine list does not match the distinct function count');
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
