@@ -101,6 +101,24 @@ class MixedLayoutContractTest(unittest.TestCase):
         self.assertEqual(layout["dataBytes"], 4)
         self.assertEqual(layout["tables"], [])
 
+    def test_two_pointer_tables_separated_by_defined_byte(self):
+        memory = dict(CODE)
+        memory["00100004"] = "00001000"
+        memory["00100008"] = "00001000"
+        memory["0010000c"] = "ab"
+        memory["0010000d"] = "00001000"
+        layout = PREP.checked_function_layout(item(
+            [{"start": "00100000", "endInclusive": "00100010"}], 17, 17,
+            [instruction("00100000", 4),
+             data("00100004", "00001000"),
+             data("00100008", "00001000"),
+             data("0010000c", "ab", "byte"),
+             data("0010000d", "00001000")]), reader(memory))
+        self.assertTrue(layout["mixed"])
+        self.assertEqual(layout["dataBytes"], 13)
+        self.assertEqual([table["targets"] for table in layout["tables"]],
+                         [[0x100000, 0x100000], [0x100000]])
+
     def test_pointer_target_must_be_local_instruction(self):
         memory = dict(CODE)
         memory["00100004"] = "00200000"
@@ -252,6 +270,22 @@ def site(anchor=0x100004):
 
 
 class DispatchTableContractTest(unittest.TestCase):
+    def test_two_tables_and_sites_are_censused(self):
+        rows = [
+            {"address": "00100004", "computed": True, "call": False,
+             "mnemonic": "JMP", "flows": ["00100000"]},
+            {"address": "00100008", "computed": True, "call": False,
+             "mnemonic": "JMP", "flows": ["00100000"]},
+        ]
+        layout = {"start": 0x100000, "end": 0x100011, "rows": rows,
+                  "tables": [table(0x100004, [0x100000, 0x100000]),
+                             table(0x10000d, [0x100000])], "mixed": True}
+        second = site(anchor=0x10000d)
+        second["address"] = 0x100008
+        census = PREP.checked_dispatch_tables(layout, [site(anchor=0x100004), second])
+        self.assertEqual(census, {0x100004: [0x100000, 0x100000],
+                                  0x10000d: [0x100000]})
+
     def test_matching_table_and_flows_are_accepted(self):
         layout = dispatch_layout([0x100000], [table(0x100004, [0x100000, 0x100000])])
         census = PREP.checked_dispatch_tables(layout, [site()])
