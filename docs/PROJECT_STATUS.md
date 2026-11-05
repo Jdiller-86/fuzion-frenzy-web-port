@@ -1,4 +1,10 @@
-# The vblank wait model passes and reaches service ordinal 3
+# Service ordinal 3 is AvSetDisplayMode at the present boundary
+
+November 5: read-only characterization — no implementation, hook change, admission, export, seed or translation change. [The checkpoint](SERVICE_ORDINAL_3_CHECKPOINT.md): ordinal **3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)`**, returning 0. `D3DDevice_Present` calls it after the vblank wait (`0x20222B`, return `0x202231`); observed arguments `addr 0x3C10CFC`, `step 0`, `mode 0x600302C7`, `format 0`, `pitch 0xA00`, `fb 0x03920000`. The pinned bridge (`kernel_bridge.c:2394`) records the scanout state, resolves the framebuffer VA into the contiguous window, starts the window, and returns success; it is the only place the title states where its picture is. Next decision: model the documented display state (descriptor/fb/pitch/format bounds) or hold. Checks: `check` 461 files, whitespace clean; no code change.
+
+No display timing, scanout or rendering claim. Integration head `1e35f8a` is an ancestor; main ancestry retained. Consumer and wait path default-off. **There is no controllable original screen.**
+
+## Prior: The vblank wait model passes and reaches service ordinal 3
 
 November 5: the architect accepted the type-gate correction (decode the full event header: low byte 0/1, Size byte 4; consume only Type 1). The model now accepts the title's **notification** event `0x00040000` (Type 0), signals it, leaves it signaled, and the wait exits. Module 115 is **717,097 bytes**, SHA `c7b94e38?`. Control unchanged (status 13 at `0xFD800044`, 339/405). The experiment (consumer + 3 vblanks) accepted the wait once (`decision 0`, `declared` 3 -> 2) and advanced to a **new service boundary: status 1 at `0xFE0000A4`, ordinal 3**, **340 routines / 406 kernel ops**, return `0x202231` inside `D3DDevice_Present`'s submit loop; the consumer still drained 499 words and released the fence 3 -> 9. This supersedes D364's type-1 restriction and D365's flag-field reading for this object; the static writers are the direct SignalState reset path. Checks: `test:native` 38/38, `test:runtime` pass, `check` 460 files, whitespace clean.
 

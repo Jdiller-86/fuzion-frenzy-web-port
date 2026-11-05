@@ -2,6 +2,9 @@
 
 November 4, 2026. This index hands off the corrected report/helper slice and the retained admission evidence for the architect's exact-head review. It is not a merge or promotion request. The source lane is parked; the last source/CI commit is `3ef6024`, after the Sol architect's `09:30` decision to hold further admission pending that review. Later commits are docs-only hold records. The exact-head review package for the corrected candidate is [the candidate review](INTEGRATION_CANDIDATE_REVIEW.md).
 
+## Latest: service ordinal 3 characterization (read-only)
+
+- [Ordinal-3 checkpoint](SERVICE_ORDINAL_3_CHECKPOINT.md): ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)`, returning 0; called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x600302C7`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. This is `D367`.
 ## Latest: vblank wait model passes; ordinal-3 frontier
 
 - [Wait-model checkpoint](VBLANK_WAIT_MODEL_CHECKPOINT.md#type-gate-correction-and-result): architect-accepted correction decodes the full event header (low byte 0/1, Size byte 4) and consumes only Type 1; the title's notification event `0x00040000` is accepted. Module 115 (717,097 bytes, SHA `c7b94e38...`). Control unchanged (339/405, status 13); experiment (consumer + 3 vblanks) decision 0, declared 3 -> 2, the wait exits, and the run advances to **status 1 at `0xFE0000A4`, ordinal 3**, 340/406, return `0x202231` in `D3DDevice_Present`'s submit loop. Supersedes D364's type-1 restriction and D365's flag reading for this object. This is `D366`.

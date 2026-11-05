@@ -1,4 +1,8 @@
-# The vblank wait model passes and reaches service ordinal 3
+# Service ordinal 3 is AvSetDisplayMode at the present boundary
+
+November 5: read-only characterization; no code change. Ordinal 3 = `AvSetDisplayMode(addr, step, mode, format, pitch, fb)` returning 0, called from `D3DDevice_Present` after the vblank wait (`0x20222B`, return `0x202231`) with `addr 0x3C10CFC`, step 0, mode `0x600302C7`, format 0, pitch `0xA00`, fb `0x03920000`. The pinned bridge records the scanout state, resolves the fb VA into the contiguous window, starts the window and returns success. Next: model the documented display state or hold. Checks: `check` 461 files. Consumer/wait path default-off. **No controllable original screen.**
+
+## Prior: The vblank wait model passes and reaches service ordinal 3
 
 November 5: architect-accepted type-gate correction (decode full header; accept Type 0/1 with Size 4; consume only Type 1). Module 115 (717,097 bytes, SHA `c7b94e38?`). Control unchanged (339/405, status 13). Experiment (consumer + 3 vblanks): decision 0, declared 3 -> 2, wait exits, new stop **status 1 at `0xFE0000A4`, ordinal 3**, 340/406, return `0x202231` in `D3DDevice_Present`'s submit loop; consumer still drains 499 and releases 3 -> 9. Supersedes D364's type-1 restriction and D365's flag reading for this object. Checks: `test:native` 38/38, `test:runtime` pass, `check` 460 files. Default-off; next decision is ordinal 3. **No controllable original screen.**
 
