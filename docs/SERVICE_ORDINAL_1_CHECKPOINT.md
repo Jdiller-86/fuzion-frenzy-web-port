@@ -278,3 +278,24 @@ Therefore the contradiction is **not resolved**: either the field-address watch 
 Next bounded task: add an ESI value capture *inside the `0x1FC087` access itself* (record `g_esi` alongside the address) and enlarge/report the entry ring, so the two diagnostics are sampled at the same instant; then re-run and compare.
 
 No DECISIONS row: characterization only.
+
+## 20. Single-record capture: the field access is genuine; the ABI count is the suspect instrument
+
+`siteWatch` now records `g_esi` inside the `0x1FC087` access itself. One run (`browser-140-abi.json`, module 140, private `RECOMP_ABI_CHECK` build):
+
+| Measurement | Value |
+| --- | --- |
+| Entry ESI / ECX (site `0x1FC010`) | `0x203B90` / `0x203B90`, return `0x1F54E9` (from `D3DDevice_Release`) |
+| Field access address (site `0x1FC087`) | `0x206314` |
+| `g_esi` at that access | `0x205E98` |
+| `address - g_esi` | **`0x47C`** (exact) |
+| ABI violations / ESI violations | 310 / **0** |
+| Field access count | 1 |
+
+The exact `0x47C` delta proves the access is the instrumented `[ESI+0x47C]` read and that `g_esi` really was `0x205E98` at that instant. The ABI logger recorded no ESI change across any call. Both instruments are therefore measuring the same run at different instants, and at least one is wrong about the call boundary: the direct-call ABI macro must have missed the `0x1FC080` call (or its comparison is invalid for this call), while the in-access capture cannot be an association error.
+
+Working conclusion: the **ABI instrumentation coverage is the suspect**, not the site watch and not a guest-state/profile divergence. No workaround, no model, no translator edit.
+
+Next bounded task: instrument the `FUN_001FB640` entry access (site `0x1FB640`) to record `g_esi` at callee entry, then compare with the post-call value in the same record; that decides whether the change happens inside that callee and why the direct-call check did not report it.
+
+No DECISIONS row: characterization only.

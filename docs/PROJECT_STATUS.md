@@ -1,4 +1,12 @@
-# ABI audit vs site watch: measurements conflict; no resolution yet
+# Single-record capture: the field access is genuine, the ABI count is suspect
+
+November 5: `siteWatch` now records `g_esi` inside the `0x1FC087` access. One run shows entry `ESI=ECX=0x203B90` (return `0x1F54E9` from `D3DDevice_Release`), field address `0x206314`, `g_esi=0x205E98`, and **`address-g_esi = 0x47C` exactly** with one field access. That proves the read is the instrumented `[ESI+0x47C]` and `g_esi` was genuinely `0x205E98` then, while the ABI logger reports 310 violations but **0 ESI changes**. At least one instrument is wrong about the call boundary; the exact delta rules out an association error in the site watch, so the **ABI instrumentation coverage is the suspect** — not guest state, not the profile. No workaround, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: record `g_esi` at the `FUN_001FB640` entry access (site `0x1FB640`) and compare with the post-call value to decide why the direct-call check missed the change.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: ABI audit vs site watch: measurements conflict; no resolution yet
 
 November 5: reconciliation attempt recorded. Site `0x1FC087` occurs exactly once (the `[ESI+0x47C]` read at line 5240, reached only after the `RECOMP_ABI_CALL(0x001FB640)` at `0x1FC080`); there is no alternate entry. The ABI check wraps that call and reports **0 ESI changes**, while the site watch recorded one entry (`ESI=0x203B90`) and one field access (`0x206314`) — mutually inconsistent for a single invocation. The contradiction is unresolved: either the field watch sampled a different access (association error) or an indirect/tail-call path below `CDevice_FreeFrameBuffers` changes `g_esi` outside the direct-call ABI macro. This is a tooling/measurement question, not guest state or profile; no workaround and no model.
 
