@@ -2,7 +2,7 @@
 
 November 5: ground-truth arbiter implemented and run. The field capture at site `0x1FC087` reports address `0x206314`, `g_esi = 0x205E98` (delta `0x47C` exactly), and the physical fault frame at the following read (site `0x1FC091`) independently reports faulting address `0x6B6A6968` with `g_esi = 0x205E98`. The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sameEsi }` and the validator rejects any disagreement; run `browser-150-arbiter.json` gives `sameEsi=true`, `deltaOk=true`. **Verdict: the register genuinely held `0x205E98` at the read; the instrument is not misreporting.** The remaining question is which executed path leaves `0x205E98` in `esi` even though `FUN_001F6240` pops it before both returns — a genuine register-state question, not instrumentation. No fix, model, or translator edit.
 
-Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 24/24, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
 
 ## Prior: Confirm-and-report: FUN_001F6240 restores ESI; the defect claim is retracted
 
