@@ -7,7 +7,107 @@ builder-owned tests, does not read private research, does not delegate, and does
 not merge or push. It records what is mechanically checkable and leaves every
 decision to the architect.
 
-## Exact-head precheck for `b5294fa` (published architect head, November 4, 2026)
+## Post-merge state after PR #6 (November 4, 2026)
+
+**PR #6 is merged.** The runner merged the reviewed architect head into GitHub
+`main` while this lane was recording, so the exact-head record now has a
+post-merge state to capture.
+
+| Item | Value |
+| --- | --- |
+| PR #6 | `codex/opencode-architect@b5294fac8de4a68a24eb3b207a6466695dde9fd6` -> `main@2aba6380bc66e82d6e181d61166a9b84b0ef7e4e`; **merged** 2026-11-04T23:41:00Z |
+| Merge commit | `c543720d5cf838e80f645de15c85789f2bcbd44c` "Merge reviewed architect integration", parents `2aba6380…` and `b5294fac…` |
+| Published main | `main` -> `c543720d5cf838e80f645de15c85789f2bcbd44c`, 373 tracked paths |
+| Merge content delta | `git diff b5294fa c543720` is **empty**; the merge added nothing beyond the reviewed candidate head |
+| Published main contains | `b5294fac…` (the reviewed head) and `e700373…` (local main) |
+| Published main does not contain | the verification record (`92f0abf` is not an ancestor of `c543720`); PR #6 merged the architect branch only |
+| Open pull requests | only PR **#3**, the geometry draft; PR #6 is closed and merged |
+
+### CI at the merged head (read-only, GitHub API, 2026-11-04T23:47Z)
+
+| Item | Value |
+| --- | --- |
+| Merge run | id `41935647475`, "Preparation checks", event `push`, branch `main`, attempt 1, `completed` / **success** (created 23:41:03Z, updated 23:41:53Z) |
+| Merge run jobs | `126943303039` "preparation (ubuntu-latest)" success; `126943302774` "preparation (windows-latest)" success |
+| Gate runs at the candidate head | `41927475606` (push) and `41927492924` (pull_request), both `success` — the runs that gated PR #6 |
+| URL | https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41935647475 |
+
+### Post-merge precheck
+
+- `node tools/verify-exact-head.mjs b5294fa --base-ref origin/main` -> exit 0.
+  The published base is now the merge commit `c543720`, whose two sides
+  (`2aba6380…` and `b5294fac…`) are both in the candidate head's history: the
+  relation is **parents-contained**, head ahead 0 / behind 1, **0 missing base
+  paths**.
+- `node tools/verify-exact-head.mjs c543720` -> exit 1 with "candidate
+  c543720 is not the architect head b5294fa". This is structural, not a
+  failed candidate: the merge commit lives on `main`, while the architect
+  branch head is still `b5294fa`. The tool's identity rule asks whether the
+  commit under review is the architect head, and a merge commit on the
+  published line is not.
+
+### Lane-publication gap: what the runner can and cannot do
+
+The runner publishes a lane branch with a plain, **non-force** push
+(`git push origin HEAD:refs/heads/<branch>`, `tools/Invoke-OpenCodeCycle.ps1`
+line 52). This lane's branch was rebased onto the integration head, so the
+published lane head `origin/codex/opencode-verification` (`077ee14`) is not an
+ancestor of the lane head; that push is a non-fast-forward and the runner will
+record `publication = 'retry'`. This lane does not merge and does not push, and
+the sandbox denies a merge command for it.
+
+Everything else the runner's publish step requires has been verified locally:
+
+| Runner publish precondition | Result |
+| --- | --- |
+| Current branch is `codex/opencode-verification`, clean worktree | yes |
+| Lane ownership: `origin/main..HEAD` touches only `tools/verify-exact-head.mjs`, `tests/integration-verification.test.mjs`, `tests/verification-exact-head.test.mjs`, `docs/INTEGRATION_VERIFICATION_CHECKPOINT.md` | yes, no other path |
+| No forbidden publication path in that set | yes |
+| `npm run check` | passes (376 source files in this tree) |
+| `git diff --check origin/main..HEAD` | clean |
+| Fast-forward of the integration branch onto the lane head | possible: `b5294fac…` **is** an ancestor of the lane head, and the delta over it is exactly the four owned paths |
+
+So the record can reach the published line without a force push by
+fast-forwarding the integration branch `codex/opencode-architect` onto the lane
+head in the architect worktree; the runner then publishes that branch normally.
+That action belongs to the architect or the runner, not to this lane.
+
+### Evidence limits
+
+- The merge, CI and pull-request facts are a read-only observation of the
+  public GitHub API without credentials at 2026-11-04T23:47Z.
+- The lane-publication resolution above is a local, verified fact about
+  ancestry and the runner's publish preconditions. It is a recommendation with
+  the evidence attached, not an executed publication.
+- The `0x1FCCB0` admission slice is the primary lane's reviewed result. This
+  lane checked head identity, ancestry and CI only, and does not judge that
+  evidence.
+- Nothing here approves a merge, admits a helper, or supports any rendering,
+  fidelity, playability, online, social or authority claim.
+
+### Checks run for this result
+
+- `node tools/verify-exact-head.mjs b5294fa --base-ref origin/main` -> exit 0.
+- `node tools/verify-exact-head.mjs c543720` -> exit 1 (merge commit, not the
+  architect head; expected).
+- `git merge-base --is-ancestor b5294fa HEAD` -> 0 (fast-forward onto the lane
+  head is possible).
+- `git diff --name-only b5294fa HEAD` -> the four owned paths only.
+- `git diff --check origin/main..HEAD` -> clean.
+- `npm run test:runtime` -> 188 tests, 187 pass, 0 fail, 1 pre-existing skip.
+- `npm run check` -> publication guard passed for 376 source files.
+- `node --test tests/verification-exact-head.test.mjs` -> 14/14 pass.
+- `node --test tests/integration-verification.test.mjs` -> 7/7 pass.
+
+### Next task for this lane
+
+Stop after this record. The next exact-head precheck applies to the bounded
+`0x1FCCB0` admission slice once the architect reviews it, or to whichever head
+the architect publishes next; the same command checks that head against the
+then-current architect head and the published merge target. No further tooling
+work is authorized until the architect asks for it.
+
+## Earlier record: exact-head precheck for `b5294fa` (pre-merge, November 4, 2026)
 
 **Recorded marker:** `b5294fac8de4a68a24eb3b207a6466695dde9fd6`
 ("Record 0x1FC780 admission integration and 0x1FCCB0 dispatcher
