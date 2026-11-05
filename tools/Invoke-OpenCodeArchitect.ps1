@@ -57,7 +57,7 @@ try {
     $mainHead = (git -C $repo rev-parse main).Trim()
     $modelPool = Get-Content -LiteralPath (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
     $architectModels = @($modelPool.hourlyReview)
-    if ($architectModels.Count -lt 1 -or $architectModels[0] -ne 'opencode-go/glm-5.3-flash' -or $architectModels -contains 'openai/gpt-6.1-sol') { throw 'Architect model pool must start with Go GLM 5.3 Flash and exclude Sol.' }
+    if ($architectModels.Count -ne 1 -or $architectModels[0] -ne 'opencode-go/glm-5.3-flash') { throw 'Automatic architect model pool must contain only Go GLM 5.3 Flash.' }
     $state = @{ started = (Get-Date).ToString('o'); outcome = 'running'; head = $head; sourceHead = $sourceHead; geometryHead = $geometryHead; verificationHead = $verificationHead; mainHead = $mainHead; model = $architectModels[0]; sessionId = $sessionId }
     $prSnapshot = 'GitHub PR snapshot unavailable; inspect again before approving a merge.'
     try {
@@ -106,15 +106,15 @@ try {
                 $candidates = @($architectModels) + @('opencode/glm-5.3-flash-free')
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
-                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { $prompt } elseif ($candidate -eq 'opencode-go/glm-5.3') { "GLM 5.3 Flash is usage-limited. Act as the authorized hourly architect under AGENTS.md and docs/OPENCODE_GOAL.md. Integration HEAD=$head; primary=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Review latest committed evidence and the manager's three lane directions. Finish one bounded integration or management decision; check the existing main PR independently of unfinished builder work. Use Qwen Scout once for narrow source reconnaissance if useful. Give Primary, Geometry and Verification one task or hold, acceptance check, and stop condition. Preserve source-only, original-browser-execution, exact-head, runtime, CI, ancestry, and mergeability gates. Never request a merge from metadata alone. Do not push or operate GitHub directly. Conclude with GEOMETRY_CYCLE: HOLD or RUN; then only justified exact-head OPEN_*_PR or MERGE_MAIN_PR markers; and a final ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration review: ... . Reserve steps to finish this directive." } else { "Both Go architect models are unavailable. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
-                    $agent = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect' } elseif ($candidate -eq 'opencode-go/glm-5.3') { 'architect_fallback' } else { 'reviewer' }
+                    $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { $prompt } else { "Go GLM 5.3 Flash is unavailable; full GLM 5.3 is disabled by user policy. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
+                    $agent = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect' } else { 'reviewer' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
                     } else {
                         $runOutput = & opencode run --auto --agent $agent --model $candidate $runPrompt 2>&1
                     }
                     $exitCode = $LASTEXITCODE
-                    if ($exitCode -eq 0 -and $candidate -in @('opencode-go/glm-5.3-flash', 'opencode-go/glm-5.3') -and (($runOutput | Out-String) -notmatch '(?m)^ARCHITECT_REVIEW:\s*\S')) {
+                    if ($exitCode -eq 0 -and $candidate -eq 'opencode-go/glm-5.3-flash' -and (($runOutput | Out-String) -notmatch '(?m)^ARCHITECT_REVIEW:\s*\S')) {
                         $finalPrompt = 'Finish this architect cycle now. No tools or additional investigation. Based on the evidence already checked, state the next bounded Primary and Geometry tasks, acceptance checks, and stop conditions. If a main PR merge was not fully proven, omit MERGE_MAIN_PR. End with GEOMETRY_CYCLE: HOLD or RUN, followed by any already justified exact-head PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Next integration review: ... .'
                         if ($sessionId) { $finalOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $finalPrompt 2>&1 }
                         else { $finalOutput = & opencode run --auto --agent $agent --model $candidate $finalPrompt 2>&1 }

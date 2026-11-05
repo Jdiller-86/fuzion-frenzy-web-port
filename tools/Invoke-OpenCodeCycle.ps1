@@ -145,7 +145,7 @@ try {
             if ([DateTimeOffset]::TryParse([string]$guidance.created, [ref]$created) -and [DateTimeOffset]::Now.Subtract($created).TotalHours -ge 0 -and [DateTimeOffset]::Now.Subtract($created).TotalHours -lt 2 -and $guidance.summary) {
                 $brief = [string]$guidance.summary
                 if ($brief.Length -gt 650) { $brief = $brief.Substring(0, 650) }
-                if ($guidance.approved -and $guidance.model -in @('opencode-go/glm-5.3-flash', 'opencode-go/glm-5.3')) {
+                if ($guidance.approved -and $guidance.model -eq 'opencode-go/glm-5.3-flash') {
                     if ($Lane -eq 'geometry' -and $guidance.geometryCycle -eq 'HOLD') {
                         $state.outcome = 'deferred_architect'
                         $state.finished = (Get-Date).ToString('o')
