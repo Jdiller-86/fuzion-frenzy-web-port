@@ -227,3 +227,17 @@ Read-only classification of the writer and the region:
 Conclusion: the field `+0x47C` of the faulting base `0x205D58` falls inside a palette-ramp-initialized region, so it holds ramp bytes rather than a pointer. The anomaly is therefore the **object base passed to `FUN_001FC010`** (`0x205D58`), not a missing write model. The caller that supplied that ECX is still unidentified (the earlier entry capture recorded the prologue stack push, not the object register). Next bounded task: capture the caller return address and ECX at the `[ESI]` read of `FUN_001FC010` (filtering out stack-push accesses), then trace whoever passes `0x205D58`.
 
 No write-side model: the observed ramp writer is explained and the fault value is not a pointer. No DECISIONS row needed (D374/D376 cover the related models; this is characterization).
+
+## 16. The faulting base is a clobbered register, not an object
+
+The site watch was corrected to record the `[ESI]` read of `FUN_001FC010` (not the prologue stack pushes) and to keep a small ring of entry tuples. Run `browser-137-site.json` (module 137, profile 87):
+
+- `FUN_001FC010` was entered from `D3DDevice_Release` (return `0x1F54E9`) with **`ECX = ESI = 0x203B90`** — the correct static device.
+- The `[ESI+0x47C]` read at `0x1FC087` then used address **`0x206314`**, i.e. base **`0x205E98`**, not `0x203B90 + 0x47C = 0x20400C`. In the earlier run the same access used `0x2061D4` (base `0x205D58`).
+- The base is therefore a **run-varying guest address**, not a stable object, and it differs from the entry value across runs.
+
+Conclusion: the global translated `esi` is **clobbered between the entry of `FUN_001FC010` and the `+0x47C` read** (the call to `CDevice_FreeFrameBuffers` at `0x1FC080` is the only intervening call), or the translated callee chain fails to preserve it. This is a register-preservation/ABI defect in the translated path, not a missing write model and not a missing service. The `0x20400C` field is never accessed because the register no longer points at the device.
+
+Next bounded task: identify the callee that leaves `esi` changed (scan the retained translation for functions that assign `esi` without a matching push/pop, and inspect `CDevice_FreeFrameBuffers`' callees), then fix or report with evidence. No model change is warranted before that.
+
+No DECISIONS row: characterization only.

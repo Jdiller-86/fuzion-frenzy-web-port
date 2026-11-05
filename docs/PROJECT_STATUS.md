@@ -1,4 +1,12 @@
-# The "hijk" fault value is palette ramp data; the object base is the anomaly
+# The faulting base is a clobbered register, not an object
+
+November 5: corrected site watch (records the `[ESI]` read, keeps an entry ring) shows `FUN_001FC010` entered from `D3DDevice_Release` (return `0x1F54E9`) with **`ECX = ESI = 0x203B90`** (the correct device), but the `[ESI+0x47C]` read at `0x1FC087` used **`0x206314`** (base `0x205E98`) and in the earlier run `0x2061D4` (base `0x205D58`). The base is a run-varying guest address, so the global translated `esi` is clobbered between entry and that read (the `CDevice_FreeFrameBuffers` call at `0x1FC080` is the only intervening call) — a register-preservation/ABI defect, not a missing write model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: scan the retained translation for functions that assign `esi` without a matching push/pop and inspect `CDevice_FreeFrameBuffers`' callees.
+
+Checks: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files, whitespace clean. Integration head `864d33c` carries the lane commits through `36bf5f7`; `D374`/`D376` cover the models, so no new decision row. No main push/merge; geometry untouched.
+
+## Prior: The "hijk" fault value is palette ramp data; the object base was the anomaly
 
 November 5: read-only classification completed. `FUN_001fdf83` (`0x1FDF83..0x1FDFC2`) is a **3-lane × 0x100 palette/ramp initializer** (`base = ECX + arg*0x300 + 0x214`, incrementing bytes), called from `FUN_001fe0c6` at `0x1FE1A4` in a D3D device/state setup sequence. Its stores at `0x2061D4` produce consecutive ramp bytes `0x68,0x69,0x6A,0x6B`, so the `0x6B6A6968` "pointer" read at the fault is **palette data, not a pointer**. `0x2061D4` is in image section 1's zero-filled virtual tail, so the ramp fill is its only source; the faulting base `0x205D58` (field `0x2061D4`) is the anomaly, not a missing write model.
 

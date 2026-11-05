@@ -329,7 +329,8 @@ export function validateProofReport(report) {
   if (report.siteWatchState !== undefined) {
     const s = report.siteWatchState;
     if (!s || !integer(s.entryAddr) || !integer(s.entryEcx) || !integer(s.entryReturn) ||
-        !integer(s.fieldAddr) || !integer(s.fieldCount))
+        !integer(s.fieldAddr) || !integer(s.fieldCount) || !Array.isArray(s.entries) || s.entries.length > 8 ||
+        s.entries.some(e => !Array.isArray(e) || e.length !== 3 || e.some(v => !integer(v))))
       throw new Error('Malformed site-watch state');
   }
   /* Ordinal 2 remains unsupported by default: the observed call carries four
