@@ -532,4 +532,21 @@ Classification: the writer is the `POP esi` at `FUN_001FB640`'s epilogue, i.e. a
 
 No DECISIONS row: characterization only.
 
+## 35. Pop-word capture: the restore slots are off by one
+
+The probe now records the value of every stack read at site 0 (`popEvents`). Run `browser-155-pop.json` (module 155), last stack reads before the field access:
+
+| Stack slot | Value read |
+| --- | --- |
+| `0x3C10E34` | **`0x205E98`** |
+| `0x3C10E38` | **`0x203B90`** |
+| `0x3C10E3C` | `0xFFFFFFFF` |
+| `0x3C10E40` | `0x3C10CFC` |
+
+`FUN_001FB640`'s epilogue pops `edi, esi, ebp, ebx` in that order, so the first slot (`0x3C10E34 = 0x205E98`) is consumed by the **EDI** pop and the second (`0x3C10E38 = 0x203B90`) by the **ESI** pop — yet the following field read observes `ESI = 0x205E98`. The save/pop slots are therefore **off by one register**: the value intended for one register (the restore slot at `0x3C10E34`) lands in `ESI`, and the correct `0x203B90` is consumed by the next pop.
+
+This is a translated stack-accounting/save-slot mismatch, not guest state, profile, or probe artifact. No fix or model; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.

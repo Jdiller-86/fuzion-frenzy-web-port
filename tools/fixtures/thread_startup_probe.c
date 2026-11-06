@@ -182,6 +182,7 @@ static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev
 static uint32_t reg_trace_frozen;
 static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8], esi_change_ret[8];
 static uint32_t esi_event_count, esi_event_site[16], esi_event_esi[16], esi_event_addr[16];
+static uint32_t pop_event_count, pop_event_addr[16], pop_event_value[16];
 static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
@@ -388,7 +389,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
     site_entry_count = 0u;
-    esi_change_count = 0u; esi_event_count = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
+    esi_change_count = 0u; esi_event_count = 0u; pop_event_count = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -428,6 +429,13 @@ uint32_t ff_probe_esi_change_word(uint32_t index)
 }
 uint32_t ff_probe_esi_change_count(void) { return esi_change_count; }
 uint32_t ff_probe_esi_event_count(void) { return esi_event_count; }
+uint32_t ff_probe_pop_event_count(void) { return pop_event_count; }
+uint32_t ff_probe_pop_event_word(uint32_t index)
+{
+    if (index >= 32u) return 0u;
+    uint32_t slot = index / 2u, field = index % 2u;
+    return field == 0u ? pop_event_addr[slot] : pop_event_value[slot];
+}
 uint32_t ff_probe_esi_event_word(uint32_t index)
 {
     if (index >= 48u) return 0u;
@@ -689,6 +697,10 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled && !reg_trace_frozen) {
+        if ((access & FF_VM_READ) && site == 0u && g_esp >= 0x03C00000u && g_esp < FF_GUEST_BYTES - 4u && !(g_esp & 3u)) {
+            uint32_t pslot = pop_event_count & 15u;
+            pop_event_addr[pslot] = address; pop_event_value[pslot] = MEM32(address); ++pop_event_count;
+        }
         if (site == 0x001F6240u || site == 0x001F62C4u || site == 0x001FC010u || site == 0x001FC087u ||
             (site >= 0x001FB6FDu && site < 0x001FB740u)) {
             uint32_t eslot = esi_event_count & 15u;
