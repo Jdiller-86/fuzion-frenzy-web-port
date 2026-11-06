@@ -368,3 +368,26 @@ mandatory corrective decision in docs/DECISIONS.md.
   original-binary check covers the implicated order. Tempo fact: 0 counted advances, stop unchanged at
   status 10 `0x6B6A6968`, 346 routines / 414 kernel ops (the control profile's own stop marker remains
   unrelated to the boundary). No runtime advance.
+
+- 2026-11-05 ops (D407): runtime-b's authorized line/quad comparator work is committed as
+  `1546a83` (4 files: comparator +317, new test +59, checkpoint +128, `package.json` +1 -1
+  wiring the test into `test:runtime`). Committed record on the 1,728-record line/quad
+  reference: 960 compared, 768 skipped with stated reasons (384 polygon-mode-1, 384
+  polygon-mode-2), 0 forwarded / 0 slope mismatches, `maxSlopeUlps 0`; `node --test`
+  7/7, `test:runtime` 209 pass / 1 skip, `check` 490 files. The handoff's "0 skipped" is
+  corrected to the committed 768 stated-reason skips. Verified component progress only - no
+  boundary move and no newly serviced original request - so it is not a counted advance.
+  No runtime advance.
+- 2026-11-05 ops (D407): runtime-a records the M2 device-policy core statistics at `2aa9b43`
+  (`browser-157-experiment.json`: 12,637 entries, 161 reads all `beforeKnown`, 68 after write,
+  12,476 writes, 0 unknown-address reads, 5,298 distinct addresses, 0 status waits), extended
+  to both profiles by `1875d94` (control 12,592 entries / 137 reads / 100% `beforeKnown` / 54
+  after write / 0 unknown reads). M2 still needs its two boundary advances, so this is M2
+  evidence, not M2 acceptance. No runtime advance.
+- 2026-11-05 ops (D407): tempo fact - still 0 counted advances. runtime-a's standalone
+  compiled-artifact probe (`tests/reg_save_compiled_probe.c`, returns 1 `lifo-correct` under
+  gcc 54/54 and as standalone Emscripten Wasm under Node) exonerates both the compiled artifact
+  and the owned macro/expansion text, narrowing the live candidate to the lane's own in-browser
+  module compilation/binding - a diagnostic narrowing, not a boundary move. The stop is
+  unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops; PR #19 stays the only
+  guarded route with the 22:40 tick as the next reconciliation window (D403). No runtime advance.
