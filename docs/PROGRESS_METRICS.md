@@ -269,3 +269,14 @@ mandatory corrective decision in docs/DECISIONS.md.
   one-line note) and carries the tested `ff_reg_order_is_reverse` rule, candidates A/B and the
   bounded owner question, while `7911e35` is component progress. Stop unchanged: status 10 at
   `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D401): M6 decision recorded - the `FUN_001FB640` epilogue mismatch is ruled
+  emission-side (candidate A) with candidate B (instrumentation attribution) as the registered
+  fallback; the triple-gated repair protocol is (1) correct the translator's emitted callee-saved
+  pop-destination order in `tools/prepare-title-recomp.py` to the observed slot table per the
+  tested `ff_reg_order_is_reverse` rule, keeping the regression test rejecting the observed
+  runtime order, (2) re-run both profiles and require the stop to move past `0x6B6A6968` in both
+  with R11 evidence, (3) fall back to candidate B with a new dated row only if the stop does not
+  move. Decision row only - no fix, no translator edit, no gate closed. No runtime advance.
+- 2026-11-05 ops (tempo, D401): 0 counted advances standing; M6's first counted advance fires
+  only when the stop actually moves with R11 evidence. Stop unchanged verbatim: status 10 at
+  `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
