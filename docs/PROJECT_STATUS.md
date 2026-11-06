@@ -1,4 +1,12 @@
-# Return-boundary samples classify survival: writer is FUN_001FB640's tail
+# Tail span: the writer is FUN_001FB640's epilogue POP esi
+
+November 5: per-access tail events (module 154) show `0x1FB706` rep-stosd (ESI=0x203B90), `0x1FB71B` compare (ESI=0x203B90), **no `0x1FB728` event** (the branch skipped the `0x1FB725` indirect call), then the `0x1FC087` field read with ESI=0x205E98. Between `0x1FB71B` and the field read only the epilogue `POP edi; POP esi; POP ebp; POP ebx; ret` executes and there is **no `esi =` assignment**, so the writer is the **epilogue `POP esi`**, restoring a stack word equal to `0x205E98` instead of the saved `0x203B90` — a translated stack-accounting (save-slot) defect, not guest state, profile, or probe artifact. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture the popped word itself (pop-value at site 0) to confirm the save-slot mismatch.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Return-boundary samples classify survival: writer is FUN_001FB640's tail
 
 November 5: the tuple probe now samples the four post-call sites in `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`). Run (module 153): one `FUN_001FC010` entry (`ESI=0x203B90`); `FUN_001F6240` invocation A post-call `0x1FB6D0` gives **`ESI=0x203B90`**; invocation B post-call `0x1FB6FD` gives **`ESI=0x203B90`**; the next event is the `0x1FC087` field read with **`ESI=0x205E98`**. Classification complete: **not pop-skipped** (both returns restore) and **not a different invocation** (one entry); the `0x205E98` writer lies **after `0x1FB6FD` and before `FUN_001FB640` returns** (the call at `0x1FC080` is immediately followed by the field read). No fix or model.
 

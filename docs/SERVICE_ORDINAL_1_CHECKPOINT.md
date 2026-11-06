@@ -517,4 +517,19 @@ So the survival is a value written in the tail of `FUN_001FB640`, not a skipped 
 
 No DECISIONS row: characterization only.
 
+## 34. Tail span: the writer is the epilogue `POP esi` (stack-accounting candidate)
+
+The probe now records per-access events in the `FUN_001FB640` tail (`0x1FB6FD..0x1FB740`). Run `browser-154-tail.json` (module 154), last events:
+
+- `0x1FB706` (rep-stosd loop): ESI `0x203B90`, addresses `0x205CF0..0x205D24`.
+- `0x1FB71B` (`[esi+0x2148]` compare): ESI `0x203B90`, address `0x205CD8`.
+- **No `0x1FB728` event** — the branch at `0x1FB71B` took `je 0x1FB72E`, so the indirect call at `0x1FB725` did **not** execute.
+- Next event: `0x1FC087` field read with ESI `0x205E98`.
+
+Between the last tail access (`0x1FB71B`, ESI `0x203B90`) and the field read, the only translated code is the epilogue `POP edi; POP esi; POP ebp; POP ebx; ret`. There is **no `esi =` assignment** in that span, so the write to ESI is the **epilogue `POP esi`** itself: it restores a stack word equal to `0x205E98` instead of the saved `0x203B90`.
+
+Classification: the writer is the `POP esi` at `FUN_001FB640`'s epilogue, i.e. a **stack-accounting (save-slot) defect** in the translated function — the popped slot does not hold the entry value. This is a translator/translation finding, not a guest-state, profile, or probe artifact; no fix or model is applied. Confirming the exact popped word needs a pop-value capture (site 0 read value) next.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
