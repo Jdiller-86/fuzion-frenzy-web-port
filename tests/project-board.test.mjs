@@ -55,6 +55,11 @@ test('status follows reviewed issue records, waiting notes and outside project n
   const {client}=await provision();const note='\nHuman project note.\n';client.target.readme+=note;client.issues[1].state='closed';client.issues[1].state_reason='completed';client.target.items[0].status={name:'Accepted',optionId:'Accepted_7'};
   const result=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(client.target.items[0].status.name,'Planned');assert.equal(client.target.items[1].status.name,'Done');assert.ok(client.target.items.every(i=>i.waiting==='Private reviewer note retained locally'));assert.ok(client.target.readme.endsWith(note));assert.ok(!JSON.stringify(result).includes('Private reviewer'));
 });
+test('public pull requests from this repository remain available to the copied Pull requests view',async()=>{
+  const {client}=await provision();const row={id:'PVTI_pr',isArchived:false,content:{__typename:'PullRequest',id:'PR_37',number:37,url:`https://github.com/${REPOSITORY}/pull/37`,repository:{nameWithOwner:REPOSITORY,isPrivate:false}}};client.target.items.push(row);client.writes=[];
+  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.managedIssues.length,15);assert.equal(client.writes.length,0);assert.deepEqual(client.target.items.at(-1),row);
+  client.target.items.at(-1).content.repository.isPrivate=true;await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}),/Private/);
+});
 test('unsupported template filters/options fail before copying and source drift fails readback',async()=>{
   for(const mutate of [c=>c.templateViews[0].filter='repo:Jdiller-86/CTR-2-WUP',c=>c.templateFields[0].options.pop(),c=>c.templateViews=[]]){const client=new MemoryBoard();mutate(client);await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}));assert.equal(client.writes.length,0);}
   const client=new MemoryBoard();client.tip=async()=>'2'.repeat(40);await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}),/Main changed/);

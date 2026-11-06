@@ -51,4 +51,4 @@ Optional modernization preserves an original presentation baseline. PWA caching,
 
 ## Tracking and maintenance
 
-[Project management](docs/management.md) defines native issues, parent/dependency links, status and evidence acceptance. Keep current behavior in [status](docs/status.md) and the [handoff](docs/handoff.md), consequential decisions in [decisions](docs/decisions.md), and curated facts in [research](docs/research.md). Earlier records remain in Git history. No milestone closes through documentation, task counts or source fixtures alone.
+[Project management](docs/management.md) defines native issues, parent/dependency links, status and evidence acceptance. The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes the milestone parents and their child work. Keep current behavior in [status](docs/status.md) and the [handoff](docs/handoff.md), consequential decisions in [decisions](docs/decisions.md), and curated facts in [research](docs/research.md). Earlier records remain in Git history. No milestone closes through documentation, task counts or source fixtures alone.

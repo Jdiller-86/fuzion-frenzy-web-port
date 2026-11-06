@@ -41,6 +41,7 @@ test('scope is five milestones with unique acyclic work identities and exact mai
 test('preview makes no writes; apply verifies native parents/dependencies and is idempotent',async()=>{
   const client=new MemoryGitHub(),plan=fresh();const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(client.writes.length,0);
   const result=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(client.issues.length,15);assert.equal(client.milestones.length,5);assert.equal(result.snapshot.milestones.filter(m=>m.accepted).length,0);
+  assert.equal(client.issues.filter(i=>i.labels.includes('work-item')).length,10,'CTR Implementation work view must include all ten tasks');assert.ok(client.issues.filter(i=>i.labels.includes('milestone')).every(i=>!i.labels.includes('work-item')));
   for(const def of definitions(plan)){const issue=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${def.id} -->`));const rel=await client.relations(issue);assert.equal(Boolean(rel.parent),def.type==='task');assert.equal(rel.blockedBy.length,def.dependsOn.length);}
   client.writes=[];const again=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(again.operations.length,0);assert.equal(client.writes.length,0);
 });
@@ -111,6 +112,6 @@ test('snapshot rendering strips unapproved fields and rejects forged status coun
 
 test('preview exposes existing metadata/link drift; sync repairs owned fields and retains unrelated labels',async()=>{
   const {client,plan}=await provision();client.writes=[];client.issues[0].title='Edited title';client.issues[0].labels=['status:planned','custom-label'];client.milestones[0].title='Edited native title';client.links.get(client.issues[1].node_id).parent=null;
-  const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.ok(preview.operations.some(o=>o.kind==='metadata'));assert.ok(preview.operations.some(o=>o.kind==='parent'));assert.ok(preview.operations.some(o=>o.kind==='milestone-metadata'));assert.equal(client.writes.length,0);
+  const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.ok(preview.operations.some(o=>o.kind==='metadata'));assert.ok(preview.operations.some(o=>o.kind==='issue-labels'));assert.ok(preview.operations.some(o=>o.kind==='parent'));assert.ok(preview.operations.some(o=>o.kind==='milestone-metadata'));assert.equal(client.writes.length,0);
   await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(client.issues[0].title,'M1: '+plan.milestones[0].title);assert.ok(client.issues[0].labels.includes('custom-label'));assert.ok(client.issues[0].labels.includes('milestone'));assert.equal(client.milestones[0].title,client.issues[0].title);
 });

@@ -16,7 +16,7 @@ const projectUrl=number=>`https://github.com/users/${OWNER}/projects/${number}`;
 const META='id number url title public closed readme shortDescription owner { ... on User { login } }';
 const FIELDS='nodes { __typename ... on ProjectV2Field { id name dataType } ... on ProjectV2SingleSelectField { id name dataType options { id name } } ... on ProjectV2IterationField { id name dataType } } pageInfo { hasNextPage endCursor }';
 const VIEWS='nodes { id name layout filter } pageInfo { hasNextPage endCursor }';
-const ITEM='id isArchived content { __typename ... on Issue { id number url repository { nameWithOwner isPrivate } } } status:fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } workType:fieldValueByName(name:"Work type") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } }';
+const ITEM='id isArchived content { __typename ... on Issue { id number url repository { nameWithOwner isPrivate } } ... on PullRequest { id number url repository { nameWithOwner isPrivate } } } status:fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } workType:fieldValueByName(name:"Work type") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } }';
 const ITEMS='nodes { '+ITEM+' } pageInfo { hasNextPage endCursor }';
 class ProjectAPIError extends Error {}
 
@@ -61,7 +61,7 @@ export function trackingFields(rows){
   assert.equal(selected['Waiting resource'].dataType,'TEXT');return selected;
 }
 function members(rows){
-  const result=new Map();for(const row of rows){const issue=row.content;assert.equal(issue?.__typename,'Issue','Unexpected draft or inaccessible board item');assert.equal(issue.repository?.nameWithOwner,REPOSITORY,'Foreign repository item on managed board');assert.equal(issue.repository?.isPrivate,false,'Private board content is outside scope');assert.equal(issue.url,`${BASE}/issues/${issue.number}`);assert.ok(typeof row.id==='string'&&typeof issue.id==='string');assert.ok(!result.has(issue.number),'Duplicate issue on board');result.set(issue.number,row);}return result;
+  const result=new Map();for(const row of rows){const issue=row.content;assert.ok(['Issue','PullRequest'].includes(issue?.__typename),'Unexpected draft or inaccessible board item');assert.equal(issue.repository?.nameWithOwner,REPOSITORY,'Foreign repository item on managed board');assert.equal(issue.repository?.isPrivate,false,'Private board content is outside scope');assert.equal(issue.url,`${BASE}/${issue.__typename==='Issue'?'issues':'pull'}/${issue.number}`);assert.ok(typeof row.id==='string'&&typeof issue.id==='string');if(issue.__typename==='PullRequest')continue;assert.ok(!result.has(issue.number),'Duplicate issue on board');result.set(issue.number,row);}return result;
 }
 
 export class BoardGitHub extends GitHub{

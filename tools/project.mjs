@@ -12,7 +12,7 @@ export const STATUSES=new Map([
   ['planned','Planned'],['in-progress','In progress'],['blocked','Blocked'],
   ['awaiting-evidence','Awaiting evidence'],['review','Ready for review'],['accepted','Accepted']
 ]);
-const COLORS={'milestone':'5319e7','work:implementation':'0052cc','work:evidence':'0e8a16',
+const COLORS={'milestone':'5319e7','work-item':'0052cc','work:implementation':'0052cc','work:evidence':'0e8a16',
   'area:runtime':'1d76db','area:content':'0366d6','area:online':'006b75','area:experience':'c5def5','area:release':'f9d0c4'};
 const AREAS=['runtime','content','online','experience','release'];
 const START='<!-- fuzion:managed:start -->',END='<!-- fuzion:managed:end -->';
@@ -104,6 +104,7 @@ export class GitHub{
 }
 const endpoint=tail=>`/repos/${REPOSITORY}/${tail}`;
 const labels=issue=>(issue.labels??[]).map(x=>typeof x==='string'?x:x.name);
+const requiredLabels=(def,issue={})=>[...(def.type==='milestone'?['milestone']:['work-item','work:'+def.kind]),'area:'+def.area,...(labels(issue).some(l=>l.startsWith('status:'))?[]:['status:planned'])];
 export function indexIssues(plan,issues){
   const found=new Map(),allowed=new Set(definitions(plan).map(d=>d.id));
   for(const issue of issues){
@@ -186,7 +187,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
     if(group)desired.milestone=group.number;
     if(!current){
       operations.push({kind:'issue',id:def.id});
-      if(apply){const created=await client.request('POST',endpoint('issues'),{...desired,labels:[def.type==='milestone'?'milestone':'work:'+def.kind,'area:'+def.area,'status:planned']});lookup.set(def.id,created);}
+      if(apply){const created=await client.request('POST',endpoint('issues'),{...desired,labels:requiredLabels(def)});lookup.set(def.id,created);}
     }
   }
   if(!apply){
@@ -195,6 +196,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
       if(issue){
         const body=renderIssue(def,issue,lookup),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
         if(issue.body!==body||issue.title!==title||issue.milestone?.number!==group?.number)operations.push({kind:'metadata',id:def.id});
+        if(requiredLabels(def,issue).some(l=>!labels(issue).includes(l)))operations.push({kind:'issue-labels',id:def.id});
         const links=await client.relations(issue);
         if(def.parent&&links.parent!==lookup.get(def.parent)?.node_id)operations.push({kind:'parent',id:def.id});
         for(const id of def.dependsOn)if(!links.blockedBy.includes(lookup.get(id)?.node_id))operations.push({kind:'dependency',id:def.id,blockedBy:id});
@@ -217,8 +219,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
         operations.push({kind:'metadata',id:def.id});const updated=await client.request('PATCH',endpoint('issues/'+issue.number),{title,body,milestone:group.number});lookup.set(def.id,updated);
       }
       const current=lookup.get(def.id);
-      const required=[def.type==='milestone'?'milestone':'work:'+def.kind,'area:'+def.area];
-      if(!labels(current).some(l=>l.startsWith('status:')))required.push('status:planned');
+      const required=requiredLabels(def,current);
       const missing=required.filter(l=>!labels(current).includes(l));
       if(missing.length){operations.push({kind:'issue-labels',id:def.id});await client.request('POST',endpoint('issues/'+current.number+'/labels'),{labels:missing});}
       const links=await client.relations(current);
@@ -227,7 +228,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
     }
     const latest=await client.list(endpoint('issues?state=all'));const verified=indexIssues(plan,latest);
     for(const def of definitions(plan)){
-      const issue=verified.get(def.id);assert.ok(issue,'Created issue could not be read back');const relations=await client.relations(issue);
+      const issue=verified.get(def.id);assert.ok(issue,'Created issue could not be read back');for(const label of requiredLabels(def,issue))assert.ok(labels(issue).includes(label),'Managed issue label readback differs');const relations=await client.relations(issue);
       if(def.parent)assert.equal(relations.parent,verified.get(def.parent).node_id,'Native parent verification failed');
       for(const id of def.dependsOn)assert.ok(relations.blockedBy.includes(verified.get(id).node_id),'Native dependency verification failed');
     }

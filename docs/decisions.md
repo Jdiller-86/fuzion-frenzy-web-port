@@ -10,6 +10,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D445 | Reset to a static main-branch baseline | User-directed November 6 cleanup: close pending PR #21 without merging, retire non-main branches, remove obsolete docs/metadata and snapshots, consolidate current facts, and pause implementation pending the next objective |
 | D446 | Replace the runtime ladder with five verifiable project milestones | User-directed planning modeled after CTR-2-WUP: original browser execution, complete local game/conversion, online/recovery, player experience and release readiness. All five remain unaccepted at the planning baseline. |
 | D447 | Adopt domain source layout and repository-native tracking | Host, translator, renderer, portable/browser runtime and web boundaries; five parent issues with a small work breakdown, native relationships and verified progress exports. Metadata workflows start no coding agents or game execution. |
+| D448 | Add a public GitHub Project modeled after CTR-2-WUP | User-authorized board creation using an owner-configured Actions secret. Copy field/view configuration, import only this repository's managed issues, pin native Project identity and verify membership/status. Issue evidence owns milestone acceptance; board setup starts no implementation. |
 
 ## Contracts that remain in force
 

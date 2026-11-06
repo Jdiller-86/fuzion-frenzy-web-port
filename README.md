@@ -6,13 +6,13 @@ Each browser will use compatible game files supplied by its player and converted
 
 **Original-game playability, complete local conversion, online play and the complete product are not available yet.** Bounded original startup is recorded in [status](docs/status.md).
 
-[Documentation](docs/README.md) · [Development plan](plans.md) · [Milestones](docs/milestones.md) · [Tracking](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) · [Contributing](CONTRIBUTING.md)
+[Documentation](docs/README.md) · [Development plan](plans.md) · [Milestones](docs/milestones.md) · [Project board](https://github.com/users/Jdiller-86/projects/3) · [Contributing](CONTRIBUTING.md)
 
 ## Project progress
 
 Five milestones cover original browser execution, the complete local game and converter, online multiplayer/recovery, player experience and release readiness. Each has a foundation, explicit acceptance criteria and a small work breakdown. **0/5 were accepted at the replanning baseline.**
 
-[Native tracking issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Amilestone) own current acceptance state. The [tracking workflow](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/workflows/project.yml) exports a read-only progress snapshot and offline view. Runtime implementation is paused pending the next user-directed task.
+[Native tracking issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Amilestone) own current acceptance state. The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes the five milestone parents and ten initial child tasks using CTR-2-WUP's field/view configuration. The [tracking workflow](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/workflows/project.yml) synchronizes the board and exports a read-only progress snapshot and offline view. Runtime implementation is paused pending the next user-directed task.
 
 ## Use or build
 
