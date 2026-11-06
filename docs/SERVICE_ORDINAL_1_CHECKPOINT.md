@@ -959,3 +959,25 @@ Module `recomp-post-memory-build-165` (profile 90): **1,013,193 bytes**, SHA-256
 The initializer and its callees executed; `FUN_0004b450` then called `FUN_0004b160`, the next translation placeholder (`0x4B160..0x4B204`; its own first call is the still-unseeded `0x4C480`). Halt and report.
 
 No DECISIONS row: the lane's `docs/DECISIONS.md` stops at D415 while integration head `9158e70` carries rows through D434, so a new row needs that file synced first (numbering conflict otherwise).
+
+## 64. Batch admission of FUN_0004b160 and three direct callees; next stop __fsopen at 0x1E0151
+
+The repeated architect card's primary item (trim the last DECISIONS row) was re-checked at the new head `6fdcd98`: `docs/DECISIONS.md` ends with the D415 row and one line feed, `git diff --check origin/main HEAD` exits 0, so it remains a no-op with no amend.
+
+Runtime-a continuation. The reached body `0x4B160..0x4B204` directly calls `0x4C480`, `0x1DEE6E`, `0x1E01AD` and `0x1DFE85`; `0x1DEE6E` was already translated, so the batch admits the other three plus the stopping function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-4b160-01/seed-b160.json`: prior 12 seed functions plus `0x0004B160`, `0x0004C480`, `0x001E01AD` (fopen wrapper), `0x001DFE85` (`_fclose`); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 91: **476 functions, 19,434 instructions** (+4 / +105).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-166` (profile 91): **1,017,181 bytes**, SHA-256 `b0dc989e1c506fec51e425053d8b55454ab8b011f5764b606d4891482b49dd4f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E0151`** | **354 / 422** |
+
+`FUN_0004b160` executed and reached the CRT `fopen` path; `fopen` (`0x1E01AD`) then called its worker `__fsopen` (`0x1E0151..0x1E01A2`), the next translation placeholder. Halt and report; next bounded step is `__fsopen` with its evidenced direct callees.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

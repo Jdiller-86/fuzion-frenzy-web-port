@@ -1,10 +1,10 @@
-# FUN_0004e480 batch admitted; next stop is placeholder 0x4B160
+# FUN_0004b160 batch admitted; next stop is __fsopen at 0x1E0151
 
-November 6: one evidenced batch translation increment (retained pipeline; 7 functions, within the 8-function set cap). Read-only Ghidra export added `0x0004E480` and its six direct callees (`0x0004B450`, `0x0004C510`, `0x0004D4D0`, `0x0004DB50`, `0x0004B570`, `0x0004CC10`) to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 90 (**472 functions, 19,329 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 165: **1,013,193 bytes**, SHA `dde9cb13...`.
+November 6: one evidenced batch translation increment (retained pipeline; 4 functions, within the 8-function set cap). Read-only Ghidra export added `0x0004B160` and its three unseeded direct callees (`0x0004C480`, `0x001E01AD`, `0x001DFE85`) to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 91 (**476 functions, 19,434 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 166: **1,017,181 bytes**, SHA `b0dc989e...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the initializer and stops at **status 2, `0x004B160`** (352 routines / 422 kernel ops) — the next translation placeholder, called from `FUN_0004b450`.
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes `FUN_0004b160` and the CRT `fopen` wrapper, then stops at **status 2, `0x001E0151`** (354 routines / 422 kernel ops) — `__fsopen`, the next translation placeholder.
 
-Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. Claimed DECISIONS EOF defect absent (single trailing LF; `git diff --check origin/main HEAD` exit 0), so nothing was amended. No main push/merge; geometry untouched.
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. Repeated DECISIONS EOF card re-verified as a no-op (single trailing LF; gate exit 0). No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 
