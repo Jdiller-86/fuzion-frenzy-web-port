@@ -917,3 +917,89 @@ Module `recomp-post-memory-build-163` (profile 88, same sources): **1,009,495 by
 The admission executed (`FUN_0004f7a0` reached) and stopped at the next translation placeholder, `0x004C2E0` (`FUN_0004c2e0`, its first callee). Halt and report; next bounded admission is `0x4C2E0` with its necessary direct dependencies.
 
 No DECISIONS row: integration head `10cae525` does not contain the lane commits, so the sync-first rule blocks it.
+
+## 62. Admission of FUN_0004c2e0; next stop is placeholder 0x4E480
+
+Translation increment under the standing policy (one set, batch of one function):
+
+- Read-only Ghidra export `research/verification/recomp-admit-4c2e0-01/seed-quint.json` (`0x00042BE0`, `0x001F54D0`, `0x001FC910`, `0x0004F7A0`, `0x0004C2E0`) replaced the previous four-function seed, keeping the 32-export cap.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 89: **465 functions, 19,056 instructions** (+1 function / +7 instructions; the admitted body is `SUB ESP,0x20; LEA EAX,[ESP]; PUSH EAX; CALL 0x00030ADE; MOV EAX,[ESP+0xc]; ADD ESP,0x20; RET`).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing ("the offered seeds match this translation's record exactly").
+
+Module `recomp-post-memory-build-164` (profile 89, same sources): **1,010,556 bytes**, SHA-256 `617a51269178d4907418a2dbb62cbf58fbeaf4a529f2adf50d600529c1612c1e`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004E480`** | **350 / 422** |
+
+The wrapper ran and its already-translated callee `0x30ADE` did not stop the run; the caller `FUN_0004f7a0` then called `FUN_0004e480`, the next translation placeholder. That block is an initializer `0x4E480..0x4E4AD` with six direct calls (`0x4B450`, `0x4C510`, `0x4D4D0`, `0x4DB50`, `0x4B570`, `0x4CC10`), a store to `0x2D0758`, `MOV EAX,1` and `RET`. Halt and report; the next bounded admission is `0x4E480` with those evidenced direct dependencies (7 functions, within the 8-function set cap).
+
+No DECISIONS row: integration head `10cae525` contains `ad0bffa` (D415 return-pop) but not `d721550` (ordinal-100 model) or `a2a83de`, so the sync-first rule still blocks the remaining rows.
+
+## 63. Batch admission of FUN_0004e480 and its six direct callees; next stop 0x4B160
+
+Architect card for this cycle asked for an EOF trim of the last DECISIONS row and an amend of the record commit. Verified at the lane head: `docs/DECISIONS.md` already ends with the D415 row and exactly one line feed (no blank line; `git show HEAD:docs/DECISIONS.md` tail `...edit. |\n`), and `git diff --check origin/main HEAD` exits 0. The named defect is not present, so nothing was amended and no history was rewritten.
+
+The card's Runtime-a step ("advance past `0x004C2E0`") was already completed in `91e5e0b`; the latest verified checkpoint had the next stop at `0x004E480`. Continued there with an evidenced batch:
+
+- Read-only Ghidra export `research/verification/recomp-admit-4e480-01/seed-initializer.json` replaced the five-function seed with the union of the prior admissions plus the initializer and its six direct calls: `0x0004E480`, `0x0004B450`, `0x0004C510`, `0x0004D4D0`, `0x0004DB50`, `0x0004B570`, `0x0004CC10` (7 new functions, within the 8-function set cap; all `established=true`).
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 90: **472 functions, 19,329 instructions** (+7 / +273).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-165` (profile 90): **1,013,193 bytes**, SHA-256 `dde9cb137b7efec0a60ed9736240ee8b73fa05bd29b958186aa9b4421cc28d34`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004B160`** | **352 / 422** |
+
+The initializer and its callees executed; `FUN_0004b450` then called `FUN_0004b160`, the next translation placeholder (`0x4B160..0x4B204`; its own first call is the still-unseeded `0x4C480`). Halt and report.
+
+No DECISIONS row: the lane's `docs/DECISIONS.md` stops at D415 while integration head `9158e70` carries rows through D434, so a new row needs that file synced first (numbering conflict otherwise).
+
+## 64. Batch admission of FUN_0004b160 and three direct callees; next stop __fsopen at 0x1E0151
+
+The repeated architect card's primary item (trim the last DECISIONS row) was re-checked at the new head `6fdcd98`: `docs/DECISIONS.md` ends with the D415 row and one line feed, `git diff --check origin/main HEAD` exits 0, so it remains a no-op with no amend.
+
+Runtime-a continuation. The reached body `0x4B160..0x4B204` directly calls `0x4C480`, `0x1DEE6E`, `0x1E01AD` and `0x1DFE85`; `0x1DEE6E` was already translated, so the batch admits the other three plus the stopping function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-4b160-01/seed-b160.json`: prior 12 seed functions plus `0x0004B160`, `0x0004C480`, `0x001E01AD` (fopen wrapper), `0x001DFE85` (`_fclose`); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 91: **476 functions, 19,434 instructions** (+4 / +105).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-166` (profile 91): **1,017,181 bytes**, SHA-256 `b0dc989e1c506fec51e425053d8b55454ab8b011f5764b606d4891482b49dd4f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E0151`** | **354 / 422** |
+
+`FUN_0004b160` executed and reached the CRT `fopen` path; `fopen` (`0x1E01AD`) then called its worker `__fsopen` (`0x1E0151..0x1E01A2`), the next translation placeholder. Halt and report; next bounded step is `__fsopen` with its evidenced direct callees.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 65. Batch admission of __fsopen and its unseeded callees; next stop __lock_file2 at 0x1E4C62
+
+Primary card unchanged and re-checked at head `9e563dc`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — still a no-op, no amend.
+
+Runtime-a continuation from `0x1E0151`. `__fsopen` body `0x1E0151..0x1E01A2` directly calls `0x1E04CC`, `0x1E52F6`, `0x1E4F87`, `0x1E518E`, `0x1E01A3`, `0x1E0505`; `0x1E04CC`, `0x1E4F87` and `0x1E0505` were already translated.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e0151-01/seed-fsopen.json`: prior 16 seed functions plus `0x001E0151` (`__fsopen`), `0x001E52F6` (`__getstream`), `0x001E518E` (`__openfile`), `0x001E01A3` (tiny wrapper); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 92: **480 functions, 19,680 instructions** (+4 / +246).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-167` (profile 92): **1,025,210 bytes**, SHA-256 `9508d2d28d6cda9a95610bf7eda5a2ee92f33aec1925018f5a54566de6906b66`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4C62`** | **357 / 428** |
+
+`__fsopen` ran through `__getstream`, which then called `__lock_file2` (`0x1E4C62..0x1E4C84`), the next translation placeholder; six additional kernel operations completed on the way (422 → 428). Halt and report; next bounded step is `__lock_file2` with its unseeded callee `0x1E635C` and a check of the import thunk at `0x2533F0` before any model is proposed.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

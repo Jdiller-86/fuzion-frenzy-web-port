@@ -1,10 +1,10 @@
-# FUN_0004f7a0 admitted; next stop is placeholder 0x4C2E0
+# __fsopen batch admitted; next stop is __lock_file2 at 0x1E4C62
 
-November 6: one translation increment (retained pipeline; batch of one). Read-only Ghidra export `0x00042BE0`/`0x001F54D0`/`0x001FC910`/`0x0004F7A0` replaced the prior three-function seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 88 (**464 functions, 19,049 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 163: **1,009,495 bytes**, SHA `662e3b7a...`.
+November 6: one evidenced batch translation increment (retained pipeline; 4 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E0151` (`__fsopen`), `0x001E52F6` (`__getstream`), `0x001E518E` (`__openfile`) and `0x001E01A3` to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 92 (**480 functions, 19,680 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 167: **1,025,210 bytes**, SHA `9508d2d2...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment reaches `FUN_0004f7a0` and stops at **status 2, `0x004C2E0`** (348 routines / 421 kernel ops) — the next translation placeholder (`FUN_0004c2e0`, its first callee).
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment runs `__fsopen`/`__getstream` and stops at **status 2, `0x001E4C62`** (357 routines / 428 kernel ops) — `__lock_file2`, the next translation placeholder.
 
-Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row (integration head `10cae525` lacks the lane commits). No main push/merge; geometry untouched.
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. Repeated DECISIONS EOF card re-verified as a no-op (single trailing LF; gate exit 0). No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 
