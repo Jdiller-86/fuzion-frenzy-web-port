@@ -1003,3 +1003,28 @@ Module `recomp-post-memory-build-167` (profile 92): **1,025,210 bytes**, SHA-256
 `__fsopen` ran through `__getstream`, which then called `__lock_file2` (`0x1E4C62..0x1E4C84`), the next translation placeholder; six additional kernel operations completed on the way (422 → 428). Halt and report; next bounded step is `__lock_file2` with its unseeded callee `0x1E635C` and a check of the import thunk at `0x2533F0` before any model is proposed.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 66. Admission of __lock_file2; next stop FUN_001e540f at 0x1E540F
+
+Primary card unchanged and re-checked at head `768f31a`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — no-op, no amend.
+
+Runtime-a continuation from `0x1E4C62`. Before translating, both of the body's call targets were resolved from retained artifacts:
+
+- `CALL 0x001E635C` — already translated in profile 92.
+- `CALL dword ptr [0x002533F0]` — the run's kernel binding is `slot 2438128 = 0x2533F0 → ordinal 277`, which the pinned bridge defines as `RtlEnterCriticalSection` (1 arg). The harness already routes ordinal 277 to its recorded `enter_critical` handler, so this is a supported service and no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e4c62-01/seed-lock2.json`: prior 20 seed functions plus `0x001E4C62` (`__lock_file2`); 1 new function, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 93: **481 functions, 19,693 instructions** (+1 / +13).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-168` (profile 93): **1,027,106 bytes**, SHA-256 `285ab47aea77ac0ef7ecd73c4fbe9360ab921a57f4c000a8d171033c1282d935`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E540F`** | **358 / 429** |
+
+`__lock_file2` executed and `__getstream` continued to `FUN_001e540f` (`0x1E540F..0x1E5417`: `PUSH 1; CALL 0x001E62CE; POP ECX; RET`), the next translation placeholder; its single callee `0x1E62CE` is already translated. Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

@@ -1,8 +1,8 @@
-# __fsopen batch admitted; next stop is __lock_file2 at 0x1E4C62
+# __lock_file2 admitted; next stop is FUN_001e540f at 0x1E540F
 
-November 6: one evidenced batch translation increment (retained pipeline; 4 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E0151` (`__fsopen`), `0x001E52F6` (`__getstream`), `0x001E518E` (`__openfile`) and `0x001E01A3` to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 92 (**480 functions, 19,680 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 167: **1,025,210 bytes**, SHA `9508d2d2...`.
+November 6: one translation increment (retained pipeline; 1 function). Read-only Ghidra export added `0x001E4C62` (`__lock_file2`) to the prior seed (32-export cap kept); both of its call targets were resolved first (`0x1E635C` already translated; `[0x2533F0]` is ordinal 277 `RtlEnterCriticalSection`, already handled). `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 93 (**481 functions, 19,693 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 168: **1,027,106 bytes**, SHA `285ab47a...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment runs `__fsopen`/`__getstream` and stops at **status 2, `0x001E4C62`** (357 routines / 428 kernel ops) — `__lock_file2`, the next translation placeholder.
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes `__lock_file2` and stops at **status 2, `0x001E540F`** (358 routines / 429 kernel ops) — `FUN_001e540f`, the next translation placeholder (its callee `0x1E62CE` is already translated).
 
 Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. Repeated DECISIONS EOF card re-verified as a no-op (single trailing LF; gate exit 0). No main push/merge; geometry untouched.
 
