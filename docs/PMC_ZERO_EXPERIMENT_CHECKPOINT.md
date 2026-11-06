@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PMC zero status is an explicit experiment; the default stays fail-closed
 
 November 4, 2026. `NV_PMC_INTR_0` (`0xFD000100`) is not an acknowledge register in the reached code, so it is no longer served by an ad-hoc zero range. Serving it as a zero status is now an opt-in experiment with a control, and the canonical profile keeps it fail-closed. **There is no controllable original screen, engine progress or fidelity result.**

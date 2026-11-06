@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Frontier: `0x1F70E0` and `0x1F5B70` static continuation candidates
 
 November 4, 2026. Bounded read-only analysis of the two static continuation candidates after the `0x1FCCB0` caller path. This is not an export, admission, translation or execution. Raw disassembly and analysis scripts remain under ignored `research/verification/frontier-1f70e0/` and `frontier-1f5b70/`.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 **Later evidence (November 4):** the seam now has a default-off reference-reset adapter (D182) that seeds the pinned empty-cache `LOW_MARK` without a consumer update; the consumer entry point remains unreferenced. See [the reset-state checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md).
 
 # The PFIFO status seam exists; the contract owner does not

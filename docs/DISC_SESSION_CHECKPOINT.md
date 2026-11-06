@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # A bounded browser-local read-only disc session is working
 
 November 4, 2026. The browser can now open one locally selected bare XISO in a dedicated worker, identify the supported executable by its explicit size/digest, and return requested byte ranges. The session never uploads, serves or converts content, and it is not connected to the guest runtime. The Sol architect reviewed the next-step options this cycle at `2026-11-04T06:16:22.4039478-05:00` and selected this bounded disc-session prerequisite. **There is no controllable original screen.**

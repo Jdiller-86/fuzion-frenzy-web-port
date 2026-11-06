@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # CRT startup and explicit settings checkpoint
 
 Later integration: [the timer startup checkpoint](TIMER_STARTUP_CHECKPOINT.md) passes twenty checks through actual timer arming and reaches the next original helper. The earlier no-import sixteen-check module documented here still passes as a regression. This page preserves its historical timer-stop boundary and evidence.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Full-range scan: the GET..PUT span includes the game image/heap, not a queue
 
 **Later evidence (November 4):** [the channel-setup checkpoint](PFIFO_CHANNEL_SETUP_CHECKPOINT.md) shows the title's own context setup writes PFIFO PUT/GET to zero at `0x20005A`/`0x20027C`/`0x20047F` before the `0x1FAF1C` PUT write. GET=0 is therefore title-initialized; the command source and the empty 20 KB claim remain unresolved. Do not consume, set GET=PUT or treat the scan as a queue.

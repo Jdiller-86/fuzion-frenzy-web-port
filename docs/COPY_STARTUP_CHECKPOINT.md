@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original copy-helper and mixed-layout checkpoint
 
 Later progress is recorded in [the checked-memory checkpoint](MEMORY_STARTUP_CHECKPOINT.md). Allocation and lock initialization now advance original startup to `0x00031da0`; this document retains the earlier helper proof and limits.

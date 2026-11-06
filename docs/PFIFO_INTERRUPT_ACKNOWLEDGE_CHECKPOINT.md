@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO interrupt acknowledge joins PGRAPH; the boundary moves to a PFIFO engine-state wait
 
 November 4, 2026. `NV_PFIFO_INTR_0` (`0xFD002100`) now acknowledges the bits a store carries, exactly like `NV_PGRAPH_INTR`. The phantom PFIFO interrupt is gone and the run advances further: the reached original code now drives the PFIFO channel, writes `NV_PFIFO_CACHE1_PULL0` (`0xFD003250`) 1,846 times, polls PFIFO status 1,840 times and only stops when the bounded device-event log fills. **There is no playable screen, engine model, renderer or fidelity result.**

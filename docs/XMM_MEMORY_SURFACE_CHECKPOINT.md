@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Checked XMM memory surface admits the matrix helper; execution reaches 0x1FCB30
 
 **Later evidence (November 4):** [the XMM type-ownership checkpoint](XMM_TYPE_OWNERSHIP_CHECKPOINT.md) removes the pinned type from the memory header, makes helper admission fail-closed and adds the owned 16-byte boundary test; the refactored build reproduces the same stop.

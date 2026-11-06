@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Modeled memory statistics return and original code enters renderer initialization
 
 November 2, 2026. Original browser startup now answers the reached `MmQueryStatistics` request from consistent modeled page ownership and continues through the 140-byte helper at `0x00042be0`. It stops before untranslated `0x001f7650`, which the original code calls with a 640×480 display-mode structure. **There is no playable original screen, no renderer service and no general kernel.** The complete original-game/custom-feature goal remains active.

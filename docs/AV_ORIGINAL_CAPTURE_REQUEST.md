@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Ordinal-2 original-hardware observation request
 
 November 4, 2026. This document records an **optional** original-hardware capture for the `AvSendTVEncoderOption` option-6 value. The consumer domain is known, but the original service's response is not. The unconnected numeric-6 component and the fail-closed ordinal-2 runtime do not depend on this capture; it is fidelity evidence only. The Sol architect reviewed the evidence at `2026-11-04T05:26:20.5945272-05:00` and later superseded the earlier prerequisite framing at `2026-11-04T05:44:57.8570169-05:00`: no further capture schema or replacement-source survey is required. **No service model or runtime behavior changes from this document.**

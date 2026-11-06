@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Device-context observation: the ring is 512 KB at 0x03B7D000; the title waits for GET=base
 
 **Later evidence (November 4):** [the empty-ring checkpoint](PFIFO_EMPTY_RING_CHECKPOINT.md) implements the bounded empty-ring model; with this profile the original PFIFO wait passed and execution reached untranslated `0x1FB3B0`. The default build remains fail-closed until the model is reviewed.

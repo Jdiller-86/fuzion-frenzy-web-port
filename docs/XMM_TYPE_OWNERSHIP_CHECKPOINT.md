@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # XMM type ownership repaired; fail-closed helper admission and owned boundary test
 
 November 4, 2026. The checked 16-byte XMM path no longer owns the pinned `RecompXmm` type. The memory header now exposes only the checked pointer, and the emitter casts it to `RecompXmm` at the generated use. Helper admission is an explicit allowlist of pure SSE operations; unknown vector helpers and memory-touching helpers that are not rewritten fail closed. Nested probing stores are evaluated into a temporary before the checked store. The refactored translation builds and reproduces the same execution stop. **There is no playable screen, renderer or device model.**

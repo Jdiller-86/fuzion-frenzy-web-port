@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Deterministic fixed-step host loop pacing; original execution still at the PFIFO boundary
 
 November 3, 2026. With the controller input components complete and the original startup still fail-closed at the PFIFO DMA wait, the next independent runtime prerequisite is host-loop pacing: a pure fixed-step accumulator that decides how many whole steps to run for a supplied elapsed time and how much time carries forward. It does not read a clock, execute guest code, sample input or render, and it does not claim original-console timing or cross-runtime determinism. **There is no playable original screen and no renderer/device model.**

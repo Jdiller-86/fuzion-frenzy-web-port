@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Acknowledged PGRAPH interrupt store clears the recurrence; the next stop is an unmodeled PMC interrupt-status read
 
 **Continued in [the PFIFO interrupt acknowledge checkpoint](PFIFO_INTERRUPT_ACKNOWLEDGE_CHECKPOINT.md):** the same acknowledge rule now covers `NV_PFIFO_INTR_0`, and the run advances to a PFIFO engine-state wait that fills the bounded device log.

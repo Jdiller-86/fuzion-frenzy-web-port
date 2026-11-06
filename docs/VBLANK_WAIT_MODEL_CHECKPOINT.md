@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Ordinal-159 vblank wait model: gate refused, event layout unconfirmed
 
 November 5, 2026. Bounded, default-off senior service model authorized by the architect subagent (about 06:45 local, opencode-go GLM-5.3) with binding corrections: reuse `pcrtcVblanks` (no new input), enforce full five-argument equality, write the event only through the pinned event mechanism, and halt if the event gate refuses. **No translation admission, export, seed or hook change; the consumer path stays default-off.**

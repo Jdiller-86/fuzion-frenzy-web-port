@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Public reference observations
 
 Observed October 31, 2026 in the browser player: [LongplayArchive recording](https://www.youtube.com/watch?v=ijAoBUYVTGY). The uploader describes NTSC Xbox playback. Executable digest, capture frame rate, input history and hardware are unknown. No local game data was uploaded; no video was downloaded. Names below were read from paused selection screens.

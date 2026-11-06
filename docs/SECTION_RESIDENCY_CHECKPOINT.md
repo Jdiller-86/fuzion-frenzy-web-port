@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original section residency and image initialization
 
 November 2, 2026. The selected route remains static recompilation to WebAssembly for the complete original game and planned custom features.

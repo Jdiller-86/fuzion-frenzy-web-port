@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F7570` batch completes the render-state table and stops at `D3DDevice_Present`
 
 November 5, 2026. Published head `45c0327` (CI run `41992902803`, success) was the starting point. This cycle admitted the last two render-state handlers, `0x1F7570` and `0x1F7590`, and the experiment then left the indirect table entirely, stopping at **`0x00202150` (`D3DDevice_Present`)**. **There is no controllable original screen.** Per the directive, this is the post-table stop and the cycle halts for review; the next region is a fresh decision.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # A001 closed: generated vector ops are non-writable, and denied ops stop before mutation in compiled code
 
 November 4, 2026. The A001 vector surface is closed on the exact evidence the review asked for: a generated read is a non-writable `const` lvalue and assigning through it fails to compile; the address-of/escape form `&XMM_MEM(...)` is rejected by the emitter and covered by a test; and **generated** denied operations are now executed through a stopping host hook and proven to halt before any guest mutation. Alignment is handled per mnemonic, the reached translation uses the guarded forms and behaves identically, and the write-1-to-clear register model remains an opt-in experiment with a control. The canonical profile keeps `NV_PMC_INTR_0` fail-closed. **There is no controllable original screen, renderer, engine progress or fidelity result.**

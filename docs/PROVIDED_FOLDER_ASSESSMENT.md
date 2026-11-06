@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 The user-supplied `Fuzion Frenzy (USA)/` folder was checked on October 31, 2026. **It is sufficient as the primary source input for the next asset-format/conversion investigation; no further disc extraction is needed for those files.** It is not a browser-ready asset library yet.
 
 The folder contains 136 files totaling 2,083,933,828 bytes. A read-only inventory/checksum comparison against the existing local reference XISO matched all 136 regular files, with no missing, changed, or extra files. Twelve directory checksum records were excluded from the file comparison. This establishes equality with the supplied reference image, not independent authenticity or successful asset decoding.

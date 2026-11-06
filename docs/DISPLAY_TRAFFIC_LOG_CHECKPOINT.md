@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Display-register traffic is now auditable in the device log
 
 November 4, 2026. The modelled display path previously bypassed the device traffic log, so a report could show the PCRTC state but not the guest's own enable/acknowledge sequence. Accesses served outside the synthetic aperture can now be logged without creating storage, and the display registers use it. The guest-side contract is now visible per run. **There is no timing source, engine, renderer or playable screen.**

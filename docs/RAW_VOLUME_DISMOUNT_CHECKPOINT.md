@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original formatter returns after a real volume dismount
 
 November 2, 2026. The original cache formatter now returns one in both browser profiles after its actual writes, filesystem-control call and handle close. **The next root-directory open is still unsupported. No utility drive is mounted and there is no playable original screen.** Static recompilation and the complete original-game/custom-feature goal remain active.

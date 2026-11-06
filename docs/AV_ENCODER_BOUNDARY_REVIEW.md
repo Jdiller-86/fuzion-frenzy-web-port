@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Ordinal 2: establish the reached call contract before emulating an encoder
 
 ## Current directive A023: close the final declaration guard; admit one reached helper

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F7550` batch advances the stop to `0x1F7570`
 
 November 5, 2026. Published head `b576fa2` (CI run `41991304806`, success) was the starting point. This cycle admitted the ordinary stop `0x1F7550` together with the direct dependency it requires. **There is no controllable original screen.**

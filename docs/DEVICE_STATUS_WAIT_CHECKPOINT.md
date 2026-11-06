@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Declared device-status waits are reported instead of silently filling the event log
 
 November 4, 2026. The reached wait on `NV_PMC_INTR_0` is now reported as a device-status wait instead of consuming the bounded device-event log until it fills. `NV_PMC_INTR_0` stays fail-closed by default; only the explicit `pmcZero` experiment declares it, and that declaration now also records which bit the guest polls. **There is no controllable original screen, engine progress or fidelity result.**

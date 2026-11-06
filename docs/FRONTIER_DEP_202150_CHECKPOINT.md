@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x202150` batch admits `D3DDevice_Present` and stops at the PFIFO pushbuffer boundary
 
 November 5, 2026. Published head `6cbe40d` was the starting point for the block that ended at `2618783`; this cycle, the render-state table being exhausted, escalated the post-table region decision once to the project architect and received a bounded authorization: **admit the `D3DDevice_Present` region, exactly one set, then halt for review**. **There is no controllable original screen.**

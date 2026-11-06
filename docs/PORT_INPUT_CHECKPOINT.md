@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Bounded port input for 0x80C0; execution reaches a new register read at 0xFD002080
 
 November 4, 2026. The reached D3D path reads x86 port `0x80C0`, which the build did not define. The source-owned port surface now models the pinned bridge's field-pin read: bit 5 toggles per read. The `xbox_PortIn` bridge is defined in the probe. The rebuilt module advances to 276 distinct routines and stops on an undeclared device-register read at `0xFD002080`. **There is no playable screen, renderer or device model.**

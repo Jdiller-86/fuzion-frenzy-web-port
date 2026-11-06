@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO boundary design note: prototype semantics and the minimal responder
 
 November 5, 2026. Design-only result, as directed: validate the default-off pusher prototype against the accepted PFIFO component semantics and record what the experiment touches and what a minimal responder would require. **No runtime hook, guest connection, admission, export, seed or translation change was made this cycle.** The architect's subagent region authorizations remain provisional and this note halts for design review.

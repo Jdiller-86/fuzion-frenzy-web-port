@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Empty-ring override guarded against a changed PUT; profile path still reaches 0x1FB3B0
 
 **Later evidence (November 4):** [the XMM checkpoint](XMM_MEMORY_SURFACE_CHECKPOINT.md) adds the checked 16-byte XMM surface, admits `0x1FA460`, and advances execution to `0x1FB400`.

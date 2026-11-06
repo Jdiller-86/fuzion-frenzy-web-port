@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO completion-flag characterization (read-only)
 
 November 5, 2026. Directed read-only characterization of the boundary after the first pushbuffer packet. **No implementation, hook change, admission, export, seed or translation change was made.** The consumer prototype is unchanged and default-off. This note halts for the responder design review.

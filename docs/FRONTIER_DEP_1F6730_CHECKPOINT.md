@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6730` batch advances the stop to `0x1F75B0`
 
 November 5, 2026. This cycle admitted the next ordinary stop, `0x1F6730`. It was a named symbol without a Ghidra function, so one bounded create-function was required. **There is no controllable original screen.**

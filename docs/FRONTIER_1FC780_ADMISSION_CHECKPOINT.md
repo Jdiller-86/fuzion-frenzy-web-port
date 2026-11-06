@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The 0x1FC780 admission advances the stop to 0x1FCCB0
 
 November 4, 2026. The architect directive from integration head `ae4b7ae` authorized one bounded `0x1FC780` admission set. This cycle follows it and stops here. **There is no controllable original screen.**

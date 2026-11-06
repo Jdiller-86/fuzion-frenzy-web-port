@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original heap return and first file request
 
 November 1, 2026. This advances the selected static-recompilation route; it does not accept a playable game or any full-product feature gate. Reuse the supplied folder, existing Ghidra project and saved exports. No disc extraction, persistent-project import, firmware acquisition or native original-game execution occurred.

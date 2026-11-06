@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F7080` admission observes the taken branch at `0x1F70E0`
 
 November 4, 2026. The architect directive from integration head `feef47f` authorized exactly one bounded `0x1F7080` leaf admission using the retained seeds/project and the review-ready manifest. This cycle follows it and stops at the observed next genuine stop. **There is no controllable original screen.**

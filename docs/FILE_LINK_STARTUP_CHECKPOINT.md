@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original directory-backed drive link and next metadata-file request
 
 Later progress: [the regular-file checkpoint](REGULAR_FILE_STARTUP_CHECKPOINT.md) implements the reached create and metadata query. Its next untranslated-helper task supersedes this checkpoint's next create task; evidence below remains historical.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # A bounded PCRTC interrupt component releases the PMC wait only when a profile supplies display events
 
 November 4, 2026. The display interrupt the reached code waits on now has a modelled state component with the register contract taken from the retained reference, and a bounded, explicitly declared display-event input. With eight declared vertical-blank events the guest leaves the interrupt wait and returns to PFIFO channel work; without any declared event the run is unchanged and fail-closed. **There is no timing source, renderer, engine progress or playable screen.**

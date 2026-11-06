@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # One-shot timer queue component checkpoint
 
 Later integration: [the timer startup checkpoint](TIMER_STARTUP_CHECKPOINT.md) connects this component and an owned CPU-context bridge to original browser startup. This page preserves the independent component checkpoint and its limits before that integration.

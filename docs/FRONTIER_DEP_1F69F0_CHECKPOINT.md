@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F69F0` batch advances the stop to `0x1F6A70`
 
 November 5, 2026. This cycle admitted the next ordinary stop, `0x1F69F0`. It was already a Ghidra-established function and uses FPU operations and five calls to translated `0x1F66A0`. **There is no controllable original screen.**

@@ -1,27 +1,27 @@
 ---
 name: Bounded development task
-about: Assign one source-only implementation or investigation with observable acceptance criteria
+about: Propose one focused implementation, investigation, or documentation result
 title: ""
 labels: []
 assignees: []
 ---
 
-## Result
+## Goal
 
-<!-- One observable result. Link the current checkpoint and decision, if applicable. -->
+<!-- The concrete problem and observable result. Link the relevant roadmap milestone and current checkpoint. -->
 
-## Scope and owner
+## Scope and ownership
 
-<!-- Files or components in scope, one branch/worktree owner, and model role. -->
+<!-- Files/components in scope, owner, and known overlapping work. -->
 
-## Acceptance checks
+## Acceptance
 
-<!-- Exact checks and observed behavior required to close this task. -->
+<!-- Checks and observed behavior needed to close the task; distinguish fixtures from original-title execution. -->
 
-## Evidence and unknowns
+## Evidence, unknowns, and stop condition
 
-<!-- Curated findings only. State what remains unproved; no original bytes or raw logs. -->
+<!-- For runtime work: target milestone, exact current status/stop, required paired reports/audit, and next unsupported boundary. Curated non-content findings only. -->
 
 ## Source boundary
 
-- [ ] No original game files, converted assets, pseudocode, credentials or raw research logs are attached or committed.
+- [ ] No original game files, extracted/converted assets, generated title code, pseudocode, credentials, private projects, or raw research logs are attached.

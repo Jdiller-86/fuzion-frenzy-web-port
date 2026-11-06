@@ -1,3 +1,5 @@
+> **Decision history.** Entries record decisions at their own checkpoints, including superseded routes and renumbered/duplicate legacy IDs. Use [current status](PROJECT_STATUS.md), [the roadmap](../DEVELOPMENT_PLAN.md), and [contribution guide](../CONTRIBUTING.md) for operative guidance. Cite the decision subject and commit alongside an ID; do not treat an old next-task paragraph as current. Raw evidence remains local.
+
 | ID | Decision | Basis / limits |
 | --- | --- | --- |
 | D001 | First release: desktop four-to-six-game online pack, then full-game expansion | User selection; mobile/touch later |

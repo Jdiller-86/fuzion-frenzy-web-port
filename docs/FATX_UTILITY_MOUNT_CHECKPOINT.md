@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # 0x1FCCB0 admitted; next stop 0x1F7080
 
 November 4, 2026. The bounded admission follows the utility-mount lineage through the startup/D3D frontier. The mixed `0x1FCCB0` dispatcher was admitted after a synthetic resync fixture; translation 53 has 422 functions / 17,593 instructions; module 74 is 663,028 bytes, SHA-256 `c8c27cb4?`.

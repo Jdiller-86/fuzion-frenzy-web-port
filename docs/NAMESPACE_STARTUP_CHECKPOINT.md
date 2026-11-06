@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original drive link and next startup helper
 
 Later progress is recorded in [the formatter checkpoint](FORMAT_STARTUP_CHECKPOINT.md): the actual callee now returns its hexadecimal title-ID text, and startup reaches `0x000338de`. This document preserves the earlier namespace result and its limits.

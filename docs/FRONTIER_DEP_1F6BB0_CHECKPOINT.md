@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6BB0` symbol-entry batch advances the stop to `0x1F6790`
 
 November 4, 2026. After the approved `0x1F6620` work was already complete and the architect integration gate remained blocked by a verification-test CI failure, this cycle chose the next unowned primary task: the ordinary stop `0x1F6BB0`. It is **not** a new route decision. **There is no controllable original screen.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6910` dependency batch advances the stop to `0x1F5B70`
 
 November 4, 2026. Provisional continuation after the Path A batch: the observed stop `0x1F6910` was an ordinary untranslated routine, so this cycle closed exactly that one-function dependency set. It is **not an approved design decision**; the architect guidance remains `approved: false`. One translation, one comparison and one commit. **There is no controllable original screen.**

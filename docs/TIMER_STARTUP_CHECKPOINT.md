@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Browser clock and original timer-arming checkpoint
 
 Later startup progress is recorded in [the copy-helper checkpoint](COPY_STARTUP_CHECKPOINT.md). The helper below now executes; ordinal 184 is the current stop. This document retains the earlier timer proof and its limits.

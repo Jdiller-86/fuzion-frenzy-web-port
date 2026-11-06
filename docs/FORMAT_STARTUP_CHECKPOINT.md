@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original hexadecimal-format return and next startup dependency
 
 Later progress is recorded in [the directory checkpoint](DIRECTORY_STARTUP_CHECKPOINT.md): the next original helper now creates its title-data directories, then reaches the directory-backed `T:` link contract. This document preserves the earlier formatting case and limits.

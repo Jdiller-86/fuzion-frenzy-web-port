@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original startup execution checkpoint
 
 Later November 1 progress: [original thread-start entry is now reached](THREAD_STARTUP_CHECKPOINT.md) after implemented boot-thread/handle/TLS/locking behavior. The stop-only proof below remains preserved and its six checks still pass; its old next-task paragraph is superseded by that newer checkpoint. No playable original-game screen or full runtime has been delivered.

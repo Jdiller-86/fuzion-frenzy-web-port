@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Explicit translation budget extended to 32,768; execution reaches 0x1F78E0
 
 November 4, 2026. The guarded translation had reached 16,283 of its 16,384-instruction cap, so the next reached function could not be admitted. The explicit aggregate budget is now selectable at 32,768 in the source-owned composer and closure exporter, with tests. `FUN_001FD200` was exported and execution advanced to `0x1F78E0`, with 270 distinct routines and 403 kernel operations. **There is no playable screen, renderer or device model.**

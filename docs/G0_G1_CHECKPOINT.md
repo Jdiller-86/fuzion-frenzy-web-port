@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # G0 and G1 evidence checkpoint
 
 October 31, 2026 completion audit: **G0's bounded reference/build inventory deliverable and G1's browser-local conversion proof are verified for the supplied profile.** This accepts the preproduction proof, not offline gameplay fidelity, full catalog parity, production importer coverage or a release device matrix. The table below supersedes older investigation checkpoints retained afterward.

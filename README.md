@@ -1,67 +1,60 @@
 # Fuzion Frenzy Web Port
 
-**Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
+An independent research project working toward the original Xbox **Fuzion Frenzy running entirely in a web browser**, with online multiplayer, mixed local/online parties, flexible controls, friends, and lobbies.
 
-Current state (2026-11-05): original-game browser execution via static recompilation to WebAssembly. The original program has executed past 83/83 initialization callbacks, real FATX cache-format writes, utility-drive mount, contiguous-memory services and deep into its graphics initialization; it currently halts at a guest read fault behind `MmFreeContiguousMemory` (stop **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops). The confirmed `FUN_001FB640` epilogue mismatch is under an owner-delegated emission-side repair decision ([D401](docs/DECISIONS.md)); rendering/audio/controllers/end-user conversion and all planned features remain open. See [current status](docs/PROJECT_STATUS.md) for the latest evidence and remaining work.
+The selected route is static recompilation to WebAssembly. Each browser will use compatible game files supplied by its player and converted locally. This repository contains independently written tools, runtime components, and research prototypes; it provides no game downloads or original assets.
 
-The product includes original-game browser execution, online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies; those delivery requirements remain incomplete.
+**Status — November 6, 2026:** bounded original-program startup has been demonstrated in browser research. A controllable original screen, complete runtime, full fidelity, and online play have not been delivered. See [current status](docs/PROJECT_STATUS.md) for the exact observed boundary and its limits.
 
-Source repository: [Jdiller-86/fuzion-frenzy-web-port](https://github.com/Jdiller-86/fuzion-frenzy-web-port), public and source-only by user direction.
+[Documentation](docs/README.md) · [Roadmap](DEVELOPMENT_PLAN.md) · [Contributing](CONTRIBUTING.md) · [Research index](docs/RESEARCH.md)
 
-The `private` flag in `package.json` prevents npm-package publication; it does not control GitHub repository visibility.
+## What the project is building
 
-**Historical artifact: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). Earlier approximate partial-pack acceptance was superseded by the exact-original browser requirement. Mobile touch support remains later work.
+- Original behavior and presentation across the complete verified catalog, characters, arenas, and modes.
+- One to four total player seats, with solo, local, online, and mixed local/online play.
+- Remappable keyboard/gamepad controls, owned devices, reconnects, and later mobile/touch support.
+- Friends, invitations, lobbies, tournament progress, and authoritative online results.
+- Browser-local content processing, with no original-file upload, peer transfer, or hosted asset packs.
 
-Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+The original game is the fidelity baseline. The retained Twisted System reconstruction is a research prototype; it does not satisfy that goal. [Scope and fidelity](docs/SCOPE_AND_FIDELITY.md) defines acceptance, and the [roadmap](DEVELOPMENT_PLAN.md) separates the runtime milestones from the remaining product work.
 
-Players will supply their own compatible game files for local browser conversion. No ROMs or original assets are hosted, uploaded, or shared between players. An experimental local conversion proof exists; it supports only the specific verified reference build and is not a finished importer. See [player-supplied content](docs/PLAYER_SUPPLIED_CONTENT.md) and the [scope/fidelity baseline](docs/SCOPE_AND_FIDELITY.md). The visual goal is to mirror or reuse locally imported originals with optional modernization, while preserving original game feel.
+## Explore the public source
 
-## Development environment
+Use **Node.js 24.14.0** and **npm 11.x** (package-manager pin: 11.9.0).
 
-Use Node **24.14.0** and npm **11.x**. There are no application dependencies yet.
-
-Original-runtime compiler/source dependencies are separately pinned under ignored `.tools/emulation`; `npm ci` does not install them. `npm run test:runtime` validates source-owned proof-server delivery and module resource admission, without original-code execution. Actual private title compilation/browser observations and their limits are documented in the startup checkpoint.
-
-```powershell
+```sh
+git clone https://github.com/Jdiller-86/fuzion-frenzy-web-port.git
+cd fuzion-frenzy-web-port
 npm ci --ignore-scripts
 npm run check
-npm run check:environment
+npm run dev
 ```
 
-`check` validates preparation files and prevents common accidental source publication mistakes. It does not test gameplay. The research spike has its own commands:
+Open <http://127.0.0.1:4174/> for the offline Twisted System research prototype. Its limited local asset workflow requires the supported uncompressed USA XISO supplied by the player. Without compatible content, you can inspect the shell and run source-owned checks. Selecting an image does not launch the original game.
 
-```powershell
-npm run test:formats
-npm run dev:research
-```
+The separate conversion proof runs with `npm run dev:research` at <http://127.0.0.1:4173/>. Neither command builds or provides an original-title runtime module. Private developer toolchains and game-derived modules are absent from a public clone.
 
-The latter serves only allowlisted source files on `127.0.0.1:4173`. Open that address locally and select the supported uncompressed XISO; conversion runs in the browser, and the server does not receive the image. The proof renders animated Dub, a representative stadium and one decoded cue. Enable the surroundings/initial-conveyor, camera and vertex-color diagnostics for the expanded arena comparison; play/pause or scrub motion, play the cue, and use Clear local preview to discard imported state. See the [G0/G1 audit](docs/G0_G1_CHECKPOINT.md) for the verified bounded result. It is experimental: visual and animation fidelity, the complete content inventory, broad format support and performance sign-off remain open. See [reference inventory](docs/REFERENCE_INVENTORY.md) for observations and limits.
+See the [development guide](docs/DEVELOPMENT.md) for controls, build/preview commands, prerequisites, and what each check verifies.
 
-Local preparation checks pass. Both public-repository Windows/Linux preparation jobs also [passed](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41212045874), resolving the earlier private-runner billing blocker for this workflow. Details are in `docs/PROJECT_STATUS.md`.
+## Find your way around
 
+| Path | Purpose |
+| --- | --- |
+| [`apps/web/`](apps/web/) | Offline research app and local asset worker |
+| [`packages/`](packages/) | Prototype simulation and keyboard/gamepad input |
+| [`src/`](src/) | Format readers, converters, and C/JavaScript runtime components |
+| [`proof/`](proof/) | Browser conversion and bounded-runtime research harnesses |
+| [`tests/`](tests/) and [`tools/`](tools/) | Source-owned fixtures, preparation, verification, and analysis tooling |
+| [`docs/`](docs/README.md) | Current guides, milestone definitions, and retained evidence |
 
-## Analysis environment
+The implemented client uses plain JavaScript modules, HTML/CSS, and C runtime components. The larger client/server/social stack remains proposed; see [architecture](docs/ARCHITECTURE.md).
 
-The original workstation has a tested project-local Ghidra/Java/XBE toolchain. See [analysis setup](docs/ANALYSIS_SETUP.md) for verified capabilities and commands. These large downloads and local research inputs are not included in the repository; cloning it does not install them automatically.
+## Contribute
 
-REA (reverse-engineer-anything) is authorized for read-only native analysis of the retained original XBE or the retained Ghidra project where the retained source-owned records alone cannot answer the question; every REA use records its Evidence identity in [the decision log](docs/DECISIONS.md). Xbox XBE analysis still uses direct Ghidra through [the project wrapper](tools/Invoke-ProjectGhidra.ps1); REA output never substitutes for the pipeline admission rules and never publishes original content.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), then choose a bounded task tied to the current roadmap. Reproducible source-owned fixtures, parser/runtime fixes, reference-backed findings, and documentation improvements are useful contributions. Keep runtime observations separate from hypotheses and prototype behavior.
 
-## Repository contents
+## Project and content notice
 
-- `docs/`: handoff, decisions, status, risks, and local analysis documentation.
-- `tools/`: source-owned preparation checks, analysis wrapper, research server, verification scripts, and pinned tool metadata.
-- `src/`, `proof/`, `tests/`: experimental local content readers, browser preview, and source-owned synthetic format checks.
-- `.codex/config.toml`: project model defaults; no machine paths, credentials, or permission overrides.
-- `.github/workflows/prepare.yml`: preparation checks on Windows and Linux.
+This is an independent project, unaffiliated with Microsoft or Blitz. Players must supply compatible files; possession does not establish blanket rights to redistribute game content, branding, or music. See the [content policy](docs/PLAYER_SUPPLIED_CONTENT.md).
 
-`apps/web` contains the offline browser game; `packages/simulation` and `packages/input` contain independently written shared rules and owned-device input. Online services have not been implemented.
-
-This repository contains no original game media or distributable original assets. It is an independent project and is not presented as an official Microsoft/Blitz release. Player-supplied files do not establish blanket permissions for branding, music, reverse engineering or redistribution. The license for new project code remains undecided; no license grant is asserted by this README.
-
-## Play the offline research build
-
-Use Node 24.14.0 and npm 11.x. Run `npm ci --ignore-scripts`, then `npm run dev` and open `http://127.0.0.1:4174/`. Select your supported uncompressed USA XISO locally. Choose 1–4 seats and Play round or Practice. No original game download or assets are provided.
-
-Default jump / held-duck keys: P1 Space / ArrowDown; P2 W / S; P3 I / K; P4 Numpad8 / Numpad5. Remap keys or assign a discovered standard gamepad per seat in instructions. Gamepad A / bottom jumps and B / right ducks. Esc pauses; focus loss or an owned controller disconnect clears input and requires Resume. Shared keyboard rollover varies by hardware. Menus use keyboard/mouse.
-
-Run `npm run test:gameplay` for rules, input, event-wiring and source-delivery checks; `npm run test:formats` for the local-converter fixtures; `npm run check` for publication guards. `npm run build` produces source-only `dist/`; `npm run preview` serves it on port 4174. Never expose the workspace or original files through a generic server. Known approximations and actual browser verification are recorded in the G2 audit.
+A license for newly written project code has not been selected. Public visibility does not itself grant reuse rights. The `private` flag in `package.json` prevents npm-package publication; it does not make this GitHub repository private.

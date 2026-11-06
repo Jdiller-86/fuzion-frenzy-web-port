@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original volume lifecycle and drive-link request
 
 November 1, 2026. This advances static recompilation toward the complete original game and planned custom features. It does not accept a playable screen, full filesystem/save fidelity or any full-product gate. Original instructions run only in a browser worker; native/Node runs below contain independently authored fixtures only.

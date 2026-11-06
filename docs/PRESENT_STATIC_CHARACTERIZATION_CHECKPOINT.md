@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Read-only characterization of `D3DDevice_Present` and its call surface
 
 November 5, 2026. Read-only static characterization of `0x00202150` (`D3DDevice_Present`) and its caller, as directed. **No admission, export or seed change was made this cycle.** All evidence is from the retained local Ghidra project, the existing seed `recomp-present-01/seed-present-01.json`, translation 83 and the retained experiment report.

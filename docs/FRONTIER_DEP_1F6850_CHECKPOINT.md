@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6850` tail-call batch advances the stop to `0x1F68C0`
 
 November 5, 2026. This cycle admitted `0x1F6850` and its already-established tail target `0x1F67E0` as one two-function batch. **There is no controllable original screen.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Pushbuffer ring pointer model; ring base/end and command source still unresolved
 
 November 4, 2026. The command-source pass continued from the corrected channel setup. The title's D3D device code builds commands at a current push pointer, writes a wrap jump when it needs space, and writes `DMA_PUT` from that pointer. The ring base and end are fields of the device context and are not established by the retained runtime report. This milestone adds a read-only pointer model that describes explicit values and encodes the observed jump/mask arithmetic; it does **not** infer empty/wrap semantics or authorize consumption. **There is no playable screen, renderer or device model.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The ordinal-159 wait object is a D3D device field, not a KEVENT
 
 November 5, 2026. Read-only follow-up to the refused event gate. **No implementation, hook change, admission, export, seed or translation change.** The default-off wait model and consumer remain inert.

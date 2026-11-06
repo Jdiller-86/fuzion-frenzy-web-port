@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Empty-ring initialization passes the PFIFO wait; execution reaches 0x1FB3B0
 
 **Later evidence (November 4):** [the adoption checkpoint](PFIFO_PROFILE_ADOPTION_CHECKPOINT.md) makes the model an explicit profile-driven default. Build `recomp-post-memory-build-58` reaches `0x1FB3B0` with the profile and stays fail-closed without it.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The AV mode table accepts a known domain; a zero result matches no row
 
 November 4, 2026. Read-only analysis of the retained executable and the retained `xboxrecomp-source` replacement clarifies the consumer side of the ordinal-2 AV query. The caller's table accepts only NTSC-M, NTSC-J and PAL-I standards with SCART, HDTV, VGA or wildcard packs; it has **no standard-zero row**, so a zero result cannot match. This captures the consumer domain, not the original kernel's option-6 value. Cxbx maps numeric 6 to `AV_QUERY_AV_CAPABILITIES` and handles it; the xboxrecomp replacement maps it to `AV_OPTION_QUERY_AVPACK`. Ordinal 2 remains unsupported and no service model, default or frontier admission is added. **There is no controllable original screen.**

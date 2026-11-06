@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6970` dependency batch advances the stop to `0x1F6620`
 
 November 4, 2026. Provisional continuation after Path B: the observed stop `0x1F6970` was ordinary, so this cycle closed that one-function set. It is **not an approved design decision**; architect guidance remains `approved: false`. **There is no controllable original screen.**

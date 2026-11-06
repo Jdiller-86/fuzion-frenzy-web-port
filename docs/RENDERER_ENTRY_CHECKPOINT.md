@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original graphics initialization requests contiguous kernel memory
 
 November 2, 2026. Original code now runs its 640×480 video-mode setup through `0x001f7650`, enters the graphics/device cluster at `0x001fbb00`, and stops at its first genuine kernel call: ordinal 166, `MmAllocateContiguousMemoryEx`. The modeled runtime dispatches no result. **There is no renderer, no playable screen and no general kernel.** The complete original-game/custom-feature goal remains active.

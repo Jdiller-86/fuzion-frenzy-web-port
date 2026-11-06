@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Timer diagnostic identifies the DPC-list head mismatch at the ordinal-149 stop
 
 November 4, 2026. The ordinal-149 stop at `0xC00000BB` (`FF_BOOT_UNSUPPORTED`) is now diagnosed. `ff_timers_check` reports the first structural/timer/DPC/link failure without mutating the queue; the probe records it before stopping and the worker reports `timerCheck`. The result is **15**: the guest DPC list head is not the expected empty/self value while the model's DPC count is zero. The timer entry itself remains valid and active. **There is no playable screen, renderer or device model.**

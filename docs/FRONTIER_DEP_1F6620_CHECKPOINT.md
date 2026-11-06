@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F6620` symbol-entry batch advances the stop to `0x1F6BB0`
 
 November 4, 2026. Continuation after Path B/`0x1F6970`: the observed stop `0x1F6620` was ordinary, but the retained exporter reported `established: false`. Read-only inspection resolved the gate: `0x1F6620` is a **named symbol** (`D3DDevice_SetRenderState_PSTextureModes`) reached through an indirect call table, not a direct call target, so Ghidra never created a function there. The initial admission used a bounded in-memory definition; the approved architect directive then authorized a persistent create-function at that address only, and the re-export is byte-identical. The admission evidence remains labeled by its original provisional status; this cycle records the persistent establishment. **There is no controllable original screen.**

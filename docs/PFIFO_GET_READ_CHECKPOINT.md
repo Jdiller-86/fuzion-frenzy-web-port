@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Serving the observed DMA_GET makes the original wait poll to its limit
 
 November 4, 2026. A bounded diagnostic tested the hypothesis that the status-13 PFIFO boundary was an over-eager probe gate. With an opt-in flag, the probe serves the observed `DMA_GET` value (`0`) instead of stopping, letting the original comparison decide. The original code then spins on the same read until the device poll limit (status 12). This confirms the wait expects a different GET value and rules out the "false boundary" explanation. The default build remains fail-closed at status 13 and is byte-identical to the known module. **There is no playable screen, renderer or device model.**

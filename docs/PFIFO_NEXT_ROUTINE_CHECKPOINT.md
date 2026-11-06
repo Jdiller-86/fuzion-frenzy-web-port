@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Next routine 0x1FB3B0 needs 29 D3D dependencies; guard-memory admission is blocked at 0x1FA460
 
 **Later evidence (November 4):** [the override-guard checkpoint](PFIFO_OVERRIDE_GUARD_CHECKPOINT.md) adds the changed-PUT guard; the profile path still reaches `0x1FB3B0`. The `0x1FA460` admission blocker is unchanged.

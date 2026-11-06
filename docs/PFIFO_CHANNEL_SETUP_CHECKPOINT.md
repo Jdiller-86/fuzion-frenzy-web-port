@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO channel setup evidence: the title writes GET=0 itself; the pushbuffer claim is still empty
 
 November 4, 2026. A bounded read-only Ghidra pass on the retained private project (`FuzionFrenzySetup`, XBE SHA-256 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`) traced the reached PFIFO submission path. The pass confirms a correction: the title's own context-setup code writes PFIFO PUT and GET to zero before `CDevice_KickOff` writes PUT. The previous "no initial GET" statement conflated "no external/kernel write" with "no write at all". The pushbuffer allocation is still empty and no consumer is implemented. **There is no playable screen, renderer or device model.**

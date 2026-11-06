@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The Path B batch advances the stop to `0x1F6970`
 
 November 4, 2026. Provisional continuation after the `0x1F6910` batch: the observed stop `0x1F5B70` was ordinary, so this cycle closed the Path B set. It is **not an approved design decision**; architect guidance remains `approved: false`. One translation, one comparison and one commit. **There is no controllable original screen.**

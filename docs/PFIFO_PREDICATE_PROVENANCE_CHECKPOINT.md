@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The PFIFO engine predicates have no producer in the retained reference either
 
 November 4, 2026. Read-only provenance audit of the three exit predicates the reached loop waits on. The register identities are confirmed, one field name is documented, and the retained reference **does not model them**: its whole PFIFO block is an explicit stub. The engine contract therefore cannot be derived from local evidence, and this lane keeps the predicates fail-closed. **There is no engine, renderer, timing source or playable screen.**

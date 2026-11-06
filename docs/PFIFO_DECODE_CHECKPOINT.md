@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Read-only NV2A packet decoder; PFIFO boundary unchanged
 
 November 3, 2026. Following architect guidance, the next non-geometry renderer-path prerequisite is a source-owned, read-only NV2A pushbuffer packet decoder. It reports command headers, method fields, control-flow records and arguments from an explicitly supplied word range. It never executes a method, follows a jump/call/return, mutates memory or advances `DMA_GET`. **The original startup still stops at the PFIFO DMA wait; there is no playable screen, renderer or device model.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original thread-entry checkpoint
 
 Later progress: [the CRT startup checkpoint](CRT_STARTUP_CHECKPOINT.md) passes sixteen checks through object initialization and an explicit synthetic settings read before the original timer-arming request. This page preserves the earlier ten-check module and its historical next task; that module still passes through the current loader.

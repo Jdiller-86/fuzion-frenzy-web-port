@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original initialization and disk-cache checkpoint
 
 November 2, 2026. Selected route: static recompilation of the supplied original executable to WebAssembly, entirely inside a desktop browser. **All 83 original initialization callbacks return and the original application-entry path executes. There is still no playable original screen.** The complete original-game and planned custom-feature objective remains active.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original cache-partition formatting writes
 
 November 2, 2026. The original browser code now opens its selected cache partition, queries disk/partition information, obtains system time and writes its FATX metadata. **The formatting routine has not returned: it stops at an unsupported filesystem-dismount request. There is no playable original screen or mounted utility drive.** Static recompilation and the complete original-game/custom-feature objective remain selected.

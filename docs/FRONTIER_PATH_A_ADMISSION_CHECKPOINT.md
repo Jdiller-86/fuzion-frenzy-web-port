@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The Path A admission advances the stop to `0x1F6910`
 
 November 4, 2026. A provisional hourly review proposed one Path A batch for the observed branch `0x1F70E0`. It is **not an approved design decision**; the batch uses the already-approved tooling and the frozen 32-export limit. This cycle performed one translation, one comparison and one commit, with the package verifier as the evidence step. **There is no controllable original screen.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO pusher prototype: verified component, unbounded consumer run
 
 November 5, 2026. Under the architect-subagent authorization of about 04:10 local (opencode-go GLM-5.3, one bounded prototype, fail-closed refusal accepted), this cycle added a default-off PFIFO pusher step and its native tests. The **default path is unchanged**; the opt-in consumer run **did not terminate** and is recorded here as a new boundary. **There is no controllable original screen.**

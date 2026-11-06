@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Checked guest memory and original heap-startup checkpoint
 
 November 1, 2026: original startup now reserves 1 MiB, commits its first 4 KiB page and initializes a critical section inside that page. Both explicit synthetic settings profiles pass **27 browser checks**, including the earlier 8,410 copy/ABI cases per run. The new stop is untranslated `0x00031da0`, return `0x00032696`. **No playable original screen, complete runtime/fidelity or planned online/social feature acceptance is established.** Static recompilation and the complete product objective remain selected.

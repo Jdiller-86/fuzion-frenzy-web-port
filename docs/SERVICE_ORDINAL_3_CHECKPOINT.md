@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Service ordinal 3 is AvSetDisplayMode (read-only)
 
 November 5, 2026. Read-only characterization of the new frontier. **No implementation, hook change, admission, export, seed or translation change.** The consumer and vblank-wait paths remain default-off.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Recomposition is byte-identical, and the guard emitter is deterministic and idempotent
 
 November 4, 2026. The translation pipeline was re-run end to end to test reproducibility, and the guard emitter gained determinism/idempotence coverage. Both pass. **There is no engine, renderer, timing source or playable screen.**

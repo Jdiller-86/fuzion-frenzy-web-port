@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Service ordinal 159 characterization (read-only)
 
 November 5, 2026. Read-only characterization of the new frontier service. **No implementation, hook change, admission, export, seed or translation change.** The consumer path is unchanged and default-off. This halts for the service decision; the ordinal-2 discipline applies — no modeled return values without documented semantics.

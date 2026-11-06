@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original metadata write and handle closure
 
 Later progress: [the title-image checkpoint](TITLE_IMAGE_SECTION_CHECKPOINT.md) admits this checkpoint's retained four-function export and reaches the actual unsupported section-load request. The next task below is historical; real section residency/lifetime is now required.

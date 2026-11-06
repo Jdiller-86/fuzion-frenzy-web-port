@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original title-data directories and next drive-link contract
 
 Later progress: [the file-target checkpoint](FILE_LINK_STARTUP_CHECKPOINT.md) implements the actual directory-backed link and observes the first helper return. Its regular metadata-file request supersedes this checkpoint's next task; evidence below remains historical.

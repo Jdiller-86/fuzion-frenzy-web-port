@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Exact-head integration candidate review
 
 November 4, 2026. This package lets the architect verify the corrected integration candidate without re-deriving the merge. It is not a promotion request and does not authorize a main merge or any helper admission.

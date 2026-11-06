@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Vector/port hardening is accepted; the next stop is a PGRAPH interrupt read-back recurrence
 
 **Continued in [the PFIFO interrupt acknowledge checkpoint](PFIFO_INTERRUPT_ACKNOWLEDGE_CHECKPOINT.md):** `0xFD002100` (`NV_PFIFO_INTR_0`) is now acknowledged the same way, and the run advances to a PFIFO engine-state wait that fills the bounded device log.

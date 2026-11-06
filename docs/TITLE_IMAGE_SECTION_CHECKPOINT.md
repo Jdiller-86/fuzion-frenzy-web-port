@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original title-image section-load boundary
 
 Later progress: [real section residency](SECTION_RESIDENCY_CHECKPOINT.md) implements the next service described here and advances through the actual image-file write, unload and initializer return. The request-only result and next task below are historical.

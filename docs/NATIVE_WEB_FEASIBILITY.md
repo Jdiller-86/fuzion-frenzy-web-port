@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Native web port feasibility checkpoint
 
 Latest evidence: [the original thread-entry checkpoint](THREAD_STARTUP_CHECKPOINT.md) advances beyond the synthetic fixture and kernel-255 stop below. Eight functions / 225 instructions translate; seven original routines reach thread-start entry and pass ten browser checks before untranslated `0x00033ccc`. Original CRT/startup bring-up is next. No playable game, general scheduler, full runtime or browser-local end-user converter is delivered; the full objective remains unchanged.

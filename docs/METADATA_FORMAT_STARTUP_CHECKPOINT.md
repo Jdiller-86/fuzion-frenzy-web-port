@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original wide metadata formatting and pending write
 
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and every planned custom feature. Original browser startup now returns from the previously missing metadata formatter and requests its actual 52-byte file write. That write stops before a guest result; the owned file remains empty. This is further original CPU startup, not a playable screen, save implementation or full runtime/fidelity acceptance.

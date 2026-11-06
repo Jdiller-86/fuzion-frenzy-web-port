@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PMC bit 24 is the PCRTC (display) interrupt; no host producer exists, so delivery stays fail-closed
 
 November 4, 2026. Read-only provenance audit of the interrupt bit the reached code waits on, prompted by the architect review recorded at the end of this note. The bit is identified end to end on the guest side, the retained reference supplies the register contract, and the producing event is **absent** in that reference. Delivery therefore stays fail-closed. No runtime behaviour changed in this step. **There is no controllable original screen, engine progress or fidelity result.**

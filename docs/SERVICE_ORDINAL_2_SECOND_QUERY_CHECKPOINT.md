@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The later ordinal-2 call is an unknown AV option 0x0F (read-only)
 
 November 5, 2026. Read-only characterization of the new frontier after the display-mode declaration. **No implementation, hook change, admission, export, seed or translation change.** The display, vblank and consumer paths remain default-off.

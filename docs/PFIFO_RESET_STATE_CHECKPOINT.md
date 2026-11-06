@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The pinned reset state passes the PFIFO low-mark wait; execution reaches 0x1FCB00
 
 November 4, 2026. The reached loop `0x1FE4D5` waits for `NV_PFIFO_CACHE1_STATUS.LOW_MARK` and `NV_PFIFO_RUNOUT_STATUS.LOW_MARK` with `NV_PFIFO_CACHE1_DMA_PUSH.STATE` clear. The pinned reference already supplies that state for an empty, unsubmitted cache: `nv2a_reset` zeroes the PFIFO register block and then sets `CACHE1_STATUS.LOW_MARK` (`hw/xbox/nv2a/nv2a.c:307-317`), and `pfifo_read` returns `RUNOUT_STATUS.LOW_MARK` for every read (`pfifo.c:51-52`). The pusher clears `LOW_MARK` only before a dispatch (`pfifo.c:340`) and sets it after processing (`pfifo.c:242-243`). The synthetic aperture had seeded both registers as zero, so the wait could never pass. Seeding the pinned reset values lets the original wait leave and advance to untranslated `0x1FCB00`. **There is no engine, renderer, timing source or playable screen.**

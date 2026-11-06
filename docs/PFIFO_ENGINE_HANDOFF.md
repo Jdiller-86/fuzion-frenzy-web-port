@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # PFIFO engine/consumer handoff
 
 November 4, 2026. The architect assigned the PFIFO engine/consumer contract to a **new engine workstream**; this lane keeps CPU memory/device-aperture and vector/memory-safety ownership. This note is the bounded handoff: seam API, measured polling trace, unresolved register semantics, the pinned reset rule and the evidence gate for activating producers. It adds no producer rules. **There is no engine, renderer, timing source or playable screen.**

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Twisted System: G2 reference and frozen scenario set
 
 Prepared October 31, 2026, before gameplay implementation. Revision TS-R1 freezes the implementation policies and comparison cases below. Implementation completion and G2 fidelity acceptance are separate decisions. Unverified values are configurable reconstruction parameters, not recovered original timings.

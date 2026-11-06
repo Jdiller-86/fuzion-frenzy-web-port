@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Frontier: callees of the post-`0x1F7080` candidates
 
 November 4, 2026. Bounded read-only scoping of the callees named by the two static continuation candidates. This is not an export, admission, translation or execution. Raw disassembly and analysis scripts remain under ignored `research/verification/frontier-1fc980/`, `frontier-1fcb70/` and `frontier-1f6300/`.

@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 **Later evidence (November 4):** [the reset-state checkpoint](PFIFO_RESET_STATE_CHECKPOINT.md) shows the pinned `nv2a_reset` supplies `CACHE1_STATUS.LOW_MARK` for an empty cache, so the wait can pass with a reference reset input and no consumer. The measured predicate order below still holds for a profile that does not seed the reset state.
 
 # The remaining exit predicates are PFIFO engine status, not display state

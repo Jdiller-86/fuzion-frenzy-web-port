@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Bounded Xbox controller packet, adapter, port, browser source and four-port device; PFIFO boundary unchanged
 
 November 3, 2026. Following architect guidance, the next bounded milestone is an independent runtime prerequisite rather than a speculative PFIFO consumer: a source-owned Xbox controller state and guest-facing packet encoder based on the pinned compatibility layout. It covers connection state, digital buttons, eight analog buttons and signed stick axes, with explicit packet-change accounting and checked 24-byte encoding. Rumble, host gamepad mapping, async requests, multiplayer remapping and boot-path integration are excluded. The PFIFO fail-closed boundary and all prior evidence are unchanged. **There is no playable original screen and no renderer/device model.**

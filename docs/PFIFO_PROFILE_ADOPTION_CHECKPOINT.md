@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Empty-ring profile adopted; default build reaches 0x1FB3B0 with the profile and stays fail-closed without it
 
 November 4, 2026. The validated empty-ring model is now part of the default source build, driven by an explicit synthetic profile rather than a compile-time context hack. With the profile, the original startup passes the PFIFO wait and stops at untranslated `0x1FB3B0`; without the profile, the same build retains status 13. **There is no playable screen, renderer or device model.**

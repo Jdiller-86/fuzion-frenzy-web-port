@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Path A preflight: `0x1F70E0` and its two untranslated callees
 
 November 4, 2026. Read-only preparation after the `0x1F7080` admission observed the taken branch at untranslated `0x1F70E0`. This is **not** a Path A admission or batch: no seed merge, translation, module, report or execution was performed. **There is no controllable original screen.**

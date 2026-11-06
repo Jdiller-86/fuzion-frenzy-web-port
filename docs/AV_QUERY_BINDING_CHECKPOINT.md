@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # One default-off synthetic raw-DWORD binding completes the ordinal-2 query
 
 November 4, 2026. The accepted numeric-6 component now has one explicit, default-off guest-call binding. A synthetic profile supplies a raw DWORD; the binding writes it through the component, clears the stdcall frame and leaves EAX unchanged. The default profile still stops unsupported at ordinal 2. In the same rebuilt module, the control stops at status 1 on ordinal 2 and the explicit-word profile continues to untranslated `0x1F79A0`. **This is a labeled synthetic experiment, not original service semantics or a playable screen.**

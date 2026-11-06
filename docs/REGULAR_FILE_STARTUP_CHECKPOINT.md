@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # Original metadata-file creation and query
 
 November 1, 2026. Static recompilation to WebAssembly remains the selected route for the complete original game and all planned custom features. Original browser startup now creates an owned regular metadata file, queries its size/attributes/times, and reaches the next untranslated original helper. No file contents, playable screen, original saves, persistence or complete runtime/fidelity acceptance is established.

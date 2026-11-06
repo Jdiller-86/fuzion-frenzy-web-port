@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # G2 offline Twisted System: implementation and fidelity audit
 
 **User clarification supersedes product acceptance:** this audit covers the approximate research prototype only. The user requires the actual original game entirely inside the browser, or an identical replica, and rejected this prototype as the product. Read `ORIGINAL_EXECUTION_ROUTE.md`.

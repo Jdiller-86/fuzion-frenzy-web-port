@@ -1,3 +1,5 @@
+> **Evidence record.** This document describes its own checkpoint and may contain superseded observations or next tasks. See [current project status](PROJECT_STATUS.md) and the [research index](RESEARCH.md) before using it as current guidance.
+
 # The `0x1F65F0` batch closes the last render-state translation gap
 
 November 5, 2026. Published head `6cbe40d` was the starting point. The render-state table had already been reached end-to-end in module 102, but a coverage audit showed that one table entry had never been executed and was still **untranslated**: index 134, `0x1F65F0` (`D3DDevice_SetRenderState_MultiSampleType`). This cycle admits that in-region handler so the table is genuinely 28/28 translated. **The post-table region (`D3DDevice_Present`) remains untouched and undecided.** There is no controllable original screen.
