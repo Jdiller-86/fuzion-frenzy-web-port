@@ -599,3 +599,13 @@ mandatory corrective decision in docs/DECISIONS.md.
   `10cae52978585938ac4beee11b4680d1a4ac83c` is still uncorrected at the tick, so the machine's own
   ticks still absorb nothing of the lane tails and those two items are what remains outstanding at
   the integration side. No runtime advance.
+- 2026-11-06 ~01:50 runtime-a counted advance #4: 91e5e0b (0x004C2E0 → 0x004E480, 350/422, FUN_0004c2e0 admitted). COUNTED.
+  The 01:40 tick's two D433 checklist items landed (D-rows renumber at `9158e70`: 419 rows / max D434 /
+  `D405` x1 / zero duplicates, bogus marker spellings 0 hits; runtime-a absorption `7feb88d` / `d721550` /
+  `a2a83de` / `ad0bffa` / `b26840c` all exit 0), while its merge-withhold reason does NOT reproduce
+  (`git diff --check origin/main 9158e70` exits 0 with empty output; `origin/main` still `97d831bd`) and its
+  own `MERGE_MAIN_PR` was withheld (`prManagement no_architect_open_request`). `91e5e0b` is one commit past
+  the tick head (`git merge-base --is-ancestor 91e5e0b 9158e70` exits 1).
+- 2026-11-06 ~01:50 ops (runtime-b absorption, the hung item): `git merge-base --is-ancestor <c> 9158e70`
+  exits 1 for all eleven commits `9957144` → `eb33cd9` (lane tip `eb33cd9`), so the D403 reconciled-superset
+  gate stays open and the machine's next tick is the named window for that absorption. No runtime advance.
