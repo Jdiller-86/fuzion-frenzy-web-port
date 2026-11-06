@@ -305,3 +305,20 @@ mandatory corrective decision in docs/DECISIONS.md.
   `d8ff7c1`/`209d60c` still absent at the ~21:40 reconciliation window); the safe owner-side action
   is closing the superseded geometry draft PR #3, and PR #20 may be closed as superseded once #19
   merges. No runtime advance.
+- 2026-11-05 ops (D404): runtime-a is directed to the compiled-code/register-identity investigation - the
+  module-158 sequence-tagged capture proves the pop consuming slot `0x3C10E34` (`0x205E98`) writes ESI while
+  the pop consuming `0x3C10E38` (`0x203B90`) leaves ESI unchanged, so the attribution is real and the emitted
+  `.inc` reverse is correct; the lane investigates only its owned `src/runtime/recomp_memory_access.h` and
+  `tools/prepare-title-recomp.py`, with no `.tools`/`research`/fixture edits, and the M6 gate is unchanged
+  (the stop must move past `0x6B6A6968` in BOTH profiles with R11 evidence). Tempo fact: 0 counted advances -
+  the control profile's status-13 stop at `0xFD800044` is the control-condition marker, not a boundary move,
+  and the stop is unchanged verbatim at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D404): runtime-b's line/quad comparator extension is authorized - the lane's own
+  960-fill-mode-record / 413,712-scalar prototype match (0 mismatches) was self-blocked on tooling-edit
+  authorization, now granted for `tools/compare-nv2a-geometry.mjs` only under the bounded protocol (960-record
+  triangle default untouched, skip-when-absent plus the digest check against the root
+  `geom-reference-02/reference.json`, per-output rejection lines instead of invented values, outcome recorded
+  in the owned checkpoint); the result stands as the lane's evidence statement, not architect-verified, and the
+  card's transcribed triangle digest prefix `474ada8e2d0f...` conflicts with D399/D400's
+  `474497d8...B530E5` pending a lane re-check before use. Tempo fact: 0 counted advances, stop unchanged at
+  `0x6B6A6968` / 346 / 414. No runtime advance.
