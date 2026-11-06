@@ -718,3 +718,17 @@ No fix, no model, no translator edit.
 No DECISIONS row: evidence for D401.
 
 No DECISIONS row: tooling characterization.
+
+## 48. M3 pre-registration: cluster is reached; fault blocks the return path
+
+Read-only check of the retained experiment report (`browser-157-experiment.json`): the graphics-init cluster functions are all in the reached set — `0x1F7650` (`Direct3D_CreateDevice`), `0x1FBB00` (device constructor), `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0` (`D3DDevice_Release`), `0x1FC010`, and `0x1FB640` (`CDevice_FreeFrameBuffers`).
+
+The current fault sits inside the cluster's **return/teardown path** (`D3DDevice_Release → FUN_001FC010 → FUN_001FB640`), not at an unadmitted function or an unsupported service. M3's post-repair acceptance is therefore pre-registered as:
+
+1. the stop must move past `0x6B6A6968` in **both** named profiles (`browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`);
+2. the next observed request/system must appear in the reports (exact address/service recorded, not inferred);
+3. `[ESI+0x47C]` must read the device field (`0x20400C`) as part of a normal cluster return.
+
+Repair ownership is with the translator owner (candidate B); this lane makes no translator, toolkit, or fixture change. No code change is needed for M3 pre-registration.
+
+No DECISIONS row: evidence only.

@@ -1,4 +1,10 @@
-# Compiled-artifact verdict: owned macro pattern is LIFO-correct (native+Wasm)
+# M3 pre-registered: cluster reached, fault blocks the return path
+
+November 5: read-only check of `browser-157-experiment.json` confirms all graphics-cluster functions are reached (`0x1F7650`, `0x1FBB00`, `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0`, `0x1FC010`, `0x1FB640`); the fault sits in the cluster's return/teardown path, not at an unadmitted function or unsupported service. M3 post-repair acceptance is pre-registered: stop past `0x6B6A6968` in both named profiles, next request/system recorded exactly, and `[ESI+0x47C]` reading `0x20400C`. Repair ownership is the translator owner's (candidate B); no lane-side translator/toolkit/fixture change.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Compiled-artifact verdict: owned macro pattern is LIFO-correct (native+Wasm)
 
 November 5: a minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the emitted push/pop sequence with the same macro shapes. Correct LIFO restore is packed `0x44332211`; the probe returns 1 (`lifo-correct`) under **gcc** (registered in the native suite, **54/54**) and as an **Emscripten standalone Wasm under Node**. The owned macro/expansion files are therefore **exonerated**: the compiled minimal artifact does not reproduce the shift. The full-module divergence is specific to toolkit/lifter-level code generation or register bookkeeping outside this lane's owned files — recorded as the M6 gate's fuzzed truth. No fix, model, or translator edit.
 
