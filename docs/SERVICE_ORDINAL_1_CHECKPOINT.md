@@ -1088,3 +1088,135 @@ Module `recomp-post-memory-build-171` (profile 96): **1,045,793 bytes**, SHA-256
 `FUN_001e733d` executed (the stream table setup), and the caller `0x1E75C8` continued to `FUN_001e93e4` (`0x1E93E4..0x1E956E`), the next translation placeholder; eleven further kernel operations completed on the way (430 → 441). Halt and report.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 70. Admission of FUN_001e93e4 reaches NtCreateFile; unsupported stop (FILE_OVERWRITE) at ordinal 190
+
+Runtime-a continuation from `0x1E93E4` (directive head `832efee`). The body `0x1E93E4..0x1E956E` only calls already-translated code (`0x31155`, `0x31127`) and two supported ordinals: `[0x25338C]` = 289 `RtlInitAnsiString` and `[0x253404]` = 190 `NtCreateFile`.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e93e4-01/seed-93e4.json`: prior 27 seed functions plus `0x001E93E4`; 1 new function, `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 97: **488 functions, 20,251 instructions** (+1 / +136).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-172` (profile 97): **1,051,395 bytes**, SHA-256 `56f848b602347b0a306ba90ae5af5de3c90a077d36d9b543ede6b06bffb32e33`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9 at ordinal 190, value `0xC00000BB`** | **364 / 442** |
+
+This is a genuine unsupported-service stop, not a placeholder. The reported call (return address `0x1E94CC`, `stackArguments`) is:
+
+| NtCreateFile arg | Value | Meaning |
+| --- | --- | --- |
+| FileHandle (out) | `0x3C10C04` | writable guest slot |
+| DesiredAccess | `0x40100080` | `GENERIC_WRITE \| SYNCHRONIZE \| FILE_READ_ATTRIBUTES` |
+| ObjectAttributes | `0x3C10BE8` | `{length, root, name descriptor}` |
+| IoStatusBlock | `0x3C10BF4` | writable guest slot |
+| AllocationSize | 0 | absent |
+| FileAttributes | `0x80` | `FILE_ATTRIBUTE_NORMAL` |
+| ShareAccess | 3 | read/write |
+| CreateDisposition | **5** | `FILE_OVERWRITE` |
+| CreateOptions | `0x60` | `FILE_NON_DIRECTORY_FILE \| FILE_SYNCHRONOUS_IO_NONALERT` |
+
+`FF_REGULAR_FILE_PROOF` is already in this module build, so the handler routed the call to `ff_volume_create_file` (CreateOptions bit 0 clear). Every gate term passes except `disposition>3` at `src/runtime/local_files.c:52`, which returns `FF_BOOT_UNSUPPORTED` (`0xC00000BB`); the probe then stops at ordinal 190.
+
+The same run already succeeded on the ratified path earlier: the report's captured `createFileRequest` is the `TitleMeta.xbx` create (`Disposition 3`, options `0x22`) with `serviceImplemented: true`, followed by a 52-byte metadata write, and the local volume reports `ready: 1`, 5 directories and 2 data files. The blocker is therefore specific to `FILE_OVERWRITE`.
+
+Options for the architect (no change made, model scope is not the lane's to widen unprompted):
+
+- A. Extend the ratified regular-file model to admit `CreateDisposition = 5` with defined overwrite/truncate semantics, native tests and the pair rerun.
+- B. Characterize the caller's intent first (the failing path name is not captured because the probe only records names after a successful create; it would need a diagnostic or a successful call).
+
+Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 71. FILE_OPEN_IF (disposition 5) admitted per architect decision; next stop RtlNtStatusToDosError at ordinal 301
+
+Bounded architect decision (GLM 5.3 Flash): value 5 is open-if, not overwrite. Admit exactly `{1,2,3,5}`; an existing data file opens unchanged (information 1), a missing one is created (information 2); no truncation, sharing checks unchanged; `local_directories.c` untouched. Dispositions 0/4/6 stay rejected. Pre-existing concern recorded, not fixed: disposition 3 opens an existing file without truncation (NT `FILE_OVERWRITE` truncates), unexposed so far.
+
+Source changes (one commit):
+- `src/runtime/local_files.c`: the disposition gate now accepts `{1,2,3,5}` instead of `1..3`; the existing open-or-create branch supplies the open-if behavior.
+- `tests/local_files_test.c`: new `open_if_disposition` scenario (existing file opens with information 1 and byte/time/count identity preserved; missing file is created with information 2 and attributes/times from the request; sharing violation still enforced; dispositions 0/4/6/7 rejected `FF_BOOT_UNSUPPORTED` with no state change). The previously unregistered `local_files` fixture is now in `tools/run-native-tests.mjs`.
+- `npm run test:native`: **58/58** (optimized and sanitizer).
+
+Module `recomp-post-memory-build-173` (unchanged profile 97, rebuilt with the model change): **1,051,401 bytes**, SHA-256 `352a6aff5162a1a930bab94edf206945241b958feae1d76e0ef92c9e0d397eee`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9 at ordinal 301, value `0xC0000008`** | **365 / 443** |
+
+The disposition-5 create now passes the model gate. Its final ordinal-190 call row (call 443) is `access 0x40100080`, `attributes 0x80`, `share 3`, `disposition 5`, `options 0x60`, status `0xC0000008` with no output written. `0xC0000008` is `FF_BOOT_BAD_HANDLE` from `local_files.c:62`: the request's `ObjectAttributes` root-directory handle is not in the open-handle table (the volume reports `active: 0`). The CRT then calls `RtlNtStatusToDosError(0xC0000008)`, and the ratified ordinal-301 model converts only status 0, so the probe stops.
+
+Candidate scopes for the architect (no change made): (a) resolve a relative create through the retained namespace/file-object state (D036-related), or (b) extend ordinal 301 with its documented status mapping so the CRT can report the failure and the caller may continue.
+
+Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 72. Request capture: the failing create is z:\debugLog.txt with root 0xFFFFFFFD; pseudo-handle semantics undetermined
+
+Architect decision (GLM 5.3 Flash) for this stop: option C, one bounded probe cycle. Options A (status-to-DOS mapping) and B (root resolution) were both judged premature until the refused request is known.
+
+Source changes (all default-off diagnostics; no model semantics changed):
+- `tools/fixtures/thread_startup_probe.c`: new default-off `createFailureCapture` input with `ff_probe_create_failure` enable; on a failed regular-file create it records the request words and name into the existing capture arrays before the ordinal-190 stop.
+- `src/runtime/local-title-proof.mjs`, `src/runtime/thread-proof-worker.mjs`, `src/runtime/proof-report.mjs`: profile key, worker enable/report field `createFileFailure`, and the experiment-name allowlist.
+- Module `recomp-post-memory-build-174` (unchanged profile 97): **1,051,868 bytes**, SHA-256 `02ac5719ee2725a749af4efe3d2241cfaf81b1343c30394addc9838936c879c2`.
+- Diagnostic profile `settings-pfifo-createfail.json` (base kedisc profile plus the capture flag) and report `browser-174-createfail.json`.
+
+Captured request (report `createFileFailure`, observation `captured-at-failure`):
+
+| Field | Value |
+| --- | --- |
+| Name | **`z:\debugLog.txt`** (15 bytes, descriptor `0x3C10BFC`, buffer `0x2852D8`) |
+| ObjectAttributes | `0x3C10BE8`; root-directory word **`0xFFFFFFFD`**; attributes word `0x40` |
+| DesiredAccess | `0x40100080` |
+| FileAttributes / ShareAccess | `0x80` / 3 |
+| CreateDisposition / CreateOptions | 5 / `0x60` |
+| FileHandle out / IoStatusBlock | `0x3C10C04` / `0x3C10BF4` |
+
+The descriptor was unchanged at stop (15 bytes, `bufferChangedAtStop: false`), so the capture is the refused request. The stop is unchanged: **status 9 at ordinal 301, value `0xC0000008`, 365 routines / 443 kernel ops**; control 339/405 and inert 347/419 are unchanged.
+
+Caller image section: `0x1E93E4` lies in XBE section 1 (`address 0x11000`, `virtualBytes 0x1E43B0`, i.e. `0x11000..0x1F53B0`); section 2 starts at `0x1F5400`. The wrapper is title code, not embedded kernel text.
+
+The original `NtCreateFile` implementation is not among the retained artifacts (the XBE carries no kernel image, and acquiring one is prohibited), so the `RootDirectory = 0xFFFFFFFD` semantics cannot be resolved here. The public-knowledge check could not be run (search unavailable) and is corroborative only. Two hypotheses are recorded:
+
+- **H1:** `0xFFFFFFFD` is not a valid root handle; the original kernel rejects the create with STATUS_INVALID_HANDLE and the CRT error path is the faithful behavior. The next step would be option A (documented ordinal-301 mapping).
+- **H2:** `0xFFFFFFFD` is a defined drive-root pseudo-handle; the original create could succeed for the Z: debug log, which would need a representable referent (option B).
+
+The path is a CRT debug-log target, not game content. Per the architect's halt condition, probing this call stops here; the next step is the architect's choice between the recorded hypotheses.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 73. Documented status conversion unblocks ordinal 301; next stop is GetLastError at 0x310FF
+
+Bounded architect decision (GLM 5.3 Flash) after the capture: **option A**, the documented `RtlNtStatusToDosError` conversion for the closed status vocabulary this runtime's own file models emit; option B (reclassify what the create reports for a drive-letter path) is deferred until rerun evidence shows the title branches on the specific status word; option C was not taken. The architect's own rule for this cycle: entries with two candidate winerror columns are left out of the table rather than guessed.
+
+Static evidence recorded this cycle (read-only Ghidra, retained project):
+
+- `FUN_001e93e4` is the CRT open helper. It maps a mode argument to CreateDisposition, builds `OBJECT_ATTRIBUTES` at `EBP-0x20` (`[+0]=0xFFFFFFFD` root immediate at `0x1E94BF`, `[+4]=&ANSI_STRING` from ordinal 289, `[+8]=0x40`), and calls ordinal 190.
+- `0xFFFFFFFD` as a root is **CRT-wide**, not a per-call bad handle: same immediate in `FUN_001e95db` (`0x1E9604`) and `FUN_001e97cf` (`0x1E9800`), `MoveFileA` pushes `-3` as the rename root (`0x1E9750`), and the global at `[0x31D704]` is initialized to `-3` (`0x1E6D62`). `FUN_001e93e4` has nine callers across the image (`0x1E75C8`, `0x4CE60`, `0x4EF40` twice, `0x4EB50`, `0x56A70`, `0x575F0`, `0x6AD30` twice), so it is a general open helper.
+- Its failure path is already-translated title code: a negative status goes to `0x31155` (the errno wrapper that calls ordinal 301 — the stop's immediate caller at `0x1E9513`), which pins `STATUS_OBJECT_NAME_COLLISION 0xC0000035` to dos error `0x50` and `STATUS_FILE_IS_A_DIRECTORY 0xC00000BA` to errno 3/5, then `_open` returns `-1`.
+- The local volume cannot represent the refused path at all: `ff_volume_resolve_path` rejects every byte in `/:*?"<>|` (`src/runtime/local_directories.c:52`) and requires an absolute name to start with `\Device\Harddisk0\partition1` (lines 60-61). `z:\debugLog.txt` is therefore outside the volume contract whatever the root word means, so "resolve the root" (option B) was not implementable without inventing a drive-letter mapping.
+
+Source changes (one commit):
+
+- New `src/runtime/kernel_error_map.{c,h}`: `ff_kernel_error_from_status` converts the pinned set `0 -> 0`, `0xC0000008 -> 6`, `0xC0000022 -> 5`, `0xC0000034 -> 2`, `0xC0000035 -> 80`, `0xC000003A -> 3`, `0xC0000043 -> 32`, and returns `FF_KERNEL_ERROR_UNMAPPED` otherwise. Five emitted statuses stay unmapped on purpose (`0xC0000023`, `0xC000007F`, `0xC000009A`, `0xC00000BA`, `0xC0000103`): each has two candidate winerror columns and no retained evidence picks one.
+- `tools/fixtures/thread_startup_probe.c`: the ordinal-301 handler converts through the table and still stops on an unmapped status, so an unknown word is never mapped to success or to a guess.
+- `tests/kernel_error_map_test.c` (new fixture, registered in `tools/run-native-tests.mjs`): every pinned pair, the unlisted high word `0xC0000203` and all five deferred words return the sentinel.
+- `tests/local_files_test.c`: pins that root words `0xFFFFFFFD` and `0xFFFFFFFF` are refused `FF_BOOT_BAD_HANDLE` with no state change, so the deliberate model limit is regression-protected.
+
+Module `recomp-post-memory-build-175` (unchanged profile 97): **1,052,085 bytes**, SHA-256 `ea3c1349d2e58d785b92c108c6d7095bcbf705553d1d43934435fd59b6098b0a`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x000310FF` (`GetLastError`)** | **365 / 442** |
+
+The ordinal-301 call now completes with **error 6** (`ERROR_INVALID_HANDLE`) for `0xC0000008`; the preceding ordinal-190 row still reports `0xC0000008` with no output written, and the CRT `_open` path returns `-1` and continues. The run then reaches **status 2 at `0x000310FF`**, the untranslated original routine `GetLastError` (body `0x310FF..0x31126`: `FS:[0x24]`, `FS:[0x28]`, global `0x2BB130`, `FS:[0x4]` array, returns `[eax+4]`), from return address `0x1E778C` inside `FUN_001e75c8` (one of the open helper's callers). The 442 op count is the number of calls whose status word is 0; the earlier 443 included the stopped 301 call, whose status word was unset.
+
+Recorded model limits (not changed): root `0xFFFFFFFD` is refused as an unknown handle, and drive-letter paths are outside the volume contract. These are documented model limits with modeled CRT error handling, not an original-kernel verdict about the refused create.
+
+Next bounded task: admit `GetLastError` at `0x310FF`.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

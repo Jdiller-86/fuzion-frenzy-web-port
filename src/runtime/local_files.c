@@ -49,7 +49,7 @@ uint32_t ff_volume_create_file(ff_local_volume *volume,const uint32_t args[9],ui
     if(overlaps(output,4,iosb,8) || overlaps(output,4,attributes,12) || overlaps(iosb,8,attributes,12) ||
         overlaps(output,4,descriptor,8) || overlaps(iosb,8,descriptor,8) || overlaps(output,4,buffer,bytes) || overlaps(iosb,8,buffer,bytes)) return FF_BOOT_UNSUPPORTED;
     const uint32_t rights=mapped_access(access);
-    if(args[4] || (access&~0xc012019fu) || (share&~7u) || (options&~0x62u) || disposition<1 || disposition>3 ||
+    if(args[4] || (access&~0xc012019fu) || (share&~7u) || (options&~0x62u) || (disposition!=1 && disposition!=2 && disposition!=3 && disposition!=5) ||
         (args[5]&~0xa6u) || ((args[5]&0x80u) && args[5]!=0x80u)) return FF_BOOT_UNSUPPORTED;
     if((options&0x20u) && !(rights&0x100000u)) return FF_BOOT_INVALID;
     char path[256];
