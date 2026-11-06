@@ -769,3 +769,12 @@ Same computation on the control profile (`browser-157-control.json`, module `ee2
 D402's device-access policy holds in **both** profiles with zero unknown-address reads, satisfying M2's "in both profiles" requirement independently of the pending candidate-(B) repair.
 
 No DECISIONS row: evidence only.
+## 51. Whitespace-gate verification (marker-class audit)
+
+Audit of `git diff origin/main HEAD -- docs/DECISIONS.md` (head `e74b4d6`):
+
+- No added line carries a conflict-marker-class sequence (`<<<`, `======`, `>>>`). The only marker-like runs in the file are ordinary JavaScript snippets inside the pre-existing D217 row (`eaxAfter === eaxBefore`, `espAfter === (espBefore + ...`), which are present in `origin/main` and were not added by this lane.
+- `git diff --check origin/main HEAD` returns **exit 0**; the whitespace gate passes.
+- No rewrite or amend is applicable: the requested marker-class cell does not exist in the added lines. Head `e74b4d6` is clean for queueing.
+
+No code or decision change; no amend performed because there is nothing to rewrite.
