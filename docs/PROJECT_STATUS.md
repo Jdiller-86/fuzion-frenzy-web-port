@@ -1,4 +1,10 @@
-# __unlock_fhandle admitted; run advances to untranslated __unlock_file at 0x1E4C85
+# Debug/log batch admitted with the INT 0x2D print model; run advances to FUN_0004fa60
+
+November 6: runtime-a batch of four reached functions (`0x4B230`, `0x1E8DE0`, `0x1E041F`, `0x31227`) plus new source-owned `src/runtime/recomp_services.{c,h}`. The module models the guest `int 0x2d` trap exactly as the pinned translator documents it (service 1 = ANSI_STRING print, no guest-register effect) and records each call in a bounded checked log; `tests/recomp_services_test.c` pins the readable/refused/capacity cases. Seed `recomp-admit-4b230-01/seed-4b230-batch.json` (4 functions, all established, 202 instructions); profile 104 = **497 functions / 20,565 instructions**; `verify-seeds` 23 recorded / 23 offered / 0 unexpected / 0 missing. Module 181: **1,096,893 bytes**, SHA `a50230f6...`.
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment **status 2 at `0x0004FA60` (`FUN_0004fa60`), 375 routines / 480 kernel ops** (return address `0x4B4C9`). The debug trap was consumed and the run continued through 36 more kernel operations to the next untranslated routine, whose only call is the already-translated `0x1E8DE0`. Next task: admit `FUN_0004fa60` (`0x4FA60..0x4FAAD`, 20 instructions). Open decision: `rdtsc` in `0x4C5F0`/`0x1E0C90` stays unadmitted because the pinned host-rate model (733,333,333 Hz) is not verified against this title's compiled QPF. The seed export cap forced regrouping ten small disjoint seeds into `recomp-seeds-consolidated-02` with the function union unchanged. Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: __unlock_fhandle admitted; run advances to untranslated __unlock_file at 0x1E4C85
 
 November 6: runtime-a one-function set (`__unlock_fhandle`, `0x1E731B..0x1E733C`); its only call is kernel thunk `[0x2533EC]` = already-routed ordinal 294, so no callees join. Seed `recomp-admit-1e731b-01/seed-1e731b.json` (32 functions, all established, 1,446 instructions); profile 100 = **492 functions / 20,346 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 178: **1,064,488 bytes**, SHA `7422738b...`.
 

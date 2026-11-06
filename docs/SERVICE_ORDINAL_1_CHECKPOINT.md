@@ -1296,3 +1296,36 @@ Module `recomp-post-memory-build-178` (profile 100): **1,064,488 bytes**, SHA-25
 Next bounded task: admit `__unlock_file` at `0x1E4C85`; halt-and-report if the `0x2B7B58` lock-table read or an out-of-range argument falls outside the guarded memory contract.
 
 Checks: `test:native` 60/60, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 77. Admit the reached debug/log batch and model the INT 0x2D print service; next stop is FUN_0004fa60
+
+Runtime-a continuation from the section 76 frontier. `__unlock_file` was admitted first (seed `recomp-admit-1e4c85-01/seed-1e4c85.json`, 1 function): profile 101 = **493 functions / 20,365 instructions**, module 179 = 1,066,226 bytes SHA `a2ee15b2...`, and the experiment advanced to **status 2 at `0x0004B230`, 372 routines / 444 ops** (control 339/405 at `0xFD800044`, inert 347/419 at `0xFE0000C8`).
+
+`FUN_0004B230` (`0x4B230..0x4B372`, 108 instructions) is the title's failure-log routine: it reads the flag byte at `[0x28525C + 0x100]`, formats through `0x1DEE6E`/`0x1E041F`, and can call `OutputDebugStringA` (`0x31227`), `_fwprintf` (`0x1E0C90`), `FUN_0004C5F0` and `FUN_0004C670`. A six-function export (`recomp-admit-4b230-01/seed-4b230.json`) was prepared as profile 102, which **failed the link gate**: the emitted code needs `recomp_debug_service` (`int 0x2d` service 1 in `0x31227`) and `xbox_ReadTimeStampCounter` (`rdtsc` in `0x4C5F0` and `0x1E0C90`), neither of which the probe provided.
+
+Two consequences were recorded:
+
+- Seed-export capacity: the record was at the 32-export cap, so the ten smallest disjoint seeds (24 functions) were regrouped into `recomp-seeds-consolidated-02/seed.json`; the function union is unchanged and the record now has 23 exports, all still disjoint.
+- Service scope: `int 0x2d` is documented by the pinned translator itself (`src/kernel/recomp_trace.c`: service 1 prints the ANSI_STRING at `ecx`, other services are ignored, and the guest registers are untouched - the following `int3` is stepped over). New source-owned `src/runtime/recomp_services.{c,h}` keeps that guest-visible effect (none) and records each call (service, argument, length, buffer) inside a bounded 8-entry log with checked aperture reads; the probe supplies the symbol and exposes `ff_probe_debug_service_{count,dropped,word}`. `tests/recomp_services_test.c` pins readable, non-print, null, truncated and capacity cases. `rdtsc` stays **unadmitted**: the pinned translator has a model (host performance counter scaled to 733,333,333 Hz), but this title's compiled QPF rate is unverified, so `0x4C5F0` and `0x1E0C90` remain outside the record and need an architect decision.
+
+An intermediate profile 103 (the three service-free functions `0x4B230`, `0x1E8DE0`, `0x1E041F`) built module 180 (1,072,342 bytes SHA `15b11dc1...`) and stopped at **`0x31227` (`OutputDebugStringA`), 374 routines / 444 ops**, return address `0x4B2D3` - evidence that the title takes the `[0x28525C + 0x100] & 2` debug branch.
+
+The committed set therefore adds four functions: `0x4B230`, `0x1E8DE0` (39 instructions, calls `0x1E8D8A`), `0x1E041F` (35 instructions, calls translated `0x1E2433`/`0x1E228C`), and `0x31227` (20 instructions, `int 0x2d` only).
+
+- Seed `research/verification/recomp-admit-4b230-01/seed-4b230-batch.json`: 4 functions, all `established=true`, 202 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-104` produced private profile 104: **497 functions, 20,565 instructions** (+4 / +202).
+- `verify-seeds.py`: 23 recorded / 23 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-181` (profile 104): **1,096,893 bytes**, SHA-256 `a50230f617489cf93eb7b04ae54fbd230645abf847e9f8817e498b61ca098d30`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x0004FA60` (`FUN_0004fa60`)** | **375 / 480** |
+
+The debug trap was consumed and the run continued: it completed 36 further kernel operations (the same `NtCreateFile` refusal and unlock sequence), then reached **status 2 at `0x4FA60`**, return address `0x4B4C9`, 375 routines / 480 ops. `FUN_0004fa60` (`0x4FA60..0x4FAAD`, 20 instructions) builds time fields from the already-translated `0x1E8DE0` and divides by 100; its only direct call is that translated function, so the next set is one function.
+
+Next bounded task: admit `FUN_0004fa60` at `0x4FA60`; halt-and-report if its `[ECX]` struct writes fall outside the guarded memory contract. Open decision: whether to adopt the pinned `rdtsc` model for `0x4C5F0`/`0x1E0C90` given the unverified title QPF.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
