@@ -635,3 +635,16 @@ mandatory corrective decision in docs/DECISIONS.md.
   counted. The integration head `9158e70` still carries neither `6fdcd98` nor `3f6c3ea` (both ancestor reads exit 1),
   `origin/main` is unmoved at `97d831bd`, and the D436 fresh-check directive is the named next step.
   No runtime advance.
+- 2026-11-06 ~02:25 record (D438, runtime-b contract fact): the runtime-b lane's published tip `3f6c3ea` ("service: serve
+  the reached interrupt initialization's Irql argument") is a component contract - its checkpoint section 13 ("Ordinal
+  109's `Irql` field becomes a served contract") records the model's value source as *ungrounded* (`KeInitializeInterrupt`
+  writes the 4th argument at +8 vs the reference's +0xC; `HalGetInterruptVector` "value source ungrounded"), and its own
+  limits line states "source-owned component behavior only. No original code was run here, the ordinal-109 call was not
+  observed to write `Irql`". Boundary status: none - the committed boundary remains runtime-a's `0x004B160` (advance #5).
+  No runtime advance.
+- 2026-11-06 ~02:25 machine-state fact (D438): the tick's own EOF-withhold was cited a third time (tick lastSummary,
+  state mtime 01:43:38) while the live reads at D436/D437 exit 0 (no blank line at EOF), and no fresh tick landed in this
+  window (LastRunTime 01:40:01; NextRunTime 02:40:00, the machine's own named cell for the D436 corrective). The
+  integration head is still `9158e70` (`refs/pull/19/head`; local mirror ref stale at `44af31d` per D431(a)) with both
+  lane tails `6fdcd98` and `3f6c3ea` unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at `97d831bd`; the
+  count stays 5. No runtime advance.
