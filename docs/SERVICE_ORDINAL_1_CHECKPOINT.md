@@ -817,3 +817,12 @@ Operational gate for the translator-owner repair, therefore, recorded here for t
 This clarification does not change the evidence; it removes an impossible literal criterion so the repair can be judged unambiguously. No code change; the source path remains HOLD D411.
 
 No DECISIONS row: clarification of the existing gate.
+## 55. Lifter inspection: emission source is correct; divergence is runtime-only (D412)
+
+Authorized one-cycle read-only pass over the pinned lifter:
+
+- `lifter.py:2036-2058` `_lift_pop`: a 32-bit register operand emits `POP32(esp, r)` with the decoded register `r` unchanged; word operands use `_WORD_REGS` (`:298-305`, 16-bit names only) and `_fmt_operand_write`.
+- 32-bit assignment falls through `_fmt_set_reg` (`:144-170`) to a direct `r = value;` (registers alias the globals via `recomp_types.h`).
+- No register-remapping table, clobber set, or config-persisted state selects a different destination; the driver (`tools/prepare-title-recomp.py:458-460,530,544,577-583`) passes seeds/profile/limits only.
+
+Conclusion: the pop-destination **emission source is correct**, consistent with the original bytes, the emitted text and the LIFO-correct minimal artifact. The divergence is runtime/compiled-artifact-only and is routed to the toolkit owner as **"source-correct, runtime-divergent"** with the named sites (D412). Acceptance unchanged: `ff_reg_order_is_reverse`, control invariance at `0xFD800044` (339/405), experiment progression past `0x6B6A6968` with `[ESI+0x47C] = 0x20400C`, R11 evidence. No `.tools` edit, no fabricated re-run.

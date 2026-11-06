@@ -1,4 +1,10 @@
-# Gate clarified: control invariance plus experiment progression (not "both past the fault")
+# Lifter inspection: emission source correct; runtime-only divergence (D412)
+
+November 5 (authorized read-only lifter pass): `_lift_pop` (`lifter.py:2036-2058`) emits `POP32(esp, r)` with the decoded register unchanged; word operands use `_WORD_REGS` (16-bit only), and 32-bit assignment falls through `_fmt_set_reg` (`:144-170`) to a direct `r = value;`. No remapping table, clobber set, or config state selects a different destination; the owned driver passes seeds/profile/limits only. The pop-destination emission source is therefore **correct**, matching original bytes, emitted text and the LIFO-correct minimal artifact. The divergence is runtime/compiled-artifact-only and routed to the toolkit owner as **"source-correct, runtime-divergent"** (**D412**) with the named sites. Acceptance unchanged: `ff_reg_order_is_reverse`, control invariance at `0xFD800044` (339/405), experiment progression past `0x6B6A6968` with `[ESI+0x47C] = 0x20400C`, R11 evidence.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No `.tools` edit, no fabricated re-run; geometry untouched.
+
+## Prior: Gate clarified: control invariance plus experiment progression (not "both past the fault")
 
 November 5: the M6 gate as literally phrased ("stop past `0x6B6A6968` in both profiles") is unsatisfiable by construction — the control profile stops at status 13 `0xFD800044` (339/405), at the PFIFO control seam before the graphics path, and never reaches the fault; the experiment stops at status 10 `0x6B6A6968` (346/414). The operational gate is recorded for the translator-owner repair: (1) control invariance at `0xFD800044` 339/405, (2) experiment progression past `0x6B6A6968` with the next genuine stop recorded exactly, (3) `[ESI+0x47C]` reading `0x20400C`. No code change; source path remains HOLD D411 (lifter-owned).
 
