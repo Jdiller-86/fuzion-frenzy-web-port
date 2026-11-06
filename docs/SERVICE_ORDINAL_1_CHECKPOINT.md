@@ -852,3 +852,14 @@ Destination capture shows the first epilogue pop (`edi`) reads `0x1FB64C` — th
 This localizes the deficit precisely: the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or the safe path), which shifts every saved slot by one dword and makes `[ESI+0x47C]` read `0x206314` instead of the device field, producing the fault at `0x6B6A6968`. Repair ownership is the call/return contract of that resolved target (or the safe-path macro), not the lane-owned pop macro and not guest state.
 
 No code change; no `.tools` edit.
+
+## 58. Correction: ESI violations are real (previous count was suppressed by the logger skip)
+
+The ABI logger was restored to its full form (it had been reporting only counts after the earlier thread-scope change). Module 160 run `browser-160-esp.json`:
+
+- ABI violations: **136**, of which **ESI violations: 131** (first `0x1E04CC`, last `0x202150` = `D3DDevice_Present`).
+- ESP-delta violations: **0**.
+
+The earlier "0 ESI violations" reading (module 139) was an artifact of the logger's context-skip early-return, now removed. ESI clobbering is therefore **real and widespread**, independently of the one-dword stack deficit proven by the destination capture (§56–§57). Both findings stand on their own evidence; neither depends on the other.
+
+No code change beyond the diagnostic logger; no `.tools` edit.

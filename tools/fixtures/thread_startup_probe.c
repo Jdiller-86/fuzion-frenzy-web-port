@@ -2728,18 +2728,25 @@ void ff_probe_run(void)
  * target so the defect family can be identified without backing up registers. */
 static uint32_t abi_violation_count, abi_violation_first, abi_violation_last;
 static uint32_t abi_esi_count, abi_esi_first, abi_esi_last;
+static uint32_t abi_esp_count, abi_esp_first, abi_esp_last;
 void recomp_abi_violation_log(uint32_t va, uint32_t ebx0, uint32_t esi0,
                               uint32_t edi0, uint32_t esp0)
 {
-    (void)ebx0; (void)esi0; (void)edi0; (void)esp0;
+    (void)ebx0; (void)esi0; (void)edi0;
     if (!abi_violation_first) abi_violation_first = va;
     abi_violation_last = va;
     ++abi_violation_count;
+    if (g_esp != esp0) {
+        if (!abi_esp_first) abi_esp_first = va;
+        abi_esp_last = va;
+        ++abi_esp_count;
+    }
 }
 uint32_t ff_probe_abi_violation_word(uint32_t field)
 {
     return field == 0u ? abi_violation_count : field == 1u ? abi_violation_first
-         : field == 2u ? abi_violation_last : 0u;
+         : field == 2u ? abi_violation_last : field == 3u ? abi_esp_count
+         : field == 4u ? abi_esp_first : field == 5u ? abi_esp_last : 0u;
 }
 #endif
 /* Destination capture for the pop diagnostic: identifies which register the
