@@ -668,4 +668,22 @@ A bounded corpus audit tool was added (`tools/reg-save-order-audit.mjs`) to chec
 
 No DECISIONS row: narrowing evidence for D401.
 
+## 45. Attribution proven adjacent; the shift is real and not a sampling artifact
+
+Sequence-tagged pop capture (module 158; the two named reports for this cycle are `browser-157-control.json` and `browser-157-experiment.json`, same module `ee284034...`):
+
+| Pop read address | Value | Hook seq | Post-ESI measured at seq |
+| --- | --- | --- | --- |
+| `0x3C10E30` | `0x1FB64C` | 83,980 | 83,981 → `0x203B90` |
+| `0x3C10E34` | `0x205E98` | 83,981 | 83,982 → **`0x205E98`** |
+| `0x3C10E38` | `0x203B90` | 83,982 | 83,983 → `0x205E98` |
+| `0x3C10E3C` | `0xFFFFFFFF` | 83,983 | 83,984 → `0x205E98` |
+| `0x3C10E40` | `0x3C10CFC` | 83,984 | 83,985 → `0x205E98` |
+
+Each post value is sampled at the immediately following hook invocation (seq + 1), so the attribution is **not** a sampling artifact: the pop consuming `0x3C10E34` writes ESI, and the pop consuming `0x3C10E38` does not.
+
+Cycle evidence for the governor's gate: control profile stops at status 13 `0xFD800044` (339/405); experiment stops at status 10 `0x6B6A6968` (346/414) — the stop has **not** moved past the fault, as expected before any repair. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`), and that text is the correct reverse. The remaining question is therefore a compiled-code/register-identity discrepancy between the correct emitted text and the executed mapping; it is recorded for the translator owner with this adjacent-attribution evidence. No fix, no model.
+
+No DECISIONS row: attribution evidence for D401.
+
 No DECISIONS row: tooling characterization.

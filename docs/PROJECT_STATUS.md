@@ -1,4 +1,10 @@
-# Emitted push/pop order is textually correct; package narrowed to expansion/attribution
+# Attribution proven adjacent: the pop consuming slot 0x3C10E34 writes ESI
+
+November 5: sequence-tagged pop capture (module 158; reports `browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`) samples post-ESI at the immediately following hook (seq + 1): the pop consuming `0x3C10E34 = 0x205E98` writes ESI (post-ESI `0x205E98`), while the pop consuming `0x3C10E38 = 0x203B90` leaves ESI unchanged. Attribution is real, not a sampling artifact. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`); the emitted text is the correct reverse, so the remaining question is a compiled-code/register-identity discrepancy recorded for the translator owner. Cycle gate evidence: control stops status 13 `0xFD800044` (339/405); experiment stops status 10 `0x6B6A6968` (346/414) — not moved. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Emitted push/pop order is textually correct; package narrowed to expansion/attribution
 
 November 5: targeted textual check of module 87 — `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` and epilogue pops `edi, esi, ebp, ebx`, an **exact reverse**, so the emitted `.inc` order text is correct and candidate (A) (translator emission text) is **refuted** for this function. The blockers package (D401) is narrowed to candidate (B): the expansion/execution of that correct text (or the post-pop attribution). Bounded corpus audit tool added (`tools/reg-save-order-audit.mjs`, addresses/orders only; conservative prologue detection, targeted aid not a verdict).
 
