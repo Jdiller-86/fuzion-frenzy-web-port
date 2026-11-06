@@ -178,3 +178,16 @@ mandatory corrective decision in docs/DECISIONS.md.
   `5289983` and the `2988892`-line records and keeps the `D383`/`D392` collisions, so a merge would
   drop the M0 goal-doc, lane-cadence-revival and single-owner records; the architect must
   reconcile the head per D394 first. No runtime advance. See D395.
+- 2026-11-05 executor: runtime-a's `77f060d` ("Correct the off-by-one slot claim to provisional",
+  20:05:53) is the tip of `origin/codex/opencode-source` and retracts the stale
+  `0x205E98`/`0x203B90` off-by-one hypothesis to provisional status - the four tail reads
+  (`0x3C10E34`/`0x3C10E38`/`0x3C10E3C`/`0x3C10E40`) are unordered relative to the pop sequence,
+  so an order-tagged pop capture is needed before any translator-defect report; no new stop
+  boundary, no decisive verdict and the blockers package is still incomplete, with the stop at
+  status 10 / `0x6B6A6968` / 346 routines / 414 kernel ops. See D396. No runtime advance.
+- 2026-11-05 executor: runtime-b's only new head is the local-only card edit `6a11cf2`
+  (`origin/lane/runtime-b` is still `5289983`), and PR #19 keeps head `18cce1d` and base
+  `97d831b` with reported `mergeable_state: clean` and 4/4 checks (`gh` absent, so as reported);
+  that head still misses `f9f503a`, `6ad7e9b`, the `2988892`-line records, the lane-b wiring and
+  the `$unowned` regex hardening, so no guarded merge may target it before the 20:40 tick
+  reconciles a superset head, and tempo stays 0 counted advances. See D396. No runtime advance.
