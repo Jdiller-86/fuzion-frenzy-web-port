@@ -2,7 +2,9 @@
 
 **Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
 
-Current implementation evidence and remaining planned features are tracked in [the original-execution ledger](docs/ORIGINAL_EXECUTION_PROGRESS.md). **Pursue static recompilation of the original executable to WebAssembly** with the complete custom-feature plan. The [section-residency checkpoint](docs/SECTION_RESIDENCY_CHECKPOINT.md) advances original startup through real section loading, its exact 10,240-byte image-file write, unloading and data-initializer return. A further original routine now requests an unsupported console setting. The game has no playable screen yet; rendering/audio/controllers, full runtime/fidelity, durable saves, browser-local end-user conversion and all planned features remain open. Earlier startup/component evidence is preserved.
+Current state (2026-11-05): original-game browser execution via static recompilation to WebAssembly. The original program has executed past 83/83 initialization callbacks, real FATX cache-format writes, utility-drive mount, contiguous-memory services and deep into its graphics initialization; it currently halts at a guest read fault behind `MmFreeContiguousMemory` (stop **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops). The confirmed `FUN_001FB640` epilogue mismatch is under an owner-delegated emission-side repair decision ([D401](docs/DECISIONS.md)); rendering/audio/controllers/end-user conversion and all planned features remain open. [The operative execution goal](docs/EXECUTION_GOAL_NOV5.md) defines the hard completion milestones (M6–M12) and the two full-time lane cadences; the honest tempo ledger lives in [PROGRESS_METRICS](docs/PROGRESS_METRICS.md).
+
+Open main-targeting PRs (2026-11-05): #19 (architect integration line, content-gated per D394/D398 until a verified-reconciled superset head exists) and #20 (the lane/integration chain). The guarded merge runs through the reconciled superset head — the first architect tick that returns one merges; no forced timing. The stale geometry draft PR #3 is superseded by the D391 lane dissolution and its geometry components already being on main; closing it is safe.
 
 The product includes original-game browser execution, online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies; those delivery requirements remain incomplete.
 
@@ -39,13 +41,13 @@ The latter serves only allowlisted source files on `127.0.0.1:4173`. Open that a
 
 Local preparation checks pass. Both public-repository Windows/Linux preparation jobs also [passed](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41212045874), resolving the earlier private-runner billing blocker for this workflow. Details are in `docs/PROJECT_STATUS.md`.
 
-The project's Codex configuration selects `gpt-6.1-terra` with high reasoning. Trusted project settings provide defaults; an existing desktop chat's selected model can take precedence. Select **GPT-6.1 Terra** in the desktop model control, or launch `codex -m gpt-6.1-terra`. No OpenAI API key is needed by the game or the preparation scripts.
+Automation: two scheduled OpenCode lanes run every 5 minutes in dedicated worktrees (`runtime-a` for the original-runtime translation, `runtime-b` for services/geometry) under `opencode-go/deepseek-v4.1-flash` with verified fallbacks, and an hourly architect session (`opencode-go/glm-5.3-flash`) integrates reviewed commits through exact-head PR gates. No Sol or other external account model is called. See [the workflow doc](docs/OPENCODE_WORKFLOW.md) and the [executive goal](docs/EXECUTION_GOAL_NOV5.md).
 
 ## Analysis environment
 
 The original workstation has a tested project-local Ghidra/Java/XBE toolchain. See [analysis setup](docs/ANALYSIS_SETUP.md) for verified capabilities and commands. These large downloads and local research inputs are not included in the repository; cloning it does not install them automatically.
 
-REA supports the configured Ghidra provider for its admitted formats. Xbox XBE analysis currently uses direct Ghidra through [the project wrapper](tools/Invoke-ProjectGhidra.ps1). The verified check covers the original executable's entry point, not complete game behavior.
+REA (reverse-engineer-anything) is authorized for read-only native analysis of the retained original XBE or the retained Ghidra project where the retained source-owned records alone cannot answer the question; every REA use records its Evidence identity in [the decision log](docs/DECISIONS.md). Xbox XBE analysis still uses direct Ghidra through [the project wrapper](tools/Invoke-ProjectGhidra.ps1); REA output never substitutes for the pipeline admission rules and never publishes original content.
 
 ## Repository contents
 

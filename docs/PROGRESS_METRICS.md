@@ -254,3 +254,71 @@ mandatory corrective decision in docs/DECISIONS.md.
   directive stands (D398(d)); the 20:40 architect tick is the expected reconciliation
   actuator for the divergent integration lines, reading the D394-D399 rows. Stop unchanged:
   status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (component progress, not tempo): runtime-b's published `7911e35` reproduced the
+  triangle browser prepass comparison against the digest-verified root reference
+  `.tools/emulation/geom-reference-01/reference.json` (SHA-256
+  `474497d8fb629580352390ec7705b4ed0ea47aa635b8064e9ad2f393d7b530e5`) with 960 records /
+  146,880 scalars, `exact-match`, 0 forwarded / 0 slope mismatches, and module/wasm/reference
+  hashes identical to the retained 2026-10-31 report; the line/quad comparison stays
+  feasible-but-not-run because the comparator is triangle-hard-coded and no built module exports
+  the line/quad entry points. Component progress only - no stop-boundary move and no newly
+  serviced original request. No runtime advance.
+- 2026-11-05 ops (tempo and handoff): 0 counted advances remains the honest count under the
+  rolling-7-day >=8/day metric; runtime-a's blockers package is committed and published as
+  `0f0b6c1` (row reusing D398, colliding with main's D398, to be renumbered at integration with a
+  one-line note) and carries the tested `ff_reg_order_is_reverse` rule, candidates A/B and the
+  bounded owner question, while `7911e35` is component progress. Stop unchanged: status 10 at
+  `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D401): M6 decision recorded - the `FUN_001FB640` epilogue mismatch is ruled
+  emission-side (candidate A) with candidate B (instrumentation attribution) as the registered
+  fallback; the triple-gated repair protocol is (1) correct the translator's emitted callee-saved
+  pop-destination order in `tools/prepare-title-recomp.py` to the observed slot table per the
+  tested `ff_reg_order_is_reverse` rule, keeping the regression test rejecting the observed
+  runtime order, (2) re-run both profiles and require the stop to move past `0x6B6A6968` in both
+  with R11 evidence, (3) fall back to candidate B with a new dated row only if the stop does not
+  move. Decision row only - no fix, no translator edit, no gate closed. No runtime advance.
+- 2026-11-05 ops (tempo, D401): 0 counted advances standing; M6's first counted advance fires
+  only when the stop actually moves with R11 evidence. Stop unchanged verbatim: status 10 at
+  `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D402 revision): candidate (A) emission-side is refuted for `FUN_001FB640` by
+  lane commit `ffacf95` (21:05:50, published to `origin/codex/opencode-source`) - module 87's
+  generated `.inc` prologue pushes `ebx, ebp, esi, edi` and its epilogue pops
+  `edi, esi, ebp, ebx`, an exact reverse and internally LIFO-consistent, so the generated text
+  is correct and D401's step (1) emitter edit would corrupt it. Per D401 step (3) the live
+  hypothesis is candidate (B), instrumentation/orchestration attribution (which probe
+  instruction confirmed the register-consumer mapping when the pop consumed slot `0x3C10E34`),
+  with the M6 gate unchanged (the stop must move past `0x6B6A6968` with R11 evidence) and REA
+  read-only native analysis authorized for the bounded pop-attribution region if the records
+  cannot decide it. The runtime-a card was replaced by lane commit `f69430e`; D400's
+  `refs/pull/19/head = 44af31d` correction stands, PR #22 never existed, and the stale geometry
+  draft PR #3 (head `aac82119`) is the safe close candidate. No runtime advance.
+- 2026-11-05 ops (tempo): 0 counted advances standing - the 21:00-21:06 lane commits
+  (`e6de8a9`, `ffacf95`, `2f2292b`) are component/evidence work, not boundary moves, so the
+  stop is unchanged verbatim: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No
+  merge was requested or landed this hour and `origin/main` is still `97d831bd`. No runtime
+  advance.
+- 2026-11-05 ops (D403): PR-merge guidance for the unattended window recorded - a manual merge of
+  PR #20 (head `1af5dce`) must NOT happen because its head is a strict subset of PR #19's head
+  `44af31d` (`1af5dce`/`18cce1d`/`035b253`/`6ad7e9b`/`f9f503a` all verified contained), so the
+  guarded merge stays on the #19 actuator route and lands only on a reconciled superset head with
+  green exact-head checks (`35acdae`, `f4088e8`, `be791ef`, `c21e61b`, `0f0b6c1`, `ffacf95`,
+  `d8ff7c1`/`209d60c` still absent at the ~21:40 reconciliation window); the safe owner-side action
+  is closing the superseded geometry draft PR #3, and PR #20 may be closed as superseded once #19
+  merges. No runtime advance.
+- 2026-11-05 ops (D404): runtime-a is directed to the compiled-code/register-identity investigation - the
+  module-158 sequence-tagged capture proves the pop consuming slot `0x3C10E34` (`0x205E98`) writes ESI while
+  the pop consuming `0x3C10E38` (`0x203B90`) leaves ESI unchanged, so the attribution is real and the emitted
+  `.inc` reverse is correct; the lane investigates only its owned `src/runtime/recomp_memory_access.h` and
+  `tools/prepare-title-recomp.py`, with no `.tools`/`research`/fixture edits, and the M6 gate is unchanged
+  (the stop must move past `0x6B6A6968` in BOTH profiles with R11 evidence). Tempo fact: 0 counted advances -
+  the control profile's status-13 stop at `0xFD800044` is the control-condition marker, not a boundary move,
+  and the stop is unchanged verbatim at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D404): runtime-b's line/quad comparator extension is authorized - the lane's own
+  960-fill-mode-record / 413,712-scalar prototype match (0 mismatches) was self-blocked on tooling-edit
+  authorization, now granted for `tools/compare-nv2a-geometry.mjs` only under the bounded protocol (960-record
+  triangle default untouched, skip-when-absent plus the digest check against the root
+  `geom-reference-02/reference.json`, per-output rejection lines instead of invented values, outcome recorded
+  in the owned checkpoint); the result stands as the lane's evidence statement, not architect-verified, and the
+  card's transcribed triangle digest prefix `474ada8e2d0f...` conflicts with D399/D400's
+  `474497d8...B530E5` pending a lane re-check before use. Tempo fact: 0 counted advances, stop unchanged at
+  `0x6B6A6968` / 346 / 414. No runtime advance.
