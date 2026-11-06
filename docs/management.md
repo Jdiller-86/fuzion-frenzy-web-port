@@ -39,7 +39,15 @@ The copied views include the full table, Milestones board, Delivery gates, Imple
 
 Workflow dispatch supports snapshot or sync, with preview unless Apply is selected. The workflow verifies source identity, issue identity, parent/dependency read-back, board membership/fields and the public snapshot. Managed cards must be unarchived; unexpected archival fails verification for review. Writes are limited to this repository and its owned board; CTR's template remains read-only. Board creation is refused when an unregistered same-named project exists, so retries do not silently create duplicates or adopt unrelated work.
 
-The run's `project-tracking-*` artifact contains repository/board JSON receipts and `progress/index.html`, a standalone offline view. It separates accepted gates from completed tasks, provides status filtering and links to native issues. Arbitrary Project notes and Waiting resource text are excluded from the exported receipt. It is a downloadable report; no documentation site deployment is configured by this work.
+The run's `project-tracking-*` artifact contains repository/board JSON receipts and `progress/index.html`, a standalone offline view. It separates accepted gates from completed tasks, provides status filtering and links to native issues. Arbitrary Project notes and Waiting resource text are excluded from the exported receipt.
+
+## README graph and public report
+
+The [public graph](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/) follows CTR-2-WUP's presentation: a dark SVG summary in the README opens an interactive milestone/task dependency graph. Select a node to inspect source-reviewed scope and acceptance criteria, then follow its native issue for current evidence. Status and milestone filters narrow the graph. Completed work never accepts a gate automatically.
+
+[Graph publication](../.github/workflows/publish-progress.yml) runs after successful tracking updates, relevant source changes and hourly. It resolves trusted main, validates the same public issue snapshot, publishes only the five allowlisted report files and verifies their deployed bytes. The graph records its source revision and snapshot time; API failure displays unavailable data rather than invented progress. GitHub's image cache may lag a fresh publication.
+
+Only this tracking report is deployed to GitHub Pages. The research app, original content and private evidence are excluded. Publication preserves any unrelated existing Pages site for review. Initial Pages enablement can use the owner's existing management secret; normal deployment uses the workflow's Pages credential. The workflow neither starts development agents nor changes milestone acceptance.
 
 ## Local commands
 
@@ -50,6 +58,8 @@ npm run test:project
 ```
 
 With an appropriately scoped GitHub API connection, `npm run project:preview` previews metadata operations; `node tools/project.mjs sync --apply` applies them only from the current main revision. `npm run project:snapshot` and `npm run project:render` produce ignored artifacts. Prefer the GitHub workflow when local API access is unavailable. Credentials stay in the environment and are never printed.
+
+`npm run project:site` consumes `artifacts/project.json` and builds the graph report in ignored `artifacts/project-site/`. The snapshot's source revision must match the checkout. `npm run project:site:verify` compares the live report with the local publication receipt after deployment.
 
 `node tools/project-board.mjs` previews board changes; `--apply` copies/configures the board or updates its managed cards only from current main. The trusted-main tracking workflow runs this after validating repository tracking. A new board copies saved views exactly; repository-specific template filters require review before copying. Existing view edits are retained after creation.
 

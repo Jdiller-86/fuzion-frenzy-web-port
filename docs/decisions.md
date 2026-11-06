@@ -11,6 +11,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D446 | Replace the runtime ladder with five verifiable project milestones | User-directed planning modeled after CTR-2-WUP: original browser execution, complete local game/conversion, online/recovery, player experience and release readiness. All five remain unaccepted at the planning baseline. |
 | D447 | Adopt domain source layout and repository-native tracking | Host, translator, renderer, portable/browser runtime and web boundaries; five parent issues with a small work breakdown, native relationships and verified progress exports. Metadata workflows start no coding agents or game execution. |
 | D448 | Add a public GitHub Project modeled after CTR-2-WUP | User-authorized board creation using an owner-configured Actions secret. Copy field/view configuration, import only this repository's managed issues, pin native Project identity and verify membership/status. Issue evidence owns milestone acceptance; board setup starts no implementation. |
+| D449 | Embed a derived tracking graph in the README | User-requested CTR-style SVG overview and interactive graph, refreshed from validated native issue status. Publish only report files to GitHub Pages, preserve source/snapshot provenance, keep task completion separate from accepted gates, and exclude original/private content. |
 
 ## Contracts that remain in force
 

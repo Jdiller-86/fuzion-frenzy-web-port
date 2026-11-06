@@ -1,0 +1,100 @@
+name: Publish project graph
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - tools/project-graph.mjs
+      - tools/project-graph.html
+      - tools/publish-progress.mjs
+      - tools/progress-pages.mjs
+      - tests/project-graph.test.mjs
+      - tests/progress-publication.test.mjs
+      - .github/workflows/publish-progress.yml
+  workflow_run:
+    workflows: [Project tracking]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.repository == 'Jdiller-86/fuzion-frenzy-web-port' && github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Resolve immutable trusted main
+        id: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FUZION_TRUSTED_SHA="$(gh api repos/Jdiller-86/fuzion-frenzy-web-port/commits/main --jq .sha)"
+          [[ "$FUZION_TRUSTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          printf 'sha=%s\n' "$FUZION_TRUSTED_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ steps.trusted.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - name: Check graph and publication contracts
+        run: |
+          npm run check
+          node --test tests/project-graph.test.mjs tests/progress-publication.test.mjs
+      - name: Read current public issue tracking
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRACKING_SOURCE_SHA: ${{ steps.trusted.outputs.sha }}
+        run: node tools/project.mjs snapshot --source-commit "$TRACKING_SOURCE_SHA"
+      - name: Build the allowlisted tracking report
+        env:
+          TRACKING_SOURCE_SHA: ${{ steps.trusted.outputs.sha }}
+        run: node tools/publish-progress.mjs
+      - name: Preserve any unrelated existing Pages site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/progress-pages.mjs
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        with:
+          enablement: true
+          token: ${{ secrets.FUZION_GITHUB_MANAGEMENT_TOKEN || github.token }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: artifacts/project-site
+      - name: Deploy the project graph
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Verify published report bytes over HTTP
+        run: node tools/publish-progress.mjs --verify
+      - name: Retain public publication receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: project-graph-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/project-publication.json
+            artifacts/project.json
+          retention-days: 14
+          if-no-files-found: warn
