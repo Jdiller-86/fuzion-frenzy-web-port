@@ -842,3 +842,13 @@ The register order is the correct `edi, esi, ebp, ebx`, but it consumes slots `0
 This supersedes the "register-identity" framing: the emission is correct, the destinations are correct, and the defect is a **stack-delta imbalance of one dword** somewhere between the prologue and the epilogue. The next bounded task is to locate that imbalance (a `push`/`pop` or `ret N` mismatch in the executed path, or a harness call-frame adjustment), using the same destination capture.
 
 No code change beyond the optional diagnostic hook; no `.tools` edit, no fabricated re-run.
+
+## 57. The one-dword deficit is the leftover icall return address
+
+Destination capture shows the first epilogue pop (`edi`) reads `0x1FB64C` — the **return address pushed for the indirect call at `0x1FB644`** (`FF_MEMORY_PUSH(esp, 0x001FB64Cu)`), not a saved register. That pushed return word survived the indirect call, shifting every later slot down by exactly one dword.
+
+`RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) resolves the target via `recomp_lookup`/`recomp_lookup_kernel` and invokes it through `RECOMP_ABI_CALL` **without adjusting `g_esp`**: the callee must consume the pushed return address with its own `ret`. The leaf that ran did not, so the frame keeps the return word.
+
+This localizes the deficit precisely: the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or the safe path), which shifts every saved slot by one dword and makes `[ESI+0x47C]` read `0x206314` instead of the device field, producing the fault at `0x6B6A6968`. Repair ownership is the call/return contract of that resolved target (or the safe-path macro), not the lane-owned pop macro and not guest state.
+
+No code change; no `.tools` edit.
