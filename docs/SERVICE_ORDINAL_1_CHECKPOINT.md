@@ -1003,3 +1003,88 @@ Module `recomp-post-memory-build-167` (profile 92): **1,025,210 bytes**, SHA-256
 `__fsopen` ran through `__getstream`, which then called `__lock_file2` (`0x1E4C62..0x1E4C84`), the next translation placeholder; six additional kernel operations completed on the way (422 → 428). Halt and report; next bounded step is `__lock_file2` with its unseeded callee `0x1E635C` and a check of the import thunk at `0x2533F0` before any model is proposed.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 66. Admission of __lock_file2; next stop FUN_001e540f at 0x1E540F
+
+Primary card unchanged and re-checked at head `768f31a`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — no-op, no amend.
+
+Runtime-a continuation from `0x1E4C62`. Before translating, both of the body's call targets were resolved from retained artifacts:
+
+- `CALL 0x001E635C` — already translated in profile 92.
+- `CALL dword ptr [0x002533F0]` — the run's kernel binding is `slot 2438128 = 0x2533F0 → ordinal 277`, which the pinned bridge defines as `RtlEnterCriticalSection` (1 arg). The harness already routes ordinal 277 to its recorded `enter_critical` handler, so this is a supported service and no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e4c62-01/seed-lock2.json`: prior 20 seed functions plus `0x001E4C62` (`__lock_file2`); 1 new function, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 93: **481 functions, 19,693 instructions** (+1 / +13).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-168` (profile 93): **1,027,106 bytes**, SHA-256 `285ab47aea77ac0ef7ecd73c4fbe9360ab921a57f4c000a8d171033c1282d935`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E540F`** | **358 / 429** |
+
+`__lock_file2` executed and `__getstream` continued to `FUN_001e540f` (`0x1E540F..0x1E5417`: `PUSH 1; CALL 0x001E62CE; POP ECX; RET`), the next translation placeholder; its single callee `0x1E62CE` is already translated. Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 67. Admission of FUN_001e540f; next stop __sopen at 0x1E785E
+
+Runtime-a continuation from `0x1E540F` (directive head `832efee`, which contains the lane commits through `768f31a`).
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e540f-01/seed-540f.json`: prior 21 seed functions plus `0x001E540F` (`PUSH 1; CALL 0x001E62CE; POP ECX; RET`); 1 new function, `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 94: **482 functions, 19,697 instructions** (+1 / +4).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-169` (profile 94): **1,029,534 bytes**, SHA-256 `c16c3d8b32d32ace0858a70365c9c14ba94906d345c97eb5506976e7ca25a26f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E785E`** | **360 / 430** |
+
+The call chain `FUN_001e540f → 0x1E62CE → __openfile` executed; `__openfile` then called `__sopen` (`0x1E785E..0x1E78A2`), the next translation placeholder. Its already-translated callee is `0x1E04CC`; the unseeded ones are `0x1E75C8` and `0x1E78A3`. Halt and report; next bounded batch is those three functions.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 68. Batch admission of __sopen and its two unseeded callees; next stop FUN_001e733d at 0x1E733D
+
+Runtime-a continuation from `0x1E785E` (directive head `832efee`).
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e785e-01/seed-sopen.json`: prior 22 seed functions plus `0x001E785E` (`__sopen`), `0x001E75C8` (open-flag worker, 662 body bytes) and `0x001E78A3` (cleanup helper); 3 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 95: **485 functions, 19,948 instructions** (+3 / +251).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-170` (profile 95): **1,032,801 bytes**, SHA-256 `f79f16c90413132e9c4214d723131093f82b509231930e175193b0f824d396d0`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E733D`** | **362 / 430** |
+
+`__sopen` and its worker `0x1E75C8` executed; the worker then called `FUN_001e733d` (`0x1E733D..0x1E7489`), the next translation placeholder. Its already-translated callees are `0x1E62E0` and `0x1E635C`; `0x1E731B` (the callee of the not-yet-reached cleanup helper `0x1E78A3`) is still unseeded. Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 69. Batch admission of FUN_001e733d and FUN_001e72a8; next stop FUN_001e93e4 at 0x1E93E4
+
+Runtime-a continuation from `0x1E733D` (directive head `832efee`). Full body read first: `0x1E733D..0x1E7489` calls `0x1E62E0`, `0x1E635C`, `0x1E78C3`, `0x1E62CE`, `0x1E0D41`, `0x1E72A8` plus the import thunks `[0x2533F0]` and `[0x2533EC]`. Everything except `0x1E72A8` was already translated; the two thunks are ordinals 277 (`RtlEnterCriticalSection`) and 294 (`RtlLeaveCriticalSection`), both already routed by the harness, so no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e733d-01/seed-733d.json`: prior 25 seed functions plus `0x001E733D` and `0x001E72A8`; 2 new functions, within the 8-function set cap, both `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 96: **487 functions, 20,115 instructions** (+2 / +167).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-171` (profile 96): **1,045,793 bytes**, SHA-256 `5757634212fa6648f5436556d2842f6a1c414832cd22bdd0ddad3955ffb5c395`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E93E4`** | **363 / 441** |
+
+`FUN_001e733d` executed (the stream table setup), and the caller `0x1E75C8` continued to `FUN_001e93e4` (`0x1E93E4..0x1E956E`), the next translation placeholder; eleven further kernel operations completed on the way (430 → 441). Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
