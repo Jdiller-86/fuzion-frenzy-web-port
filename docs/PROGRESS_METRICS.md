@@ -623,3 +623,15 @@ mandatory corrective decision in docs/DECISIONS.md.
   `baf0365` ("service: name the reached interrupt field contract; pin the Irql gap") is service/contract work and not a
   runtime-boundary move. The integration head `9158e70` still carries neither `91e5e0b` nor the runtime-b chain.
   No inflation. No runtime advance.
+- 2026-11-06 ~02:15 verify (D437, counted advance #5 at `6fdcd98`): this pass is record verification, not execution.
+  The runtime-a lane's *committed* record carries the both-profile pair verbatim - "control 339/405 at `0xFD800044`;
+  inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the initializer and stops at status 2, `0x004B160`
+  (352 routines / 422 kernel ops)" - so the batch rule (<=8 evidenced related reached functions, applied at 7:
+  `FUN_0004e480` + six direct callees; profile 90: 472 functions / 19,329 instructions; module 165: 1,013,193 bytes)
+  produced a NEW observed stop boundary with both-profile evidence. The count moves 4 -> 5. No runtime advance.
+- 2026-11-06 ~02:15 tempo: 5 counted advances; the stop is status 2 / `0x004B160` / 352 routines / 422 kernel ops
+  (runtime-a's committed record). Runtime-b's published tail `3f6c3ea` ("service: serve the reached interrupt
+  initialization's Irql argument") is service/contract work - its own line: "No run advance is claimed" - and is not
+  counted. The integration head `9158e70` still carries neither `6fdcd98` nor `3f6c3ea` (both ancestor reads exit 1),
+  `origin/main` is unmoved at `97d831bd`, and the D436 fresh-check directive is the named next step.
+  No runtime advance.
