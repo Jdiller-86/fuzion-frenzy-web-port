@@ -402,6 +402,11 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      /* A coalesced run of consecutive performance-counter polls keeps one
+       * row and states how many calls it represents. */
+      if (call.repetitions !== undefined &&
+          (!integer(call.repetitions) || call.repetitions < 1 || call.repetitions > 0xFFFFFFFF))
+        throw new Error('Malformed kernel call repetition count');
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');

@@ -1502,3 +1502,21 @@ This is a diagnostic-budget stop, not a guest fault and not a time-source mismat
 Next bounded task: make repeated counter polls stop consuming the diagnostic budget - the smallest evidenced change is to coalesce a run of consecutive identical ordinal-126/127 calls into one row with a bounded repetition count (report shape and `completedKernelOperations` stay derived from the rows), then report the next stop. A rolling log is the alternative if coalescing is rejected.
 
 Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 85. Coalesce performance polls; the bounded trace is the next budget
+
+The poll loop was coalesced instead of followed by another capacity bump. `kernel_record` now returns the previous row when a zero-argument ordinal 126 or 127 call immediately repeats it, counting the repeat in a new `kernel_repeats` row array; the check runs before the capacity guard, so a full log still coalesces polls. The probe exports `ff_probe_kernel_repeat`, the worker attaches `repetitions` to each call row (1 when the export is absent), and `proof-report.mjs` validates the field (integer 1..0xFFFFFFFF) while still accepting rows without it. `tests/proof-report.test.mjs` pins both shapes (**25/25**).
+
+Module `recomp-post-memory-build-191` (unchanged profile 109): **1,115,159 bytes**, SHA-256 `258d3ff19a2e4d516d8998f1a73e6eeea5b7949f1b03f5a69f19cf9853bd25f6`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 5 at `0x001DF8A0`** | **386 / 496** |
+
+The coalescing worked as designed: the experiment records **509 call rows** instead of 1024, with the final poll row carrying **566 repetitions**, and it advanced past the wait loop to a new stop. The stop is now the **bounded probe trace**: `status 5` at `0x1DF8A0` with all 8192 trace entries used, return address `0x4C581`, and the frequency `733333333` still visible in the frame. The guest is looping through translated functions long enough to exhaust the trace, not failing in a modeled service.
+
+Next bounded task: raise or coalesce the bounded probe trace for repeated poll-loop iterations while keeping the reported entry sequence honest; raise `FF_TRACE_CAPACITY` together with its JS acceptance and report bound, or coalesce identical repeated entries, then report the next stop.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

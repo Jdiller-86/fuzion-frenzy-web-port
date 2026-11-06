@@ -1,4 +1,12 @@
-# Kernel-record capacity raised; the guest's counter-poll loop is the new limit
+# Counter polls coalesced; the bounded probe trace is the next budget
+
+November 6: consecutive zero-argument ordinal-126/127 calls now share one call row with a repetition count (`kernel_repeats`, new `ff_probe_kernel_repeat` export, `repetitions` in the report, validated 1..0xFFFFFFFF; proof-report 25/25). Module 191 (unchanged profile 109) = 1,115,159 bytes SHA `258d3ff1...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 5 at `0x001DF8A0`, 386 routines / 496 kernel ops**, return address `0x4C581`. Coalescing worked: 509 call rows instead of 1024, the final poll row carrying **566 repetitions**, and the run advanced past the wait loop. The new stop is the **bounded probe trace** (all 8192 entries used), not a guest fault; the frequency `733333333` is still visible in the frame.
+
+Next task: raise or coalesce the bounded probe trace for repeated poll-loop iterations (keep the reported entry sequence honest), then report the next stop. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Kernel-record capacity raised; the guest's counter-poll loop is the new limit
 
 November 6: the 512-row kernel-call log was raised to **1024** for the initializer-batch proof, with `local-title-proof.mjs` and `thread-proof-worker.mjs` accepting the new capacity (512 remains valid for older modules; the non-initializer tier stays 256). Module 190 (unchanged profile 109) = 1,122,451 bytes SHA `8e760da8...`.
 

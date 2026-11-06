@@ -175,6 +175,9 @@ void recomp_debug_service(uint32_t service, uint32_t arg_va)
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+/* Repeated zero-argument performance polls coalesce into their first row: the
+ * guest's time-wait loop would otherwise consume the whole bounded log. */
+static uint32_t kernel_repeats[FF_KERNEL_CAPACITY];
 static ff_port_io port_io;
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 /* PCRTC interrupt state, enabled only when the profile supplies events. The
@@ -1299,8 +1302,15 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
+    /* The two performance ordinals take no arguments: a consecutive repeat is
+     * the guest polling the clock and shares the previous bounded row. */
+    if (kernel_call_count && !argc && (ordinal == 126u || ordinal == 127u) &&
+        kernel_calls[kernel_call_count - 1][0] == ordinal) {
+        ++kernel_repeats[kernel_call_count - 1];
+        return kernel_calls[kernel_call_count - 1];
+    }
     if (kernel_call_count == FF_KERNEL_CAPACITY || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
-    uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
+    uint32_t *row = kernel_calls[kernel_call_count]; kernel_repeats[kernel_call_count] = 1; ++kernel_call_count; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
@@ -2740,6 +2750,7 @@ uint32_t ff_probe_fp_word(uint32_t field)
 }
 #endif
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
+uint32_t ff_probe_kernel_repeat(uint32_t i) { return i < kernel_call_count ? kernel_repeats[i] : 0; }
 uint32_t ff_probe_debug_service_count(void) { return debug_service_log.count; }
 uint32_t ff_probe_debug_service_dropped(void) { return debug_service_log.dropped; }
 uint32_t ff_probe_debug_service_word(uint32_t i, uint32_t n)
@@ -2775,6 +2786,7 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+    memset(kernel_repeats, 0, sizeof kernel_repeats);
     ff_port_io_init(&port_io);
 #ifdef FF_DISK_GEOMETRY_PROOF
     memset(disk_control_information,0,sizeof disk_control_information);

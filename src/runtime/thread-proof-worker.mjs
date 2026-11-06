@@ -247,6 +247,7 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
+      repetitions: typeof api.ff_probe_kernel_repeat === 'function' ? (api.ff_probe_kernel_repeat(i) >>> 0) : 1,
       arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
