@@ -422,3 +422,12 @@ mandatory corrective decision in docs/DECISIONS.md.
   (anchored grep 0 hits, `git diff --check` exit 0, 82+/34-); the marker card is retired and the
   D407 in-browser module-binding directive (`e74b4d6`) is still the lane's live objective, with no
   binding divergence fact produced yet. No runtime advance.
+- 2026-11-05 ops (D410): R6 corrective - runtime-a landed three consecutive non-source cycles on
+  the phantom marker question (`791f4d7` whitespace gate, `c942c58` package record, `5f265217`
+  marker-class audit) and its own records conclude "no added marker-class line exists at HEAD and
+  the gate passes, so no rewrite/amend applies"; the marker premise is closed at the authoritative
+  blob `39a8fa8f` and the lane-a card (`codex/opencode-source` `87d74be`, +1/-1) now carries only
+  the D407 in-browser module-binding directive. No runtime advance.
+- 2026-11-05 ops (D410): tempo fact - 0 counted advances and the stop unchanged at status 10 at
+  `0x6B6A6968`, 346 routines / 414 kernel ops; runtime-b tip `c4e46bd` stays unabsorbed into
+  PR #19 (next window ~23:40) and no user presence is needed for that route. No runtime advance.
