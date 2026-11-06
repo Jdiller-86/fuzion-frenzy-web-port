@@ -448,3 +448,26 @@ mandatory corrective decision in docs/DECISIONS.md.
   status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; the toolkit-owner decision
   on the D412 lifter divergence is the M6 path and the M3 acceptance stays
   `[ESI+0x47C] = 0x20400C post-repair`. No runtime advance.
+- 2026-11-06 ops (D412): repair decision (owner-delegated) - the divergence is a one-dword stack-delta
+  imbalance between the prologue's push-slot base and the epilogue's pop-slot base. runtime-a's lane
+  commit `e8a74a8` ("Capture pop destinations and show the epilogue is one dword low", published as the
+  tip of `refs/heads/codex/opencode-source`) shows destinations are the correct `edi, esi, ebp, ebx`
+  but they read slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40`, so
+  every pop is one dword (4 bytes) low and ESI receives the saved-EDI value `0x205E98`. The repair is
+  directed to the pipeline frame-setup/emission slot-base alignment (epilogue pop base = prologue push
+  base) in runtime-a's OWN lane-owned pipeline files (`tools/prepare-title-recomp.py` emitted `POP`
+  block and/or the module-preparation call-frame path; no `.tools`/`research`/fixture edits, no REA
+  call, no runtime-engine re-design per R12). Acceptance is M6's gate: the stop must move past
+  `0x6B6A6968` in BOTH profiles with R11 evidence (two named browser reports + independent audit JSON,
+  zero source mismatches), with `[esi+0x47c]` reading `0x20400c` post-repair as the post-repair
+  observable; a non-moving stop routes to the harness call-frame candidate in a new dated row.
+  runtime-b's decision request (`6ad911e`, with `bddbab1` and `3333cc7`) is honored: it continues its
+  owned materials/comparator work, no new lane-b directive this turn. No runtime advance.
+- 2026-11-06 ops (D412): integration state and tempo - #19's head remains `8940d3f` (contained
+  `8339912`; NOT contained `87d74be`/`7337147`/`677d191`/`2665586`/`e8a74a8` (runtime-a) and
+  `9957144`->`6ad911e` (runtime-b), re-verified with `git merge-base --is-ancestor`); `origin/main`
+  unmoved at `97d831bd`; the 00:40 tick must integrate the lane chains and apply the D-rows renumber
+  rule before the guarded merge per D394/D398/D403 - `8940d3f`'s blob still shows `D405` twice and
+  already carries its own `D412` row, so this row renumbers at integration. Tempo: 0 counted advances
+  and the stop unchanged verbatim at status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
