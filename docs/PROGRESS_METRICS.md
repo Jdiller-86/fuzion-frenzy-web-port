@@ -539,3 +539,20 @@ mandatory corrective decision in docs/DECISIONS.md.
   at `0x6B6A6968` / 346 / 414, main's `docs/PROJECT_STATUS.md` still carries the pre-advance text,
   and runtime-b's tip `854958e` shows no new boundary (its in-flight set is 6 interrupt-vector /
   kernel-service files, not the already-committed geometry refactor). No runtime advance.
+- 2026-11-06 ~01:05 ops (D431 repeat capture): the module-161 pair re-run is a reproducibility
+  capture, not a second counted advance - runtime-a's own record quotes "control unchanged at
+  status 13 `0xFD800044` (339/405); experiment advances past the fault to status 1 at
+  `0xFE0000C8`, ordinal 100 (`KeDisconnectInterrupt`, argument `0x206030`), 347 routines / 419
+  kernel ops", i.e. the SAME numbers D429 counted, from the SAME `browser-161-*` reports
+  (mtimes 00:17:17 / 00:29:32, both earlier than the D429 record); the live lane worktree's
+  uncommitted `browser-162-*` pair (00:57:23 / 00:59:53) prints the identical stop. The count
+  stays 1; no boundary move past `0xFE0000C8` is recorded. No runtime advance.
+- 2026-11-06 ~01:05 ops (D431 chain): the merge marker is still mis-issued - the 00:40 tick's
+  `lastSummary` carries `OPEN_MAIN_PR:` / `QUEUE_MAIN_PR_MERGE: 10cae52978...`
+  (`git cat-file -t` -> "Not a valid object name") while the real `refs/pull/19/head` is
+  `10cae52567...` (state `prManagement: no_architect_open_request`, no #24/#25 opened), so the
+  D430 re-issue directive stands; the runtime-b chain `9957144`->`854958e` is still unabsorbed
+  (containment exit 1 for all nine at `10cae52567`, `ad0bffa` exit 0), the lane-b cycle reads
+  `outcome: resume` / `finishedHead 854958e` / `publication: retry` ("Worktree has unfinished
+  edits"), the 6-file kernel/service set is still in flight, the comparator accounting is inside
+  `854958e`, and runtime-a is at `ad0bffa` with its 00:40:01 cycle in flight. No runtime advance.
