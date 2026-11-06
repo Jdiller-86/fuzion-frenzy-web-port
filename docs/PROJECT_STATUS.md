@@ -1,10 +1,10 @@
-# FUN_0004f7a0 admitted; next stop is placeholder 0x4C2E0
+# FUN_0004c2e0 admitted; next stop is placeholder 0x4E480
 
-November 6: one translation increment (retained pipeline; batch of one). Read-only Ghidra export `0x00042BE0`/`0x001F54D0`/`0x001FC910`/`0x0004F7A0` replaced the prior three-function seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 88 (**464 functions, 19,049 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 163: **1,009,495 bytes**, SHA `662e3b7a...`.
+November 6: one translation increment (retained pipeline; batch of one). Read-only Ghidra export `0x00042BE0`/`0x001F54D0`/`0x001FC910`/`0x0004F7A0`/`0x0004C2E0` replaced the prior four-function seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 89 (**465 functions, 19,056 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 164: **1,010,556 bytes**, SHA `617a5126...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment reaches `FUN_0004f7a0` and stops at **status 2, `0x004C2E0`** (348 routines / 421 kernel ops) — the next translation placeholder (`FUN_0004c2e0`, its first callee).
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment passes the wrapper and stops at **status 2, `0x004E480`** (350 routines / 422 kernel ops) — the next translation placeholder, an initializer with six direct calls.
 
-Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row (integration head `10cae525` lacks the lane commits). No main push/merge; geometry untouched.
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row (integration head `10cae525` lacks `d721550`/`a2a83de`). No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 

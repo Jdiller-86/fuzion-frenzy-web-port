@@ -917,3 +917,23 @@ Module `recomp-post-memory-build-163` (profile 88, same sources): **1,009,495 by
 The admission executed (`FUN_0004f7a0` reached) and stopped at the next translation placeholder, `0x004C2E0` (`FUN_0004c2e0`, its first callee). Halt and report; next bounded admission is `0x4C2E0` with its necessary direct dependencies.
 
 No DECISIONS row: integration head `10cae525` does not contain the lane commits, so the sync-first rule blocks it.
+
+## 62. Admission of FUN_0004c2e0; next stop is placeholder 0x4E480
+
+Translation increment under the standing policy (one set, batch of one function):
+
+- Read-only Ghidra export `research/verification/recomp-admit-4c2e0-01/seed-quint.json` (`0x00042BE0`, `0x001F54D0`, `0x001FC910`, `0x0004F7A0`, `0x0004C2E0`) replaced the previous four-function seed, keeping the 32-export cap.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 89: **465 functions, 19,056 instructions** (+1 function / +7 instructions; the admitted body is `SUB ESP,0x20; LEA EAX,[ESP]; PUSH EAX; CALL 0x00030ADE; MOV EAX,[ESP+0xc]; ADD ESP,0x20; RET`).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing ("the offered seeds match this translation's record exactly").
+
+Module `recomp-post-memory-build-164` (profile 89, same sources): **1,010,556 bytes**, SHA-256 `617a51269178d4907418a2dbb62cbf58fbeaf4a529f2adf50d600529c1612c1e`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004E480`** | **350 / 422** |
+
+The wrapper ran and its already-translated callee `0x30ADE` did not stop the run; the caller `FUN_0004f7a0` then called `FUN_0004e480`, the next translation placeholder. That block is an initializer `0x4E480..0x4E4AD` with six direct calls (`0x4B450`, `0x4C510`, `0x4D4D0`, `0x4DB50`, `0x4B570`, `0x4CC10`), a store to `0x2D0758`, `MOV EAX,1` and `RET`. Halt and report; the next bounded admission is `0x4E480` with those evidenced direct dependencies (7 functions, within the 8-function set cap).
+
+No DECISIONS row: integration head `10cae525` contains `ad0bffa` (D415 return-pop) but not `d721550` (ordinal-100 model) or `a2a83de`, so the sync-first rule still blocks the remaining rows.
