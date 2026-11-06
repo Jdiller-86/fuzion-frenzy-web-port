@@ -898,3 +898,22 @@ Module 162 pair:
 The call was accepted (`object 0x206030`, previous `1`, EAX 0→1, `esp + 8`), and the run advanced to a **translation placeholder** at `0x004F7A0` — the next genuine stop, to be characterized/admitted next.
 
 No DECISIONS row: the integration head `8940d3f` does not contain the lane commits (`ad0bffa` and later), so the sync-first rule still blocks it.
+## 61. Admission of FUN_0004f7a0; next stop is placeholder 0x4C2E0
+
+Translation increment under the standing policy (one set, batch of one function):
+
+- Read-only Ghidra export `research/verification/recomp-admit-4f7a0-01/seed-quad.json` (`0x00042BE0`, `0x001F54D0`, `0x001FC910`, `0x0004F7A0`) replaced the previous three-function seed, keeping the 32-export cap.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 88: **464 functions, 19,049 instructions** (+1 function / +59 instructions).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing ("the offered seeds match this translation's record exactly").
+
+Module `recomp-post-memory-build-163` (profile 88, same sources): **1,009,495 bytes**, SHA-256 `662e3b7a608f5b70e8079780744dc7e54ebd597d30477c892f449d4f71448767`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004C2E0`** | **348 / 421** |
+
+The admission executed (`FUN_0004f7a0` reached) and stopped at the next translation placeholder, `0x004C2E0` (`FUN_0004c2e0`, its first callee). Halt and report; next bounded admission is `0x4C2E0` with its necessary direct dependencies.
+
+No DECISIONS row: integration head `10cae525` does not contain the lane commits, so the sync-first rule blocks it.
