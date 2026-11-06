@@ -11,7 +11,7 @@ November 5. Defect-class capture is closed; this is the handoff package for the 
 
 **(iii) Bounded question for the translator owner/user.** Confirm which side is wrong (A or B) and decide the repair. Acceptance rule is the tested `ff_reg_order_is_reverse` predicate; any repair must pass it and leave `FUN_001FB640` restoring `esi` to the entry value so `[ESI+0x47C]` reads the device field (`0x20400C`), not `0x206314`. The absence of a single named writer inside the translated epilogue **is the finding**; no further hunt and no lane-side translator edit.
 
-Open blocker: `docs/EXECUTION_GOAL_NOV5.md` is absent from this worktree, so Runtime-b's milestone order remains unavailable. Integration facts: head `18cce1d` contains lane commits through `a0f4d5e`; main `97d831b`; the order-rule commit is pending integration. **No controllable original screen.**
+Goal document: `docs/EXECUTION_GOAL_NOV5.md` is available on the integration head (`git show 18cce1d:docs/EXECUTION_GOAL_NOV5.md`), so Runtime-b's M0-M5 milestone order is readable; the earlier "absent from this worktree" blocker is corrected. Integration facts: head `18cce1d` contains lane commits through `a0f4d5e`; main `97d831b`; the order-rule commit is pending integration. **No controllable original screen.**
 
 ## Prior: Save/pop-order rule pinned; translator-owner finding was final
 

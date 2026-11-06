@@ -609,4 +609,23 @@ The defect-class capture question is closed. The blockers package is published a
 
 No translator edit, no model, no further hunt from this lane. Observed stop unchanged: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
 
+## 41. M2 evidence snapshot and the unblocked goal document
+
+`docs/EXECUTION_GOAL_NOV5.md` is **available on the integration head** (`git show 18cce1d:docs/EXECUTION_GOAL_NOV5.md`); earlier "absent from this worktree" notes are corrected — Runtime-b's milestone order (M0-M5) is readable.
+
+M2 ("device access governed by one recorded policy") evidence from the retained report `browser-156-postpop.json`:
+
+| Metric | Value |
+| --- | --- |
+| Device events (`deviceRegisters.count`) | **5,302** |
+| Device access log entries | **12,637** |
+| Entries with `beforeKnown` provenance | **7,399** |
+| Status waits | 0 |
+
+That satisfies the ">=10 admitted device events with beforeKnown provenance" criterion with a wide margin, and the lane has advanced the boundary well past M1's graphics-init stop (through `0x001fe085`-class work to the current `FUN_001FB640` epilogue). The remaining M2 item is the **explicit recorded device-access policy decision** in the lane's DECISIONS record; the integration branch's decision rows must be checked before adding one here (next free number, no collision).
+
+Next bounded task: record or confirm the device-access policy decision (D-row) against the existing provenance evidence, or pick the next M3 item once the translator-owned epilogue repair lands.
+
+No DECISIONS row this cycle: evidence snapshot only.
+
 No DECISIONS row: tooling characterization.
