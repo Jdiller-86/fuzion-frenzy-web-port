@@ -1,4 +1,10 @@
-# Correction: the off-by-one slot reading is provisional, not confirmed
+# Order-tagged pops confirm ESI receives the saved-EDI slot
+
+November 5: post-pop ESI tagging (module 156) shows the prologue slots `0x3C10E40=0x3C10CFC` (ebx), `0x3C10E3C=0xFFFFFFFF` (ebp), `0x3C10E38=0x203B90` (esi), `0x3C10E34=0x205E98` (edi). ESI is `0x203B90` through every pop up to `0x3C10E30`, then becomes **`0x205E98` at the pop consuming the saved-EDI slot `0x3C10E34`**, and stays there for the remaining pops. The executed epilogue writes the saved-EDI value into ESI while the saved-ESI value is consumed elsewhere — inconsistent with the literal `pop edi; pop esi; pop ebp; pop ebx` order. Confirmed defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact. No fix or model; repair decision belongs to the translator owner/user.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Correction: the off-by-one slot reading is provisional, not confirmed
 
 November 5: the pop-word capture cannot yet be tied to registers. The four last stack reads (`0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`) are **unordered relative to the `edi/esi/ebp/ebx` pop sequence**; the probe records values, not destinations. Solid facts: the field read observes `ESI = 0x205E98` (arbiter-confirmed), and the last tail access `0x1FB71B` observes `ESI = 0x203B90` with only epilogue pops in between. The off-by-one claim is therefore **provisional** and needs an order-tagged pop capture (sequence index + destination register) before being reported as a translator defect. No fix or model.
 

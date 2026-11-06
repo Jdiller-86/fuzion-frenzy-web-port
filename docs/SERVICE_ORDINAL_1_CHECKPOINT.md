@@ -559,4 +559,18 @@ Honest status: the writer is localised to the `FUN_001FB640` epilogue, the exact
 
 No DECISIONS row: characterization only.
 
+## 37. Order-tagged pops confirm: ESI receives the saved-EDI slot
+
+The probe now records `g_esi` after each stack pop (`popEvents` third field). Run `browser-156-postpop.json` (module 156):
+
+- `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` → slots `0x3C10E40 = 0x3C10CFC` (ebx), `0x3C10E3C = 0xFFFFFFFF` (ebp), `0x3C10E38 = 0x203B90` (esi), `0x3C10E34 = 0x205E98` (edi).
+- The .inc epilogue order is `pop edi; pop esi; pop ebp; pop ebx`.
+- Post-pop ESI trace: ESI is `0x203B90` after every pop up to `0x3C10E30`; it becomes **`0x205E98` at the pop consuming `0x3C10E34`** (the saved-EDI slot) and stays `0x205E98` for the remaining pops (`0x3C10E38`, `0x3C10E3C`, `0x3C10E40`).
+
+So the executed epilogue writes the **saved-EDI value into ESI**, while the saved-ESI value (`0x203B90`) is consumed by another pop. The literal source order would not do that, so the pop/register mapping in the executed translation is inconsistent with its own text — the exact defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact.
+
+This is now confirmed by direct post-pop tagging. No fix or model is applied; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
