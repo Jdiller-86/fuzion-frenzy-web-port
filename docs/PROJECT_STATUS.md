@@ -1,4 +1,10 @@
-# M2 device-access policy recorded (D402); blockers package renumbered to D401
+# M2 closed with evidence: seven boundary advances since M1, policy D402
+
+November 5: the retained report chain documents seven boundary/target advances since M1 — `0xFD800044` (339/405) → ordinal 159 (340/405) → ordinal 3 (340/406) → ordinal 2 (340/407) → ordinal 1 (340/408) → ordinal 2 (340/409) → `D3DDevice_Release` (344/411) → ordinal 171 (346/412) → the read fault (346/414). Together with the recorded device-access policy (D402) this satisfies M2's criteria; the lane is blocked at the translated `FUN_001FB640` epilogue mismatch (D401 package), not at a service or resource.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 device-access policy recorded (D402); blockers package renumbered to D401
 
 November 5: the runtime-a blockers package (already committed as `0f0b6c1`) is renumbered **D401** to avoid the integration branch's D398–D400 rows. M2's remaining item is now recorded as **D402**: device accesses are governed by the declared synthetic register window only — previously written addresses return the shadow value with `beforeKnown` provenance; unknown/undeclared reads fault with the exact record (status 10, address/width/access/site); widths/bounds restricted to the aperture; no fabricated values or writes. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 `beforeKnown`, 0 status waits; two boundary advances since M1 recorded. Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401); the next executable step depends on the translator owner's repair decision.
 

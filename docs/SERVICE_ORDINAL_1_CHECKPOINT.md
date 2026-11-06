@@ -634,4 +634,24 @@ M2's remaining item is recorded as D402: device accesses are governed by the dec
 
 Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401 blockers package) with the observed stop at `0x6B6A6968`; the next executable step depends on the translator owner's repair decision, so no new model or translation change is attempted here.
 
+## 43. Boundary-advance evidence for M2 (retained report chain)
+
+The retained `research/verification/pfifo-setup-01/browser-*.json` chain documents the advances since M1 (graphics-init stop):
+
+| Report | Stop | Routines / ops |
+| --- | --- | --- |
+| `browser-104-reset-avquery` | status 13 at `0xFD800044` (pushbuffer control) | 339 / 405 |
+| `browser-112-consumer` | status 1 at `0xFE000094`, ordinal 159 | 340 / 405 |
+| `browser-118-avunknown` | ordinal 3 after the vblank-wait pass | 340 / 406 |
+| `browser-119-saved` | ordinal 2 after the display declaration | 340 / 407 |
+| `browser-120-saved` | ordinal 1 at `0xFE000098` | 340 / 408 |
+| `browser-121-null` | ordinal 2 at `0xFE000094` | 340 / 409 |
+| `browser-123-null` | ordinal 2 after `D3DDevice_Release` admission | 344 / 411 |
+| `browser-125-null` | ordinal 171 at `0xFE000004` (`MmFreeContiguousMemory`) | 346 / 412 |
+| `browser-126-free` | status 10 at `0x6B6A6968` (read fault) | 346 / 414 |
+
+That is well over the M2 requirement of two boundary advances beyond M1, together with the recorded device-access policy (D402). The lane is now blocked at the translated epilogue mismatch (D401), not at a service or resource.
+
+No DECISIONS row: evidence consolidation for D402.
+
 No DECISIONS row: tooling characterization.
