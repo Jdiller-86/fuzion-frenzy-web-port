@@ -1,4 +1,10 @@
-# Counter polls coalesced; the bounded probe trace is the next budget
+# DECISIONS.md split under 5 MiB; runtime stop unchanged at the trace capacity
+
+November 6: architect Primary docs task. `docs/DECISIONS.md` is now **0.65 MB**: D001-D219 and the W0xx/A0xx cadence rows (256 rows) moved to `docs/archive/DECISIONS_PRIOR_20261106.md` (0.28 MB) with a pointer row in place, and D448 records the split. All 467 rows from the integration head are preserved (211 current + 256 archived, no overlap, none missing). The bloat was repeated encoding mangling, not duplicate rows; 39 historic rows whose integration copy was mangled now use this lane's clean text, so the archive carries no mangling.
+
+Runtime frontier unchanged: experiment **status 5 at `0x001DF8A0`, 386 routines / 496 kernel ops**, bounded probe trace (8192 entries). Next task: raise or coalesce the bounded trace for repeated poll-loop iterations, then report the next stop. Checks: `npm run check` exit 0, `git diff --check` clean, `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass. No main push/merge; geometry untouched.
+
+## Prior: Counter polls coalesced; the bounded probe trace is the next budget
 
 November 6: consecutive zero-argument ordinal-126/127 calls now share one call row with a repetition count (`kernel_repeats`, new `ff_probe_kernel_repeat` export, `repetitions` in the report, validated 1..0xFFFFFFFF; proof-report 25/25). Module 191 (unchanged profile 109) = 1,115,159 bytes SHA `258d3ff1...`.
 
