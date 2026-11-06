@@ -1329,3 +1329,31 @@ The debug trap was consumed and the run continued: it completed 36 further kerne
 Next bounded task: admit `FUN_0004fa60` at `0x4FA60`; halt-and-report if its `[ECX]` struct writes fall outside the guarded memory contract. Open decision: whether to adopt the pinned `rdtsc` model for `0x4C5F0`/`0x1E0C90` given the unverified title QPF.
 
 Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 78. Admit FUN_0004fa60 and the time-zone batch; next stop is the 0xFF settings block
+
+Runtime-a march from the section 77 frontier, two profiles in one cycle.
+
+**Step 1 - `FUN_0004fa60`.** Seed `recomp-admit-4fa60-01/seed-4fa60.json` (1 function, 25 instructions, only call is the translated `0x1E8DE0`); profile 105 = **498 functions / 20,590 instructions**; `verify-seeds` 24/24/0/0. Module `recomp-post-memory-build-182` = **1,097,053 bytes**, SHA `303f794e9a1ff5bd78aa392b26479605034803140912a1f2b4ed2c5443584c25`. The experiment advanced to **status 2 at `0x001E8D8A`, 377 routines / 481 ops**, return address `0x1E8DF9`; control 339/405 and inert 347/419 unchanged.
+
+**Step 2 - the time-zone batch.** `FUN_001e8d8a` (`0x1E8D8A..0x1E8DDF`, 34 instructions) is the CRT's local-time assembler: it calls `GetTimeZoneInformation` (`0x1E8C2E`, 141 instructions), multiplies the returned minutes by 60, and converts through `__allmul` (`0x1DF950`, 19 instructions). `GetTimeZoneInformation` calls the translated `SetLastError` (`0x31127`), `0x1E8A24` (175 instructions) and `0x1E8892` (53 instructions), which is the settings-block reader. The batch is those five functions, 422 instructions total.
+
+- Seed `research/verification/recomp-admit-1e8d8a-01/seed-1e8d8a-batch.json`: 5 functions, all `established=true`, 422 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-106` produced private profile 106: **503 functions, 21,012 instructions** (+5 / +422).
+- `verify-seeds.py`: 25 recorded / 25 offered / 0 unexpected / 0 missing. No `rdtsc` or `int 0x2d` site lies in the new functions.
+
+Module `recomp-post-memory-build-183` (profile 106): **1,111,033 bytes**, SHA-256 `621f77ebfc7df9443b99128758b8eb94c20e624789cd5750903919de7ab98ab0`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9, ordinal 24, value `0xFF`** | **380 / 481** |
+
+The run consumed the whole time-zone chain and stopped on a **kernel service**, not an untranslated routine: `ExQueryNonVolatileSetting` (ordinal 24) was called with `ValueIndex = 0xFF`, `ValueLength = 0x100`, a stack type word and a 256-byte value buffer, return address `0x309C9` (the wrapper `FUN_000309b2` returning from the import thunk `0x34720`). The call site is `FUN_001e8892` (`0x1E889B..0x1E88B2`: push 0, push `0x100`, buffer `EBP-0x104`, `EBP-4` type, push `0xFF`), and its caller handles a nonzero status by returning without filling `TIME_ZONE_INFORMATION`.
+
+Evidence for the next step (recorded, not yet implemented): the pinned translator's `src/kernel/kernel_xbox.c` treats `XC_MAX_OS` (`0xFF`) as the **whole 0x60-byte user-settings block** - checksum, bias, standard/daylight names, reserved bytes, standard/daylight dates, reserved bytes, standard/daylight bias, language, video, audio, parental x3, online x4, misc, DVD region - returned as `REG_BINARY` (type 3) with `ResultLength = 0x60`, `STATUS_BUFFER_TOO_SMALL` (`0xC0000023`) below 0x60 bytes and zero fill beyond. That model builds the time-zone fields from the **host** time zone and fixes language 1, widescreen+HDTV video, stereo audio, unrestricted parental, DVD region 1, misc 0 and zeroed online fields. The probe's settings model covers only indexes 17 and 10 (`misc_flags`, `parental_games`) and stops on any other index.
+
+Next bounded task: decide and, if ratified, implement the `0xFF` user-settings block as a checked probe model with explicit inputs (bias, standard/daylight names and dates) rather than a host time zone; halt-and-report if the value source is not evidenced. Open decisions now on record: this block and the `rdtsc` model.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
