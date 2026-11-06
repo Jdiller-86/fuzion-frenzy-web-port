@@ -663,3 +663,52 @@ mandatory corrective decision in docs/DECISIONS.md.
   line at EOF") while this row's live `git diff --check origin/main 9158e70` exits 0; the integration head is still
   `9158e70` with both lane tails (`9e563dc`, `6fc4b18`) unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at
   `97d831bd`; the count stays 6. No runtime advance.
+- 2026-11-06 ~02:50 runtime-a counted advance #7: `9e563dc` + `768f31a` (`0x001E0151` -> `0x001E4C62`;
+  `__fsopen` batch admitted; `__lock_file2` next placeholder; module 167; 357/428); both-profile evidence;
+  COUNTED. The 02:40 tick's own facts: the previous withhold's stale premise was RESOLVED by its own fresh
+  check (`git diff --check origin/main HEAD` exit 0, re-verified here twice against `832efee`), the runtime-a
+  tail (`768f31aa`, with `9e563dc`) is ABSORBED at the integration head `832efee`, and local main's records
+  through `5cc1a8a` are absorbed too. Only `768f31a` is the increment (`9e563dc` was counted as #6 at D439):
+  6 -> 7 counted.
+- 2026-11-06 ~02:50 boundary fact (D441, merge pending): the integration head moved `9158e70` -> `832efee`
+  (`refs/pull/19/head`); at that blob the D-rows renumber is APPLIED (424 numbered rows, own max row D440) and
+  the malformed D438 row (`D438 facts (Nov 6 ~02:25): ...`, no number cell) persists there. The merge was
+  QUEUED at the new head - `OPEN_MAIN_PR`/`QUEUE_MAIN_PR_MERGE` = `832efee1826fb55dfc8ef3d63e834367fd25fce2`,
+  `promotion: queued_ci`, `mergeResult` "Approved merge remains pending: PR is not cleanly mergeable: unstable" -
+  but did NOT land (`origin/main` unmoved at `97d831bd`; PR #24 absent; the four SUCCESS checks in the state
+  belong to the prior head `9158e70`, so the new head's CI was not yet read green). The runtime-b chain
+  (`9957144`..`cef3b6e`, 16 commits) is still unabsorbed (ancestor read exit 1). The machine's own next tick
+  owns the merge landing. No runtime advance.
+- 2026-11-06 ~03:05 runtime-a counted advance #8: `a98af1f` (`0x001E4C62` -> `0x001E540F`, 358/429; `__lock_file2`
+  admitted; the interrupt family fully named). COUNTED - the >=8/DAY NIGHT TARGET MET. Pair line carries both profiles
+  (control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100); profile 93 = 481 functions / 19,693
+  instructions; module 168 = 1,027,106 bytes (SHA `285ab47a...`); verify-seeds 32/32/0/0; checks: native 56/56,
+  proof-report 23/23, `test:runtime` pass, `check` 486 files. The night's ledger is 8 counted advances (`ad0bffa` #1,
+  `d721550` #2, `a2a83de` #3, `91e5e0b` #4, `6fdcd98` #5, `9e563dc` #6, `768f31a` #7, `a98af1f` #8) - each a lane
+  commit moving the stop with both-profile evidence; no re-capture counted.
+- 2026-11-06 ~03:05 boundary fact (D442, merge/absorb): the machine's own state (`.worktrees/opencode-architect-cycle-state.json`,
+  mtime 02:42:20) still records `mergeResult` "Approved merge remains pending: PR is not cleanly mergeable: unstable"
+  with `promotion: queued_ci` and a `prSnapshot` whose `mainPRStatus` heads the PRIOR head `9158e70` (mergeable true,
+  clean, four SUCCESS checks), while the LIVE read at this write returns `{"headRefOid":"832efee...","mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","state":"OPEN"}`
+  for PR #19 and the open set is exactly [#19], so PR #24 was never opened and `origin/main` stays at `97d831bd`. The
+  runtime-b chain `9957144`..`cef3b6e` (16 commits) remains unabsorbed at `832efee` (ancestor exit 1), as does `a98af1f`
+  (exit 1; `768f31a` is contained, exit 0); the D-rows reconcile at the merged blob (own max D440, `D438` still without a
+  number cell, measured gaps 421/422/427/428 plus the standing 303-307 and 349-354) is the pending pass. The machine's own
+  next tick is the named window for the live-read-driven merge. No runtime advance.
+- 2026-11-06 ~03:15 runtime-a counted advance #9: `61f7667` (`0x001E540F` -> `0x001E785E`, 360/430; `__sopen` next
+  placeholder; module 169). COUNTED - with the note that the rolling-7-day average vs the 9-counted-night still requires
+  the >=8/day window to SUSTAIN. Pair line carries both profiles (control 339/405 at `0xFD800044`; inert 347/419 at
+  `0xFE0000C8` ordinal 100); profile 94 = 482 functions / 19,697 instructions; module 169 = 1,029,534 bytes (SHA
+  `c16c3d8b...`); verify-seeds 32/32/0/0; checks: native 56/56, proof-report 23/23, `test:runtime` 199 pass, `check` 486
+  files. Published at `refs/heads/codex/opencode-source`. The night's ledger is 9 counted advances (`ad0bffa` #1,
+  `d721550` #2, `a2a83de` #3, `91e5e0b` #4, `6fdcd98` #5, `9e563dc` #6, `768f31a` #7, `a98af1f` #8, `61f7667` #9); the
+  prior days of the rolling-7-day window carried zero, so the 9-counted night does not by itself unit the window average.
+- 2026-11-06 ~03:15 boundary fact (D443, integration/window): the integration head remains `832efee` (`refs/pull/19/head`)
+  and `origin/main` stays at `97d831bd`; the runtime-b chain `9957144`..`cef3b6e` (16 commits, re-counted) is still
+  unabsorbed (ancestor exit 1), as is `61f7667` (exit 1; `768f31a` contained, exit 0). The runtime-b lane's own cycle is
+  in flight (`started 2026-11-06T03:07:31`, `attemptedHead cef3b6e`) and its checkpoint names the single-owner boundary
+  ("a file this lane may not edit, `tools/fixtures/thread_startup_probe.c`, runtime-a-owned under D393/D414"); no action
+  taken here. The reconcile-pass items at the merged blob are named: the malformed `D438` row (no number cell) and the
+  measured 421/422/427/428 number-cell gaps (plus the standing 303-307 and 349-354 gaps, absent on both sides). The
+  machine's own 03:40/04:40 tick window owns the absorption/merge and had not fired at this read (newest architect state
+  is the 02:40 tick, mtime 02:42:20; read clock 03:13). No runtime advance.
