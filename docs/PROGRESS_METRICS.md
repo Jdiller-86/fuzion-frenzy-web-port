@@ -216,3 +216,27 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-05 tempo: 0 counted advances - no new stop boundary and no newly serviced reached
   request with both-profile evidence; the stop holds at status 10 / `0x6B6A6968` / 346 routines /
   414 kernel ops across both lane cycles. See D397. No runtime advance.
+
+- 2026-11-05 runtime-a: card edit `a241507` ("ops: direct runtime-a to compose the epilogue-mismatch
+  blockers package", parent `dcb9221`) directs the lane to publish the blockers package from the tested
+  `ff_reg_order_is_reverse(push_order, pop_order, count)` rule - the two named repair-owners (translator
+  callee-saved emission entry versus the `.inc` POP expansion) with exact file/site evidence, plus the
+  bounded owner/user question - and records that the absence of a single named writer inside the
+  translated epilogue IS the finding; the worktree card lacked the checkpoint bullet, so the directive
+  was added as the first bullet with every other line untouched (+1). See D398. No runtime advance.
+- 2026-11-05 runtime-b: card edit `5089305` ("ops: authorize digest-verified root-reference comparator
+  for the triangle prepass", parent `7911e35`) permits the triangle reference from either the
+  worktree-local or the repo-root relative path, always digest-verified, never committed or invented,
+  with a recorded skip evidence line when neither resolves, and allows extending the comparator's
+  allowlist to exactly those two paths if its `inside(toolRoot, ...)` guard rejects the root one; the
+  same cycle's `7911e35` recorded that root `geom-reference-02` line/quad data exists, which conflicts
+  with keeping line/quad as the recorded capture gap and needs an architect ruling. See D398.
+  No runtime advance.
+- 2026-11-05 executor: publication and integration state at ~20:30 - `origin/lane/integration` now
+  exists at `1af5dce` (equal to local `main`; verified first-parent chain from `65a4e691` including
+  `5c3cbb6`, which the brief omitted), while `origin/codex/opencode-architect` is still `18cce1d` and
+  contains `a0f4d5e`/`8b9e061`/`d4d1207` but none of `f9f503a`, `6ad7e9b`, `5d0d14c`, `5289983`,
+  `6a11cf2`, `8859dfa`, `0ffa346`, `1d53fa2`, `1af5dce`, `e6bc808`, `8b539e0`, so the two lines diverge
+  and only a head claiming both may be merged; the lane-b runner copy also still lacks main's D393
+  harness-ban tail. Tempo stays at 0 counted advances pending a new stop boundary. See D398.
+  No runtime advance.
