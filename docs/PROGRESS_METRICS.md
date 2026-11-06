@@ -391,3 +391,16 @@ mandatory corrective decision in docs/DECISIONS.md.
   module compilation/binding - a diagnostic narrowing, not a boundary move. The stop is
   unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops; PR #19 stays the only
   guarded route with the 22:40 tick as the next reconciliation window (D403). No runtime advance.
+- 2026-11-05 ops (D408): merge-gate false positive - the 22:40 tick returned `integrated`
+  (finished head `39a8fa8`, was `d1cc85a`) and absorbed `c438e75`/`367febd`/`a9724a7`/
+  `e74b4d6`/`1875d94`/`2aa9b43`, but omitted `MERGE_MAIN_PR` on its own unanchored marker grep
+  (`^\+.*(<<<|===|>>>)`), which matched static-in-cell JavaScript in the pre-existing D217 row.
+  The integrated blob is clean: anchored `^(<<<<<<<|=======$|>>>>>>>)` 0 hits,
+  `git diff --check origin/main origin/codex/opencode-architect -- docs/DECISIONS.md` exit 0,
+  82+/34-. `origin/main` still `97d831bd`; no merge landed. No runtime advance.
+- 2026-11-05 ops (D408): runtime-b in flight and unabsorbed - lane tip `446a9c9` "geometry: match
+  the pinned quad point-mode reference" with `M tools/compare-nv2a-geometry.mjs`,
+  `M tests/compare-nv2a-geometry.test.mjs` (plus `M docs/RUNTIME_B_SERVICE_CHECKPOINT.md`); the
+  `9957144`->`446a9c9` chain is NOT contained in `39a8fa8`, so the D403 superset gate stays open
+  for the next tick. Stop unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
