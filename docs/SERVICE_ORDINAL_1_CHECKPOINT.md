@@ -1244,3 +1244,31 @@ The ordinal-301 mapping is validated end to end: the CRT stored error `6` for `0
 `__dosmaperr` calls `0x1E2038` (not yet translated) and walks a 45-entry dos-error/errno table at `0x2B7888`, writing the dos error at thread-struct `+0xC` and the mapped errno at `+0x8`. Next bounded task: admit `__dosmaperr` together with its unseeded direct callee `0x1E2038`, per the standing callee-batch policy.
 
 Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 75. Admission of __dosmaperr with its thread-data getter; next stop is __unlock_fhandle at 0x1E731B
+
+Runtime-a continuation from the section 74 frontier. The batch is two functions, as directed: `__dosmaperr` (`0x1E4F99..0x1E500B`, 35 instructions) and its only unseeded direct callee `FUN_001e2038` (`0x1E2038..0x1E20B9`, 41 instructions), the CRT thread-data getter.
+
+Static shape recorded from the read-only export and inspection:
+
+- `FUN_001e2038` reads `FS:[0x24]` and calls import slot `0x2534C0` (ordinal 95) only when `FS:[0x24] >= 2`; it then reads `FS:[0x28]`, `[0x2BB130]`, `FS:[0x4]` and falls back to the global thread-data block at `0x31D974`.
+- `__dosmaperr` stores the incoming dos error at thread-struct `+0xC`, walks the 45-entry (`0x2D`) table at `0x2B7888`/`0x2B788C`, and writes the mapped errno at `+0x8`; when the table misses it stores errno `0xD` for dos errors in `0x13..0x24`.
+- Read-only Ghidra export `research/verification/recomp-admit-1e4f99-01/seed-1e4f99.json`: the previous 29 seed functions plus `0x001E4F99` and `0x001E2038`; 31 functions, all `established=true`, 1,436 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-99` produced private profile 99: **491 functions, 20,336 instructions** (+2 / +76).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-177` (profile 99): **1,063,427 bytes**, SHA-256 `5ab84e93c2aebb47ca022c8989e62cda3c3776af64ea38999bb5d890c8d6eeec`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E731B` (`__unlock_fhandle`)** | **369 / 442** |
+
+Both admitted routines ran: the experiment moved from the section 74 stop at `__dosmaperr` to **status 2 at `0x001E731B`**, return address `0x1E78B1`, first stack argument `3` (the handle), with the ordinal-301 conversion still reported as error `6` in the same call sequence and no new kernel operation (ops stay 442 because the stopped call is not counted).
+
+`__unlock_fhandle` (`0x1E731B..0x1E733C`, 10 instructions) loads the argument handle, indexes the file-handle table at `0x31D860` by `handle >> 5`, computes the per-handle critical-section address from `(handle & 0x1F) * 0x28 + 0xC`, and calls kernel thunk `[0x2533EC]`. That slot resolves in the pinned profile to **ordinal 294 `RtlLeaveCriticalSection`, already routed**, so the next set is one function with no unseeded direct callees.
+
+Next bounded task: admit `__unlock_fhandle` at `0x1E731B`; halt-and-report if the indexed table access or the ordinal-294 argument surface exceeds the guarded memory contract.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

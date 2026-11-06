@@ -1,4 +1,10 @@
-# GetLastError admitted; run advances to untranslated __dosmaperr at 0x1E4F99
+# __dosmaperr and its thread-data getter admitted; run advances to untranslated __unlock_fhandle at 0x1E731B
+
+November 6: runtime-a batch of two functions (`__dosmaperr` `0x1E4F99..0x1E500B` and its only unseeded direct callee `FUN_001e2038` `0x1E2038..0x1E20B9`). Seed `recomp-admit-1e4f99-01/seed-1e4f99.json` (31 functions, all established, 1,436 instructions); profile 99 = **491 functions / 20,336 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 177: **1,063,427 bytes**, SHA `5ab84e93...`.
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment **status 2 at `0x001E731B` (`__unlock_fhandle`), 369 routines / 442 kernel ops** (return address `0x1E78B1`, first stack argument `3`). `__unlock_fhandle` (`0x1E731B..0x1E733C`, 10 instructions) indexes the handle table at `0x31D860` by `handle >> 5` and calls kernel thunk `[0x2533EC]`, which resolves to ordinal 294 `RtlLeaveCriticalSection` (already routed). Next task: admit `__unlock_fhandle` as a one-function set. Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: GetLastError admitted; run advances to untranslated __dosmaperr at 0x1E4F99
 
 November 6: runtime-a admission set of one function (`GetLastError`, `0x310FF..0x31126`, no callees). Seed `recomp-admit-310ff-01/seed-310ff.json` (29 functions, all established); profile 98 = **489 functions / 20,260 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 176: **1,052,675 bytes**, SHA `47a1c75e...`.
 
