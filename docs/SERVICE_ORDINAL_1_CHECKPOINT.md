@@ -1272,3 +1272,27 @@ Both admitted routines ran: the experiment moved from the section 74 stop at `__
 Next bounded task: admit `__unlock_fhandle` at `0x1E731B`; halt-and-report if the indexed table access or the ordinal-294 argument surface exceeds the guarded memory contract.
 
 Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 76. Admission of __unlock_fhandle; next stop is __unlock_file at 0x1E4C85
+
+Runtime-a continuation from the section 75 frontier. `__unlock_fhandle` (`0x1E731B..0x1E733C`, 10 instructions) has no unseeded direct callee: its only call is kernel thunk `[0x2533EC]`, which the pinned profile resolves to ordinal 294 `RtlLeaveCriticalSection` (already routed), so the set is one function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e731b-01/seed-1e731b.json`: the previous 31 seed functions plus `0x001E731B`; 32 functions, all `established=true`, 1,446 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-100` produced private profile 100: **492 functions, 20,346 instructions** (+1 / +10).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-178` (profile 100): **1,064,488 bytes**, SHA-256 `7422738bf1bcdcfbcc6fd6434d4c277477e41a1a1a91b1ab535c8dbe837fe51f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4C85` (`__unlock_file`)** | **371 / 443** |
+
+`__unlock_fhandle` executed and completed its ordinal-294 call (status 0, argument `0x3307B4`, i.e. the computed per-handle critical-section address). The run then reached **status 2 at `0x001E4C85`**, the untranslated `__unlock_file` (body `0x1E4C85..0x1E4CB3`, 12 instructions), from return address `0x1E01AB` inside the already-translated `FUN_001e01a3`, with first stack argument `0x2B7668`.
+
+`__unlock_file` compares its argument against the lock-table window `0x2B7608..0x2B7868`. The observed argument is inside the window, so that run takes the in-range branch: index `((0x2B7668 - 0x2B7608) >> 5) + 0x10 = 0x13` into `FUN_001e62ce`, which is **already translated** (3 instructions: push `[eax*8 + 0x2B7B58]`, call ordinal 294). The out-of-range branch calls the same routed ordinal-294 thunk directly. The set is therefore one function with no unseeded callees on either branch.
+
+Next bounded task: admit `__unlock_file` at `0x1E4C85`; halt-and-report if the `0x2B7B58` lock-table read or an out-of-range argument falls outside the guarded memory contract.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

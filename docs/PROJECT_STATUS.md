@@ -1,4 +1,10 @@
-# __dosmaperr and its thread-data getter admitted; run advances to untranslated __unlock_fhandle at 0x1E731B
+# __unlock_fhandle admitted; run advances to untranslated __unlock_file at 0x1E4C85
+
+November 6: runtime-a one-function set (`__unlock_fhandle`, `0x1E731B..0x1E733C`); its only call is kernel thunk `[0x2533EC]` = already-routed ordinal 294, so no callees join. Seed `recomp-admit-1e731b-01/seed-1e731b.json` (32 functions, all established, 1,446 instructions); profile 100 = **492 functions / 20,346 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 178: **1,064,488 bytes**, SHA `7422738b...`.
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment **status 2 at `0x001E4C85` (`__unlock_file`), 371 routines / 443 kernel ops** (return address `0x1E01AB` in `FUN_001e01a3`, first stack argument `0x2B7668`). The ordinal-294 unlock call completed at `0x3307B4`. `__unlock_file` (`0x1E4C85..0x1E4CB3`, 12 instructions) has no unseeded callees: the observed in-window argument takes the `FUN_001e62ce` branch (already translated) and the out-of-range branch calls routed ordinal 294. Next task: admit `__unlock_file` as a one-function set. Checks: `test:native` 60/60, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: __dosmaperr and its thread-data getter admitted; run advances to untranslated __unlock_fhandle at 0x1E731B
 
 November 6: runtime-a batch of two functions (`__dosmaperr` `0x1E4F99..0x1E500B` and its only unseeded direct callee `FUN_001e2038` `0x1E2038..0x1E20B9`). Seed `recomp-admit-1e4f99-01/seed-1e4f99.json` (31 functions, all established, 1,436 instructions); profile 99 = **491 functions / 20,336 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 177: **1,063,427 bytes**, SHA `5ab84e93...`.
 
