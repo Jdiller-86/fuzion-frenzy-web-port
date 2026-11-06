@@ -1,4 +1,10 @@
-# Capture: the failing create is z:\debugLog.txt with root 0xFFFFFFFD
+# Documented status conversion; run advances to untranslated GetLastError at 0x310FF
+
+November 6: architect-authorized bounded model change (option A; the drive-letter-path reclassification stays deferred). New source-owned `src/runtime/kernel_error_map.{c,h}` converts the pinned NTSTATUS set (`0xC0000008`→6, `0xC0000022`→5, `0xC0000034`→2, `0xC0000035`→80, `0xC000003A`→3, `0xC0000043`→32, success→0) and returns an unmapped sentinel for everything else; the ordinal-301 handler now uses it and still stops on an unmapped status. Five emitted statuses stay unmapped on purpose (two candidate winerror columns each, no retained evidence picks one). New `kernel_error_map` fixture plus a pin that root words `0xFFFFFFFD`/`0xFFFFFFFF` are refused atomically (**60/60**).
+
+Module 175 (unchanged profile 97): **1,052,085 bytes**, SHA `ea3c1349...`. Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment converts `0xC0000008` to error 6, the CRT `_open` returns `-1`, and the run advances to **status 2 at `0x000310FF` (`GetLastError`), 365 routines / 442 kernel ops** (return address `0x1E778C` in `FUN_001e75c8`). Next task: admit `GetLastError` at `0x310FF`. Recorded model limits: root `0xFFFFFFFD` refused, drive-letter paths outside the volume contract — modeled CRT error handling, not an original-kernel verdict. Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Capture of the refused create (`z:\debugLog.txt`, root `0xFFFFFFFD`)
 
 November 6: architect-authorized bounded probe cycle (option C). A new default-off `createFailureCapture` input records a refused ordinal-190 request in the probe; module 174 (unchanged profile 97) is `1,051,868` bytes, SHA `02ac5719...`. Diagnostic report `browser-174-createfail.json` captures the failed call: name **`z:\debugLog.txt`**, root-directory word **`0xFFFFFFFD`**, access `0x40100080`, disposition 5, options `0x60`, attributes `0x80`, share 3; descriptor unchanged at stop. The stop is unchanged: **status 9, ordinal 301 (`RtlNtStatusToDosError`), value `0xC0000008`, 365 routines / 443 kernel ops**; control 339/405 and inert 347/419 unchanged.
 

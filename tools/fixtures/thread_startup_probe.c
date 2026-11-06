@@ -9,6 +9,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#include "../../src/runtime/kernel_error_map.h"
 #include "../../src/runtime/port_io.h"
 #ifdef FF_PFIFO_PROOF
 #include "../../src/runtime/pfifo_channel.h"
@@ -2156,10 +2157,12 @@ static void query_nonvolatile(void)
 static void status_to_dos_error(void)
 {
     uint32_t *row = kernel_record(301, 1);
-    /* The observed STATUS_SUCCESS -> ERROR_SUCCESS conversion is exact.
-     * Other statuses remain unsupported, never silently mapped to success. */
-    if (row[2] != 0) stop(9, row[2], 301);
-    row[1] = 0; g_eax = 0; g_esp += 8;
+    /* The conversion contract for the emitted status vocabulary: a pinned
+     * status yields its documented Win32 error, anything else stops rather
+     * than silently mapping to success or to a guessed error word. */
+    const uint32_t error = ff_kernel_error_from_status(row[2]);
+    if (error == FF_KERNEL_ERROR_UNMAPPED) stop(9, row[2], 301);
+    row[1] = error; g_eax = error; g_esp += 8;
 }
 #ifdef FF_VM_PROOF
 static void initialize_critical(void)

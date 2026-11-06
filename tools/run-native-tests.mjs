@@ -50,6 +50,7 @@ const fixtures = [
   { name: 'av_query_adapter', sources: ['tests/av_query_adapter_test.c', runtime('av_query_adapter.c'), runtime('av_query.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'fatx_volume', sources: ['tests/fatx_volume_test.c', runtime('fatx_volume.c'), runtime('local_disk.c'), runtime('file_namespace.c'), runtime('local_volume.c'), runtime('local_directories.c'), runtime('object_namespace.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'local_files', sources: ['tests/local_files_test.c', runtime('local_volume.c'), runtime('local_directories.c'), runtime('local_files.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
+  { name: 'kernel_error_map', sources: ['tests/kernel_error_map_test.c', runtime('kernel_error_map.c')] },
   { name: 'recomp_memory_access_xmm', sources: ['tests/recomp_memory_access_xmm_test.c'] },
   { name: 'recomp_memory_access_vm', sources: ['tests/recomp_memory_access_vm_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
 ];

@@ -1186,3 +1186,37 @@ The original `NtCreateFile` implementation is not among the retained artifacts (
 The path is a CRT debug-log target, not game content. Per the architect's halt condition, probing this call stops here; the next step is the architect's choice between the recorded hypotheses.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 73. Documented status conversion unblocks ordinal 301; next stop is GetLastError at 0x310FF
+
+Bounded architect decision (GLM 5.3 Flash) after the capture: **option A**, the documented `RtlNtStatusToDosError` conversion for the closed status vocabulary this runtime's own file models emit; option B (reclassify what the create reports for a drive-letter path) is deferred until rerun evidence shows the title branches on the specific status word; option C was not taken. The architect's own rule for this cycle: entries with two candidate winerror columns are left out of the table rather than guessed.
+
+Static evidence recorded this cycle (read-only Ghidra, retained project):
+
+- `FUN_001e93e4` is the CRT open helper. It maps a mode argument to CreateDisposition, builds `OBJECT_ATTRIBUTES` at `EBP-0x20` (`[+0]=0xFFFFFFFD` root immediate at `0x1E94BF`, `[+4]=&ANSI_STRING` from ordinal 289, `[+8]=0x40`), and calls ordinal 190.
+- `0xFFFFFFFD` as a root is **CRT-wide**, not a per-call bad handle: same immediate in `FUN_001e95db` (`0x1E9604`) and `FUN_001e97cf` (`0x1E9800`), `MoveFileA` pushes `-3` as the rename root (`0x1E9750`), and the global at `[0x31D704]` is initialized to `-3` (`0x1E6D62`). `FUN_001e93e4` has nine callers across the image (`0x1E75C8`, `0x4CE60`, `0x4EF40` twice, `0x4EB50`, `0x56A70`, `0x575F0`, `0x6AD30` twice), so it is a general open helper.
+- Its failure path is already-translated title code: a negative status goes to `0x31155` (the errno wrapper that calls ordinal 301 — the stop's immediate caller at `0x1E9513`), which pins `STATUS_OBJECT_NAME_COLLISION 0xC0000035` to dos error `0x50` and `STATUS_FILE_IS_A_DIRECTORY 0xC00000BA` to errno 3/5, then `_open` returns `-1`.
+- The local volume cannot represent the refused path at all: `ff_volume_resolve_path` rejects every byte in `/:*?"<>|` (`src/runtime/local_directories.c:52`) and requires an absolute name to start with `\Device\Harddisk0\partition1` (lines 60-61). `z:\debugLog.txt` is therefore outside the volume contract whatever the root word means, so "resolve the root" (option B) was not implementable without inventing a drive-letter mapping.
+
+Source changes (one commit):
+
+- New `src/runtime/kernel_error_map.{c,h}`: `ff_kernel_error_from_status` converts the pinned set `0 -> 0`, `0xC0000008 -> 6`, `0xC0000022 -> 5`, `0xC0000034 -> 2`, `0xC0000035 -> 80`, `0xC000003A -> 3`, `0xC0000043 -> 32`, and returns `FF_KERNEL_ERROR_UNMAPPED` otherwise. Five emitted statuses stay unmapped on purpose (`0xC0000023`, `0xC000007F`, `0xC000009A`, `0xC00000BA`, `0xC0000103`): each has two candidate winerror columns and no retained evidence picks one.
+- `tools/fixtures/thread_startup_probe.c`: the ordinal-301 handler converts through the table and still stops on an unmapped status, so an unknown word is never mapped to success or to a guess.
+- `tests/kernel_error_map_test.c` (new fixture, registered in `tools/run-native-tests.mjs`): every pinned pair, the unlisted high word `0xC0000203` and all five deferred words return the sentinel.
+- `tests/local_files_test.c`: pins that root words `0xFFFFFFFD` and `0xFFFFFFFF` are refused `FF_BOOT_BAD_HANDLE` with no state change, so the deliberate model limit is regression-protected.
+
+Module `recomp-post-memory-build-175` (unchanged profile 97): **1,052,085 bytes**, SHA-256 `ea3c1349d2e58d785b92c108c6d7095bcbf705553d1d43934435fd59b6098b0a`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x000310FF` (`GetLastError`)** | **365 / 442** |
+
+The ordinal-301 call now completes with **error 6** (`ERROR_INVALID_HANDLE`) for `0xC0000008`; the preceding ordinal-190 row still reports `0xC0000008` with no output written, and the CRT `_open` path returns `-1` and continues. The run then reaches **status 2 at `0x000310FF`**, the untranslated original routine `GetLastError` (body `0x310FF..0x31126`: `FS:[0x24]`, `FS:[0x28]`, global `0x2BB130`, `FS:[0x4]` array, returns `[eax+4]`), from return address `0x1E778C` inside `FUN_001e75c8` (one of the open helper's callers). The 442 op count is the number of calls whose status word is 0; the earlier 443 included the stopped 301 call, whose status word was unset.
+
+Recorded model limits (not changed): root `0xFFFFFFFD` is refused as an unknown handle, and drive-letter paths are outside the volume contract. These are documented model limits with modeled CRT error handling, not an original-kernel verdict about the refused create.
+
+Next bounded task: admit `GetLastError` at `0x310FF`.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

@@ -104,6 +104,12 @@ static void paths_types_and_dispositions(void)
     put(ATTR,root,4); name("Record.bin"); assert(ff_volume_create_directory(&volume,directory)==FF_VOLUME_NOT_DIRECTORY);
     assert(!ff_volume_close(&volume,relative)); assert(!ff_volume_close(&volume,root));
     put(ATTR,root,4); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_BAD_HANDLE); unchanged();
+    /* The CRT's absolute-path root word (0xFFFFFFFD, stored by the open helper at
+     * 0x1E94BF) and the all-ones word are not directory handles in this model, so
+     * both stay refused atomically. Drive-letter paths are outside the volume
+     * contract: a recorded model limit, not an original-kernel verdict. */
+    put(ATTR,0xfffffffdu,4); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_BAD_HANDLE); unchanged();
+    put(ATTR,0xffffffffu,4); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_BAD_HANDLE); unchanged();
 }
 static void open_if_disposition(void)
 {
