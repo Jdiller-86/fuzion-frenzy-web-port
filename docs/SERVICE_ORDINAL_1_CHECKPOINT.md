@@ -1409,3 +1409,17 @@ Two facts sharpen the pending decision:
 Next bounded task: architect decision on the paired time-source model (ordinal 127 QPF value and the `rdtsc` scale). Once ratified, admit `FUN_001e8e74` with that model in the same set. No other reached original routine is pending; the frontier is the service decision.
 
 Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 81. Capture the guest debug-service log in the proof report
+
+While the time-source decision is held, the independent source-owned step was to stop losing the title's own debug output. The probe has recorded guest `INT 0x2D` traps since section 77 (`ff_probe_debug_service_{count,dropped,word}`), but the worker never read them, so every comparison discarded the title's messages.
+
+- `src/runtime/thread-proof-worker.mjs` now attaches a bounded `debugServices` list to the startup report: one entry per recorded trap with `service`, `argument`, `length` and `buffer`, read through the probe exports.
+- `src/runtime/proof-report.mjs` exports `DEBUG_SERVICE_LIMIT = 8` (kept in sync with `FF_DEBUG_SERVICE_CAPACITY`) and rejects a malformed or oversized log while still accepting reports without the field.
+- `tests/proof-report.test.mjs` covers the valid log, the empty log, the bound and malformed dwords (**24/24**).
+
+Re-running module 185 (unchanged profile 107) reproduces the same stop - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and the new field captures the title's log traffic on this path: **five service-1 traps**, lengths 43, 42, 40, 42 and 37 bytes, all pointing at the same shared format buffer `0x2CC4F8`. The earlier module-181 stop at `0x31227` was the first of these traps; the run now performs five.
+
+Recorded limitation: the log keeps the trap descriptor, not the text bytes. The guest buffer is reused between traps and resolves to the shared format area, so reading it after the run would not reproduce what was printed; copying bytes inside the probe at trap time is a future, separately tested change.
+
+Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

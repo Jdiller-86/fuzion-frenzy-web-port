@@ -1065,8 +1065,21 @@ if(mmioProfile.createFailureCapture) {
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
+    let debugServices;
+    if (typeof api.ff_probe_debug_service_count === 'function') {
+      /* The probe records guest INT 0x2D traps at trap time. Service 1 is the
+       * ANSI_STRING print the pinned translator documents; the record keeps the
+       * descriptor only because the guest buffer may be reused afterwards. */
+      const count = api.ff_probe_debug_service_count();
+      debugServices = Array.from({ length: count }, (_, index) => ({
+        service: api.ff_probe_debug_service_word(index, 0) >>> 0,
+        argument: api.ff_probe_debug_service_word(index, 1) >>> 0,
+        length: api.ff_probe_debug_service_word(index, 2) >>> 0,
+        buffer: api.ff_probe_debug_service_word(index, 3) >>> 0,
+      }));
+    }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServices,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,

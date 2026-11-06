@@ -1,4 +1,12 @@
-# Time source is now the hard gate: FUN_001e8e74 needs the unadmitted rdtsc model
+# Guest debug-service log captured; time-source gate still holds the frontier
+
+November 6: independent source-owned step while the paired time-source decision is held. The startup report now carries a bounded `debugServices` list: `thread-proof-worker.mjs` reads the probe's recorded guest `INT 0x2D` traps (`service`, `argument`, `length`, `buffer`), `proof-report.mjs` validates it (`DEBUG_SERVICE_LIMIT = 8`, malformed/oversized rejected, field optional) and `tests/proof-report.test.mjs` covers the cases (**24/24**).
+
+Re-running module 185 reproduces the unchanged stop - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and now records **five service-1 traps** of 43/42/40/42/37 bytes, all through the shared format buffer `0x2CC4F8`. Limitation: the trap descriptor is kept, not the text bytes (the guest buffer is reused and resolves to that shared format area), so byte capture at trap time remains a separately tested future change.
+
+Blocker unchanged: admitting `FUN_001e8e74` makes `ff_title_0004C510` reachable and the link fails on `xbox_ReadTimeStampCounter`; the QPF/TSC pair still needs architect ratification. Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Time source is now the hard gate: FUN_001e8e74 needs the unadmitted rdtsc model
 
 November 6: runtime-a advance attempt. `FUN_001e8e74` (7 instructions) is the CRT performance-frequency helper: it calls import slot `0x2534E8` = ordinal 127 `KeQueryPerformanceFrequency` and stores `EAX:EDX` through its argument. Seed `recomp-admit-1e8e74-01/seed-1e8e74.json`; profile 108 = **506 functions / 21,053 instructions**, `verify-seeds` 27/27/0/0.
 

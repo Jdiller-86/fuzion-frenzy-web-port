@@ -17,6 +17,8 @@ export const DEVICE_ENTRY_LIMIT = 8192;
  * 64 vertical-blank events in the display experiment. */
 export const DEVICE_STATUS_WAITS = 4;
 export const STOP_STATUSES = new Set([1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15]);
+/* Must stay in sync with FF_DEBUG_SERVICE_CAPACITY in recomp_services.h. */
+export const DEBUG_SERVICE_LIMIT = 8;
 
 const integer = (value) => Number.isInteger(value) && value >= 0;
 const dword = (value) => integer(value) && value <= 0xffffffff;
@@ -72,6 +74,17 @@ export function validateProofReport(report) {
     }
   } else if (stop.service !== undefined) {
     throw new Error('Only an unsupported-service stop may carry a service descriptor');
+  }
+  /* The debug-service log keeps the guest INT 0x2D traps the probe recorded.
+   * Shape and bound only: the message is the decoded ANSI_STRING, if present. */
+  if (report.debugServices !== undefined) {
+    if (!Array.isArray(report.debugServices) || report.debugServices.length > DEBUG_SERVICE_LIMIT)
+      throw new Error('The debug-service log is malformed or exceeds its bound');
+    for (const entry of report.debugServices) {
+      if (!entry || !dword(entry.service) || !dword(entry.argument) ||
+          !dword(entry.length) || !dword(entry.buffer))
+        throw new Error('Malformed debug-service entry');
+    }
   }
   const startup = report.originalStartup;
   if (!startup || !bounded(startup.totalInitializers, 4096) ||
