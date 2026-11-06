@@ -471,3 +471,33 @@ mandatory corrective decision in docs/DECISIONS.md.
   already carries its own `D412` row, so this row renumbers at integration. Tempo: 0 counted advances
   and the stop unchanged verbatim at status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
   No runtime advance.
+- 2026-11-06 ops (D413): PR-head blob fact refreshed - after `git fetch origin --prune`,
+  `git show refs/pull/19/head:docs/DECISIONS.md` reads **392 D-rows, max row D400, duplicate
+  numbers `D376`, `D383`, `D392`** and carries none of rows D401-D412, so merging #19 at its
+  current head would regress `docs/DECISIONS.md` from local main's 402 rows / max D412 to
+  392 rows / max D400 with 3 duplicate numbers - the exact loss pattern the D403/D407/D411
+  rules guard. The earlier "603 lines / 400+ row tails / D405 x2" readings were local-cache
+  artifacts and are retracted as such. The repair site is narrowed (D412 refined): runtime-a
+  lane commit `7feb88d` "Localize the one-dword deficit to the leftover icall return address"
+  shows the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or
+  the safe path), so the frame is one dword taller than the epilogue's pops assume; destinations
+  stay correct but every pop lands one dword low, and the cited safe-path macro file
+  `src/runtime/recomp_types.h` lives in the ignored prepared translation (not tracked in the
+  branch). runtime-a is directed to implement the icall return-word consumption repair in its
+  lane-owned pipeline files (`tools/prepare-title-recomp.py`-driven), with D412's R11 acceptance
+  unchanged (stop past `0x6B6A6968` in both profiles with R11 evidence; `[esi+0x47c] = 0x20400c`
+  post-repair; the harness call-frame/`ret N` fallback row stays reserved). runtime-b's a/b/c
+  trio (`6ad911e`) is answered by the M-milestone order: option (a), record the committed
+  comparator work and continue to the next owned step. Tempo: 0 counted advances and the stop
+  unchanged verbatim at status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
+- 2026-11-06 ops (D413): next-tick integration checklist - before any merge the next architect
+  tick (00:40 or later) must (i) integrate BOTH divergent chains into the integration head,
+  runtime-a `87d74be`->`7feb88d` and runtime-b `9957144`->`6ad911e` (both verified uncontained by
+  local main at this record), resolving the D-rows renumber at the integrated blob (local main's
+  D401-D412 rows into numeric order, the 3 duplicate numbers removed), (ii) only then execute the
+  guarded merge with exact-head green gates, and (iii) record `origin/main`'s move past `97d831bd`
+  in its own row. The current tick's directive ("MERGE_MAIN_PR withheld this cycle; PR #19 remains
+  open with re-checks on the next integration head") is recorded as deliberately withheld, and this
+  D-row authorizes nothing earlier. Tempo: 0 counted advances and the stop unchanged verbatim at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
