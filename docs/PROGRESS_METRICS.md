@@ -556,3 +556,21 @@ mandatory corrective decision in docs/DECISIONS.md.
   `outcome: resume` / `finishedHead 854958e` / `publication: retry` ("Worktree has unfinished
   edits"), the 6-file kernel/service set is still in flight, the comparator accounting is inside
   `854958e`, and runtime-a is at `ad0bffa` with its 00:40:01 cycle in flight. No runtime advance.
+- 2026-11-06 ~01:10 ops (D432 lane): runtime-b named and modeled the reached ordinal-100 service in
+  `553a0f6` ("service: name and model the reached ordinal-100 KeDisconnectInterrupt", 01:05:07
+  -0500), 7 files +236 -3 (`docs/RUNTIME_B_SERVICE_CHECKPOINT.md`, `src/runtime/interrupt_vector.c/.h`,
+  `src/runtime/kernel-service.mjs`, 2 tests, `tools/run-native-tests.mjs`); the checkpoint quotes
+  `kernel-service+comparator 16/16`, `test:native 58/58`, `test:runtime` 214 pass / 1 skip / 0 fail,
+  `check` 490 files, whitespace clean, and the restraint line "No original code was run, no
+  ordinal-100 call was served". It is the SAME boundary runtime-a's first advance reached
+  (`ad0bffa`): runtime-b quoted that stop rather than re-observing it, is identity-only in the
+  runtime-owned report contract, and its handler wiring is runtime-a-owned, so no run advance is
+  claimed. Live corrections to the brief: the commit is now published (remote `lane/runtime-b` =
+  `553a0f6`, was `854958e`) and the lane worktree is clean, so the erstwhile 6-file in-flight set is
+  that commit's content. No runtime advance.
+- 2026-11-06 ~01:10 ops (D432 tempo): the count stays **1** - no stop move past `0xFE0000C8`; the
+  recorded stop is unchanged at status 1, `0xFE0000C8`, ordinal 100 (the first-advance record),
+  347 routines / 419 kernel ops. `origin/main` remains `97d831bd` (local main 37 ahead), the 00:40
+  tick's markers still name the bogus `10cae52978...` ("Not a valid object name") so the D430/D431
+  re-issue directive stands, PR #19 reads `OPEN`/`MERGEABLE`/`CLEAN` at `10cae52567`, and `553a0f6`
+  is unabsorbed. No runtime advance.
