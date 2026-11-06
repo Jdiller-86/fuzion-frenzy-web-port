@@ -573,4 +573,13 @@ This is now confirmed by direct post-pop tagging. No fix or model is applied; th
 
 No DECISIONS row: characterization only.
 
+## 38. Save/pop-order rule pinned; EXECUTION_GOAL_NOV5 unavailable
+
+- `docs/EXECUTION_GOAL_NOV5.md` (referenced by the current AGENTS directive) is **not present in this worktree**; Runtime-b's milestone order is therefore unavailable. Blocker recorded; independent source-owned work chosen instead.
+- The confirmed epilogue mismatch is now expressed as a pure, tested rule: `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h`, with native test `tests/reg_save_order_test.c`. It accepts the literal reverse order (`ebx, ebp, esi, edi` → `edi, esi, ebp, ebx`) and rejects the observed runtime order (saved-EDI slot consumed first as ESI). Native suite passes **52/52**.
+
+Formal translator-owner finding: `FUN_001FB640`'s executed epilogue does not restore the callee-saved registers in the reverse of its push order; the saved-EDI value (`0x205E98`) lands in ESI, and the field read at `0x1FC087` uses it as `[ESI+0x47C]`. The rule that any repair must satisfy is now pinned by the native test. No translator edit is made; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization plus a pure validation rule.
+
 No DECISIONS row: tooling characterization.

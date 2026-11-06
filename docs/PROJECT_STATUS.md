@@ -1,4 +1,10 @@
-# Order-tagged pops confirm ESI receives the saved-EDI slot
+# Save/pop-order rule pinned; translator-owner finding is final
+
+November 5: the confirmed epilogue mismatch is now a pure, tested rule — `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h` with native test `tests/reg_save_order_test.c` accepts the literal reverse (`ebx,ebp,esi,edi → edi,esi,ebp,ebx`) and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Native **52/52**. Formal finding: `FUN_001FB640`'s epilogue does not restore in reverse push order, so `[ESI+0x47C]` reads the saved-EDI value; the repair rule is pinned, no translator edit made (decision belongs to the translator owner/user). Blocker: `docs/EXECUTION_GOAL_NOV5.md` is absent from this worktree, so Runtime-b's milestone order is unavailable.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Integration head `18cce1d` contains the lane commits through `a0f4d5e` (main `97d831b`); `e6bc808` and the rule commit remain pending integration. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Order-tagged pops confirm ESI receives the saved-EDI slot
 
 November 5: post-pop ESI tagging (module 156) shows the prologue slots `0x3C10E40=0x3C10CFC` (ebx), `0x3C10E3C=0xFFFFFFFF` (ebp), `0x3C10E38=0x203B90` (esi), `0x3C10E34=0x205E98` (edi). ESI is `0x203B90` through every pop up to `0x3C10E30`, then becomes **`0x205E98` at the pop consuming the saved-EDI slot `0x3C10E34`**, and stays there for the remaining pops. The executed epilogue writes the saved-EDI value into ESI while the saved-ESI value is consumed elsewhere — inconsistent with the literal `pop edi; pop esi; pop ebp; pop ebx` order. Confirmed defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact. No fix or model; repair decision belongs to the translator owner/user.
 
