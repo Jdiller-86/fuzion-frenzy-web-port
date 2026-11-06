@@ -1,4 +1,12 @@
-# Runtime-a blockers package: FUN_001FB640 epilogue mismatch (repair owner needed)
+# Runtime-a: package integrated, repair routed; whitespace gate clean at 791f4d7
+
+November 5 (line-1 status). The `FUN_001FB640` epilogue blockers package (D401) is **integrated** at head `39a8fa8`; the repair question is formally routed to the translator owner as candidate (B) with the tested reverse predicate `ff_reg_order_is_reverse` as acceptance and `[ESI+0x47C]` reading `0x20400C` as the outcome. Evidence stands: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; M2 device policy verified in both profiles (161/161 experiment and 137/137 control `beforeKnown` reads, zero unknown) at `2aa9b43`/`1875d94`; M3 acceptance pre-registered at `868d00e`.
+
+Whitespace/marker audit (head `791f4d7`): no added conflict-marker line in `docs/DECISIONS.md`; the only marker-like runs are pre-existing JavaScript snippets in D217; `git diff --check origin/main HEAD` exits 0. Clean head for queueing: **`791f4d7`** (integration `39a8fa8`, main `97d831b`). The audit record is the only pending lane commit.
+
+Next: translator owner's candidate-(B) answer; then the two-profile M6/M3 gate (stop past `0x6B6A6968`, next request/system recorded exactly, `[ESI+0x47C] = 0x20400C`). **No controllable original screen.**
+
+## Prior: Runtime-a blockers package: FUN_001FB640 epilogue mismatch (repair owner needed)
 
 November 5. Defect-class capture is closed; this is the handoff package for the translator owner/user. Evidence is the same status-10 stop at `0x6B6A6968` with 346 routines / 414 kernel ops (D397/D401).
 
