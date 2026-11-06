@@ -9,7 +9,7 @@ The project follows CTR-2-WUP's separation of reviewed milestone scope, native G
 - [milestones.md](milestones.md) is generated from reviewed scope; [plans.md](../plans.md) gives the readable direction. [Status](status.md) retains actual main-branch runtime evidence.
 - Snapshots and the offline progress view are derived artifacts. Their source revision and generation time identify the observation; unavailable tracking is reported as unavailable.
 
-Repository milestones and issue status labels own acceptance. The user-owned GitHub Project mirrors their status and the Milestone/Task work type, with a Waiting resource field for human coordination. Its fields and saved views are copied from CTR-2-WUP's public Project #2 without importing its issues or drafts. [Project identity](../profiles/project-board.json) is pinned after verified creation.
+Repository milestones and issue status labels own acceptance. The user-owned GitHub Project mirrors their status and the Milestone/Task work type, with a Waiting resource field for human coordination. Its fields and saved views are copied from CTR-2-WUP's Project #2 without importing its issues, drafts, descriptions or notes. Only reviewed tracking fields/options and built-in fields may be copied into the public board. [Project identity](../profiles/project-board.json) is pinned after verified creation.
 
 Repository tracking uses the workflow's scoped GitHub credential. Board operations use the repository Actions secret `FUZION_GITHUB_MANAGEMENT_TOKEN`, configured by the owner with `project` and `public_repo` access. Keep the credential in Actions; never put it in source, chat, arguments, receipts or issue bodies. A missing/expired credential fails the board operation instead of inventing progress.
 

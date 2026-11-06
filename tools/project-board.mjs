@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copies the reviewed public template configuration; only this project's board is writable.
+// Copies reviewed template configuration without its content; only this project's board is writable.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -59,6 +59,13 @@ export function trackingFields(rows){
   }
   assert.equal(selected['Waiting resource'].dataType,'TEXT');return selected;
 }
+export function safeTemplateFields(rows){
+  const selected=trackingFields(rows);
+  const builtin=new Set(['TITLE','ASSIGNEES','LABELS','MILESTONE','REPOSITORY','LINKED_PULL_REQUESTS','REVIEWERS','TRACKS','TRACKED_BY','ISSUE_TYPE','PARENT_ISSUE','SUB_ISSUES_PROGRESS']);
+  assert.ok(rows.every(f=>['Status','Work type','Waiting resource'].includes(f.name)||builtin.has(f.dataType)),'Template contains unreviewed custom fields; do not publish them');
+  for(const [name,allowed] of [['Status',[...STATUSES.values(),'Done','Closed']],['Work type',['Milestone','Task','Feature']]])assert.ok(selected[name].options.every(o=>allowed.some(a=>a.toLowerCase()===o.name.toLowerCase())),'Template has unreviewed custom options');
+  return selected;
+}
 function members(rows){
   const result=new Map();for(const row of rows){const issue=row.content;assert.equal(issue?.__typename,'Issue','Unexpected draft or inaccessible board item');assert.equal(issue.repository?.nameWithOwner,REPOSITORY,'Foreign repository item on managed board');assert.equal(issue.repository?.isPrivate,false,'Private board content is outside scope');assert.equal(issue.url,`${BASE}/issues/${issue.number}`);assert.ok(typeof row.id==='string'&&typeof issue.id==='string');assert.ok(!result.has(issue.number),'Duplicate issue on board');result.set(issue.number,row);}return result;
 }
@@ -74,7 +81,7 @@ export class BoardGitHub extends GitHub{
     assert.equal(data.viewer?.login?.toLowerCase(),OWNER.toLowerCase(),'Token must belong to the project owner');
     assert.equal(data.user?.login?.toLowerCase(),OWNER.toLowerCase());assert.ok(data.user.id);assert.equal(data.user.projectsV2.pageInfo.hasNextPage,false,'Project inventory exceeds the review budget');
     assert.equal(data.repository?.nameWithOwner,REPOSITORY);assert.equal(data.repository.isPrivate,false);assert.equal(data.repository.defaultBranchRef?.name,'main');
-    identity(data.user.projectV2,2);assert.equal(data.user.projectV2.public,true,'Template must be public');
+    identity(data.user.projectV2,2);assert.equal(typeof data.user.projectV2.public,'boolean','Template visibility is unavailable');
     assert.ok(data.user.projectV2.repositories?.nodes?.some(r=>r.nameWithOwner==='Jdiller-86/CTR-2-WUP'&&!r.isPrivate),'Template is not associated with CTR-2-WUP');
     this.ownerId=data.user.id;this.templateId=data.user.projectV2.id;this.repositoryId=data.repository.id;
     return {ownerId:this.ownerId,template:data.user.projectV2,boards:data.user.projectsV2.nodes,sourceCommit:data.repository.defaultBranchRef.target.oid};
@@ -120,7 +127,7 @@ export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onC
   const wanted=definitions(plan).map(d=>({number:lookup.get(d.id).number,contentId:lookup.get(d.id).node_id,status:statuses.get(d.id),kind:d.type==='milestone'?'Milestone':'Task'}));client.issueIds=new Set(wanted.map(i=>i.contentId));
   let board=selectBoard(config,context.boards);const operations=[];let created=false,template=null;
   if(!board){
-    template=await client.template();trackingFields(template.fields);assert.ok(template.views.length>0,'Template has no views');
+    template=await client.template();safeTemplateFields(template.fields);assert.ok(template.views.length>0,'Template has no views');
     assert.ok(template.views.every(v=>!v.filter||!/CTR-2-WUP|repo:|milestone:/i.test(v.filter)),'Template view has repository-specific filters; review before copying');
     operations.push({kind:'copy-template',templateNumber:2,includeDraftIssues:false});
     if(!apply){operations.push({kind:'project-description'},{kind:'link-repository'});for(const issue of wanted)operations.push({kind:'add-issue',issue:issue.number},{kind:'field',issue:issue.number,field:'Status',value:issue.status},{kind:'field',issue:issue.number,field:'Work type',value:issue.kind});return {schemaVersion:1,repository:REPOSITORY,sourceCommit,applied:false,operations};}
@@ -165,6 +172,7 @@ async function main(args){
   const sourceCommit=process.env.TRACKING_SOURCE_SHA??execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();
   const announce=project=>{console.log(`Created Project: ${project.url}`);if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`Created public tracking Project: ${project.url}\n\n`);};
   const receipt=await syncBoard(new BoardGitHub(),loadPlan(),loadConfig(),{apply,sourceCommit,onCreated:announce});saveReceipt(receipt);
+  if(receipt.project)console.log('Verified Project identity: '+JSON.stringify({project:receipt.project,template:receipt.template,views:receipt.views}));
   const line=receipt.project?`Project: ${receipt.project.url} — ${receipt.managedIssues.length} managed issues; ${receipt.operations.length} ${apply?'applied':'proposed'} operations.`:'Project creation previewed; no changes applied.';
   console.log(line);if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,line+'\n');
 }
