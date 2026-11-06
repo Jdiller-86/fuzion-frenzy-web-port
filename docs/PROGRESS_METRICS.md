@@ -589,3 +589,13 @@ mandatory corrective decision in docs/DECISIONS.md.
   Tempo: count stays 1 - stop unchanged at status 1, `0xFE0000C8`, ordinal 100 (the first-advance
   record), 347 routines / 419 kernel ops; the runtime-b "stop move" quote is runtime-a's D429-era
   record transcribed verbatim. No runtime advance.
+- 2026-11-06 ~01:30 runtime-a counted advances #2 AND #3: d721550 (0xFE0000C8 → 0x004F7A0 placeholder,
+  modeled ordinal-100) and a2a83de (0x004F7A0 → 0x004C2E0 at 348/421, FUN_0004f7a0 admitted;
+  module 163; 3 browser-163 reports as R11 evidence); both-profile evidence; COUNTED.
+- 2026-11-06 ~01:35 ops (D434 integration-state gap): the integration head `10cae5256` absorbs the
+  runtime-a chain only up to `8924710` - `d721550` and `a2a83de` exit 1 on `git merge-base
+  --is-ancestor` - and the runtime-b chain `9957144`→`eb33cd9` is likewise unabsorbed; the D-rows
+  renumber is unapplied at that blob (`D405 x2`) and the tick's bogus marker
+  `10cae52978585938ac4beee11b4680d1a4ac83c` is still uncorrected at the tick, so the machine's own
+  ticks still absorb nothing of the lane tails and those two items are what remains outstanding at
+  the integration side. No runtime advance.
