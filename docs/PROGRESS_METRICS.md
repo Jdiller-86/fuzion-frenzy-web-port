@@ -599,3 +599,67 @@ mandatory corrective decision in docs/DECISIONS.md.
   `10cae52978585938ac4beee11b4680d1a4ac83c` is still uncorrected at the tick, so the machine's own
   ticks still absorb nothing of the lane tails and those two items are what remains outstanding at
   the integration side. No runtime advance.
+- 2026-11-06 ~01:50 runtime-a counted advance #4: 91e5e0b (0x004C2E0 → 0x004E480, 350/422, FUN_0004c2e0 admitted). COUNTED.
+  The 01:40 tick's two D433 checklist items landed (D-rows renumber at `9158e70`: 419 rows / max D434 /
+  `D405` x1 / zero duplicates, bogus marker spellings 0 hits; runtime-a absorption `7feb88d` / `d721550` /
+  `a2a83de` / `ad0bffa` / `b26840c` all exit 0), while its merge-withhold reason does NOT reproduce
+  (`git diff --check origin/main 9158e70` exits 0 with empty output; `origin/main` still `97d831bd`) and its
+  own `MERGE_MAIN_PR` was withheld (`prManagement no_architect_open_request`). `91e5e0b` is one commit past
+  the tick head (`git merge-base --is-ancestor 91e5e0b 9158e70` exits 1).
+- 2026-11-06 ~01:50 ops (runtime-b absorption, the hung item): `git merge-base --is-ancestor <c> 9158e70`
+  exits 1 for all eleven commits `9957144` → `eb33cd9` (lane tip `eb33cd9`), so the D403 reconciled-superset
+  gate stays open and the machine's next tick is the named window for that absorption. No runtime advance.
+- 2026-11-06 ~02:05 ops (D436, the EOF-withhold is a stale premise, not a gate failure): the 01:43:38 tick's own
+  `lastSummary` withheld `MERGE_MAIN_PR` and every PR marker on "`git diff --check origin/main HEAD` still flags
+  'new blank line at EOF' on `docs/DECISIONS.md`", but that check reads CLEAN on the head it named:
+  `git diff --check origin/main 9158e70` -> exit 0 (empty output), `git diff --check 97d831bd 9158e70` -> exit 0, and
+  `git show 9158e70:docs/DECISIONS.md` (419 rows / max D434) ends with a single trailing newline after the last D-row
+  (no blank line at EOF). The withhold is a stale machine-side premise; the next tick must recompute the check in its
+  own integration worktree, land `MERGE_MAIN_PR` at the live head if it exits 0, re-issue the marker against that
+  head's exact hash (not the bogus `10cae52978…` / `10cae52967…` spellings) and absorb the runtime-b chain
+  `9957144` -> `baf0365` (13 commits; all twelve ancestor reads exit 1 against `9158e70`). No runtime advance.
+- 2026-11-06 ~02:05 tempo: 4 counted advances - runtime-a's newest counted boundary stays `91e5e0b` (advance #4:
+  status 2 at `0x004E480`, 350 routines / 422 kernel ops; no new lane commit since); runtime-b's published lane tip
+  `baf0365` ("service: name the reached interrupt field contract; pin the Irql gap") is service/contract work and not a
+  runtime-boundary move. The integration head `9158e70` still carries neither `91e5e0b` nor the runtime-b chain.
+  No inflation. No runtime advance.
+- 2026-11-06 ~02:15 verify (D437, counted advance #5 at `6fdcd98`): this pass is record verification, not execution.
+  The runtime-a lane's *committed* record carries the both-profile pair verbatim - "control 339/405 at `0xFD800044`;
+  inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the initializer and stops at status 2, `0x004B160`
+  (352 routines / 422 kernel ops)" - so the batch rule (<=8 evidenced related reached functions, applied at 7:
+  `FUN_0004e480` + six direct callees; profile 90: 472 functions / 19,329 instructions; module 165: 1,013,193 bytes)
+  produced a NEW observed stop boundary with both-profile evidence. The count moves 4 -> 5. No runtime advance.
+- 2026-11-06 ~02:15 tempo: 5 counted advances; the stop is status 2 / `0x004B160` / 352 routines / 422 kernel ops
+  (runtime-a's committed record). Runtime-b's published tail `3f6c3ea` ("service: serve the reached interrupt
+  initialization's Irql argument") is service/contract work - its own line: "No run advance is claimed" - and is not
+  counted. The integration head `9158e70` still carries neither `6fdcd98` nor `3f6c3ea` (both ancestor reads exit 1),
+  `origin/main` is unmoved at `97d831bd`, and the D436 fresh-check directive is the named next step.
+  No runtime advance.
+- 2026-11-06 ~02:25 record (D438, runtime-b contract fact): the runtime-b lane's published tip `3f6c3ea` ("service: serve
+  the reached interrupt initialization's Irql argument") is a component contract - its checkpoint section 13 ("Ordinal
+  109's `Irql` field becomes a served contract") records the model's value source as *ungrounded* (`KeInitializeInterrupt`
+  writes the 4th argument at +8 vs the reference's +0xC; `HalGetInterruptVector` "value source ungrounded"), and its own
+  limits line states "source-owned component behavior only. No original code was run here, the ordinal-109 call was not
+  observed to write `Irql`". Boundary status: none - the committed boundary remains runtime-a's `0x004B160` (advance #5).
+  No runtime advance.
+- 2026-11-06 ~02:25 machine-state fact (D438): the tick's own EOF-withhold was cited a third time (tick lastSummary,
+  state mtime 01:43:38) while the live reads at D436/D437 exit 0 (no blank line at EOF), and no fresh tick landed in this
+  window (LastRunTime 01:40:01; NextRunTime 02:40:00, the machine's own named cell for the D436 corrective). The
+  integration head is still `9158e70` (`refs/pull/19/head`; local mirror ref stale at `44af31d` per D431(a)) with both
+  lane tails `6fdcd98` and `3f6c3ea` unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at `97d831bd`; the
+  count stays 5. No runtime advance.
+- 2026-11-06 ~02:30 verify (D439, counted advance #6 at `9e563dc`): this pass is record verification, not execution.
+  The runtime-a lane's committed record carries the both-profile pair verbatim - "Pair: control 339/405 at `0xFD800044`;
+  inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes `FUN_0004b160` and the CRT `fopen` wrapper, then stops
+  at **status 2, `0x001E0151`** (354 routines / 422 kernel ops) - `__fsopen`, the next translation placeholder" - so the
+  batch rule (4 functions, within the 8-function set cap: `FUN_0004b160` + `0x0004C480`, `0x001E01AD`, `0x001DFE85`)
+  produced a NEW observed stop boundary past `0x004B160` (352/422) with both-profile evidence (profile 91: 476 functions /
+  19,434 instructions; module 166: 1,017,181 bytes). The count moves 5 -> 6. No runtime advance.
+- 2026-11-06 ~02:30 record (D439, runtime-b contract fact + the withhold quoted a fourth time): runtime-b's published tip
+  `6fc4b18` ("service: compose the ordinal-109 call shape into one served entry point", gates 58/58, 16/16, 214/1/0,
+  check 490 files, diff-check exit 0) is service/contract work - its own line "No run advance is claimed", its stop quote
+  stale (`0x004E480`, 350 routines / 422 kernel ops, quoted from runtime-a's `91e5e0b`/D435) - and is not counted. The
+  tick's EOF-withhold is quoted a fourth time (state mtime 01:43:38, no newer tick: `MERGE_MAIN_PR` withheld on "new blank
+  line at EOF") while this row's live `git diff --check origin/main 9158e70` exits 0; the integration head is still
+  `9158e70` with both lane tails (`9e563dc`, `6fc4b18`) unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at
+  `97d831bd`; the count stays 6. No runtime advance.
