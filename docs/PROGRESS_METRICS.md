@@ -139,3 +139,19 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-05 executor: `FuzionFrenzy-OpenCode-CycleB` re-armed after the boundary hardening -
   `State Disabled -> Ready`, `Triggers[0].Enabled=True`, `NextRunTime 19:57:30` at 19:55:09
   (`LastRunTime 19:47:30`, `LastTaskResult 0`). No runtime advance. See D393.
+- 2026-11-05 executor: main PR #19 verdict recorded as not ready (R9) - head `18cce1d` sits on
+  base `97d831bd` but does not contain `f9f503a`, `6ad7e9b`, `0864419` or `5d0d14c`
+  (merge-base `75b01d4`), so five exact gates (DECISIONS `D383`-`D386` and `D392` collisions,
+  the runtime-b `$unowned` regex, the missing metrics entries, the dropped D023 stanza) block a
+  guarded merge and the next cycle must first reconcile the chain. No runtime advance. See D394.
+- 2026-11-05 executor: runtime-b re-armed with the hardened single-owner card and publication
+  boundary - the first post-hardening cycle launched at 19:57:31 (`attemptedHead 5d0d14c`) and
+  finished 20:00:04 with `outcome: progressed`, `publication: published`, head `5289983`
+  (nv2a suites wired into `tools/run-native-tests.mjs`, analytic fixtures only). No runtime
+  advance. See D394.
+- 2026-11-05 executor: runtime-a's newest lane commit at the record was `39d111e`
+  ("Instrument the FUN_001FB640 tail and classify the ESI writer"), with the next step being the
+  pop-value capture to confirm the save-slot mismatch; that capture landed as `5c01c3f`
+  (restore slots off by one register, site `0x1FB72E` epilogue), so the current next step is to
+  report the off-by-one save-slot finding to the translator owner. Stop unchanged at status 10 /
+  `0x6B6A6968` / 346 routines / 414 kernel ops. No runtime advance. See D394.

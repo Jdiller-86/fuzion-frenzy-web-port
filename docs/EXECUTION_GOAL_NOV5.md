@@ -98,3 +98,4 @@ Static recompilation to WebAssembly; original content player-supplied and local;
 3. Evaluate the open `main` PR head on its merits; request a guarded merge only when fully reviewed; delete satisfied `tmp/*` branches.
 4. Append the metrics line; verify milestone statuses against their criteria.
 5. When stalled, name the exact blocker, re-point the lane, and log the decision — never broaden scope to fill a cycle.
+- Integration with the PR line: when the existing main PR head does not contain the newest reviewed local-main chain, merge that chain into the integration branch first, applying the renumbering and regex rules the latest D-number records; never force-push; only then evaluate/re-request the main PR head.
