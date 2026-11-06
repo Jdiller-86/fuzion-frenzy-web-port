@@ -2150,6 +2150,19 @@ static void initialize_timer(void)
 static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
+    if (row[2] == 0xFFu) {
+        /* XC_MAX_OS: the whole 0x60-byte user-settings block. The time-zone
+         * fields are explicit model inputs (zero = UTC); the fixed fields are
+         * the pinned translator's compatibility values. */
+        static const ff_console_settings_block block = {
+            .language = 1u, .video = 3u, .dvd_region = 1u
+        };
+        row[1] = ff_query_console_block(&virtual_memory, row + 2, &block);
+        if (row[1] != 0 && row[1] != 0xc0000023u) stop(9, row[1], 24);
+        if (!row[1]) { row[7] = MEM32(row[3]); row[8] = MEM32(row[4]); row[9] = row[6] ? MEM32(row[6]) : FF_CONSOLE_SETTINGS_BLOCK_BYTES; }
+        g_eax = row[1]; g_esp += 24;
+        return;
+    }
 #ifdef FF_NV_QUERY_PROOF
     if(!misc_flags_ready || (row[2]!=17 && row[2]!=10) || (row[2]==10 && !parental_games_ready)) {
         row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[2],24);

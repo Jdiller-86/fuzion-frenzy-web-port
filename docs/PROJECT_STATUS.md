@@ -1,4 +1,12 @@
-# Time-zone batch admitted; run stops at the 0xFF user-settings block (ordinal 24)
+# 0xFF user-settings block modeled; run advances to FUN_001e8e74 on the rdtsc path
+
+November 6: architect-ratified Runtime-a step. `src/runtime/console_settings.{c,h}` gained `ff_query_console_block`/`ff_console_settings_block`: the 0x60-byte `XC_MAX_OS` block in the pinned translator's layout, every field an explicit input (no host time zone, EEPROM or save file), `REG_BINARY` type 3, `ResultLength 0x60`, `0xC0000023` below 0x60 with the value bytes untouched, zero fill beyond. The probe's ordinal-24 handler serves `0xFF` with zero time-zone fields (UTC) and the pinned fixed language/video/DVD values; the fixture pins layout, short buffer, wrong index, unmapped buffer and overlap rejection (**62/62**). Module 184 (profile 106) = 1,112,149 bytes SHA `c6c8b5d0...`; the block query returned type 3 / 96 bytes / status 0 and the run stopped at `0x001E8839` (380 routines / 483 ops).
+
+The reached helpers `FUN_001e8839` (15 instructions) and `FUN_001e885a` (19) were admitted (seed, 34 instructions; profile 107 = **505 functions / 21,046 instructions**, `verify-seeds` 26/26/0/0; module 185 = **1,115,546 bytes**, SHA `08d761e2...`).
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops**, return address `0x4C526` - the instruction after the call in the translated `ff_title_0004C510`, whose next instruction is its first `rdtsc` site (`0x4C58B` is the second). Next task: admit `FUN_001e8e74` and report the stop; the architect-held `rdtsc` host-rate decision is now the immediate blocker. Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Time-zone batch admitted; run stops at the 0xFF user-settings block (ordinal 24)
 
 November 6: runtime-a march in two profiles. `FUN_0004fa60` (25 instructions) gave profile 105 = **498 / 20,590**, module 182 = 1,097,053 bytes SHA `303f794e...`, stop at `0x001E8D8A` (377 routines / 481 ops). The five-function time-zone batch (`0x1E8D8A`, `0x1E8C2E` `GetTimeZoneInformation`, `0x1DF950` `__allmul`, `0x1E8892`, `0x1E8A24`; seed `recomp-admit-1e8d8a-01/seed-1e8d8a-batch.json`, 422 instructions) gave profile 106 = **503 functions / 21,012 instructions**, `verify-seeds` 25/25/0/0, module 183 = **1,111,033 bytes**, SHA `621f77eb...`.
 

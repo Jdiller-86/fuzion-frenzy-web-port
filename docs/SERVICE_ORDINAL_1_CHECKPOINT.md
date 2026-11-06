@@ -1357,3 +1357,31 @@ Evidence for the next step (recorded, not yet implemented): the pinned translato
 Next bounded task: decide and, if ratified, implement the `0xFF` user-settings block as a checked probe model with explicit inputs (bias, standard/daylight names and dates) rather than a host time zone; halt-and-report if the value source is not evidenced. Open decisions now on record: this block and the `rdtsc` model.
 
 Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 79. Model the 0xFF user-settings block; run advances to FUN_001e8e74 on the rdtsc path
+
+Architect-ratified Runtime-a step: implement the `0xFF` (`XC_MAX_OS`) whole-user-settings block as a checked probe model with explicit inputs.
+
+`src/runtime/console_settings.{c,h}` gained `ff_query_console_block` and `ff_console_settings_block`. The 0x60-byte layout follows the pinned translator's `kernel_xbox.c`: bias `+0x04`, standard/daylight names `+0x08`/`+0x0C`, dates `+0x18`/`+0x1C`, standard/daylight bias `+0x28`/`+0x2C`, language `+0x30`, video `+0x34`, audio `+0x38`, parental `+0x3C`, online `+0x48..+0x54`, misc `+0x58`, DVD region `+0x5C`, checksum and reserved bytes zero. Every field is a caller input: no host time zone, EEPROM, save file or inferred value enters the model. Semantics follow the same pin - index `0xFF` only, `REG_BINARY` type 3, `ResultLength = 0x60`, `0xC0000023` for a shorter buffer (type and required length still reported, value bytes untouched), and zero fill beyond 0x60.
+
+The probe's ordinal-24 handler now serves `0xFF` before its index-17/10 path, passing the explicit profile (time-zone fields zero = UTC; language 1, video 3, DVD region 1 as the pinned compatibility values) and letting `0xC0000023` through as a guest status while any other model error still stops. `tests/console_settings_test.c` now pins the full block layout, the zero fill, the short-buffer ordering, the wrong-index refusal, an unmapped buffer and the overlap rejection without mutation.
+
+Module `recomp-post-memory-build-184` (unchanged profile 106): **1,112,149 bytes**, SHA-256 `c6c8b5d00d8322491dfd59eabbd28e51b011e775ef8e2625c5ea293f30d1afb6`. The experiment consumed the block query (`type 3`, `requiredBytes 96`, ordinal 301 = 0) and stopped at **status 2 at `0x001E8839`, 380 routines / 483 ops**, return address `0x1E88D7`; control 339/405 and inert 347/419 unchanged.
+
+The next set admits the two name/date conversion helpers reached there: `FUN_001e8839` (15 instructions) and `FUN_001e885a` (19 instructions), both leaf loops that widen four ANSI bytes into `TIME_ZONE_INFORMATION` fields and clear the following word.
+
+- Seed `research/verification/recomp-admit-1e8839-01/seed-1e8839.json`: 2 functions, all `established=true`, 34 instructions, no direct calls.
+- Profile 107: **505 functions, 21,046 instructions** (+2 / +34); `verify-seeds` 26 recorded / 26 offered / 0 unexpected / 0 missing.
+- Module `recomp-post-memory-build-185`: **1,115,546 bytes**, SHA-256 `08d761e2ee5343e78966c9daf853c02c3b76a87d8a84ea18eeaa90da5e115641`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E8E74`** | **384 / 494** |
+
+The experiment passed the settings block, the two conversion helpers and the whole `GetTimeZoneInformation` chain, then stopped at **status 2 at `0x1E8E74`** with return address `0x4C526` - the instruction immediately after the call inside the already-translated `ff_title_0004C510`, whose next instruction is the function's first `rdtsc` site (the second follows at `0x4C58B`).
+
+Next bounded task: admit `FUN_001e8e74` and report the stop after it. The `rdtsc` decision is now the immediate next blocker: the return lands on the `0x4C526` `rdtsc`, so the architect-held host-rate model must be ratified or the run will stop there.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
