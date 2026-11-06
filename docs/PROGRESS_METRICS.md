@@ -280,3 +280,20 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-05 ops (tempo, D401): 0 counted advances standing; M6's first counted advance fires
   only when the stop actually moves with R11 evidence. Stop unchanged verbatim: status 10 at
   `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D402 revision): candidate (A) emission-side is refuted for `FUN_001FB640` by
+  lane commit `ffacf95` (21:05:50, published to `origin/codex/opencode-source`) - module 87's
+  generated `.inc` prologue pushes `ebx, ebp, esi, edi` and its epilogue pops
+  `edi, esi, ebp, ebx`, an exact reverse and internally LIFO-consistent, so the generated text
+  is correct and D401's step (1) emitter edit would corrupt it. Per D401 step (3) the live
+  hypothesis is candidate (B), instrumentation/orchestration attribution (which probe
+  instruction confirmed the register-consumer mapping when the pop consumed slot `0x3C10E34`),
+  with the M6 gate unchanged (the stop must move past `0x6B6A6968` with R11 evidence) and REA
+  read-only native analysis authorized for the bounded pop-attribution region if the records
+  cannot decide it. The runtime-a card was replaced by lane commit `f69430e`; D400's
+  `refs/pull/19/head = 44af31d` correction stands, PR #22 never existed, and the stale geometry
+  draft PR #3 (head `aac82119`) is the safe close candidate. No runtime advance.
+- 2026-11-05 ops (tempo): 0 counted advances standing - the 21:00-21:06 lane commits
+  (`e6de8a9`, `ffacf95`, `2f2292b`) are component/evidence work, not boundary moves, so the
+  stop is unchanged verbatim: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No
+  merge was requested or landed this hour and `origin/main` is still `97d831bd`. No runtime
+  advance.
