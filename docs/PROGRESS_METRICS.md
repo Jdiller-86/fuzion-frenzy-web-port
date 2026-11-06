@@ -191,3 +191,28 @@ mandatory corrective decision in docs/DECISIONS.md.
   that head still misses `f9f503a`, `6ad7e9b`, the `2988892`-line records, the lane-b wiring and
   the `$unowned` regex hardening, so no guarded merge may target it before the 20:40 tick
   reconciles a superset head, and tempo stays 0 counted advances. See D396. No runtime advance.
+- 2026-11-05 runtime-a: commit `e6bc808` ("Order-tag the pop capture and confirm the ESI slot mismatch",
+  20:15:39 -0500, published to `origin/codex/opencode-source`) records `g_esi` after each pop
+  (module 156): slots `0x3C10E40`=`0x3C10CFC` (ebx), `0x3C10E3C`=`0xFFFFFFFF` (ebp),
+  `0x3C10E38`=`0x203B90` (esi), `0x3C10E34`=`0x205E98` (edi); ESI holds `0x203B90` through every
+  pop up to `0x3C10E30` and becomes `0x205E98` at the pop consuming the saved-EDI slot
+  `0x3C10E34`. That confirms the defect class as a stack-slot/register mapping mismatch in the
+  `FUN_001FB640` epilogue, not guest state/profile/probe artifact. Still missing from the
+  blockers package: one named writer instruction address in the translated epilogue and named
+  repair options with an owner (translator-side vs `.inc` expansion). Stop unchanged at status 10 /
+  `0x6B6A6968` / 346 routines / 414 kernel ops. See D397. No runtime advance.
+- 2026-11-05 runtime-b: commit `55e7446` ("M2: report reached service identity at a refused stop",
+  20:14:58 -0500, published to `origin/lane/runtime-b`) reports the reached kernel service by M2
+  name at a refused stop, touching only `src/runtime/kernel-service.mjs`,
+  `tests/kernel-service.test.mjs`, `docs/RUNTIME_B_SERVICE_CHECKPOINT.md` and
+  `docs/NV2A_GEOMETRY_CHECKPOINT.md` (+194 -9, zero harness-ban paths); its own checks read
+  kernel-service 3/3, test:runtime 201 pass / 1 skip, check 489 files. Auditor-verified caveat: the
+  commit's "no `geom-reference-01`; no Wasm toolchain" claim holds only for the lane worktree's
+  `.tools/emulation` (four stub dirs) and not for the repo root, where
+  `.tools/emulation/geom-reference-01/reference.json` exists at 2,904,864 bytes with SHA-256
+  `474497d8...d7b530e5` (126-input/153-output triangle reference) and `emsdk` supplies `emcc`;
+  the line/quad value-set is absent in both places and needs a local capture first. See D397.
+  No runtime advance.
+- 2026-11-05 tempo: 0 counted advances - no new stop boundary and no newly serviced reached
+  request with both-profile evidence; the stop holds at status 10 / `0x6B6A6968` / 346 routines /
+  414 kernel ops across both lane cycles. See D397. No runtime advance.
