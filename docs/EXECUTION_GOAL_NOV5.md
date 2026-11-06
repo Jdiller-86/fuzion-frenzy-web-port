@@ -99,3 +99,36 @@ Static recompilation to WebAssembly; original content player-supplied and local;
 4. Append the metrics line; verify milestone statuses against their criteria.
 5. When stalled, name the exact blocker, re-point the lane, and log the decision — never broaden scope to fill a cycle.
 - Integration with the PR line: when the existing main PR head does not contain the newest reviewed local-main chain, merge that chain into the integration branch first, applying the renumbering and regex rules the latest D-number records; never force-push; only then evaluate/re-request the main PR head.
+
+## Hard completion milestones (Nov 5 owner authorization)
+
+Every milestone below closes ONLY on evidence: (a) the evidence formats R11 names (two named browser reports + an independent audit JSON), and (b) an explicit records row citing that evidence. Lanes reach; the architect accepts and records; the translator owner decides repairs — currently the project architect, exercising the user's standing Nov-5 delegation ("decisions that genuinely improve development speed and quality"), revisable by the user at any return. A gate cannot close on documentation alone; no gate may be read as evidence the records do not name; and closer gates do not shorten theSTOP address quotation rule R6 — the card rule now requires each task card to name BOTH the current target milestone ID and the current stop address.
+
+Lane cards and hourly architect reviews from this date MUST name the current target milestone ID alongside the stop address. Owner absence never holds a lane: the lane continues per-cycle work toward its current milestone's blocked-by prerequisite, and the architect re-points cards when the chain departs from reality.
+
+M1..M4 stand as already-worded in the `## Development milestones and criteria for success` section above; M5's gate now closes on M10's stricter evidence. The tempo ledger (`docs/PROGRESS_METRICS.md`, R7) remains independent of milestone acceptance, except where an acceptance itself IS a new stop boundary.
+
+### M6 — runtime-epilogue mismatch resolved
+Gate: a DECISIONS row (the translator owner's choice, recorded under the standing Nov-5 delegation) names the chosen repair for the confirmed `FUN_001FB640` callee-saved pop-order mismatch — translator emission side vs `.inc` expansion or an equivalent evidence-shaped variant — AND the subsequent original stop moves in a browser-verified advance to an address other than `0x6B6A6968`, with the R11 evidence set. Owner: translator owner. Blocked by: runtime-a's composed blockers package (its pending record row must land and be renumbered at integration).
+
+### M7 — first original-program output at an output-surface-shaped window (the "first pixel" gate)
+Gate: under the modeled aperture rules (D063/D064), the original program's own commands — not the runtime's defaults — record a deterministic write into an output-surface-shaped device window the records identify (framebuffer/PCRTC-class), with before/after known-provenance; the R11 evidence names the window, the address and the write size; both profiles agree; no invented value. Owner: runtime-a. Blocked by: M6.
+
+### M8 — sustained frame boundary
+Gate: the modeled runtime sustains eight consecutive original-program frame-equivalent cycles (or an equivalent bounded loop the records name) in the browser reports with no new stop or fault, at least one M7-class write per cycle; both profiles. Owner: runtime-a. Blocked by: M7.
+
+### M9 — audio/control boundary reached
+Gate: a recorded audio or control device event from the original program's own commands admitted under the bounded referenced D-rules (no invented samples, no pre-fetched asset), with both-profile R11 evidence. Owner: runtime-a. Blocked by: M6 only — the original program's own ordering decides whether M8 or M9 comes first, and the records name it when it happens.
+
+### M10 — controllable original screen (M5's stricter evidence)
+Gate: the M5 screen exists AND a recorded bounded input sequence demonstrably changes it in the browser reports (input-driven screen transition), both profiles, R11 evidence. Owner: runtime-a with runtime-b's committed components available. Blocked by: M7 AND at least two of {M8, M9}.
+
+### M11 — full runtime
+Gate: the modeled runtime has an accepted answer for every runtime-lane group recorded (memory/aperture, audio, controllers, graphics pipeline, scheduling) — each group either reached-and-accepted or recorded as not-yet-reached with the evidence to know; both profiles, R11. Owner: translator owner + runtime-a. Blocked by: M7–M10.
+
+### M12 — the product (the corrected original-game completion)
+Gate: the original game's own program-defining scopes (offline play, data, conversion, the full local-content parity list from `docs/SCOPE_AND_FIDELITY.md`) satisfied in the browser with R11 evidence. Blocked by: M11 and the project's existing online/social/custom-feature plan records — this goal's ladder stops at M12 and creates NO new scope.
+
+## REA usage for the recompilation effort (Nov 5, owner direction)
+
+Within the recompilation effort, the `reverse-engineer-anything` (REA) skill/tooling may be used for read-only native analysis of the retained local original XBE (`research/reference/default.xbe`) or through the retained local Ghidra server/project (`research/ghidra-projects/FuzionFrenzySetup.gpr`), as described in `docs/ANALYSIS_SETUP.md`, for owner-directed questions the retained source-owned records alone cannot answer. REA invocations keep the project's local-content boundary: no original content committed, served or uploaded through REA; any use is recorded in `docs/DECISIONS.md` with its Evidence identity (Evidence IDs, digests, provider, tool); REA output is never substituted for the pipeline's byte/decoder/layout admission rules. A REA failure or provider unavailability is recorded as a factual entry, is never a reason to invent evidence, and does not block the lane from other found work.
