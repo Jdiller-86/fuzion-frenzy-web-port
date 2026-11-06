@@ -1,4 +1,12 @@
-# Destination capture: epilogue pops offset by one dword (stack deficit)
+# One-dword fix advances past the fault: status 1 at 0xFE0000C8, ordinal 100
+
+November 6: root cause found and fixed (D415). The modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address, leaving four bytes on the guest stack; every later slot was read one dword low, so `[ESI+0x47C]` read `0x206314` and the run faulted at `0x6B6A6968`. Repair: `g_esp = esp_before + 4u` in the source-owned handler, validator updated for the 4-byte pop; newly observed null-result shape `(0x206080, 9, 0, 0)` added and the pair check relaxed to at least one observed null shape.
+
+Pair (module 161): control unchanged at status 13 `0xFD800044` (339/405); experiment **advances past the fault to status 1 at `0xFE0000C8`, ordinal 100 (`KeDisconnectInterrupt`, argument `0x206030`)**, **347 routines / 419 kernel ops**. M6 acceptance met (progression past `0x6B6A6968`, control invariance). No translator or `.tools` edit.
+
+Next: bounded decision for ordinal 100 (`KeDisconnectInterrupt`) and the newly observed null-result shape's provenance.
+
+## Prior: Destination capture: epilogue pops offset by one dword (stack deficit)
 
 November 5: the owned FF_MEMORY_POP macro now reports the destination lvalue (`&(destination)`) and popped value. Module 159 run `browser-159-dest.json`: destinations are the correct `edi, esi, ebp, ebx`, but they read slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40` - **every pop is one dword (4 bytes) low**. ESI therefore receives the saved-EDI value `0x205E98`. Emission, destinations and LIFO order are correct; the defect is a **stack-delta imbalance of one dword** between prologue and epilogue (a push/pop or `ret N` mismatch, or a harness call-frame adjustment). The first epilogue pop reads `0x1FB64C`, the return address pushed for the indirect call at `0x1FB644`; `RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) invokes via `RECOMP_ABI_CALL` without adjusting `g_esp`, so the callee must consume that return word and did not. The leftover word shifts every saved slot by one dword, making `[ESI+0x47C]` read `0x206314` and causing the fault. Repair ownership: the resolved callee's call/return contract (or safe-path macro), not the lane pop macro. No `.tools` edit, no fabricated re-run. ABI logger restored: **131 ESI violations** (first `0x1E04CC`, last `0x202150`) - the earlier 0-ESI reading was a logger-skip artifact; ESI clobbering is real alongside the one-dword stack deficit.
 

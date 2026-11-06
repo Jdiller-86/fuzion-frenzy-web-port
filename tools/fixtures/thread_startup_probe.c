@@ -2391,6 +2391,9 @@ static void av_get_saved_data(void)
         stop(1, kernel_binding_address(1u), 1u);
     }
     g_eax = value;
+    /* No-argument stdcall service: consume the return address. Omitting this
+     * leaves one dword on the stack and shifts every later frame slot. */
+    g_esp = esp_before + 4u;
     av_saved_value = value;
     av_saved_eax_before = eax_before;
     av_saved_esp_before = esp_before;

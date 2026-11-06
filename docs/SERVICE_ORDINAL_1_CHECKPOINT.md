@@ -863,3 +863,17 @@ The ABI logger was restored to its full form (it had been reporting only counts 
 The earlier "0 ESI violations" reading (module 139) was an artifact of the logger's context-skip early-return, now removed. ESI clobbering is therefore **real and widespread**, independently of the one-dword stack deficit proven by the destination capture (§56–§57). Both findings stand on their own evidence; neither depends on the other.
 
 No code change beyond the diagnostic logger; no `.tools` edit.
+## 59. Fix: ordinal-1 handler's missing return pop; run advances past the fault (D415)
+
+Root cause of the one-dword deficit: the modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address. Every later frame slot was read one dword low, so `[ESI+0x47C]` read `0x206314` instead of the device field and the run faulted at `0x6B6A6968`.
+
+Repair in the source-owned fixture handler: `g_esp = esp_before + 4u` for the no-argument stdcall service (with the comment explaining the return-word contract). The validator now requires the 4-byte pop for an accepted saved-data call. A newly observed genuine null-result shape `(0x206080, 9, 0, 0)` was added to the observed list, and the pair check now requires at least one observed null shape rather than both historical shapes.
+
+Pair on module 161 (`browser-161-control.json` / `browser-161-experiment.json`):
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 (unchanged) |
+| experiment | **status 1 at `0xFE0000C8`, ordinal 100** | **347 / 419** |
+
+The fault at `0x6B6A6968` is **past**. The new genuine stop is ordinal 100 = `KeDisconnectInterrupt` with argument `0x206030`, return address inside the reached cluster. M6 acceptance: experiment progression past the fault (met) and control invariance (met). No translator or `.tools` edit. Next: bounded decision for ordinal 100.
