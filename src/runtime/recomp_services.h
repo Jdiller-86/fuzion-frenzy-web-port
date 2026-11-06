@@ -11,6 +11,9 @@
  * the same guest-visible effect (none) while recording the call for evidence,
  * because the browser probe has no stderr sink. */
 #define FF_DEBUG_SERVICE_CAPACITY 8
+/* Bytes copied from the guest string at trap time. The guest buffer may be
+ * reused before the run ends, so the bytes are only valid when captured here. */
+#define FF_DEBUG_SERVICE_TEXT_BYTES 32
 
 typedef struct
 {
@@ -18,6 +21,8 @@ typedef struct
     uint32_t argument;
     uint32_t length;
     uint32_t buffer;
+    uint32_t textBytes;
+    uint8_t text[FF_DEBUG_SERVICE_TEXT_BYTES];
 } ff_debug_service_call;
 
 typedef struct

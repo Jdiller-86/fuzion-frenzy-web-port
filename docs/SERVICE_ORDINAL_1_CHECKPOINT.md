@@ -1423,3 +1423,82 @@ Re-running module 185 (unchanged profile 107) reproduces the same stop - **statu
 Recorded limitation: the log keeps the trap descriptor, not the text bytes. The guest buffer is reused between traps and resolves to the shared format area, so reading it after the run would not reproduce what was printed; copying bytes inside the probe at trap time is a future, separately tested change.
 
 Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 82. Capture the debug-service text at trap time; the title's Babel log is now readable
+
+The section-81 limitation was removed instead of left standing: the guest string is copied inside the probe when the trap is recorded, before anything can reuse the buffer.
+
+- `src/runtime/recomp_services.{c,h}`: a record now carries `textBytes` and a fixed `FF_DEBUG_SERVICE_TEXT_BYTES` (32) byte copy, taken only after the same checked-aperture validation that already admitted the descriptor.
+- `tools/fixtures/thread_startup_probe.c`: `ff_probe_debug_service_word(i, 4)` reports the captured length and the new `ff_probe_debug_service_byte` reads the bytes; both stay bounded by the record.
+- `src/runtime/thread-proof-worker.mjs` decodes the bytes to `message` only when every captured byte is printable ASCII, and `src/runtime/proof-report.mjs` validates `textBytes` (≤ 32) and `message` (printable, equal to the captured length, not longer than the declared string).
+- `tests/recomp_services_test.c` pins the 5-byte copy, the 32-byte truncation and the refused cases; `tests/proof-report.test.mjs` pins the validated and rejected message shapes (**24/24**).
+
+Module `recomp-post-memory-build-187` (unchanged profile 107): **1,115,933 bytes**, SHA-256 `1a88902c8de20ef3009f252dc02c0342bcaa257ebe768e4b954e4fee537793fe`. The controlled comparison is unchanged - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and the report now carries the title's own log:
+
+| # | Bytes | Text |
+| --- | --- | --- |
+| 1 | 43 | (captured prefix contains a non-printable byte; no message emitted) |
+| 2 | 42 | `Babel Execution Log, (c) 2001 Bl...` |
+| 3 | 40 | `  Babel 54.05, Thu Aug  9 09:46:...` |
+| 4 | 42 | `--------------------------------` |
+| 5 | 37 | `Current time is 13:38:01, 6 Nov ...` |
+
+The title is running its own timestamped Babel execution log through the failure path that began with the refused `z:\debugLog.txt` create; the log text is guest data, not host output.
+
+Frontier unchanged: `FUN_001e8e74` still needs the paired QPF/TSC time-source decision before it can be admitted (link gate on `xbox_ReadTimeStampCounter`).
+
+Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 83. Ratified time source: console clock contract, QPF/counter handlers, two admissions
+
+Architect-ratified Runtime-a step: implement the QPF/TSC pair with a native-fixture contract, admit the linked time-source helpers, halt-and-report the next stop.
+
+New `src/runtime/time_source.{c,h}` implements the contract:
+
+- `FF_TIME_SOURCE_HZ` is **733,333,333**, the console CPU clock the pinned translator documents and the rate its `rdtsc` model scales to.
+- `ff_time_source_scale` converts the admitted browser clock's 100 ns units with split arithmetic (`seconds * HZ + remainder * HZ / 10^7`), so no intermediate exceeds 64 bits.
+- `ff_time_source_tsc` stores the first sample as the origin and returns the scaled **delta**, so the counter starts at zero, advances linearly, and never runs backwards on a non-monotonic sample.
+- `ff_time_source_frequency` returns the same constant. Recorded decision: the pinned *implementation* of `KeQueryPerformanceFrequency` returns the host rate while its own comment documents 733,333,333 as the title's compiled frequency; the admitted browser capability supplies 100 ns units and no host frequency, so the pair is the console rate on both sides. A host-rate QPF would make guest seconds wrong by the counter's scale ratio.
+- `tests/time_source_test.c` pins the frequency, one-second/two-second/half/quarter scaling, the zero origin, linear deltas, the non-monotonic guard and full-width input (**64/64** native runs).
+
+The probe now implements the guest time services on that contract:
+
+- `xbox_ReadTimeStampCounter` samples `ff_host_clock`, takes the system words, and scales through the state (`time_source` reset with the probe).
+- Ordinal 127 (`KeQueryPerformanceFrequency`) returns the frequency in `EDX:EAX` and pops only the return address; ordinal 126 (`KeQueryPerformanceCounter`) returns the counter the same way.
+
+Module `recomp-post-memory-build-188` (profile 108, which carried `FUN_001e8e74`): **1,117,519 bytes**, SHA-256 `24a3d30b7e11d9c62db191311600eedc202a9efa666ce93336e54b3cfe746b7d`. The link gate is cleared and the experiment advanced: **status 2 at `0x001E8E5F`, 385 routines / 495 ops**, return address `0x4C54E`; the ordinal-127 row completed with the frequency `733333333` visible in the frame.
+
+`FUN_001e8e5f` is the matching CRT performance-counter helper (`0x1E8E5F..0x1E8E73`, 7 instructions, import slot `0x2534E4` = ordinal 126) and was admitted into profile 109:
+
+- Seed `recomp-admit-1e8e5f-01/seed-1e8e5f.json`: 1 function, 7 instructions; profile 109 = **507 functions / 21,060 instructions**; `verify-seeds` 28 recorded / 28 offered / 0 unexpected / 0 missing.
+- Module `recomp-post-memory-build-189`: **1,122,443 bytes**, SHA-256 `d9d88024827a498b073eafd830e8a4168ba3d2ea820fd1562cf13a122e01b483`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment (module 189) | **status 4 at `0x0`, ordinal 126** | **386 / 499** |
+
+The time source itself is no longer the frontier: ordinal 126 returned through the same contract and the run stopped on the probe's **bounded diagnostic capacity** (`kernel_record` refuses when the 512-row call log is full), return address `0x1E8E65`.
+
+Next bounded task: raise the bounded kernel-call capacity (source-owned constant and its dependent rows) so the march can continue past ordinal 126, then report the next stop.
+
+Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 84. Capacity raise exposes a counter-poll loop; the diagnostic budget is now the limit
+
+The 512-row limit was raised to **1024** for the initializer-batch proof, with the two consumers kept in step: `local-title-proof.mjs` accepts the new capacity and `thread-proof-worker.mjs` accepts 512 or 1024 for an initializer run (the non-initializer tier stays 256). Module `recomp-post-memory-build-190` (unchanged profile 109): **1,122,451 bytes**, SHA-256 `8e760da8ed6ed7667f12f83dd0df1f4ba8ad9a3807c83aa679fc34a126c32cda`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 4 at `0x0`, ordinal 126** | **386 / 1011** |
+
+The larger log did not finish the loop: the experiment advanced from 499 to **1011 completed kernel operations** and filled all 1024 rows again at the same stop (return address `0x1E8E65`). The call histogram is decisive - **516 consecutive ordinal-126 `KeQueryPerformanceCounter` calls**, with ordinal 127 appearing once and the ordinary services interleaved before them. The guest is in a time-wait loop polling the performance counter; each poll is a distinct bounded record, so any fixed log size will be consumed.
+
+This is a diagnostic-budget stop, not a guest fault and not a time-source mismatch: the counter answers every poll (`status 0`) and the guest keeps polling.
+
+Next bounded task: make repeated counter polls stop consuming the diagnostic budget - the smallest evidenced change is to coalesce a run of consecutive identical ordinal-126/127 calls into one row with a bounded repetition count (report shape and `completedKernelOperations` stay derived from the rows), then report the next stop. A rolling log is the alternative if coalescing is rejected.
+
+Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

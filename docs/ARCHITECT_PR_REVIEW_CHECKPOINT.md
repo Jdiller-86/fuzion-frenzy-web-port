@@ -444,4 +444,3 @@ Final governance-merge checks: `npm run check` passes for 293 source files, `npm
 Geometry's prior analytic triangle test and offset assertions passed optimized and sanitizer validation, but this is not whole-chain or retained-reference validation. Keep the existing draft and topology hold; do not repeat low-impact ABI fixtures or copy private references into the cloud worktree simply to keep the lane busy. Resume for a concrete renderer dependency or an admissible locally run reference comparison yielding a curated report.
 
 No controllable original screen, complete graphics/audio/controllers, general disc reads, durable saves, end-user browser conversion, release performance, full catalog/detail parity or online/social/server authority is established. Original-containing code/assets/RAM/saves stay local; an input relay is not server authority. No route change or approximate reconstruction is approved.
-

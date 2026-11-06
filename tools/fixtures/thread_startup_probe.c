@@ -11,6 +11,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/local_settings.h"
 #include "../../src/runtime/kernel_error_map.h"
 #include "../../src/runtime/recomp_services.h"
+#include "../../src/runtime/time_source.h"
 #include "../../src/runtime/port_io.h"
 #ifdef FF_PFIFO_PROOF
 #include "../../src/runtime/pfifo_channel.h"
@@ -124,7 +125,7 @@ static ff_device_registers device_registers;
 #endif
 #endif
 #ifdef FF_INITIALIZER_BATCH_PROOF
-#define FF_KERNEL_CAPACITY 512u
+#define FF_KERNEL_CAPACITY 1024u
 #elif defined(FF_STARTUP_EXPANSION_PROOF)
 #define FF_KERNEL_CAPACITY 256u
 #else
@@ -148,6 +149,20 @@ volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static ff_debug_service_log debug_service_log;
+static ff_time_source performance_clock;
+
+/* The guest's performance counter. The admitted browser capability supplies
+ * interrupt and system time in 100 ns units; the counter is that system time
+ * scaled to the console frequency the pinned translator documents. */
+__attribute__((import_module("env"), import_name("ff_host_clock")))
+extern void ff_host_clock(uint32_t output);
+uint64_t xbox_ReadTimeStampCounter(void)
+{
+    uint32_t words[4] = { 0, 0, 0, 0 };
+    ff_host_clock((uint32_t)(uintptr_t)words);
+    const uint64_t system = (uint64_t)words[2] | (uint64_t)words[3] << 32;
+    return ff_time_source_tsc(&performance_clock, system);
+}
 
 /* Guest INT 0x2D. The pinned translator documents service 1 as a print of the
  * ANSI_STRING at the argument and no guest-register effect; the browser probe
@@ -2147,6 +2162,24 @@ static void initialize_timer(void)
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 113);
     g_esp += 12;
 }
+static void performance_frequency(void)
+{
+    uint32_t *row = kernel_record(127, 0);
+    const uint64_t frequency = ff_time_source_frequency();
+    row[1] = 0;
+    g_eax = (uint32_t)frequency;
+    g_edx = (uint32_t)(frequency >> 32);
+    g_esp += 4; /* VOID arguments: pop the return address only. */
+}
+static void performance_counter(void)
+{
+    uint32_t *row = kernel_record(126, 0);
+    const uint64_t counter = xbox_ReadTimeStampCounter();
+    row[1] = 0;
+    g_eax = (uint32_t)counter;
+    g_edx = (uint32_t)(counter >> 32);
+    g_esp += 4;
+}
 static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
@@ -2531,6 +2564,8 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
         if (ordinal == 107) return initialize_dpc;
         if (ordinal == 113) return initialize_timer;
         if (ordinal == 24) return query_nonvolatile;
+if (ordinal == 127) return performance_frequency;
+if (ordinal == 126) return performance_counter;
         if (ordinal == 301) return status_to_dos_error;
 #ifdef FF_SECTION_PROOF
         if (ordinal == 327) return load_image_section;
@@ -2709,14 +2744,20 @@ uint32_t ff_probe_debug_service_count(void) { return debug_service_log.count; }
 uint32_t ff_probe_debug_service_dropped(void) { return debug_service_log.dropped; }
 uint32_t ff_probe_debug_service_word(uint32_t i, uint32_t n)
 {
-    if (i >= debug_service_log.count || n >= 4u) return 0;
+    if (i >= debug_service_log.count || n >= 5u) return 0;
     const ff_debug_service_call *call = &debug_service_log.calls[i];
     switch (n) {
         case 0: return call->service;
         case 1: return call->argument;
         case 2: return call->length;
-        default: return call->buffer;
+        case 3: return call->buffer;
+        default: return call->textBytes;
     }
+}
+uint32_t ff_probe_debug_service_byte(uint32_t i, uint32_t n)
+{
+    if (i >= debug_service_log.count || n >= FF_DEBUG_SERVICE_TEXT_BYTES) return 0;
+    return debug_service_log.calls[i].text[n];
 }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {
@@ -2745,6 +2786,7 @@ void ff_probe_reset(void)
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
     ff_debug_service_reset(&debug_service_log);
+    ff_time_source_reset(&performance_clock);
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;
 #endif

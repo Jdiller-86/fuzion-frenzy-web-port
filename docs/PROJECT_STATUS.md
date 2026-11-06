@@ -1,4 +1,28 @@
-# Guest debug-service log captured; time-source gate still holds the frontier
+# Kernel-record capacity raised; the guest's counter-poll loop is the new limit
+
+November 6: the 512-row kernel-call log was raised to **1024** for the initializer-batch proof, with `local-title-proof.mjs` and `thread-proof-worker.mjs` accepting the new capacity (512 remains valid for older modules; the non-initializer tier stays 256). Module 190 (unchanged profile 109) = 1,122,451 bytes SHA `8e760da8...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 4 at `0x0`, ordinal 126, 386 routines / 1011 kernel ops** (return address `0x1E8E65`). The larger log exposed the real shape: **516 consecutive ordinal-126 `KeQueryPerformanceCounter` calls** - the guest is in a time-wait loop polling the counter, so any fixed record size is consumed. The counter answers every poll (`status 0`); this is a diagnostic-budget stop, not a guest fault or time-source mismatch.
+
+Next task: coalesce consecutive identical ordinal-126/127 polls into one bounded row with a repetition count (report shape and op counting stay derived from rows), then report the next stop; a rolling log is the alternative. Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Time source ratified and admitted; run stops at the kernel-call capacity
+
+November 6: architect-ratified QPF/TSC step. New `src/runtime/time_source.{c,h}` pins the pair at **733,333,333 Hz** with split scaling, a zero origin at the first sample, linear deltas and a non-monotonic guard (`tests/time_source_test.c`, native 64/64). The probe implements `xbox_ReadTimeStampCounter` (samples `ff_host_clock`'s 100 ns system time), ordinal 127 `KeQueryPerformanceFrequency` and ordinal 126 `KeQueryPerformanceCounter` (both returning `EDX:EAX`). Recorded decision: the pinned *implementation* returns the host rate while its comment documents the console clock; the browser capability supplies 100 ns units only, so both sides use 733,333,333.
+
+Module 188 (profile 108 with `FUN_001e8e74`) = 1,117,519 bytes SHA `24a3d30b...`; the link gate cleared and the run advanced to **status 2 at `0x001E8E5F`, 385 routines / 495 ops**, with the frequency visible in the frame. `FUN_001e8e5f` (ordinal-126 helper, 7 instructions) was then admitted: profile 109 = **507 functions / 21,060 instructions**, `verify-seeds` 28/28/0/0, module 189 = **1,122,443 bytes** SHA `d9d88024...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 4 at `0x0`, ordinal 126, 386 routines / 499 kernel ops** (return address `0x1E8E65`). The time source is no longer the frontier - the stop is the probe's bounded 512-row kernel-call log. Next task: raise that bounded diagnostic capacity and continue. Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Debug-service text captured at trap time; the title's Babel log is readable
+
+November 6: the section-81 limitation was closed. The probe now copies up to 32 guest string bytes inside `ff_debug_service_record` (after the same checked-aperture validation), exposes them through `ff_probe_debug_service_word(i,4)` and the new `ff_probe_debug_service_byte`, and the worker decodes a printable-ASCII `message` that `proof-report.mjs` validates (`textBytes` ≤ 32, message equal to captured length). Fixtures pin the copy, truncation and refusal cases (**native 62/62**, proof-report 24/24).
+
+Module 187 (unchanged profile 107) = **1,115,933 bytes**, SHA `1a88902c...`; the comparison is unchanged - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and the report now shows the title's own Babel execution log: `Babel Execution Log, (c) 2001 Bl...`, `  Babel 54.05, Thu Aug  9 09:46:...`, a rule line, and `Current time is 13:38:01, 6 Nov ...` (five service-1 traps, 43/42/40/42/37 bytes; the first prefix contains a non-printable byte so no message is emitted).
+
+Frontier unchanged: `FUN_001e8e74` still needs the paired QPF (ordinal 127) / `rdtsc` time-source decision; the link gate on `xbox_ReadTimeStampCounter` holds. Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Guest debug-service log captured; time-source gate still holds the frontier
 
 November 6: independent source-owned step while the paired time-source decision is held. The startup report now carries a bounded `debugServices` list: `thread-proof-worker.mjs` reads the probe's recorded guest `INT 0x2D` traps (`service`, `argument`, `length`, `buffer`), `proof-report.mjs` validates it (`DEBUG_SERVICE_LIMIT = 8`, malformed/oversized rejected, field optional) and `tests/proof-report.test.mjs` covers the cases (**24/24**).
 

@@ -31,7 +31,7 @@ self.onmessage = async event => {
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
-    if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
+    if(api.ff_probe_abi()>=15 && (!(initializerAbi?[512,1024]:[256]).includes(proofKernelCapacity(api)) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
@@ -1071,12 +1071,28 @@ if(mmioProfile.createFailureCapture) {
        * ANSI_STRING print the pinned translator documents; the record keeps the
        * descriptor only because the guest buffer may be reused afterwards. */
       const count = api.ff_probe_debug_service_count();
-      debugServices = Array.from({ length: count }, (_, index) => ({
-        service: api.ff_probe_debug_service_word(index, 0) >>> 0,
-        argument: api.ff_probe_debug_service_word(index, 1) >>> 0,
-        length: api.ff_probe_debug_service_word(index, 2) >>> 0,
-        buffer: api.ff_probe_debug_service_word(index, 3) >>> 0,
-      }));
+      debugServices = Array.from({ length: count }, (_, index) => {
+        const textBytes = typeof api.ff_probe_debug_service_byte === 'function'
+          ? api.ff_probe_debug_service_word(index, 4) >>> 0 : 0;
+        let message;
+        if (textBytes && textBytes <= 32) {
+          let printable = true, text = '';
+          for (let i = 0; i < textBytes && printable; ++i) {
+            const byte = api.ff_probe_debug_service_byte(index, i);
+            if (byte < 32 || byte > 126) printable = false;
+            else text += String.fromCharCode(byte);
+          }
+          if (printable) message = text;
+        }
+        return {
+          service: api.ff_probe_debug_service_word(index, 0) >>> 0,
+          argument: api.ff_probe_debug_service_word(index, 1) >>> 0,
+          length: api.ff_probe_debug_service_word(index, 2) >>> 0,
+          buffer: api.ff_probe_debug_service_word(index, 3) >>> 0,
+          textBytes,
+          message,
+        };
+      });
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServices,

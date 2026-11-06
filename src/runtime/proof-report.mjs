@@ -19,6 +19,8 @@ export const DEVICE_STATUS_WAITS = 4;
 export const STOP_STATUSES = new Set([1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15]);
 /* Must stay in sync with FF_DEBUG_SERVICE_CAPACITY in recomp_services.h. */
 export const DEBUG_SERVICE_LIMIT = 8;
+/* Must stay in sync with FF_DEBUG_SERVICE_TEXT_BYTES in recomp_services.h. */
+export const DEBUG_SERVICE_TEXT_LIMIT = 32;
 
 const integer = (value) => Number.isInteger(value) && value >= 0;
 const dword = (value) => integer(value) && value <= 0xffffffff;
@@ -84,6 +86,19 @@ export function validateProofReport(report) {
       if (!entry || !dword(entry.service) || !dword(entry.argument) ||
           !dword(entry.length) || !dword(entry.buffer))
         throw new Error('Malformed debug-service entry');
+      if (entry.textBytes !== undefined) {
+        if (!bounded(entry.textBytes, DEBUG_SERVICE_TEXT_LIMIT))
+          throw new Error('Malformed debug-service text length');
+        if (entry.message !== undefined) {
+          if (typeof entry.message !== 'string' || entry.message.length !== entry.textBytes ||
+              !/^[\x20-\x7e]*$/.test(entry.message))
+            throw new Error('Malformed debug-service message');
+          if (entry.length && entry.message.length > entry.length)
+            throw new Error('Debug-service message exceeds its declared length');
+        }
+      } else if (entry.message !== undefined) {
+        throw new Error('A debug-service message requires its captured length');
+      }
     }
   }
   const startup = report.originalStartup;
