@@ -515,3 +515,13 @@ mandatory corrective decision in docs/DECISIONS.md.
   D404-era `FUN_001F6240` register-identity investigation) is superseded by the D412/D413 owner
   decisions, so the next card points runtime-a at the icall return-word repair implementation.
   No runtime advance.
+- 2026-11-06 ~00:50 runtime-a (M6 counted advance #1): `ad0bffa` Fix the ordinal-1 return-address
+  pop and advance past the fault - the modeled ordinal-1 handler now consumes the call's return
+  address, the stop moves from status-10-at-`0x6B6A6968` to status-1-at-`0xFE0000C8` (ordinal 100),
+  347/419; control invariant; reports + checkpoint on record; COUNTED. See D429.
+- 2026-11-06 ~00:50 ops (D429): 00:40 tick integrated - new integration head `10cae52` (was
+  `8940d3f`), `sourceHead ad0bffa` absorbed, runtime-b chain (`9957144`->`854958e`, 10 commits)
+  verified unabsorbed, `origin/main` unmoved (`97d831bd`), integration blob `418 rows` / max `D428` /
+  duplicate `D370`, `D376`, `D383`, `D405`, `D410` (renumber still pending), markers naming
+  `10cae5297…` instead of the real head `10cae5256…`, and PR #19 `OPEN`/`CLEAN`/`MERGEABLE` at
+  `10cae52`. Local records only; the tick's own work is orchestration. No runtime advance.
