@@ -1484,3 +1484,21 @@ The time source itself is no longer the frontier: ordinal 126 returned through t
 Next bounded task: raise the bounded kernel-call capacity (source-owned constant and its dependent rows) so the march can continue past ordinal 126, then report the next stop.
 
 Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 84. Capacity raise exposes a counter-poll loop; the diagnostic budget is now the limit
+
+The 512-row limit was raised to **1024** for the initializer-batch proof, with the two consumers kept in step: `local-title-proof.mjs` accepts the new capacity and `thread-proof-worker.mjs` accepts 512 or 1024 for an initializer run (the non-initializer tier stays 256). Module `recomp-post-memory-build-190` (unchanged profile 109): **1,122,451 bytes**, SHA-256 `8e760da8ed6ed7667f12f83dd0df1f4ba8ad9a3807c83aa679fc34a126c32cda`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 4 at `0x0`, ordinal 126** | **386 / 1011** |
+
+The larger log did not finish the loop: the experiment advanced from 499 to **1011 completed kernel operations** and filled all 1024 rows again at the same stop (return address `0x1E8E65`). The call histogram is decisive - **516 consecutive ordinal-126 `KeQueryPerformanceCounter` calls**, with ordinal 127 appearing once and the ordinary services interleaved before them. The guest is in a time-wait loop polling the performance counter; each poll is a distinct bounded record, so any fixed log size will be consumed.
+
+This is a diagnostic-budget stop, not a guest fault and not a time-source mismatch: the counter answers every poll (`status 0`) and the guest keeps polling.
+
+Next bounded task: make repeated counter polls stop consuming the diagnostic budget - the smallest evidenced change is to coalesce a run of consecutive identical ordinal-126/127 calls into one row with a bounded repetition count (report shape and `completedKernelOperations` stay derived from the rows), then report the next stop. A rolling log is the alternative if coalescing is rejected.
+
+Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

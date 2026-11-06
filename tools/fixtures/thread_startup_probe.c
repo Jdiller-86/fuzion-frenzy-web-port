@@ -125,7 +125,7 @@ static ff_device_registers device_registers;
 #endif
 #endif
 #ifdef FF_INITIALIZER_BATCH_PROOF
-#define FF_KERNEL_CAPACITY 512u
+#define FF_KERNEL_CAPACITY 1024u
 #elif defined(FF_STARTUP_EXPANSION_PROOF)
 #define FF_KERNEL_CAPACITY 256u
 #else

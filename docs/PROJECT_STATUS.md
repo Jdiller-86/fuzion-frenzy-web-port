@@ -1,4 +1,12 @@
-# Time source ratified and admitted; run stops at the kernel-call capacity
+# Kernel-record capacity raised; the guest's counter-poll loop is the new limit
+
+November 6: the 512-row kernel-call log was raised to **1024** for the initializer-batch proof, with `local-title-proof.mjs` and `thread-proof-worker.mjs` accepting the new capacity (512 remains valid for older modules; the non-initializer tier stays 256). Module 190 (unchanged profile 109) = 1,122,451 bytes SHA `8e760da8...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 4 at `0x0`, ordinal 126, 386 routines / 1011 kernel ops** (return address `0x1E8E65`). The larger log exposed the real shape: **516 consecutive ordinal-126 `KeQueryPerformanceCounter` calls** - the guest is in a time-wait loop polling the counter, so any fixed record size is consumed. The counter answers every poll (`status 0`); this is a diagnostic-budget stop, not a guest fault or time-source mismatch.
+
+Next task: coalesce consecutive identical ordinal-126/127 polls into one bounded row with a repetition count (report shape and op counting stay derived from rows), then report the next stop; a rolling log is the alternative. Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Time source ratified and admitted; run stops at the kernel-call capacity
 
 November 6: architect-ratified QPF/TSC step. New `src/runtime/time_source.{c,h}` pins the pair at **733,333,333 Hz** with split scaling, a zero origin at the first sample, linear deltas and a non-monotonic guard (`tests/time_source_test.c`, native 64/64). The probe implements `xbox_ReadTimeStampCounter` (samples `ff_host_clock`'s 100 ns system time), ordinal 127 `KeQueryPerformanceFrequency` and ordinal 126 `KeQueryPerformanceCounter` (both returning `EDX:EAX`). Recorded decision: the pinned *implementation* returns the host rate while its comment documents the console clock; the browser capability supplies 100 ns units only, so both sides use 733,333,333.
 
