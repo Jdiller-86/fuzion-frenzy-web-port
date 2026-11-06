@@ -699,4 +699,22 @@ Formal record for the translator owner: the repair question is now "why does the
 
 No DECISIONS row: evidence for D401.
 
+## 47. Compiled-artifact verdict: the owned macro pattern is LIFO-correct
+
+A minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the exact emitted sequence with the same macro shapes:
+
+- pushes `ebx(0x11), ebp(0x22), esi(0x33), edi(0x44)`;
+- pops `edi, esi, ebp, ebx` via `FF_MEMORY_POP`-style read-before-increment macros;
+- correct LIFO restore is `edi=0x44, esi=0x33, ebp=0x22, ebx=0x11` (packed `0x44332211`).
+
+Results:
+- **gcc (native suite)**: the reproducer returns 1 (`lifo-correct`), registered as `reg_save_compiled_probe`; native suite **54/54**.
+- **Emscripten standalone Wasm under Node**: `run_probe()` returns 1 (`lifo-correct`), so the compiled artifact preserves the emitted order.
+
+Verdict: the owned macro/expansion files (`src/runtime/recomp_memory_access.h` and the emission pattern) are **exonerated** — the compiled minimal artifact does not reproduce the shift. The full-module divergence is therefore specific to the toolkit/lifter-level code generation or register bookkeeping outside the lane's owned files. This is the M6 gate's fuzzed truth: the stop does not move and the defect is not in the lane-owned expansion.
+
+No fix, no model, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
 No DECISIONS row: tooling characterization.
