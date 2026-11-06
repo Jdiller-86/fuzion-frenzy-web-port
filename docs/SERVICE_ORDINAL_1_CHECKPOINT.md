@@ -686,4 +686,17 @@ Cycle evidence for the governor's gate: control profile stops at status 13 `0xFD
 
 No DECISIONS row: attribution evidence for D401.
 
+## 46. Original binary matches the emitted text (REA read-only)
+
+Read-only Ghidra check of the retained XBE (source SHA-256 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`):
+
+- `CDevice_FreeFrameBuffers` prologue (`0x1FB640..0x1FB643`): `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`.
+- Epilogue (`0x1FB72E..0x1FB732`): `POP EDI; POP ESI; POP EBP; POP EBX; RET`.
+
+The original binary, the emitted `.inc` text and the tested rule therefore all agree: the correct restore order is `edi, esi, ebp, ebx` after pushes `ebx, ebp, esi, edi`. The observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three, and the attribution is adjacent-proven. The remaining discrepancy is in the **compiled-code/register-identity layer** (the built object's register binding), not in the original bytes, the emitted order, or the sampling.
+
+Formal record for the translator owner: the repair question is now "why does the compiled module bind the `POP EDI` slot to `esi` when the original bytes, the emitted text and `ff_reg_order_is_reverse` all require `POP EDI`?" Evidence: this section, §45 attribution table, module `ee284034...`, reports `browser-157-control.json` / `browser-157-experiment.json`. No fix, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
 No DECISIONS row: tooling characterization.

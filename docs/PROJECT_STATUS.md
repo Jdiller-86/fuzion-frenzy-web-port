@@ -1,4 +1,10 @@
-# Attribution proven adjacent: the pop consuming slot 0x3C10E34 writes ESI
+# Original XBE matches the emitted order; compiled-code binding is the open question
+
+November 5: read-only Ghidra check of the retained XBE (SHA `45bb49e1…`) — `CDevice_FreeFrameBuffers` prologue `0x1FB640..0x1FB643` is `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`, and epilogue `0x1FB72E..0x1FB732` is `POP EDI; POP ESI; POP EBP; POP EBX; RET`. Original bytes, emitted `.inc` and the tested rule all agree; the observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three with adjacent-proven attribution. The remaining discrepancy is in the compiled-code/register-identity layer. Formal question for the translator owner: why does the compiled module bind the `POP EDI` slot to `esi`? No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Attribution proven adjacent: the pop consuming slot 0x3C10E34 writes ESI
 
 November 5: sequence-tagged pop capture (module 158; reports `browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`) samples post-ESI at the immediately following hook (seq + 1): the pop consuming `0x3C10E34 = 0x205E98` writes ESI (post-ESI `0x205E98`), while the pop consuming `0x3C10E38 = 0x203B90` leaves ESI unchanged. Attribution is real, not a sampling artifact. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`); the emitted text is the correct reverse, so the remaining question is a compiled-code/register-identity discrepancy recorded for the translator owner. Cycle gate evidence: control stops status 13 `0xFD800044` (339/405); experiment stops status 10 `0x6B6A6968` (346/414) — not moved. No fix or model.
 
