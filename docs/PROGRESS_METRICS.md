@@ -322,3 +322,72 @@ mandatory corrective decision in docs/DECISIONS.md.
   card's transcribed triangle digest prefix `474ada8e2d0f...` conflicts with D399/D400's
   `474497d8...B530E5` pending a lane re-check before use. Tempo fact: 0 counted advances, stop unchanged at
   `0x6B6A6968` / 346 / 414. No runtime advance.
+- 2026-11-05 ops (D405): gh CLI verified read-only (installed, authenticated as account `Jdiller-86`, scopes
+  `repo`/`workflow`/`gist`/`read:org`, token redacted and never printed); the owner closed PR #3 (geometry draft,
+  head `aac82119`, 21:14:08 EST) and PR #20 (head `1af5dce`, 21:26:55 EST) unmerged, so D403's #20 non-merge rule
+  is moot and PR #19 is the sole main-targeting PR - `44af31d` at the 21:40 snapshot (MERGEABLE/`clean`, 4/4
+  `preparation` checks), `d1cc85a` at the D405 read. Containment in `d1cc85a`: 10 of the 12 tested commits exit 0
+  (`35acdae`, `f4088e8`, `be791ef`, `c21e61b`, `3aaf9fc`, `0f0b6c1`, `ffacf95`, `f69430e`, `37d94c2`, `595faf0`),
+  while `9957144`/`40af26d` exit 1 (lane/runtime-b content, not on the architect branch); no `refs/pull/22` or
+  `refs/pull/23` exists, so the queued "open PR" directives produced no PR and the guarded actuator route stays
+  #19 only. Agent-side gh stays read-only; the guarded actuator remains the only merge path. No runtime advance.
+- 2026-11-05 lane (runtime-a): read-only REA record at `595faf0` - XBE SHA-256
+  `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`, prologue `0x1FB640..0x1FB643`
+  `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`, epilogue `0x1FB72E..0x1FB732`
+  `POP EDI; POP ESI; POP EBP; POP EBX; RET`, taken under named fact (a) of the goal-doc unlock list (`11a6805`);
+  the original-binary order matches the emitted `.inc` and the tested rule, so the mismatch is not in the original
+  and the question is formally routed to the translator owner: "why does the compiled module bind the `POP EDI`
+  slot to `esi`?" Runtime-b's line/quad comparator edit is still in flight and uncommitted (+255/-62, untracked
+  test file, last commit `402fa29`), and the 21:40 tick (`integrated`, finished 21:44:06, head `d1cc85a`,
+  `mergeResult` "PR is not cleanly mergeable: unstable", `origin/main` unmoved at `97d831b`) routed candidate (B)
+  to the translator owner. Tempo fact: 0 counted advances, stop unchanged verbatim at status 10 `0x6B6A6968`,
+  346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D406): the merge gate is green but not the superset - `refs/pull/19/head` = `d1cc85a`
+  reports `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN` and 4/4 `preparation` checks SUCCESS, all
+  completed 21:44 EST (`preparation windows-latest` x2, `preparation ubuntu-latest` x2), with `origin/main`
+  unmoved at `97d831bd` and `refs/pull/22/head` still absent, so #19 is the only guarded route (PRs #3 and
+  #20 were closed earlier by the owner). The reconciled superset head per D394/D398/D403 is not yet met:
+  #19's head carries runtime-a content and the D-record chain through D404 but still lacks runtime-b's
+  `9957144` + `40af26d`, main's D405 record `c438e75` and post-D405 main content, so merging now would be the
+  silent-drop pattern the records guard against; the 22:40 tick is the next reconciliation window and only
+  then should the merge land. The tick's earlier `mergeResult` ("pending: not cleanly mergeable: unstable")
+  was state-read before CI completed, so the delay is the missing-lane-content reconciliation, not the check
+  gate. The owner's manual merge remains off until the reconciled superset head exists (D403 rule). Tempo
+  fact: 0 counted advances, stop unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
+- 2026-11-05 ops (D406): runtime-b's line/quad comparator extension is in flight and uncommitted at the read
+  (`M tools/compare-nv2a-geometry.mjs`, +252/-62, plus a new `?? tests/compare-nv2a-geometry.test.mjs`), and
+  its own checkpoint's newest section ("### 3a. Line/quad comparison - executed and exact (D404
+  authorization)") is the lane's own claim inside an in-flight record - the committed state is what counts;
+  the prior 21:27-cycle instance was interrupted at the D404 pause (`0xC000013A`), an unattended-window
+  scheduling fact whose state file's cycle read came from the pre-21:27 instance. runtime-a published two
+  lane commits (`1f3f0f5` compiled-artifact probe exonerating the owned macro pattern, 4 files +81;
+  `868d00e` pre-registering M3 and recording the reached cluster, docs, 2 files +21) - the graphics cluster
+  is REACHED with the free-framebuffer fault blocking its return path, which is pre-registered M3 status and
+  NOT an acceptance (the M3 gate remains unmet). No REA re-invocation this cycle; the `595faf0`
+  original-binary check covers the implicated order. Tempo fact: 0 counted advances, stop unchanged at
+  status 10 `0x6B6A6968`, 346 routines / 414 kernel ops (the control profile's own stop marker remains
+  unrelated to the boundary). No runtime advance.
+
+- 2026-11-05 ops (D407): runtime-b's authorized line/quad comparator work is committed as
+  `1546a83` (4 files: comparator +317, new test +59, checkpoint +128, `package.json` +1 -1
+  wiring the test into `test:runtime`). Committed record on the 1,728-record line/quad
+  reference: 960 compared, 768 skipped with stated reasons (384 polygon-mode-1, 384
+  polygon-mode-2), 0 forwarded / 0 slope mismatches, `maxSlopeUlps 0`; `node --test`
+  7/7, `test:runtime` 209 pass / 1 skip, `check` 490 files. The handoff's "0 skipped" is
+  corrected to the committed 768 stated-reason skips. Verified component progress only - no
+  boundary move and no newly serviced original request - so it is not a counted advance.
+  No runtime advance.
+- 2026-11-05 ops (D407): runtime-a records the M2 device-policy core statistics at `2aa9b43`
+  (`browser-157-experiment.json`: 12,637 entries, 161 reads all `beforeKnown`, 68 after write,
+  12,476 writes, 0 unknown-address reads, 5,298 distinct addresses, 0 status waits), extended
+  to both profiles by `1875d94` (control 12,592 entries / 137 reads / 100% `beforeKnown` / 54
+  after write / 0 unknown reads). M2 still needs its two boundary advances, so this is M2
+  evidence, not M2 acceptance. No runtime advance.
+- 2026-11-05 ops (D407): tempo fact - still 0 counted advances. runtime-a's standalone
+  compiled-artifact probe (`tests/reg_save_compiled_probe.c`, returns 1 `lifo-correct` under
+  gcc 54/54 and as standalone Emscripten Wasm under Node) exonerates both the compiled artifact
+  and the owned macro/expansion text, narrowing the live candidate to the lane's own in-browser
+  module compilation/binding - a diagnostic narrowing, not a boundary move. The stop is
+  unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops; PR #19 stays the only
+  guarded route with the 22:40 tick as the next reconciliation window (D403). No runtime advance.
