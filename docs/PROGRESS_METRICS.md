@@ -75,3 +75,22 @@ mandatory corrective decision in docs/DECISIONS.md.
   the project policy `shell:git push * = deny` before any network attempt, so nothing was
   retried or forced and `git ls-remote` shows neither branch. Publication of
   `lane/integration` remains the architect/runner step, not the builder's. See D390.
+- 2026-11-05 review (geometry): all eight NV2A files (`nv2a_line/quad/triangle` `.c/.h`
+  and `tests/nv2a_line_test.c`, `tests/nv2a_quad_test.c`) are present on merged main
+  `5c3cbb6` by `git ls-tree HEAD`; the frozen branch stays unintegrated and the remaining
+  work is runtime-b's `tools/run-native-tests.mjs` wire-through plus the line/quad browser
+  prepass; the stale recovery card is corrected at `0864419`. No runtime advance. See
+  D391.
+- 2026-11-05 review (verification): the lane remains frozen; its content is
+  document/manifest/plugin-infrastructure only with no runtime-path absorption candidate,
+  and it reopens only on a named runtime need. No runtime advance. See D391.
+- 2026-11-05 schedule: `FuzionFrenzy-OpenCode-CycleB` is absent; the Cycle, Geometry and
+  Verification triggers report `Enabled=False` while their task settings stay enabled;
+  runtime-a's last cycle ran 18:52:29-18:57:04 and the idle orchestrator heartbeat plus
+  all-HOLD manager cards explain the silence, not a failed task (LastTaskResult 0). No
+  runtime advance. See D391.
+- 2026-11-05 publication: `origin/main` is still `97d831b`; local main `5c3cbb6` is seven
+  ops commits ahead and unpushed together with the lane heads, and no `lane/integration`
+  ref exists yet, so the PR remains with the user/runner. No runtime advance. See D391.
+- 2026-11-05 ops: annotated tag `runtime-b-5ec83b8-archive` pins superseded `5ec83b8`
+  against garbage collection; no other refs were created. No runtime advance. See D391.
