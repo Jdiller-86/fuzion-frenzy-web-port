@@ -328,7 +328,7 @@ export function validateProofReport(report) {
    * to preserve ebx/esi/edi/esp; it is evidence, not a service model. */
   if (report.abiViolationState !== undefined) {
     const a = report.abiViolationState;
-    if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast))
+    if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast) || !integer(a.espCount) || !integer(a.espFirst) || !integer(a.espLast))
       throw new Error('Malformed ABI-violation state');
   }
   /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
