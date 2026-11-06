@@ -549,6 +549,7 @@ static uint32_t volume_ready;
 static uint32_t file_information[FF_KERNEL_CAPACITY][14];
 static uint32_t create_request_words[FF_KERNEL_CAPACITY][6];
 static uint8_t create_request_names[FF_KERNEL_CAPACITY][256];
+static uint32_t create_failure_enabled;
 #endif
 #ifdef FF_NAMESPACE_PROOF
 static ff_object_namespace object_namespace;
@@ -1745,6 +1746,14 @@ uint32_t ff_probe_file_information_word(uint32_t index,uint32_t word)
 {
     return index<kernel_call_count && word<14?file_information[index][word]:0;
 }
+uint32_t ff_probe_create_failure(uint32_t enable)
+{
+    /* Default-off diagnostic: capture the request words and name of a
+     * failed ordinal-190 create so the report can show what was refused. */
+    if (enable > 1u) return FF_BOOT_INVALID;
+    create_failure_enabled = enable;
+    return 0;
+}
 uint32_t ff_probe_create_request_word(uint32_t index,uint32_t word)
 {
     return index<kernel_call_count && word<6?create_request_words[index][word]:0;
@@ -1803,7 +1812,18 @@ static void create_directory(void)
 #else
     row[1] = ff_volume_create_directory(&local_volume, row + 2);
 #endif
-    if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
+    #ifdef FF_REGULAR_FILE_PROOF
+if (create_failure_enabled && row[1] && !(row[10]&1u)) {
+    const uint32_t index=kernel_call_count-1,descriptor=MEM32(row[4]+4),buffer=MEM32(descriptor+4),bytes=MEM16(descriptor);
+    if(bytes<256) {
+        uint32_t *captured=create_request_words[index];
+        captured[0]=MEM32(row[4]); captured[1]=MEM32(row[4]+8); captured[2]=descriptor; captured[3]=buffer;
+        captured[4]=bytes; captured[5]=MEM16(descriptor+2);
+        for(unsigned i=0;i<bytes;++i) create_request_names[index][i]=MEM8(buffer+i);
+    }
+}
+#endif
+if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
     if (!row[1]) { row[11] = MEM32(row[2]); row[12] = MEM32(row[5]); row[13] = MEM32(row[5] + 4); }
     row[14] = local_volume.directory_count; row[15] = local_volume.directories_created; row[16] = local_volume.active;
 #ifdef FF_REGULAR_FILE_PROOF

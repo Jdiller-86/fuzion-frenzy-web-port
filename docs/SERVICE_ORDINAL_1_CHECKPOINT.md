@@ -1152,3 +1152,37 @@ The disposition-5 create now passes the model gate. Its final ordinal-190 call r
 Candidate scopes for the architect (no change made): (a) resolve a relative create through the retained namespace/file-object state (D036-related), or (b) extend ordinal 301 with its documented status mapping so the CRT can report the failure and the caller may continue.
 
 Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 72. Request capture: the failing create is z:\debugLog.txt with root 0xFFFFFFFD; pseudo-handle semantics undetermined
+
+Architect decision (GLM 5.3 Flash) for this stop: option C, one bounded probe cycle. Options A (status-to-DOS mapping) and B (root resolution) were both judged premature until the refused request is known.
+
+Source changes (all default-off diagnostics; no model semantics changed):
+- `tools/fixtures/thread_startup_probe.c`: new default-off `createFailureCapture` input with `ff_probe_create_failure` enable; on a failed regular-file create it records the request words and name into the existing capture arrays before the ordinal-190 stop.
+- `src/runtime/local-title-proof.mjs`, `src/runtime/thread-proof-worker.mjs`, `src/runtime/proof-report.mjs`: profile key, worker enable/report field `createFileFailure`, and the experiment-name allowlist.
+- Module `recomp-post-memory-build-174` (unchanged profile 97): **1,051,868 bytes**, SHA-256 `02ac5719ee2725a749af4efe3d2241cfaf81b1343c30394addc9838936c879c2`.
+- Diagnostic profile `settings-pfifo-createfail.json` (base kedisc profile plus the capture flag) and report `browser-174-createfail.json`.
+
+Captured request (report `createFileFailure`, observation `captured-at-failure`):
+
+| Field | Value |
+| --- | --- |
+| Name | **`z:\debugLog.txt`** (15 bytes, descriptor `0x3C10BFC`, buffer `0x2852D8`) |
+| ObjectAttributes | `0x3C10BE8`; root-directory word **`0xFFFFFFFD`**; attributes word `0x40` |
+| DesiredAccess | `0x40100080` |
+| FileAttributes / ShareAccess | `0x80` / 3 |
+| CreateDisposition / CreateOptions | 5 / `0x60` |
+| FileHandle out / IoStatusBlock | `0x3C10C04` / `0x3C10BF4` |
+
+The descriptor was unchanged at stop (15 bytes, `bufferChangedAtStop: false`), so the capture is the refused request. The stop is unchanged: **status 9 at ordinal 301, value `0xC0000008`, 365 routines / 443 kernel ops**; control 339/405 and inert 347/419 are unchanged.
+
+Caller image section: `0x1E93E4` lies in XBE section 1 (`address 0x11000`, `virtualBytes 0x1E43B0`, i.e. `0x11000..0x1F53B0`); section 2 starts at `0x1F5400`. The wrapper is title code, not embedded kernel text.
+
+The original `NtCreateFile` implementation is not among the retained artifacts (the XBE carries no kernel image, and acquiring one is prohibited), so the `RootDirectory = 0xFFFFFFFD` semantics cannot be resolved here. The public-knowledge check could not be run (search unavailable) and is corroborative only. Two hypotheses are recorded:
+
+- **H1:** `0xFFFFFFFD` is not a valid root handle; the original kernel rejects the create with STATUS_INVALID_HANDLE and the CRT error path is the faithful behavior. The next step would be option A (documented ordinal-301 mapping).
+- **H2:** `0xFFFFFFFD` is a defined drive-root pseudo-handle; the original create could succeed for the Z: debug log, which would need a representable referent (option B).
+
+The path is a CRT debug-log target, not game content. Per the architect's halt condition, probing this call stops here; the next step is the architect's choice between the recorded hypotheses.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
