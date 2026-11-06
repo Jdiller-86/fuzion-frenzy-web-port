@@ -1,4 +1,172 @@
-# ESI arbiter verdict: the register genuinely held 0x205E98 at the read
+# FUN_001e733d batch admitted; next stop is FUN_001e93e4 at 0x1E93E4
+
+November 6: one evidenced batch translation increment (retained pipeline; 2 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E733D` and `0x001E72A8` to the prior seed (32-export cap kept); every other callee was already translated and both import thunks are ordinals 277/294 already routed. `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 96 (**487 functions, 20,115 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 171: **1,045,793 bytes**, SHA `57576342...`.
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the stream-table setup and stops at **status 2, `0x001E93E4`** (363 routines / 441 kernel ops) — `FUN_001e93e4`, the next translation placeholder.
+
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
+
+November 6: architect-authorized default-off `KeDisconnectInterrupt` model (ordinal 100) with the +16 `Connected` offset from retained pinned references (modeled, not observed layout). `src/runtime/interrupt_vector.c/.h`: disconnect validates a writable 17-byte object, returns the previous `Connected` byte and clears it; connect now writes 1 at +16 and refuses a read-only object. Native test extended and the previously unregistered `interrupt_vector` fixture added: **56/56**. Harness/parser/worker/validator wiring added (default-off `keDisconnectInterrupt`).
+
+Pair (module 162): control unchanged at status 13 `0xFD800044` (339/405); inert unchanged at status 1 `0xFE0000C8`, ordinal 100 (347/419); experiment accepted the call (`object 0x206030`, previous 1, EAX 0→1, `esp + 8`) and advanced to **status 2 at `0x004F7A0`, 347 routines / 421 kernel ops** — a translation placeholder, the next genuine stop.
+
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row: integration head `8940d3f` lacks the lane commits (sync-first). No main push/merge; geometry untouched.
+
+## Prior: One-dword fix advances past the fault: status 1 at 0xFE0000C8, ordinal 100
+
+November 6: root cause found and fixed (D415). The modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address, leaving four bytes on the guest stack; every later slot was read one dword low, so `[ESI+0x47C]` read `0x206314` and the run faulted at `0x6B6A6968`. Repair: `g_esp = esp_before + 4u` in the source-owned handler, validator updated for the 4-byte pop; newly observed null-result shape `(0x206080, 9, 0, 0)` added and the pair check relaxed to at least one observed null shape.
+
+Pair (module 161): control unchanged at status 13 `0xFD800044` (339/405); experiment **advances past the fault to status 1 at `0xFE0000C8`, ordinal 100 (`KeDisconnectInterrupt`, argument `0x206030`)**, **347 routines / 419 kernel ops**. M6 acceptance met (progression past `0x6B6A6968`, control invariance). No translator or `.tools` edit.
+
+Next: bounded decision for ordinal 100 (`KeDisconnectInterrupt`) and the newly observed null-result shape's provenance.
+
+## Prior: Destination capture: epilogue pops offset by one dword (stack deficit)
+
+November 5: the owned FF_MEMORY_POP macro now reports the destination lvalue (`&(destination)`) and popped value. Module 159 run `browser-159-dest.json`: destinations are the correct `edi, esi, ebp, ebx`, but they read slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40` - **every pop is one dword (4 bytes) low**. ESI therefore receives the saved-EDI value `0x205E98`. Emission, destinations and LIFO order are correct; the defect is a **stack-delta imbalance of one dword** between prologue and epilogue (a push/pop or `ret N` mismatch, or a harness call-frame adjustment). The first epilogue pop reads `0x1FB64C`, the return address pushed for the indirect call at `0x1FB644`; `RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) invokes via `RECOMP_ABI_CALL` without adjusting `g_esp`, so the callee must consume that return word and did not. The leftover word shifts every saved slot by one dword, making `[ESI+0x47C]` read `0x206314` and causing the fault. Repair ownership: the resolved callee's call/return contract (or safe-path macro), not the lane pop macro. No `.tools` edit, no fabricated re-run. ABI logger restored: **131 ESI violations** (first `0x1E04CC`, last `0x202150`) - the earlier 0-ESI reading was a logger-skip artifact; ESI clobbering is real alongside the one-dword stack deficit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No `.tools` edit, no fabricated re-run; geometry untouched.
+
+## Prior: Gate clarified: control invariance plus experiment progression (not "both past the fault")
+
+November 5: the M6 gate as literally phrased ("stop past `0x6B6A6968` in both profiles") is unsatisfiable by construction — the control profile stops at status 13 `0xFD800044` (339/405), at the PFIFO control seam before the graphics path, and never reaches the fault; the experiment stops at status 10 `0x6B6A6968` (346/414). The operational gate is recorded for the translator-owner repair: (1) control invariance at `0xFD800044` 339/405, (2) experiment progression past `0x6B6A6968` with the next genuine stop recorded exactly, (3) `[ESI+0x47C]` reading `0x20400C`. No code change; source path remains HOLD D411 (lifter-owned).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Pipeline path named; evidence-backed HOLD recorded as D411
+
+November 5 (source-work cycle per D410): the module-preparation path was inspected in the owned driver. `tools/prepare-title-recomp.py` imports the pinned private toolkit (lines 458-460), configures it from the XBE (530), constructs `FunctionTranslator` (544), and obtains the emitted text from `translate_function`/`translator.lifter` (577-583). The driver passes seeds/profile/limits/trace sets only and contains **no register-identity mapping**; the emitted text is the verified correct reverse and the compiled minimal artifact is LIFO-correct. The remaining divergence is inside the pinned private lifter/translator emission, outside this lane's editable scope. **D411 HOLD** records the exact callsites and requires a translator-owner decision with `ff_reg_order_is_reverse` + `[ESI+0x47C] = 0x20400C` acceptance; no `.tools` edit, no fabricated re-run, no REA call.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: M2 policy verified in both profiles: zero unknown device reads
+
+November 5: the device-log policy (D402) is verified in **both** profiles — control `browser-157-control.json`: 12,592 entries, 137 reads (100% `beforeKnown`, 54 after write), 12,455 writes, 0 unknown reads, 5,298 distinct, 0 status waits; experiment `browser-157-experiment.json`: 12,637 entries, 161 reads (100%, 68 after write), 12,476 writes, 0 unknown reads, same distinct/status. M2's "in both profiles" requirement is met independently of the pending candidate-(B) repair.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 policy stats: 161/161 device reads beforeKnown, zero unknown reads
+
+November 5: device-log statistics from `browser-157-experiment.json` keep the M2 evidence current — 12,637 entries: 161 reads (100% `beforeKnown`, 68 of previously written addresses), 12,476 writes, **0 unknown-address reads**, 5,298 distinct device addresses, 0 status waits. D402's policy is applied exactly; the current fault at `0x6B6A6968` is a guest-memory read, not a device-register read. M3 acceptance remains pre-registered; repair ownership stays with the translator owner (candidate B).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M3 pre-registered: cluster reached, fault blocks the return path
+
+November 5: read-only check of `browser-157-experiment.json` confirms all graphics-cluster functions are reached (`0x1F7650`, `0x1FBB00`, `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0`, `0x1FC010`, `0x1FB640`); the fault sits in the cluster's return/teardown path, not at an unadmitted function or unsupported service. M3 post-repair acceptance is pre-registered: stop past `0x6B6A6968` in both named profiles, next request/system recorded exactly, and `[ESI+0x47C]` reading `0x20400C`. Repair ownership is the translator owner's (candidate B); no lane-side translator/toolkit/fixture change.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Compiled-artifact verdict: owned macro pattern is LIFO-correct (native+Wasm)
+
+November 5: a minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the emitted push/pop sequence with the same macro shapes. Correct LIFO restore is packed `0x44332211`; the probe returns 1 (`lifo-correct`) under **gcc** (registered in the native suite, **54/54**) and as an **Emscripten standalone Wasm under Node**. The owned macro/expansion files are therefore **exonerated**: the compiled minimal artifact does not reproduce the shift. The full-module divergence is specific to toolkit/lifter-level code generation or register bookkeeping outside this lane's owned files — recorded as the M6 gate's fuzzed truth. No fix, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Original XBE matches the emitted order; compiled-code binding is the open question
+
+November 5: read-only Ghidra check of the retained XBE (SHA `45bb49e1…`) — `CDevice_FreeFrameBuffers` prologue `0x1FB640..0x1FB643` is `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`, and epilogue `0x1FB72E..0x1FB732` is `POP EDI; POP ESI; POP EBP; POP EBX; RET`. Original bytes, emitted `.inc` and the tested rule all agree; the observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three with adjacent-proven attribution. The remaining discrepancy is in the compiled-code/register-identity layer. Formal question for the translator owner: why does the compiled module bind the `POP EDI` slot to `esi`? No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Attribution proven adjacent: the pop consuming slot 0x3C10E34 writes ESI
+
+November 5: sequence-tagged pop capture (module 158; reports `browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`) samples post-ESI at the immediately following hook (seq + 1): the pop consuming `0x3C10E34 = 0x205E98` writes ESI (post-ESI `0x205E98`), while the pop consuming `0x3C10E38 = 0x203B90` leaves ESI unchanged. Attribution is real, not a sampling artifact. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`); the emitted text is the correct reverse, so the remaining question is a compiled-code/register-identity discrepancy recorded for the translator owner. Cycle gate evidence: control stops status 13 `0xFD800044` (339/405); experiment stops status 10 `0x6B6A6968` (346/414) — not moved. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Emitted push/pop order is textually correct; package narrowed to expansion/attribution
+
+November 5: targeted textual check of module 87 — `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` and epilogue pops `edi, esi, ebp, ebx`, an **exact reverse**, so the emitted `.inc` order text is correct and candidate (A) (translator emission text) is **refuted** for this function. The blockers package (D401) is narrowed to candidate (B): the expansion/execution of that correct text (or the post-pop attribution). Bounded corpus audit tool added (`tools/reg-save-order-audit.mjs`, addresses/orders only; conservative prologue detection, targeted aid not a verdict).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 closed with evidence: seven boundary advances since M1, policy D402
+
+November 5: the retained report chain documents seven boundary/target advances since M1 — `0xFD800044` (339/405) → ordinal 159 (340/405) → ordinal 3 (340/406) → ordinal 2 (340/407) → ordinal 1 (340/408) → ordinal 2 (340/409) → `D3DDevice_Release` (344/411) → ordinal 171 (346/412) → the read fault (346/414). Together with the recorded device-access policy (D402) this satisfies M2's criteria; the lane is blocked at the translated `FUN_001FB640` epilogue mismatch (D401 package), not at a service or resource.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 device-access policy recorded (D402); blockers package renumbered to D401
+
+November 5: the runtime-a blockers package (already committed as `0f0b6c1`) is renumbered **D401** to avoid the integration branch's D398–D400 rows. M2's remaining item is now recorded as **D402**: device accesses are governed by the declared synthetic register window only — previously written addresses return the shadow value with `beforeKnown` provenance; unknown/undeclared reads fault with the exact record (status 10, address/width/access/site); widths/bounds restricted to the aperture; no fabricated values or writes. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 `beforeKnown`, 0 status waits; two boundary advances since M1 recorded. Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401); the next executable step depends on the translator owner's repair decision.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Integration head `44af31d` contains lane commits through `8b539e0`/`e6bc808`; the blockers package and later commits are pending. No main push/merge; geometry untouched.
+
+## Prior: M2 evidence snapshot: 7,399 beforeKnown device accesses; goal doc available
+
+November 5: `docs/EXECUTION_GOAL_NOV5.md` is available on the integration head (`git show 18cce1d:...`), correcting the earlier "absent" blocker. M2 evidence from `browser-156-postpop.json`: **5,302** device events, **12,637** access-log entries, **7,399** with `beforeKnown` provenance, 0 status waits — the ">=10 admitted device events with provenance" criterion is met with wide margin, and the boundary has advanced well past M1's graphics-init stop. Remaining M2 item: the explicit device-access policy decision row (check integration numbering before adding). Next: record/confirm that policy decision, or the next M3 item once the translator-owned `FUN_001FB640` epilogue repair lands.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Blockers package published: FUN_001FB640 epilogue repair owner needed
+
+November 5: the runtime-a defect-class capture is closed and the blockers package is published in `docs/DEVELOPMENT_HANDOFF.md` (newest entry) with D401. The tested rule `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52) accepts the literal reverse and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Two repair-owner candidates are recorded with exact sites: (A) the translator emission in `tools/prepare-title-recomp.py` that produced the `0x1FB640` push/pop sequence (`title-functions.inc` lines 6463-6466 and 6612-6619), or (B) the `.inc` expansion through `src/runtime/recomp_memory_access.h:54`. Bounded question to the translator owner/user: confirm which side is wrong and decide the repair; the absence of a single named writer inside the translated epilogue is the finding. No lane-side translator edit or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Blocker: `docs/EXECUTION_GOAL_NOV5.md` absent, so Runtime-b's milestone order is unavailable. No main push/merge; geometry untouched.
+
+## Prior: Pop macro is correct; the discrepancy needs a register-write trace
+
+November 5: inspected `src/runtime/recomp_memory_access.h:54` — `FF_MEMORY_POP` reads at `sp`, increments by 4, then assigns the single destination; the macro cannot by itself put a saved-EDI value into ESI. The remaining explanations are (1) the executed epilogue order differs from the `.inc` text, or (2) the post-pop attribution (sampling `g_esi` at the next hook) is off by one. Both are register-write questions the memory hook cannot decide, so no translator or macro defect is asserted beyond "executed order/mapping is inconsistent with the source text". Confirming needs a toolchain-level register-write trace, which this lane must not add (blocker recorded). The pinned `ff_reg_order_is_reverse` rule (native 52/52) remains the acceptance rule for any repair.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Save/pop-order rule pinned; translator-owner finding is final
+
+November 5: the confirmed epilogue mismatch is now a pure, tested rule — `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h` with native test `tests/reg_save_order_test.c` accepts the literal reverse (`ebx,ebp,esi,edi → edi,esi,ebp,ebx`) and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Native **52/52**. Formal finding: `FUN_001FB640`'s epilogue does not restore in reverse push order, so `[ESI+0x47C]` reads the saved-EDI value; the repair rule is pinned, no translator edit made (decision belongs to the translator owner/user). Blocker: `docs/EXECUTION_GOAL_NOV5.md` is absent from this worktree, so Runtime-b's milestone order is unavailable.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Integration head `18cce1d` contains the lane commits through `a0f4d5e` (main `97d831b`); `e6bc808` and the rule commit remain pending integration. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Order-tagged pops confirm ESI receives the saved-EDI slot
+
+November 5: post-pop ESI tagging (module 156) shows the prologue slots `0x3C10E40=0x3C10CFC` (ebx), `0x3C10E3C=0xFFFFFFFF` (ebp), `0x3C10E38=0x203B90` (esi), `0x3C10E34=0x205E98` (edi). ESI is `0x203B90` through every pop up to `0x3C10E30`, then becomes **`0x205E98` at the pop consuming the saved-EDI slot `0x3C10E34`**, and stays there for the remaining pops. The executed epilogue writes the saved-EDI value into ESI while the saved-ESI value is consumed elsewhere — inconsistent with the literal `pop edi; pop esi; pop ebp; pop ebx` order. Confirmed defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact. No fix or model; repair decision belongs to the translator owner/user.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Correction: the off-by-one slot reading is provisional, not confirmed
+
+November 5: the pop-word capture cannot yet be tied to registers. The four last stack reads (`0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`) are **unordered relative to the `edi/esi/ebp/ebx` pop sequence**; the probe records values, not destinations. Solid facts: the field read observes `ESI = 0x205E98` (arbiter-confirmed), and the last tail access `0x1FB71B` observes `ESI = 0x203B90` with only epilogue pops in between. The off-by-one claim is therefore **provisional** and needs an order-tagged pop capture (sequence index + destination register) before being reported as a translator defect. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: order-tagged pop capture to confirm or refute the save-slot mismatch.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Pop-word capture: FUN_001FB640's restore slots are off by one
+
+November 5: the probe now records stack-read values at site 0 (`popEvents`). Run (module 155), last reads before the field access: `0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`. The epilogue pops `edi, esi, ebp, ebx` in order, so the first slot (`0x205E98`) is consumed by the EDI pop and the second (`0x203B90`) by ESI — yet the field read observes `ESI = 0x205E98`: the save/pop slots are **off by one register**. This is a translated stack-accounting/save-slot mismatch, not guest state, profile, or probe artifact. No fix or model; repair decision belongs to the translator owner/user.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Tail span: the writer is FUN_001FB640's epilogue POP esi
+
+November 5: per-access tail events (module 154) show `0x1FB706` rep-stosd (ESI=0x203B90), `0x1FB71B` compare (ESI=0x203B90), **no `0x1FB728` event** (the branch skipped the `0x1FB725` indirect call), then the `0x1FC087` field read with ESI=0x205E98. Between `0x1FB71B` and the field read only the epilogue `POP edi; POP esi; POP ebp; POP ebx; ret` executes and there is **no `esi =` assignment**, so the writer is the **epilogue `POP esi`**, restoring a stack word equal to `0x205E98` instead of the saved `0x203B90` — a translated stack-accounting (save-slot) defect, not guest state, profile, or probe artifact. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: capture the popped word itself (pop-value at site 0) to confirm the save-slot mismatch.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Return-boundary samples classify survival: writer is FUN_001FB640's tail
+
+November 5: the tuple probe now samples the four post-call sites in `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`). Run (module 153): one `FUN_001FC010` entry (`ESI=0x203B90`); `FUN_001F6240` invocation A post-call `0x1FB6D0` gives **`ESI=0x203B90`**; invocation B post-call `0x1FB6FD` gives **`ESI=0x203B90`**; the next event is the `0x1FC087` field read with **`ESI=0x205E98`**. Classification complete: **not pop-skipped** (both returns restore) and **not a different invocation** (one entry); the `0x205E98` writer lies **after `0x1FB6FD` and before `FUN_001FB640` returns** (the call at `0x1FC080` is immediately followed by the field read). No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Next: sample the remaining `FUN_001FB640` accesses after `0x1FB6FD` to name the exact instruction.
+
+Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Per-invocation tuples: one 1FC010 entry, no monitored writer of 0x205E98
+
+November 5: per-invocation tuple probe (`esiEvents` at sites `0x1F6240`, `0x1F62C4`, `0x1FC010`, `0x1FC087`). Run (module 152): exactly **one** `0x1FC010` entry (`ESI=0x203B90`); two `FUN_001F6240` invocations after it, whose `0x1F62C4` accesses show `ESI=0x203BA8` and `0x203B90`; the next monitored event is the **`0x1FC087` field read with `ESI=0x205E98`** (`addr 0x206314`). The value appears in the **unmonitored span** after the second `0x1F62C4` access. Classification: survival is **not** a different `FUN_001FC010` invocation; the pop-skip question remains open because the callee exit (push/pop, site 0) is not monitored — a return-boundary sample is needed. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Transition writer identified: FUN_001F6240 at 0x1F62C4 (sentinel push frame)
+
+November 5: the frozen trace now records the return word with each ESI change. Run (module 151): the change `0x203B90 → 0x205E98` first appears at site `0x1F62C4` in `FUN_001F6240` (`esi = edx + ecx*8`), observed at a stack push `0x3C10E38` whose frame word is `0xFFFFFFFF` (a sentinel, not a valid caller return). The later `[ESI+0x47C]` read still reports `0x205E98` (arbiter-confirmed). Report: the **writer instruction is identified (`0x1F62C4`)** — translated-path behavior, not a value artifact; the sentinel frame is a probe-frame limitation, and whether the function's `POP esi` is skipped on the executed path remains open. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 50/50, proof-report 23/23, `test:runtime` pass, `check` 481 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: ESI arbiter verdict: the register genuinely held 0x205E98 at the read
 
 November 5: ground-truth arbiter implemented and run. The field capture at site `0x1FC087` reports address `0x206314`, `g_esi = 0x205E98` (delta `0x47C` exactly), and the physical fault frame at the following read (site `0x1FC091`) independently reports faulting address `0x6B6A6968` with `g_esi = 0x205E98`. The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sameEsi }` and the validator rejects any disagreement; run `browser-150-arbiter.json` gives `sameEsi=true`, `deltaOk=true`. **Verdict: the register genuinely held `0x205E98` at the read; the instrument is not misreporting.** The remaining question is which executed path leaves `0x205E98` in `esi` even though `FUN_001F6240` pops it before both returns — a genuine register-state question, not instrumentation. No fix, model, or translator edit.
 
@@ -1303,11 +1471,3 @@ Resumed audit: the selected LND references 21 distinct OBE names; 18 occur in th
 Completion audit: G0/G1 cannot be accepted from the current evidence. The [checkpoint](G0_G1_CHECKPOINT.md#completion-audit-and-reference-blocker) specifies the missing matching-build catalog, character, stadium and audible reference scenarios. This same outside-input gap has persisted through the recent investigation turns, and the user confirmed no reference setup is available. Additional speculative level conversion is not a substitute for those observations. Full-level decoding and the release browser matrix are not extra G1 requirements. Preserve the current proof and local evidence pending matching reference input; continuous peak-memory profiling remains separately open before broader production. The latest sky/evidence changes are local and uncommitted; `4e665f8` is the prior local checkpoint.
 
 Public-footage follow-up: the user pointed out the internet reference route. A LongplayArchive NTSC Xbox recording has indexed Coliseum (25:01) and minigame-list (49:58) chapters; see the checkpoint for its URL and provenance limits. This provides an actionable independent investigation, so the earlier claim that local user-supplied captures were the only practical next input was premature. Footage frames/audio and exact revision remain unverified; next inspect the public recording and record timestamped observations, without uploading local game data or claiming its executable digest matches.
-
-## OpenCode architect cost routing (November 5)
-
-Automatic architect cycles are restricted to OpenCode Go GLM-5.3-Flash. A recognized allowance or availability failure permits only a provisional read-only free Flash review; it cannot approve integration or PR promotion. Full Go GLM-5.3 and Sol are absent from automatic architect routing. The model pool and runner enforce this; builder models and original-game execution evidence are unchanged. Validation: PowerShell parser, model-pool inspection, source publication check and whitespace check passed.
-
-## Orchestration throughput update (November 5)
-
-The manager now refreshes stale primary task cards from the current checkpoint without a model call. Routine passing PR metadata is excluded from verification-model work. The Flash architect can approve a newly opened exact-head PR for conditional merge; the existing PR helper performs all live CI, source, ancestry and mergeability gates before the existing 15-minute probe executes it. Builder evidence and original-game execution status are unchanged. Next check: observe one post-commit card refresh and one newly queued PR through a live CI cycle.

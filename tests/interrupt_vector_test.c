@@ -14,6 +14,8 @@ static void setup(void)
     assert(!ff_vm_init(&vm, ram, sizeof ram));
     assert(!ff_vm_claim_fixed(&vm, 0x10000, 0x20000));
     assert(!ff_vm_map_fixed(&vm, 0x10000, 0x1000, 4));
+    assert(!ff_vm_map_fixed(&vm, 0x12000, 0x1000, 4));  /* read/write */
+    assert(!ff_vm_map_fixed(&vm, 0x13000, 0x1000, 2));  /* read-only */
 }
 
 int main(void)
@@ -48,6 +50,28 @@ int main(void)
     assert(ff_hal_register_shutdown_notification(&vm, ram, 0x10100, 2) == FF_BOOT_UNSUPPORTED);
     assert(ff_hal_register_shutdown_notification(NULL, ram, 0x10100, 1) == FF_BOOT_INVALID);
     assert(ff_hal_register_shutdown_notification(&vm, NULL, 0x10100, 1) == FF_BOOT_INVALID);
+    /* Ordinal 100 model: previous Connected byte, then clear. */
+    memset(ram + 0x12100, 0, 44);
+    assert(ff_ke_connect_interrupt(&vm, ram, 0x12100) == 1);
+    assert(ram[0x12110] == 1);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0x12100) == 1);
+    assert(ram[0x12110] == 0);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0x12100) == 0);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0) == FF_BOOT_INVALID);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0x12102) == FF_BOOT_INVALID);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0x20000) == FF_VM_ACCESS_VIOLATION);
+    assert(ff_ke_disconnect_interrupt(NULL, ram, 0x12100) == FF_BOOT_INVALID);
+    assert(ff_ke_disconnect_interrupt(&vm, NULL, 0x12100) == FF_BOOT_INVALID);
+    /* A read-only object must not be silently connected or disconnected. */
+    assert(ff_ke_connect_interrupt(&vm, ram, 0x13100) == FF_VM_ACCESS_VIOLATION);
+    assert(ff_ke_disconnect_interrupt(&vm, ram, 0x13100) == FF_VM_ACCESS_VIOLATION);
+    /* The connect write is confined to object+16. */
+    memset(ram + 0x12200, 0x5a, 44);
+    assert(ff_ke_connect_interrupt(&vm, ram, 0x12200) == 1);
+    assert(ram[0x12210] == 1);
+    for (unsigned i = 0; i < 44; ++i) {
+        if (i != 16) assert(ram[0x12200 + i] == 0x5a);
+    }
     puts("Owned interrupt initialization/connect/shutdown-registration output and failure checks passed");
     return 0;
 }

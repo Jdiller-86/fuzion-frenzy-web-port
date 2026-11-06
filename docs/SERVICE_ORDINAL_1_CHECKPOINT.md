@@ -450,4 +450,641 @@ The worker now computes `esiArbiter { faultEsi, fieldEsi, fieldAddr, deltaOk, sa
 
 No DECISIONS row: characterization only.
 
+## 31. Transition frame: writer is `0x1F62C4`; the push frame carries a sentinel return
+
+The frozen trace now records the return word (`MEM32(g_esp+4)`) with each ESI change. Run `browser-151-writer.json` (module 151):
+
+| Site | Access address | `g_esi` | return word |
+| --- | --- | --- | --- |
+| `0x1F62C4` (in `FUN_001F6240`) | `0x205D60` | `0x203B90` | `0x203B90` |
+| `0` (stack push) | `0x3C10E38` | **`0x205E98`** | **`0xFFFFFFFF`** |
+
+- The change from `0x203B90` to `0x205E98` is first observed at the access immediately after `FUN_001F6240`'s `esi = edx + ecx*8` at `0x1F62C4`; that instruction is the writer.
+- The observing access is a stack push at `0x3C10E38`, whose frame word is `0xFFFFFFFF` — a sentinel, not a valid caller return address, so this frame does not name the caller and is consistent with synthetic stack use (the `FF_MEMORY_PUSH` site 0 path).
+- The later `[ESI+0x47C]` read still reports `0x205E98` (arbiter-confirmed), so the value survives past the function's `POP esi` on the executed path, or the field read occurs in a different invocation before that pop.
+
+Report: this is **translated-path behavior** (the writer instruction is identified: `0x1F62C4`, `esi = edx + ecx*8`), not a probe artifact of the value; the sentinel frame is a probe-frame limitation. Whether the pop is skipped on the executed path remains open. No fix or model is attempted.
+
+No DECISIONS row: characterization only.
+
+## 32. Per-invocation tuples: one FUN_001FC010 entry, two FUN_001F6240 invocations, no monitored writer
+
+The probe now records every access at `0x1F6240`, `0x1F62C4`, `0x1FC010` and `0x1FC087` in one ring (`esiEvents`). Run `browser-152-tuples.json` (module 152), last events in order:
+
+| Site | `g_esi` | Access address |
+| --- | --- | --- |
+| `0x1F6240` | `0x280` | `0x206720` / stack (earlier invocations) |
+| `0x1FC010` | `0x203B90` | `0x203B90` |
+| `0x1F6240` | `0x203B90` | `0x206720`, stack |
+| `0x1F62C4` | `0` | stack |
+| `0x1F62C4` | `0x203BA8` | `0x205D78` |
+| `0x1F6240` | `0x203B90` | `0x206720`, stack |
+| `0x1F62C4` | `0` | stack |
+| `0x1F62C4` | `0x203B90` | `0x205D60` |
+| **`0x1FC087`** | **`0x205E98`** | `0x206314` |
+
+Classification:
+
+- **Not a different invocation of `FUN_001FC010`**: exactly one `0x1FC010` entry is recorded, and the field read follows it.
+- The field read is the next monitored event after the second `FUN_001F6240`'s `0x1F62C4` access (where `g_esi` was `0x203B90`); the `0x205E98` value appears in the **unmonitored span** between that access and the field read.
+- Because the function's exit is not at a monitored site (push/pop use site 0), the probe cannot yet distinguish "pop skipped" from "value written in the unmonitored span".
+
+Report: survival is **not** explained by a second `FUN_001FC010` invocation; the pop-skip question remains open and requires a return-boundary sample (caller post-call site) rather than more sites inside the callee. No fix or model.
+
+No DECISIONS row: characterization only.
+
+## 33. Return-boundary samples complete the classification
+
+The tuple probe now also samples the four post-call sites in `FUN_001FB640` (`0x1FB6D0`, `0x1FB6FD`, `0x1FB92C`, `0x1FBA0C`). Run `browser-153-tuples.json` (module 153), ordered events after the single `FUN_001FC010` entry (`ESI = 0x203B90`):
+
+| Event | `g_esi` |
+| --- | --- |
+| `FUN_001F6240` invocation A entry | `0x203B90` |
+| A's `0x1F62C4` access (before/after assign) | `0` / `0x203BA8` |
+| **A post-call `0x1FB6D0`** | **`0x203B90`** |
+| `FUN_001F6240` invocation B entry | `0x203B90` |
+| B's `0x1F62C4` access (before/after assign) | `0` / `0x203B90` |
+| **B post-call `0x1FB6FD`** | **`0x203B90`** |
+| `0x1FC087` field read | **`0x205E98`** |
+
+Classification is now complete:
+
+- **Not pop-skipped**: both invocations return with `ESI = 0x203B90` at the caller's post-call sites; the pop restores correctly.
+- **Not a different invocation**: exactly one `FUN_001FC010` entry.
+- The writer of `0x205E98` lies **after the `0x1FB6FD` post-call site and before `FUN_001FB640` returns** (the next executed instruction in `FUN_001FC010` after the call at `0x1FC080` is the field read itself).
+
+So the survival is a value written in the tail of `FUN_001FB640`, not a skipped restore and not a re-entry. No fix or model; the next bounded task is to sample the remaining `FUN_001FB640` accesses after `0x1FB6FD` to name the exact instruction.
+
+No DECISIONS row: characterization only.
+
+## 34. Tail span: the writer is the epilogue `POP esi` (stack-accounting candidate)
+
+The probe now records per-access events in the `FUN_001FB640` tail (`0x1FB6FD..0x1FB740`). Run `browser-154-tail.json` (module 154), last events:
+
+- `0x1FB706` (rep-stosd loop): ESI `0x203B90`, addresses `0x205CF0..0x205D24`.
+- `0x1FB71B` (`[esi+0x2148]` compare): ESI `0x203B90`, address `0x205CD8`.
+- **No `0x1FB728` event** — the branch at `0x1FB71B` took `je 0x1FB72E`, so the indirect call at `0x1FB725` did **not** execute.
+- Next event: `0x1FC087` field read with ESI `0x205E98`.
+
+Between the last tail access (`0x1FB71B`, ESI `0x203B90`) and the field read, the only translated code is the epilogue `POP edi; POP esi; POP ebp; POP ebx; ret`. There is **no `esi =` assignment** in that span, so the write to ESI is the **epilogue `POP esi`** itself: it restores a stack word equal to `0x205E98` instead of the saved `0x203B90`.
+
+Classification: the writer is the `POP esi` at `FUN_001FB640`'s epilogue, i.e. a **stack-accounting (save-slot) defect** in the translated function — the popped slot does not hold the entry value. This is a translator/translation finding, not a guest-state, profile, or probe artifact; no fix or model is applied. Confirming the exact popped word needs a pop-value capture (site 0 read value) next.
+
+No DECISIONS row: characterization only.
+
+## 35. Pop-word capture: the restore slots are off by one
+
+The probe now records the value of every stack read at site 0 (`popEvents`). Run `browser-155-pop.json` (module 155), last stack reads before the field access:
+
+| Stack slot | Value read |
+| --- | --- |
+| `0x3C10E34` | **`0x205E98`** |
+| `0x3C10E38` | **`0x203B90`** |
+| `0x3C10E3C` | `0xFFFFFFFF` |
+| `0x3C10E40` | `0x3C10CFC` |
+
+`FUN_001FB640`'s epilogue pops `edi, esi, ebp, ebx` in that order, so the first slot (`0x3C10E34 = 0x205E98`) is consumed by the **EDI** pop and the second (`0x3C10E38 = 0x203B90`) by the **ESI** pop — yet the following field read observes `ESI = 0x205E98`. The save/pop slots are therefore **off by one register**: the value intended for one register (the restore slot at `0x3C10E34`) lands in `ESI`, and the correct `0x203B90` is consumed by the next pop.
+
+This is a translated stack-accounting/save-slot mismatch, not guest state, profile, or probe artifact. No fix or model; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
+## 36. Correction: the off-by-one reading is provisional, not confirmed
+
+The pop-word capture cannot yet be tied to specific registers: the four last stack reads (`0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`) are **unordered with respect to the `edi/esi/ebp/ebx` pop sequence** — the probe records the value read at each site-0 stack access, not which register consumed it. Reading them as the epilogue order is an assumption.
+
+Two facts remain solid: (a) the field read at `0x1FC087` observes `ESI = 0x205E98` (arbiter-confirmed), and (b) the last monitored tail access `0x1FB71B` observes `ESI = 0x203B90` with only epilogue pops in between. The claim that the restore slots are off by one is therefore **provisional** and requires an order-tagged pop capture (record the pop sequence index and the destination register) before it is reported as a translator defect.
+
+Honest status: the writer is localised to the `FUN_001FB640` epilogue, the exact pop/register mapping is unconfirmed, and no fix or model is warranted. The next bounded task is the order-tagged pop capture.
+
+No DECISIONS row: characterization only.
+
+## 37. Order-tagged pops confirm: ESI receives the saved-EDI slot
+
+The probe now records `g_esi` after each stack pop (`popEvents` third field). Run `browser-156-postpop.json` (module 156):
+
+- `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` → slots `0x3C10E40 = 0x3C10CFC` (ebx), `0x3C10E3C = 0xFFFFFFFF` (ebp), `0x3C10E38 = 0x203B90` (esi), `0x3C10E34 = 0x205E98` (edi).
+- The .inc epilogue order is `pop edi; pop esi; pop ebp; pop ebx`.
+- Post-pop ESI trace: ESI is `0x203B90` after every pop up to `0x3C10E30`; it becomes **`0x205E98` at the pop consuming `0x3C10E34`** (the saved-EDI slot) and stays `0x205E98` for the remaining pops (`0x3C10E38`, `0x3C10E3C`, `0x3C10E40`).
+
+So the executed epilogue writes the **saved-EDI value into ESI**, while the saved-ESI value (`0x203B90`) is consumed by another pop. The literal source order would not do that, so the pop/register mapping in the executed translation is inconsistent with its own text — the exact defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact.
+
+This is now confirmed by direct post-pop tagging. No fix or model is applied; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
+## 38. Save/pop-order rule pinned; EXECUTION_GOAL_NOV5 unavailable
+
+- `docs/EXECUTION_GOAL_NOV5.md` (referenced by the current AGENTS directive) is **not present in this worktree**; Runtime-b's milestone order is therefore unavailable. Blocker recorded; independent source-owned work chosen instead.
+- The confirmed epilogue mismatch is now expressed as a pure, tested rule: `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h`, with native test `tests/reg_save_order_test.c`. It accepts the literal reverse order (`ebx, ebp, esi, edi` → `edi, esi, ebp, ebx`) and rejects the observed runtime order (saved-EDI slot consumed first as ESI). Native suite passes **52/52**.
+
+Formal translator-owner finding: `FUN_001FB640`'s executed epilogue does not restore the callee-saved registers in the reverse of its push order; the saved-EDI value (`0x205E98`) lands in ESI, and the field read at `0x1FC087` uses it as `[ESI+0x47C]`. The rule that any repair must satisfy is now pinned by the native test. No translator edit is made; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization plus a pure validation rule.
+
+## 39. Pop macro inspected: the shift is not in the macro
+
+`src/runtime/recomp_memory_access.h:54` defines the pop rule as: `ff_pop_value = FF_MEMORY_U32(sp, 1u); (sp) += 4u; (destination) = ff_pop_value;` — a correct read-before-increment with a single destination. The macro therefore cannot by itself place a saved-EDI value into ESI.
+
+Two possibilities remain, and neither can be decided with the memory hook alone:
+
+1. The **executed epilogue order** differs from the `.inc` text (`pop edi; pop esi; pop ebp; pop ebx`), e.g. an alternate path or a translation mismatch; or
+2. The **post-pop attribution** (recording `g_esi` at the next hook invocation) is off by one relative to the actual register assignment.
+
+Both are register-write questions; the memory hook observes addresses and stack words, not register destinations. No translator or macro defect is asserted beyond "the executed order/mapping is inconsistent with the source text". The repair decision and any register-level trace belong to the translator owner/user.
+
+Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-level), which this lane must not add. No fix, no model.
+
+No DECISIONS row: characterization only.
+
+## 40. Blockers package published (D401)
+
+The defect-class capture question is closed. The blockers package is published as the newest entry in `docs/DEVELOPMENT_HANDOFF.md`, with D401 in `docs/DECISIONS.md`:
+
+1. **Tested rule**: `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52). Literal reverse accepted; observed runtime order (saved-EDI `0x205E98` consumed first as ESI) rejected.
+2. **Candidate owners**:
+   - (A) translator emission in `tools/prepare-title-recomp.py` that produced the `FUN_001FB640` prologue/epilogue in `research/verification/recomp-title-recomp-title-post-memory-87/title-functions.inc` (prologue lines 6463-6466 `ebx, ebp, esi, edi`; epilogue lines 6612-6619 `edi, esi, ebp, ebx`);
+   - (B) the `.inc` expansion of the original POP order through `src/runtime/recomp_memory_access.h:54` (`FF_MEMORY_POP` read at `sp`, `sp += 4`, single destination).
+3. **Bounded question**: confirm which side is wrong and decide the repair; any repair must pass the tested predicate and restore `esi` so `[ESI+0x47C]` reads `0x20400C`, not `0x206314`. The absence of a single named writer inside the translated epilogue is the finding.
+
+No translator edit, no model, no further hunt from this lane. Observed stop unchanged: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+
+## 41. M2 evidence snapshot and the unblocked goal document
+
+`docs/EXECUTION_GOAL_NOV5.md` is **available on the integration head** (`git show 18cce1d:docs/EXECUTION_GOAL_NOV5.md`); earlier "absent from this worktree" notes are corrected — Runtime-b's milestone order (M0-M5) is readable.
+
+M2 ("device access governed by one recorded policy") evidence from the retained report `browser-156-postpop.json`:
+
+| Metric | Value |
+| --- | --- |
+| Device events (`deviceRegisters.count`) | **5,302** |
+| Device access log entries | **12,637** |
+| Entries with `beforeKnown` provenance | **7,399** |
+| Status waits | 0 |
+
+That satisfies the ">=10 admitted device events with beforeKnown provenance" criterion with a wide margin, and the lane has advanced the boundary well past M1's graphics-init stop (through `0x001fe085`-class work to the current `FUN_001FB640` epilogue). The remaining M2 item is the **explicit recorded device-access policy decision** in the lane's DECISIONS record; the integration branch's decision rows must be checked before adding one here (next free number, no collision).
+
+Next bounded task: record or confirm the device-access policy decision (D-row) against the existing provenance evidence, or pick the next M3 item once the translator-owned epilogue repair lands.
+
+No DECISIONS row this cycle: evidence snapshot only.
+
+## 42. Device-access policy recorded (D402)
+
+M2's remaining item is recorded as D402: device accesses are governed by the declared synthetic register window only — reads of previously written addresses return the shadow value with `beforeKnown` provenance; undeclared/unknown reads fault with the exact fault record (`status 10`, address/width/access/site); widths and bounds are restricted to the declared aperture; no unknown-read value is fabricated and no write is invented. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 with `beforeKnown`, 0 status waits. Two boundary advances since M1 are recorded in this checkpoint. No translator or guest-state change.
+
+Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401 blockers package) with the observed stop at `0x6B6A6968`; the next executable step depends on the translator owner's repair decision, so no new model or translation change is attempted here.
+
+## 43. Boundary-advance evidence for M2 (retained report chain)
+
+The retained `research/verification/pfifo-setup-01/browser-*.json` chain documents the advances since M1 (graphics-init stop):
+
+| Report | Stop | Routines / ops |
+| --- | --- | --- |
+| `browser-104-reset-avquery` | status 13 at `0xFD800044` (pushbuffer control) | 339 / 405 |
+| `browser-112-consumer` | status 1 at `0xFE000094`, ordinal 159 | 340 / 405 |
+| `browser-118-avunknown` | ordinal 3 after the vblank-wait pass | 340 / 406 |
+| `browser-119-saved` | ordinal 2 after the display declaration | 340 / 407 |
+| `browser-120-saved` | ordinal 1 at `0xFE000098` | 340 / 408 |
+| `browser-121-null` | ordinal 2 at `0xFE000094` | 340 / 409 |
+| `browser-123-null` | ordinal 2 after `D3DDevice_Release` admission | 344 / 411 |
+| `browser-125-null` | ordinal 171 at `0xFE000004` (`MmFreeContiguousMemory`) | 346 / 412 |
+| `browser-126-free` | status 10 at `0x6B6A6968` (read fault) | 346 / 414 |
+
+That is well over the M2 requirement of two boundary advances beyond M1, together with the recorded device-access policy (D402). The lane is now blocked at the translated epilogue mismatch (D401), not at a service or resource.
+
+No DECISIONS row: evidence consolidation for D402.
+
+## 44. Textual check narrows the package: emitted order is correct
+
+Targeted check of the retained translation (module 87, same bytes used at runtime):
+
+- `FUN_001FB640` prologue pushes, in order: `ebx, ebp, esi, edi`.
+- Epilogue pops, in order: `edi, esi, ebp, ebx`.
+- The pop sequence **is the exact reverse** of the push sequence — the emitted `.inc` text is correct.
+
+Candidate (A) — "the translator's emitted callee-saved order text is wrong" — is therefore **refuted for this function**. The remaining candidates are (B) the expansion/execution of that text (`src/runtime/recomp_memory_access.h:54` path, or an alternate executed exit) and the post-pop attribution. This narrows the translator-owner question: the repair is not in the emitted order but in why the executed mapping differs from correct text.
+
+A bounded corpus audit tool was added (`tools/reg-save-order-audit.mjs`) to check prologue/epilogue order across a translation; it reports addresses and register orders only. Its prologue detection is conservative and noisy for functions whose first statement is not a save push, so it is a targeted aid, not a corpus verdict.
+
+No DECISIONS row: narrowing evidence for D401.
+
+## 45. Attribution proven adjacent; the shift is real and not a sampling artifact
+
+Sequence-tagged pop capture (module 158; the two named reports for this cycle are `browser-157-control.json` and `browser-157-experiment.json`, same module `ee284034...`):
+
+| Pop read address | Value | Hook seq | Post-ESI measured at seq |
+| --- | --- | --- | --- |
+| `0x3C10E30` | `0x1FB64C` | 83,980 | 83,981 → `0x203B90` |
+| `0x3C10E34` | `0x205E98` | 83,981 | 83,982 → **`0x205E98`** |
+| `0x3C10E38` | `0x203B90` | 83,982 | 83,983 → `0x205E98` |
+| `0x3C10E3C` | `0xFFFFFFFF` | 83,983 | 83,984 → `0x205E98` |
+| `0x3C10E40` | `0x3C10CFC` | 83,984 | 83,985 → `0x205E98` |
+
+Each post value is sampled at the immediately following hook invocation (seq + 1), so the attribution is **not** a sampling artifact: the pop consuming `0x3C10E34` writes ESI, and the pop consuming `0x3C10E38` does not.
+
+Cycle evidence for the governor's gate: control profile stops at status 13 `0xFD800044` (339/405); experiment stops at status 10 `0x6B6A6968` (346/414) — the stop has **not** moved past the fault, as expected before any repair. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`), and that text is the correct reverse. The remaining question is therefore a compiled-code/register-identity discrepancy between the correct emitted text and the executed mapping; it is recorded for the translator owner with this adjacent-attribution evidence. No fix, no model.
+
+No DECISIONS row: attribution evidence for D401.
+
+## 46. Original binary matches the emitted text (REA read-only)
+
+Read-only Ghidra check of the retained XBE (source SHA-256 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`):
+
+- `CDevice_FreeFrameBuffers` prologue (`0x1FB640..0x1FB643`): `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`.
+- Epilogue (`0x1FB72E..0x1FB732`): `POP EDI; POP ESI; POP EBP; POP EBX; RET`.
+
+The original binary, the emitted `.inc` text and the tested rule therefore all agree: the correct restore order is `edi, esi, ebp, ebx` after pushes `ebx, ebp, esi, edi`. The observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three, and the attribution is adjacent-proven. The remaining discrepancy is in the **compiled-code/register-identity layer** (the built object's register binding), not in the original bytes, the emitted order, or the sampling.
+
+Formal record for the translator owner: the repair question is now "why does the compiled module bind the `POP EDI` slot to `esi` when the original bytes, the emitted text and `ff_reg_order_is_reverse` all require `POP EDI`?" Evidence: this section, §45 attribution table, module `ee284034...`, reports `browser-157-control.json` / `browser-157-experiment.json`. No fix, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
+## 47. Compiled-artifact verdict: the owned macro pattern is LIFO-correct
+
+A minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the exact emitted sequence with the same macro shapes:
+
+- pushes `ebx(0x11), ebp(0x22), esi(0x33), edi(0x44)`;
+- pops `edi, esi, ebp, ebx` via `FF_MEMORY_POP`-style read-before-increment macros;
+- correct LIFO restore is `edi=0x44, esi=0x33, ebp=0x22, ebx=0x11` (packed `0x44332211`).
+
+Results:
+- **gcc (native suite)**: the reproducer returns 1 (`lifo-correct`), registered as `reg_save_compiled_probe`; native suite **54/54**.
+- **Emscripten standalone Wasm under Node**: `run_probe()` returns 1 (`lifo-correct`), so the compiled artifact preserves the emitted order.
+
+Verdict: the owned macro/expansion files (`src/runtime/recomp_memory_access.h` and the emission pattern) are **exonerated** — the compiled minimal artifact does not reproduce the shift. The full-module divergence is therefore specific to the toolkit/lifter-level code generation or register bookkeeping outside the lane's owned files. This is the M6 gate's fuzzed truth: the stop does not move and the defect is not in the lane-owned expansion.
+
+No fix, no model, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
 No DECISIONS row: tooling characterization.
+
+## 48. M3 pre-registration: cluster is reached; fault blocks the return path
+
+Read-only check of the retained experiment report (`browser-157-experiment.json`): the graphics-init cluster functions are all in the reached set — `0x1F7650` (`Direct3D_CreateDevice`), `0x1FBB00` (device constructor), `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0` (`D3DDevice_Release`), `0x1FC010`, and `0x1FB640` (`CDevice_FreeFrameBuffers`).
+
+The current fault sits inside the cluster's **return/teardown path** (`D3DDevice_Release → FUN_001FC010 → FUN_001FB640`), not at an unadmitted function or an unsupported service. M3's post-repair acceptance is therefore pre-registered as:
+
+1. the stop must move past `0x6B6A6968` in **both** named profiles (`browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`);
+2. the next observed request/system must appear in the reports (exact address/service recorded, not inferred);
+3. `[ESI+0x47C]` must read the device field (`0x20400C`) as part of a normal cluster return.
+
+Repair ownership is with the translator owner (candidate B); this lane makes no translator, toolkit, or fixture change. No code change is needed for M3 pre-registration.
+
+No DECISIONS row: evidence only.
+
+## 49. M2 policy application statistics (device log)
+
+From `browser-157-experiment.json` (`deviceRegisters.log`, 12,637 entries):
+
+| Metric | Value |
+| --- | --- |
+| Reads | 161 |
+| Writes | 12,476 |
+| Reads with `beforeKnown` | 161 (100%) |
+| Reads of previously written addresses | 68 |
+| Reads of unknown addresses | **0** |
+| Distinct device addresses | 5,298 |
+| Status waits | 0 |
+
+The policy is applied exactly as recorded in D402: every device read in the run is of an address previously written in the same run, and no unknown-address read occurred (the current fault at `0x6B6A6968` is a **guest-memory** read, not a device-register read). This keeps the M2 device-access evidence current while the translator-owned repair (candidate B) is pending.
+
+No DECISIONS row: evidence only.
+
+## 50. M2 policy in both profiles (control and experiment)
+
+Same computation on the control profile (`browser-157-control.json`, module `ee284034...`):
+
+| Metric | Control | Experiment |
+| --- | --- | --- |
+| Log entries | 12,592 | 12,637 |
+| Reads | 137 | 161 |
+| Reads `beforeKnown` | 137 (100%) | 161 (100%) |
+| Reads of previously written addresses | 54 | 68 |
+| Unknown-address reads | **0** | **0** |
+| Writes | 12,455 | 12,476 |
+| Distinct addresses | 5,298 | 5,298 |
+| Status waits | 0 | 0 |
+
+D402's device-access policy holds in **both** profiles with zero unknown-address reads, satisfying M2's "in both profiles" requirement independently of the pending candidate-(B) repair.
+
+No DECISIONS row: evidence only.
+## 51. Whitespace-gate verification (marker-class audit)
+
+Audit of `git diff origin/main HEAD -- docs/DECISIONS.md` (head `e74b4d6`):
+
+- No added line carries a conflict-marker-class sequence (`<<<`, `======`, `>>>`). The only marker-like runs in the file are ordinary JavaScript snippets inside the pre-existing D217 row (`eaxAfter === eaxBefore`, `espAfter === (espBefore + ...`), which are present in `origin/main` and were not added by this lane.
+- `git diff --check origin/main HEAD` returns **exit 0**; the whitespace gate passes.
+- No rewrite or amend is applicable: the requested marker-class cell does not exist in the added lines. Head `e74b4d6` is clean for queueing.
+
+No code or decision change; no amend performed because there is nothing to rewrite.
+
+## 52. Cross-head marker audit (lane and integration)
+
+Re-ran the marker check against the current heads:
+
+- **Lane head `c942c58`**: `git diff origin/main HEAD -- docs/DECISIONS.md` adds no line containing `<<<`, `======` or `>>>`; `git diff --check origin/main HEAD` exits 0.
+- **Integration head `39a8fa8`** (contains D407–D409, the renumbered package/policy/queue rows): `git diff origin/main 39a8fa8 -- docs/DECISIONS.md` also adds no marker-class line, and `git diff --check origin/main 39a8fa8` exits 0.
+
+The D217 row's `===` snippets are ordinary JavaScript comparisons that already exist in `origin/main`, not conflict markers. No cell rewrite or amend is applicable at either head; the clean lane head for queueing remains `c942c58`.
+
+No code or decision change.
+
+## 53. Pipeline path named; evidence-backed HOLD recorded (D411)
+
+The module-preparation path was inspected within the owned driver:
+
+- `tools/prepare-title-recomp.py:458-460` imports the pinned private toolkit (`from tools.recomp import config`, `from tools.recomp.translator import FunctionTranslator`).
+- `:530` `config.configure_from_xbe(xbe_path)`; `:544` constructs `FunctionTranslator(xbe, database, trace_functions=set(functions))`; `:577` obtains the emitted text from `translator.translate_function(address, info)`; `:578-583` reads/uses `translator.lifter` state.
+
+The owned driver passes seeds, profile, limits and trace sets only; it contains **no register-identity mapping**. The emitted text is the verified correct reverse, and the compiled minimal artifact is LIFO-correct, so the remaining divergence is inside the pinned private lifter/translator emission — outside this lane's editable scope (`.tools`).
+
+Evidence-backed HOLD recorded as **D411**: name the divergence at those callsites, but do not attempt a repair from the lane; a translator-owner decision is required, with `ff_reg_order_is_reverse` and `[ESI+0x47C] = 0x20400C` as acceptance. No fabricated re-run, no `.tools` edit, no REA call.
+
+## 54. Gate-definition clarification: the control profile cannot reach the fault
+
+The M6 gate has been phrased as "the stop must move past `0x6B6A6968` in **both** profiles". The retained reports show that is unsatisfiable by construction:
+
+- control (`browser-157-control.json`, no experiment inputs): status 13 at `0xFD800044`, 339 / 405 — it stops at the PFIFO control seam before the graphics path, so it never reaches `0x6B6A6968`.
+- experiment (`browser-157-experiment.json`): status 10 at `0x6B6A6968`, 346 / 414.
+
+Operational gate for the translator-owner repair, therefore, recorded here for the decision record:
+
+1. **control invariance**: the control profile keeps its exact stop (status 13 at `0xFD800044`, 339/405) — unchanged by the repair;
+2. **experiment progression**: the experiment's stop moves past `0x6B6A6968` and the next genuine stop/service is recorded exactly;
+3. `[ESI+0x47C]` reads the device field (`0x20400C`) on the repaired path.
+
+This clarification does not change the evidence; it removes an impossible literal criterion so the repair can be judged unambiguously. No code change; the source path remains HOLD D411.
+
+No DECISIONS row: clarification of the existing gate.
+## 55. Lifter inspection: emission source is correct; divergence is runtime-only (D412)
+
+Authorized one-cycle read-only pass over the pinned lifter:
+
+- `lifter.py:2036-2058` `_lift_pop`: a 32-bit register operand emits `POP32(esp, r)` with the decoded register `r` unchanged; word operands use `_WORD_REGS` (`:298-305`, 16-bit names only) and `_fmt_operand_write`.
+- 32-bit assignment falls through `_fmt_set_reg` (`:144-170`) to a direct `r = value;` (registers alias the globals via `recomp_types.h`).
+- No register-remapping table, clobber set, or config-persisted state selects a different destination; the driver (`tools/prepare-title-recomp.py:458-460,530,544,577-583`) passes seeds/profile/limits only.
+
+Conclusion: the pop-destination **emission source is correct**, consistent with the original bytes, the emitted text and the LIFO-correct minimal artifact. The divergence is runtime/compiled-artifact-only and is routed to the toolkit owner as **"source-correct, runtime-divergent"** with the named sites (D412). Acceptance unchanged: `ff_reg_order_is_reverse`, control invariance at `0xFD800044` (339/405), experiment progression past `0x6B6A6968` with `[ESI+0x47C] = 0x20400C`, R11 evidence. No `.tools` edit, no fabricated re-run.
+## 56. Destination capture: the epilogue pops are offset by one dword (stack deficit)
+
+The owned `FF_MEMORY_POP` macro now optionally reports the destination lvalue's address (`&(destination)`) and the popped value; the probe resolves it against `&g_edi/&g_esi/&g_ebx` (a local `ebp` is reported as unmapped) and records it. Module 159 run `browser-159-dest.json`:
+
+| Destination | Read slot (reported stack - 4) | Value |
+| --- | --- | --- |
+| `edi` | `0x3C10E30` | `0x1FB64C` |
+| `esi` | `0x3C10E34` | `0x205E98` |
+| `ebp` (local, unmapped) | `0x3C10E38` | `0x203B90` |
+| `ebx` | `0x3C10E3C` | `0xFFFFFFFF` |
+
+The register order is the correct `edi, esi, ebp, ebx`, but it consumes slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40`. Every pop is therefore **one dword (4 bytes) low**: ESI receives the saved-EDI value `0x205E98`, EBP the saved-ESI value `0x203B90`, EBX the saved-EBP value `0xFFFFFFFF`.
+
+This supersedes the "register-identity" framing: the emission is correct, the destinations are correct, and the defect is a **stack-delta imbalance of one dword** somewhere between the prologue and the epilogue. The next bounded task is to locate that imbalance (a `push`/`pop` or `ret N` mismatch in the executed path, or a harness call-frame adjustment), using the same destination capture.
+
+No code change beyond the optional diagnostic hook; no `.tools` edit, no fabricated re-run.
+
+## 57. The one-dword deficit is the leftover icall return address
+
+Destination capture shows the first epilogue pop (`edi`) reads `0x1FB64C` — the **return address pushed for the indirect call at `0x1FB644`** (`FF_MEMORY_PUSH(esp, 0x001FB64Cu)`), not a saved register. That pushed return word survived the indirect call, shifting every later slot down by exactly one dword.
+
+`RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) resolves the target via `recomp_lookup`/`recomp_lookup_kernel` and invokes it through `RECOMP_ABI_CALL` **without adjusting `g_esp`**: the callee must consume the pushed return address with its own `ret`. The leaf that ran did not, so the frame keeps the return word.
+
+This localizes the deficit precisely: the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or the safe path), which shifts every saved slot by one dword and makes `[ESI+0x47C]` read `0x206314` instead of the device field, producing the fault at `0x6B6A6968`. Repair ownership is the call/return contract of that resolved target (or the safe-path macro), not the lane-owned pop macro and not guest state.
+
+No code change; no `.tools` edit.
+
+## 58. Correction: ESI violations are real (previous count was suppressed by the logger skip)
+
+The ABI logger was restored to its full form (it had been reporting only counts after the earlier thread-scope change). Module 160 run `browser-160-esp.json`:
+
+- ABI violations: **136**, of which **ESI violations: 131** (first `0x1E04CC`, last `0x202150` = `D3DDevice_Present`).
+- ESP-delta violations: **0**.
+
+The earlier "0 ESI violations" reading (module 139) was an artifact of the logger's context-skip early-return, now removed. ESI clobbering is therefore **real and widespread**, independently of the one-dword stack deficit proven by the destination capture (§56–§57). Both findings stand on their own evidence; neither depends on the other.
+
+No code change beyond the diagnostic logger; no `.tools` edit.
+## 59. Fix: ordinal-1 handler's missing return pop; run advances past the fault (D415)
+
+Root cause of the one-dword deficit: the modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address. Every later frame slot was read one dword low, so `[ESI+0x47C]` read `0x206314` instead of the device field and the run faulted at `0x6B6A6968`.
+
+Repair in the source-owned fixture handler: `g_esp = esp_before + 4u` for the no-argument stdcall service (with the comment explaining the return-word contract). The validator now requires the 4-byte pop for an accepted saved-data call. A newly observed genuine null-result shape `(0x206080, 9, 0, 0)` was added to the observed list, and the pair check now requires at least one observed null shape rather than both historical shapes.
+
+Pair on module 161 (`browser-161-control.json` / `browser-161-experiment.json`):
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 (unchanged) |
+| experiment | **status 1 at `0xFE0000C8`, ordinal 100** | **347 / 419** |
+
+The fault at `0x6B6A6968` is **past**. The new genuine stop is ordinal 100 = `KeDisconnectInterrupt` with argument `0x206030`, return address inside the reached cluster. M6 acceptance: experiment progression past the fault (met) and control invariance (met). No translator or `.tools` edit. Next: bounded decision for ordinal 100.
+
+## 60. Ordinal-100 model accepted; next stop is translation placeholder 0x4F7A0
+
+The architect authorized one bounded default-off ordinal-100 model with the +16 `Connected` offset documented from retained pinned references (modeled, not observed original layout).
+
+- `src/runtime/interrupt_vector.c/.h`: `ff_ke_disconnect_interrupt` validates a 4-byte-aligned, writable 17-byte object, returns the previous `Connected` byte, then clears it; `ff_ke_connect_interrupt` now writes `1` at `+16` and refuses a read-only object.
+- Native test extended (connect/disconnect round trip, refusals, write confinement) and the previously unregistered `interrupt_vector` fixture is now in the native suite: **56/56**.
+- Harness: default-off `keDisconnectInterrupt` input; ordinal-100 handler (argument, previous state, EAX/ESP, 8-byte pop); router only when declared.
+- Validator: pairing and acceptance (previous 0/1, EAX = previous, `esp + 8`).
+
+Module 162 pair:
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 (unchanged) |
+| inert (no disconnect input) | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 (unchanged) |
+| disconnect input | **status 2 at `0x004F7A0`** | **347 / 421** |
+
+The call was accepted (`object 0x206030`, previous `1`, EAX 0→1, `esp + 8`), and the run advanced to a **translation placeholder** at `0x004F7A0` — the next genuine stop, to be characterized/admitted next.
+
+No DECISIONS row: the integration head `8940d3f` does not contain the lane commits (`ad0bffa` and later), so the sync-first rule still blocks it.
+## 61. Admission of FUN_0004f7a0; next stop is placeholder 0x4C2E0
+
+Translation increment under the standing policy (one set, batch of one function):
+
+- Read-only Ghidra export `research/verification/recomp-admit-4f7a0-01/seed-quad.json` (`0x00042BE0`, `0x001F54D0`, `0x001FC910`, `0x0004F7A0`) replaced the previous three-function seed, keeping the 32-export cap.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 88: **464 functions, 19,049 instructions** (+1 function / +59 instructions).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing ("the offered seeds match this translation's record exactly").
+
+Module `recomp-post-memory-build-163` (profile 88, same sources): **1,009,495 bytes**, SHA-256 `662e3b7a608f5b70e8079780744dc7e54ebd597d30477c892f449d4f71448767`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004C2E0`** | **348 / 421** |
+
+The admission executed (`FUN_0004f7a0` reached) and stopped at the next translation placeholder, `0x004C2E0` (`FUN_0004c2e0`, its first callee). Halt and report; next bounded admission is `0x4C2E0` with its necessary direct dependencies.
+
+No DECISIONS row: integration head `10cae525` does not contain the lane commits, so the sync-first rule blocks it.
+
+## 62. Admission of FUN_0004c2e0; next stop is placeholder 0x4E480
+
+Translation increment under the standing policy (one set, batch of one function):
+
+- Read-only Ghidra export `research/verification/recomp-admit-4c2e0-01/seed-quint.json` (`0x00042BE0`, `0x001F54D0`, `0x001FC910`, `0x0004F7A0`, `0x0004C2E0`) replaced the previous four-function seed, keeping the 32-export cap.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 89: **465 functions, 19,056 instructions** (+1 function / +7 instructions; the admitted body is `SUB ESP,0x20; LEA EAX,[ESP]; PUSH EAX; CALL 0x00030ADE; MOV EAX,[ESP+0xc]; ADD ESP,0x20; RET`).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing ("the offered seeds match this translation's record exactly").
+
+Module `recomp-post-memory-build-164` (profile 89, same sources): **1,010,556 bytes**, SHA-256 `617a51269178d4907418a2dbb62cbf58fbeaf4a529f2adf50d600529c1612c1e`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004E480`** | **350 / 422** |
+
+The wrapper ran and its already-translated callee `0x30ADE` did not stop the run; the caller `FUN_0004f7a0` then called `FUN_0004e480`, the next translation placeholder. That block is an initializer `0x4E480..0x4E4AD` with six direct calls (`0x4B450`, `0x4C510`, `0x4D4D0`, `0x4DB50`, `0x4B570`, `0x4CC10`), a store to `0x2D0758`, `MOV EAX,1` and `RET`. Halt and report; the next bounded admission is `0x4E480` with those evidenced direct dependencies (7 functions, within the 8-function set cap).
+
+No DECISIONS row: integration head `10cae525` contains `ad0bffa` (D415 return-pop) but not `d721550` (ordinal-100 model) or `a2a83de`, so the sync-first rule still blocks the remaining rows.
+
+## 63. Batch admission of FUN_0004e480 and its six direct callees; next stop 0x4B160
+
+Architect card for this cycle asked for an EOF trim of the last DECISIONS row and an amend of the record commit. Verified at the lane head: `docs/DECISIONS.md` already ends with the D415 row and exactly one line feed (no blank line; `git show HEAD:docs/DECISIONS.md` tail `...edit. |\n`), and `git diff --check origin/main HEAD` exits 0. The named defect is not present, so nothing was amended and no history was rewritten.
+
+The card's Runtime-a step ("advance past `0x004C2E0`") was already completed in `91e5e0b`; the latest verified checkpoint had the next stop at `0x004E480`. Continued there with an evidenced batch:
+
+- Read-only Ghidra export `research/verification/recomp-admit-4e480-01/seed-initializer.json` replaced the five-function seed with the union of the prior admissions plus the initializer and its six direct calls: `0x0004E480`, `0x0004B450`, `0x0004C510`, `0x0004D4D0`, `0x0004DB50`, `0x0004B570`, `0x0004CC10` (7 new functions, within the 8-function set cap; all `established=true`).
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 90: **472 functions, 19,329 instructions** (+7 / +273).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-165` (profile 90): **1,013,193 bytes**, SHA-256 `dde9cb137b7efec0a60ed9736240ee8b73fa05bd29b958186aa9b4421cc28d34`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004B160`** | **352 / 422** |
+
+The initializer and its callees executed; `FUN_0004b450` then called `FUN_0004b160`, the next translation placeholder (`0x4B160..0x4B204`; its own first call is the still-unseeded `0x4C480`). Halt and report.
+
+No DECISIONS row: the lane's `docs/DECISIONS.md` stops at D415 while integration head `9158e70` carries rows through D434, so a new row needs that file synced first (numbering conflict otherwise).
+
+## 64. Batch admission of FUN_0004b160 and three direct callees; next stop __fsopen at 0x1E0151
+
+The repeated architect card's primary item (trim the last DECISIONS row) was re-checked at the new head `6fdcd98`: `docs/DECISIONS.md` ends with the D415 row and one line feed, `git diff --check origin/main HEAD` exits 0, so it remains a no-op with no amend.
+
+Runtime-a continuation. The reached body `0x4B160..0x4B204` directly calls `0x4C480`, `0x1DEE6E`, `0x1E01AD` and `0x1DFE85`; `0x1DEE6E` was already translated, so the batch admits the other three plus the stopping function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-4b160-01/seed-b160.json`: prior 12 seed functions plus `0x0004B160`, `0x0004C480`, `0x001E01AD` (fopen wrapper), `0x001DFE85` (`_fclose`); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 91: **476 functions, 19,434 instructions** (+4 / +105).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-166` (profile 91): **1,017,181 bytes**, SHA-256 `b0dc989e1c506fec51e425053d8b55454ab8b011f5764b606d4891482b49dd4f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E0151`** | **354 / 422** |
+
+`FUN_0004b160` executed and reached the CRT `fopen` path; `fopen` (`0x1E01AD`) then called its worker `__fsopen` (`0x1E0151..0x1E01A2`), the next translation placeholder. Halt and report; next bounded step is `__fsopen` with its evidenced direct callees.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 65. Batch admission of __fsopen and its unseeded callees; next stop __lock_file2 at 0x1E4C62
+
+Primary card unchanged and re-checked at head `9e563dc`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — still a no-op, no amend.
+
+Runtime-a continuation from `0x1E0151`. `__fsopen` body `0x1E0151..0x1E01A2` directly calls `0x1E04CC`, `0x1E52F6`, `0x1E4F87`, `0x1E518E`, `0x1E01A3`, `0x1E0505`; `0x1E04CC`, `0x1E4F87` and `0x1E0505` were already translated.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e0151-01/seed-fsopen.json`: prior 16 seed functions plus `0x001E0151` (`__fsopen`), `0x001E52F6` (`__getstream`), `0x001E518E` (`__openfile`), `0x001E01A3` (tiny wrapper); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 92: **480 functions, 19,680 instructions** (+4 / +246).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-167` (profile 92): **1,025,210 bytes**, SHA-256 `9508d2d28d6cda9a95610bf7eda5a2ee92f33aec1925018f5a54566de6906b66`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4C62`** | **357 / 428** |
+
+`__fsopen` ran through `__getstream`, which then called `__lock_file2` (`0x1E4C62..0x1E4C84`), the next translation placeholder; six additional kernel operations completed on the way (422 → 428). Halt and report; next bounded step is `__lock_file2` with its unseeded callee `0x1E635C` and a check of the import thunk at `0x2533F0` before any model is proposed.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 66. Admission of __lock_file2; next stop FUN_001e540f at 0x1E540F
+
+Primary card unchanged and re-checked at head `768f31a`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — no-op, no amend.
+
+Runtime-a continuation from `0x1E4C62`. Before translating, both of the body's call targets were resolved from retained artifacts:
+
+- `CALL 0x001E635C` — already translated in profile 92.
+- `CALL dword ptr [0x002533F0]` — the run's kernel binding is `slot 2438128 = 0x2533F0 → ordinal 277`, which the pinned bridge defines as `RtlEnterCriticalSection` (1 arg). The harness already routes ordinal 277 to its recorded `enter_critical` handler, so this is a supported service and no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e4c62-01/seed-lock2.json`: prior 20 seed functions plus `0x001E4C62` (`__lock_file2`); 1 new function, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 93: **481 functions, 19,693 instructions** (+1 / +13).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-168` (profile 93): **1,027,106 bytes**, SHA-256 `285ab47aea77ac0ef7ecd73c4fbe9360ab921a57f4c000a8d171033c1282d935`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E540F`** | **358 / 429** |
+
+`__lock_file2` executed and `__getstream` continued to `FUN_001e540f` (`0x1E540F..0x1E5417`: `PUSH 1; CALL 0x001E62CE; POP ECX; RET`), the next translation placeholder; its single callee `0x1E62CE` is already translated. Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 67. Admission of FUN_001e540f; next stop __sopen at 0x1E785E
+
+Runtime-a continuation from `0x1E540F` (directive head `832efee`, which contains the lane commits through `768f31a`).
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e540f-01/seed-540f.json`: prior 21 seed functions plus `0x001E540F` (`PUSH 1; CALL 0x001E62CE; POP ECX; RET`); 1 new function, `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 94: **482 functions, 19,697 instructions** (+1 / +4).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-169` (profile 94): **1,029,534 bytes**, SHA-256 `c16c3d8b32d32ace0858a70365c9c14ba94906d345c97eb5506976e7ca25a26f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E785E`** | **360 / 430** |
+
+The call chain `FUN_001e540f → 0x1E62CE → __openfile` executed; `__openfile` then called `__sopen` (`0x1E785E..0x1E78A2`), the next translation placeholder. Its already-translated callee is `0x1E04CC`; the unseeded ones are `0x1E75C8` and `0x1E78A3`. Halt and report; next bounded batch is those three functions.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 68. Batch admission of __sopen and its two unseeded callees; next stop FUN_001e733d at 0x1E733D
+
+Runtime-a continuation from `0x1E785E` (directive head `832efee`).
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e785e-01/seed-sopen.json`: prior 22 seed functions plus `0x001E785E` (`__sopen`), `0x001E75C8` (open-flag worker, 662 body bytes) and `0x001E78A3` (cleanup helper); 3 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 95: **485 functions, 19,948 instructions** (+3 / +251).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-170` (profile 95): **1,032,801 bytes**, SHA-256 `f79f16c90413132e9c4214d723131093f82b509231930e175193b0f824d396d0`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E733D`** | **362 / 430** |
+
+`__sopen` and its worker `0x1E75C8` executed; the worker then called `FUN_001e733d` (`0x1E733D..0x1E7489`), the next translation placeholder. Its already-translated callees are `0x1E62E0` and `0x1E635C`; `0x1E731B` (the callee of the not-yet-reached cleanup helper `0x1E78A3`) is still unseeded. Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 69. Batch admission of FUN_001e733d and FUN_001e72a8; next stop FUN_001e93e4 at 0x1E93E4
+
+Runtime-a continuation from `0x1E733D` (directive head `832efee`). Full body read first: `0x1E733D..0x1E7489` calls `0x1E62E0`, `0x1E635C`, `0x1E78C3`, `0x1E62CE`, `0x1E0D41`, `0x1E72A8` plus the import thunks `[0x2533F0]` and `[0x2533EC]`. Everything except `0x1E72A8` was already translated; the two thunks are ordinals 277 (`RtlEnterCriticalSection`) and 294 (`RtlLeaveCriticalSection`), both already routed by the harness, so no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e733d-01/seed-733d.json`: prior 25 seed functions plus `0x001E733D` and `0x001E72A8`; 2 new functions, within the 8-function set cap, both `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 96: **487 functions, 20,115 instructions** (+2 / +167).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-171` (profile 96): **1,045,793 bytes**, SHA-256 `5757634212fa6648f5436556d2842f6a1c414832cd22bdd0ddad3955ffb5c395`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E93E4`** | **363 / 441** |
+
+`FUN_001e733d` executed (the stream table setup), and the caller `0x1E75C8` continued to `FUN_001e93e4` (`0x1E93E4..0x1E956E`), the next translation placeholder; eleven further kernel operations completed on the way (430 → 441). Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

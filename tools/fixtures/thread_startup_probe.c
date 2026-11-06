@@ -1,3 +1,4 @@
+#define FF_REG_TRACE_POP_ENABLED 1
 /* Owned boot-thread host. Generated title code and upstream types stay private.
  * The previous stop-only harness is preserved separately and remains reproducible. */
 #define RECOMP_GENERATED_CODE
@@ -172,6 +173,8 @@ static uint32_t av_null_eax_before, av_null_esp_before, av_null_eax_after, av_nu
 static uint32_t mm_free_enabled, mm_free_calls, mm_free_decision, mm_free_address;
 static uint32_t mm_free_eax_before, mm_free_esp_before, mm_free_eax_after, mm_free_esp_after;
 static uint32_t mm_free_write_before, mm_free_write_after;
+static uint32_t ke_disc_enabled, ke_disc_calls, ke_disc_object, ke_disc_previous;
+static uint32_t ke_disc_eax_before, ke_disc_esp_before, ke_disc_eax_after, ke_disc_esp_after;
 static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_watch_count;
 static uint32_t guest_watch_read_site, guest_watch_read_count;
 static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
@@ -180,7 +183,9 @@ static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_
 static uint32_t site_span_esi[4];
 static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev_change_count;
 static uint32_t reg_trace_frozen;
-static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
+static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8], esi_change_ret[8];
+static uint32_t esi_event_count, esi_event_site[16], esi_event_esi[16], esi_event_addr[16];
+static uint32_t pop_event_count, pop_event_addr[16], pop_event_value[16], pop_event_post_esi[16], pop_event_seq[16], pop_event_post_seq[16], pop_pending_slot, pop_pending, hook_seq;
 static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
 static int32_t pcrtc_dirty = -1;
 static uint32_t pcrtc_offset(int32_t index)
@@ -387,7 +392,7 @@ uint32_t ff_probe_site_watch(uint32_t enable)
     site_watch_field_addr = 0u;
     site_watch_field_count = 0u;
     site_entry_count = 0u;
-    esi_change_count = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
+    esi_change_count = 0u; esi_event_count = 0u; pop_event_count = 0u; pop_pending = 0u; hook_seq = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
     return 0;
 }
 uint32_t ff_probe_site_watch_word(uint32_t field)
@@ -414,18 +419,32 @@ uint32_t ff_probe_site_watch_word(uint32_t field)
 }
 uint32_t ff_probe_site_entry_word(uint32_t index)
 {
-    if (index >= 24u) return 0u;
+    if (index >= 24u) return index < 32u ? esi_change_ret[index - 24u] : 0u;
     uint32_t slot = index / 3u, field = index % 3u;
     return field == 0u ? site_entry_addr[slot] : field == 1u ? site_entry_ecx[slot] : site_entry_ret[slot];
 }
 uint32_t ff_probe_site_entry_count(void) { return site_entry_count; }
 uint32_t ff_probe_esi_change_word(uint32_t index)
 {
-    if (index >= 24u) return 0u;
+    if (index >= 24u) return index < 32u ? esi_change_ret[index - 24u] : 0u;
     uint32_t slot = index / 3u, field = index % 3u;
     return field == 0u ? esi_change_site[slot] : field == 1u ? esi_change_addr[slot] : esi_change_value[slot];
 }
 uint32_t ff_probe_esi_change_count(void) { return esi_change_count; }
+uint32_t ff_probe_esi_event_count(void) { return esi_event_count; }
+uint32_t ff_probe_pop_event_count(void) { return pop_event_count; }
+uint32_t ff_probe_pop_event_word(uint32_t index)
+{
+    if (index >= 80u) return 0u;
+    uint32_t slot = index / 5u, field = index % 5u;
+    return field == 0u ? pop_event_addr[slot] : field == 1u ? pop_event_value[slot] : field == 2u ? pop_event_post_esi[slot] : field == 3u ? pop_event_seq[slot] : pop_event_post_seq[slot];
+}
+uint32_t ff_probe_esi_event_word(uint32_t index)
+{
+    if (index >= 80u) return 0u;
+    uint32_t slot = index / 5u, field = index % 5u;
+    return field == 0u ? esi_event_site[slot] : field == 1u ? esi_event_esi[slot] : esi_event_addr[slot];
+}
 uint32_t ff_probe_guest_watch_target(uint32_t address)
 {
     if (!guest_watch_enabled) return FF_BOOT_INVALID;
@@ -437,8 +456,28 @@ uint32_t ff_probe_guest_watch_target(uint32_t address)
     guest_watch_read_count = 0u;
     return 0;
 }
-uint32_t ff_probe_vblank_word(uint32_t field)
+uint32_t ff_probe_ke_disconnect(uint32_t enable)
 {
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    ke_disc_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_ke_disconnect_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return ke_disc_enabled;
+        case 1: return ke_disc_calls;
+        case 2: return ke_disc_object;
+        case 3: return ke_disc_previous;
+        case 4: return ke_disc_eax_before;
+        case 5: return ke_disc_esp_before;
+        case 6: return ke_disc_eax_after;
+        case 7: return ke_disc_esp_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_vblank_word(uint32_t field){
         switch (field) {
         case 0: return vblank_wait_calls;
         case 1: return vblank_wait_type;
@@ -681,6 +720,17 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
     /* Default-off diagnostic watch: record the first translated write site that
      * covers the selected guest address. It changes no memory behavior. */
     if (site_watch_enabled && !reg_trace_frozen) {
+        ++hook_seq;
+        if (pop_pending) { pop_event_post_esi[pop_pending_slot] = g_esi; pop_event_post_seq[pop_pending_slot] = hook_seq; pop_pending = 0; }
+        if ((access & FF_VM_READ) && site == 0u && g_esp >= 0x03C00000u && g_esp < FF_GUEST_BYTES - 4u && !(g_esp & 3u)) {
+            uint32_t pslot = pop_event_count & 15u;
+            pop_event_addr[pslot] = address; pop_event_value[pslot] = MEM32(address); pop_event_seq[pslot] = hook_seq; pop_pending_slot = pslot; pop_pending = 1; ++pop_event_count;
+        }
+        if (site == 0x001F6240u || site == 0x001F62C4u || site == 0x001FC010u || site == 0x001FC087u ||
+            (site >= 0x001FB6FDu && site < 0x001FB740u)) {
+            uint32_t eslot = esi_event_count & 15u;
+            esi_event_site[eslot] = site; esi_event_esi[eslot] = g_esi; esi_event_addr[eslot] = address; ++esi_event_count;
+        }
         {
             /* Per-context baselines: another thread's interleaved accesses must
              * not swallow this context's register transition. */
@@ -695,6 +745,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
                 if (site_entry_fs && g_fs_base == site_entry_fs) { dev_last_site = site; dev_last_value = g_esi; ++dev_change_count; }
                 uint32_t slot = esi_change_count & 7u;
                 esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
+                esi_change_ret[slot] = (g_esp >= 0x03C00000u && g_esp < FF_GUEST_BYTES - 8u && !(g_esp & 3u)) ? MEM32(g_esp + 4u) : 0u;
                 esi_ctx_last[ctxslot] = g_esi; ++esi_change_count;
             }
         }
@@ -2362,6 +2413,9 @@ static void av_get_saved_data(void)
         stop(1, kernel_binding_address(1u), 1u);
     }
     g_eax = value;
+    /* No-argument stdcall service: consume the return address. Omitting this
+     * leaves one dword on the stack and shifts every later frame slot. */
+    g_esp = esp_before + 4u;
     av_saved_value = value;
     av_saved_eax_before = eax_before;
     av_saved_esp_before = esp_before;
@@ -2398,8 +2452,29 @@ static void mm_free_contiguous_call(void)
     row[1] = 0u;
     row[2] = address;
 }
-recomp_func_t recomp_lookup_kernel(uint32_t address)
+static void ke_disconnect_interrupt(void)
 {
+    uint32_t *row = kernel_record(100u, 1u);
+    uint32_t object = MEM32(g_esp + 4u);
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t previous = ff_ke_disconnect_interrupt(&virtual_memory, guest_ram, object);
+    ++ke_disc_calls;
+    ke_disc_object = object;
+    ke_disc_previous = previous;
+    if (previous == FF_BOOT_INVALID || previous == FF_VM_ACCESS_VIOLATION) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(9, previous, 100u);
+    }
+    g_eax = previous;
+    g_esp = esp_before + 8u;
+    ke_disc_eax_before = eax_before;
+    ke_disc_esp_before = esp_before;
+    ke_disc_eax_after = g_eax;
+    ke_disc_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = object;
+}
+recomp_func_t recomp_lookup_kernel(uint32_t address){
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
         if (ordinal == 255) return create_thread;
@@ -2474,6 +2549,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 3 && display_mode_enabled) return set_display_mode;
         if (ordinal == 1 && av_saved_enabled) return av_get_saved_data;
         if (ordinal == 171 && mm_free_enabled) return mm_free_contiguous_call;
+        if (ordinal == 100 && ke_disc_enabled) return ke_disconnect_interrupt;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is
@@ -2699,19 +2775,47 @@ void ff_probe_run(void)
  * target so the defect family can be identified without backing up registers. */
 static uint32_t abi_violation_count, abi_violation_first, abi_violation_last;
 static uint32_t abi_esi_count, abi_esi_first, abi_esi_last;
+static uint32_t abi_esp_count, abi_esp_first, abi_esp_last;
 void recomp_abi_violation_log(uint32_t va, uint32_t ebx0, uint32_t esi0,
                               uint32_t edi0, uint32_t esp0)
 {
-    (void)ebx0; (void)esi0; (void)edi0; (void)esp0;
+    (void)ebx0; (void)esi0; (void)edi0;
     if (!abi_violation_first) abi_violation_first = va;
     abi_violation_last = va;
     ++abi_violation_count;
+    if (g_esp != esp0) {
+        if (!abi_esp_first) abi_esp_first = va;
+        abi_esp_last = va;
+        ++abi_esp_count;
+    }
 }
 uint32_t ff_probe_abi_violation_word(uint32_t field)
 {
     return field == 0u ? abi_violation_count : field == 1u ? abi_violation_first
-         : field == 2u ? abi_violation_last : 0u;
+         : field == 2u ? abi_violation_last : field == 3u ? abi_esp_count
+         : field == 4u ? abi_esp_first : field == 5u ? abi_esp_last : 0u;
 }
 #endif
+/* Destination capture for the pop diagnostic: identifies which register the
+ * compiled pop actually wrote, without touching the assignment. */
+static uint32_t dest_note_count, dest_note_reg[16], dest_note_stack[16], dest_note_value[16];
+void ff_reg_trace_note_pop(const void *destination, uint32_t stack, uint32_t value)
+{
+    uint32_t reg = destination == (const void *)&g_edi ? 3u
+                 : destination == (const void *)&g_esi ? 2u
+                 : destination == (const void *)&g_ebp ? 1u
+                 : destination == (const void *)&g_ebx ? 0u : 4u;
+    if (!site_watch_enabled || reg_trace_frozen) return;
+    uint32_t slot = dest_note_count & 15u;
+    dest_note_reg[slot] = reg; dest_note_stack[slot] = stack; dest_note_value[slot] = value;
+    ++dest_note_count;
+}
+uint32_t ff_probe_dest_note_count(void) { return dest_note_count; }
+uint32_t ff_probe_dest_note_word(uint32_t index)
+{
+    if (index >= 48u) return 0u;
+    uint32_t slot = index / 3u, field = index % 3u;
+    return field == 0u ? dest_note_reg[slot] : field == 1u ? dest_note_stack[slot] : dest_note_value[slot];
+}
 #include "title-functions.inc"
 #pragma clang diagnostic pop

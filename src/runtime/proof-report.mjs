@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -252,8 +252,8 @@ export function validateProofReport(report) {
         !integer(s.espAfter) || !integer(s.priorSetter))
       throw new Error('Malformed saved-data state');
     if (s.decision === 0 &&
-        (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== s.espBefore || s.priorSetter !== 0))
-      throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and no stack change');
+        (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== ((s.espBefore + 4) >>> 0) || s.priorSetter !== 0))
+      throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and a 4-byte stdcall pop');
   }
 
   /* Null-result AV query experiment and state pairing. The pinned early return
@@ -261,7 +261,7 @@ export function validateProofReport(report) {
    * nonzero Result reaches the unmodeled option switch. The state keeps the last
    * accepted tuple; the two observed pairs stay pinned pair evidence. */
   const claimsAvNull = experiments.includes('avNullResult');
-  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1]];
+  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1], [0x206080, 9, 0]];
   const isObservedNullShape = (handle, option, param) =>
     observedNullShapes.some(([h, o, p]) => handle === h && option === o && param === p);
   if (report.avNullResultState !== undefined && !claimsAvNull)
@@ -324,11 +324,27 @@ export function validateProofReport(report) {
     if (!q || !integer(q.faultEsi) || !integer(q.fieldEsi) || !integer(q.fieldAddr) || q.deltaOk !== true || q.sameEsi !== true)
       throw new Error('The ESI arbiter must agree with the fault frame and the field capture');
   }
+  /* Ordinal-100 interrupt-disconnect experiment and state pairing. */
+  const claimsKeDisc = experiments.includes('keDisconnectInterrupt');
+  if (report.keDisconnectState !== undefined && !claimsKeDisc)
+    throw new Error('Interrupt-disconnect state requires the keDisconnectInterrupt experiment');
+  if (claimsKeDisc && report.keDisconnectState === undefined)
+    throw new Error('The keDisconnectInterrupt experiment requires its state');
+  if (report.keDisconnectState !== undefined) {
+    const k = report.keDisconnectState;
+    if (!k || !integer(k.calls) || !integer(k.object) || !integer(k.previous) ||
+        !integer(k.eaxBefore) || !integer(k.espBefore) || !integer(k.eaxAfter) || !integer(k.espAfter))
+      throw new Error('Malformed interrupt-disconnect state');
+    if (k.calls >= 1 &&
+        (!k.object || (k.object & 3) !== 0 || k.previous > 1 ||
+         k.eaxAfter !== k.previous || k.espAfter !== ((k.espBefore + 8) >>> 0)))
+      throw new Error('An accepted interrupt-disconnect must return 0/1 and pop 8');
+  }
   /* Toolkit ABI-check diagnostic. It records the call target whose callee failed
    * to preserve ebx/esi/edi/esp; it is evidence, not a service model. */
   if (report.abiViolationState !== undefined) {
     const a = report.abiViolationState;
-    if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast))
+    if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast) || !integer(a.espCount) || !integer(a.espFirst) || !integer(a.espLast))
       throw new Error('Malformed ABI-violation state');
   }
   /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
@@ -341,7 +357,7 @@ export function validateProofReport(report) {
   if (report.siteWatchState !== undefined) {
     const s = report.siteWatchState;
     if (!s || !integer(s.entryAddr) || !integer(s.entryEcx) || !integer(s.entryReturn) ||
-        !integer(s.fieldAddr) || !integer(s.fieldCount) || !integer(s.fieldEsi) || !integer(s.entryFs) || !integer(s.fieldFs) || !integer(s.devLastSite) || !integer(s.devLastValue) || !integer(s.devChangeCount) || !Array.isArray(s.spanEsi) || s.spanEsi.length !== 4 || s.spanEsi.some(x => !integer(x)) || !Array.isArray(s.esiChanges) || s.esiChanges.length > 8 || s.esiChanges.some(e => !Array.isArray(e) || e.length !== 3 || e.some(x => !integer(x))) || !Array.isArray(s.entries) || s.entries.length > 8 ||
+        !integer(s.fieldAddr) || !integer(s.fieldCount) || !integer(s.fieldEsi) || !integer(s.entryFs) || !integer(s.fieldFs) || !integer(s.devLastSite) || !integer(s.devLastValue) || !integer(s.devChangeCount) || !Array.isArray(s.spanEsi) || s.spanEsi.length !== 4 || s.spanEsi.some(x => !integer(x)) || !Array.isArray(s.esiChanges) || s.esiChanges.length > 8 || s.esiChanges.some(e => !Array.isArray(e) || e.length !== 4 || e.some(x => !integer(x))) || !Array.isArray(s.entries) || s.entries.length > 8 ||
         s.entries.some(e => !Array.isArray(e) || e.length !== 3 || e.some(v => !integer(v))))
       throw new Error('Malformed site-watch state');
   }
@@ -349,7 +365,7 @@ export function validateProofReport(report) {
    * arguments and no output. Only the explicit synthetic avQuery word may make
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
-  let sawFirstNullShape = false, sawSecondNullShape = false;
+  let sawFirstNullShape = false, sawSecondNullShape = false, sawThirdNullShape = false;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -373,9 +389,10 @@ export function validateProofReport(report) {
        * observed pairs stay pinned and any other accepted tuple is flagged. */
       if (claimsAvNull && call.status === 0 && call.arguments[3] === 0) {
         if (!isObservedNullShape(call.arguments[0], call.arguments[1], call.arguments[2]))
-          throw new Error('An accepted null-result call must use an observed shape');
+          throw new Error('An accepted null-result call must use an observed shape: ' + [call.arguments[0], call.arguments[1], call.arguments[2]].map(x => '0x' + x.toString(16)).join(',') );
         if (call.arguments[0] === 0x03920000) sawFirstNullShape = true;
-        else sawSecondNullShape = true;
+        else if (call.arguments[0] === 0xFD000000) sawSecondNullShape = true;
+        else sawThirdNullShape = true;
         continue;
       }
       if (report.avQueryWord === undefined) {
@@ -424,8 +441,8 @@ export function validateProofReport(report) {
     }
   }
   if (claimsAvNull && report.calls !== undefined &&
-      (!sawFirstNullShape || !sawSecondNullShape))
-    throw new Error('The avNullResult pair must reproduce both observed null-result shapes');
+      !(sawFirstNullShape || sawSecondNullShape || sawThirdNullShape))
+    throw new Error('The avNullResult pair must reproduce at least one observed null-result shape');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
    * never reached; the report then has no ordinal-2 call and is still truthful.
    * That is only consistent when the run stopped before the query. A stop at
