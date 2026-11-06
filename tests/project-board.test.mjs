@@ -19,11 +19,12 @@ class MemoryBoard extends BoardGitHub{
   async board(id){assert.equal(id,this.target.id);return clone(this.target);}
   async connection(id,name){assert.equal(id,this.target.id);return clone(this.target[name]);}
   async tip(){return this.sha;}
+  async pause(){this.pauses=(this.pauses??0)+1;}
   async graphql(query,{input}){
     if(this.failWrite)throw new Error('Simulated write failure');this.writes.push({query,input:clone(input)});
     if(query.includes('updateProjectV2(input:')){const {projectId,...metadata}=input;Object.assign(this.target,metadata);}
     else if(query.includes('linkProjectV2ToRepository'))this.target.repositories=[{id:this.repositoryId,nameWithOwner:REPOSITORY,isPrivate:false}];
-    else if(query.includes('addProjectV2ItemById')){const issue=this.issues.find(i=>i.node_id===input.contentId);this.target.items.push({id:'PVTI_'+issue.number,isArchived:false,content:{__typename:'Issue',id:issue.node_id,number:issue.number,url:issue.html_url,repository:{nameWithOwner:REPOSITORY,isPrivate:false}},status:null,workType:null,waiting:'Private reviewer note retained locally'});}
+    else if(query.includes('addProjectV2ItemById')){const issue=this.issues.find(i=>i.node_id===input.contentId);const row={id:'PVTI_'+issue.number,isArchived:false,content:{__typename:'Issue',id:issue.node_id,number:issue.number,url:issue.html_url,repository:{nameWithOwner:REPOSITORY,isPrivate:false}},status:null,workType:null,waiting:'Private reviewer note retained locally'};this.target.items.push(row);return {addProjectV2ItemById:{item:clone(row)}};}
     else if(query.includes('updateProjectV2ItemFieldValue')){const row=this.target.items.find(i=>i.id===input.itemId);const f=this.target.fields.find(f=>f.id===input.fieldId);const option=f.options.find(o=>o.id===input.value.singleSelectOptionId);row[f.name==='Status'?'status':'workType']={optionId:option.id,name:option.name};}
     else assert.fail('Unexpected mutation');return {};
   }
@@ -58,6 +59,11 @@ test('unsupported template filters/options fail before copying and source drift 
   for(const mutate of [c=>c.templateViews[0].filter='repo:Jdiller-86/CTR-2-WUP',c=>c.templateFields[0].options.pop(),c=>c.templateViews=[]]){const client=new MemoryBoard();mutate(client);await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}));assert.equal(client.writes.length,0);}
   const client=new MemoryBoard();client.tip=async()=>'2'.repeat(40);await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}),/Main changed/);
   const other=new MemoryBoard();await assert.rejects(syncBoard(other,loadPlan(),{...config(),templateId:'PVT_changed'},{apply:true,sourceCommit:SHA}),/Template project ID/);assert.equal(other.writes.length,0);
+});
+test('native add receipts avoid stale item listings and final readback tolerates bounded indexing delay',async()=>{
+  const client=new MemoryBoard();let reads=0;const board=client.board.bind(client);client.connection=async()=>assert.fail('New items must be verified from mutation receipts');
+  client.board=async id=>{const result=await board(id);if(++reads===2)result.items.pop();return result;};
+  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.readbackVerified,true);assert.equal(client.pauses,1);assert.equal(client.target.items.length,15);assert.equal(client.created,1);
 });
 test('real transport copies configuration only, rejects foreign mutations, and redacts GraphQL credentials',async()=>{
   const client=new BoardGitHub({token:'fixture-secret-value'});client.templateId='PVT_template';client.ownerId='U_owner';let input;client.request=async(method,endpoint,payload)=>{input=payload.variables.input;return {data:{copyProjectV2:{projectV2:{id:'PVT_target',number:3,url:URL,closed:false,owner:{login:OWNER}}}}};};

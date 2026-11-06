@@ -16,7 +16,8 @@ const projectUrl=number=>`https://github.com/users/${OWNER}/projects/${number}`;
 const META='id number url title public closed readme shortDescription owner { ... on User { login } }';
 const FIELDS='nodes { __typename ... on ProjectV2Field { id name dataType } ... on ProjectV2SingleSelectField { id name dataType options { id name } } ... on ProjectV2IterationField { id name dataType } } pageInfo { hasNextPage endCursor }';
 const VIEWS='nodes { id name layout filter } pageInfo { hasNextPage endCursor }';
-const ITEMS='nodes { id isArchived content { __typename ... on Issue { id number url repository { nameWithOwner isPrivate } } } status:fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } workType:fieldValueByName(name:"Work type") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } } pageInfo { hasNextPage endCursor }';
+const ITEM='id isArchived content { __typename ... on Issue { id number url repository { nameWithOwner isPrivate } } } status:fieldValueByName(name:"Status") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } workType:fieldValueByName(name:"Work type") { ... on ProjectV2ItemFieldSingleSelectValue { optionId name } }';
+const ITEMS='nodes { '+ITEM+' } pageInfo { hasNextPage endCursor }';
 class ProjectAPIError extends Error {}
 
 export function validateConfig(config){
@@ -106,9 +107,11 @@ export class BoardGitHub extends GitHub{
     if(name==='linkProjectV2ToRepository')assert.equal(input.repositoryId,this.repositoryId);
     if(name==='addProjectV2ItemById')assert.ok(this.issueIds?.has(input.contentId),'Issue is outside managed scope');
     if(name==='updateProjectV2ItemFieldValue'){assert.ok(this.itemIds?.has(input.itemId));assert.ok(this.fieldIds?.has(input.fieldId));}
-    return this.graphql(`mutation($input:${type}!) { ${name}(input:$input) { clientMutationId } }`,{input});
+    const selection=name==='addProjectV2ItemById'?`item { ${ITEM} }`:'clientMutationId';
+    return this.graphql(`mutation($input:${type}!) { ${name}(input:$input) { ${selection} } }`,{input});
   }
   async tip(){return (await this.request('GET',`/repos/${REPOSITORY}/commits/main`)).sha;}
+  async pause(milliseconds){await new Promise(resolve=>setTimeout(resolve,milliseconds));}
 }
 
 export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onCreated=()=>{}}={}){
@@ -143,16 +146,21 @@ export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onC
   client.fieldIds=new Set([fields.Status.id,fields['Work type'].id]);client.itemIds=new Set(board.items.map(i=>i.id));
   for(const issue of wanted){
     let row=rows.get(issue.number);if(row)assert.equal(row.content.id,issue.contentId,'Project issue identity changed');
-    if(!row){operations.push({kind:'add-issue',issue:issue.number});if(apply){await client.mutate('addProjectV2ItemById','AddProjectV2ItemByIdInput',{projectId:board.id,contentId:issue.contentId});const refresh=members(await client.connection(board.id,'items',ITEMS));row=refresh.get(issue.number);assert.ok(row&&row.content.id===issue.contentId,'Added issue could not be read back');client.itemIds.add(row.id);}}
+    if(!row){operations.push({kind:'add-issue',issue:issue.number});if(apply){const added=await client.mutate('addProjectV2ItemById','AddProjectV2ItemByIdInput',{projectId:board.id,contentId:issue.contentId});row=members([added.addProjectV2ItemById?.item]).get(issue.number);assert.ok(row&&row.content.id===issue.contentId,'Added issue identity differs');client.itemIds.add(row.id);}}
     for(const [name,key,value] of [['Status','status',issue.status],['Work type','workType',issue.kind]]){
       const field=fields[name],option=field.options.find(o=>o.name.toLowerCase()===value.toLowerCase());
       if(row?.[key]?.optionId!==option.id||row?.[key]?.name!==option.name){operations.push({kind:'field',issue:issue.number,field:name,value});if(apply)await client.mutate('updateProjectV2ItemFieldValue','UpdateProjectV2ItemFieldValueInput',{projectId:board.id,itemId:row.id,fieldId:field.id,value:{singleSelectOptionId:option.id}});}
     }
   }
   if(apply){
-    const verified=await client.board(board.id);identity(verified,board.number);assert.equal(verified.id,board.id);assert.equal(verified.public,true);assert.equal(verified.readme,readme);assert.equal(verified.title,TITLE);
-    assert.ok(verified.repositories.some(r=>r.nameWithOwner===REPOSITORY));assert.ok(verified.repositories.every(r=>r.nameWithOwner===REPOSITORY&&!r.isPrivate));
-    const finalFields=trackingFields(verified.fields),final=members(verified.items);for(const issue of wanted){const row=final.get(issue.number);assert.ok(row&&row.content.id===issue.contentId);assert.equal(row.isArchived,false,'Managed issue was archived during synchronization');for(const [name,key,value] of [['Status','status',issue.status],['Work type','workType',issue.kind]]){const option=finalFields[name].options.find(o=>o.name.toLowerCase()===value.toLowerCase());assert.equal(row[key]?.name,option.name);assert.equal(row[key]?.optionId,option.id,'Project field readback differs');}}
+    let verified;
+    for(let attempt=0;attempt<4;attempt++){
+      verified=await client.board(board.id);identity(verified,board.number);assert.equal(verified.id,board.id);assert.equal(verified.public,true);assert.equal(verified.readme,readme);assert.equal(verified.title,TITLE);
+      assert.ok(verified.repositories.some(r=>r.nameWithOwner===REPOSITORY));assert.ok(verified.repositories.every(r=>r.nameWithOwner===REPOSITORY&&!r.isPrivate));
+      const finalFields=trackingFields(verified.fields),final=members(verified.items);let matches=true;
+      for(const issue of wanted){const row=final.get(issue.number);if(!row){matches=false;continue;}assert.equal(row.content.id,issue.contentId);assert.equal(row.isArchived,false,'Managed issue was archived during synchronization');for(const [name,key,value] of [['Status','status',issue.status],['Work type','workType',issue.kind]]){const option=finalFields[name].options.find(o=>o.name.toLowerCase()===value.toLowerCase());if(row[key]?.name!==option.name||row[key]?.optionId!==option.id)matches=false;}}
+      if(matches)break;assert.ok(attempt<3,'Project changes are not observable after bounded readback; inspect before retrying');await client.pause(1000*(attempt+1));
+    }
     assert.equal(await client.tip(),sourceCommit,'Main changed during Project synchronization');board=verified;
   }
   return {schemaVersion:1,repository:REPOSITORY,sourceCommit,applied:apply,readbackVerified:apply,project:{id:board.id,number:board.number,url:board.url},template:{id:context.template.id,number:2,url:projectUrl(2)},views:board.views.map(v=>({name:v.name,layout:v.layout,filter:v.filter})),managedIssues:wanted.map(({number,status,kind})=>({number,status,workType:kind})),operations};
