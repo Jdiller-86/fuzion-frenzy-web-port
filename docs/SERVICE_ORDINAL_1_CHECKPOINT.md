@@ -1538,3 +1538,24 @@ The experiment advanced past the previous trace stop (`0x1DF8A0`) to the matchin
 Next bounded task: coalesce the repeated poll-loop trace (identical enter/exit pairs for the already-translated time helper) or otherwise bound the loop, keeping the reported entry sequence and distinct-routine count honest; then report the next stop.
 
 Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. The DECISIONS archive split restored the shared numbering, so this cycle records no new decision row.
+
+## 87. Coalesce repeated four-entry trace cycles; the wait loop ends and a memory stop appears
+
+A 32768-row trace was tried first and still filled (the loop's entry count scales with real time), so the bound was set back to 16384 and the trace itself was coalesced.
+
+- `trace()` now detects two identical consecutive four-entry cycles (the guest's `enter/exit/enter/exit` poll loop), keeps the first, drops the duplicate, stores a signature, and absorbs further matching entries one by one while incrementing a per-row repeat count. Any mismatch disarms the coalescer and normal tracing resumes.
+- The probe exports `ff_probe_trace_repeat`; the worker attaches `repeats` to matching trace rows and `proof-report.mjs` validates the field (integer 1..0xFFFFFFFF) while accepting rows without it.
+
+Module `recomp-post-memory-build-194` (unchanged profile 109): **1,115,655 bytes**, SHA-256 `da5efa623b17d64535438b1218aa7bf6461af2a201d01b3f70c067bc7938fa10`.
+
+| Run | Stop | Routines / ops | Trace |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 | 4810 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 | 4253 (25 coalesced rows) |
+| experiment | **status 13 at `0x03C10DC0`** | **386 / 496** | **4948 (31 coalesced rows, max 32,489)** |
+
+The coalescer collapsed the wait loop: the experiment's trace fell from a filled 16384 to 4948 rows with one cycle repeated **32,489** times, the loop finished, and the run advanced to a new stop class - **status 13 (guest memory access refusal) at `0x03C10DC0`**, ordinal 1, with the report's `stopReason` "pushbuffer consumption required" and `completedInitializers` still 83/83.
+
+Next bounded task: identify the refused access at `0x03C10DC0` (inside the mapped 4 MiB stack-adjacent region at `0x03C00000`, whose pages report protection 0) and decide whether the aperture is missing a committed page or the access is genuinely outside the stack contract; halt-and-report the result.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean.

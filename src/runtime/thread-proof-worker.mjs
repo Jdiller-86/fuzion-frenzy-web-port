@@ -240,7 +240,10 @@ self.onmessage = async event => {
     const words = new Uint32Array(memory, range(api.ff_probe_trace(), count * 12, 4), count * 3);
     const hasCpuTrace = typeof api.ff_probe_trace_cpu === 'function';
     const trace = Array.from({ length: count }, (_, i) => ({ kind: words[i * 3] === 1 ? 'enter' : 'exit',
-      address: words[i * 3 + 1], stack: words[i * 3 + 2], ...(hasCpuTrace ? { cpu: {
+      address: words[i * 3 + 1], stack: words[i * 3 + 2],
+      ...(typeof api.ff_probe_trace_repeat === 'function' && api.ff_probe_trace_repeat(i) > 0
+        ? { repeats: api.ff_probe_trace_repeat(i) >>> 0 } : {}),
+      ...(hasCpuTrace ? { cpu: {
         eax: api.ff_probe_trace_cpu(i, 0) >>> 0, fs: api.ff_probe_trace_cpu(i, 1) >>> 0,
         exceptionHead: api.ff_probe_trace_cpu(i, 2) >>> 0 } } : {}) }));
     const state = Array.from(new Uint32Array(memory, range(api.ff_probe_state(), 64, 4), 16));

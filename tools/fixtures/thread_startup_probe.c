@@ -173,6 +173,10 @@ void recomp_debug_service(uint32_t service, uint32_t arg_va)
     (void)ff_debug_service_record(&debug_service_log, &memory, service, arg_va);
 }
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
+/* Per-entry repetition counts for an exactly repeated four-entry call cycle
+ * (the guest's time-wait loop), so a poll loop cannot exhaust the trace. */
+static uint32_t probe_trace_repeats[FF_TRACE_CAPACITY];
+static uint32_t trace_cycle_armed, trace_cycle_pos, trace_cycle_row, trace_cycle_sig[12];
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
 /* Repeated zero-argument performance polls coalesce into their first row: the
@@ -1151,6 +1155,17 @@ static void trace(uint32_t kind, uint32_t address)
 #ifdef FF_METADATA_FORMAT_PROOF
     observe_metadata_format(kind,address);
 #endif
+    /* Coalesce an exactly repeated four-entry call cycle: while the signature
+     * matches, the entry is absorbed and the retained cycle's count grows. */
+    if (trace_cycle_armed) {
+        const uint32_t base = trace_cycle_pos * 3u;
+        if (kind == trace_cycle_sig[base] && address == trace_cycle_sig[base + 1u] &&
+            g_esp == trace_cycle_sig[base + 2u]) {
+            if (++trace_cycle_pos == 4u) { trace_cycle_pos = 0; ++probe_trace_repeats[trace_cycle_row]; }
+            return;
+        }
+        trace_cycle_armed = 0;
+    }
     if (probe_trace_count == FF_TRACE_CAPACITY) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
     probe_trace[i] = kind; probe_trace[i + 1] = address; probe_trace[i + 2] = g_esp;
@@ -1163,6 +1178,19 @@ static void trace(uint32_t kind, uint32_t address)
         probe_cpu_trace[i + 2] = MEM32(g_fs_base);
 #endif
     } else probe_cpu_trace[i + 2] = UINT32_MAX;
+    /* Two identical complete cycles: keep the first, count the second, and
+     * suppress further repeats entry by entry. */
+    if (probe_trace_count >= 8u && (probe_trace_count & 3u) == 0u) {
+        const uint32_t first = (probe_trace_count - 8u) * 3u, second = (probe_trace_count - 4u) * 3u;
+        if (!memcmp(&probe_trace[first], &probe_trace[second], 12u * sizeof(uint32_t))) {
+            trace_cycle_row = probe_trace_count - 8u;
+            memcpy(trace_cycle_sig, &probe_trace[first], 12u * sizeof(uint32_t));
+            probe_trace_count -= 4u;
+            probe_trace_repeats[trace_cycle_row] += 2u;
+            trace_cycle_pos = 0;
+            trace_cycle_armed = 1;
+        }
+    }
 }
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
@@ -2751,6 +2779,7 @@ uint32_t ff_probe_fp_word(uint32_t field)
 #endif
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
 uint32_t ff_probe_kernel_repeat(uint32_t i) { return i < kernel_call_count ? kernel_repeats[i] : 0; }
+uint32_t ff_probe_trace_repeat(uint32_t i) { return i < probe_trace_count ? probe_trace_repeats[i] : 0; }
 uint32_t ff_probe_debug_service_count(void) { return debug_service_log.count; }
 uint32_t ff_probe_debug_service_dropped(void) { return debug_service_log.dropped; }
 uint32_t ff_probe_debug_service_word(uint32_t i, uint32_t n)
@@ -2785,6 +2814,8 @@ void ff_probe_reset(void)
 {
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
+    memset(probe_trace_repeats, 0, sizeof probe_trace_repeats);
+    trace_cycle_armed = trace_cycle_pos = trace_cycle_row = 0;
     memset(kernel_calls, 0, sizeof kernel_calls);
     memset(kernel_repeats, 0, sizeof kernel_repeats);
     ff_port_io_init(&port_io);

@@ -39,6 +39,9 @@ export function validateProofReport(report) {
   for (const entry of report.trace) {
     if (!entry || typeof entry.kind !== 'string' || !integer(entry.address) || !integer(entry.stack))
       throw new Error('Malformed trace entry');
+    if (entry.repeats !== undefined &&
+        (!integer(entry.repeats) || entry.repeats < 1 || entry.repeats > 0xFFFFFFFF))
+      throw new Error('Malformed trace repetition count');
   }
   /* The reached-routine list is derived from the bounded trace; a hand-written
    * report must not smuggle an unbounded or malformed list past the contract.

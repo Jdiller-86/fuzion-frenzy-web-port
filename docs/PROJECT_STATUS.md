@@ -1,4 +1,12 @@
-# Trace capacity doubled; the poll loop still exhausts it
+# Trace cycles coalesced; the wait loop ends at a guest memory stop
+
+November 6: a 32768-row trace still filled (the loop scales with real time), so the bound returned to 16384 and the trace itself was coalesced. `trace()` now detects two identical consecutive four-entry cycles, keeps the first, counts repeats, and absorbs further matches entry by entry; the probe exports `ff_probe_trace_repeat`, the worker attaches `repeats`, and `proof-report.mjs` validates it. Module 194 (unchanged profile 109) = 1,115,655 bytes SHA `da5efa62...`.
+
+Pair: control 339/405 (trace 4810); inert 347/419 (trace 4253, 25 coalesced rows); experiment **status 13 at `0x03C10DC0`, 386 routines / 496 kernel ops**, trace 4948 with one cycle repeated **32,489** times. The wait loop completed and the run reached a new stop class - a guest memory access refusal inside the mapped 4 MiB stack-adjacent region at `0x03C00000` (report `stopReason` "pushbuffer consumption required", initializers still 83/83).
+
+Next task: identify the refused access at `0x03C10DC0` and decide whether the aperture lacks a committed page or the access is outside the stack contract; halt-and-report. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Trace capacity doubled; the poll loop still exhausts it
 
 November 6: the initializer-batch trace capacity was raised 8192 → **16384**, with the probe constant, `proofTraceCapacity`, the worker's metadata-format check and `TRACE_LIMIT` all updated together. Module 192 (unchanged profile 109) = 1,115,159 bytes SHA `971de812...`; zero-initialised trace storage keeps the byte size unchanged.
 
