@@ -297,3 +297,11 @@ mandatory corrective decision in docs/DECISIONS.md.
   stop is unchanged verbatim: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No
   merge was requested or landed this hour and `origin/main` is still `97d831bd`. No runtime
   advance.
+- 2026-11-05 ops (D403): PR-merge guidance for the unattended window recorded - a manual merge of
+  PR #20 (head `1af5dce`) must NOT happen because its head is a strict subset of PR #19's head
+  `44af31d` (`1af5dce`/`18cce1d`/`035b253`/`6ad7e9b`/`f9f503a` all verified contained), so the
+  guarded merge stays on the #19 actuator route and lands only on a reconciled superset head with
+  green exact-head checks (`35acdae`, `f4088e8`, `be791ef`, `c21e61b`, `0f0b6c1`, `ffacf95`,
+  `d8ff7c1`/`209d60c` still absent at the ~21:40 reconciliation window); the safe owner-side action
+  is closing the superseded geometry draft PR #3, and PR #20 may be closed as superseded once #19
+  merges. No runtime advance.
