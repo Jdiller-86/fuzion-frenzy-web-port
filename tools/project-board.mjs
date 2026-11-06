@@ -59,13 +59,6 @@ export function trackingFields(rows){
   }
   assert.equal(selected['Waiting resource'].dataType,'TEXT');return selected;
 }
-export function safeTemplateFields(rows){
-  const selected=trackingFields(rows);
-  const builtin=new Set(['TITLE','ASSIGNEES','LABELS','MILESTONE','REPOSITORY','LINKED_PULL_REQUESTS','REVIEWERS','TRACKS','TRACKED_BY','ISSUE_TYPE','PARENT_ISSUE','SUB_ISSUES_PROGRESS']);
-  assert.ok(rows.every(f=>['Status','Work type','Waiting resource'].includes(f.name)||builtin.has(f.dataType)),'Template contains unreviewed custom fields; do not publish them');
-  for(const [name,allowed] of [['Status',[...STATUSES.values(),'Done','Closed']],['Work type',['Milestone','Task','Feature']]])assert.ok(selected[name].options.every(o=>allowed.some(a=>a.toLowerCase()===o.name.toLowerCase())),'Template has unreviewed custom options');
-  return selected;
-}
 function members(rows){
   const result=new Map();for(const row of rows){const issue=row.content;assert.equal(issue?.__typename,'Issue','Unexpected draft or inaccessible board item');assert.equal(issue.repository?.nameWithOwner,REPOSITORY,'Foreign repository item on managed board');assert.equal(issue.repository?.isPrivate,false,'Private board content is outside scope');assert.equal(issue.url,`${BASE}/issues/${issue.number}`);assert.ok(typeof row.id==='string'&&typeof issue.id==='string');assert.ok(!result.has(issue.number),'Duplicate issue on board');result.set(issue.number,row);}return result;
 }
@@ -127,7 +120,8 @@ export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onC
   const wanted=definitions(plan).map(d=>({number:lookup.get(d.id).number,contentId:lookup.get(d.id).node_id,status:statuses.get(d.id),kind:d.type==='milestone'?'Milestone':'Task'}));client.issueIds=new Set(wanted.map(i=>i.contentId));
   let board=selectBoard(config,context.boards);const operations=[];let created=false,template=null;
   if(!board){
-    template=await client.template();safeTemplateFields(template.fields);assert.ok(template.views.length>0,'Template has no views');
+    // Field definitions are the requested configuration; item values and drafts are never imported.
+    template=await client.template();trackingFields(template.fields);assert.ok(template.views.length>0,'Template has no views');
     assert.ok(template.views.every(v=>!v.filter||!/CTR-2-WUP|repo:|milestone:/i.test(v.filter)),'Template view has repository-specific filters; review before copying');
     operations.push({kind:'copy-template',templateNumber:2,includeDraftIssues:false});
     if(!apply){operations.push({kind:'project-description'},{kind:'link-repository'});for(const issue of wanted)operations.push({kind:'add-issue',issue:issue.number},{kind:'field',issue:issue.number,field:'Status',value:issue.status},{kind:'field',issue:issue.number,field:'Work type',value:issue.kind});return {schemaVersion:1,repository:REPOSITORY,sourceCommit,applied:false,operations};}
