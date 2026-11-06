@@ -1520,3 +1520,21 @@ The coalescing worked as designed: the experiment records **509 call rows** inst
 Next bounded task: raise or coalesce the bounded probe trace for repeated poll-loop iterations while keeping the reported entry sequence honest; raise `FF_TRACE_CAPACITY` together with its JS acceptance and report bound, or coalesce identical repeated entries, then report the next stop.
 
 Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 86. Trace capacity doubled; the poll loop still exhausts it
+
+The initializer-batch trace capacity was raised from 8192 to **16384**, with the four consumers kept in step: `FF_TRACE_CAPACITY` in the probe, `proofTraceCapacity` in `local-title-proof.mjs`, the metadata-format check in `thread-proof-worker.mjs`, and `TRACE_LIMIT` in `proof-report.mjs`. The zero-initialised trace storage stays in BSS, so the module byte size is unchanged.
+
+Module `recomp-post-memory-build-192` (unchanged profile 109): **1,115,159 bytes**, SHA-256 `971de812f35fc86169fe3e41fd6e6a25d3c4dee5ed410820bdd9fc0912afd06a`.
+
+| Run | Stop | Routines / ops | Trace |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 | 4810 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 | 4903 |
+| experiment | **status 5 at `0x001E8E5F`** | **386 / 496** | **16384** |
+
+The experiment advanced past the previous trace stop (`0x1DF8A0`) to the matching counter helper `0x1E8E5F` at return address `0x4C55A`, then filled the doubled trace as well. The wait loop is longer than any single capacity bump, so raising the bound again would only move the wall.
+
+Next bounded task: coalesce the repeated poll-loop trace (identical enter/exit pairs for the already-translated time helper) or otherwise bound the loop, keeping the reported entry sequence and distinct-routine count honest; then report the next stop.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. The DECISIONS archive split restored the shared numbering, so this cycle records no new decision row.

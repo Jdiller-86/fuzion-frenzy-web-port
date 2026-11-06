@@ -1,4 +1,12 @@
-# DECISIONS.md split under 5 MiB; runtime stop unchanged at the trace capacity
+# Trace capacity doubled; the poll loop still exhausts it
+
+November 6: the initializer-batch trace capacity was raised 8192 → **16384**, with the probe constant, `proofTraceCapacity`, the worker's metadata-format check and `TRACE_LIMIT` all updated together. Module 192 (unchanged profile 109) = 1,115,159 bytes SHA `971de812...`; zero-initialised trace storage keeps the byte size unchanged.
+
+Pair: control 339/405 (trace 4810); inert 347/419 (trace 4903); experiment **status 5 at `0x001E8E5F`, 386 routines / 496 kernel ops**, return address `0x4C55A`, trace **16384**. The run advanced past the previous trace stop (`0x1DF8A0`) and filled the doubled trace as well, so the wait loop outlasts any single capacity bump.
+
+Next task: coalesce the repeated poll-loop trace for the already-translated time helper (or otherwise bound the loop) while keeping the entry sequence and distinct-routine count honest, then report the next stop. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: DECISIONS.md split under 5 MiB; runtime stop unchanged at the trace capacity
 
 November 6: architect Primary docs task. `docs/DECISIONS.md` is now **0.65 MB**: D001-D219 and the W0xx/A0xx cadence rows (256 rows) moved to `docs/archive/DECISIONS_PRIOR_20261106.md` (0.28 MB) with a pointer row in place, and D448 records the split. All 467 rows from the integration head are preserved (211 current + 256 archived, no overlap, none missing). The bloat was repeated encoding mangling, not duplicate rows; 39 historic rows whose integration copy was mangled now use this lane's clean text, so the archive carries no mangling.
 

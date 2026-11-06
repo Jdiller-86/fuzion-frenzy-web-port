@@ -10,7 +10,7 @@
  */
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 
-export const TRACE_LIMIT = 8192;
+export const TRACE_LIMIT = 16384;
 export const DEVICE_EVENT_LIMIT = 32768;
 export const DEVICE_ENTRY_LIMIT = 8192;
 /* Must stay in sync with FF_DEVICE_STATUS_WAITS; each declaration supplies at most

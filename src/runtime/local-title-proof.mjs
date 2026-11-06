@@ -35,8 +35,8 @@ export function parseLocalNvConsoleSettings(buffer) {
 
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
-  if (![64,128,1024,4096,8192].includes(capacity) ||
-      (capacity===4096 || capacity===8192) && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.()))
+  if (![64,128,1024,4096,8192,16384].includes(capacity) ||
+      (capacity===4096 || capacity===8192 || capacity===16384) && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.()))
     throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
