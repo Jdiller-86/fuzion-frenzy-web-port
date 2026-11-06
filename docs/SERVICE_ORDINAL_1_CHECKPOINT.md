@@ -778,3 +778,14 @@ Audit of `git diff origin/main HEAD -- docs/DECISIONS.md` (head `e74b4d6`):
 - No rewrite or amend is applicable: the requested marker-class cell does not exist in the added lines. Head `e74b4d6` is clean for queueing.
 
 No code or decision change; no amend performed because there is nothing to rewrite.
+
+## 52. Cross-head marker audit (lane and integration)
+
+Re-ran the marker check against the current heads:
+
+- **Lane head `c942c58`**: `git diff origin/main HEAD -- docs/DECISIONS.md` adds no line containing `<<<`, `======` or `>>>`; `git diff --check origin/main HEAD` exits 0.
+- **Integration head `39a8fa8`** (contains D407–D409, the renumbered package/policy/queue rows): `git diff origin/main 39a8fa8 -- docs/DECISIONS.md` also adds no marker-class line, and `git diff --check origin/main 39a8fa8` exits 0.
+
+The D217 row's `===` snippets are ordinary JavaScript comparisons that already exist in `origin/main`, not conflict markers. No cell rewrite or amend is applicable at either head; the clean lane head for queueing remains `c942c58`.
+
+No code or decision change.
