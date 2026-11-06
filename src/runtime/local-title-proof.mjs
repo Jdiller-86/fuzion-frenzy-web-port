@@ -151,7 +151,7 @@ export function parseLocalMmioProfile(buffer) {
   /* A misspelled experimental flag would silently leave the run on a different
    * model than the profile intends, so unknown device keys fail closed. */
   const deviceKeys = ['kind', 'synthetic', 'window', 'registers', 'zeroRanges',
-    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avUnknownOption', 'avSavedData', 'avNullResult', 'mmFreeContiguous', 'guestWatch', 'guestWatchAddr', 'siteWatch', 'avQueryWord'];
+    'writeClearing', 'pmcZero', 'pcrtcVblanks', 'engineWait', 'pfifoReset', 'pfifoConsumer', 'displayMode', 'avUnknownOption', 'avSavedData', 'avNullResult', 'mmFreeContiguous', 'guestWatch', 'guestWatchAddr', 'siteWatch', 'keDisconnectInterrupt', 'avQueryWord'];
   if (device && typeof device === 'object' &&
       Object.keys(device).some(key => !deviceKeys.includes(key))) {
     throw new Error('Unknown synthetic register profile key');
@@ -168,6 +168,7 @@ export function parseLocalMmioProfile(buffer) {
   const guestWatch = device?.guestWatch === true;
   const guestWatchAddr = device?.guestWatchAddr;
   const siteWatch = device?.siteWatch === true;
+  const keDisconnectInterrupt = device?.keDisconnectInterrupt === true;
   if (device?.kind !== 'synthetic-register-storage' || device.synthetic !== true ||
       !Number.isInteger(window?.base) || !Number.isInteger(window?.size) || (window.base & 3) ||
       window.size < 4096 || window.size > 0x1000000 || (window.size & 3) ||
@@ -225,7 +226,7 @@ export function parseLocalMmioProfile(buffer) {
     throw new Error('The guest-watch address must be an explicit 32-bit value');
   return { kind: device.kind, synthetic: true, window: { base: window.base, size: window.size },
     registers: entries.map(e => ({ address: e.address, initial: e.initial })), zeroRanges, writeClearing, pmcZero,
-    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avUnknownOption, avSavedData, avNullResult, mmFreeContiguous, guestWatch, guestWatchAddr, siteWatch, avQueryWord };
+    pcrtcVblanks, engineWait, pfifoReset, pfifoConsumer, displayMode, avUnknownOption, avSavedData, avNullResult, mmFreeContiguous, guestWatch, guestWatchAddr, siteWatch, keDisconnectInterrupt, avQueryWord };
 }
 
 /* Every experimental device input the selected profile turns on, so a report can
@@ -246,6 +247,7 @@ export function describeMmioExperiments(profile) {
   if (profile.mmFreeContiguous) active.push('mmFreeContiguous');
   if (profile.guestWatch) active.push('guestWatch');
   if (profile.siteWatch) active.push('siteWatch');
+  if (profile.keDisconnectInterrupt) active.push('keDisconnectInterrupt');
   if (profile.avQueryWord !== undefined) active.push('avQuery');
   return active;
 }

@@ -33,7 +33,21 @@ uint32_t ff_ke_connect_interrupt(ff_virtual_memory *vm, uint8_t *ram, uint32_t o
 {
     if (!vm || !ram) return FF_BOOT_INVALID;
     if (object && ff_vm_check(vm, object, 44, FF_VM_READ)) return FF_VM_ACCESS_VIOLATION;
+    /* The pinned connect marks the interrupt connected; a read-only object must
+     * be refused rather than silently "connected". */
+    if (object && ff_vm_check(vm, object + 16u, 1, FF_VM_WRITE)) return FF_VM_ACCESS_VIOLATION;
+    if (object) ram[object + 16u] = 1u;
     return 1;
+}
+
+uint32_t ff_ke_disconnect_interrupt(ff_virtual_memory *vm, uint8_t *ram, uint32_t object)
+{
+    if (!vm || !ram) return FF_BOOT_INVALID;
+    if (!object || (object & 3u)) return FF_BOOT_INVALID;
+    if (ff_vm_check(vm, object, 17u, FF_VM_READ | FF_VM_WRITE)) return FF_VM_ACCESS_VIOLATION;
+    uint32_t previous = ram[object + 16u] ? 1u : 0u;
+    ram[object + 16u] = 0u;
+    return previous;
 }
 
 uint32_t ff_hal_register_shutdown_notification(ff_virtual_memory *vm, uint8_t *ram,

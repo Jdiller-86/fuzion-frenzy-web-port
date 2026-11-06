@@ -93,7 +93,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -323,6 +323,22 @@ export function validateProofReport(report) {
     const q = report.esiArbiter;
     if (!q || !integer(q.faultEsi) || !integer(q.fieldEsi) || !integer(q.fieldAddr) || q.deltaOk !== true || q.sameEsi !== true)
       throw new Error('The ESI arbiter must agree with the fault frame and the field capture');
+  }
+  /* Ordinal-100 interrupt-disconnect experiment and state pairing. */
+  const claimsKeDisc = experiments.includes('keDisconnectInterrupt');
+  if (report.keDisconnectState !== undefined && !claimsKeDisc)
+    throw new Error('Interrupt-disconnect state requires the keDisconnectInterrupt experiment');
+  if (claimsKeDisc && report.keDisconnectState === undefined)
+    throw new Error('The keDisconnectInterrupt experiment requires its state');
+  if (report.keDisconnectState !== undefined) {
+    const k = report.keDisconnectState;
+    if (!k || !integer(k.calls) || !integer(k.object) || !integer(k.previous) ||
+        !integer(k.eaxBefore) || !integer(k.espBefore) || !integer(k.eaxAfter) || !integer(k.espAfter))
+      throw new Error('Malformed interrupt-disconnect state');
+    if (k.calls >= 1 &&
+        (!k.object || (k.object & 3) !== 0 || k.previous > 1 ||
+         k.eaxAfter !== k.previous || k.espAfter !== ((k.espBefore + 8) >>> 0)))
+      throw new Error('An accepted interrupt-disconnect must return 0/1 and pop 8');
   }
   /* Toolkit ABI-check diagnostic. It records the call target whose callee failed
    * to preserve ebx/esi/edi/esp; it is evidence, not a service model. */

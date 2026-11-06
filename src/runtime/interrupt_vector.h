@@ -31,6 +31,13 @@ uint32_t ff_ke_initialize_interrupt(ff_virtual_memory *vm, uint8_t *ram,
  * object or FF_BOOT_INVALID for missing state. */
 uint32_t ff_ke_connect_interrupt(ff_virtual_memory *vm, uint8_t *ram, uint32_t object);
 
+/* Modeled KeDisconnectInterrupt: returns the previous Connected byte at
+ * object+16 and clears it. Requires a writable mapped 17-byte object.
+ * Returns 0/1 (previous state), FF_VM_ACCESS_VIOLATION, or FF_BOOT_INVALID.
+ * The +16 offset is modeled from retained pinned references, not observed
+ * original layout. */
+uint32_t ff_ke_disconnect_interrupt(ff_virtual_memory *vm, uint8_t *ram, uint32_t object);
+
 /* Modeled HalRegisterShutdownNotification: accepts an explicit registration
  * pointer and boolean, without ever delivering a console-shutdown callback.
  * Returns 0, FF_VM_ACCESS_VIOLATION for an unreadable registration, or
