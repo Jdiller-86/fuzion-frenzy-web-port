@@ -240,3 +240,17 @@ mandatory corrective decision in docs/DECISIONS.md.
   and only a head claiming both may be merged; the lane-b runner copy also still lacks main's D393
   harness-ban tail. Tempo stays at 0 counted advances pending a new stop boundary. See D398.
   No runtime advance.
+- 2026-11-05 ops (D399 ruling): both prepass reference sets are verified live at the repo
+  root - `.tools/emulation/geom-reference-01/reference.json` (2,904,864 bytes, SHA-256
+  `474497d8fb629580352390ec7705b4ed0ea47aa635b8064e9ad2f393d7b530e5`, 126-input/153-output
+  triangle) and `.tools/emulation/geom-reference-02/reference.json` (12,353,921 bytes,
+  SHA-256 `4fcd544b780b0d531fedc1bca8a1e1266c3b9ba0eb5daaa7900cd2f6e167fccf`, the 1,728-record
+  line/quad set) - so the "line/quad capture gap" of D395/D397/D398(c) is superseded and the
+  lane-b card now asks for BOTH digest-verified comparisons; card commit `d8ff7c1`
+  (typo `and nothing gar less` -> `and nothing less`, ruling clause applied). No runtime advance.
+- 2026-11-05 ops (tempo): 0 counted advances remains the honest count - the 20:31 lane
+  commits (`dcb9221` runtime-a, `7911e35` runtime-b) are lane-progress commits, not a new
+  stop boundary and not a newly serviced reached request, and the runtime-a blockers-package
+  directive stands (D398(d)); the 20:40 architect tick is the expected reconciliation
+  actuator for the divergent integration lines, reading the D394-D399 rows. Stop unchanged:
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
