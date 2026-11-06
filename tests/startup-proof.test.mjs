@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
 import { createProofClock } from '../src/runtime/browser-clock.mjs';
 import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
@@ -330,6 +330,8 @@ test('title execution loader rejects non-browser-worker execution before compili
 
 test('trace admission retains legacy capacity and rejects arbitrary declared sizes', () => {
   assert.equal(proofTraceCapacity({}),64);
+  assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>8192,ff_probe_abi:()=>24}),8192);
+  assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>8192,ff_probe_abi:()=>15}),/bounded trace capacity/);
   for (const capacity of [64,128,1024]) assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>capacity}),capacity);
   assert.equal(proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>16}),4096);
   for(const abi of [undefined,14,15]) assert.throws(()=>proofTraceCapacity({ff_probe_trace_capacity:()=>4096,ff_probe_abi:()=>abi}),/bounded trace capacity/);
@@ -380,7 +382,21 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
     ...[-1, 0.5, 0x100000000, null].map(miscFlags => ({ kind: 'local-console-settings', synthetic: true, miscFlags }))]) {
     assert.throws(() => parseLocalConsoleSettings(bytes(value)));
   }
-  assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(4097)));
+  assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(8193)));
+});
+
+test('the empty PFIFO profile requires explicit aligned base/end and put at the base', () => {
+  const bytes = value => new TextEncoder().encode(JSON.stringify(value)).buffer;
+  assert.equal(parseLocalPfifoProfile(bytes({})), undefined);
+  const pfifo = { kind: 'local-pfifo-profile', synthetic: true, base: 0x03B7D000, end: 0x03BFD000, put: 0x03B7D000 };
+  assert.deepEqual(parseLocalPfifoProfile(bytes({ pfifo })), pfifo);
+  for (const value of [
+    { ...pfifo, kind: 'other' },
+    { ...pfifo, synthetic: false },
+    { ...pfifo, base: 0x03B7D002 },
+    { ...pfifo, end: 0x03B7D000 },
+    { ...pfifo, put: 0x03B7D400 },
+  ]) assert.throws(() => parseLocalPfifoProfile(bytes({ pfifo: value })), /empty PFIFO ring profile/);
 });
 
 test('expanded console settings require an explicit DWORD without assuming a parental-control default',()=>{

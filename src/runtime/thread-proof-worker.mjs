@@ -1,7 +1,25 @@
-import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
+import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, describeMmioExperiments, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
+import { createDeviceReport } from './device-report.mjs';
+import { validateProofReport } from './proof-report.mjs';
+import { describeKernelService } from './kernel-service.mjs';
+
+/* A boundary report is evidence for a human reader, so it is validated before it
+ * is posted: a malformed or out-of-range report becomes an error message instead
+ * of a result. */
+function postBoundary(report) {
+  try {
+    validateProofReport(report);
+  } catch (error) {
+    self.postMessage({ kind: 'error', message: `Proof report rejected: ${error.message}` });
+    return;
+  }
+  self.postMessage(report);
+}
+
+import { createSubmissionProbe } from './submission-probe.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
@@ -15,7 +33,7 @@ self.onmessage = async event => {
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
-    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?4096:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
+    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
@@ -35,10 +53,105 @@ self.onmessage = async event => {
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
     if(api.ff_probe_abi()===24) {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
+      const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
+      const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
+      /* Write-1-to-clear register behaviour is an explicitly experimental model:
+       * the selected profile must opt in, and the same profile without it is the
+       * control that must reproduce the un-acknowledged guest loop. */
+      if(typeof api.ff_probe_mmio_write_clearing!=='function' ||
+         api.ff_probe_mmio_write_clearing(mmioProfile.writeClearing?1:0)) {
+        throw new Error('The private module cannot set the experimental write-clearing control');
+      }
+      if(typeof api.ff_probe_mmio_pmc_zero!=='function' ||
+         api.ff_probe_mmio_pmc_zero(mmioProfile.pmcZero?1:0)) {
+        throw new Error('The private module cannot set the experimental PMC zero-status control');
+      }
+      if(typeof api.ff_probe_mmio_engine_wait!=='function' ||
+         api.ff_probe_mmio_engine_wait(mmioProfile.engineWait?1:0)) {
+        throw new Error('The private module cannot set the experimental engine-wait control');
+      }
+      if(mmioProfile.pfifoReset) {
+        if(typeof api.ff_probe_mmio_pfifo_reset!=='function' ||
+           api.ff_probe_mmio_pfifo_reset(1)) {
+          throw new Error('The private module cannot set the experimental PFIFO reference-reset control');
+        }
+      }
+      if(mmioProfile.pfifoConsumer) {
+        if(typeof api.ff_probe_pfifo_consumer!=='function' || api.ff_probe_pfifo_consumer(1)) {
+          throw new Error('The private module cannot enable the experimental PFIFO consumer');
+        }
+      }
+      if(mmioProfile.displayMode) {
+        if(typeof api.ff_probe_display_mode!=='function' || api.ff_probe_display_mode(1)) {
+          throw new Error('The private module cannot enable the experimental display-mode declaration');
+        }
+      }
+      if(mmioProfile.avUnknownOption) {
+        if(typeof api.ff_probe_av_unknown!=='function' || api.ff_probe_av_unknown(1)) {
+          throw new Error('The private module cannot enable the experimental unknown AV option model');
+        }
+      }
+      if(mmioProfile.avSavedData) {
+        if(typeof api.ff_probe_av_saved_data!=='function' || api.ff_probe_av_saved_data(1)) {
+          throw new Error('The private module cannot enable the experimental saved-data model');
+        }
+      }
+      if(mmioProfile.avNullResult) {
+        if(typeof api.ff_probe_av_null_result!=='function' || api.ff_probe_av_null_result(1)) {
+          throw new Error('The private module cannot enable the experimental null-result AV model');
+        }
+      }
+      if(mmioProfile.mmFreeContiguous) {
+        if(typeof api.ff_probe_mm_free_contiguous!=='function' || api.ff_probe_mm_free_contiguous(1)) {
+          throw new Error('The private module cannot enable the experimental contiguous-free model');
+        }
+      }
+      if(mmioProfile.guestWatch) {
+        if(typeof api.ff_probe_guest_watch!=='function' || api.ff_probe_guest_watch(1)) {
+          throw new Error('The private module cannot enable the diagnostic guest write watch');
+        }
+      }
+      if(mmioProfile.guestWatch && mmioProfile.guestWatchAddr !== undefined) {
+        if(typeof api.ff_probe_guest_watch_target!=='function' || api.ff_probe_guest_watch_target(mmioProfile.guestWatchAddr)) {
+          throw new Error('The private module cannot retarget the diagnostic guest watch');
+        }
+      }
+      if(mmioProfile.siteWatch) {
+        if(typeof api.ff_probe_site_watch!=='function' || api.ff_probe_site_watch(1)) {
+          throw new Error('The private module cannot enable the diagnostic site watch');
+        }
+      }
+      if(mmioProfile.avQueryWord !== undefined) {
+        if(typeof api.ff_probe_av_query_word!=='function' ||
+           api.ff_probe_av_query_word(mmioProfile.avQueryWord)) {
+          throw new Error('The private module cannot set the declared synthetic AV query word');
+        }
+      }
+      if(mmioProfile.pcrtcVblanks) {
+        if(typeof api.ff_probe_pcrtc!=='function' || api.ff_probe_pcrtc(mmioProfile.pcrtcVblanks)) {
+          throw new Error('The private module cannot admit the declared display events');
+        }
+      }
       if(api.ff_probe_mmio_profile(mmioProfile.window.base,mmioProfile.window.size,
-        mmioProfile.registers[0].initial,mmioProfile.registers[1].initial)) {
+        primary.initial,secondary.initial)) {
         throw new Error('Cannot admit the explicit synthetic register window');
       }
+      for(const entry of mmioProfile.registers.filter(entry=>entry.address!==0xfd001804 && entry.address!==0xfd600140)) {
+        if(typeof api.ff_probe_mmio_add!=='function' || api.ff_probe_mmio_add(entry.address,entry.initial)) {
+          throw new Error('The private module cannot seed the explicit extra register profile');
+        }
+      }
+      for(const range of mmioProfile.zeroRanges ?? []) {
+        if(typeof api.ff_probe_mmio_zero!=='function' || api.ff_probe_mmio_zero(range.address,range.bytes)) {
+          throw new Error('The private module cannot seed the explicit zero range');
+        }
+      }
+    }
+    let pfifoProfile;
+    if (typeof api.ff_probe_pfifo_profile === 'function') {
+      pfifoProfile = parseLocalPfifoProfile(event.data.settingsBytes);
+      if (pfifoProfile && api.ff_probe_pfifo_profile(pfifoProfile.base, pfifoProfile.end, pfifoProfile.put))
+        throw new Error('Cannot admit the explicit synthetic empty PFIFO ring profile');
     }
     if(statisticsAbi) {
       memoryProfile=parseLocalMemoryProfile(event.data.settingsBytes);
@@ -103,6 +216,12 @@ self.onmessage = async event => {
       trapped = true;
     } finally { if (timerAbi) api.ff_probe_dpc_recover(); }
     if(fileClockWindow) fileClockWindow.afterSystemTicks=clock.sample().system.toString();
+    /* The run is over; disarm the consumer so later diagnostic guest code
+     * (copy proof, denial probes) cannot consume the run budget. The report
+     * still marks the experiment through the sticky configured flag. */
+    if (mmioProfile.pfifoConsumer && typeof api.ff_probe_pfifo_consumer === 'function' &&
+        api.ff_probe_pfifo_consumer(0))
+      throw new Error('Cannot disarm the experimental PFIFO consumer');
     const floatingPointState=api.ff_probe_abi()>=15?Object.fromEntries(
       ['x87ControlWord','mxcsr','representedConditionBits','x87StackTop'].map((name,i)=>[name,api.ff_probe_fp_word(i)>>>0])):undefined;
     const count = api.ff_probe_trace_count(), threadCount = api.ff_probe_thread_count(), callCount = api.ff_probe_kernel_count();
@@ -118,17 +237,27 @@ self.onmessage = async event => {
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+      arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
+      if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
+        call.output = {
+          rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
+          address: api.ff_probe_kernel_word(i, 11) >>> 0,
+          eaxBefore: api.ff_probe_kernel_word(i, 7) >>> 0,
+          espBefore: api.ff_probe_kernel_word(i, 8) >>> 0,
+          eaxAfter: api.ff_probe_kernel_word(i, 9) >>> 0,
+          espAfter: api.ff_probe_kernel_word(i, 10) >>> 0,
+        };
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
         scope:'modeled-guest-memory-statistics'};
-      if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),
-        sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
+      if (call.ordinal === 149) call.output = { previousInsertion: api.ff_probe_kernel_word(i, 6),        sampledInterruptTicks: ((BigInt(api.ff_probe_kernel_word(i, 8) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 7) >>> 0)).toString(),
         sampledSystemTicks: ((BigInt(api.ff_probe_kernel_word(i, 10) >>> 0) << 32n) | BigInt(api.ff_probe_kernel_word(i, 9) >>> 0)).toString() };
       if (call.ordinal === 184 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 7) >>> 0, regionBytes: api.ff_probe_kernel_word(i, 8) >>> 0 };
+      if (call.ordinal === 168 && !call.status) call.output = { baseAddress: api.ff_probe_kernel_word(i, 4) >>> 0 };
+      if (call.ordinal === 305 && !call.status) call.output = { fields: Array.from({length:8},(_,n)=>api.ff_probe_kernel_word(i,n+4)>>>0) };
       if (call.ordinal === 202 && !call.status) call.output = { handle: api.ff_probe_kernel_word(i, 8) >>> 0,
         ioStatus: api.ff_probe_kernel_word(i, 9) >>> 0, information: api.ff_probe_kernel_word(i, 10) >>> 0 };
       if (call.ordinal === 218 && !call.status) call.output = { ioStatus: api.ff_probe_kernel_word(i, 7) >>> 0, information: api.ff_probe_kernel_word(i, 8) >>> 0,
@@ -699,7 +828,7 @@ self.onmessage = async event => {
     if (memoryAbi) {
       const regionCount = api.ff_probe_vm_region_count();
       if (regionCount > 128) throw new Error('Invalid virtual-memory region count');
-      virtualMemory = { checkedAccesses: api.ff_probe_vm_access_count(), fault: Array.from({length:4}, (_, i) => api.ff_probe_vm_fault_word(i)),
+      virtualMemory = { checkedAccesses: api.ff_probe_vm_access_count(), fault: Array.from({length:6}, (_, i) => api.ff_probe_vm_fault_word(i)),
         regions: Array.from({length:regionCount}, (_, i) => ({base:api.ff_probe_vm_region_word(i,0), bytes:api.ff_probe_vm_region_word(i,1),
           kind:api.ff_probe_vm_region_word(i,2), protection:api.ff_probe_vm_region_word(i,3)})) };
       for (const region of virtualMemory.regions) {
@@ -754,7 +883,7 @@ self.onmessage = async event => {
           if (!(error instanceof WebAssembly.RuntimeError)) throw error;
           trapped = true;
         }
-        const fault = Array.from({length:4}, (_, i) => api.ff_probe_vm_fault_word(i));
+        const fault = Array.from({length:6}, (_, i) => api.ff_probe_vm_fault_word(i));
         return trapped && fault.every((word,i) => word === [address,1,0,access][i]) &&
           new Uint32Array(memory, range(api.ff_probe_state(),64,4),16)[0] === 10;
       };
@@ -866,15 +995,25 @@ self.onmessage = async event => {
     }
     let deviceRegisters;
     if(api.ff_probe_abi()===24) {
-      const count=api.ff_probe_mmio_word(3)>>>0, events=api.ff_probe_mmio_word(4)>>>0;
-      deviceRegisters={scope:'explicit synthetic aperture; unknown reads fail; no NV2A or device behaviour',
-        base:api.ff_probe_mmio_word(1)>>>0,size:api.ff_probe_mmio_word(2)>>>0,count,events:events,
-        entries:Array.from({length:Math.min(count,16)},(_,i)=>({address:api.ff_probe_mmio_word(5+i*4)>>>0,
-          value:api.ff_probe_mmio_word(6+i*4)>>>0,reads:api.ff_probe_mmio_word(7+i*4)>>>0,writes:api.ff_probe_mmio_word(8+i*4)>>>0})),
-        log:Array.from({length:Math.min(events,8)},(_,i)=>({address:api.ff_probe_mmio_event(i,0)>>>0,
-          direction:api.ff_probe_mmio_event(i,1)>>>0,value:api.ff_probe_mmio_event(i,2)>>>0,
-          beforeKnown:api.ff_probe_mmio_event(i,3)>>>0}))};
+      deviceRegisters=createDeviceReport(api, mmioProfile);
     }
+    const claim = calls.find(call => call.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
+    let guestWritePages;
+    if (typeof api.ff_probe_write_map_size === 'function') {
+      const words = api.ff_probe_write_map_size() >>> 0, pages = [];
+      for (let wordIndex = 0; wordIndex < words; ++wordIndex) {
+        const bits = api.ff_probe_write_map_word(wordIndex) >>> 0;
+        for (let bit = 0; bit < 32; ++bit) if (bits & (1 << bit)) pages.push(wordIndex * 32 + bit);
+      }
+      guestWritePages = { pageBytes: 4096, count: api.ff_probe_write_map_count() >>> 0, pages };
+    }
+    const submissionProbe = deviceRegisters ? createSubmissionProbe({
+      status: state[0], entries: deviceRegisters.entries, view, ramBytes: ram.byteLength,
+      allocation: claim ? { base: claim.output.baseAddress, bytes: claim.arguments?.[0] ?? 256 } : undefined,
+      aliases: deviceRegisters.aliases,
+      events: deviceRegisters.log,
+      writtenPages: guestWritePages?.pages ?? [],
+    }) : { available: false, reason: 'no observed device aperture' };
     let memoryStatisticsRequest;
     if(fatxAbi && state[0]===1 && state[2]===181) {
       const pointer=state[6];
@@ -905,15 +1044,17 @@ self.onmessage = async event => {
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:calls.filter(call=>call.status===0).length,
         stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
-          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':'unsupported execution boundary',
+          state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
-    self.postMessage({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      contextWords: typeof api.ff_probe_context_word === 'function'
+        ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined,
+      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: describeMmioExperiments(mmioProfile), avQueryWord: mmioProfile.avQueryWord, pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, pfifoConsumerState: typeof api.ff_probe_pfifo_consumer_word === 'function' && api.ff_probe_pfifo_consumer_word(0) === 1 ? { scope: 'prototype', classification: api.ff_probe_pfifo_consumer_word(2) >>> 0, get: api.ff_probe_pfifo_consumer_word(3) >>> 0, put: api.ff_probe_pfifo_consumer_word(4) >>> 0, base: api.ff_probe_pfifo_consumer_word(5) >>> 0, end: api.ff_probe_pfifo_consumer_word(6) >>> 0, wordsConsumed: api.ff_probe_pfifo_consumer_word(7) >>> 0, consumerUpdates: api.ff_probe_pfifo_consumer_word(8) >>> 0, lastHeader: api.ff_probe_pfifo_consumer_word(9) >>> 0, steps: api.ff_probe_pfifo_consumer_word(10) >>> 0, words: api.ff_probe_pfifo_consumer_word(11) >>> 0, budgetHit: api.ff_probe_pfifo_consumer_word(12) >>> 0, vmChecks: api.ff_probe_pfifo_consumer_word(13) >>> 0, releaseAttempted: api.ff_probe_pfifo_consumer_word(14) >>> 0, releaseFired: api.ff_probe_pfifo_consumer_word(15) >>> 0, releaseReason: api.ff_probe_pfifo_consumer_word(16) >>> 0, fenceVa: api.ff_probe_pfifo_consumer_word(17) >>> 0, releaseBefore: api.ff_probe_pfifo_consumer_word(18) >>> 0, releaseWritten: api.ff_probe_pfifo_consumer_word(19) >>> 0, releaseSeq: api.ff_probe_pfifo_consumer_word(20) >>> 0, drainedWords: api.ff_probe_pfifo_consumer_word(21) >>> 0 } : undefined, vblankWaitState: typeof api.ff_probe_vblank_word === 'function' && api.ff_probe_vblank_word(0) ? { calls: api.ff_probe_vblank_word(0) >>> 0, type: api.ff_probe_vblank_word(1) >>> 0, signal: api.ff_probe_vblank_word(2) >>> 0, decision: api.ff_probe_vblank_word(3) >>> 0, declared: api.ff_probe_vblank_word(4) >>> 0 } : undefined, displayModeState: typeof api.ff_probe_display_mode_word === 'function' && api.ff_probe_display_mode_word(9) === 1 ? { accepted: api.ff_probe_display_mode_word(0) >>> 0, addr: api.ff_probe_display_mode_word(1) >>> 0, step: api.ff_probe_display_mode_word(2) >>> 0, mode: api.ff_probe_display_mode_word(3) >>> 0, format: api.ff_probe_display_mode_word(4) >>> 0, pitch: api.ff_probe_display_mode_word(5) >>> 0, fb: api.ff_probe_display_mode_word(6) >>> 0, window: api.ff_probe_display_mode_word(7) >>> 0, decision: api.ff_probe_display_mode_word(8) >>> 0 } : undefined, avUnknownOptionState: typeof api.ff_probe_av_unknown_word === 'function' && api.ff_probe_av_unknown_word(0) === 1 ? { calls: api.ff_probe_av_unknown_word(1) >>> 0, handle: api.ff_probe_av_unknown_word(2) >>> 0, option: api.ff_probe_av_unknown_word(3) >>> 0, param: api.ff_probe_av_unknown_word(4) >>> 0, result: api.ff_probe_av_unknown_word(5) >>> 0, decision: api.ff_probe_av_unknown_word(6) >>> 0, written: api.ff_probe_av_unknown_word(7) >>> 0, eaxBefore: api.ff_probe_av_unknown_word(8) >>> 0, espBefore: api.ff_probe_av_unknown_word(9) >>> 0, eaxAfter: api.ff_probe_av_unknown_word(10) >>> 0, espAfter: api.ff_probe_av_unknown_word(11) >>> 0 } : undefined, avSavedDataState: typeof api.ff_probe_av_saved_word === 'function' && api.ff_probe_av_saved_word(0) === 1 ? { calls: api.ff_probe_av_saved_word(1) >>> 0, value: api.ff_probe_av_saved_word(2) >>> 0, decision: api.ff_probe_av_saved_word(3) >>> 0, eaxBefore: api.ff_probe_av_saved_word(4) >>> 0, espBefore: api.ff_probe_av_saved_word(5) >>> 0, eaxAfter: api.ff_probe_av_saved_word(6) >>> 0, espAfter: api.ff_probe_av_saved_word(7) >>> 0, priorSetter: api.ff_probe_av_saved_word(8) >>> 0 } : undefined, avNullResultState: typeof api.ff_probe_av_null_result_word === 'function' && api.ff_probe_av_null_result_word(0) === 1 ? { calls: api.ff_probe_av_null_result_word(1) >>> 0, handle: api.ff_probe_av_null_result_word(2) >>> 0, option: api.ff_probe_av_null_result_word(3) >>> 0, param: api.ff_probe_av_null_result_word(4) >>> 0, result: api.ff_probe_av_null_result_word(5) >>> 0, decision: api.ff_probe_av_null_result_word(6) >>> 0, writeBefore: api.ff_probe_av_null_result_word(7) >>> 0, writeAfter: api.ff_probe_av_null_result_word(8) >>> 0, checksumBefore: api.ff_probe_av_null_result_word(9) >>> 0, checksumAfter: api.ff_probe_av_null_result_word(10) >>> 0, eaxBefore: api.ff_probe_av_null_result_word(11) >>> 0, espBefore: api.ff_probe_av_null_result_word(12) >>> 0, eaxAfter: api.ff_probe_av_null_result_word(13) >>> 0, espAfter: api.ff_probe_av_null_result_word(14) >>> 0 } : undefined, mmFreeContiguousState: typeof api.ff_probe_mm_free_contiguous_word === 'function' && api.ff_probe_mm_free_contiguous_word(0) === 1 ? { calls: api.ff_probe_mm_free_contiguous_word(1) >>> 0, address: api.ff_probe_mm_free_contiguous_word(2) >>> 0, decision: api.ff_probe_mm_free_contiguous_word(3) >>> 0, eaxBefore: api.ff_probe_mm_free_contiguous_word(4) >>> 0, espBefore: api.ff_probe_mm_free_contiguous_word(5) >>> 0, eaxAfter: api.ff_probe_mm_free_contiguous_word(6) >>> 0, espAfter: api.ff_probe_mm_free_contiguous_word(7) >>> 0, writeBefore: api.ff_probe_mm_free_contiguous_word(8) >>> 0, writeAfter: api.ff_probe_mm_free_contiguous_word(9) >>> 0 } : undefined, guestWatchState: typeof api.ff_probe_guest_watch_word === 'function' && api.ff_probe_guest_watch_word(0) === 1 ? { address: api.ff_probe_guest_watch_word(1) >>> 0, site: api.ff_probe_guest_watch_word(2) >>> 0, count: api.ff_probe_guest_watch_word(3) >>> 0, readSite: api.ff_probe_guest_watch_word(4) >>> 0, readCount: api.ff_probe_guest_watch_word(5) >>> 0 } : undefined, esiArbiter: (() => { try { const active = typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1; const fieldCount = active ? api.ff_probe_site_watch_word(5) >>> 0 : 0; const fieldEsi = active ? api.ff_probe_site_watch_word(6) >>> 0 : 0; const fieldAddr = active ? api.ff_probe_site_watch_word(4) >>> 0 : 0; const ft = Array.from({length:6}, (_, i) => api.ff_probe_vm_fault_word(i)); if (!active || fieldCount < 1 || ft[4] !== 0x1FC091) return undefined; return { faultEsi: ft[5] >>> 0, fieldEsi, fieldAddr, deltaOk: ((fieldAddr - fieldEsi) >>> 0) === 0x47C, sameEsi: (ft[5] >>> 0) === fieldEsi }; } catch { return undefined; } })(), abiViolationState: typeof api.ff_probe_abi_violation_word === 'function' ? { count: api.ff_probe_abi_violation_word(0) >>> 0, first: api.ff_probe_abi_violation_word(1) >>> 0, last: api.ff_probe_abi_violation_word(2) >>> 0, esiCount: api.ff_probe_abi_violation_word(3) >>> 0, esiFirst: api.ff_probe_abi_violation_word(4) >>> 0, esiLast: api.ff_probe_abi_violation_word(5) >>> 0 } : undefined, siteWatchState: typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1 ? { entryAddr: api.ff_probe_site_watch_word(1) >>> 0, entryEcx: api.ff_probe_site_watch_word(2) >>> 0, entryReturn: api.ff_probe_site_watch_word(3) >>> 0, fieldAddr: api.ff_probe_site_watch_word(4) >>> 0, fieldCount: api.ff_probe_site_watch_word(5) >>> 0, fieldEsi: api.ff_probe_site_watch_word(6) >>> 0, spanEsi: [api.ff_probe_site_watch_word(7) >>> 0, api.ff_probe_site_watch_word(8) >>> 0, api.ff_probe_site_watch_word(9) >>> 0, api.ff_probe_site_watch_word(10) >>> 0], entryFs: api.ff_probe_site_watch_word(11) >>> 0, fieldFs: api.ff_probe_site_watch_word(12) >>> 0, devLastSite: api.ff_probe_site_watch_word(13) >>> 0, devLastValue: api.ff_probe_site_watch_word(14) >>> 0, devChangeCount: api.ff_probe_site_watch_word(15) >>> 0, esiChanges: typeof api.ff_probe_esi_change_count === 'function' ? (() => { const n = api.ff_probe_esi_change_count(); const c = Math.min(8, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 7; out.push([api.ff_probe_esi_change_word(slot*3) >>> 0, api.ff_probe_esi_change_word(slot*3+1) >>> 0, api.ff_probe_esi_change_word(slot*3+2) >>> 0]); } return out; })() : [], entries: typeof api.ff_probe_site_entry_count === 'function' ? Array.from({length: Math.min(8, api.ff_probe_site_entry_count())}, (_, i) => [api.ff_probe_site_entry_word(i*3) >>> 0, api.ff_probe_site_entry_word(i*3+1) >>> 0, api.ff_probe_site_entry_word(i*3+2) >>> 0]) : [] } : undefined, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
-      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16) },
+      metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16), service: state[0] === 1 ? describeKernelService(state[2]) : undefined },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });
   } catch (error) { self.postMessage({ kind: 'error', message: String(error) }); }

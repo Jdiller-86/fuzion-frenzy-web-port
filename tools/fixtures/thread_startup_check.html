@@ -28,6 +28,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <button id="run">Run thread startup proof</button><button id="clear">Clear local selection</button><button id="save" disabled>Save local report</button>
 <p id="status" role="status">Select local proof files</p><details><summary>Local research details</summary><pre id="details"></pre></details>
 <script type="module">
+import { describeAvQueryOutcome } from '/src/runtime/local-title-proof.mjs';
 const moduleInput = document.getElementById('module'), xbeInput = document.getElementById('xbe');
 const settingsInput = document.getElementById('settings');
 const run = document.getElementById('run'), clear = document.getElementById('clear');
@@ -60,7 +61,7 @@ run.onclick = async () => {
     if (moduleFile.size > 4 * 1024 * 1024 || xbeFile.size > 16 * 1024 * 1024) throw new Error('A selected file exceeds this bounded proof');
     const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
     const settingsFile = settingsInput.files[0];
-    if (settingsFile && settingsFile.size > 4096) throw new Error('A settings profile exceeds this bounded proof');
+    if (settingsFile && settingsFile.size > 8192) throw new Error('A settings profile exceeds this bounded proof');
     const settingsBytes = settingsFile ? await settingsFile.arrayBuffer() : undefined;
     if (generation !== current) return;
     worker = new Worker('/src/runtime/thread-proof-worker.mjs', { type: 'module' });
@@ -74,7 +75,10 @@ run.onclick = async () => {
       if(result.phase==='original-initializer-bringup') {
         const progress=result.originalStartup;
         document.body.dataset.state='in-progress';
-        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}. The game has not booted.`;
+        const inputs=(result.experiments??[]).length?` Experimental inputs: ${result.experiments.join(', ')}.`:'';
+        const avQuery=describeAvQueryOutcome(result);
+        const device=result.stop?.status===12?` Device wait at 0x${(result.stop.target>>>0).toString(16).toUpperCase()}.`:'';
+        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}.${device}${inputs}${avQuery} The game has not booted.`;
         return;
       }
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';

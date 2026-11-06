@@ -44,5 +44,20 @@ mandatory corrective decision in docs/DECISIONS.md.
   browser-prepass backlog. See D305.
 - 2026-11-05 ops: single close-out commit
   `ops: M0 close slice/sync/check scratch refs and dissolve lane worktrees; record
-  decisions` (this commit) carries the ref/worktree cleanup record and D302-D305.
-  Orchestration only; no runtime advance.
+  decisions` carries the ref/worktree cleanup record and D302-D305 (renumbered
+  D383-D386 during the Nov-5 reconciliation). Orchestration only; no runtime advance.
+- 2026-11-05 ops: `ops: reconcile promoted main with orchestration reset; apply
+  feature-based naming directive` (this commit) absorbs `origin/main` `97d831b` (476
+  origin-only commits) onto local main `11fd2fd`: conflicted paths default to origin,
+  five structural docs hand-merged, the goal doc renamed and extended for the
+  feature-based naming directive, and D383-D389 appended. Orchestration only; no runtime
+  advance. See D388.
+- 2026-11-05 lane (runtime-b): `5ec83b8` (ESI-survival classification) is superseded by
+  runtime-a's integrated equivalent `8244fa5` on `origin/codex/opencode-source`; it is
+  dropped from the runtime-b branch by lane reset in the next runtime-b task, with its
+  validator-hardening idea kept only as a candidate improvement note. No runtime advance.
+  See D389.
+- 2026-11-05 tempo: the observed stop remains unchanged (status 10 at `0x6B6A6968`)
+  across the recent diagnostic series, so <2 new stop boundaries in 48 h → corrective
+  decision recorded: the next runtime-a directive is to obtain the decisive capture
+  verdict or a blockers package within ≤2 further cycles (R7 trigger).

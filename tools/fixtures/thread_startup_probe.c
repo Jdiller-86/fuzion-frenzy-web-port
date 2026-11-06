@@ -8,8 +8,19 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/thread_bootstrap.h"
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
+#include "../../src/runtime/port_io.h"
+#ifdef FF_PFIFO_PROOF
+#include "../../src/runtime/pfifo_channel.h"
+#endif
 #ifdef FF_VM_PROOF
 #include "../../src/runtime/virtual_memory.h"
+#include "../../src/runtime/guest_mirror.h"
+#include "../../src/runtime/guest_write_map.h"
+#include "../../src/runtime/interrupt_vector.h"
+#include "../../src/runtime/gpu_instance.h"
+#include "../../src/runtime/time_fields.h"
+#include "../../src/runtime/av_query.h"
+#include "../../src/runtime/av_query_adapter.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
@@ -66,6 +77,17 @@ static uint32_t memory_statistics_ready;
 #error Device register storage retains the modeled memory statistics
 #endif
 #include "../../src/runtime/device_registers.h"
+#include "../../src/runtime/pcrtc_state.h"
+#include "../../src/runtime/pfifo_dma.h"
+#include "../../src/runtime/pfifo_status.h"
+#include "../../src/runtime/pfifo_pusher.h"
+#include "../../src/runtime/vblank_wait.h"
+#include "../../src/runtime/display_mode.h"
+#include "../../src/runtime/av_unknown_option.h"
+#include "../../src/runtime/av_saved_data.h"
+#include "../../src/runtime/av_null_result.h"
+#include "../../src/runtime/mm_free_contiguous.h"
+#include "../../src/runtime/tls_scope.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
@@ -84,7 +106,7 @@ static ff_device_registers device_registers;
 #ifndef FF_STARTUP_EXPANSION_PROOF
 #error Initializer batches retain the expanded checked startup contract
 #endif
-#define FF_TRACE_CAPACITY 4096u
+#define FF_TRACE_CAPACITY 8192u
 #elif defined(FF_METADATA_TRACE_PROOF) || defined(FF_METADATA_FORMAT_PROOF)
 #ifndef FF_REGULAR_FILE_PROOF
 #error Expanded metadata traces retain the explicit fresh regular-file contract
@@ -125,6 +147,334 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+static ff_port_io port_io;
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
+/* PCRTC interrupt state, enabled only when the profile supplies events. The
+ * register contract and PMC aggregation come from the retained NV2A reference;
+ * no timing source exists here, so nothing is raised unless the profile says so. */
+static ff_pcrtc_state pcrtc;
+static uint32_t pcrtc_ready, pcrtc_shadow[3], pcrtc_site, pcrtc_declared;
+static uint32_t vblank_wait_calls, vblank_wait_type, vblank_wait_signal, vblank_wait_decision;
+static uint32_t display_mode_enabled, display_mode_ready, display_mode_decision;
+static uint32_t display_mode_addr, display_mode_step, display_mode_mode, display_mode_format;
+static uint32_t display_mode_pitch, display_mode_fb, display_mode_window;
+static uint32_t av_unknown_enabled, av_unknown_calls, av_unknown_decision, av_unknown_written;
+static uint32_t av_unknown_handle, av_unknown_option, av_unknown_param, av_unknown_result;
+static uint32_t av_unknown_eax_before, av_unknown_esp_before, av_unknown_eax_after, av_unknown_esp_after;
+static uint32_t av_saved_enabled, av_saved_calls, av_saved_value, av_saved_decision;
+static uint32_t av_saved_prior, av_saved_eax_before, av_saved_esp_before, av_saved_eax_after, av_saved_esp_after;
+static uint32_t av_saved_journal[FF_KERNEL_CAPACITY];
+static uint32_t av_null_enabled, av_null_calls, av_null_decision;
+static uint32_t av_null_handle, av_null_option, av_null_param, av_null_result;
+static uint32_t av_null_write_before, av_null_write_after;
+static uint32_t av_null_checksum_before, av_null_checksum_after;
+static uint32_t av_null_eax_before, av_null_esp_before, av_null_eax_after, av_null_esp_after;
+static uint32_t mm_free_enabled, mm_free_calls, mm_free_decision, mm_free_address;
+static uint32_t mm_free_eax_before, mm_free_esp_before, mm_free_eax_after, mm_free_esp_after;
+static uint32_t mm_free_write_before, mm_free_write_after;
+static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_watch_count;
+static uint32_t guest_watch_read_site, guest_watch_read_count;
+static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
+static uint32_t site_entry_addr[8], site_entry_ecx[8], site_entry_ret[8], site_entry_count;
+static uint32_t site_watch_field_addr, site_watch_field_count, site_watch_field_esi;
+static uint32_t site_span_esi[4];
+static uint32_t site_entry_fs, site_field_fs, dev_last_site, dev_last_value, dev_change_count;
+static uint32_t reg_trace_frozen;
+static uint32_t esi_change_count, esi_change_site[8], esi_change_addr[8], esi_change_value[8];
+static uint32_t esi_ctx[8], esi_ctx_last[8], abi_last_fs;
+static int32_t pcrtc_dirty = -1;
+static uint32_t pcrtc_offset(int32_t index)
+{
+    return index == 0 ? 0xFD600100u : index == 1 ? 0xFD600140u : 0xFD000100u;
+}
+static void pcrtc_flush(void)
+{
+    if (pcrtc_dirty < 0) return;
+    int32_t index = pcrtc_dirty; pcrtc_dirty = -1;
+    if (index == 0) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, pcrtc_shadow[0]);
+    else if (index == 1) (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_EN_0, pcrtc_shadow[1]);
+    else if (pcrtc_shadow[2] & FF_PCRTC_PMC_IRQ)
+        (void)ff_pcrtc_write(&pcrtc, FF_PCRTC_INTR_0, FF_PCRTC_INTR_VBLANK);
+    /* Keep the report's device traffic complete for the modelled display path.
+     * A refused log entry is evidence loss, so it stops the proof instead of
+     * being dropped: the run reports its device capacity boundary explicitly. */
+    if (device_registers.ready &&
+        ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                FF_DEVICE_WRITE, pcrtc_shadow[index], pcrtc_site))
+        stop(15, pcrtc_offset(index), 2);
+}
+static uint32_t *pcrtc_access(uint32_t address, uint32_t access, uint32_t site)
+{
+    int32_t index = address == 0xFD600100u ? 0 : address == 0xFD600140u ? 1 :
+                    address == 0xFD000100u ? 2 : -1;
+    if (index < 0 || !pcrtc_ready) return NULL;
+    pcrtc_flush();
+    pcrtc_shadow[0] = pcrtc.pending;
+    pcrtc_shadow[1] = pcrtc.enabled;
+    pcrtc_shadow[2] = ff_pcrtc_pmc_irq(&pcrtc);
+    if (device_registers.ready &&
+        ff_device_registers_log(&device_registers, pcrtc_offset(index),
+                                FF_DEVICE_READ, pcrtc_shadow[index], site))
+        stop(15, pcrtc_offset(index), 1);
+    if (access & 2u) { pcrtc_dirty = index; pcrtc_site = site; }
+    return &pcrtc_shadow[index];
+}
+/* The profile supplies a bounded number of vertical-blank events up front. */
+uint32_t ff_probe_pcrtc(uint32_t vblanks)
+{
+    if (vblanks > 64u) return FF_BOOT_INVALID;
+    ff_pcrtc_init(&pcrtc);
+    for (uint32_t i = 0; i < vblanks; ++i) ff_pcrtc_vblank(&pcrtc);
+    pcrtc_declared = vblanks;
+    pcrtc_ready = 1;
+    return 0;
+}
+/* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
+uint32_t ff_probe_display_mode(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    display_mode_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_display_mode_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return display_mode_ready ? 1u : 0u;
+        case 1: return display_mode_addr;
+        case 2: return display_mode_step;
+        case 3: return display_mode_mode;
+        case 4: return display_mode_format;
+        case 5: return display_mode_pitch;
+        case 6: return display_mode_fb;
+        case 7: return display_mode_window;
+        case 8: return display_mode_decision;
+        case 9: return display_mode_enabled;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_unknown(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    av_unknown_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_unknown_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_unknown_enabled;
+        case 1: return av_unknown_calls;
+        case 2: return av_unknown_handle;
+        case 3: return av_unknown_option;
+        case 4: return av_unknown_param;
+        case 5: return av_unknown_result;
+        case 6: return av_unknown_decision;
+        case 7: return av_unknown_written;
+        case 8: return av_unknown_eax_before;
+        case 9: return av_unknown_esp_before;
+        case 10: return av_unknown_eax_after;
+        case 11: return av_unknown_esp_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_saved_data(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    /* The guest translation legitimately binds ordinal 4 in Present's nonzero
+     * branch, so absence cannot be proven statically. The guard is the runtime
+     * journal invariant checked at each ordinal-1 dispatch instead. */
+    av_saved_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_saved_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_saved_enabled;
+        case 1: return av_saved_calls;
+        case 2: return av_saved_value;
+        case 3: return av_saved_decision;
+        case 4: return av_saved_eax_before;
+        case 5: return av_saved_esp_before;
+        case 6: return av_saved_eax_after;
+        case 7: return av_saved_esp_after;
+        case 8: return av_saved_prior;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_av_null_result(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    av_null_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_av_null_result_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return av_null_enabled;
+        case 1: return av_null_calls;
+        case 2: return av_null_handle;
+        case 3: return av_null_option;
+        case 4: return av_null_param;
+        case 5: return av_null_result;
+        case 6: return av_null_decision;
+        case 7: return av_null_write_before;
+        case 8: return av_null_write_after;
+        case 9: return av_null_checksum_before;
+        case 10: return av_null_checksum_after;
+        case 11: return av_null_eax_before;
+        case 12: return av_null_esp_before;
+        case 13: return av_null_eax_after;
+        case 14: return av_null_esp_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_mm_free_contiguous(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    mm_free_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_mm_free_contiguous_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return mm_free_enabled;
+        case 1: return mm_free_calls;
+        case 2: return mm_free_address;
+        case 3: return mm_free_decision;
+        case 4: return mm_free_eax_before;
+        case 5: return mm_free_esp_before;
+        case 6: return mm_free_eax_after;
+        case 7: return mm_free_esp_after;
+        case 8: return mm_free_write_before;
+        case 9: return mm_free_write_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_guest_watch(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    guest_watch_enabled = enable;
+    guest_watch_addr = 0x00206720u;
+    guest_watch_site = 0u;
+    guest_watch_count = 0u;
+    return 0;
+}
+uint32_t ff_probe_guest_watch_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return guest_watch_enabled;
+        case 1: return guest_watch_addr;
+        case 2: return guest_watch_site;
+        case 3: return guest_watch_count;
+        case 4: return guest_watch_read_site;
+        case 5: return guest_watch_read_count;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_site_watch(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    site_watch_enabled = enable;
+    site_watch_entry_addr = 0u;
+    site_watch_entry_ecx = 0u;
+    site_watch_entry_ret = 0u;
+    site_watch_field_addr = 0u;
+    site_watch_field_count = 0u;
+    site_entry_count = 0u;
+    esi_change_count = 0u; reg_trace_frozen = 0u; for (uint32_t k = 0; k < 8u; ++k) { esi_ctx[k] = 0u; esi_ctx_last[k] = 0u; }
+    return 0;
+}
+uint32_t ff_probe_site_watch_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return site_watch_enabled;
+        case 1: return site_watch_entry_addr;
+        case 2: return site_watch_entry_ecx;
+        case 3: return site_watch_entry_ret;
+        case 4: return site_watch_field_addr;
+        case 5: return site_watch_field_count;
+        case 6: return site_watch_field_esi;
+        case 7: return site_span_esi[0];
+        case 8: return site_span_esi[1];
+        case 9: return site_span_esi[2];
+        case 10: return site_span_esi[3];
+        case 11: return site_entry_fs;
+        case 12: return site_field_fs;
+        case 13: return dev_last_site;
+        case 14: return dev_last_value;
+        case 15: return dev_change_count;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_site_entry_word(uint32_t index)
+{
+    if (index >= 24u) return 0u;
+    uint32_t slot = index / 3u, field = index % 3u;
+    return field == 0u ? site_entry_addr[slot] : field == 1u ? site_entry_ecx[slot] : site_entry_ret[slot];
+}
+uint32_t ff_probe_site_entry_count(void) { return site_entry_count; }
+uint32_t ff_probe_esi_change_word(uint32_t index)
+{
+    if (index >= 24u) return 0u;
+    uint32_t slot = index / 3u, field = index % 3u;
+    return field == 0u ? esi_change_site[slot] : field == 1u ? esi_change_addr[slot] : esi_change_value[slot];
+}
+uint32_t ff_probe_esi_change_count(void) { return esi_change_count; }
+uint32_t ff_probe_guest_watch_target(uint32_t address)
+{
+    if (!guest_watch_enabled) return FF_BOOT_INVALID;
+    if (!address || (address & 3u) || address > FF_GUEST_BYTES - 4u) return FF_BOOT_INVALID;
+    guest_watch_addr = address;
+    guest_watch_site = 0u;
+    guest_watch_count = 0u;
+    guest_watch_read_site = 0u;
+    guest_watch_read_count = 0u;
+    return 0;
+}
+uint32_t ff_probe_vblank_word(uint32_t field)
+{
+        switch (field) {
+        case 0: return vblank_wait_calls;
+        case 1: return vblank_wait_type;
+        case 2: return vblank_wait_signal;
+        case 3: return vblank_wait_decision;
+        case 4: return pcrtc_declared;
+        default: return UINT32_MAX;
+    }
+}
+/* Display-interrupt state for the report: 0 ready, 1 pending, 2 enabled, 3 events. */
+uint32_t ff_probe_pcrtc_word(uint32_t field)
+{
+    if (!pcrtc_ready) return UINT32_MAX;
+    return field == 0 ? 1u : field == 1 ? pcrtc.pending : field == 2 ? pcrtc.enabled :
+           field == 3 ? pcrtc.vblanks : UINT32_MAX;
+}
+
+static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
+void xbox_PortOut(uint32_t port, uint32_t value, int width)
+{
+    (void)ff_port_io_write(&port_io, port, value, (uint32_t)width);
+}
+uint32_t xbox_PortIn(uint32_t port, int width)
+{
+    uint32_t value = 0;
+    if (ff_port_io_read(&port_io, port, (uint32_t)width, &value)) stop(14, port & 0xFFFFu, (uint32_t)width);
+    return value;
+}
+/* Alignment-requiring vector move: a misaligned address faults on the original
+ * CPU, so it stops the proof instead of being served as an unaligned copy. */
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
+void *ff_probe_guest_vector(uint32_t address, uint32_t access, uint32_t site)
+{
+    if (address & 15u) stop(10, address, access);
+    return ff_probe_guest_memory(address, 16u, access, site);
+}
 #ifdef FF_DISK_GEOMETRY_PROOF
 static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif
@@ -167,8 +517,10 @@ static uint32_t namespace_ready;
 #endif
 #ifdef FF_VM_PROOF
 static ff_virtual_memory virtual_memory;
-static uint32_t vm_ready, vm_access_count, vm_fault[4];
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access);
+static ff_guest_mirror guest_mirror;
+static ff_guest_write_map guest_write_map;
+static uint32_t vm_ready, vm_access_count, vm_fault[6];
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
@@ -198,7 +550,7 @@ static struct { uint32_t words[21]; uint8_t format[256], output[520], input[3][2
 #ifdef FF_TIMER_PROOF
 static ff_timer_queue timers;
 static ff_dpc_frame dpc_frame;
-static uint32_t timers_ready, dpc_delivered, clock_words[4];
+static uint32_t timers_ready, dpc_delivered, clock_words[4], timer_check;
 __attribute__((import_module("env"), import_name("ff_host_clock")))
 extern void ff_host_clock(uint32_t output);
 void ff_probe_poll(void);
@@ -228,12 +580,19 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame)
 #endif
 #ifdef FF_MMIO_PROOF
     /* Stop at the reached device helper's return, before its caller continues. */
-    if (device_registers.ready && address == 0x001FE05Au) stop(11, address, device_registers.event_count);
+    if (device_registers.ready && address == 0x001FE05Au) {
+        (void)ff_device_registers_commit(&device_registers);
+        stop(11, address, device_registers.event_count);
+    }
 #endif
 }
 
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
 {
+#ifdef FF_MMIO_PROOF
+    (void)ff_device_registers_commit(&device_registers);
+#endif
+    reg_trace_frozen = 1u; /* freeze the register trace at the observed stop */
     probe_state[0] = status; probe_state[1] = target; probe_state[2] = ordinal; probe_state[3] = g_esp;
     if (g_esp <= FF_GUEST_BYTES - 44u && !(g_esp & 3u)) {
         probe_state[4] = 10; probe_state[5] = MEM32(g_esp);
@@ -248,24 +607,279 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
-#ifdef FF_VM_PROOF
-void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access)
+#ifdef FF_PFIFO_PROOF
+static ff_pfifo_channel pfifo_profile_channel;
+static uint32_t pfifo_profile_ready;
+/* Default-off consumer prototype. It runs one bounded pusher step per PFIFO
+ * DMA_GET read and only advances GET over words the guest CPU wrote. The
+ * default path is unchanged and still stops at status 13. */
+static uint32_t pfifo_consumer_enabled, pfifo_consumer_configured, pfifo_consumer_ready;
+#define FF_PFIFO_CONSUMER_MAX_STEPS 512u
+#define FF_PFIFO_CONSUMER_MAX_WORDS 4096u
+#define FF_PFIFO_CONSUMER_MAX_VM_CHECKS 500000u
+static uint32_t pfifo_consumer_steps, pfifo_consumer_words, pfifo_consumer_drained;
+static uint32_t pfifo_release_attempted, pfifo_release_fired, pfifo_release_reason;
+static uint32_t pfifo_release_va, pfifo_release_before, pfifo_release_written, pfifo_release_seq;
+static uint32_t pfifo_consumer_vm_checks, pfifo_consumer_budget_hit;
+static ff_pfifo_pusher pfifo_consumer_pusher;
+static ff_pfifo_status mmio_pfifo_status;
+static uint32_t pfifo_consumer_read_word(void *context, uint32_t address, uint32_t *value)
 {
+    (void)context;
+    if ((address & 3u) || address > FF_GUEST_BYTES - 4u) return 1;
+    *value = MEM32(address);
+    return 0;
+}
+static uint32_t pfifo_consumer_span_written(void *context, uint32_t address, uint32_t bytes)
+{
+    (void)context;
+    if (!bytes || (address & 3u) || address > FF_GUEST_BYTES || bytes > FF_GUEST_BYTES - address)
+        return 0;
+    for (uint32_t offset = 0; offset < bytes; offset += 4u) {
+        uint32_t page = (address + offset) / FF_GUEST_WRITE_MAP_PAGE;
+        if (page >= FF_GUEST_WRITE_MAP_PAGES) return 0;
+        if (!(ff_guest_write_map_word(&guest_write_map, page / 32u) & (1u << (page % 32u))))
+            return 0;
+    }
+    return 1;
+}
+uint32_t ff_probe_pfifo_profile(uint32_t base, uint32_t end, uint32_t put)
+{
+    if (ff_pfifo_channel_configure(&pfifo_profile_channel, base, end)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_set_get(&pfifo_profile_channel, 0)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_set_put(&pfifo_profile_channel, put)) return FF_BOOT_INVALID;
+    if (ff_pfifo_channel_enable(&pfifo_profile_channel)) return FF_BOOT_INVALID;
+    if (!ff_pfifo_channel_empty(&pfifo_profile_channel)) return FF_BOOT_INVALID;
+    pfifo_profile_ready = 1;
+    return 0;
+}
+#endif
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+static ff_pfifo_channel pfifo_ring;
+static uint32_t pfifo_ring_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+static void pfifo_ring_sync(void)
+{
+    uint32_t context = pfifo_ring_word(0x00206720u);
+    if (!context || context > FF_GUEST_BYTES - 0x20u) return;
+    uint32_t base = pfifo_ring_word(context + 0x10u);
+    uint32_t end = pfifo_ring_word(context + 0x14u);
+    uint32_t put = pfifo_ring_word(context + 0x18u);
+    if (!pfifo_ring.ready && ff_pfifo_channel_configure(&pfifo_ring, base, end)) return;
+    if (ff_pfifo_channel_set_get(&pfifo_ring, 0)) return;
+    if (ff_pfifo_channel_set_put(&pfifo_ring, put)) return;
+    (void)ff_pfifo_channel_enable(&pfifo_ring);
+}
+#endif
+#ifdef FF_VM_PROOF
+void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site)
+{
+    /* Default-off diagnostic watch: record the first translated write site that
+     * covers the selected guest address. It changes no memory behavior. */
+    if (site_watch_enabled && !reg_trace_frozen) {
+        {
+            /* Per-context baselines: another thread's interleaved accesses must
+             * not swallow this context's register transition. */
+            uint32_t ctxslot = 0u, found = 0u;
+            for (uint32_t k = 0; k < 8u; ++k)
+                if (esi_ctx[k] && esi_ctx[k] == g_fs_base) { ctxslot = k; found = 1u; break; }
+            if (!found)
+                for (uint32_t k = 0; k < 8u; ++k)
+                    if (!esi_ctx[k]) { esi_ctx[k] = g_fs_base; ctxslot = k; found = 2u; break; }
+            if (found == 2u) esi_ctx_last[ctxslot] = g_esi;
+            else if (found == 1u && g_esi != esi_ctx_last[ctxslot]) {
+                if (site_entry_fs && g_fs_base == site_entry_fs) { dev_last_site = site; dev_last_value = g_esi; ++dev_change_count; }
+                uint32_t slot = esi_change_count & 7u;
+                esi_change_site[slot] = site; esi_change_addr[slot] = address; esi_change_value[slot] = g_esi;
+                esi_ctx_last[ctxslot] = g_esi; ++esi_change_count;
+            }
+        }
+        uint32_t *slot = site == 0x001FC01Fu ? &site_span_esi[0]
+                        : site == 0x001FC038u ? &site_span_esi[1]
+                        : site == 0x001FC055u ? &site_span_esi[2]
+                        : site == 0x001FC087u ? &site_span_esi[3] : NULL;
+        if (slot && !*slot) *slot = g_esi;
+        if (site == 0x001FC010u && !(access & FF_VM_WRITE)) {
+            site_watch_entry_addr = address;
+            site_entry_fs = g_fs_base;
+            { uint32_t slot = site_entry_count & 7u;
+              site_entry_addr[slot] = address;
+              site_entry_ecx[slot] = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 4u) : 0u;
+              site_entry_ret[slot] = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
+              ++site_entry_count; }
+            site_watch_entry_ecx = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 4u) : 0u;
+            site_watch_entry_ret = g_esp <= FF_GUEST_BYTES - 16u ? MEM32(g_esp + 8u) : 0u;
+        } else if (site == 0x001FC087u) {
+            if (!site_watch_field_addr) site_watch_field_addr = address;
+            site_watch_field_esi = g_esi;
+            site_field_fs = g_fs_base;
+            ++site_watch_field_count;
+        }
+    }
+    if (guest_watch_enabled && (access & FF_VM_WRITE) && bytes &&
+        address <= guest_watch_addr && guest_watch_addr < address + bytes) {
+        if (!guest_watch_site) guest_watch_site = site;
+        ++guest_watch_count;
+    }
+    if (guest_watch_enabled && (access & FF_VM_READ) && bytes &&
+        address <= guest_watch_addr && guest_watch_addr < address + bytes) {
+        if (!guest_watch_read_site) guest_watch_read_site = site;
+        ++guest_watch_read_count;
+    }
+    (void)site;
+#ifdef FF_PFIFO_PROOF
+    /* Run-level safety for the default-off consumer: a post-consumption wait
+     * that makes no PFIFO progress must not run unbounded. Count only guarded
+     * guest accesses with a real call site; probe reads pass site 0 and must
+     * not consume the budget or trap after the run. */
+    if (pfifo_consumer_enabled && pfifo_consumer_steps && site &&
+        ++pfifo_consumer_vm_checks >= FF_PFIFO_CONSUMER_MAX_VM_CHECKS) {
+        pfifo_consumer_pusher.classification = FF_PFIFO_PUSH_BUDGET;
+        pfifo_consumer_budget_hit = 1;
+        stop(13, address, access);
+    }
+#endif
+    /* The PCRTC path is served from its own explicit state when the profile
+     * supplies display events; without that it falls through to the aperture and
+     * ultimately to the fail-closed stop. */
+    if (pcrtc_ready && bytes == 4u) {
+        uint32_t *slot = pcrtc_access(address, access, site);
+        if (slot) { ++vm_access_count; return slot; }
+    }
 #ifdef FF_MMIO_PROOF
+    /* A staged device write is committed before any later access, so event
+     * order and the stored value are both final. */
+    if (device_registers.ready && ff_device_registers_commit(&device_registers))
+        stop(10, address, access);
     if (device_registers.ready && !ff_device_registers_contains(&device_registers, address, (uint32_t)bytes)) {
-        uint32_t direction = access == FF_VM_READ ? FF_DEVICE_READ : FF_DEVICE_WRITE;
-        uint32_t value = 0;
-        if (ff_device_registers_touch(&device_registers, address, direction, 0x001FE05Au, &value))
-            stop(10, address, access);
+        /* The reached PFIFO submission writes DMA_PUT and waits for the device
+         * GET to catch up. Without a FIFO consumer model that match cannot
+         * occur, so report the boundary instead of spinning to the poll limit.
+         * The opt-in FF_ALLOW_DMA_GET_READ diagnostic serves the observed GET
+         * instead, letting the original comparison decide; it is not the
+         * default fail-closed contract. */
+        int pfifo_served = 0;
+#ifdef FF_PFIFO_PROOF
+        if (pfifo_profile_ready && access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            if (put && ff_pfifo_channel_should_serve_empty_get(&pfifo_profile_channel, *put)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) { *get = ff_pfifo_channel_read_get(&pfifo_profile_channel); pfifo_served = 1; }
+            }
+        }
+#endif
+#ifdef FF_PFIFO_EMPTY_RING_PROBE
+        if (access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            pfifo_ring_sync();
+            if (pfifo_ring.enabled && ff_pfifo_channel_empty(&pfifo_ring)) {
+                uint32_t *get = ff_device_registers_slot(&device_registers, address);
+                if (get) { *get = ff_pfifo_channel_read_get(&pfifo_ring); pfifo_served = 1; }
+            }
+        }
+#endif
+#ifdef FF_PFIFO_PROOF
+        if (!pfifo_served && pfifo_consumer_enabled && access == FF_VM_READ &&
+            ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            uint32_t *get = ff_device_registers_slot(&device_registers, address);
+            if (put && get) {
+                uint32_t base = pfifo_profile_channel.ready ? pfifo_profile_channel.base : 0u;
+                uint32_t end = pfifo_profile_channel.ready ? pfifo_profile_channel.end : 0u;
+                uint32_t result;
+                pfifo_consumer_ready = 1;
+                /* Drain GET to PUT with the existing decode/refusal rules. This
+                 * replaces the single-packet activation for this experiment; it
+                 * adds no packet class and executes no method. */
+                while (*get != *put && pfifo_consumer_steps < FF_PFIFO_CONSUMER_MAX_STEPS &&
+                       pfifo_consumer_drained < FF_PFIFO_CONSUMER_MAX_WORDS) {
+                    ff_pfifo_pusher_init(&pfifo_consumer_pusher, base, end, *get, *put);
+                    result = ff_pfifo_pusher_step(&pfifo_consumer_pusher, pfifo_consumer_read_word,
+                                                  pfifo_consumer_span_written, NULL,
+                                                  &mmio_pfifo_status, FF_PFIFO_PUSHER_MAX_WORDS);
+                    if (result == FF_PFIFO_PUSH_OK) {
+                        pfifo_consumer_words += pfifo_consumer_pusher.words_consumed;
+                        pfifo_consumer_drained += pfifo_consumer_pusher.words_consumed;
+                        *get = pfifo_consumer_pusher.get;
+                        ++pfifo_consumer_steps;
+                        pfifo_served = 1;
+                    } else if (result == FF_PFIFO_PUSH_EMPTY) {
+                        break;
+                    } else {
+                        pfifo_consumer_pusher.classification = result;
+                        break;
+                    }
+                }
+                /* Modeled fence release: one shot, only after GET reaches PUT,
+                 * writing the current context sequence to the guest VA held by
+                 * [context+0x3F0] -- never into the pointer field itself. */
+                if (*get == *put && !pfifo_release_attempted) {
+                    uint32_t context = MEM32(0x00206720u);
+                    uint32_t va = context ? MEM32(context + 0x3F0u) : 0u;
+                    uint32_t seq = context ? MEM32(context + 0x1Cu) : 0u;
+                    uint32_t mapped = va && !(va & 3u) && va <= FF_GUEST_BYTES - 4u;
+                    pfifo_release_attempted = 1;
+                    pfifo_release_va = va;
+                    pfifo_release_seq = seq;
+                    if (!mapped) {
+                        pfifo_release_reason = FF_PFIFO_RELEASE_NO_VA;
+                    } else {
+                        uint32_t before = MEM32(va);
+                        uint32_t ready;
+                        pfifo_release_before = before;
+                        ready = ff_pfifo_release_ready(seq, before, 1u);
+                        pfifo_release_reason = ready;
+                        if (ready == FF_PFIFO_RELEASE_READY) {
+                            MEM32(va) = seq;
+                            (void)ff_guest_write_map_mark(&guest_write_map, va, 4u);
+                            pfifo_release_fired = 1;
+                            pfifo_release_written = seq;
+                        }
+                    }
+                }
+            }
+        }
+#endif
+#ifndef FF_ALLOW_DMA_GET_READ
+        if (!pfifo_served && access == FF_VM_READ && ff_pfifo_dma_classify(address) == FF_PFIFO_DMA_GET) {
+            uint32_t *put = ff_device_registers_slot(&device_registers, FF_PFIFO_USER_BASE + 0x40u);
+            uint32_t *get = ff_device_registers_slot(&device_registers, address);
+            uint32_t get_value = get ? *get : 0;
+            if (put && get_value != *put) stop(13, address, access);
+        }
+#endif
+        uint32_t device_access = access == FF_VM_READ ? FF_DEVICE_ACCESS_READ
+                               : access == FF_VM_WRITE ? FF_DEVICE_ACCESS_WRITE
+                               : access == (FF_VM_READ | FF_VM_WRITE) ? FF_DEVICE_ACCESS_READWRITE : 0;
+        uint32_t *slot = device_access ? ff_device_registers_access_width(&device_registers, address, (uint32_t)bytes, device_access, site) : NULL;
+        if (!slot) stop(ff_device_registers_poll_limited(&device_registers) ? 12 :
+                        ff_device_registers_capacity_reached(&device_registers) ? 15 : 10, address, access);
         ++vm_access_count;
-        return ff_device_registers_slot(&device_registers, address);
+        return slot;
+    }
+#endif
+#ifdef FF_VM_PROOF
+    /* The reached cache-flush write targets the physical-mirror base. Only a
+     * bounded data page is modeled; outside it the identity window still
+     * decides, and execute access is never served from this storage. */
+    if (access && (access & ~(FF_VM_READ | FF_VM_WRITE)) == 0 && bytes <= FF_GUEST_MIRROR_BYTES &&
+        ff_guest_mirror_contains(&guest_mirror, address, (uint32_t)bytes)) {
+        ++vm_access_count;
+        uint32_t offset = ff_guest_mirror_offset(address);
+        if ((access & FF_VM_WRITE) && bytes)
+            (void)ff_guest_write_map_mark(&guest_write_map, offset, (uint32_t)bytes);
+        return guest_ram + offset;
     }
 #endif
     if (!vm_ready || ff_vm_check(&virtual_memory, address, bytes, access)) {
-        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access;
+        vm_fault[0] = address; vm_fault[1] = (uint32_t)bytes; vm_fault[2] = (uint32_t)(bytes >> 32); vm_fault[3] = access; vm_fault[4] = site; vm_fault[5] = g_esi;
         stop(10, address, access);
     }
     ++vm_access_count;
+    if ((access & FF_VM_WRITE) && bytes) (void)ff_guest_write_map_mark(&guest_write_map, address, (uint32_t)bytes);
     /* Zero-count string operations access no guest address. Return a harmless
      * in-array pointer even if their unused register is outside this window. */
     return guest_ram + (bytes ? address : 0);
@@ -309,7 +923,26 @@ uint32_t ff_probe_vm_page_word(uint32_t address, uint32_t field)
     switch (field) { case 0: return virtual_memory.owner[p]; case 1: return virtual_memory.committed[p]; case 2: return virtual_memory.permission[p]; default: return 0; }
 }
 uint32_t ff_probe_vm_access_count(void) { return vm_access_count; }
-uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 4 ? vm_fault[index] : 0; }
+#ifdef FF_CONTEXT_PROBE
+static uint32_t probe_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
+uint32_t ff_probe_context_word(uint32_t index)
+{
+    if (index >= 32u) return 0;
+    if (index == 0u) return probe_word(0x00206720u);
+    uint32_t base = probe_word(0x00206720u);
+    if (!base || base > FF_GUEST_BYTES - 0x80u) return 0;
+    return probe_word(base + (index - 1u) * 4u);
+}
+#endif
+uint32_t ff_probe_write_map_size(void) { return FF_GUEST_WRITE_MAP_WORDS; }
+uint32_t ff_probe_write_map_word(uint32_t index) { return ff_guest_write_map_word(&guest_write_map, index); }
+uint32_t ff_probe_write_map_count(void) { return ff_guest_write_map_count(&guest_write_map); }
+uint32_t ff_probe_vm_fault_word(uint32_t index) { return index < 6 ? vm_fault[index] : 0; }
 uint32_t ff_probe_vm_access_probe(uint32_t address, uint32_t access)
 {
     if (access == FF_VM_READ) return FF_MEMORY_U8(address, FF_VM_READ);
@@ -452,7 +1085,7 @@ static void trace(uint32_t kind, uint32_t address)
 void recomp_trace_enter(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE);
+    (void)ff_probe_guest_memory(address, 1, FF_VM_EXECUTE, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -462,7 +1095,7 @@ void recomp_trace_enter(const char *name, uint32_t address) {
 void recomp_trace_exit(const char *name, uint32_t address) {
     (void)name;
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ, 0u);
 #endif
     trace(2, address);
 }
@@ -481,7 +1114,7 @@ static void sample_clock(void)
     uint64_t interrupt = clock_words[0] | (uint64_t)clock_words[1] << 32;
     uint64_t system = clock_words[2] | (uint64_t)clock_words[3] << 32;
     uint32_t status = ff_timers_advance(&timers, interrupt, system);
-    if (status != FF_BOOT_OK) stop(9, status, 149);
+    if (status != FF_BOOT_OK) { timer_check = ff_timers_check(&timers); stop(9, status, 149); }
 }
 void ff_probe_dpc_recover(void)
 {
@@ -582,7 +1215,7 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
 #ifdef FF_VM_PROOF
-    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ);
+    (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
@@ -610,13 +1243,205 @@ uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_
     return status;
 }
 #ifdef FF_MMIO_PROOF
+static uint32_t mmio_write_clearing, mmio_pmc_zero, mmio_engine_wait, mmio_pfifo_reset, mmio_pfifo_reset_count;
+static uint32_t av_query_word, av_query_ready;
+/* Explicit, default-off synthetic raw DWORD for the observed ordinal-2 query.
+ * The worker must call this before the run; without it the service stays
+ * unsupported. No composer, default or console inference exists. */
+uint32_t ff_probe_av_query_word(uint32_t word)
+{
+    if (av_query_ready) return FF_BOOT_INVALID;
+    av_query_word = word;
+    av_query_ready = 1;
+    return 0;
+}
+/* Explicitly experimental: the selected profile must opt in to modelling an
+ * acknowledging store, and the same profile without it is the control run. */
+uint32_t ff_probe_mmio_write_clearing(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_write_clearing = enable;
+    return 0;
+}
+/* Explicitly experimental: serve NV_PMC_INTR_0 as a zero status register. The
+ * reached code never acknowledges this register (its only store is zero), so
+ * this models "no device event has been delivered" for diagnosis; it is not
+ * evidence of interrupt delivery or a completion rule. Without it the read stays
+ * fail-closed. */
+uint32_t ff_probe_mmio_pmc_zero(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_pmc_zero = enable;
+    return 0;
+}
+/* Explicitly experimental: declare the three PFIFO status registers the reached
+ * loop tests as status inputs, so the report names the predicate that blocks the
+ * exit instead of ending at the bounded event log. Nothing is raised here. */
+uint32_t ff_probe_mmio_engine_wait(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_engine_wait = enable;
+    return 0;
+}
+/* Explicitly experimental and default-off: apply the pinned reference reset
+ * value (LOW_MARK on both PFIFO status registers) through the existing seam
+ * exactly once at initialization. No consumer update is made, no read or poll
+ * raises anything, and the pushbuffer pointers are untouched. */
+uint32_t ff_probe_mmio_pfifo_reset(uint32_t enable)
+{
+    if(enable > 1u || device_registers.ready) return FF_BOOT_INVALID;
+    mmio_pfifo_reset = enable;
+    return 0;
+}
+/* Report the seam state after the reset adapter ran. Field 0 is the ready flag
+ * for the experiment; the others are the two status values, DMA_PUSH, the
+ * consumer-update counter and the number of reset applications. */
+uint32_t ff_probe_pfifo_status_word(uint32_t field)
+{
+    switch(field) {
+        case 0: return mmio_pfifo_reset ? 1u : 0u;
+        case 1: return mmio_pfifo_status.cache1_status;
+        case 2: return mmio_pfifo_status.runout_status;
+        case 3: return mmio_pfifo_status.dma_push;
+        case 4: return mmio_pfifo_status.consumer_updates;
+        case 5: return mmio_pfifo_reset_count;
+        default: return 0;
+    }
+}
+/* Explicitly experimental and default-off: run one bounded PFIFO pusher step at
+ * a DMA_GET read. Without this input the status-13 fail-closed path is
+ * unchanged. No method is executed and no guest word is written. */
+uint32_t ff_probe_pfifo_consumer(uint32_t enable)
+{
+    if (enable > 1u) return FF_BOOT_INVALID;
+    /* Enabling is initialization-only; disarming after the run is always safe. */
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    if (enable) pfifo_consumer_configured = 1u;
+    pfifo_consumer_enabled = enable;
+    return 0;
+}
+/* Consumer accounting for the report. Field 0 is the opt-in flag, 1 the
+ * reached flag, 2 the refusal/advance classification, 3-6 the pointers, 7-8 the
+ * word and seam-update counters, 9 the last decoded header. */
+uint32_t ff_probe_pfifo_consumer_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return pfifo_consumer_configured ? 1u : 0u;
+        case 1: return pfifo_consumer_ready;
+        case 2: return pfifo_consumer_pusher.classification;
+        case 3: return pfifo_consumer_pusher.get;
+        case 4: return pfifo_consumer_pusher.put;
+        case 5: return pfifo_consumer_pusher.base;
+        case 6: return pfifo_consumer_pusher.end;
+        case 7: return pfifo_consumer_pusher.words_consumed;
+        case 8: return pfifo_consumer_pusher.consumer_updates;
+        case 9: return pfifo_consumer_pusher.last_header;
+        case 10: return pfifo_consumer_steps;
+        case 11: return pfifo_consumer_words;
+        case 12: return pfifo_consumer_budget_hit;
+        case 13: return pfifo_consumer_vm_checks;
+        case 14: return pfifo_release_attempted;
+        case 15: return pfifo_release_fired;
+        case 16: return pfifo_release_reason;
+        case 17: return pfifo_release_va;
+        case 18: return pfifo_release_before;
+        case 19: return pfifo_release_written;
+        case 20: return pfifo_release_seq;
+        case 21: return pfifo_consumer_drained;
+        default: return 0;
+    }
+}
 uint32_t ff_probe_mmio_profile(uint32_t base,uint32_t bytes,uint32_t first_value,uint32_t second_value)
 {
     if(!vm_ready || device_registers.ready)return FF_BOOT_INVALID;
-    return ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
+    uint32_t status = ff_device_registers_init(&device_registers,base,bytes,0xFD001804u,first_value,0xFD600140u,second_value);
+    if(status)return status;
+    /* NV_PFB_WBC at NV2A offset 0x410: the reached wait sets NV_PFB_WBC_FLUSH
+     * (1 << 16) and polls until it clears. xemu's PFB model reads 0 because a
+     * flush is not pending, so model only that self-clearing bit here. */
+    status = ff_device_registers_add_self_clearing(&device_registers,0xFD100410u,0x10000u);
+    if(status)return status;
+    /* xemu user.c mirrors USER DMA_PUT/GET/REF into the PFIFO CACHE1 copies. */
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800040u,0xFD003240u)))return status;
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800044u,0xFD003244u)))return status;
+    if((status=ff_device_registers_add_alias(&device_registers,0xFD800048u,0xFD003248u)))return status;
+    /* Reference reset adapter: one-time initialization through the existing
+     * PFIFO status seam. It sets LOW_MARK on both status registers without a
+     * consumer update and leaves DMA_PUSH and the pushbuffer untouched. */
+    if(mmio_pfifo_reset) {
+        ff_pfifo_status_init(&mmio_pfifo_status);
+        ff_pfifo_status_reference_reset(&mmio_pfifo_status);
+        ++mmio_pfifo_reset_count;
+        if((status=ff_device_registers_add_initial(&device_registers,0xFD003214u,
+              ff_pfifo_status_read(&mmio_pfifo_status,FF_PFIFO_CACHE1_STATUS_OFFSET))) ||
+           (status=ff_device_registers_add_initial(&device_registers,0xFD002400u,
+              ff_pfifo_status_read(&mmio_pfifo_status,FF_PFIFO_RUNOUT_STATUS_OFFSET)))) return status;
+    }
+    /* Experimental PMC zero status: the reached wait at 0x1FE50D polls bit 24 of
+     * NV_PMC_INTR_0, and the only store the original code makes to it is zero
+     * (0x1FDFC3), so this register is a status input rather than an acknowledge
+     * register. Serving it as zero is a diagnostic for "no device event has been
+     * delivered"; it is not evidence of interrupt delivery. Without this flag the
+     * read stays fail-closed. */
+    if(mmio_pmc_zero && (status=ff_device_registers_add_zero_range(&device_registers,0xFD000100u,4u)))return status;
+    /* The reached wait at 0x1FE50D polls bit 24 of NV_PMC_INTR_0. Declaring it as
+     * a status input means the polling loop is reported as a device wait instead
+     * of silently consuming the bounded event log until it fills. */
+    if(mmio_pmc_zero && (status=ff_device_registers_add_status_wait(&device_registers,0xFD000100u,0x01000000u)))return status;
+    /* The reached loop's exit also needs PFIFO engine status: CACHE1_STATUS and
+     * RUNOUT_STATUS bit 0x10 set, CACHE1_DMA_PUSH bit 0x10 clear. Declaring them
+     * names the blocking predicate; no bit is raised. */
+    if(mmio_engine_wait &&
+       ((status=ff_device_registers_add_status_wait(&device_registers,0xFD003214u,0x10u)) ||
+        (status=ff_device_registers_add_status_wait(&device_registers,0xFD002400u,0x10u)) ||
+        (status=ff_device_registers_add_status_wait(&device_registers,0xFD003220u,0x10u)))) return status;
+    if(!mmio_write_clearing) return 0;
+    /* NV_PGRAPH_INTR at NV2A offset 0x100. The reached code reads the status,
+     * reads NSOURCE (0x108) and TRAPPED_ADDR (0x704), stores exactly the bit it
+     * observed back to 0x100 and then re-reads it from another routine that
+     * re-enters the handler while the value is nonzero. Storing the written
+     * value therefore latches a phantom interrupt that only that store could
+     * have raised, and the drain loop cannot terminate. Acknowledge the stored
+     * bits instead: the guest's store clears what it carries, so with no pending
+     * status in this synthetic profile the register reads 0 and the loop exits.
+     * The predicted hardware clear is not independently verified here; the local
+     * xemu-derived PGRAPH reference stores writes as a stub, so it cannot confirm
+     * it. Sub-dword stores to this register are rejected rather than half-applied. */
+    if((status=ff_device_registers_add_write_clearing(&device_registers,0xFD400100u)))return status;
+    /* NV_PFIFO_INTR_0 at NV2A offset 0x2100 shows the same guest shape: 0x1FDC30
+     * reads it, stores exactly the observed bits 0x100000 and 0x1000000 back,
+     * re-reads it and acts on the remaining low byte, and its caller repeats the
+     * whole block while the phantom bits stay set. Same acknowledge rule, same
+     * limits: only this declared register and only 4-byte stores. */
+    return ff_device_registers_add_write_clearing(&device_registers,0xFD002100u);
+}
+uint32_t ff_probe_mmio_add(uint32_t address,uint32_t value)
+{
+    return ff_device_registers_add_initial(&device_registers,address,value);
+}
+uint32_t ff_probe_mmio_zero(uint32_t base,uint32_t bytes)
+{
+    return ff_device_registers_add_zero_range(&device_registers,base,bytes);
+}
+uint32_t ff_probe_mmio_alias_count(void) { return device_registers.alias_count; }uint32_t ff_probe_mmio_alias_word(uint32_t index, uint32_t field)
+{
+    if(index >= device_registers.alias_count)return UINT32_MAX;
+    return field ? device_registers.aliases[index].second : device_registers.aliases[index].first;
+}
+/* Declared status inputs the guest polls: address, mask, last masked value and
+ * the bounded read count, so the report shows which interrupt bit is waited on. */
+uint32_t ff_probe_device_status_wait_count(void) { return device_registers.status_wait_count; }
+uint32_t ff_probe_device_status_wait_word(uint32_t index, uint32_t field)
+{
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
+    if(index >= device_registers.status_wait_count)return UINT32_MAX;
+    const ff_device_status_wait *wait = &device_registers.status_waits[index];
+    return field==0?wait->address:field==1?wait->mask:field==2?wait->value:
+           field==3?wait->count:UINT32_MAX;
 }
 uint32_t ff_probe_mmio_word(uint32_t field)
 {
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
     if(field==0)return device_registers.ready;
     if(field==1)return device_registers.base;
     if(field==2)return device_registers.bytes;
@@ -632,9 +1457,10 @@ uint32_t ff_probe_mmio_word(uint32_t field)
 }
 uint32_t ff_probe_mmio_event(uint32_t index,uint32_t field)
 {
+    if(ff_device_registers_commit(&device_registers))return UINT32_MAX;
     if(index>=device_registers.event_count)return UINT32_MAX;
     const ff_device_event *e=&device_registers.events[index];
-    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:UINT32_MAX;
+    return field==0?e->address:field==1?e->direction:field==2?e->value:field==3?e->before_known:field==4?e->site:UINT32_MAX;
 }
 #endif
 uint32_t ff_probe_memory_word(uint32_t field)
@@ -655,6 +1481,37 @@ static void query_memory_statistics(void)
     for(unsigned i=0;i<FF_MEMORY_STATISTICS_WORDS;++i)row[3+i]=MEM32(row[2]+i*4);
     g_eax=0;g_esp+=8;
 }
+#ifdef FF_VM_PROOF
+static void hal_get_interrupt_vector(void)
+{
+    uint32_t *row=kernel_record(44,2),vector=0;
+    row[1]=ff_hal_get_interrupt_vector(&virtual_memory,guest_ram,row[2],row[3],&vector);
+    if(row[1])stop(9,row[1],44);
+    row[4]=vector;g_eax=vector;g_esp+=12;
+}
+static void ke_initialize_interrupt(void)
+{
+    uint32_t *row=kernel_record(109,7);
+    row[1]=ff_ke_initialize_interrupt(&virtual_memory,guest_ram,row[2],row[3],row[4],row[5]);
+    if(row[1])stop(9,row[1],109);
+    row[9]=row[6];row[10]=row[7];row[11]=row[8];
+    g_eax=0;g_esp+=32;
+}
+static void ke_connect_interrupt(void)
+{
+    uint32_t *row=kernel_record(98,1);
+    row[1]=ff_ke_connect_interrupt(&virtual_memory,guest_ram,row[2]);
+    if(row[1]==FF_BOOT_INVALID || row[1]==FF_VM_ACCESS_VIOLATION)stop(9,row[1],98);
+    g_eax=row[1];g_esp+=8;
+}
+static void hal_register_shutdown_notification(void)
+{
+    uint32_t *row=kernel_record(47,2);
+    row[1]=ff_hal_register_shutdown_notification(&virtual_memory,guest_ram,row[2],row[3]);
+    if(row[1])stop(9,row[1],47);
+    g_eax=0;g_esp+=12;
+}
+#endif
 #endif
 #ifdef FF_FATX_PROOF
 static int fatx_parent_handle(uint32_t attributes)
@@ -1237,7 +2094,7 @@ static void status_to_dos_error(void)
 static void initialize_critical(void)
 {
     uint32_t *row = kernel_record(291, 1);
-    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE);
+    (void)ff_probe_guest_memory(row[2], 28, FF_VM_WRITE, 0u);
     row[1] = ff_initialize_critical(guest_ram, FF_GUEST_BYTES, row[2]);
     if (row[1]) stop(9, row[1], 291);
     g_esp += 8;
@@ -1257,6 +2114,28 @@ static void allocate_contiguous_memory(void)
     if (row[1] != 0 && row[1] != FF_BOOT_NO_MEMORY) stop(9, row[1], 166);
     row[7] = base;
     g_eax = base; g_esp += 24;
+}
+static void claim_gpu_instance_memory(void)
+{
+    uint32_t *row = kernel_record(168, 2), base = 0;
+    row[1] = ff_claim_gpu_instance_memory(&virtual_memory, row[2], row[3], 0, 0x03e00000u, &base);
+    if (row[1]) stop(9, row[1], 168);
+    row[4] = base;
+    g_eax = base; g_esp += 12;
+}
+static void rtl_time_to_fields(void)
+{
+    uint32_t *row = kernel_record(305, 2);
+    if (!row[2] || (row[2] & 3u) || ff_vm_check(&virtual_memory, row[2], 8, FF_VM_READ))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    if (!row[3] || (row[3] & 1u) || ff_vm_check(&virtual_memory, row[3], 16, FF_VM_WRITE))
+        stop(9, FF_VM_ACCESS_VIOLATION, 305);
+    uint64_t time = (uint64_t)MEM32(row[2]) | ((uint64_t)MEM32(row[2] + 4) << 32);
+    uint16_t fields[8] = {0};
+    row[1] = ff_time_to_fields(time, fields);
+    if (row[1]) stop(9, row[1], 305);
+    for (unsigned i = 0; i < 8; ++i) { MEM16(row[3] + i * 2u) = fields[i]; row[4 + i] = fields[i]; }
+    g_eax = 0; g_esp += 12;
 }
 #endif
 #ifdef FF_TIMER_PROOF
@@ -1279,10 +2158,249 @@ static void set_timer(void)
     g_eax = previous; g_esp += 20;
 }
 #endif
+#if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+static void av_send_tv_encoder_option(void)
+{
+    uint32_t *row = kernel_record(2, 4);
+    if (!av_query_ready) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    const uint32_t eax_before = g_eax, esp_before = g_esp;
+    const uint32_t args[4] = {row[2], row[3], row[4], row[5]};
+    const ff_av_query_config config = {av_query_word};
+    ff_av_query_cpu cpu = {esp_before, eax_before};
+    const ff_av_query_result result = ff_av_query_adapter(&virtual_memory, args, &config, &cpu);
+    if (result != FF_AV_QUERY_WROTE) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    /* The guest-run effect must match the adapter contract: VOID leaves EAX
+     * untouched and the stdcall return pops the return address plus four
+     * arguments. A mismatch is an internal proof failure, not a guest result. */
+    if (cpu.eax != eax_before || cpu.esp != esp_before + 20u) {
+        row[1] = 4;
+        stop(4, 0xFE000094u, 2);
+    }
+    g_esp = cpu.esp;
+    /* VOID-style: g_eax is intentionally unchanged. */
+    row[1] = 0;
+    row[6] = av_query_word;
+    row[7] = eax_before;
+    row[8] = esp_before;
+    row[9] = cpu.eax;
+    row[10] = cpu.esp;
+    row[11] = args[3]; /* output address the adapter wrote through */
+}
+/* Unknown-option sibling: the pinned HAL default writes 0 through Result and
+ * does not fail. Exact observed tuple only; every other shape keeps the
+ * unsupported-service stop. EAX is untouched and the stdcall frame pops 20. */
+static void av_unknown_option_call(void)
+{
+    uint32_t *row = kernel_record(2u, 4u);
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
+    uint32_t mapped = result && !(result & 3u) && result <= FF_GUEST_BYTES - 4u;
+    uint32_t eax_before, esp_before;
+    ++av_unknown_calls;
+    av_unknown_handle = handle;
+    av_unknown_option = option;
+    av_unknown_param = param;
+    av_unknown_result = result;
+    av_unknown_decision = ff_av_unknown_accept(handle, option, param, result, mapped);
+    if (av_unknown_decision != FF_AV_UNKNOWN_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2);
+    }
+    eax_before = g_eax;
+    esp_before = g_esp;
+    MEM32(result) = 0u;
+    (void)ff_guest_write_map_mark(&guest_write_map, result, 4u);
+    g_esp = esp_before + 20u;
+    av_unknown_written = 0u;
+    av_unknown_eax_before = eax_before;
+    av_unknown_esp_before = esp_before;
+    av_unknown_eax_after = g_eax;
+    av_unknown_esp_after = g_esp;
+    row[1] = 0u;
+    row[6] = 0u;
+    row[7] = eax_before;
+    row[8] = esp_before;
+    row[9] = g_eax;
+    row[10] = g_esp;
+    row[11] = result;
+}
+static uint32_t av_frame_checksum(uint32_t address, uint32_t bytes)
+{
+    uint32_t hash = 2166136261u;
+    for (uint32_t i = 0; i < bytes; ++i)
+        hash = (hash ^ MEM8(address + i)) * 16777619u;
+    return hash;
+}
+/* The pinned HAL returns before its option switch when Result is null: this
+ * observed call logs and returns with no output unit, no memory write, EAX
+ * untouched and the stdcall frame popped by 20. Only the exact tuple is
+ * admitted; every other ordinal-2 shape keeps its existing refusal. */
+static void av_null_result_call(void)
+{
+    uint32_t *row = kernel_record(2u, 4u);
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
+    uint32_t decision = ff_av_null_result_accept(av_null_enabled, handle, option, param, result);
+    ++av_null_calls;
+    av_null_handle = handle;
+    av_null_option = option;
+    av_null_param = param;
+    av_null_result = result;
+    av_null_decision = decision;
+    if (decision != FF_AV_NULL_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, 0xFE000094u, 2u);
+    }
+    av_null_eax_before = g_eax;
+    av_null_esp_before = g_esp;
+    av_null_write_before = ff_guest_write_map_count(&guest_write_map);
+    av_null_checksum_before = av_frame_checksum(g_esp + 4u, 20u);
+    av_null_checksum_after = av_frame_checksum(g_esp + 4u, 20u);
+    av_null_write_after = ff_guest_write_map_count(&guest_write_map);
+    g_esp = av_null_esp_before + 20u;
+    av_null_eax_after = g_eax;
+    av_null_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = handle;
+    row[3] = option;
+    row[4] = param;
+    row[5] = result;
+}
+static void av_option_router(void)
+{
+    uint32_t handle = MEM32(g_esp + 4u), option = MEM32(g_esp + 8u);
+    uint32_t param = MEM32(g_esp + 12u), result = MEM32(g_esp + 16u);
+    if (handle == 0u && option == 6u) { av_send_tv_encoder_option(); return; }
+    if (av_null_enabled && result == 0u) { av_null_result_call(); return; }
+    av_unknown_option_call();
+}
+#endif
+/* Ordinal 159 on the observed vblank event. One declared delivery per matching
+ * call: produce the PCRTC pending state, signal then consume the guest
+ * synchronization event, and return STATUS_SUCCESS. Any mismatch, exhaustion
+ * or non-event object keeps the unsupported-service stop. The ISR is not
+ * executed; its observable event signal is substituted. */
+static uint32_t kernel_binding_address(uint32_t ordinal)
+{
+    for (uint32_t i = 0; i < FF_KERNEL_BINDING_COUNT; ++i)
+        if (bindings[i].ordinal == ordinal) return FF_KERNEL_BASE + i * 4u;
+    return 0u;
+}
+static void wait_vblank(void)
+{
+    uint32_t *row = kernel_record(159u, 5u);
+    uint32_t object = MEM32(g_esp + 4u), reason = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
+    uint32_t alertable = MEM32(g_esp + 16u), timeout = MEM32(g_esp + 20u);
+    uint32_t type = 0u, signal = 0u;
+    if (object && object <= FF_GUEST_BYTES - 8u) {
+        type = MEM32(object);
+        signal = MEM32(object + 4u);
+    }
+    ++vblank_wait_calls;
+    vblank_wait_type = type;
+    vblank_wait_signal = signal;
+    vblank_wait_decision = ff_vblank_wait_accept(pcrtc_declared, object, reason, mode, alertable, timeout,
+                                                 type, signal);
+    if (vblank_wait_decision != FF_VBLANK_WAIT_ACCEPT) {
+        row[1] = 1u;
+        stop(1, kernel_binding_address(159u), 159u);
+    }
+    ff_pcrtc_vblank(&pcrtc);
+    --pcrtc_declared;
+    MEM32(object + 4u) = 1u;
+    if ((type & 0xFFu) == 1u) MEM32(object + 4u) = 0u;
+    row[1] = 0u;
+    g_eax = 0u;
+}
+static void set_display_mode(void)
+{
+    uint32_t *row = kernel_record(3u, 6u);
+    uint32_t addr = MEM32(g_esp + 4u), step = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
+    uint32_t format = MEM32(g_esp + 16u), pitch = MEM32(g_esp + 20u), fb = MEM32(g_esp + 24u);
+    uint32_t mapped = addr && !(addr & 3u) && addr <= FF_GUEST_BYTES - 4u;
+    display_mode_addr = addr;
+    display_mode_step = step;
+    display_mode_mode = mode;
+    display_mode_format = format;
+    display_mode_pitch = pitch;
+    display_mode_fb = fb;
+    display_mode_decision = ff_display_mode_accept(mapped, addr, step, mode, format, pitch, fb);
+    if (display_mode_decision != FF_DISPLAY_OK) {
+        row[1] = 1u;
+        stop(1, kernel_binding_address(3u), 3u);
+    }
+    display_mode_window = ff_display_mode_window(fb);
+    display_mode_ready = 1;
+    row[1] = 0u;
+    g_eax = 0u;
+}
+static uint32_t av_saved_prior_setter(void)
+{
+    uint32_t count = kernel_call_count;
+    if (count > FF_KERNEL_CAPACITY) count = FF_KERNEL_CAPACITY;
+    for (uint32_t i = 0; i < count; ++i) av_saved_journal[i] = kernel_calls[i][0];
+    return ff_av_saved_data_prior_setter(av_saved_journal, count);
+}
+static void av_get_saved_data(void)
+{
+    uint32_t prior = av_saved_prior_setter();
+    uint32_t *row = kernel_record(1u, 0u);
+    uint32_t value = 0xDEADBEEFu;
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t decision = ff_av_saved_data_value(av_saved_enabled, prior, &value);
+    ++av_saved_calls;
+    av_saved_prior = prior;
+    av_saved_decision = decision;
+    if (decision != FF_AV_SAVED_OK) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, kernel_binding_address(1u), 1u);
+    }
+    g_eax = value;
+    av_saved_value = value;
+    av_saved_eax_before = eax_before;
+    av_saved_esp_before = esp_before;
+    av_saved_eax_after = g_eax;
+    av_saved_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = value;
+}
+static void mm_free_contiguous_call(void)
+{
+    uint32_t *row = kernel_record(171u, 1u);
+    uint32_t address = MEM32(g_esp + 4u);
+    uint32_t mapped = address && !(address & 3u) && address <= FF_GUEST_BYTES - 4u;
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t decision = ff_mm_free_accept(mm_free_enabled, address, mapped);
+    ++mm_free_calls;
+    mm_free_address = address;
+    mm_free_decision = decision;
+    if (decision != FF_MM_FREE_ACCEPT) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(1, kernel_binding_address(171u), 171u);
+    }
+    /* Pinned declaration-level effect only: no guest write, EAX 0, one-argument
+     * stdcall frame. The harness owns no host allocator and never reuses freed
+     * blocks, so this is not allocator fidelity and makes no reuse claim. */
+    mm_free_write_before = ff_guest_write_map_count(&guest_write_map);
+    g_eax = 0u;
+    g_esp = esp_before + 8u;
+    mm_free_write_after = ff_guest_write_map_count(&guest_write_map);
+    mm_free_eax_before = eax_before;
+    mm_free_esp_before = esp_before;
+    mm_free_eax_after = g_eax;
+    mm_free_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = address;
+}
 recomp_func_t recomp_lookup_kernel(uint32_t address)
 {
-    uint32_t offset = address - FF_KERNEL_BASE;
-    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
+    uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
@@ -1299,9 +2417,15 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_VM_PROOF
         if (ordinal == 184) return allocate_virtual_memory;
         if (ordinal == 291) return initialize_critical;
+        if (ordinal == 44) return hal_get_interrupt_vector;
+        if (ordinal == 109) return ke_initialize_interrupt;
+        if (ordinal == 98) return ke_connect_interrupt;
+        if (ordinal == 47) return hal_register_shutdown_notification;
 #ifdef FF_MEMORY_STATISTICS_PROOF
         if (ordinal == 181) return query_memory_statistics;
         if (ordinal == 166) return allocate_contiguous_memory;
+        if (ordinal == 168) return claim_gpu_instance_memory;
+        if (ordinal == 305) return rtl_time_to_fields;
 #endif
 #ifdef FF_TIMER_PROOF
         if (ordinal == 128) return query_system_time;
@@ -1343,6 +2467,22 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
 #ifdef FF_NAMESPACE_PROOF
         if (ordinal == 67) return create_symbolic_link;
 #endif
+#if defined(FF_MMIO_PROOF) && defined(FF_VM_PROOF)
+        if (ordinal == 2 && (av_unknown_enabled || av_null_enabled)) return av_option_router;
+        if (ordinal == 2 && av_query_ready) return av_send_tv_encoder_option;
+        if (ordinal == 159 && pcrtc_ready && pcrtc_declared) return wait_vblank;
+        if (ordinal == 3 && display_mode_enabled) return set_display_mode;
+        if (ordinal == 1 && av_saved_enabled) return av_get_saved_data;
+        if (ordinal == 171 && mm_free_enabled) return mm_free_contiguous_call;
+#endif
+        /* Record the attempted unsupported service with its observed call-frame
+         * arguments, then stop. No return value is supplied and nothing is
+         * modeled; the row makes the boundary inspectable in the report. */
+        {
+            uint32_t *row = kernel_record(ordinal, 4);
+            row[1] = 1;
+            for (uint32_t i = 0; i < 4; ++i) row[2 + i] = MEM32(g_esp + 4u + i * 4u);
+        }
         stop(1, address, ordinal);
     }
     return 0;
@@ -1408,6 +2548,17 @@ uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
 uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
 uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
+uint32_t ff_probe_timer_check(void) { return timer_check; }
+uint32_t ff_probe_dpc_head(void) { return timers.dpc_head; }
+uint32_t ff_probe_dpc_head_value(void) { return guest_ram[timers.dpc_head] | (uint32_t)guest_ram[timers.dpc_head + 1] << 8 | (uint32_t)guest_ram[timers.dpc_head + 2] << 16 | (uint32_t)guest_ram[timers.dpc_head + 3] << 24; }
+uint32_t ff_probe_timer_head(void) { return timers.timer_head; }
+uint32_t ff_probe_timer_head_value(void) { return guest_ram[timers.timer_head] | (uint32_t)guest_ram[timers.timer_head + 1] << 8 | (uint32_t)guest_ram[timers.timer_head + 2] << 16 | (uint32_t)guest_ram[timers.timer_head + 3] << 24; }
+uint32_t ff_probe_guest_word(uint32_t address)
+{
+    if (address > FF_GUEST_BYTES - 4u) return 0;
+    return guest_ram[address] | (uint32_t)guest_ram[address + 1] << 8 |
+           (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
+}
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
     return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }
@@ -1447,6 +2598,7 @@ void ff_probe_reset(void)
     memset(probe_state, 0, sizeof probe_state); memset(probe_trace, 0, sizeof probe_trace);
     memset(probe_cpu_trace, 0, sizeof probe_cpu_trace);
     memset(kernel_calls, 0, sizeof kernel_calls);
+    ff_port_io_init(&port_io);
 #ifdef FF_DISK_GEOMETRY_PROOF
     memset(disk_control_information,0,sizeof disk_control_information);
 #endif
@@ -1488,6 +2640,8 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_VM_PROOF
     if (ff_vm_init(&virtual_memory, guest_ram, FF_GUEST_BYTES)) __builtin_trap();
+    ff_guest_mirror_init(&guest_mirror);
+    ff_guest_write_map_init(&guest_write_map);
     vm_ready = vm_access_count = 0; memset(vm_fault, 0, sizeof vm_fault);
 #endif
 #ifdef FF_TIMER_PROOF
@@ -1525,7 +2679,9 @@ void ff_probe_run(void)
     g_eax = g_ecx = g_edx = g_ebx = g_esi = g_edi = g_ebp = g_seh_ebp = 0;
     g_esp = thread->initial_sp; g_fs_base = thread->fs; g_eflags = 0x202; g_df = 0;
 #ifdef FF_TIMER_PROOF
-    if (ff_timers_init(&timers, guest_ram, FF_GUEST_BYTES, 0x03e00000u, thread->fs + 0x50u) != FF_BOOT_OK) stop(9, 0, 149);
+    /* Model-owned list heads live in the reserved synthetic queue area. The
+     * reached code writes TLS+0x50, so that address must not double as a head. */
+    if (ff_timers_init(&timers, guest_ram, FF_GUEST_BYTES, 0x03e00000u, 0x03e00008u) != FF_BOOT_OK) stop(9, 0, 149);
     timers_ready = 1;
 #endif
     recomp_func_t entry = recomp_lookup(thread->system);
@@ -1537,5 +2693,25 @@ void ff_probe_run(void)
  * warnings/errors and scope the exception to generated title code only. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wparentheses-equality"
+#ifdef RECOMP_ABI_CHECK
+/* Toolkit-level callee-saved register check. The translation calls this when a
+ * call returns with ebx/esi/edi/esp changed; it records the offending call
+ * target so the defect family can be identified without backing up registers. */
+static uint32_t abi_violation_count, abi_violation_first, abi_violation_last;
+static uint32_t abi_esi_count, abi_esi_first, abi_esi_last;
+void recomp_abi_violation_log(uint32_t va, uint32_t ebx0, uint32_t esi0,
+                              uint32_t edi0, uint32_t esp0)
+{
+    (void)ebx0; (void)esi0; (void)edi0; (void)esp0;
+    if (!abi_violation_first) abi_violation_first = va;
+    abi_violation_last = va;
+    ++abi_violation_count;
+}
+uint32_t ff_probe_abi_violation_word(uint32_t field)
+{
+    return field == 0u ? abi_violation_count : field == 1u ? abi_violation_first
+         : field == 2u ? abi_violation_last : 0u;
+}
+#endif
 #include "title-functions.inc"
 #pragma clang diagnostic pop

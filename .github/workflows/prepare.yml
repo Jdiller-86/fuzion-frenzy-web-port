@@ -22,14 +22,31 @@ jobs:
       - run: npm run check
       - run: npm run test:formats
       - run: python -m py_compile tools/probe-browser-build.py tools/probe-native-recomp.py tools/prepare-title-recomp.py tools/recomp_memory_access.py
-      - run: python tests/title_seed_test.py
-      - run: python tests/recomp_memory_access_test.py
+      - run: npm run test:evidence
       - run: npm run test:runtime
+      - name: Check native component fixtures (Linux)
+        if: runner.os == 'Linux'
+        run: npm run test:native
       - name: Check triangle geometry (Linux)
         if: runner.os == 'Linux'
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_triangle_test.c src/runtime/nv2a_triangle.c -lm -o "$RUNNER_TEMP/nv2a-triangle-check"
           "$RUNNER_TEMP/nv2a-triangle-check"
+      - name: Check line geometry (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_line_test.c src/runtime/nv2a_line.c -lm -o "$RUNNER_TEMP/nv2a-line-check"
+          "$RUNNER_TEMP/nv2a-line-check"
+      - name: Check quad geometry (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -ffp-contract=off tests/nv2a_quad_test.c src/runtime/nv2a_quad.c -lm -o "$RUNNER_TEMP/nv2a-quad-check"
+          "$RUNNER_TEMP/nv2a-quad-check"
+      - name: Check interrupt-vector services (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/interrupt_vector_test.c src/runtime/interrupt_vector.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/interrupt-vector-check"
+          "$RUNNER_TEMP/interrupt-vector-check"
       - name: Check boot-thread contexts (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -61,7 +78,7 @@ jobs:
           python tools/recomp_memory_access.py "$RUNNER_TEMP/owned-memory.inc"
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/virtual_memory_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/virtual-memory-check"
           "$RUNNER_TEMP/virtual-memory-check"
-          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/memory-access-check"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP" tests/memory_access_test.c src/runtime/virtual_memory.c src/runtime/device_registers.c -o "$RUNNER_TEMP/memory-access-check"
           "$RUNNER_TEMP/memory-access-check"
       - run: npm run test:gameplay
       - name: Check local volume services (Linux)
@@ -110,6 +127,13 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/fatx_volume_test.c src/runtime/fatx_volume.c src/runtime/local_disk.c src/runtime/object_namespace.c src/runtime/file_namespace.c src/runtime/local_volume.c src/runtime/local_directories.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/fatx-root-check"
           "$RUNNER_TEMP/fatx-root-check"
+      - name: Check unconnected synthetic AV query (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/av_query_fixture_test.c src/runtime/av_query.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/av-query-check"
+          "$RUNNER_TEMP/av-query-check"
+          gcc -std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Wall -Wextra -Werror tests/av_query_fixture_test.c src/runtime/av_query.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/av-query-sanitizer-check"
+          "$RUNNER_TEMP/av-query-sanitizer-check"
       - name: Check owned memory statistics (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -120,5 +144,20 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror tests/device_registers_test.c src/runtime/device_registers.c -o "$RUNNER_TEMP/device-registers-check"
           "$RUNNER_TEMP/device-registers-check"
+      - name: Check GPU instance claim (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/gpu_instance_test.c src/runtime/gpu_instance.c src/runtime/virtual_memory.c -o "$RUNNER_TEMP/gpu-instance-check"
+          "$RUNNER_TEMP/gpu-instance-check"
+      - name: Check port-output log (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/port_io_test.c src/runtime/port_io.c -o "$RUNNER_TEMP/port-io-check"
+          "$RUNNER_TEMP/port-io-check"
+      - name: Check TIME_FIELDS conversion (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror tests/time_fields_test.c src/runtime/time_fields.c -o "$RUNNER_TEMP/time-fields-check"
+          "$RUNNER_TEMP/time-fields-check"
       - run: npm run check:environment
       - run: git diff --exit-code

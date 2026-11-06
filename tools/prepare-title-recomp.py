@@ -28,7 +28,7 @@ def digest(data):
 
 
 def validate_instruction_count(count, limit=8192):
-    if type(limit) is not int or limit not in (8192,16384) or type(count) is not int or not 0<count<=limit:
+    if type(limit) is not int or limit not in (8192,16384,32768) or type(count) is not int or not 0<count<=limit:
         raise ValueError('Instruction count exceeds the explicit supported budget')
 
 
@@ -273,6 +273,7 @@ def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries
     if not isinstance(layout, list) or not 1 <= len(layout) <= 8192:
         raise ValueError("Invalid bounded envelope layout")
     cursor, seen, tables, padding_bytes, data_bytes = start, set(), [], 0, 0
+    byte_bytes = 0
     for part in layout:
         address, size, kind = int(part["start"], 16), part["bytes"], part["kind"]
         if address != cursor or type(size) is not int or size <= 0 or address + size > end:
@@ -292,16 +293,28 @@ def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries
                 if padding_bytes > 256:
                     raise ValueError("Alignment padding budget exceeded")
             elif kind == "data":
-                if size != 4 or part.get("dataType") != "pointer":
-                    raise ValueError("Only declared 32-bit local pointer-table data is supported")
-                target = int.from_bytes(raw, "little")
-                if target not in by_address:
-                    raise ValueError("Table data must target an established local instruction boundary")
-                if tables and tables[-1]["end"] == address:
-                    tables[-1]["end"] += 4; tables[-1]["targets"].append(target)
+                data_type = part.get("dataType")
+                if data_type == "pointer":
+                    if size != 4:
+                        raise ValueError("Only declared 32-bit local pointer-table data is supported")
+                    target = int.from_bytes(raw, "little")
+                    if target not in by_address:
+                        raise ValueError("Table data must target an established local instruction boundary")
+                    if tables and tables[-1]["end"] == address:
+                        tables[-1]["end"] += 4; tables[-1]["targets"].append(target)
+                    else:
+                        tables.append({"start": address, "end": address + 4, "targets": [target]})
+                    data_bytes += 4
+                elif isinstance(data_type, str) and data_type.lower() == "byte" and size == 1:
+                    # Defined non-pointer byte data (for example a byte lookup
+                    # table between two pointer tables). The exact byte was
+                    # already checked above; it is neither a table nor code.
+                    byte_bytes += 1
+                    if byte_bytes > 256:
+                        raise ValueError("Defined byte-data budget exceeded")
+                    data_bytes += 1
                 else:
-                    tables.append({"start": address, "end": address + 4, "targets": [target]})
-                data_bytes += 4
+                    raise ValueError("Only declared 32-bit local pointer-table data or single defined bytes are supported")
             else:
                 raise ValueError("Unknown envelope layout kind")
         cursor += size
@@ -380,7 +393,7 @@ def main():
     parser.add_argument("--profile", required=True, type=Path)
     parser.add_argument("--seed", required=True, type=Path, action="append", help="Repeat for checked exports (8 functions each)")
     parser.add_argument("--function-limit", type=int, choices=(64, 128, 256, 512), default=64, help="Explicit aggregate startup limit; 256/512 admit up to 32 export groups")
-    parser.add_argument("--instruction-limit", type=int, choices=(8192,16384), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
+    parser.add_argument("--instruction-limit", type=int, choices=(8192,16384,32768), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     args = parser.parse_args()
@@ -576,7 +589,10 @@ def main():
                 return_observations.append({"function": address, "sites": observations})
             if args.guard_memory:
                 from recomp_memory_access import instrument_memory_accesses
-                text, access_counts = instrument_memory_accesses(text)
+                try:
+                    text, access_counts = instrument_memory_accesses(text, address, info["end"])
+                except ValueError as error:
+                    raise ValueError(f"0x{address:08X}: {error}") from error
                 memory_observations.append({"function": address, **access_counts})
             generated.append(text)
     header = [f'#define FF_SOURCE_SHA256 "{sha}"', f'#define FF_ENTRY_ADDRESS 0x{profile["entry"]:08X}u',

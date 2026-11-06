@@ -52,4 +52,15 @@ uint32_t ff_disk_write(ff_local_disk *, const uint32_t args[8]);
 uint32_t ff_disk_close(ff_local_disk *, uint32_t);
 int ff_disk_owns_handle(uint32_t);
 uint8_t ff_disk_byte(const ff_local_disk *, uint64_t);
+/* Source-owned raw backing access for validated components. These helpers do
+ * not serve guest requests, allocate pages, change partition/view bounds or
+ * alter handle state. ff_disk_store requires ff_disk_has, so a failed preflight
+ * writes nothing. */
+uint32_t ff_disk_has(const ff_local_disk *, uint64_t offset, uint32_t bytes);
+uint32_t ff_disk_store(ff_local_disk *, uint64_t offset, const uint8_t *data, uint32_t bytes);
+/* Source-owned store for a newly owned range. It may allocate backing pages,
+ * but preflights the complete range and writes nothing when the bounded page
+ * store cannot supply every needed page. It never changes partition/view
+ * bounds or serves a guest request. */
+uint32_t ff_disk_store_allocate(ff_local_disk *, uint64_t offset, const uint8_t *data, uint32_t bytes);
 #endif

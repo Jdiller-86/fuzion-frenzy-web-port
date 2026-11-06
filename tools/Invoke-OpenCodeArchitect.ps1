@@ -2,7 +2,13 @@ param([switch]$DryRun)
 
 $ErrorActionPreference = 'Stop'
 if (-not $env:UNSLOTH_API_KEY) { $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User') }
-$repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$repo = $null
+foreach ($rootCandidate in @((Join-Path $PSScriptRoot '..'), (Join-Path $PSScriptRoot '..\..\..'))) {
+    $markerWorktree = Join-Path $rootCandidate '.worktrees\opencode-architect'
+    $markerModels = Join-Path $rootCandidate 'tools\opencode-builder-models.json'
+    if ((Test-Path -LiteralPath $markerWorktree) -and (Test-Path -LiteralPath $markerModels)) { $repo = (Resolve-Path -LiteralPath $rootCandidate).Path; break }
+}
+if (-not $repo) { throw 'Could not locate the repository root from the script location.' }
 $worktree = Join-Path $repo '.worktrees\opencode-architect'
 $statePath = Join-Path $repo '.worktrees\opencode-architect-cycle-state.json'
 $guidancePath = Join-Path $repo '.worktrees\opencode-architect-guidance.json'
@@ -68,10 +74,14 @@ try {
     $state.prSnapshot = $prSnapshot
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
 
-    $prompt = "You are the hourly GLM 5.3 Flash project architect and authority for bounded design decisions, priority changes, reviewed merges and GitHub PR management. This is the persistent integration branch codex/opencode-architect at $head; committed builder heads are source=$sourceHead, geometry=$geometryHead, local main=$mainHead. GitHub PR snapshot (metadata only; verify current state): $prSnapshot. Read AGENTS.md, docs/OPENCODE_GOAL.md, docs/DEVELOPMENT_HANDOFF.md, docs/PROJECT_STATUS.md, the current checkpoints, decisions and the corrected top of DEVELOPMENT_PLAN.md. Use git show/diff/log on those branch refs for current facts; your own branch may lag until you merge. Inspect any unfinished integration changes before new work. Each cycle decide whether committed source/geometry work merits a draft review PR into the integration branch, whether a clean integration head merits a PR into main, and whether an existing main PR is ready to merge. You must initiate PR creation yourself with exact markers at the end of your answer: OPEN_SOURCE_REVIEW_PR: <exact committed source HEAD>, OPEN_GEOMETRY_REVIEW_PR: <exact committed geometry HEAD>, or OPEN_MAIN_PR: <exact clean integration HEAD>. Emit only the markers you approve; omit any already-open PR. The runner is an authenticated actuator that rechecks and executes your requests; it never decides to open PRs on its own. Do not use shell commands to create or merge PRs. Compare actual original-game browser execution with the full fidelity, local-content and eventual online/social goal. Before spending architect steps on broad source reconnaissance, delegate one useful narrow read-only source lookup or commit classification to local Scout (unsloth/qwen3.8-27b), which now has a 32K configured context; give it exact paths, a small answer limit and no private content. Verify material Scout findings yourself. If Scout is unavailable or no useful bounded question exists, continue and report that in the review. Approve or revise consequential design decisions in docs/DECISIONS.md, update governing docs when evidence changes, and send concise priority directives to both builders. You may delegate other narrow work when useful, but do not duplicate the primary or geometry owners. You may merge reviewed committed branches into your integration branch after checking diff, source-only paths, targeted tests and conflicts; never discard edits or force a merge. Keep game files and private research local. Do not push: the runner publishes checked commits. Only if the exact clean integration HEAD is fully reviewed for main, all intended commits including local main are integrated, and GitHub checks and PR status can pass, end with MERGE_MAIN_PR: <your exact 40-character integration HEAD>. The runner will recheck and merge that PR without a direct push. Otherwise omit the marker and state the blocker. Put all PR markers immediately before the final ARCHITECT_REVIEW: <at most 700 characters of authoritative priorities for the primary and geometry builders, with evidence limits>. Do not claim playability without a controllable original screen."
-    $prompt += ' Make integration a concrete hourly deliverable. Review the current exact head of the existing main PR independently from unmerged builder branches: their conflicts or unfinished work do not by themselves block a previously reviewed integration head. If that PR head is fully reviewed, source-only, current with local main, and passes its exact-head checks, request MERGE_MAIN_PR for it; otherwise identify the specific unreviewed paths or failing gate on that PR head. Also inspect the oldest bounded committed builder change not yet integrated. If an independent slice can be reviewed and integrated safely, cherry-pick or merge that slice into this branch, run its targeted checks and record the accepted evidence; do not wait for an entire growing builder branch to become reviewable. If no slice qualifies, name the exact reason rather than adding another general review-only checkpoint. Never use a main merge marker to bypass the existing source, runtime, CI, ancestry or GitHub protections.'
-    $prompt += ' Actively manage both builders: compare their latest commits and outcomes with your last directive, identify task drift, repeated low-value documentation or fixture churn, and any stalled critical path. Give each active lane one specific next bounded result, acceptance check and stop condition. Redirect work when evidence changes; do not let a lane keep making unrelated prerequisites without a concrete link to the original-browser-execution milestone. If geometry lacks actionable reference evidence, emit GEOMETRY_CYCLE: HOLD before any PR markers; the runner will defer its hourly prompt to save free-model usage while primary continues. Otherwise emit GEOMETRY_CYCLE: RUN with a concrete geometry task. Keep any PR markers immediately before the final ARCHITECT_REVIEW as already specified. In ARCHITECT_REVIEW, lead with Primary: and Geometry: directives that builders can execute, and state exactly what you will review for integration next hour. A held lane is a resource decision, never a pause of the overall goal.'
-    $prompt += " A third verification builder at $verificationHead owns only source-owned integration/check tooling and matching tests. Review its exact head and give it a bounded task or HOLD, with a clear acceptance check. The GLM Flash manager assigns the three builders between your hourly reviews; you remain the design and merge authority. Include Verification: in the final directive."
+    $recentIntegration = (@(git -C $worktree log -4 --pretty=format:'%h %s') | Where-Object { $_ }) -join '; '
+    $prompt = "Hourly GLM Flash architect review. Integration=$head; source=$sourceHead; geometry=$geometryHead; verification=$verificationHead; local main=$mainHead. PR snapshot: $prSnapshot. Recent integration commits: $recentIntegration. Read AGENTS.md, docs/OPENCODE_GOAL.md and the TOP of current status/handoff/checkpoint; use Git for exact changed paths. Decide the existing main PR first. If its exact head equals your clean integration HEAD and passes reviewed source/runtime/CI/ancestry/mergeability gates, emit MERGE_MAIN_PR and make no branch edits or new integration commit this cycle; the runner rechecks before merging. Otherwise name the gate, then review one committed builder slice for integration. After reviewing and publishing a clean new integration head, emit both OPEN_MAIN_PR and QUEUE_MAIN_PR_MERGE with that exact head only if you approve its source, runtime, ancestry and local checks; the runner opens the PR and waits for green exact-head CI and live mergeability before mechanically merging. Never queue an unreviewed head or a branch with unfinished edits. Attribute any new integration commits with git show before describing them as unexplained. Keep the original-game browser route and local content boundary. Use Qwen Scout for one narrow lookup only when useful. Direct each lane to one bounded result or HOLD; prefer the next genuine execution blocker, not repeated documentation or test-only churn. The primary may batch related reached functions under the standing policy, stopping on unsupported service/register/resource or failed checks. Do not push, operate GitHub directly, discard edits, invent evidence, or claim playability. If justified, emit exact 40-character OPEN_SOURCE_REVIEW_PR, OPEN_GEOMETRY_REVIEW_PR or OPEN_MAIN_PR markers; emit MERGE_MAIN_PR only for the exact reviewed clean integration HEAD of an already green PR. QUEUE_MAIN_PR_MERGE is an architect approval for a newly opened exact-head PR pending CI, not a waiver of any runner gate. End with GEOMETRY_CYCLE: HOLD or RUN, any justified PR markers, then ARCHITECT_REVIEW: Primary: ... Geometry: ... Verification: ... Next integration: ... . Keep the review under 300 words before markers."
+    $mainIsIntegrated = $false
+    git -C $worktree merge-base --is-ancestor $mainHead $head 2>$null
+    if ($LASTEXITCODE -eq 0) { $mainIsIntegrated = $true }
+    if (-not $mainIsIntegrated) {
+        $prompt = "PR merge prerequisite: local main $mainHead is not in integration HEAD $head. Resolve and integrate local main under lane ownership first; review conflicts and run the relevant gates. Do not emit MERGE_MAIN_PR this cycle. Then give the builders one bounded next task. " + $prompt
+    }
     if (Test-Path -LiteralPath $guidancePath) {
         try {
             $priorGuidance = Get-Content -LiteralPath $guidancePath -Raw | ConvertFrom-Json
@@ -103,11 +113,13 @@ try {
             $oldPreference = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
             try {
+                # Only Go Flash may act as architect. On a recognized allowance
+                # or availability failure, free Flash may give a read-only review.
                 $candidates = @($architectModels) + @('opencode/glm-5.3-flash-free')
                 foreach ($candidate in $candidates) {
                     $modelUsed = $candidate
                     $runPrompt = if ($candidate -eq 'opencode-go/glm-5.3-flash') { $prompt } else { "Go GLM 5.3 Flash is unavailable; full GLM 5.3 is disabled by user policy. This is the source-only integration branch $head; builder heads are source=$sourceHead, geometry=$geometryHead, verification=$verificationHead. Read AGENTS.md, docs/OPENCODE_GOAL.md and current checkpoints. Give a provisional read-only progress review for all lanes. Do not edit, approve design decisions, merge or request promotion. End with ARCHITECT_REVIEW: followed by provisional advice." }
-                    $agent = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect' } else { 'reviewer' }
+                    $agent = if ($candidate -eq 'opencode-go/glm-5.3-flash') { 'architect_primary' } else { 'reviewer' }
                     if ($sessionId) {
                         $runOutput = & opencode run --auto --session $sessionId --agent $agent --model $candidate $runPrompt 2>&1
                     } else {
@@ -143,13 +155,14 @@ try {
     $state.finishedHead = $after
     $state.outcome = if ($exitCode -ne 0) { 'retry' } elseif ($dirtyAfter.Count -gt 0) { 'resume' } elseif ($after -ne $head) { 'integrated' } else { 'reviewed' }
     $response = ($output | Out-String).Trim()
+    $fullResponse = $response
     if ($response.Length -gt 1800) { $response = $response.Substring($response.Length - 1800) }
     $state.lastSummary = $response
     if ($exitCode -eq 0) {
-        $match = [regex]::Match($response, '(?m)^ARCHITECT_REVIEW:\s*(.+)$')
+        $match = [regex]::Match($fullResponse, '(?m)^ARCHITECT_REVIEW:\s*(.+)$')
         $summary = if ($match.Success) { $match.Groups[1].Value.Trim() } else { $response }
         if ($summary.Length -gt 1200) { $summary = $summary.Substring(0, 1200) }
-        $geometryCycleMatch = [regex]::Match($response, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
+        $geometryCycleMatch = [regex]::Match($fullResponse, '(?m)^GEOMETRY_CYCLE:\s*(HOLD|RUN)\s*$')
         $guidance = @{ created = $state.finished; head = $after; sourceHead = $sourceHead; geometryHead = $geometryHead; model = $modelUsed; approved = ($modelUsed -in $architectModels -and $dirtyAfter.Count -eq 0 -and $match.Success); summary = $summary; geometryCycle = if ($geometryCycleMatch.Success) { $geometryCycleMatch.Groups[1].Value } else { 'RUN' } }
         $tempPath = $guidancePath + '.tmp'
         $guidance | ConvertTo-Json | Set-Content -LiteralPath $tempPath -Encoding utf8
@@ -168,11 +181,11 @@ try {
         if ($guidance.approved -and $state.publication -eq 'published') {
             try {
                 $openArgs = @('-Action', 'Ensure', '-ExpectedHead', $after)
-                $openMain = [regex]::Match($response, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+                $openMain = [regex]::Match($fullResponse, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openMain.Success -and $openMain.Groups[1].Value -eq $after) { $openArgs += '-OpenMain' }
-                $openSource = [regex]::Match($response, '(?m)^OPEN_SOURCE_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
+                $openSource = [regex]::Match($fullResponse, '(?m)^OPEN_SOURCE_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openSource.Success -and $openSource.Groups[1].Value -eq $sourceHead) { $openArgs += @('-OpenSourceHead', $sourceHead) }
-                $openGeometry = [regex]::Match($response, '(?m)^OPEN_GEOMETRY_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
+                $openGeometry = [regex]::Match($fullResponse, '(?m)^OPEN_GEOMETRY_REVIEW_PR:\s*([0-9a-f]{40})\s*$')
                 if ($openGeometry.Success -and $openGeometry.Groups[1].Value -eq $geometryHead) { $openArgs += @('-OpenGeometryHead', $geometryHead) }
                 if ($openArgs.Count -gt 4) {
                     $prOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager @openArgs 2>&1
@@ -186,13 +199,36 @@ try {
                 $state.prError = $_.Exception.Message
             }
         }
-        $promotion = [regex]::Match($response, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+        $promotion = [regex]::Match($fullResponse, '(?m)^MERGE_MAIN_PR:\s*([0-9a-f]{40})\s*$')
         if ($guidance.approved -and $promotion.Success -and $promotion.Groups[1].Value -eq $after -and $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
             try {
                 $mergeOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $prManager -Action MergeMain -ExpectedHead $after 2>&1
                 if ($LASTEXITCODE -ne 0) { throw (($mergeOutput | Out-String).Trim()) }
                 $state.promotion = 'merged_pr'
                 $state.mergeResult = ($mergeOutput | Out-String).Trim()
+            } catch {
+                $state.promotion = 'pending_checks_or_review'
+                $state.promotionError = $_.Exception.Message
+            }
+        }
+        $queuedPromotion = [regex]::Match($response, '(?m)^QUEUE_MAIN_PR_MERGE:\s*([0-9a-f]{40})\s*$')
+        $openRequest = [regex]::Match($response, '(?m)^OPEN_MAIN_PR:\s*([0-9a-f]{40})\s*$')
+        if ($guidance.approved -and $queuedPromotion.Success -and $openRequest.Success -and
+            $queuedPromotion.Groups[1].Value -eq $after -and $openRequest.Groups[1].Value -eq $after -and
+            $state.publication -eq 'published' -and $state.prManagement -ne 'retry') {
+            try {
+                $prState = $state.prManagement | ConvertFrom-Json
+                if (-not $prState.openedMainPR -and $prState.mainPRStatus.head -ne $after) {
+                    throw 'The open main PR does not match the architect-approved head.'
+                }
+                $pendingPath = Join-Path $repo '.worktrees\opencode-main-merge-approval.json'
+                $pending = @{ head = $after; model = $modelUsed; approvedAt = (Get-Date).ToString('o'); base = $prState.remoteMain }
+                $pendingTemp = $pendingPath + '.tmp'
+                $pending | ConvertTo-Json | Set-Content -LiteralPath $pendingTemp -Encoding utf8
+                Move-Item -LiteralPath $pendingTemp -Destination $pendingPath -Force
+                $probe = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $worktree 'tools\Invoke-OpenCodePendingMerge.ps1') 2>&1
+                $state.promotion = if (Test-Path -LiteralPath $pendingPath) { 'queued_ci' } elseif (($probe | Out-String) -match 'Merged the exact architect-approved PR') { 'merged_pr' } else { 'pending_checks_or_review' }
+                $state.mergeResult = ($probe | Out-String).Trim()
             } catch {
                 $state.promotion = 'pending_checks_or_review'
                 $state.promotionError = $_.Exception.Message
@@ -211,6 +247,28 @@ try {
     } catch {
         $state.statusPublication = 'retry'
         $state.statusError = $_.Exception.Message
+    }
+    # Manager watchdog (W012): the hourly architect ensures the in-OpenCode
+    # orchestrator plugin is always running. A stale heartbeat triggers one
+    # direct fallback manager cycle; the result is recorded in cycle state.
+    $state.managerWatchdog = 'healthy'
+    try {
+        $managerHeartbeatPath = Join-Path $repo '.worktrees\opencode-manager-heartbeat.json'
+        $heartbeatFresh = $false
+        if (Test-Path -LiteralPath $managerHeartbeatPath) {
+            $heartbeat = Get-Content -LiteralPath $managerHeartbeatPath -Raw | ConvertFrom-Json
+            $beat = [DateTimeOffset]::MinValue
+            if ($heartbeat.beat -and [DateTimeOffset]::TryParse([string]$heartbeat.beat, [ref]$beat) -and [DateTimeOffset]::Now.Subtract($beat).TotalMinutes -le 20) { $heartbeatFresh = $true }
+        }
+        if (-not $heartbeatFresh) {
+            $state.managerWatchdog = 'recovering'
+            $recoverOutput = & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $worktree 'tools\Invoke-OpenCodeManager.ps1') -Force 2>&1
+            $state.managerWatchdog = if ($LASTEXITCODE -eq 0) { 'recovered' } else { 'recovery_failed' }
+            $state.managerWatchdogOutput = (($recoverOutput | Out-String).Trim())
+        }
+    } catch {
+        $state.managerWatchdog = 'recovery_error'
+        $state.managerWatchdogError = $_.Exception.Message
     }
     $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
     Write-Output ('Architect audit: ' + $state.outcome + ' model=' + $modelUsed)

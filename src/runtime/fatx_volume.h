@@ -4,7 +4,9 @@
 #include "object_namespace.h"
 
 /* Read-only FATX mounts over owned block backing. No prefilled tree, host disk
- * or original default geometry. File operations beyond root/size stop. */
+ * or original default geometry. Guest file operations beyond root/size stop;
+ * the root directory/file reader below is an owned component, not a guest
+ * service. */
 #define FF_FATX_MOUNTS 4u
 #define FF_FATX_FILES 16u
 #define FF_FATX_SCAN_CLUSTERS 262144u
@@ -13,6 +15,16 @@
 #define FF_FATX_HANDLE_LIMIT 0x00080000u
 #define FF_FATX_FILE_BASE 0x50000000u
 #define FF_FATX_FILE_LIMIT 0x50010000u
+#define FF_FATX_NAME 42u
+#define FF_FATX_ATTR_DIRECTORY 0x10u
+#define FF_FATX_PATH_BYTES 256u
+#define FF_FATX_PATH_DEPTH 8u
+#define FF_FATX_DIRECTORY_CHAIN 256u
+
+typedef struct {
+    char name[FF_FATX_NAME + 1];
+    uint32_t attributes, first_cluster, size;
+} ff_fatx_directory_entry;
 
 typedef struct {
     uint32_t id,partition,device,serial,sectors_per_cluster,cluster_bytes,entry_bytes;
@@ -34,5 +46,61 @@ uint32_t ff_fatx_query_size(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_close(ff_fatx_volume *,uint32_t handle);
 uint32_t ff_fatx_reference_handle(ff_fatx_volume *,uint32_t handle,uint32_t *file);
 uint32_t ff_fatx_release_file(ff_fatx_volume *,uint32_t file);
+/* Read-only directory/file access over the validated mount. These are
+ * source-owned components, not guest services; unsupported layouts stop.
+ * The directory entry passed to ff_fatx_read_entry must come from
+ * ff_fatx_root_entry, not from untrusted guest bytes. */
+uint32_t ff_fatx_root_count(ff_fatx_volume *,uint32_t mount,uint32_t *count);
+uint32_t ff_fatx_root_entry(ff_fatx_volume *,uint32_t mount,uint32_t index,ff_fatx_directory_entry *entry);
+uint32_t ff_fatx_read_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
+                            uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Enumerate an arbitrary directory reachable by a relative path; an empty path
+ * selects the root. These are source-owned read-only helpers. */
+uint32_t ff_fatx_directory_count(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                                 uint32_t flags,uint32_t *count);
+uint32_t ff_fatx_directory_at(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                              uint32_t flags,uint32_t index,ff_fatx_directory_entry *entry);
+/* Resolve a relative path of up to eight components and read a file. The path
+ * uses '\\' or '/' separators; flags 0x40 selects case-insensitive matching.
+ * These remain source-owned helpers, not guest services. */
+uint32_t ff_fatx_lookup(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                        uint32_t flags,ff_fatx_directory_entry *entry);
+uint32_t ff_fatx_read_path(ff_fatx_volume *,uint32_t mount,const uint8_t *path,uint32_t path_bytes,
+                           uint32_t flags,uint32_t offset,uint8_t *output,uint32_t capacity,uint32_t *bytes);
+/* Source-owned overwrite of an existing file's declared byte range. It writes
+ * only into already-backed clusters/pages; it does not allocate, extend,
+ * create, delete or remount. A preflight verifies the whole chain and every
+ * destination page before any byte is written, so an unsupported or missing
+ * backing leaves the file unchanged. The mount revision is refreshed on
+ * success. This is not a guest file service. */
+uint32_t ff_fatx_write_entry(ff_fatx_volume *,uint32_t mount,const ff_fatx_directory_entry *entry,
+                             uint32_t offset,const uint8_t *input,uint32_t bytes,uint32_t *written);
+/* Source-owned creation of an empty file (attribute 0x20) in an existing
+ * directory. It writes only the 64-byte directory entry; it does not allocate
+ * clusters, create directories or serve a guest request. A duplicate name,
+ * full directory, invalid name/path or missing backing page stops without a
+ * partial entry. */
+uint32_t ff_fatx_create_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                              const uint8_t *name,uint32_t name_bytes,
+                              ff_fatx_directory_entry *created);
+/* Source-owned creation of a single-cluster file (1..cluster_bytes) in an
+ * existing directory. It allocates exactly one free FAT cluster, preflights and
+ * writes the data through the bounded page store, sets the FAT terminator and
+ * records first cluster/size in the directory entry. It does not create
+ * directories, extend beyond one cluster, free clusters or serve a guest
+ * request. */
+uint32_t ff_fatx_create_file(ff_fatx_volume *,uint32_t mount,
+                             const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
+                             const uint8_t *name,uint32_t name_bytes,
+                             const uint8_t *data,uint32_t bytes,
+                             ff_fatx_directory_entry *created);
+/* Source-owned deletion of an empty file (size 0, first cluster 0) by path.
+ * It marks the matching directory entry deleted; it does not free clusters,
+ * delete directories, change the FAT or serve a guest request. Non-empty files,
+ * directories, missing paths and invalid requests are rejected without a
+ * partial write. */
+uint32_t ff_fatx_delete_empty(ff_fatx_volume *,uint32_t mount,
+                              const uint8_t *path,uint32_t path_bytes,uint32_t flags);
 int ff_fatx_owns_handle(uint32_t);
 #endif

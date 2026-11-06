@@ -4,9 +4,9 @@ Owner directive (Nov 5, user): recover the Nov 1–2 development tempo, fix exec
 
 ## Confirmed state to build from
 
-Current checkpoint: `docs/RENDERER_ENTRY_CHECKPOINT.md` — both synthetic browser profiles execute 234 original routines / 396 kernel operations through the admitted synthetic aperture `[0xFD000000, 0xFD800000)`, then stop at **untranslated original routine `0x1fe085`** (return `0x1fe5bd`). Build `recomp-title-post-memory-06` / `recomp-post-memory-build-16`, 344 functions / 12,878 instructions, ABI 24, module `d757d534…`. Pending decision: device write `0xfd009140`. Next original task: admit and translate `0x1fe085` from a retained read-only export and follow its next dependency. No renderer, no device model, no playable original screen.
+Current checkpoint: `docs/DEVELOPMENT_HANDOFF.md` line 1 and `docs/PROJECT_STATUS.md` — the runtime lane's boundary is a guest read fault in graphics initialization's free-framebuffer path: after the contiguous free and `CDevice_FreeFrameBuffers`, a helper loads a pointer field from the device-context object and dereferences it, and the field holds palette-ramp bytes (`0x68,0x69,0x6A,0x6B` = "hijk", from `FUN_001fdf83`) rather than a pointer, so the derived address is unmapped. Observed stop: status 10 at `0x6B6A6968`, 346 routines / 414 kernel operations (module 150 / profile 87). The faulting object is not the static device, and the ground-truth arbiter shows the register genuinely held the observed value at the read, so the capture/instrument question is settled and the open one is which executed path produces that value; no model, fix or translator edit is warranted yet. Next original task: obtain the decisive capture verdict or a blockers package with evidence. No renderer, no playable original screen.
 
-Superseded-but-do-not-regress: FATX utility-mount (317 fn / 10,612 instr / ABI 22) and MmQueryStatistics boundaries are done, retained and never cited as "current". The FATX aperture and storage rules, D060 WBINVD condition and every audit format remain as-is.
+Superseded-but-do-not-regress: FATX utility-mount (317 fn / 10,612 instr / ABI 22) and MmQueryStatistics boundaries are done, retained and never cited as "current". The earlier pending device-write decision at `0xfd009140` is superseded by lane evidence: the bounded inert aperture policy (D063/D064) resolved that computed write and both profiles advanced far past it, through the present/AV service path to the current stop. The FATX aperture and storage rules, D060 WBINVD condition and every audit format remain as-is.
 
 ## Definition of recovered speed (success metric)
 
@@ -22,25 +22,25 @@ Evidence-gated throughout: a milestone is closed only by the observed facts in i
 ### M0 — Recovery reset (complete within day 0; ≤4 commits total)
 1. `AGENTS.md` stage block and `DEVELOPMENT_HANDOFF.md` header cite only the current checkpoint with the exact numbers above (344 fn / 12,878 instr / ABI 24; stop `0x1fe085` return `0x1fe5bd`; decision `0xfd009140`). Check: no superseded boundary remains labelled current.
 2. Status repair: `PROJECT_STATUS.md` truncated to current state + last milestone + metrics pointer; all superseded sections moved to `docs/archive/`. Handoff keeps only the current task block.
-3. Naming scheme live (see Naming): all new branches `lane/*` or `tmp/*`; every `slice-*`, `sync-*`, `check-*` branch and its worktree deleted or renamed this cycle, recorded in the metrics log.
+3. Naming scheme live (see Naming): all new branches `lane/*` or `feature/*`; every `slice-*`, `sync-*`, `check-*` branch and its worktree deleted or renamed this cycle, recorded in the metrics log.
 4. Runner supports `-Lane runtime-b`: new worktree `.worktrees/opencode-runtime-b` forked from the current runtime-a head, own lock/session pin/log; the Windows task (`FuzionFrenzy-OpenCode-CycleB`, 5-min cadence offset from the primary) is created or its creation steps are handed to the user; one verified runtime-b cycle observed end-to-end.
 5. `docs/PROGRESS_METRICS.md` created (R7 format).
 Acceptance: all five verified by direct file/ref inspection at the next architect cycle, in one coherent commit plus the runner/task change.
 
-### M1 — Resume the boundary (within 2 primary cycles of M0)
+### M1 (completed by lane work, recorded) — graphics initialization executes past the device-table boundary with device services modeled
 - Scope: admit + translate reached `0x1fe085` and its immediate dependencies under the batch rule (R3); decide device write `0xfd009140` as a recorded D-number policy consistent with the aperture's no-fabrication rules; run both profiles.
 - Criteria (all required): the stop moves from `0x1fe085` to a new address/service in both profiles; audit JSON with zero source-identity mismatches; `npm run check`, `npm run test:runtime`, `python tests/title_seed_test.py` and owned fixtures pass; commit `M1: …` on `lane/runtime-a`; status paragraph ≤120 words; published with green CI.
 - Stop condition: an unsupported register/service/resource — record the stop exactly as observed; do not supply values.
 
-### M2 — Device-access policy (target day 1–2)
+### M2 — Device access governed by one recorded policy (target day 1–2)
 - Graphics-init device accesses are governed by one explicit recorded policy (read-back of known-written addresses, unknown-read faults, width/bounds rules) instead of per-address exceptions. No NV2A behavior, DMA, interrupt or rendering semantics may be inferred; the D060 condition stands.
 - Criteria: ≥10 admitted device events with `beforeKnown` provenance in reports; two additional boundary advances; the policy decision recorded; checks green.
 
-### M3 — Graphics initialization returns (target day 2–5, evidence-driven)
+### M3 — Graphics initialization returns and hands control to the next subsystem (target day 2–5, evidence-driven)
 - Original code completes the reached video-mode/graphics cluster (the cluster containing `0x001f7650`, `0x001fbb00`, `0x001fe05a`) and issues the first request of the next subsystem.
 - Criteria: cluster calls return through the caller chain in both profiles; the next-system request is observed in reports; checkpoint updated; checks green. No rendering-output claim may be made.
 
-### M4 — First output-surface-shaped boundary (evidence-driven, no date promised)
+### M4 — First presentation-target boundary (evidence-driven, no date promised)
 - Original code issues a first call targeting presentation-shaped storage (backbuffer/framebuffer-class) implemented under the same no-invention storage rules.
 - Criteria: the observed request and result appear in both profiles; docs describe it exactly as that and nothing more.
 
@@ -63,13 +63,14 @@ Cadence floor: if 48 h pass with <2 runtime advances after M0, the architect mus
 - Same-provider correlation risk is accepted by owner decision; mitigations: offset schedules, independent fallback chains, and a stated DECISIONS.md entry recording the user's direction. A provider-wide outage degrades both lanes to the fallback chain the same day rather than idling.
 - Conflict rule: first conflict between runtime lanes on one file → the integrator re-partitions ownership and records it; second conflict on the same file → that file gets a single owner.
 
-## Naming scheme
+## Naming scheme (feature-based; owner directive Nov 5)
 
 - Long-lived branches: `main`, `lane/integration`, `lane/runtime-a`, `lane/runtime-b`. Nothing else may persist.
-- Legacy branches (`codex/opencode-*`) are frozen: rename via the GitHub UI (which re-points open PRs) only when this does not break an in-flight review; otherwise keep as alias and retire when empty. Never create new work under legacy names.
-- Temporary branches: only `tmp/<topic>-<mmdd>`, deleted before their creating cycle ends; the runner reports leftovers.
-- Commit subjects: `M<n>: <result>` for runtime advances (e.g. `M1: translate 0x1fe085 batch; D066 device 0xfd009140 policy`), `ops: …` for orchestration-only work.
-- PR titles: review PR `[runtime-a] M<n> <summary>` lane → `lane/integration`; integration PR `[integration] M<n> <summary>` → `main`. Body template mandatory in five sections: Goal / Changes / Evidence (report IDs + stop address before→after) / Checks run / Limits. PRs touching CPU, memory, ABI or GPU code carry a review-pass posting before integration.
+- Feature-scoped branches are short-lived: `feature/<functional-slug>` (e.g. `feature/device-policy`, `feature/osd-input`), deleted in the cycle their PR merges or is closed.
+- Commit subjects name functional results: `M<n>: <functional result>` for runtime advances (e.g. `M2: device access governed by one recorded policy`), `ops: <chore>` for orchestration. Hex addresses, register names and decision IDs stay inside commit bodies, PR Evidence sections and checkpoints — never in commit subjects, PR titles, branch names or milestone labels, except where the named original routine itself is the readable feature name.
+- PR titles: review PR `[runtime-a] <functional slug>: <summary>` → `lane/integration`; integration PR `[integration] <functional slug>: <summary>` → `main`. Body template: Goal / Changes / Evidence (report IDs and the stop before→after — technical addresses allowed here) / Checks run / Limits. PRs touching CPU, memory, ABI or GPU code carry a posted review pass before integration.
+- Task cards: one functional objective per card, a human-readable description of the current boundary, and one technical evidence line quoting the exact checkpoint stop (status + address) for precision. A card whose target can only be understood by looking up hex fails this rule.
+- Legacy `codex/*` aliases are frozen; rename via GitHub UI only when no open PR references the branch.
 
 ## Operating rules (structure of execution)
 
@@ -78,11 +79,11 @@ R2 Status ring buffer: `PROJECT_STATUS.md` stays ≤ ~60 current lines; demoted 
 R3 Default work unit: one batch of ≤8 related reached functions / ≤2,000 instructions + its control/experiment comparison + both-profile run — the Nov 1–2 checkpoint rhythm, not finer slices.
 R4 Max two commits per lane per cycle; no preflight/manifest/validator/recap-only commits.
 R5 Review per batch, scoped to CPU/memory/ABI/GPU diffs; no blanket audit campaigns without a related change, regression or unresolved risk.
-R6 Anti-drift: ≥3 consecutive non-source cycles in any lane → the next cycle must be source work or an evidence-backed HOLD in `DECISIONS.md`; every task card quotes the current stop address so builders cannot work from stale targets.
+R6 Anti-drift: ≥3 consecutive non-source cycles in any lane → the next cycle must be source work or an evidence-backed HOLD in `DECISIONS.md`; every task card names the functional objective and carries one exact-stop evidence line (status + address) for precision.
 R7 Metrics: one line per lane commit in `docs/PROGRESS_METRICS.md`; the architect posts a weekly rollup; <2 runtime advances/48 h triggers a mandatory corrective decision.
 R8 Allowance fallback: same-cycle retry on the verified free route (as today); after 2 recognized failures per lane per day, the lane runs the rest of the day on fallback and returns to DeepSeek after a verified success.
 R9 Integration: the architect evaluates the current `main` PR head before editing its branch; merges only exact approved heads through the PR gate suite (source, runtime, CI, ancestry, mergeability); one integration PR per milestone sub-step or day.
-R10 No new persistent branches; leftover `tmp/*` deleted same cycle; no force pushes; no rewriting published history.
+R10 No new persistent branches; short-lived `feature/*` branches are deleted in the cycle their PR merges or is closed; no force pushes; no rewriting published history.
 R11 Reporting unchanged: every runtime advance ships two named browser reports and an independent audit JSON exactly as today; "current" docs cite only the newest audit.
 R12 No runtime-engine redesign under this goal: changes orchestration, naming and structure; the translation pipeline's admission rules change only through their own evidence-based decisions.
 
