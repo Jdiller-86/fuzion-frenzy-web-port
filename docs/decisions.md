@@ -12,6 +12,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D447 | Adopt domain source layout and repository-native tracking | Host, translator, renderer, portable/browser runtime and web boundaries; five parent issues with a small work breakdown, native relationships and verified progress exports. Metadata workflows start no coding agents or game execution. |
 | D448 | Add a public GitHub Project modeled after CTR-2-WUP | User-authorized board creation using an owner-configured Actions secret. Copy field/view configuration, import only this repository's managed issues, pin native Project identity and verify membership/status. Issue evidence owns milestone acceptance; board setup starts no implementation. |
 | D449 | Embed a derived tracking graph in the README | User-requested CTR-style SVG overview and interactive graph, refreshed from validated native issue status. Publish only report files to GitHub Pages, preserve source/snapshot provenance, keep task completion separate from accepted gates, and exclude original/private content. |
+| D450 | Persist the agreed local session agent structure | Project-local defaults select Sol High and up to two Luna Low workers; repository instructions define ownership, review and task boundaries. Verify model access and actual execution on each local client. Active sessions, global settings, private-input gates and unattended scheduling remain separate. |
 
 ## Contracts that remain in force
 

@@ -6,10 +6,19 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major !== 24 || minor < 14) throw new Error('Use Node >=24.14.0 and <25; see .node-version.');
 const has = relative => fs.existsSync(path.join(root, relative));
+const codexDefaults = fs.readFileSync(path.join(root, '.codex/config.toml'), 'utf8');
+const modelSetting = key => codexDefaults.match(new RegExp('^' + key + ' = "([^"]+)"$', 'm'))?.[1] ?? null;
 console.log(JSON.stringify({
   stage: 'Original-game browser execution feasibility; prior remake is research, not product acceptance',
   node: process.versions.node,
-  preferredModel: 'gpt-6.1-terra',
+  preferredModel: modelSetting('model'),
+  preferredReasoning: modelSetting('model_reasoning_effort'),
+  agentDefaults: {
+    workerModel: modelSetting('default_subagent_model'),
+    workerReasoning: modelSetting('default_subagent_reasoning_effort'),
+    maxConcurrentWorkers: Number(codexDefaults.match(/^max_concurrent_threads_per_session = ([0-9]+)$/m)?.[1]) || null,
+    note: 'Saved project configuration only; verify actual model availability and worker execution in the local client.'
+  },
   modelSelection: 'Project defaults do not replace an existing desktop chat model.',
   optionalLocalAnalysis: {
     ghidra: has('.tools/ghidra_12.1.4_PUBLIC/support/analyzeHeadless.bat'),

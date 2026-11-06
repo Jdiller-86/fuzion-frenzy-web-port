@@ -1,6 +1,6 @@
 # Startup batch blocked: [main-branch status](status.md)
 
-The user-directed batch centered on `FUN_001e93e4` stopped at private-input preflight on November 6, 2026. The matching executable, retained analysis project and verification directory are absent from this cloud workspace. [Status](status.md) records the checked paths and evidence limits. `main` remains the development baseline; implementation is paused at this prerequisite. No persistent project agent scheduler or model routing is configured.
+The user-directed batch centered on `FUN_001e93e4` stopped at private-input preflight on November 6, 2026. The matching executable, retained analysis project and verification directory are absent from this cloud workspace. [Status](status.md) records the checked paths and evidence limits. `main` remains the development baseline; implementation is paused at this prerequisite. [Local agent defaults](agents.md) support a Sol High coordinator and bounded Luna workers; no persistent development scheduler is configured.
 
 ## What is retained
 

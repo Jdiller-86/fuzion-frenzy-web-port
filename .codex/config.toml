@@ -1,3 +1,11 @@
-# Project defaults for future trusted Codex sessions; the desktop chat model picker can override them.
-model = "gpt-6.1-terra"
+# Defaults for future trusted sessions. The local client must expose these model IDs and agent options.
+# Session/model-picker overrides can supersede these defaults; verify actual worker execution.
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 2
+max_depth = 1
+default_subagent_model = "gpt-6-luna"
+default_subagent_reasoning_effort = "low"

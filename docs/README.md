@@ -8,6 +8,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Native issues, dependencies, status and progress reports | [Project management](management.md) |
 | Current main-branch evidence and baseline handoff | [Status](status.md) and [handoff](handoff.md) |
 | Setup, commands, prototype controls and check limits | [Development](development.md) |
+| Local Sol High coordinator, Luna workers and execution verification | [Agent setup](agents.md) |
 | Source boundaries and proposed architecture | [Architecture](architecture.md) |
 | Player files, conversion and content locality | [Content policy](content.md) |
 | Original-game fidelity and full parity | [Scope and compatibility](compatibility.md) |

@@ -1,6 +1,6 @@
 # Repository instructions
 
-Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md), and the relevant part of [the roadmap](plans.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. No project agent scheduler or model routing is configured.
+Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md), and the relevant part of [the roadmap](plans.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. [Local agent setup](docs/agents.md) defines session defaults; no persistent development scheduler is configured.
 
 ## Baseline state
 
@@ -63,6 +63,12 @@ Simulation and online authority remain unproved for the recompilation route. Pre
 
 ## Collaboration and publication
 
-Use bounded tasks with clear ownership and acceptance criteria. Follow the current user's delegation/model instructions without changing global providers, credentials, or an active session's model. Historical automation and lane directives in Git history are not operative configuration.
+Use the selected primary model as coordinator; the project default for new trusted sessions is `gpt-6.1-sol` with high reasoning. The coordinator owns decomposition, integration, acceptance review, staging and publication. Follow explicit current-user model preferences without changing global providers, credentials or an active session's model.
 
-Review the exact committed source before publication, preserve required repository protections, and check ancestry before updating a shared branch. Never infer original-game fidelity from a passing component suite or elapsed effort. No project scheduler, model routing, or unattended promotion tooling is configured.
+Automatically delegate independently useful, bounded tasks to `gpt-6-luna`, with low reasoning by default and medium for tasks that warrant it. Keep at most two spawned workers active at once, including any independent reviewer. Keep serial or tightly coupled work with the coordinator when delegation would duplicate context or add rework.
+
+Give each worker an observable result, exact file ownership, relevant evidence, checks and a stop condition. Prefer fresh task-specific context; when the tool exposes `fork_turns`, use `none` when selecting a different worker model. Workers return findings or scoped edits to the coordinator and do not spawn further workers or publish changes independently.
+
+Verify actual worker model/reasoning in execution metadata when available. Report unavailable models or missing multi-agent support instead of silently using a more expensive worker. Use an independent Sol High reviewer for uncertain CPU, memory, ABI or GPU correctness work when needed, within the same worker cap. Preserve all runtime-evidence and private-input stop conditions; session orchestration is not a persistent coding loop.
+
+Review the exact committed source before publication, preserve required repository protections, and check ancestry before updating a shared branch. Never infer original-game fidelity from a passing component suite or elapsed effort. Historical automation and lane directives in Git history are not operative configuration. No persistent scheduler or unattended promotion tooling is configured.
