@@ -679,3 +679,19 @@ mandatory corrective decision in docs/DECISIONS.md.
   belong to the prior head `9158e70`, so the new head's CI was not yet read green). The runtime-b chain
   (`9957144`..`cef3b6e`, 16 commits) is still unabsorbed (ancestor read exit 1). The machine's own next tick
   owns the merge landing. No runtime advance.
+- 2026-11-06 ~03:05 runtime-a counted advance #8: `a98af1f` (`0x001E4C62` -> `0x001E540F`, 358/429; `__lock_file2`
+  admitted; the interrupt family fully named). COUNTED - the >=8/DAY NIGHT TARGET MET. Pair line carries both profiles
+  (control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100); profile 93 = 481 functions / 19,693
+  instructions; module 168 = 1,027,106 bytes (SHA `285ab47a...`); verify-seeds 32/32/0/0; checks: native 56/56,
+  proof-report 23/23, `test:runtime` pass, `check` 486 files. The night's ledger is 8 counted advances (`ad0bffa` #1,
+  `d721550` #2, `a2a83de` #3, `91e5e0b` #4, `6fdcd98` #5, `9e563dc` #6, `768f31a` #7, `a98af1f` #8) - each a lane
+  commit moving the stop with both-profile evidence; no re-capture counted.
+- 2026-11-06 ~03:05 boundary fact (D442, merge/absorb): the machine's own state (`.worktrees/opencode-architect-cycle-state.json`,
+  mtime 02:42:20) still records `mergeResult` "Approved merge remains pending: PR is not cleanly mergeable: unstable"
+  with `promotion: queued_ci` and a `prSnapshot` whose `mainPRStatus` heads the PRIOR head `9158e70` (mergeable true,
+  clean, four SUCCESS checks), while the LIVE read at this write returns `{"headRefOid":"832efee...","mergeStateStatus":"CLEAN","mergeable":"MERGEABLE","state":"OPEN"}`
+  for PR #19 and the open set is exactly [#19], so PR #24 was never opened and `origin/main` stays at `97d831bd`. The
+  runtime-b chain `9957144`..`cef3b6e` (16 commits) remains unabsorbed at `832efee` (ancestor exit 1), as does `a98af1f`
+  (exit 1; `768f31a` is contained, exit 0); the D-rows reconcile at the merged blob (own max D440, `D438` still without a
+  number cell, measured gaps 421/422/427/428 plus the standing 303-307 and 349-354) is the pending pass. The machine's own
+  next tick is the named window for the live-read-driven merge. No runtime advance.
