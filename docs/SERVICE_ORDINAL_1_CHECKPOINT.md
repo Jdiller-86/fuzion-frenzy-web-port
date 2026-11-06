@@ -549,4 +549,14 @@ This is a translated stack-accounting/save-slot mismatch, not guest state, profi
 
 No DECISIONS row: characterization only.
 
+## 36. Correction: the off-by-one reading is provisional, not confirmed
+
+The pop-word capture cannot yet be tied to specific registers: the four last stack reads (`0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`) are **unordered with respect to the `edi/esi/ebp/ebx` pop sequence** — the probe records the value read at each site-0 stack access, not which register consumed it. Reading them as the epilogue order is an assumption.
+
+Two facts remain solid: (a) the field read at `0x1FC087` observes `ESI = 0x205E98` (arbiter-confirmed), and (b) the last monitored tail access `0x1FB71B` observes `ESI = 0x203B90` with only epilogue pops in between. The claim that the restore slots are off by one is therefore **provisional** and requires an order-tagged pop capture (record the pop sequence index and the destination register) before it is reported as a translator defect.
+
+Honest status: the writer is localised to the `FUN_001FB640` epilogue, the exact pop/register mapping is unconfirmed, and no fix or model is warranted. The next bounded task is the order-tagged pop capture.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
