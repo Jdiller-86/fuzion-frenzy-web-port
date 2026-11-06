@@ -597,9 +597,9 @@ Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-
 
 No DECISIONS row: characterization only.
 
-## 40. Blockers package published (D398)
+## 40. Blockers package published (D401)
 
-The defect-class capture question is closed. The blockers package is published as the newest entry in `docs/DEVELOPMENT_HANDOFF.md`, with D398 in `docs/DECISIONS.md`:
+The defect-class capture question is closed. The blockers package is published as the newest entry in `docs/DEVELOPMENT_HANDOFF.md`, with D401 in `docs/DECISIONS.md`:
 
 1. **Tested rule**: `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52). Literal reverse accepted; observed runtime order (saved-EDI `0x205E98` consumed first as ESI) rejected.
 2. **Candidate owners**:
@@ -627,5 +627,11 @@ That satisfies the ">=10 admitted device events with beforeKnown provenance" cri
 Next bounded task: record or confirm the device-access policy decision (D-row) against the existing provenance evidence, or pick the next M3 item once the translator-owned epilogue repair lands.
 
 No DECISIONS row this cycle: evidence snapshot only.
+
+## 42. Device-access policy recorded (D402)
+
+M2's remaining item is recorded as D402: device accesses are governed by the declared synthetic register window only — reads of previously written addresses return the shadow value with `beforeKnown` provenance; undeclared/unknown reads fault with the exact fault record (`status 10`, address/width/access/site); widths and bounds are restricted to the declared aperture; no unknown-read value is fabricated and no write is invented. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 with `beforeKnown`, 0 status waits. Two boundary advances since M1 are recorded in this checkpoint. No translator or guest-state change.
+
+Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401 blockers package) with the observed stop at `0x6B6A6968`; the next executable step depends on the translator owner's repair decision, so no new model or translation change is attempted here.
 
 No DECISIONS row: tooling characterization.

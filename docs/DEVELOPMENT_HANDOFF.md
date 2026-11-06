@@ -1,6 +1,6 @@
 # Runtime-a blockers package: FUN_001FB640 epilogue mismatch (repair owner needed)
 
-November 5. Defect-class capture is closed; this is the handoff package for the translator owner/user. Evidence is the same status-10 stop at `0x6B6A6968` with 346 routines / 414 kernel ops (D397/D398).
+November 5. Defect-class capture is closed; this is the handoff package for the translator owner/user. Evidence is the same status-10 stop at `0x6B6A6968` with 346 routines / 414 kernel ops (D397/D401).
 
 **(i) Tested rule.** `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h`, native test `tests/reg_save_order_test.c` (native 52/52). It accepts a pop sequence that is the exact reverse of the push sequence and rejects anything else. The observed runtime order — saved-EDI `0x205E98` consumed first as ESI — is rejected; the literal reverse is accepted.
 
