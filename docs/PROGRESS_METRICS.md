@@ -155,3 +155,26 @@ mandatory corrective decision in docs/DECISIONS.md.
   (restore slots off by one register, site `0x1FB72E` epilogue), so the current next step is to
   report the off-by-one save-slot finding to the translator owner. Stop unchanged at status 10 /
   `0x6B6A6968` / 346 routines / 414 kernel ops. No runtime advance. See D394.
+- 2026-11-05 executor: lane-b's nv2a wiring verified by content, not by message - `5289983`
+  registers `nv2a_line`/`nv2a_quad`/`nv2a_triangle` in `tools/run-native-tests.mjs` with
+  `linkFlags: ['-ffp-contract=off', '-lm']` after the translation units, matching the Linux CI
+  compile; diff is 3 lane-owned files (+38 -5) with no harness-ban path, and
+  `origin/lane/runtime-b` is still at that head. No runtime advance. See D395.
+- 2026-11-05 executor: the browser prepass comparison remains unimplemented in lane-b's tree -
+  the commit body records the native reference and prepass inputs as absent there, and the
+  read-only input check finds only triangle-side harnesses on main (`tools/compare-nv2a-geometry.mjs`
+  drives `_ff_nv2a_expand_triangle` with the four-word state;
+  `tools/fixtures/nv2a_geometry_check.html` is triangle-only) and no `prepass`-named file on the
+  frozen `codex/opencode-geometry` branch, whose line/quad reference is "captured locally, private
+  and unavailable in this worktree". The next card must locate and record those inputs before
+  implementing. No runtime advance. See D395.
+- 2026-11-05 executor: runtime-a tempo state unchanged - the off-by-one save-slot finding
+  (site `0x1FB72E` epilogue) is one third of a blockers package with the owner-side options still
+  absent, so the decisive-verdict deadline (<=2 cycles) is consumed and R7 remains 0 counted
+  advances; stop still status 10 / `0x6B6A6968` / 346 routines / 414 kernel ops and the next cycle
+  must land the completed package or a new boundary. No runtime advance. See D395.
+- 2026-11-05 executor: PR #19 advisory against merging now - `mergeable_state: clean` with 4/4
+  checks on head `18cce1d`, but that head still lacks `f9f503a`, `6ad7e9b`, `0864419`, `5d0d14c`,
+  `5289983` and the `2988892`-line records and keeps the `D383`/`D392` collisions, so a merge would
+  drop the M0 goal-doc, lane-cadence-revival and single-owner records; the architect must
+  reconcile the head per D394 first. No runtime advance. See D395.
