@@ -116,3 +116,26 @@ mandatory corrective decision in docs/DECISIONS.md.
   so a new runtime-b cycle began; primary Cycle still showed `LastRunTime 18:52:28` at
   the 3-minute observation boundary with `NextRunTime 19:45:00`. No runtime advance is
   claimed for this ops commit. See D392.
+- 2026-11-05 executor: discarded runtime-b's duplicate ESI-capture harness set after
+  confirming the dirty list was exactly five tracked modifications
+  (`src/runtime/proof-report.mjs` 19:48:13/34848, `src/runtime/thread-proof-worker.mjs`
+  19:47:32/115005, `tests/proof-report.test.mjs` 19:48:13/29269,
+  `tools/fixtures/thread_startup_probe.c` 19:48:00/126139,
+  `tools/run-native-tests.mjs` 19:46:59/7953) plus three untracked
+  (`src/runtime/esi_events.c` 1352, `src/runtime/esi_events.h` 1568,
+  `tests/esi_events_test.c` 2284, all 19:46:56); revert + clean left
+  `git status --short` empty. No runtime advance. See D393.
+- 2026-11-05 executor: `lane/runtime-b` commit `5d0d14c` hardens the single-owner boundary -
+  the handoff top block and the AGENTS current-checkpoint bullet now state runtime-b's owned
+  nv2a prepass objective and bar the capture harness; all later `## Prior:` sections are
+  untouched (2 files, +3 -3). No runtime advance. See D393.
+- 2026-11-05 executor: runtime-b publication gate in `tools/Invoke-OpenCodeCycle.ps1` extended
+  to deny the harness paths (`src/runtime/proof-report.mjs`,
+  `src/runtime/thread-proof-worker.mjs`, `src/runtime/esi_events.*`,
+  `tests/proof-report.test.mjs`, `tests/esi_events_test.c`,
+  `tools/fixtures/thread_startup_probe.c`): all seven test paths blocked, lane-owned nv2a
+  source/tests, `tools/run-native-tests.mjs` and lane docs still allowed, script parses with
+  zero errors. No runtime advance. See D393.
+- 2026-11-05 executor: `FuzionFrenzy-OpenCode-CycleB` re-armed after the boundary hardening -
+  `State Disabled -> Ready`, `Triggers[0].Enabled=True`, `NextRunTime 19:57:30` at 19:55:09
+  (`LastRunTime 19:47:30`, `LastTaskResult 0`). No runtime advance. See D393.

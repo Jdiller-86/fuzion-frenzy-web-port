@@ -78,7 +78,7 @@ function Test-LaneOwnership([string]$path, [string]$lane, [string]$before) {
         # fixtures/tests and the service checkpoint it updates. Seed export and admission/
         # prep tooling, scheduler/model scripts and the runtime-a checkpoint files stay
         # with their owners, so a violating commit is never published from this lane.
-        $unowned = '(^|/)(research|\.tools)/|^tools/(fixtures|ghidra|xemu)/|^tools/(prepare-title-recomp\.py|recomp_memory_access\.py|probe-[a-z-]+\.(py|mjs)|create_analysis_fixture\.py|bounded_layout_test\.py|[a-z-]*-toolchain\.json|opencode-builder-models\.json|(Invoke|Register|Publish)-OpenCode[^/]*)$|^docs/(RENDERER_ENTRY_CHECKPOINT|PROJECT_STATUS)\.md$'
+        $unowned = '(^|/)(research|\.tools)/|^tools/(fixtures|ghidra|xemu)/|^tools/(prepare-title-recomp\.py|recomp_memory_access\.py|probe-[a-z-]+\.(py|mjs)|create_analysis_fixture\.py|bounded_layout_test\.py|[a-z-]*-toolchain\.json|opencode-builder-models\.json|(Invoke|Register|Publish)-OpenCode[^/]*)$|^docs/(RENDERER_ENTRY_CHECKPOINT|PROJECT_STATUS)\.md$|^src/runtime/(proof-report\.mjs|thread-proof-worker\.mjs|esi_events\.[ch])$|^tests/(proof-report\.test\.mjs|esi_events_test\.c)$|^tools/fixtures/thread_startup_probe\.c$'
         foreach ($file in $changed) {
             if ($file -match $unowned) { throw "Lane $lane touched an unowned path: $file" }
         }
