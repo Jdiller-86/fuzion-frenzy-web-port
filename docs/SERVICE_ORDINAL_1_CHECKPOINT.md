@@ -699,4 +699,73 @@ Formal record for the translator owner: the repair question is now "why does the
 
 No DECISIONS row: evidence for D401.
 
+## 47. Compiled-artifact verdict: the owned macro pattern is LIFO-correct
+
+A minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the exact emitted sequence with the same macro shapes:
+
+- pushes `ebx(0x11), ebp(0x22), esi(0x33), edi(0x44)`;
+- pops `edi, esi, ebp, ebx` via `FF_MEMORY_POP`-style read-before-increment macros;
+- correct LIFO restore is `edi=0x44, esi=0x33, ebp=0x22, ebx=0x11` (packed `0x44332211`).
+
+Results:
+- **gcc (native suite)**: the reproducer returns 1 (`lifo-correct`), registered as `reg_save_compiled_probe`; native suite **54/54**.
+- **Emscripten standalone Wasm under Node**: `run_probe()` returns 1 (`lifo-correct`), so the compiled artifact preserves the emitted order.
+
+Verdict: the owned macro/expansion files (`src/runtime/recomp_memory_access.h` and the emission pattern) are **exonerated** — the compiled minimal artifact does not reproduce the shift. The full-module divergence is therefore specific to the toolkit/lifter-level code generation or register bookkeeping outside the lane's owned files. This is the M6 gate's fuzzed truth: the stop does not move and the defect is not in the lane-owned expansion.
+
+No fix, no model, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
 No DECISIONS row: tooling characterization.
+
+## 48. M3 pre-registration: cluster is reached; fault blocks the return path
+
+Read-only check of the retained experiment report (`browser-157-experiment.json`): the graphics-init cluster functions are all in the reached set — `0x1F7650` (`Direct3D_CreateDevice`), `0x1FBB00` (device constructor), `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0` (`D3DDevice_Release`), `0x1FC010`, and `0x1FB640` (`CDevice_FreeFrameBuffers`).
+
+The current fault sits inside the cluster's **return/teardown path** (`D3DDevice_Release → FUN_001FC010 → FUN_001FB640`), not at an unadmitted function or an unsupported service. M3's post-repair acceptance is therefore pre-registered as:
+
+1. the stop must move past `0x6B6A6968` in **both** named profiles (`browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`);
+2. the next observed request/system must appear in the reports (exact address/service recorded, not inferred);
+3. `[ESI+0x47C]` must read the device field (`0x20400C`) as part of a normal cluster return.
+
+Repair ownership is with the translator owner (candidate B); this lane makes no translator, toolkit, or fixture change. No code change is needed for M3 pre-registration.
+
+No DECISIONS row: evidence only.
+
+## 49. M2 policy application statistics (device log)
+
+From `browser-157-experiment.json` (`deviceRegisters.log`, 12,637 entries):
+
+| Metric | Value |
+| --- | --- |
+| Reads | 161 |
+| Writes | 12,476 |
+| Reads with `beforeKnown` | 161 (100%) |
+| Reads of previously written addresses | 68 |
+| Reads of unknown addresses | **0** |
+| Distinct device addresses | 5,298 |
+| Status waits | 0 |
+
+The policy is applied exactly as recorded in D402: every device read in the run is of an address previously written in the same run, and no unknown-address read occurred (the current fault at `0x6B6A6968` is a **guest-memory** read, not a device-register read). This keeps the M2 device-access evidence current while the translator-owned repair (candidate B) is pending.
+
+No DECISIONS row: evidence only.
+
+## 50. M2 policy in both profiles (control and experiment)
+
+Same computation on the control profile (`browser-157-control.json`, module `ee284034...`):
+
+| Metric | Control | Experiment |
+| --- | --- | --- |
+| Log entries | 12,592 | 12,637 |
+| Reads | 137 | 161 |
+| Reads `beforeKnown` | 137 (100%) | 161 (100%) |
+| Reads of previously written addresses | 54 | 68 |
+| Unknown-address reads | **0** | **0** |
+| Writes | 12,455 | 12,476 |
+| Distinct addresses | 5,298 | 5,298 |
+| Status waits | 0 | 0 |
+
+D402's device-access policy holds in **both** profiles with zero unknown-address reads, satisfying M2's "in both profiles" requirement independently of the pending candidate-(B) repair.
+
+No DECISIONS row: evidence only.

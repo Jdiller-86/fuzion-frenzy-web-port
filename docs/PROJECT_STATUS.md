@@ -1,4 +1,28 @@
-# Original XBE matches the emitted order; compiled-code binding is the open question
+# M2 policy verified in both profiles: zero unknown device reads
+
+November 5: the device-log policy (D402) is verified in **both** profiles — control `browser-157-control.json`: 12,592 entries, 137 reads (100% `beforeKnown`, 54 after write), 12,455 writes, 0 unknown reads, 5,298 distinct, 0 status waits; experiment `browser-157-experiment.json`: 12,637 entries, 161 reads (100%, 68 after write), 12,476 writes, 0 unknown reads, same distinct/status. M2's "in both profiles" requirement is met independently of the pending candidate-(B) repair.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 policy stats: 161/161 device reads beforeKnown, zero unknown reads
+
+November 5: device-log statistics from `browser-157-experiment.json` keep the M2 evidence current — 12,637 entries: 161 reads (100% `beforeKnown`, 68 of previously written addresses), 12,476 writes, **0 unknown-address reads**, 5,298 distinct device addresses, 0 status waits. D402's policy is applied exactly; the current fault at `0x6B6A6968` is a guest-memory read, not a device-register read. M3 acceptance remains pre-registered; repair ownership stays with the translator owner (candidate B).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M3 pre-registered: cluster reached, fault blocks the return path
+
+November 5: read-only check of `browser-157-experiment.json` confirms all graphics-cluster functions are reached (`0x1F7650`, `0x1FBB00`, `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0`, `0x1FC010`, `0x1FB640`); the fault sits in the cluster's return/teardown path, not at an unadmitted function or unsupported service. M3 post-repair acceptance is pre-registered: stop past `0x6B6A6968` in both named profiles, next request/system recorded exactly, and `[ESI+0x47C]` reading `0x20400C`. Repair ownership is the translator owner's (candidate B); no lane-side translator/toolkit/fixture change.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Compiled-artifact verdict: owned macro pattern is LIFO-correct (native+Wasm)
+
+November 5: a minimal source-owned reproducer (`tests/reg_save_compiled_probe.c`) mirrors the emitted push/pop sequence with the same macro shapes. Correct LIFO restore is packed `0x44332211`; the probe returns 1 (`lifo-correct`) under **gcc** (registered in the native suite, **54/54**) and as an **Emscripten standalone Wasm under Node**. The owned macro/expansion files are therefore **exonerated**: the compiled minimal artifact does not reproduce the shift. The full-module divergence is specific to toolkit/lifter-level code generation or register bookkeeping outside this lane's owned files — recorded as the M6 gate's fuzzed truth. No fix, model, or translator edit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Original XBE matches the emitted order; compiled-code binding is the open question
 
 November 5: read-only Ghidra check of the retained XBE (SHA `45bb49e1…`) — `CDevice_FreeFrameBuffers` prologue `0x1FB640..0x1FB643` is `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`, and epilogue `0x1FB72E..0x1FB732` is `POP EDI; POP ESI; POP EBP; POP EBX; RET`. Original bytes, emitted `.inc` and the tested rule all agree; the observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three with adjacent-proven attribution. The remaining discrepancy is in the compiled-code/register-identity layer. Formal question for the translator owner: why does the compiled module bind the `POP EDI` slot to `esi`? No fix or model.
 
