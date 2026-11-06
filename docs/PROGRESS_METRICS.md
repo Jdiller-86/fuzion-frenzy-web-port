@@ -431,3 +431,20 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-05 ops (D410): tempo fact - 0 counted advances and the stop unchanged at status 10 at
   `0x6B6A6968`, 346 routines / 414 kernel ops; runtime-b tip `c4e46bd` stays unabsorbed into
   PR #19 (next window ~23:40) and no user presence is needed for that route. No runtime advance.
+- 2026-11-05 ops (D411): 23:40 tick landed a new integration head `8940d3f` (was
+  `39a8fa8`) in ~93 s (started 23:40:02, finished 23:41:35) with `mainHead` `8339912`
+  (main through D410); containment: `39a8fa8`, `8339912` (D410) and `a9724a7` are in,
+  while runtime-b `9957144`->`446a9c9`->`c4e46bd`->`3333cc7`->`bddbab1` and runtime-a
+  `87d74be`, `7337147`, `677d191`, `2665586` are NOT contained. The tick's own
+  "408 rows with zero duplicates" claim is contradicted by its blob (`D405` x2,
+  `D376` x2, `D383` x2 at `8940d3f`), so renumbering must be applied at the integration
+  head. #19 read MERGEABLE/UNSTABLE with one check IN_PROGRESS; the later re-read shows
+  all four checks success and `mergeable_state` clean. runtime-a named the lifter-pop
+  divergence (its lane D412): `_lift_pop` "emits `POP32(esp, r)` with the decoded
+  register unchanged", runtime/compiled-artifact-only, "routed to the toolkit owner as
+  'source-correct, runtime-divergent' (D412)" with no toolkit-owner decision yet.
+  No runtime advance.
+- 2026-11-05 ops (D411): tempo fact - 0 counted advances and the stop unchanged at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; the toolkit-owner decision
+  on the D412 lifter divergence is the M6 path and the M3 acceptance stays
+  `[ESI+0x47C] = 0x20400C post-repair`. No runtime advance.
