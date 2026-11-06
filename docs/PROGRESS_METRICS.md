@@ -515,3 +515,87 @@ mandatory corrective decision in docs/DECISIONS.md.
   D404-era `FUN_001F6240` register-identity investigation) is superseded by the D412/D413 owner
   decisions, so the next card points runtime-a at the icall return-word repair implementation.
   No runtime advance.
+- 2026-11-06 ~00:50 runtime-a (M6 counted advance #1): `ad0bffa` Fix the ordinal-1 return-address
+  pop and advance past the fault - the modeled ordinal-1 handler now consumes the call's return
+  address, the stop moves from status-10-at-`0x6B6A6968` to status-1-at-`0xFE0000C8` (ordinal 100),
+  347/419; control invariant; reports + checkpoint on record; COUNTED. See D429.
+- 2026-11-06 ~00:50 ops (D429): 00:40 tick integrated - new integration head `10cae52` (was
+  `8940d3f`), `sourceHead ad0bffa` absorbed, runtime-b chain (`9957144`->`854958e`, 10 commits)
+  verified unabsorbed, `origin/main` unmoved (`97d831bd`), integration blob `418 rows` / max `D428` /
+  duplicate `D370`, `D376`, `D383`, `D405`, `D410` (renumber still pending), markers naming
+  `10cae5297…` instead of the real head `10cae5256…`, and PR #19 `OPEN`/`CLEAN`/`MERGEABLE` at
+  `10cae52`. Local records only; the tick's own work is orchestration. No runtime advance.
+- 2026-11-06 ~01:00 ops (D430): merge-marker-topology defect - the 00:40 tick's `OPEN_MAIN_PR:` /
+  `QUEUE_MAIN_PR_MERGE:` markers name `10cae52978585938ac4beee11b4680d1a4ac83c`, which
+  `git cat-file -t` rejects ("Not a valid object name"), while the real integration head is
+  `10cae52567e2076d36f537b9f7deed6ad1a668f8` (= `refs/pull/19/head`, contains the runtime-a chain);
+  the state file's 00:44:34 write carried the bogus hash with `prManagement:
+  no_architect_open_request`, so no merge request was ever issued - the runner must re-issue
+  against `10cae5256`. Orchestration only. No runtime advance.
+- 2026-11-06 ~01:00 ops (D430 tempo): the second counted advance is NOT due - the count stays 1
+  (`ad0bffa`); runtime-a's tip is unchanged at `ad0bffa` locally and on
+  `origin/codex/opencode-source`, no lane commit has moved the stop past `0xFE0000C8` (advance
+  record: status 1 at `0xFE0000C8`, ordinal 100, 347/419), the pre-advance shape remains status 10
+  at `0x6B6A6968` / 346 / 414, main's `docs/PROJECT_STATUS.md` still carries the pre-advance text,
+  and runtime-b's tip `854958e` shows no new boundary (its in-flight set is 6 interrupt-vector /
+  kernel-service files, not the already-committed geometry refactor). No runtime advance.
+- 2026-11-06 ~01:05 ops (D431 repeat capture): the module-161 pair re-run is a reproducibility
+  capture, not a second counted advance - runtime-a's own record quotes "control unchanged at
+  status 13 `0xFD800044` (339/405); experiment advances past the fault to status 1 at
+  `0xFE0000C8`, ordinal 100 (`KeDisconnectInterrupt`, argument `0x206030`), 347 routines / 419
+  kernel ops", i.e. the SAME numbers D429 counted, from the SAME `browser-161-*` reports
+  (mtimes 00:17:17 / 00:29:32, both earlier than the D429 record); the live lane worktree's
+  uncommitted `browser-162-*` pair (00:57:23 / 00:59:53) prints the identical stop. The count
+  stays 1; no boundary move past `0xFE0000C8` is recorded. No runtime advance.
+- 2026-11-06 ~01:05 ops (D431 chain): the merge marker is still mis-issued - the 00:40 tick's
+  `lastSummary` carries `OPEN_MAIN_PR:` / `QUEUE_MAIN_PR_MERGE: 10cae52978...`
+  (`git cat-file -t` -> "Not a valid object name") while the real `refs/pull/19/head` is
+  `10cae52567...` (state `prManagement: no_architect_open_request`, no #24/#25 opened), so the
+  D430 re-issue directive stands; the runtime-b chain `9957144`->`854958e` is still unabsorbed
+  (containment exit 1 for all nine at `10cae52567`, `ad0bffa` exit 0), the lane-b cycle reads
+  `outcome: resume` / `finishedHead 854958e` / `publication: retry` ("Worktree has unfinished
+  edits"), the 6-file kernel/service set is still in flight, the comparator accounting is inside
+  `854958e`, and runtime-a is at `ad0bffa` with its 00:40:01 cycle in flight. No runtime advance.
+- 2026-11-06 ~01:10 ops (D432 lane): runtime-b named and modeled the reached ordinal-100 service in
+  `553a0f6` ("service: name and model the reached ordinal-100 KeDisconnectInterrupt", 01:05:07
+  -0500), 7 files +236 -3 (`docs/RUNTIME_B_SERVICE_CHECKPOINT.md`, `src/runtime/interrupt_vector.c/.h`,
+  `src/runtime/kernel-service.mjs`, 2 tests, `tools/run-native-tests.mjs`); the checkpoint quotes
+  `kernel-service+comparator 16/16`, `test:native 58/58`, `test:runtime` 214 pass / 1 skip / 0 fail,
+  `check` 490 files, whitespace clean, and the restraint line "No original code was run, no
+  ordinal-100 call was served". It is the SAME boundary runtime-a's first advance reached
+  (`ad0bffa`): runtime-b quoted that stop rather than re-observing it, is identity-only in the
+  runtime-owned report contract, and its handler wiring is runtime-a-owned, so no run advance is
+  claimed. Live corrections to the brief: the commit is now published (remote `lane/runtime-b` =
+  `553a0f6`, was `854958e`) and the lane worktree is clean, so the erstwhile 6-file in-flight set is
+  that commit's content. No runtime advance.
+- 2026-11-06 ~01:10 ops (D432 tempo): the count stays **1** - no stop move past `0xFE0000C8`; the
+  recorded stop is unchanged at status 1, `0xFE0000C8`, ordinal 100 (the first-advance record),
+  347 routines / 419 kernel ops. `origin/main` remains `97d831bd` (local main 37 ahead), the 00:40
+  tick's markers still name the bogus `10cae52978...` ("Not a valid object name") so the D430/D431
+  re-issue directive stands, PR #19 reads `OPEN`/`MERGEABLE`/`CLEAN` at `10cae52567`, and `553a0f6`
+  is unabsorbed. No runtime advance.
+- 2026-11-06 ~01:15 ops (D433, three negative checks): the 00:40 tick's `OPEN_MAIN_PR` /
+  `QUEUE_MAIN_PR_MERGE` markers still name `10cae52978...` (`git cat-file -t` ->
+  "Not a valid object name") while `origin/main` stays `97d831b` and `refs/pull/19/head` reads
+  `10cae5256`, so the corrected marker stands at `10cae5256`; the PR head lacks the runtime-b
+  chain (`9957144` / `854958e` / `553a0f6` / `eb33cd9`, all containment exit 1) but DOES contain
+  the runtime-a tail (`87d74be`...`8924710`, exit 0 - correcting the audit's Check (2)); the
+  PR-head `docs/DECISIONS.md` blob is 418 rows / max D428 with `D405 x2` against local main's
+  408 rows / max D432 with `D405 x1`. No runtime advance.
+- 2026-11-06 ~01:15 ops (D433 divergence and tempo): the divergence is bidirectional - local main
+  (`37551c9`) contains neither `ad0bffa` nor `10cae5256` (exit 1 each), merge-base(main, PR19 head)
+  = `1275473`, main-only = 4 commits (D429-D432 doc rows), PR19-only = 57 commits (source chain),
+  so a reconciled superset needs BOTH lines with the D-row renumber applied at the integrated blob.
+  Tempo: count stays 1 - stop unchanged at status 1, `0xFE0000C8`, ordinal 100 (the first-advance
+  record), 347 routines / 419 kernel ops; the runtime-b "stop move" quote is runtime-a's D429-era
+  record transcribed verbatim. No runtime advance.
+- 2026-11-06 ~01:30 runtime-a counted advances #2 AND #3: d721550 (0xFE0000C8 → 0x004F7A0 placeholder,
+  modeled ordinal-100) and a2a83de (0x004F7A0 → 0x004C2E0 at 348/421, FUN_0004f7a0 admitted;
+  module 163; 3 browser-163 reports as R11 evidence); both-profile evidence; COUNTED.
+- 2026-11-06 ~01:35 ops (D434 integration-state gap): the integration head `10cae5256` absorbs the
+  runtime-a chain only up to `8924710` - `d721550` and `a2a83de` exit 1 on `git merge-base
+  --is-ancestor` - and the runtime-b chain `9957144`→`eb33cd9` is likewise unabsorbed; the D-rows
+  renumber is unapplied at that blob (`D405 x2`) and the tick's bogus marker
+  `10cae52978585938ac4beee11b4680d1a4ac83c` is still uncorrected at the tick, so the machine's own
+  ticks still absorb nothing of the lane tails and those two items are what remains outstanding at
+  the integration side. No runtime advance.
