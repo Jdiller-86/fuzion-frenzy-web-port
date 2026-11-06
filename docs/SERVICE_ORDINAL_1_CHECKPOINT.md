@@ -1502,3 +1502,60 @@ This is a diagnostic-budget stop, not a guest fault and not a time-source mismat
 Next bounded task: make repeated counter polls stop consuming the diagnostic budget - the smallest evidenced change is to coalesce a run of consecutive identical ordinal-126/127 calls into one row with a bounded repetition count (report shape and `completedKernelOperations` stay derived from the rows), then report the next stop. A rolling log is the alternative if coalescing is rejected.
 
 Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 85. Coalesce performance polls; the bounded trace is the next budget
+
+The poll loop was coalesced instead of followed by another capacity bump. `kernel_record` now returns the previous row when a zero-argument ordinal 126 or 127 call immediately repeats it, counting the repeat in a new `kernel_repeats` row array; the check runs before the capacity guard, so a full log still coalesces polls. The probe exports `ff_probe_kernel_repeat`, the worker attaches `repetitions` to each call row (1 when the export is absent), and `proof-report.mjs` validates the field (integer 1..0xFFFFFFFF) while still accepting rows without it. `tests/proof-report.test.mjs` pins both shapes (**25/25**).
+
+Module `recomp-post-memory-build-191` (unchanged profile 109): **1,115,159 bytes**, SHA-256 `258d3ff19a2e4d516d8998f1a73e6eeea5b7949f1b03f5a69f19cf9853bd25f6`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 5 at `0x001DF8A0`** | **386 / 496** |
+
+The coalescing worked as designed: the experiment records **509 call rows** instead of 1024, with the final poll row carrying **566 repetitions**, and it advanced past the wait loop to a new stop. The stop is now the **bounded probe trace**: `status 5` at `0x1DF8A0` with all 8192 trace entries used, return address `0x4C581`, and the frequency `733333333` still visible in the frame. The guest is looping through translated functions long enough to exhaust the trace, not failing in a modeled service.
+
+Next bounded task: raise or coalesce the bounded probe trace for repeated poll-loop iterations while keeping the reported entry sequence honest; raise `FF_TRACE_CAPACITY` together with its JS acceptance and report bound, or coalesce identical repeated entries, then report the next stop.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 495 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 86. Trace capacity doubled; the poll loop still exhausts it
+
+The initializer-batch trace capacity was raised from 8192 to **16384**, with the four consumers kept in step: `FF_TRACE_CAPACITY` in the probe, `proofTraceCapacity` in `local-title-proof.mjs`, the metadata-format check in `thread-proof-worker.mjs`, and `TRACE_LIMIT` in `proof-report.mjs`. The zero-initialised trace storage stays in BSS, so the module byte size is unchanged.
+
+Module `recomp-post-memory-build-192` (unchanged profile 109): **1,115,159 bytes**, SHA-256 `971de812f35fc86169fe3e41fd6e6a25d3c4dee5ed410820bdd9fc0912afd06a`.
+
+| Run | Stop | Routines / ops | Trace |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 | 4810 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 | 4903 |
+| experiment | **status 5 at `0x001E8E5F`** | **386 / 496** | **16384** |
+
+The experiment advanced past the previous trace stop (`0x1DF8A0`) to the matching counter helper `0x1E8E5F` at return address `0x4C55A`, then filled the doubled trace as well. The wait loop is longer than any single capacity bump, so raising the bound again would only move the wall.
+
+Next bounded task: coalesce the repeated poll-loop trace (identical enter/exit pairs for the already-translated time helper) or otherwise bound the loop, keeping the reported entry sequence and distinct-routine count honest; then report the next stop.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. The DECISIONS archive split restored the shared numbering, so this cycle records no new decision row.
+
+## 87. Coalesce repeated four-entry trace cycles; the wait loop ends and a memory stop appears
+
+A 32768-row trace was tried first and still filled (the loop's entry count scales with real time), so the bound was set back to 16384 and the trace itself was coalesced.
+
+- `trace()` now detects two identical consecutive four-entry cycles (the guest's `enter/exit/enter/exit` poll loop), keeps the first, drops the duplicate, stores a signature, and absorbs further matching entries one by one while incrementing a per-row repeat count. Any mismatch disarms the coalescer and normal tracing resumes.
+- The probe exports `ff_probe_trace_repeat`; the worker attaches `repeats` to matching trace rows and `proof-report.mjs` validates the field (integer 1..0xFFFFFFFF) while accepting rows without it.
+
+Module `recomp-post-memory-build-194` (unchanged profile 109): **1,115,655 bytes**, SHA-256 `da5efa623b17d64535438b1218aa7bf6461af2a201d01b3f70c067bc7938fa10`.
+
+| Run | Stop | Routines / ops | Trace |
+| --- | --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 | 4810 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 | 4253 (25 coalesced rows) |
+| experiment | **status 13 at `0x03C10DC0`** | **386 / 496** | **4948 (31 coalesced rows, max 32,489)** |
+
+The coalescer collapsed the wait loop: the experiment's trace fell from a filled 16384 to 4948 rows with one cycle repeated **32,489** times, the loop finished, and the run advanced to a new stop class - **status 13 (guest memory access refusal) at `0x03C10DC0`**, ordinal 1, with the report's `stopReason` "pushbuffer consumption required" and `completedInitializers` still 83/83.
+
+Next bounded task: identify the refused access at `0x03C10DC0` (inside the mapped 4 MiB stack-adjacent region at `0x03C00000`, whose pages report protection 0) and decide whether the aperture is missing a committed page or the access is genuinely outside the stack contract; halt-and-report the result.
+
+Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean.

@@ -75,6 +75,18 @@ test('the debug-service log is bounded and shape-checked', () => {
   })), /requires its captured length/);
 });
 
+test('a kernel call row may record coalesced poll repetitions', () => {
+  const call = { ordinal: 126, status: 0, arguments: [0], repetitions: 516 };
+  const valid = report({ calls: [call] });
+  assert.equal(validateProofReport(valid), valid);
+  const legacy = report({ calls: [{ ordinal: 126, status: 0, arguments: [0] }] });
+  assert.equal(validateProofReport(legacy), legacy);
+  assert.throws(() => validateProofReport(report({ calls: [{ ...call, repetitions: 0 }] })),
+    /repetition count/);
+  assert.throws(() => validateProofReport(report({ calls: [{ ...call, repetitions: -1 }] })),
+    /repetition count/);
+});
+
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
   const valid = report({
     experiments: ['pfifoReset'],

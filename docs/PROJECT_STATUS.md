@@ -1,4 +1,34 @@
-# Kernel-record capacity raised; the guest's counter-poll loop is the new limit
+# Trace cycles coalesced; the wait loop ends at a guest memory stop
+
+November 6: a 32768-row trace still filled (the loop scales with real time), so the bound returned to 16384 and the trace itself was coalesced. `trace()` now detects two identical consecutive four-entry cycles, keeps the first, counts repeats, and absorbs further matches entry by entry; the probe exports `ff_probe_trace_repeat`, the worker attaches `repeats`, and `proof-report.mjs` validates it. Module 194 (unchanged profile 109) = 1,115,655 bytes SHA `da5efa62...`.
+
+Pair: control 339/405 (trace 4810); inert 347/419 (trace 4253, 25 coalesced rows); experiment **status 13 at `0x03C10DC0`, 386 routines / 496 kernel ops**, trace 4948 with one cycle repeated **32,489** times. The wait loop completed and the run reached a new stop class - a guest memory access refusal inside the mapped 4 MiB stack-adjacent region at `0x03C00000` (report `stopReason` "pushbuffer consumption required", initializers still 83/83).
+
+Next task: identify the refused access at `0x03C10DC0` and decide whether the aperture lacks a committed page or the access is outside the stack contract; halt-and-report. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Trace capacity doubled; the poll loop still exhausts it
+
+November 6: the initializer-batch trace capacity was raised 8192 → **16384**, with the probe constant, `proofTraceCapacity`, the worker's metadata-format check and `TRACE_LIMIT` all updated together. Module 192 (unchanged profile 109) = 1,115,159 bytes SHA `971de812...`; zero-initialised trace storage keeps the byte size unchanged.
+
+Pair: control 339/405 (trace 4810); inert 347/419 (trace 4903); experiment **status 5 at `0x001E8E5F`, 386 routines / 496 kernel ops**, return address `0x4C55A`, trace **16384**. The run advanced past the previous trace stop (`0x1DF8A0`) and filled the doubled trace as well, so the wait loop outlasts any single capacity bump.
+
+Next task: coalesce the repeated poll-loop trace for the already-translated time helper (or otherwise bound the loop) while keeping the entry sequence and distinct-routine count honest, then report the next stop. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 496 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: DECISIONS.md split under 5 MiB; runtime stop unchanged at the trace capacity
+
+November 6: architect Primary docs task. `docs/DECISIONS.md` is now **0.65 MB**: D001-D219 and the W0xx/A0xx cadence rows (256 rows) moved to `docs/archive/DECISIONS_PRIOR_20261106.md` (0.28 MB) with a pointer row in place, and D448 records the split. All 467 rows from the integration head are preserved (211 current + 256 archived, no overlap, none missing). The bloat was repeated encoding mangling, not duplicate rows; 39 historic rows whose integration copy was mangled now use this lane's clean text, so the archive carries no mangling.
+
+Runtime frontier unchanged: experiment **status 5 at `0x001DF8A0`, 386 routines / 496 kernel ops**, bounded probe trace (8192 entries). Next task: raise or coalesce the bounded trace for repeated poll-loop iterations, then report the next stop. Checks: `npm run check` exit 0, `git diff --check` clean, `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass. No main push/merge; geometry untouched.
+
+## Prior: Counter polls coalesced; the bounded probe trace is the next budget
+
+November 6: consecutive zero-argument ordinal-126/127 calls now share one call row with a repetition count (`kernel_repeats`, new `ff_probe_kernel_repeat` export, `repetitions` in the report, validated 1..0xFFFFFFFF; proof-report 25/25). Module 191 (unchanged profile 109) = 1,115,159 bytes SHA `258d3ff1...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 5 at `0x001DF8A0`, 386 routines / 496 kernel ops**, return address `0x4C581`. Coalescing worked: 509 call rows instead of 1024, the final poll row carrying **566 repetitions**, and the run advanced past the wait loop. The new stop is the **bounded probe trace** (all 8192 entries used), not a guest fault; the frequency `733333333` is still visible in the frame.
+
+Next task: raise or coalesce the bounded probe trace for repeated poll-loop iterations (keep the reported entry sequence honest), then report the next stop. Checks: `test:native` 64/64, proof-report 25/25, `test:evidence` 6/6, `test:runtime` 201 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Kernel-record capacity raised; the guest's counter-poll loop is the new limit
 
 November 6: the 512-row kernel-call log was raised to **1024** for the initializer-batch proof, with `local-title-proof.mjs` and `thread-proof-worker.mjs` accepting the new capacity (512 remains valid for older modules; the non-initializer tier stays 256). Module 190 (unchanged profile 109) = 1,122,451 bytes SHA `8e760da8...`.
 

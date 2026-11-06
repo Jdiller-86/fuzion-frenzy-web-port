@@ -33,7 +33,7 @@ self.onmessage = async event => {
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
     if(api.ff_probe_abi()>=15 && (!(initializerAbi?[512,1024]:[256]).includes(proofKernelCapacity(api)) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
-    if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
+    if(metadataAbi && !(initializerAbi?[8192,16384]:[1024]).includes(proofTraceCapacity(api))) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
     if(regularAbi && ['file_storage_capacity','regular_word','regular_name','regular_byte','file_information_word','create_request_word','create_request_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing regular-file storage ABI');
     if(fileLinkAbi && ['file_word','file_resolution'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing retained file-link ABI');
     if (directoryAbi && ['directory_word','directory_name'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing owned directory ABI');
@@ -240,13 +240,17 @@ self.onmessage = async event => {
     const words = new Uint32Array(memory, range(api.ff_probe_trace(), count * 12, 4), count * 3);
     const hasCpuTrace = typeof api.ff_probe_trace_cpu === 'function';
     const trace = Array.from({ length: count }, (_, i) => ({ kind: words[i * 3] === 1 ? 'enter' : 'exit',
-      address: words[i * 3 + 1], stack: words[i * 3 + 2], ...(hasCpuTrace ? { cpu: {
+      address: words[i * 3 + 1], stack: words[i * 3 + 2],
+      ...(typeof api.ff_probe_trace_repeat === 'function' && api.ff_probe_trace_repeat(i) > 0
+        ? { repeats: api.ff_probe_trace_repeat(i) >>> 0 } : {}),
+      ...(hasCpuTrace ? { cpu: {
         eax: api.ff_probe_trace_cpu(i, 0) >>> 0, fs: api.ff_probe_trace_cpu(i, 1) >>> 0,
         exceptionHead: api.ff_probe_trace_cpu(i, 2) >>> 0 } } : {}) }));
     const state = Array.from(new Uint32Array(memory, range(api.ff_probe_state(), 64, 4), 16));
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
     const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
       status: api.ff_probe_kernel_word(i, 1) >>> 0,
+      repetitions: typeof api.ff_probe_kernel_repeat === 'function' ? (api.ff_probe_kernel_repeat(i) >>> 0) : 1,
       arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
     calls.forEach((call, i) => {
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)

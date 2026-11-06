@@ -10,7 +10,7 @@
  */
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 
-export const TRACE_LIMIT = 8192;
+export const TRACE_LIMIT = 16384;
 export const DEVICE_EVENT_LIMIT = 32768;
 export const DEVICE_ENTRY_LIMIT = 8192;
 /* Must stay in sync with FF_DEVICE_STATUS_WAITS; each declaration supplies at most
@@ -39,6 +39,9 @@ export function validateProofReport(report) {
   for (const entry of report.trace) {
     if (!entry || typeof entry.kind !== 'string' || !integer(entry.address) || !integer(entry.stack))
       throw new Error('Malformed trace entry');
+    if (entry.repeats !== undefined &&
+        (!integer(entry.repeats) || entry.repeats < 1 || entry.repeats > 0xFFFFFFFF))
+      throw new Error('Malformed trace repetition count');
   }
   /* The reached-routine list is derived from the bounded trace; a hand-written
    * report must not smuggle an unbounded or malformed list past the contract.
@@ -402,6 +405,11 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      /* A coalesced run of consecutive performance-counter polls keeps one
+       * row and states how many calls it represents. */
+      if (call.repetitions !== undefined &&
+          (!integer(call.repetitions) || call.repetitions < 1 || call.repetitions > 0xFFFFFFFF))
+        throw new Error('Malformed kernel call repetition count');
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
