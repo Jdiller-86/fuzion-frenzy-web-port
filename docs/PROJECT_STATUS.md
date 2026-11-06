@@ -1,4 +1,10 @@
-# Pop macro is correct; the discrepancy needs a register-write trace
+# Blockers package published: FUN_001FB640 epilogue repair owner needed
+
+November 5: the runtime-a defect-class capture is closed and the blockers package is published in `docs/DEVELOPMENT_HANDOFF.md` (newest entry) with D398. The tested rule `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52) accepts the literal reverse and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Two repair-owner candidates are recorded with exact sites: (A) the translator emission in `tools/prepare-title-recomp.py` that produced the `0x1FB640` push/pop sequence (`title-functions.inc` lines 6463-6466 and 6612-6619), or (B) the `.inc` expansion through `src/runtime/recomp_memory_access.h:54`. Bounded question to the translator owner/user: confirm which side is wrong and decide the repair; the absence of a single named writer inside the translated epilogue is the finding. No lane-side translator edit or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Blocker: `docs/EXECUTION_GOAL_NOV5.md` absent, so Runtime-b's milestone order is unavailable. No main push/merge; geometry untouched.
+
+## Prior: Pop macro is correct; the discrepancy needs a register-write trace
 
 November 5: inspected `src/runtime/recomp_memory_access.h:54` — `FF_MEMORY_POP` reads at `sp`, increments by 4, then assigns the single destination; the macro cannot by itself put a saved-EDI value into ESI. The remaining explanations are (1) the executed epilogue order differs from the `.inc` text, or (2) the post-pop attribution (sampling `g_esi` at the next hook) is off by one. Both are register-write questions the memory hook cannot decide, so no translator or macro defect is asserted beyond "executed order/mapping is inconsistent with the source text". Confirming needs a toolchain-level register-write trace, which this lane must not add (blocker recorded). The pinned `ff_reg_order_is_reverse` rule (native 52/52) remains the acceptance rule for any repair.
 

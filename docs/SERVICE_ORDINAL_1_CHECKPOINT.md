@@ -597,4 +597,16 @@ Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-
 
 No DECISIONS row: characterization only.
 
+## 40. Blockers package published (D398)
+
+The defect-class capture question is closed. The blockers package is published as the newest entry in `docs/DEVELOPMENT_HANDOFF.md`, with D398 in `docs/DECISIONS.md`:
+
+1. **Tested rule**: `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52). Literal reverse accepted; observed runtime order (saved-EDI `0x205E98` consumed first as ESI) rejected.
+2. **Candidate owners**:
+   - (A) translator emission in `tools/prepare-title-recomp.py` that produced the `FUN_001FB640` prologue/epilogue in `research/verification/recomp-title-recomp-title-post-memory-87/title-functions.inc` (prologue lines 6463-6466 `ebx, ebp, esi, edi`; epilogue lines 6612-6619 `edi, esi, ebp, ebx`);
+   - (B) the `.inc` expansion of the original POP order through `src/runtime/recomp_memory_access.h:54` (`FF_MEMORY_POP` read at `sp`, `sp += 4`, single destination).
+3. **Bounded question**: confirm which side is wrong and decide the repair; any repair must pass the tested predicate and restore `esi` so `[ESI+0x47C]` reads `0x20400C`, not `0x206314`. The absence of a single named writer inside the translated epilogue is the finding.
+
+No translator edit, no model, no further hunt from this lane. Observed stop unchanged: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+
 No DECISIONS row: tooling characterization.
