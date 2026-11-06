@@ -2,9 +2,7 @@
 
 **Direction corrected October 31, 2026:** the target is the actual original game executing entirely inside the browser, or an identical replica. The prototype below does not meet that requirement. It is preserved research. See [the route assessment](docs/ORIGINAL_EXECUTION_ROUTE.md); original-game browser execution has not been delivered.
 
-Current state (2026-11-05): original-game browser execution via static recompilation to WebAssembly. The original program has executed past 83/83 initialization callbacks, real FATX cache-format writes, utility-drive mount, contiguous-memory services and deep into its graphics initialization; it currently halts at a guest read fault behind `MmFreeContiguousMemory` (stop **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops). The confirmed `FUN_001FB640` epilogue mismatch is under an owner-delegated emission-side repair decision ([D401](docs/DECISIONS.md)); rendering/audio/controllers/end-user conversion and all planned features remain open. [The operative execution goal](docs/EXECUTION_GOAL_NOV5.md) defines the hard completion milestones (M6–M12) and the two full-time lane cadences; the honest tempo ledger lives in [PROGRESS_METRICS](docs/PROGRESS_METRICS.md).
-
-Open main-targeting PRs (2026-11-05): #19 (architect integration line, content-gated per D394/D398 until a verified-reconciled superset head exists) and #20 (the lane/integration chain). The guarded merge runs through the reconciled superset head — the first architect tick that returns one merges; no forced timing. The stale geometry draft PR #3 is superseded by the D391 lane dissolution and its geometry components already being on main; closing it is safe.
+Current state (2026-11-05): original-game browser execution via static recompilation to WebAssembly. The original program has executed past 83/83 initialization callbacks, real FATX cache-format writes, utility-drive mount, contiguous-memory services and deep into its graphics initialization; it currently halts at a guest read fault behind `MmFreeContiguousMemory` (stop **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops). The confirmed `FUN_001FB640` epilogue mismatch is under an owner-delegated emission-side repair decision ([D401](docs/DECISIONS.md)); rendering/audio/controllers/end-user conversion and all planned features remain open. See [current status](docs/PROJECT_STATUS.md) for the latest evidence and remaining work.
 
 The product includes original-game browser execution, online multiplayer, local/online mixed parties, flexible controls, friends, and lobbies; those delivery requirements remain incomplete.
 
@@ -14,7 +12,7 @@ The `private` flag in `package.json` prevents npm-package publication; it does n
 
 **Historical artifact: playable offline Twisted System research build.** One to four local seats, practice, results and rematches use player-supplied original assets converted locally. Exact original fidelity remains unaccepted; see [G2 audit](docs/G2_ACCEPTANCE.md). Earlier approximate partial-pack acceptance was superseded by the exact-original browser requirement. Mobile touch support remains later work.
 
-Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The [OpenCode workflow](docs/OPENCODE_WORKFLOW.md) defines the project model routing and source-only worktree. The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+Start with [AGENTS.md](AGENTS.md), [development handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and [project concerns](docs/PROJECT_CONCERNS.md). The full architecture, milestones, estimates, and acceptance criteria are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
 Players will supply their own compatible game files for local browser conversion. No ROMs or original assets are hosted, uploaded, or shared between players. An experimental local conversion proof exists; it supports only the specific verified reference build and is not a finished importer. See [player-supplied content](docs/PLAYER_SUPPLIED_CONTENT.md) and the [scope/fidelity baseline](docs/SCOPE_AND_FIDELITY.md). The visual goal is to mirror or reuse locally imported originals with optional modernization, while preserving original game feel.
 
@@ -41,7 +39,6 @@ The latter serves only allowlisted source files on `127.0.0.1:4173`. Open that a
 
 Local preparation checks pass. Both public-repository Windows/Linux preparation jobs also [passed](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/41212045874), resolving the earlier private-runner billing blocker for this workflow. Details are in `docs/PROJECT_STATUS.md`.
 
-Automation: two scheduled OpenCode lanes run every 5 minutes in dedicated worktrees (`runtime-a` for the original-runtime translation, `runtime-b` for services/geometry) under `opencode-go/deepseek-v4.1-flash` with verified fallbacks, and an hourly architect session (`opencode-go/glm-5.3-flash`) integrates reviewed commits through exact-head PR gates. No Sol or other external account model is called. See [the workflow doc](docs/OPENCODE_WORKFLOW.md) and the [executive goal](docs/EXECUTION_GOAL_NOV5.md).
 
 ## Analysis environment
 

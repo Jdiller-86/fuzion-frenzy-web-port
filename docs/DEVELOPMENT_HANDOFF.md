@@ -681,8 +681,6 @@ Validation: Python memory-access tests 8/8, title-seed tests 25/25, runtime test
 
 ## Continue from the contiguous-memory request in renderer initialization
 
-OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md); the [continuous development goal](OPENCODE_GOAL.md) defines the bounded advancement loop. This changes development coordination, not the runtime checkpoint below.
-
 Read [the current renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
 
 Original code now programs a bounded synthetic device aperture and continues past it. Helper `0x001fe05a` reads `0xfd001804`, ORs 4, writes it back and writes zero to `0xfd600140`; the caller then writes `0xfd009140` -- a computed offset that a fixed per-address list could not cover. Both profiles record four events across three addresses (with unknown-before provenance for the first write), execute 234 routines / 396 kernel operations / 3,633 events, keep statistics at `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`, and stop at untranslated original routine `0x1fe085` (return `0x1fe5bd`).
