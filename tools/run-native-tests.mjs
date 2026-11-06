@@ -52,6 +52,7 @@ const fixtures = [
   { name: 'local_files', sources: ['tests/local_files_test.c', runtime('local_volume.c'), runtime('local_directories.c'), runtime('local_files.c'), runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
   { name: 'kernel_error_map', sources: ['tests/kernel_error_map_test.c', runtime('kernel_error_map.c')] },
   { name: 'recomp_services', sources: ['tests/recomp_services_test.c', runtime('recomp_services.c')] },
+  { name: 'time_source', sources: ['tests/time_source_test.c', runtime('time_source.c')] },
   { name: 'recomp_memory_access_xmm', sources: ['tests/recomp_memory_access_xmm_test.c'] },
   { name: 'recomp_memory_access_vm', sources: ['tests/recomp_memory_access_vm_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
 ];

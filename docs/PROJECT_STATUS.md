@@ -1,4 +1,12 @@
-# Debug-service text captured at trap time; the title's Babel log is readable
+# Time source ratified and admitted; run stops at the kernel-call capacity
+
+November 6: architect-ratified QPF/TSC step. New `src/runtime/time_source.{c,h}` pins the pair at **733,333,333 Hz** with split scaling, a zero origin at the first sample, linear deltas and a non-monotonic guard (`tests/time_source_test.c`, native 64/64). The probe implements `xbox_ReadTimeStampCounter` (samples `ff_host_clock`'s 100 ns system time), ordinal 127 `KeQueryPerformanceFrequency` and ordinal 126 `KeQueryPerformanceCounter` (both returning `EDX:EAX`). Recorded decision: the pinned *implementation* returns the host rate while its comment documents the console clock; the browser capability supplies 100 ns units only, so both sides use 733,333,333.
+
+Module 188 (profile 108 with `FUN_001e8e74`) = 1,117,519 bytes SHA `24a3d30b...`; the link gate cleared and the run advanced to **status 2 at `0x001E8E5F`, 385 routines / 495 ops**, with the frequency visible in the frame. `FUN_001e8e5f` (ordinal-126 helper, 7 instructions) was then admitted: profile 109 = **507 functions / 21,060 instructions**, `verify-seeds` 28/28/0/0, module 189 = **1,122,443 bytes** SHA `d9d88024...`.
+
+Pair: control 339/405; inert 347/419; experiment **status 4 at `0x0`, ordinal 126, 386 routines / 499 kernel ops** (return address `0x1E8E65`). The time source is no longer the frontier - the stop is the probe's bounded 512-row kernel-call log. Next task: raise that bounded diagnostic capacity and continue. Checks: `test:native` 64/64, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 495 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Debug-service text captured at trap time; the title's Babel log is readable
 
 November 6: the section-81 limitation was closed. The probe now copies up to 32 guest string bytes inside `ff_debug_service_record` (after the same checked-aperture validation), exposes them through `ff_probe_debug_service_word(i,4)` and the new `ff_probe_debug_service_byte`, and the worker decodes a printable-ASCII `message` that `proof-report.mjs` validates (`textBytes` ≤ 32, message equal to captured length). Fixtures pin the copy, truncation and refusal cases (**native 62/62**, proof-report 24/24).
 
