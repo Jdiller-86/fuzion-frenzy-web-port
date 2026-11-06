@@ -1,10 +1,10 @@
-# NtCreateFile stop: ordinal 190 refuses CreateDisposition 5 (FILE_OVERWRITE)
+# FILE_OPEN_IF admitted; next stop is RtlNtStatusToDosError at ordinal 301
 
-November 6: one translation increment (retained pipeline; 1 function). Read-only Ghidra export added `0x001E93E4` to the prior seed (32-export cap kept); its callees and both import ordinals (289/190) were already supported. `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 97 (**488 functions, 20,251 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 172: **1,051,395 bytes**, SHA `56f848b6...`.
+November 6: architect-authorized bounded model change. `src/runtime/local_files.c` now admits `CreateDisposition 5` as open-if (existing file opens unchanged, information 1; missing file is created, information 2; no truncation, sharing unchanged); 0/4/6 remain rejected. `tests/local_files_test.c` gained the `open_if_disposition` scenario and the previously unregistered fixture is now in the native runner (**58/58**).
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment stops at **status 9, ordinal 190 (`NtCreateFile`), value `0xC00000BB`, 364 routines / 442 kernel ops** — a genuine unsupported-service stop. The call asks for `CreateDisposition = 5` (`FILE_OVERWRITE`) with `DesiredAccess 0x40100080`, `CreateOptions 0x60`, and the ratified regular-file model admits only dispositions 1–3 (`src/runtime/local_files.c:52`). An earlier create/write in the same run succeeded (`TitleMeta.xbx`, disposition 3).
+Module 173 (same profile 97: 488 functions / 20,251 instructions): **1,051,401 bytes**, SHA `352a6aff...`. Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment reaches **status 9, ordinal 301 (`RtlNtStatusToDosError`), value `0xC0000008`, 365 routines / 443 kernel ops**. The disposition-5 create passes the gate but returns `FF_BOOT_BAD_HANDLE` because its `ObjectAttributes` root-directory handle is not in the open-handle table; the CRT then maps that status through ordinal 301, whose model converts only success.
 
-Blocked on an architect decision: extend the file model to `FILE_OVERWRITE` with defined semantics and tests, or characterize the caller first. No source/model change made. Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+Blocked on the next architect decision: resolve relative creates through the retained namespace/file-object state, or extend ordinal 301's documented status mapping. Recorded but not changed: disposition 3 opens existing files without truncation (NT FILE_OVERWRITE truncates). Checks: `test:native` 58/58, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 

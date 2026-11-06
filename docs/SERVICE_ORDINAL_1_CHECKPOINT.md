@@ -1129,3 +1129,26 @@ Options for the architect (no change made, model scope is not the lane's to wide
 - B. Characterize the caller's intent first (the failing path name is not captured because the probe only records names after a successful create; it would need a diagnostic or a successful call).
 
 Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 71. FILE_OPEN_IF (disposition 5) admitted per architect decision; next stop RtlNtStatusToDosError at ordinal 301
+
+Bounded architect decision (GLM 5.3 Flash): value 5 is open-if, not overwrite. Admit exactly `{1,2,3,5}`; an existing data file opens unchanged (information 1), a missing one is created (information 2); no truncation, sharing checks unchanged; `local_directories.c` untouched. Dispositions 0/4/6 stay rejected. Pre-existing concern recorded, not fixed: disposition 3 opens an existing file without truncation (NT `FILE_OVERWRITE` truncates), unexposed so far.
+
+Source changes (one commit):
+- `src/runtime/local_files.c`: the disposition gate now accepts `{1,2,3,5}` instead of `1..3`; the existing open-or-create branch supplies the open-if behavior.
+- `tests/local_files_test.c`: new `open_if_disposition` scenario (existing file opens with information 1 and byte/time/count identity preserved; missing file is created with information 2 and attributes/times from the request; sharing violation still enforced; dispositions 0/4/6/7 rejected `FF_BOOT_UNSUPPORTED` with no state change). The previously unregistered `local_files` fixture is now in `tools/run-native-tests.mjs`.
+- `npm run test:native`: **58/58** (optimized and sanitizer).
+
+Module `recomp-post-memory-build-173` (unchanged profile 97, rebuilt with the model change): **1,051,401 bytes**, SHA-256 `352a6aff5162a1a930bab94edf206945241b958feae1d76e0ef92c9e0d397eee`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9 at ordinal 301, value `0xC0000008`** | **365 / 443** |
+
+The disposition-5 create now passes the model gate. Its final ordinal-190 call row (call 443) is `access 0x40100080`, `attributes 0x80`, `share 3`, `disposition 5`, `options 0x60`, status `0xC0000008` with no output written. `0xC0000008` is `FF_BOOT_BAD_HANDLE` from `local_files.c:62`: the request's `ObjectAttributes` root-directory handle is not in the open-handle table (the volume reports `active: 0`). The CRT then calls `RtlNtStatusToDosError(0xC0000008)`, and the ratified ordinal-301 model converts only status 0, so the probe stops.
+
+Candidate scopes for the architect (no change made): (a) resolve a relative create through the retained namespace/file-object state (D036-related), or (b) extend ordinal 301 with its documented status mapping so the CRT can report the failure and the caller may continue.
+
+Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

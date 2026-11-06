@@ -105,6 +105,41 @@ static void paths_types_and_dispositions(void)
     assert(!ff_volume_close(&volume,relative)); assert(!ff_volume_close(&volume,root));
     put(ATTR,root,4); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_BAD_HANDLE); unchanged();
 }
+static void open_if_disposition(void)
+{
+    /* Disposition 5 is open-if: an existing data file opens unchanged (info 1)
+     * and a missing one is created (info 2); 0/4/6/7 stay rejected atomically. */
+    reset();
+    uint32_t created=create(2);
+    ff_volume_data_file *file=&volume.data_files[handle(created)->data_file-1];
+    memcpy(file->data,"owned",5); file->bytes=5; file->write_time=file_time+7;
+    assert(!ff_volume_close(&volume,created));
+    args[7]=5;
+    uint32_t reopened=create(1);
+    assert(handle(reopened)->data_file==file->id && !handle(reopened)->position);
+    assert(file->bytes==5 && !memcmp(file->data,"owned",5) && file->write_time==file_time+7);
+    assert(volume.data_file_count==1 && volume.data_files_created==1);
+    assert(!ff_volume_close(&volume,reopened));
+    name("\\Device\\Harddisk0\\partition1\\OwnedData\\Fresh.bin");
+    args[7]=5; args[5]=0x80;
+    uint32_t fresh=create(2);
+    ff_volume_data_file *new_file=&volume.data_files[handle(fresh)->data_file-1];
+    assert(!strcmp(new_file->name,"Fresh.bin") && new_file->attributes==0x80);
+    assert(new_file->creation_time==file_time && new_file->write_time==file_time);
+    assert(volume.data_file_count==2 && volume.data_files_created==2);
+    assert(!ff_volume_close(&volume,fresh));
+    reset(); uint32_t writer=create(2);
+    args[7]=5; saved_volume=volume;
+    assert(ff_volume_create_file(&volume,args,file_time)==FF_VOLUME_SHARING_VIOLATION);
+    assert(!memcmp(&saved_volume,&volume,sizeof volume));
+    assert(!ff_volume_close(&volume,writer));
+    for(unsigned disposition=0;disposition<=7;++disposition) {
+        if(disposition==1||disposition==2||disposition==3||disposition==5) continue;
+        reset(); args[7]=disposition; save();
+        assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED);
+        unchanged();
+    }
+}
 static void capacities_do_not_leave_partial_files(void)
 {
     reset(); uint32_t handles[FF_VOLUME_HANDLES]; handles[0]=create(2); args[1]=0x100000; args[6]=7;
@@ -130,7 +165,7 @@ static void admission_is_atomic_and_read_only_names_work(void)
     reset(); args[4]=0x13000; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
     reset(); args[1]=0; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_INVALID); unchanged();
     reset(); args[8]=0x28; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
-    reset(); args[7]=5; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
+    reset(); args[7]=4; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
     reset(); args[5]=1; save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
     reset(); name("\\Device\\Harddisk0\\partition1\\OwnedData\\..\\Host"); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
     reset(); name("\\Device\\Harddisk0\\partition10\\Host"); save(); assert(ff_volume_create_file(&volume,args,file_time)==FF_BOOT_UNSUPPORTED); unchanged();
@@ -249,7 +284,7 @@ static void write_admission_permissions_and_independent_files(void)
 int main(void)
 {
     file_identity_backing_and_reference_lifetime(); generic_access_sharing_and_independent_files();
-    paths_types_and_dispositions(); capacities_do_not_leave_partial_files(); admission_is_atomic_and_read_only_names_work(); metadata_query_uses_actual_file_state();
+    paths_types_and_dispositions(); open_if_disposition(); capacities_do_not_leave_partial_files(); admission_is_atomic_and_read_only_names_work(); metadata_query_uses_actual_file_state();
     sequential_seek_append_and_written_metadata(); write_allocation_capacity_and_failure_atomicity(); write_admission_permissions_and_independent_files();
     puts("Owned regular files, create/query/write, backing identity, allocation, offsets, permissions, lifetime and atomic admission passed");
     return 0;
