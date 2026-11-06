@@ -769,3 +769,111 @@ Same computation on the control profile (`browser-157-control.json`, module `ee2
 D402's device-access policy holds in **both** profiles with zero unknown-address reads, satisfying M2's "in both profiles" requirement independently of the pending candidate-(B) repair.
 
 No DECISIONS row: evidence only.
+## 51. Whitespace-gate verification (marker-class audit)
+
+Audit of `git diff origin/main HEAD -- docs/DECISIONS.md` (head `e74b4d6`):
+
+- No added line carries a conflict-marker-class sequence (`<<<`, `======`, `>>>`). The only marker-like runs in the file are ordinary JavaScript snippets inside the pre-existing D217 row (`eaxAfter === eaxBefore`, `espAfter === (espBefore + ...`), which are present in `origin/main` and were not added by this lane.
+- `git diff --check origin/main HEAD` returns **exit 0**; the whitespace gate passes.
+- No rewrite or amend is applicable: the requested marker-class cell does not exist in the added lines. Head `e74b4d6` is clean for queueing.
+
+No code or decision change; no amend performed because there is nothing to rewrite.
+
+## 52. Cross-head marker audit (lane and integration)
+
+Re-ran the marker check against the current heads:
+
+- **Lane head `c942c58`**: `git diff origin/main HEAD -- docs/DECISIONS.md` adds no line containing `<<<`, `======` or `>>>`; `git diff --check origin/main HEAD` exits 0.
+- **Integration head `39a8fa8`** (contains D407–D409, the renumbered package/policy/queue rows): `git diff origin/main 39a8fa8 -- docs/DECISIONS.md` also adds no marker-class line, and `git diff --check origin/main 39a8fa8` exits 0.
+
+The D217 row's `===` snippets are ordinary JavaScript comparisons that already exist in `origin/main`, not conflict markers. No cell rewrite or amend is applicable at either head; the clean lane head for queueing remains `c942c58`.
+
+No code or decision change.
+
+## 53. Pipeline path named; evidence-backed HOLD recorded (D411)
+
+The module-preparation path was inspected within the owned driver:
+
+- `tools/prepare-title-recomp.py:458-460` imports the pinned private toolkit (`from tools.recomp import config`, `from tools.recomp.translator import FunctionTranslator`).
+- `:530` `config.configure_from_xbe(xbe_path)`; `:544` constructs `FunctionTranslator(xbe, database, trace_functions=set(functions))`; `:577` obtains the emitted text from `translator.translate_function(address, info)`; `:578-583` reads/uses `translator.lifter` state.
+
+The owned driver passes seeds, profile, limits and trace sets only; it contains **no register-identity mapping**. The emitted text is the verified correct reverse, and the compiled minimal artifact is LIFO-correct, so the remaining divergence is inside the pinned private lifter/translator emission — outside this lane's editable scope (`.tools`).
+
+Evidence-backed HOLD recorded as **D411**: name the divergence at those callsites, but do not attempt a repair from the lane; a translator-owner decision is required, with `ff_reg_order_is_reverse` and `[ESI+0x47C] = 0x20400C` as acceptance. No fabricated re-run, no `.tools` edit, no REA call.
+
+## 54. Gate-definition clarification: the control profile cannot reach the fault
+
+The M6 gate has been phrased as "the stop must move past `0x6B6A6968` in **both** profiles". The retained reports show that is unsatisfiable by construction:
+
+- control (`browser-157-control.json`, no experiment inputs): status 13 at `0xFD800044`, 339 / 405 — it stops at the PFIFO control seam before the graphics path, so it never reaches `0x6B6A6968`.
+- experiment (`browser-157-experiment.json`): status 10 at `0x6B6A6968`, 346 / 414.
+
+Operational gate for the translator-owner repair, therefore, recorded here for the decision record:
+
+1. **control invariance**: the control profile keeps its exact stop (status 13 at `0xFD800044`, 339/405) — unchanged by the repair;
+2. **experiment progression**: the experiment's stop moves past `0x6B6A6968` and the next genuine stop/service is recorded exactly;
+3. `[ESI+0x47C]` reads the device field (`0x20400C`) on the repaired path.
+
+This clarification does not change the evidence; it removes an impossible literal criterion so the repair can be judged unambiguously. No code change; the source path remains HOLD D411.
+
+No DECISIONS row: clarification of the existing gate.
+## 55. Lifter inspection: emission source is correct; divergence is runtime-only (D412)
+
+Authorized one-cycle read-only pass over the pinned lifter:
+
+- `lifter.py:2036-2058` `_lift_pop`: a 32-bit register operand emits `POP32(esp, r)` with the decoded register `r` unchanged; word operands use `_WORD_REGS` (`:298-305`, 16-bit names only) and `_fmt_operand_write`.
+- 32-bit assignment falls through `_fmt_set_reg` (`:144-170`) to a direct `r = value;` (registers alias the globals via `recomp_types.h`).
+- No register-remapping table, clobber set, or config-persisted state selects a different destination; the driver (`tools/prepare-title-recomp.py:458-460,530,544,577-583`) passes seeds/profile/limits only.
+
+Conclusion: the pop-destination **emission source is correct**, consistent with the original bytes, the emitted text and the LIFO-correct minimal artifact. The divergence is runtime/compiled-artifact-only and is routed to the toolkit owner as **"source-correct, runtime-divergent"** with the named sites (D412). Acceptance unchanged: `ff_reg_order_is_reverse`, control invariance at `0xFD800044` (339/405), experiment progression past `0x6B6A6968` with `[ESI+0x47C] = 0x20400C`, R11 evidence. No `.tools` edit, no fabricated re-run.
+## 56. Destination capture: the epilogue pops are offset by one dword (stack deficit)
+
+The owned `FF_MEMORY_POP` macro now optionally reports the destination lvalue's address (`&(destination)`) and the popped value; the probe resolves it against `&g_edi/&g_esi/&g_ebx` (a local `ebp` is reported as unmapped) and records it. Module 159 run `browser-159-dest.json`:
+
+| Destination | Read slot (reported stack - 4) | Value |
+| --- | --- | --- |
+| `edi` | `0x3C10E30` | `0x1FB64C` |
+| `esi` | `0x3C10E34` | `0x205E98` |
+| `ebp` (local, unmapped) | `0x3C10E38` | `0x203B90` |
+| `ebx` | `0x3C10E3C` | `0xFFFFFFFF` |
+
+The register order is the correct `edi, esi, ebp, ebx`, but it consumes slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40`. Every pop is therefore **one dword (4 bytes) low**: ESI receives the saved-EDI value `0x205E98`, EBP the saved-ESI value `0x203B90`, EBX the saved-EBP value `0xFFFFFFFF`.
+
+This supersedes the "register-identity" framing: the emission is correct, the destinations are correct, and the defect is a **stack-delta imbalance of one dword** somewhere between the prologue and the epilogue. The next bounded task is to locate that imbalance (a `push`/`pop` or `ret N` mismatch in the executed path, or a harness call-frame adjustment), using the same destination capture.
+
+No code change beyond the optional diagnostic hook; no `.tools` edit, no fabricated re-run.
+
+## 57. The one-dword deficit is the leftover icall return address
+
+Destination capture shows the first epilogue pop (`edi`) reads `0x1FB64C` — the **return address pushed for the indirect call at `0x1FB644`** (`FF_MEMORY_PUSH(esp, 0x001FB64Cu)`), not a saved register. That pushed return word survived the indirect call, shifting every later slot down by exactly one dword.
+
+`RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) resolves the target via `recomp_lookup`/`recomp_lookup_kernel` and invokes it through `RECOMP_ABI_CALL` **without adjusting `g_esp`**: the callee must consume the pushed return address with its own `ret`. The leaf that ran did not, so the frame keeps the return word.
+
+This localizes the deficit precisely: the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or the safe path), which shifts every saved slot by one dword and makes `[ESI+0x47C]` read `0x206314` instead of the device field, producing the fault at `0x6B6A6968`. Repair ownership is the call/return contract of that resolved target (or the safe-path macro), not the lane-owned pop macro and not guest state.
+
+No code change; no `.tools` edit.
+
+## 58. Correction: ESI violations are real (previous count was suppressed by the logger skip)
+
+The ABI logger was restored to its full form (it had been reporting only counts after the earlier thread-scope change). Module 160 run `browser-160-esp.json`:
+
+- ABI violations: **136**, of which **ESI violations: 131** (first `0x1E04CC`, last `0x202150` = `D3DDevice_Present`).
+- ESP-delta violations: **0**.
+
+The earlier "0 ESI violations" reading (module 139) was an artifact of the logger's context-skip early-return, now removed. ESI clobbering is therefore **real and widespread**, independently of the one-dword stack deficit proven by the destination capture (§56–§57). Both findings stand on their own evidence; neither depends on the other.
+
+No code change beyond the diagnostic logger; no `.tools` edit.
+## 59. Fix: ordinal-1 handler's missing return pop; run advances past the fault (D415)
+
+Root cause of the one-dword deficit: the modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address. Every later frame slot was read one dword low, so `[ESI+0x47C]` read `0x206314` instead of the device field and the run faulted at `0x6B6A6968`.
+
+Repair in the source-owned fixture handler: `g_esp = esp_before + 4u` for the no-argument stdcall service (with the comment explaining the return-word contract). The validator now requires the 4-byte pop for an accepted saved-data call. A newly observed genuine null-result shape `(0x206080, 9, 0, 0)` was added to the observed list, and the pair check now requires at least one observed null shape rather than both historical shapes.
+
+Pair on module 161 (`browser-161-control.json` / `browser-161-experiment.json`):
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 (unchanged) |
+| experiment | **status 1 at `0xFE0000C8`, ordinal 100** | **347 / 419** |
+
+The fault at `0x6B6A6968` is **past**. The new genuine stop is ordinal 100 = `KeDisconnectInterrupt` with argument `0x206030`, return address inside the reached cluster. M6 acceptance: experiment progression past the fault (met) and control invariance (met). No translator or `.tools` edit. Next: bounded decision for ordinal 100.

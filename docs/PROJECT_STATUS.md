@@ -1,4 +1,30 @@
-# M2 policy verified in both profiles: zero unknown device reads
+# One-dword fix advances past the fault: status 1 at 0xFE0000C8, ordinal 100
+
+November 6: root cause found and fixed (D415). The modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address, leaving four bytes on the guest stack; every later slot was read one dword low, so `[ESI+0x47C]` read `0x206314` and the run faulted at `0x6B6A6968`. Repair: `g_esp = esp_before + 4u` in the source-owned handler, validator updated for the 4-byte pop; newly observed null-result shape `(0x206080, 9, 0, 0)` added and the pair check relaxed to at least one observed null shape.
+
+Pair (module 161): control unchanged at status 13 `0xFD800044` (339/405); experiment **advances past the fault to status 1 at `0xFE0000C8`, ordinal 100 (`KeDisconnectInterrupt`, argument `0x206030`)**, **347 routines / 419 kernel ops**. M6 acceptance met (progression past `0x6B6A6968`, control invariance). No translator or `.tools` edit.
+
+Next: bounded decision for ordinal 100 (`KeDisconnectInterrupt`) and the newly observed null-result shape's provenance.
+
+## Prior: Destination capture: epilogue pops offset by one dword (stack deficit)
+
+November 5: the owned FF_MEMORY_POP macro now reports the destination lvalue (`&(destination)`) and popped value. Module 159 run `browser-159-dest.json`: destinations are the correct `edi, esi, ebp, ebx`, but they read slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40` - **every pop is one dword (4 bytes) low**. ESI therefore receives the saved-EDI value `0x205E98`. Emission, destinations and LIFO order are correct; the defect is a **stack-delta imbalance of one dword** between prologue and epilogue (a push/pop or `ret N` mismatch, or a harness call-frame adjustment). The first epilogue pop reads `0x1FB64C`, the return address pushed for the indirect call at `0x1FB644`; `RECOMP_ICALL_SAFE_AT` (`recomp_types.h:1292-1309`) invokes via `RECOMP_ABI_CALL` without adjusting `g_esp`, so the callee must consume that return word and did not. The leftover word shifts every saved slot by one dword, making `[ESI+0x47C]` read `0x206314` and causing the fault. Repair ownership: the resolved callee's call/return contract (or safe-path macro), not the lane pop macro. No `.tools` edit, no fabricated re-run. ABI logger restored: **131 ESI violations** (first `0x1E04CC`, last `0x202150`) - the earlier 0-ESI reading was a logger-skip artifact; ESI clobbering is real alongside the one-dword stack deficit.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No `.tools` edit, no fabricated re-run; geometry untouched.
+
+## Prior: Gate clarified: control invariance plus experiment progression (not "both past the fault")
+
+November 5: the M6 gate as literally phrased ("stop past `0x6B6A6968` in both profiles") is unsatisfiable by construction — the control profile stops at status 13 `0xFD800044` (339/405), at the PFIFO control seam before the graphics path, and never reaches the fault; the experiment stops at status 10 `0x6B6A6968` (346/414). The operational gate is recorded for the translator-owner repair: (1) control invariance at `0xFD800044` 339/405, (2) experiment progression past `0x6B6A6968` with the next genuine stop recorded exactly, (3) `[ESI+0x47C]` reading `0x20400C`. No code change; source path remains HOLD D411 (lifter-owned).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Pipeline path named; evidence-backed HOLD recorded as D411
+
+November 5 (source-work cycle per D410): the module-preparation path was inspected in the owned driver. `tools/prepare-title-recomp.py` imports the pinned private toolkit (lines 458-460), configures it from the XBE (530), constructs `FunctionTranslator` (544), and obtains the emitted text from `translate_function`/`translator.lifter` (577-583). The driver passes seeds/profile/limits/trace sets only and contains **no register-identity mapping**; the emitted text is the verified correct reverse and the compiled minimal artifact is LIFO-correct. The remaining divergence is inside the pinned private lifter/translator emission, outside this lane's editable scope. **D411 HOLD** records the exact callsites and requires a translator-owner decision with `ff_reg_order_is_reverse` + `[ESI+0x47C] = 0x20400C` acceptance; no `.tools` edit, no fabricated re-run, no REA call.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: M2 policy verified in both profiles: zero unknown device reads
 
 November 5: the device-log policy (D402) is verified in **both** profiles — control `browser-157-control.json`: 12,592 entries, 137 reads (100% `beforeKnown`, 54 after write), 12,455 writes, 0 unknown reads, 5,298 distinct, 0 status waits; experiment `browser-157-experiment.json`: 12,637 entries, 161 reads (100%, 68 after write), 12,476 writes, 0 unknown reads, same distinct/status. M2's "in both profiles" requirement is met independently of the pending candidate-(B) repair.
 
