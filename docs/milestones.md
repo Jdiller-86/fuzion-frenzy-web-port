@@ -6,11 +6,11 @@ This plan replaces the old M1–M12 runtime ladder. These M1–M5 IDs name overa
 
 | Milestone | Existing foundation | Remaining outcome |
 | --- | --- | --- |
-| [M1: Original browser execution](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) | Guarded translation, checked runtime components, bounded original startup, geometry and input research. | Play one original minigame through its original menus, round and results entirely in a desktop browser. |
-| [M2: Complete local game and conversion](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) | Limited browser-local XISO/asset preview, known reference identity and reusable prototype input. | A fresh browser converts the supported player-supplied image and runs the complete original offline game. |
-| [M3: Online multiplayer and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) | Authority, content locality and four-seat ownership requirements are recorded; online services are unimplemented. | The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results. |
-| [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) | The research app has local menus and owned keyboard/gamepad input; accounts, friends and production lobbies are unimplemented. | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
-| [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) | Source publication guards, pinned runtime, source-only builds and Windows/Linux CI already exist. | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
+| [M1: Original browser execution](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/22) | Guarded translation, checked runtime components, bounded original startup, geometry and input research. | Play one original minigame through its original menus, round and results entirely in a desktop browser. |
+| [M2: Complete local game and conversion](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/25) | Limited browser-local XISO/asset preview, known reference identity and reusable prototype input. | A fresh browser converts the supported player-supplied image and runs the complete original offline game. |
+| [M3: Online multiplayer and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/28) | Authority, content locality and four-seat ownership requirements are recorded; online services are unimplemented. | The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results. |
+| [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | The research app has local menus and owned keyboard/gamepad input; accounts, friends and production lobbies are unimplemented. | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
+| [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Source publication guards, pinned runtime, source-only builds and Windows/Linux CI already exist. | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
 ## Acceptance rules
 
@@ -30,7 +30,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** no earlier milestone.
 
-**Work packages:** Integrate the original browser round path; Verify original browser gameplay and evidence.
+**Work packages:** [Integrate the original browser round path](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/23); [Verify original browser gameplay and evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/24).
 
 ## M2 — Complete local game and conversion
 
@@ -42,7 +42,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M1.
 
-**Work packages:** Finish browser-local conversion and save recovery; Accept the complete original offline inventory.
+**Work packages:** [Finish browser-local conversion and save recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/26); [Accept the complete original offline inventory](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/27).
 
 ## M3 — Online multiplayer and recovery
 
@@ -54,7 +54,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M2.
 
-**Work packages:** Implement authoritative mixed-seat match services; Verify online agreement, fairness and recovery.
+**Work packages:** [Implement authoritative mixed-seat match services](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/29); [Verify online agreement, fairness and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/30).
 
 ## M4 — Player experience
 
@@ -66,7 +66,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M2, M3.
 
-**Work packages:** Complete accounts, friends and lobby flows; Accept owned controls and browser usability.
+**Work packages:** [Complete accounts, friends and lobby flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/32); [Accept owned controls and browser usability](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/33).
 
 ## M5 — Release readiness
 
@@ -78,6 +78,6 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M1, M2, M3, M4.
 
-**Work packages:** Verify reproducible source-only release operations; Accept browser/device performance and release evidence.
+**Work packages:** [Verify reproducible source-only release operations](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/35); [Accept browser/device performance and release evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/36).
 
 [Management workflow](management.md) describes status, native parent/dependency links and the evidence required before acceptance. Scope is maintained in [profiles/project.json](../profiles/project.json); current runtime facts remain in [status](status.md).

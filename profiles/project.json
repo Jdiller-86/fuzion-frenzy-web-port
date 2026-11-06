@@ -43,7 +43,8 @@
               "text": "Reached unsupported behavior stops explicitly; changed CPU/memory/ABI/GPU contracts have targeted checks and independent review."
             }
           ],
-          "dependsOn": []
+          "dependsOn": [],
+          "issueNumber": 23
         },
         {
           "id": "m1-verify",
@@ -62,9 +63,11 @@
           ],
           "dependsOn": [
             "m1-build"
-          ]
+          ],
+          "issueNumber": 24
         }
-      ]
+      ],
+      "issueNumber": 22
     },
     {
       "id": "m2",
@@ -104,7 +107,8 @@
               "text": "Unsupported inputs, cancellation, storage denial/eviction, clear/reimport and fresh-session save/reload have observed outcomes."
             }
           ],
-          "dependsOn": []
+          "dependsOn": [],
+          "issueNumber": 26
         },
         {
           "id": "m2-verify",
@@ -124,9 +128,11 @@
           "dependsOn": [
             "m1",
             "m2-build"
-          ]
+          ],
+          "issueNumber": 27
         }
-      ]
+      ],
+      "issueNumber": 25
     },
     {
       "id": "m3",
@@ -166,7 +172,8 @@
               "text": "Server-owned outcomes, explicit seat ownership and atomic/idempotent tournament result writes are implemented and tested."
             }
           ],
-          "dependsOn": []
+          "dependsOn": [],
+          "issueNumber": 29
         },
         {
           "id": "m3-verify",
@@ -186,9 +193,11 @@
           "dependsOn": [
             "m3-build",
             "m2"
-          ]
+          ],
+          "issueNumber": 30
         }
-      ]
+      ],
+      "issueNumber": 28
     },
     {
       "id": "m4",
@@ -229,7 +238,8 @@
               "text": "Privacy, block/report, incompatible versions/content and unauthorized operations behave correctly."
             }
           ],
-          "dependsOn": []
+          "dependsOn": [],
+          "issueNumber": 32
         },
         {
           "id": "m4-verify",
@@ -248,9 +258,11 @@
           ],
           "dependsOn": [
             "m4-build"
-          ]
+          ],
+          "issueNumber": 33
         }
-      ]
+      ],
+      "issueNumber": 31
     },
     {
       "id": "m5",
@@ -293,7 +305,8 @@
               "text": "Versioning, rollback, backup/restore, capacity/privacy and release/cost decisions have reviewable procedures and evidence."
             }
           ],
-          "dependsOn": []
+          "dependsOn": [],
+          "issueNumber": 35
         },
         {
           "id": "m5-verify",
@@ -316,9 +329,11 @@
             "m3",
             "m4",
             "m5-build"
-          ]
+          ],
+          "issueNumber": 36
         }
-      ]
+      ],
+      "issueNumber": 34
     }
   ]
 }

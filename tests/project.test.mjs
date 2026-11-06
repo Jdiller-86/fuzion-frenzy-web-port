@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {GitHub,REPOSITORY,ROOT,loadPlan,validatePlan,definitions,renderMilestones,indexIssues,renderIssue,issueStatus,buildSnapshot,syncProject,renderDashboard} from '../tools/project.mjs';
 const SHA='1'.repeat(40);
-const fresh=()=>structuredClone(loadPlan());
+const fresh=()=>{const plan=structuredClone(loadPlan());for(const m of plan.milestones){delete m.issueNumber;for(const t of m.tasks)delete t.issueNumber;}return plan;};
 class MemoryGitHub{
   constructor(){this.token='source-owned-test-only';this.labels=[];this.milestones=[];this.issues=[];this.links=new Map();this.writes=[];this.sha=SHA;}
   async list(endpoint){return structuredClone(endpoint.includes('/issues?')?this.issues:endpoint.includes('/milestones?')?this.milestones:this.labels);}
@@ -35,7 +35,7 @@ function accept(issue,definition){
 
 test('scope is five milestones with unique acyclic work identities and exact maintained docs',()=>{
   const plan=fresh();assert.equal(plan.milestones.length,5);assert.equal(definitions(plan).length,15);
-  assert.equal(fs.readFileSync(ROOT+'/docs/milestones.md','utf8'),renderMilestones(plan));
+  assert.equal(fs.readFileSync(ROOT+'/docs/milestones.md','utf8'),renderMilestones(loadPlan()));
   for(const mutate of [p=>p.repository='other/repo',p=>p.milestones[1].dependsOn=['missing'],p=>p.milestones[0].dependsOn=['m5'],p=>p.milestones[0].tasks[0].id='m1',p=>{p.milestones[0].issueNumber=1;p.milestones[1].issueNumber=1;}]){const broken=fresh();mutate(broken);assert.throws(()=>validatePlan(broken));}
 });
 test('preview makes no writes; apply verifies native parents/dependencies and is idempotent',async()=>{
