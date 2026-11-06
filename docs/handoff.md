@@ -1,6 +1,6 @@
-# Baseline checkpoint: [main-branch status](status.md)
+# Startup batch blocked: [main-branch status](status.md)
 
-The repository is paused for the next user-directed task. The pending integration PR was closed without merging; retired development branches were removed. `main` is the single development baseline. No project agent scheduler or model routing is configured.
+The user-directed batch centered on `FUN_001e93e4` stopped at private-input preflight on November 6, 2026. The matching executable, retained analysis project and verification directory are absent from this cloud workspace. [Status](status.md) records the checked paths and evidence limits. `main` remains the development baseline; implementation is paused at this prerequisite. No persistent project agent scheduler or model routing is configured.
 
 ## What is retained
 
@@ -8,11 +8,11 @@ The [five project milestones](milestones.md) and [management workflow](managemen
 
 The complete product goal remains the original Fuzion Frenzy executing entirely in a browser through static recompilation to WebAssembly, with original fidelity and the planned online/social/control features. See [the roadmap](../plans.md).
 
-The accepted main-branch research frontier remains status 2 at `0x001E93E4`, 363 routines / 441 kernel operations, from commit `ab5b3f7`. The previous stack/return-address defect is repaired. This cleanup introduces no title execution or gameplay acceptance; [current status](status.md) records the exact limits.
+The recorded main-branch research frontier remains status 2 at `0x001E93E4`, 363 routines / 441 kernel operations, from commit `ab5b3f7`. The previous stack/return-address defect is repaired. This preflight produced no fresh runtime result or gameplay acceptance; [current status](status.md) records the exact limits.
 
 ## Resuming development
 
-No implementation task is assigned by this handoff. When the user supplies the next objective, inspect current source and ownership, choose one bounded result, name its acceptance checks, and preserve the local-content/publication guards. The reached untranslated routine is a future technical lead, not an instruction to resume automatically.
+Resume only where the existing private baseline is available locally. First verify the executable, retained seeds/profiles, prepared module, pinned compiler setup and named browser reports/audit; reproduce the historical control, inert and experiment boundaries. Then take the authorized single batch centered on `FUN_001e93e4`, restricted to directly required reached callees and the existing admission guards. Stop again on missing inputs, a failed guard or a new subsystem requirement. The next bounded dependency here is restoration and verification of that baseline, not a speculative runtime patch.
 
 A public clone has no original media, private generated title module, or optional compiler/analysis checkout. Missing private inputs do not authorize a fresh runtime claim. [Development](development.md), [research notes](research.md), and [analysis setup](analysis.md) describe the available public checks and private prerequisites.
 
