@@ -1220,3 +1220,140 @@ Recorded model limits (not changed): root `0xFFFFFFFD` is refused as an unknown 
 Next bounded task: admit `GetLastError` at `0x310FF`.
 
 Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 74. Admission of GetLastError; next stop is __dosmaperr at 0x1E4F99
+
+Runtime-a continuation from the §73 frontier (directive head `d5c81d4`). `GetLastError` (`0x310FF..0x31126`, 9 instructions) calls nothing, so the set is one function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-310ff-01/seed-310ff.json`: the previous 28 seed functions plus `0x001E310FF`; 29 functions, all `established=true`, 1,360 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-98` produced private profile 98: **489 functions, 20,260 instructions** (+1 / +9).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Environment note: no local interpreter had the pinned `capstone 5.0.6`, so the manifest's own pinned wheel (`windowsWheelSha256` `761c3dea…`, digest re-verified on download) was installed into the ignored `.tools/recomp-venv`; no global dependency or PATH change.
+
+Module `recomp-post-memory-build-176` (profile 98): **1,052,675 bytes**, SHA-256 `47a1c75e5e00a7a7af0e9ed064da5ae216246a363027788cf7dfc8ca96b9ea24`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4F99` (`__dosmaperr`)** | **366 / 442** |
+
+The ordinal-301 mapping is validated end to end: the CRT stored error `6` for `0xC0000008`, `GetLastError` (`0x310FF`) returned `6` from its TLS slot, and the caller `FUN_001e75c8` then passed `6` as the first stack argument to **`__dosmaperr` (`0x1E4F99..0x1E500B`)** from return address `0x1E7792` — the next untranslated original routine.
+
+`__dosmaperr` calls `0x1E2038` (not yet translated) and walks a 45-entry dos-error/errno table at `0x2B7888`, writing the dos error at thread-struct `+0xC` and the mapped errno at `+0x8`. Next bounded task: admit `__dosmaperr` together with its unseeded direct callee `0x1E2038`, per the standing callee-batch policy.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 75. Admission of __dosmaperr with its thread-data getter; next stop is __unlock_fhandle at 0x1E731B
+
+Runtime-a continuation from the section 74 frontier. The batch is two functions, as directed: `__dosmaperr` (`0x1E4F99..0x1E500B`, 35 instructions) and its only unseeded direct callee `FUN_001e2038` (`0x1E2038..0x1E20B9`, 41 instructions), the CRT thread-data getter.
+
+Static shape recorded from the read-only export and inspection:
+
+- `FUN_001e2038` reads `FS:[0x24]` and calls import slot `0x2534C0` (ordinal 95) only when `FS:[0x24] >= 2`; it then reads `FS:[0x28]`, `[0x2BB130]`, `FS:[0x4]` and falls back to the global thread-data block at `0x31D974`.
+- `__dosmaperr` stores the incoming dos error at thread-struct `+0xC`, walks the 45-entry (`0x2D`) table at `0x2B7888`/`0x2B788C`, and writes the mapped errno at `+0x8`; when the table misses it stores errno `0xD` for dos errors in `0x13..0x24`.
+- Read-only Ghidra export `research/verification/recomp-admit-1e4f99-01/seed-1e4f99.json`: the previous 29 seed functions plus `0x001E4F99` and `0x001E2038`; 31 functions, all `established=true`, 1,436 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-99` produced private profile 99: **491 functions, 20,336 instructions** (+2 / +76).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-177` (profile 99): **1,063,427 bytes**, SHA-256 `5ab84e93c2aebb47ca022c8989e62cda3c3776af64ea38999bb5d890c8d6eeec`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E731B` (`__unlock_fhandle`)** | **369 / 442** |
+
+Both admitted routines ran: the experiment moved from the section 74 stop at `__dosmaperr` to **status 2 at `0x001E731B`**, return address `0x1E78B1`, first stack argument `3` (the handle), with the ordinal-301 conversion still reported as error `6` in the same call sequence and no new kernel operation (ops stay 442 because the stopped call is not counted).
+
+`__unlock_fhandle` (`0x1E731B..0x1E733C`, 10 instructions) loads the argument handle, indexes the file-handle table at `0x31D860` by `handle >> 5`, computes the per-handle critical-section address from `(handle & 0x1F) * 0x28 + 0xC`, and calls kernel thunk `[0x2533EC]`. That slot resolves in the pinned profile to **ordinal 294 `RtlLeaveCriticalSection`, already routed**, so the next set is one function with no unseeded direct callees.
+
+Next bounded task: admit `__unlock_fhandle` at `0x1E731B`; halt-and-report if the indexed table access or the ordinal-294 argument surface exceeds the guarded memory contract.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 76. Admission of __unlock_fhandle; next stop is __unlock_file at 0x1E4C85
+
+Runtime-a continuation from the section 75 frontier. `__unlock_fhandle` (`0x1E731B..0x1E733C`, 10 instructions) has no unseeded direct callee: its only call is kernel thunk `[0x2533EC]`, which the pinned profile resolves to ordinal 294 `RtlLeaveCriticalSection` (already routed), so the set is one function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e731b-01/seed-1e731b.json`: the previous 31 seed functions plus `0x001E731B`; 32 functions, all `established=true`, 1,446 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-100` produced private profile 100: **492 functions, 20,346 instructions** (+1 / +10).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-178` (profile 100): **1,064,488 bytes**, SHA-256 `7422738bf1bcdcfbcc6fd6434d4c277477e41a1a1a91b1ab535c8dbe837fe51f`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4C85` (`__unlock_file`)** | **371 / 443** |
+
+`__unlock_fhandle` executed and completed its ordinal-294 call (status 0, argument `0x3307B4`, i.e. the computed per-handle critical-section address). The run then reached **status 2 at `0x001E4C85`**, the untranslated `__unlock_file` (body `0x1E4C85..0x1E4CB3`, 12 instructions), from return address `0x1E01AB` inside the already-translated `FUN_001e01a3`, with first stack argument `0x2B7668`.
+
+`__unlock_file` compares its argument against the lock-table window `0x2B7608..0x2B7868`. The observed argument is inside the window, so that run takes the in-range branch: index `((0x2B7668 - 0x2B7608) >> 5) + 0x10 = 0x13` into `FUN_001e62ce`, which is **already translated** (3 instructions: push `[eax*8 + 0x2B7B58]`, call ordinal 294). The out-of-range branch calls the same routed ordinal-294 thunk directly. The set is therefore one function with no unseeded callees on either branch.
+
+Next bounded task: admit `__unlock_file` at `0x1E4C85`; halt-and-report if the `0x2B7B58` lock-table read or an out-of-range argument falls outside the guarded memory contract.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 77. Admit the reached debug/log batch and model the INT 0x2D print service; next stop is FUN_0004fa60
+
+Runtime-a continuation from the section 76 frontier. `__unlock_file` was admitted first (seed `recomp-admit-1e4c85-01/seed-1e4c85.json`, 1 function): profile 101 = **493 functions / 20,365 instructions**, module 179 = 1,066,226 bytes SHA `a2ee15b2...`, and the experiment advanced to **status 2 at `0x0004B230`, 372 routines / 444 ops** (control 339/405 at `0xFD800044`, inert 347/419 at `0xFE0000C8`).
+
+`FUN_0004B230` (`0x4B230..0x4B372`, 108 instructions) is the title's failure-log routine: it reads the flag byte at `[0x28525C + 0x100]`, formats through `0x1DEE6E`/`0x1E041F`, and can call `OutputDebugStringA` (`0x31227`), `_fwprintf` (`0x1E0C90`), `FUN_0004C5F0` and `FUN_0004C670`. A six-function export (`recomp-admit-4b230-01/seed-4b230.json`) was prepared as profile 102, which **failed the link gate**: the emitted code needs `recomp_debug_service` (`int 0x2d` service 1 in `0x31227`) and `xbox_ReadTimeStampCounter` (`rdtsc` in `0x4C5F0` and `0x1E0C90`), neither of which the probe provided.
+
+Two consequences were recorded:
+
+- Seed-export capacity: the record was at the 32-export cap, so the ten smallest disjoint seeds (24 functions) were regrouped into `recomp-seeds-consolidated-02/seed.json`; the function union is unchanged and the record now has 23 exports, all still disjoint.
+- Service scope: `int 0x2d` is documented by the pinned translator itself (`src/kernel/recomp_trace.c`: service 1 prints the ANSI_STRING at `ecx`, other services are ignored, and the guest registers are untouched - the following `int3` is stepped over). New source-owned `src/runtime/recomp_services.{c,h}` keeps that guest-visible effect (none) and records each call (service, argument, length, buffer) inside a bounded 8-entry log with checked aperture reads; the probe supplies the symbol and exposes `ff_probe_debug_service_{count,dropped,word}`. `tests/recomp_services_test.c` pins readable, non-print, null, truncated and capacity cases. `rdtsc` stays **unadmitted**: the pinned translator has a model (host performance counter scaled to 733,333,333 Hz), but this title's compiled QPF rate is unverified, so `0x4C5F0` and `0x1E0C90` remain outside the record and need an architect decision.
+
+An intermediate profile 103 (the three service-free functions `0x4B230`, `0x1E8DE0`, `0x1E041F`) built module 180 (1,072,342 bytes SHA `15b11dc1...`) and stopped at **`0x31227` (`OutputDebugStringA`), 374 routines / 444 ops**, return address `0x4B2D3` - evidence that the title takes the `[0x28525C + 0x100] & 2` debug branch.
+
+The committed set therefore adds four functions: `0x4B230`, `0x1E8DE0` (39 instructions, calls `0x1E8D8A`), `0x1E041F` (35 instructions, calls translated `0x1E2433`/`0x1E228C`), and `0x31227` (20 instructions, `int 0x2d` only).
+
+- Seed `research/verification/recomp-admit-4b230-01/seed-4b230-batch.json`: 4 functions, all `established=true`, 202 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-104` produced private profile 104: **497 functions, 20,565 instructions** (+4 / +202).
+- `verify-seeds.py`: 23 recorded / 23 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-181` (profile 104): **1,096,893 bytes**, SHA-256 `a50230f617489cf93eb7b04ae54fbd230645abf847e9f8817e498b61ca098d30`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x0004FA60` (`FUN_0004fa60`)** | **375 / 480** |
+
+The debug trap was consumed and the run continued: it completed 36 further kernel operations (the same `NtCreateFile` refusal and unlock sequence), then reached **status 2 at `0x4FA60`**, return address `0x4B4C9`, 375 routines / 480 ops. `FUN_0004fa60` (`0x4FA60..0x4FAAD`, 20 instructions) builds time fields from the already-translated `0x1E8DE0` and divides by 100; its only direct call is that translated function, so the next set is one function.
+
+Next bounded task: admit `FUN_0004fa60` at `0x4FA60`; halt-and-report if its `[ECX]` struct writes fall outside the guarded memory contract. Open decision: whether to adopt the pinned `rdtsc` model for `0x4C5F0`/`0x1E0C90` given the unverified title QPF.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 78. Admit FUN_0004fa60 and the time-zone batch; next stop is the 0xFF settings block
+
+Runtime-a march from the section 77 frontier, two profiles in one cycle.
+
+**Step 1 - `FUN_0004fa60`.** Seed `recomp-admit-4fa60-01/seed-4fa60.json` (1 function, 25 instructions, only call is the translated `0x1E8DE0`); profile 105 = **498 functions / 20,590 instructions**; `verify-seeds` 24/24/0/0. Module `recomp-post-memory-build-182` = **1,097,053 bytes**, SHA `303f794e9a1ff5bd78aa392b26479605034803140912a1f2b4ed2c5443584c25`. The experiment advanced to **status 2 at `0x001E8D8A`, 377 routines / 481 ops**, return address `0x1E8DF9`; control 339/405 and inert 347/419 unchanged.
+
+**Step 2 - the time-zone batch.** `FUN_001e8d8a` (`0x1E8D8A..0x1E8DDF`, 34 instructions) is the CRT's local-time assembler: it calls `GetTimeZoneInformation` (`0x1E8C2E`, 141 instructions), multiplies the returned minutes by 60, and converts through `__allmul` (`0x1DF950`, 19 instructions). `GetTimeZoneInformation` calls the translated `SetLastError` (`0x31127`), `0x1E8A24` (175 instructions) and `0x1E8892` (53 instructions), which is the settings-block reader. The batch is those five functions, 422 instructions total.
+
+- Seed `research/verification/recomp-admit-1e8d8a-01/seed-1e8d8a-batch.json`: 5 functions, all `established=true`, 422 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-106` produced private profile 106: **503 functions, 21,012 instructions** (+5 / +422).
+- `verify-seeds.py`: 25 recorded / 25 offered / 0 unexpected / 0 missing. No `rdtsc` or `int 0x2d` site lies in the new functions.
+
+Module `recomp-post-memory-build-183` (profile 106): **1,111,033 bytes**, SHA-256 `621f77ebfc7df9443b99128758b8eb94c20e624789cd5750903919de7ab98ab0`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9, ordinal 24, value `0xFF`** | **380 / 481** |
+
+The run consumed the whole time-zone chain and stopped on a **kernel service**, not an untranslated routine: `ExQueryNonVolatileSetting` (ordinal 24) was called with `ValueIndex = 0xFF`, `ValueLength = 0x100`, a stack type word and a 256-byte value buffer, return address `0x309C9` (the wrapper `FUN_000309b2` returning from the import thunk `0x34720`). The call site is `FUN_001e8892` (`0x1E889B..0x1E88B2`: push 0, push `0x100`, buffer `EBP-0x104`, `EBP-4` type, push `0xFF`), and its caller handles a nonzero status by returning without filling `TIME_ZONE_INFORMATION`.
+
+Evidence for the next step (recorded, not yet implemented): the pinned translator's `src/kernel/kernel_xbox.c` treats `XC_MAX_OS` (`0xFF`) as the **whole 0x60-byte user-settings block** - checksum, bias, standard/daylight names, reserved bytes, standard/daylight dates, reserved bytes, standard/daylight bias, language, video, audio, parental x3, online x4, misc, DVD region - returned as `REG_BINARY` (type 3) with `ResultLength = 0x60`, `STATUS_BUFFER_TOO_SMALL` (`0xC0000023`) below 0x60 bytes and zero fill beyond. That model builds the time-zone fields from the **host** time zone and fixes language 1, widescreen+HDTV video, stereo audio, unrestricted parental, DVD region 1, misc 0 and zeroed online fields. The probe's settings model covers only indexes 17 and 10 (`misc_flags`, `parental_games`) and stops on any other index.
+
+Next bounded task: decide and, if ratified, implement the `0xFF` user-settings block as a checked probe model with explicit inputs (bias, standard/daylight names and dates) rather than a host time zone; halt-and-report if the value source is not evidenced. Open decisions now on record: this block and the `rdtsc` model.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

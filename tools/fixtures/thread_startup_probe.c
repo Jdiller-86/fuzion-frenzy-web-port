@@ -10,6 +10,7 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "../../src/runtime/kernel_objects.h"
 #include "../../src/runtime/local_settings.h"
 #include "../../src/runtime/kernel_error_map.h"
+#include "../../src/runtime/recomp_services.h"
 #include "../../src/runtime/port_io.h"
 #ifdef FF_PFIFO_PROOF
 #include "../../src/runtime/pfifo_channel.h"
@@ -146,6 +147,16 @@ RECOMP_TLS RecompMmx g_mm0, g_mm1, g_mm2, g_mm3, g_mm4, g_mm5, g_mm6, g_mm7;
 volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
 static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
+static ff_debug_service_log debug_service_log;
+
+/* Guest INT 0x2D. The pinned translator documents service 1 as a print of the
+ * ANSI_STRING at the argument and no guest-register effect; the browser probe
+ * has no stderr sink, so the trap is recorded instead of printed. */
+void recomp_debug_service(uint32_t service, uint32_t arg_va)
+{
+    ff_debug_service_memory memory = { guest_ram, FF_GUEST_BYTES };
+    (void)ff_debug_service_record(&debug_service_log, &memory, service, arg_va);
+}
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
@@ -2681,6 +2692,19 @@ uint32_t ff_probe_fp_word(uint32_t field)
 }
 #endif
 uint32_t ff_probe_kernel_word(uint32_t i, uint32_t n) { return i < kernel_call_count && n < 20 ? kernel_calls[i][n] : 0; }
+uint32_t ff_probe_debug_service_count(void) { return debug_service_log.count; }
+uint32_t ff_probe_debug_service_dropped(void) { return debug_service_log.dropped; }
+uint32_t ff_probe_debug_service_word(uint32_t i, uint32_t n)
+{
+    if (i >= debug_service_log.count || n >= 4u) return 0;
+    const ff_debug_service_call *call = &debug_service_log.calls[i];
+    switch (n) {
+        case 0: return call->service;
+        case 1: return call->argument;
+        case 2: return call->length;
+        default: return call->buffer;
+    }
+}
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {
     if (i >= boot.count) return 0;
@@ -2707,6 +2731,7 @@ void ff_probe_reset(void)
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
     misc_flags = misc_flags_ready = 0;
+    ff_debug_service_reset(&debug_service_log);
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;
 #endif
