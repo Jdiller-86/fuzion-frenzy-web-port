@@ -15,3 +15,9 @@ mandatory corrective decision in docs/DECISIONS.md.
 
 - 2026-11-05 integration ops: goal installed as docs/EXECUTION_GOAL_NOV5.md
   (commit 65a4e691, subject `ops:`). Orchestration only; no runtime advance.
+- 2026-11-03 lane (runtime-a): ~20 execution/service advances past `0x1fe085` into
+  the device-table region (reflog subjects 0x1fe085…0x20057a) — the principal advance
+  records for this goal's baseline period completed before its goal existed; the
+  Nov 2-era main-docs stall masked lane progress.
+- 2026-11-03 lane (runtime-a): M1 of EXECUTION_GOAL_NOV5 (translate `0x1fe085` +
+  interrupt init) completed as a lane advance commit.

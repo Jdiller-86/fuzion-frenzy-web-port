@@ -1,15 +1,15 @@
-# Continue from the contiguous-memory request in renderer initialization
+# Continue from the runtime-a fault investigation at 0x6B6A6968
+
+Runtime lane records are appended in `.worktrees/opencode-source/docs/`; this page reflects the last promotion-facing state.
 
 OpenCode model routing and source-only worktree instructions are in [the OpenCode workflow](OPENCODE_WORKFLOW.md); the [continuous development goal](OPENCODE_GOAL.md) defines the bounded advancement loop. This changes development coordination, not the runtime checkpoint below.
 
-Read [the current renderer-entry checkpoint](RENDERER_ENTRY_CHECKPOINT.md). Static recompilation and the complete original-game/custom-feature goal remain active. There is no playable original screen.
+Observed stop (status 10, guest read fault) at `0x6B6A6968`, 346 routines / 414 kernel ops, module 130 / profile 87 in the lane's evidence; the stop is behind ordinal 171 `MmFreeContiguousMemory`: read at site `0x1FC091` (`MOV EDX,[EAX]`) in `FUN_001FC010`, `EAX` from `[esi+0x47C]` at `0x1FC087`; the faulting object base is `0x205D58` and field `0x2061D4` holds ASCII palette-ramp bytes (`0x68,0x69,0x6A,0x6B` = "hijk") written by `FUN_001fdf83`'s 3-lane × 0x100 palette initializer — a bogus pointer read of palette data, not a pointer. The faulting object is not the static device (`D3D_g_pDevice` write-site evidence); the pointer's writer is not identified; this is a read-only diagnostic boundary with no model warranted yet.
 
-Original code now programs a bounded synthetic device aperture and continues past it. Helper `0x001fe05a` reads `0xfd001804`, ORs 4, writes it back and writes zero to `0xfd600140`; the caller then writes `0xfd009140` -- a computed offset that a fixed per-address list could not cover. Both profiles record four events across three addresses (with unknown-before provenance for the first write), execute 234 routines / 396 kernel operations / 3,633 events, keep statistics at `[36, 16384, 14436, 552960, 1585152, 0, 1008, 16, 789]`, and stop at untranslated original routine `0x1fe085` (return `0x1fe5bd`).
+Since Nov 3 the runtime-a lane executed and advanced through `0x1fe085` (plus reached interrupt initialization), `0x1fe0c6`→`0x1FFCC0`, sub-dword device reads/writes (`0x1ffcc0`, `0x1fff25`), `MmClaimGpuInstanceMemory` modeled with the 0x5000-byte clear (`0x1ffe27`), `0x1fdf70`→`0x1FFF25`, `0x1fdf83` per-byte device knownness, `0x1ffff4`→`0x20002A`, `0x20002a`/`0x20005a` with a bounded port-output log, `0x1fe1d0`→`0x200340`, converted system time→`0x2010FD`, bounded device-table services, `0x200F59`, `0x20107C`, `0x200143`/`0x200352`, `0x2004df`→`0x20057A`. These are lane-branch records pending promotion, so M1 of the execution goal is recorded as completed by lane work, not blocked.
 
-Reuse `recomp-title-post-memory-06` and `recomp-post-memory-build-16`: 344 functions / 12,878 instructions, ABI 24, module `d757d534…` (424,106 bytes). Reports `post-memory-browser-20261102-15.json` / `-16.json`; audit `aperture-checkpoint-20261102-01.json`. The aperture admits [`0xFD000000`, `0xFD800000`) from explicit profile inputs, stores sparsely (1,024 addresses), logs 4,096 events, faults on unknown reads, and rejects every other address, width or direction without mutation. It is inert storage, not NV2A behaviour; D060 remains conditional on that.
+**Next task:** the lane's live handoff in `.worktrees/opencode-source/docs/DEVELOPMENT_HANDOFF.md` governs detail until its promotion: record `esi` at `0x1FC087` and `FUN_001FC010`'s entry `ECX`/caller (read-only), then decide with evidence. Main docs re-point at promotion.
 
-**Next task:** admit and translate `0x1fe085` from a bounded read-only export, then observe the next dependency. No device behaviour, DMA, interrupt or rendering may be inferred.
-
-Validation: new aperture native/sanitizer suite passes; `python tests/title_seed_test.py` 25; 40/40 runtime cases and `npm run check` pass. No public CI result is claimed. Full runtime/fidelity, renderer, disc/package reads, general filesystem and durable saves, graphics/audio/controllers, playability, end-user conversion and all planned features remain unfinished. Keep the full goal active.
+Checks per lane handoff: `test:native` 48/48, proof-report 23/23, `test:runtime` pass, `check` 478 files. No controllable original screen.
 Prior checkpoint handoff sections are archived at
 docs/archive/DEVELOPMENT_HANDOFF_PRIOR_20261105.md.

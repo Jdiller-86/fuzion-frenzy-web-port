@@ -6,16 +6,17 @@ sections move to docs/archive/ instead of accumulating.
 
 ## Current checkpoint
 
-docs/RENDERER_ENTRY_CHECKPOINT.md (Nov 2, 2026): both synthetic browser profiles
-return from 83/83 initialization callbacks, execute 234 distinct original routines,
-complete 396 kernel operations across 3,633 events through the admitted synthetic
-device aperture `[0xFD000000, 0xFD800000)`, then stop at untranslated original
-routine `0x1fe085` (return `0x1fe5bd`). Awaiting recorded decision: device write
-`0xfd009140`. Selection/build: `recomp-title-post-memory-06` /
-`recomp-post-memory-build-16`, 344 functions / 12,878 instructions, ABI 24, module
-`d757d534…` (424,106 bytes). The earlier utility-mount (317 functions / 10,612
-instructions / ABI 22) and MmQueryStatistics boundaries are retained evidence and
-are never cited as current.
+Observed stop (status 10, guest read fault) at `0x6B6A6968`, 346 routines / 414 kernel
+ops, module 130 / profile 87 in the runtime-a lane's evidence. The stop is behind
+ordinal 171 `MmFreeContiguousMemory`: the read at site `0x1FC091` (`MOV EDX,[EAX]`) in
+`FUN_001FC010` takes `EAX` from `[esi+0x47C]` at `0x1FC087`; the faulting object base is
+`0x205D58`, and field `0x2061D4` holds ASCII palette-ramp bytes
+(`0x68,0x69,0x6A,0x6B` = "hijk") written by `FUN_001fdf83`'s 3-lane × 0x100 palette
+initializer — a bogus pointer read of palette data, not a pointer. The faulting object
+is not the static device (`D3D_g_pDevice` write-site evidence), and the pointer's writer
+is not identified, so this is a read-only diagnostic boundary with no model warranted
+yet. The Nov 2 renderer-entry checkpoint is superseded as a description of the current
+boundary.
 
 Established with both-profile browser evidence: original FATX cache-format writes,
 RAW dismount, utility-drive mount, the MmAllocateContiguousMemoryEx and
@@ -28,13 +29,13 @@ contains no original ROM, assets or pseudocode.
 
 ## Current milestone
 
-M1 of docs/EXECUTION_GOAL_NOV5.md: admit and translate reached `0x1fe085` plus its
-immediate dependencies (≤8 related reached functions / ≤2,000 instructions), decide
-device write `0xfd009140` as a recorded D-number policy without invented values,
-run both profiles, and land the M1 commit with audit JSON (zero source-identity
-mismatches), green `npm run check` / `npm run test:runtime` /
-`tests/title_seed_test.py` and a green CI publish. Milestones M2–M5 and all
-operating rules live in docs/EXECUTION_GOAL_NOV5.md; metrics:
+M1 of docs/EXECUTION_GOAL_NOV5.md (admit and translate reached `0x1fe085` plus its
+immediate dependencies) is recorded as completed by runtime-a lane work on Nov 3 —
+"Execute 0x1fe085 and model reached interrupt initialization" (`10fa58f`, lane branch,
+pending promotion). The live lane task is the read-only `esi`/caller capture at the
+`0x6B6A6968` investigation boundary: record `esi` at `0x1FC087` and `FUN_001FC010`'s
+entry `ECX`/caller, then decide with evidence. Milestones M2–M5 and all operating
+rules live in docs/EXECUTION_GOAL_NOV5.md; metrics:
 docs/PROGRESS_METRICS.md.
 
 ## History pointer
