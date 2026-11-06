@@ -61,3 +61,17 @@ mandatory corrective decision in docs/DECISIONS.md.
   across the recent diagnostic series, so <2 new stop boundaries in 48 h → corrective
   decision recorded: the next runtime-a directive is to obtain the decisive capture
   verdict or a blockers package within ≤2 further cycles (R7 trigger).
+- 2026-11-05 lane (runtime-b): re-pointed from the superseded `5ec83b8` (D389) to the
+  promoted main head `bc5b6a5`; ops commit `c829743` replaces the current-checkpoint
+  bullet with the owned NV2A line/quad browser-prepass objective and its scope boundary.
+  No runtime advance. See D390.
+- 2026-11-05 lane (runtime-a): `a0f4d5e` on `codex/opencode-source` replaces the stale
+  A023/A022 directive block with the Nov-5 directive (decisive capture verdict or a
+  blockers package within ≤2 further cycles; record unsupported path elements). Not
+  pushed; the runner publishes this branch. No runtime advance. See D390.
+- 2026-11-05 ops: deleted the stale `.worktrees/opencode-runtime-b-cycle.lock`
+  (mtime 18:50:20; cycle finished 19:01:43); no other `.worktrees` file touched.
+- 2026-11-05 publication: `lane/integration` and `lane/runtime-b` pushes were refused by
+  the project policy `shell:git push * = deny` before any network attempt, so nothing was
+  retried or forced and `git ls-remote` shows neither branch. Publication of
+  `lane/integration` remains the architect/runner step, not the builder's. See D390.
