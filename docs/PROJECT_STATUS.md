@@ -1,4 +1,46 @@
-# Pop macro is correct; the discrepancy needs a register-write trace
+# Original XBE matches the emitted order; compiled-code binding is the open question
+
+November 5: read-only Ghidra check of the retained XBE (SHA `45bb49e1…`) — `CDevice_FreeFrameBuffers` prologue `0x1FB640..0x1FB643` is `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`, and epilogue `0x1FB72E..0x1FB732` is `POP EDI; POP ESI; POP EBP; POP EBX; RET`. Original bytes, emitted `.inc` and the tested rule all agree; the observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three with adjacent-proven attribution. The remaining discrepancy is in the compiled-code/register-identity layer. Formal question for the translator owner: why does the compiled module bind the `POP EDI` slot to `esi`? No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Attribution proven adjacent: the pop consuming slot 0x3C10E34 writes ESI
+
+November 5: sequence-tagged pop capture (module 158; reports `browser-157-control.json`, `browser-157-experiment.json`, module `ee284034...`) samples post-ESI at the immediately following hook (seq + 1): the pop consuming `0x3C10E34 = 0x205E98` writes ESI (post-ESI `0x205E98`), while the pop consuming `0x3C10E38 = 0x203B90` leaves ESI unchanged. Attribution is real, not a sampling artifact. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`); the emitted text is the correct reverse, so the remaining question is a compiled-code/register-identity discrepancy recorded for the translator owner. Cycle gate evidence: control stops status 13 `0xFD800044` (339/405); experiment stops status 10 `0x6B6A6968` (346/414) — not moved. No fix or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Emitted push/pop order is textually correct; package narrowed to expansion/attribution
+
+November 5: targeted textual check of module 87 — `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` and epilogue pops `edi, esi, ebp, ebx`, an **exact reverse**, so the emitted `.inc` order text is correct and candidate (A) (translator emission text) is **refuted** for this function. The blockers package (D401) is narrowed to candidate (B): the expansion/execution of that correct text (or the post-pop attribution). Bounded corpus audit tool added (`tools/reg-save-order-audit.mjs`, addresses/orders only; conservative prologue detection, targeted aid not a verdict).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 closed with evidence: seven boundary advances since M1, policy D402
+
+November 5: the retained report chain documents seven boundary/target advances since M1 — `0xFD800044` (339/405) → ordinal 159 (340/405) → ordinal 3 (340/406) → ordinal 2 (340/407) → ordinal 1 (340/408) → ordinal 2 (340/409) → `D3DDevice_Release` (344/411) → ordinal 171 (346/412) → the read fault (346/414). Together with the recorded device-access policy (D402) this satisfies M2's criteria; the lane is blocked at the translated `FUN_001FB640` epilogue mismatch (D401 package), not at a service or resource.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 device-access policy recorded (D402); blockers package renumbered to D401
+
+November 5: the runtime-a blockers package (already committed as `0f0b6c1`) is renumbered **D401** to avoid the integration branch's D398–D400 rows. M2's remaining item is now recorded as **D402**: device accesses are governed by the declared synthetic register window only — previously written addresses return the shadow value with `beforeKnown` provenance; unknown/undeclared reads fault with the exact record (status 10, address/width/access/site); widths/bounds restricted to the aperture; no fabricated values or writes. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 `beforeKnown`, 0 status waits; two boundary advances since M1 recorded. Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401); the next executable step depends on the translator owner's repair decision.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Integration head `44af31d` contains lane commits through `8b539e0`/`e6bc808`; the blockers package and later commits are pending. No main push/merge; geometry untouched.
+
+## Prior: M2 evidence snapshot: 7,399 beforeKnown device accesses; goal doc available
+
+November 5: `docs/EXECUTION_GOAL_NOV5.md` is available on the integration head (`git show 18cce1d:...`), correcting the earlier "absent" blocker. M2 evidence from `browser-156-postpop.json`: **5,302** device events, **12,637** access-log entries, **7,399** with `beforeKnown` provenance, 0 status waits — the ">=10 admitted device events with provenance" criterion is met with wide margin, and the boundary has advanced well past M1's graphics-init stop. Remaining M2 item: the explicit device-access policy decision row (check integration numbering before adding). Next: record/confirm that policy decision, or the next M3 item once the translator-owned `FUN_001FB640` epilogue repair lands.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Blockers package published: FUN_001FB640 epilogue repair owner needed
+
+November 5: the runtime-a defect-class capture is closed and the blockers package is published in `docs/DEVELOPMENT_HANDOFF.md` (newest entry) with D401. The tested rule `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52) accepts the literal reverse and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Two repair-owner candidates are recorded with exact sites: (A) the translator emission in `tools/prepare-title-recomp.py` that produced the `0x1FB640` push/pop sequence (`title-functions.inc` lines 6463-6466 and 6612-6619), or (B) the `.inc` expansion through `src/runtime/recomp_memory_access.h:54`. Bounded question to the translator owner/user: confirm which side is wrong and decide the repair; the absence of a single named writer inside the translated epilogue is the finding. No lane-side translator edit or model.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. Blocker: `docs/EXECUTION_GOAL_NOV5.md` absent, so Runtime-b's milestone order is unavailable. No main push/merge; geometry untouched.
+
+## Prior: Pop macro is correct; the discrepancy needs a register-write trace
 
 November 5: inspected `src/runtime/recomp_memory_access.h:54` — `FF_MEMORY_POP` reads at `sp`, increments by 4, then assigns the single destination; the macro cannot by itself put a saved-EDI value into ESI. The remaining explanations are (1) the executed epilogue order differs from the `.inc` text, or (2) the post-pop attribution (sampling `g_esi` at the next hook) is off by one. Both are register-write questions the memory hook cannot decide, so no translator or macro defect is asserted beyond "executed order/mapping is inconsistent with the source text". Confirming needs a toolchain-level register-write trace, which this lane must not add (blocker recorded). The pinned `ff_reg_order_is_reverse` rule (native 52/52) remains the acceptance rule for any repair.
 

@@ -597,4 +597,106 @@ Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-
 
 No DECISIONS row: characterization only.
 
+## 40. Blockers package published (D401)
+
+The defect-class capture question is closed. The blockers package is published as the newest entry in `docs/DEVELOPMENT_HANDOFF.md`, with D401 in `docs/DECISIONS.md`:
+
+1. **Tested rule**: `ff_reg_order_is_reverse` (`src/runtime/reg_save_order.c/.h`, `tests/reg_save_order_test.c`, native 52/52). Literal reverse accepted; observed runtime order (saved-EDI `0x205E98` consumed first as ESI) rejected.
+2. **Candidate owners**:
+   - (A) translator emission in `tools/prepare-title-recomp.py` that produced the `FUN_001FB640` prologue/epilogue in `research/verification/recomp-title-recomp-title-post-memory-87/title-functions.inc` (prologue lines 6463-6466 `ebx, ebp, esi, edi`; epilogue lines 6612-6619 `edi, esi, ebp, ebx`);
+   - (B) the `.inc` expansion of the original POP order through `src/runtime/recomp_memory_access.h:54` (`FF_MEMORY_POP` read at `sp`, `sp += 4`, single destination).
+3. **Bounded question**: confirm which side is wrong and decide the repair; any repair must pass the tested predicate and restore `esi` so `[ESI+0x47C]` reads `0x20400C`, not `0x206314`. The absence of a single named writer inside the translated epilogue is the finding.
+
+No translator edit, no model, no further hunt from this lane. Observed stop unchanged: status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+
+## 41. M2 evidence snapshot and the unblocked goal document
+
+`docs/EXECUTION_GOAL_NOV5.md` is **available on the integration head** (`git show 18cce1d:docs/EXECUTION_GOAL_NOV5.md`); earlier "absent from this worktree" notes are corrected — Runtime-b's milestone order (M0-M5) is readable.
+
+M2 ("device access governed by one recorded policy") evidence from the retained report `browser-156-postpop.json`:
+
+| Metric | Value |
+| --- | --- |
+| Device events (`deviceRegisters.count`) | **5,302** |
+| Device access log entries | **12,637** |
+| Entries with `beforeKnown` provenance | **7,399** |
+| Status waits | 0 |
+
+That satisfies the ">=10 admitted device events with beforeKnown provenance" criterion with a wide margin, and the lane has advanced the boundary well past M1's graphics-init stop (through `0x001fe085`-class work to the current `FUN_001FB640` epilogue). The remaining M2 item is the **explicit recorded device-access policy decision** in the lane's DECISIONS record; the integration branch's decision rows must be checked before adding one here (next free number, no collision).
+
+Next bounded task: record or confirm the device-access policy decision (D-row) against the existing provenance evidence, or pick the next M3 item once the translator-owned epilogue repair lands.
+
+No DECISIONS row this cycle: evidence snapshot only.
+
+## 42. Device-access policy recorded (D402)
+
+M2's remaining item is recorded as D402: device accesses are governed by the declared synthetic register window only — reads of previously written addresses return the shadow value with `beforeKnown` provenance; undeclared/unknown reads fault with the exact fault record (`status 10`, address/width/access/site); widths and bounds are restricted to the declared aperture; no unknown-read value is fabricated and no write is invented. Evidence: `browser-156-postpop.json` — 5,302 device events, 12,637 log entries, 7,399 with `beforeKnown`, 0 status waits. Two boundary advances since M1 are recorded in this checkpoint. No translator or guest-state change.
+
+Lane state remains the confirmed `FUN_001FB640` epilogue mismatch (D401 blockers package) with the observed stop at `0x6B6A6968`; the next executable step depends on the translator owner's repair decision, so no new model or translation change is attempted here.
+
+## 43. Boundary-advance evidence for M2 (retained report chain)
+
+The retained `research/verification/pfifo-setup-01/browser-*.json` chain documents the advances since M1 (graphics-init stop):
+
+| Report | Stop | Routines / ops |
+| --- | --- | --- |
+| `browser-104-reset-avquery` | status 13 at `0xFD800044` (pushbuffer control) | 339 / 405 |
+| `browser-112-consumer` | status 1 at `0xFE000094`, ordinal 159 | 340 / 405 |
+| `browser-118-avunknown` | ordinal 3 after the vblank-wait pass | 340 / 406 |
+| `browser-119-saved` | ordinal 2 after the display declaration | 340 / 407 |
+| `browser-120-saved` | ordinal 1 at `0xFE000098` | 340 / 408 |
+| `browser-121-null` | ordinal 2 at `0xFE000094` | 340 / 409 |
+| `browser-123-null` | ordinal 2 after `D3DDevice_Release` admission | 344 / 411 |
+| `browser-125-null` | ordinal 171 at `0xFE000004` (`MmFreeContiguousMemory`) | 346 / 412 |
+| `browser-126-free` | status 10 at `0x6B6A6968` (read fault) | 346 / 414 |
+
+That is well over the M2 requirement of two boundary advances beyond M1, together with the recorded device-access policy (D402). The lane is now blocked at the translated epilogue mismatch (D401), not at a service or resource.
+
+No DECISIONS row: evidence consolidation for D402.
+
+## 44. Textual check narrows the package: emitted order is correct
+
+Targeted check of the retained translation (module 87, same bytes used at runtime):
+
+- `FUN_001FB640` prologue pushes, in order: `ebx, ebp, esi, edi`.
+- Epilogue pops, in order: `edi, esi, ebp, ebx`.
+- The pop sequence **is the exact reverse** of the push sequence — the emitted `.inc` text is correct.
+
+Candidate (A) — "the translator's emitted callee-saved order text is wrong" — is therefore **refuted for this function**. The remaining candidates are (B) the expansion/execution of that text (`src/runtime/recomp_memory_access.h:54` path, or an alternate executed exit) and the post-pop attribution. This narrows the translator-owner question: the repair is not in the emitted order but in why the executed mapping differs from correct text.
+
+A bounded corpus audit tool was added (`tools/reg-save-order-audit.mjs`) to check prologue/epilogue order across a translation; it reports addresses and register orders only. Its prologue detection is conservative and noisy for functions whose first statement is not a save push, so it is a targeted aid, not a corpus verdict.
+
+No DECISIONS row: narrowing evidence for D401.
+
+## 45. Attribution proven adjacent; the shift is real and not a sampling artifact
+
+Sequence-tagged pop capture (module 158; the two named reports for this cycle are `browser-157-control.json` and `browser-157-experiment.json`, same module `ee284034...`):
+
+| Pop read address | Value | Hook seq | Post-ESI measured at seq |
+| --- | --- | --- | --- |
+| `0x3C10E30` | `0x1FB64C` | 83,980 | 83,981 → `0x203B90` |
+| `0x3C10E34` | `0x205E98` | 83,981 | 83,982 → **`0x205E98`** |
+| `0x3C10E38` | `0x203B90` | 83,982 | 83,983 → `0x205E98` |
+| `0x3C10E3C` | `0xFFFFFFFF` | 83,983 | 83,984 → `0x205E98` |
+| `0x3C10E40` | `0x3C10CFC` | 83,984 | 83,985 → `0x205E98` |
+
+Each post value is sampled at the immediately following hook invocation (seq + 1), so the attribution is **not** a sampling artifact: the pop consuming `0x3C10E34` writes ESI, and the pop consuming `0x3C10E38` does not.
+
+Cycle evidence for the governor's gate: control profile stops at status 13 `0xFD800044` (339/405); experiment stops at status 10 `0x6B6A6968` (346/414) — the stop has **not** moved past the fault, as expected before any repair. Build 158 includes profile 87 and the only `FF_MEMORY_POP` definition (`src/runtime/recomp_memory_access.h:54`), and that text is the correct reverse. The remaining question is therefore a compiled-code/register-identity discrepancy between the correct emitted text and the executed mapping; it is recorded for the translator owner with this adjacent-attribution evidence. No fix, no model.
+
+No DECISIONS row: attribution evidence for D401.
+
+## 46. Original binary matches the emitted text (REA read-only)
+
+Read-only Ghidra check of the retained XBE (source SHA-256 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`):
+
+- `CDevice_FreeFrameBuffers` prologue (`0x1FB640..0x1FB643`): `PUSH EBX; PUSH EBP; PUSH ESI; PUSH EDI; MOV ESI,ECX`.
+- Epilogue (`0x1FB72E..0x1FB732`): `POP EDI; POP ESI; POP EBP; POP EBX; RET`.
+
+The original binary, the emitted `.inc` text and the tested rule therefore all agree: the correct restore order is `edi, esi, ebp, ebx` after pushes `ebx, ebp, esi, edi`. The observed runtime consumer (ESI takes the saved-EDI slot) is inconsistent with all three, and the attribution is adjacent-proven. The remaining discrepancy is in the **compiled-code/register-identity layer** (the built object's register binding), not in the original bytes, the emitted order, or the sampling.
+
+Formal record for the translator owner: the repair question is now "why does the compiled module bind the `POP EDI` slot to `esi` when the original bytes, the emitted text and `ff_reg_order_is_reverse` all require `POP EDI`?" Evidence: this section, §45 attribution table, module `ee284034...`, reports `browser-157-control.json` / `browser-157-experiment.json`. No fix, no translator edit.
+
+No DECISIONS row: evidence for D401.
+
 No DECISIONS row: tooling characterization.

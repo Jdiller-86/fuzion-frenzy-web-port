@@ -1,4 +1,19 @@
-# Save/pop-order rule pinned; translator-owner finding is final
+# Runtime-a blockers package: FUN_001FB640 epilogue mismatch (repair owner needed)
+
+November 5. Defect-class capture is closed; this is the handoff package for the translator owner/user. Evidence is the same status-10 stop at `0x6B6A6968` with 346 routines / 414 kernel ops (D397/D401).
+
+**(i) Tested rule.** `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h`, native test `tests/reg_save_order_test.c` (native 52/52). It accepts a pop sequence that is the exact reverse of the push sequence and rejects anything else. The observed runtime order — saved-EDI `0x205E98` consumed first as ESI — is rejected; the literal reverse is accepted.
+
+**(ii) Two candidate repair owners, with exact sites.**
+
+- **(A) Translator callee-saved emission — textually refuted.** The private generator `tools/prepare-title-recomp.py` produced the sequence in `research/verification/recomp-title-recomp-title-post-memory-87/title-functions.inc`: prologue at `0x1FB640` pushes `ebx, ebp, esi, edi` (lines 6463-6466) and the epilogue pops `edi, esi, ebp, ebx` (lines 6612-6619). A targeted check confirms the pops are the **exact reverse** of the pushes, so the emitted order text is correct; this candidate is refuted for this function.
+- **(B) `.inc` expansion of the original POP order.** The same lines expand through `src/runtime/recomp_memory_access.h:54` (`FF_MEMORY_POP` reads at `sp`, `sp += 4`, then assigns one destination). The macro itself is correct, so this candidate is the `.inc` expansion/attribution of which popped slot reaches which register.
+
+**(iii) Bounded question for the translator owner/user.** Confirm the remaining side — (B) the expansion/execution of the now-verified correct text, or the post-pop attribution — and decide the repair. Acceptance rule is the tested `ff_reg_order_is_reverse` predicate; any repair must pass it and leave `FUN_001FB640` restoring `esi` to the entry value so `[ESI+0x47C]` reads the device field (`0x20400C`), not `0x206314`. The absence of a single named writer inside the translated epilogue **is the finding**; no further hunt and no lane-side translator edit.
+
+Goal document: `docs/EXECUTION_GOAL_NOV5.md` is available on the integration head (`git show 18cce1d:docs/EXECUTION_GOAL_NOV5.md`), so Runtime-b's M0-M5 milestone order is readable; the earlier "absent from this worktree" blocker is corrected. Integration facts: head `18cce1d` contains lane commits through `a0f4d5e`; main `97d831b`; the order-rule commit is pending integration. **No controllable original screen.**
+
+## Prior: Save/pop-order rule pinned; translator-owner finding was final
 
 November 5: the confirmed `FUN_001FB640` epilogue mismatch is pinned by a pure rule — `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h` with native test `tests/reg_save_order_test.c` (native 52/52): the literal reverse order passes, the observed runtime order (saved-EDI `0x205E98` consumed first as ESI) fails. No translator edit; repair decision belongs to the translator owner/user. Blocker: `docs/EXECUTION_GOAL_NOV5.md` is absent from this worktree, so Runtime-b's milestone order is unavailable. Integration facts: head `18cce1d` contains the lane commits through `a0f4d5e`; main `97d831b`; `e6bc808` and the rule commit pending. Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. **No controllable original screen.**
 
