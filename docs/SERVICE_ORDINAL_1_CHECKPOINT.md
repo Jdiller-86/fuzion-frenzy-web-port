@@ -981,3 +981,25 @@ Module `recomp-post-memory-build-166` (profile 91): **1,017,181 bytes**, SHA-256
 `FUN_0004b160` executed and reached the CRT `fopen` path; `fopen` (`0x1E01AD`) then called its worker `__fsopen` (`0x1E0151..0x1E01A2`), the next translation placeholder. Halt and report; next bounded step is `__fsopen` with its evidenced direct callees.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 65. Batch admission of __fsopen and its unseeded callees; next stop __lock_file2 at 0x1E4C62
+
+Primary card unchanged and re-checked at head `9e563dc`: DECISIONS ends with one LF and `git diff --check origin/main HEAD` exits 0 — still a no-op, no amend.
+
+Runtime-a continuation from `0x1E0151`. `__fsopen` body `0x1E0151..0x1E01A2` directly calls `0x1E04CC`, `0x1E52F6`, `0x1E4F87`, `0x1E518E`, `0x1E01A3`, `0x1E0505`; `0x1E04CC`, `0x1E4F87` and `0x1E0505` were already translated.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e0151-01/seed-fsopen.json`: prior 16 seed functions plus `0x001E0151` (`__fsopen`), `0x001E52F6` (`__getstream`), `0x001E518E` (`__openfile`), `0x001E01A3` (tiny wrapper); 4 new functions, within the 8-function set cap, all `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 92: **480 functions, 19,680 instructions** (+4 / +246).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-167` (profile 92): **1,025,210 bytes**, SHA-256 `9508d2d28d6cda9a95610bf7eda5a2ee92f33aec1925018f5a54566de6906b66`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4C62`** | **357 / 428** |
+
+`__fsopen` ran through `__getstream`, which then called `__lock_file2` (`0x1E4C62..0x1E4C84`), the next translation placeholder; six additional kernel operations completed on the way (422 → 428). Halt and report; next bounded step is `__lock_file2` with its unseeded callee `0x1E635C` and a check of the import thunk at `0x2533F0` before any model is proposed.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
