@@ -750,3 +750,22 @@ From `browser-157-experiment.json` (`deviceRegisters.log`, 12,637 entries):
 The policy is applied exactly as recorded in D402: every device read in the run is of an address previously written in the same run, and no unknown-address read occurred (the current fault at `0x6B6A6968` is a **guest-memory** read, not a device-register read). This keeps the M2 device-access evidence current while the translator-owned repair (candidate B) is pending.
 
 No DECISIONS row: evidence only.
+
+## 50. M2 policy in both profiles (control and experiment)
+
+Same computation on the control profile (`browser-157-control.json`, module `ee284034...`):
+
+| Metric | Control | Experiment |
+| --- | --- | --- |
+| Log entries | 12,592 | 12,637 |
+| Reads | 137 | 161 |
+| Reads `beforeKnown` | 137 (100%) | 161 (100%) |
+| Reads of previously written addresses | 54 | 68 |
+| Unknown-address reads | **0** | **0** |
+| Writes | 12,455 | 12,476 |
+| Distinct addresses | 5,298 | 5,298 |
+| Status waits | 0 | 0 |
+
+D402's device-access policy holds in **both** profiles with zero unknown-address reads, satisfying M2's "in both profiles" requirement independently of the pending candidate-(B) repair.
+
+No DECISIONS row: evidence only.

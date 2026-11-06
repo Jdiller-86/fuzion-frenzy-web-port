@@ -1,4 +1,10 @@
-# M2 policy stats: 161/161 device reads beforeKnown, zero unknown reads
+# M2 policy verified in both profiles: zero unknown device reads
+
+November 5: the device-log policy (D402) is verified in **both** profiles — control `browser-157-control.json`: 12,592 entries, 137 reads (100% `beforeKnown`, 54 after write), 12,455 writes, 0 unknown reads, 5,298 distinct, 0 status waits; experiment `browser-157-experiment.json`: 12,637 entries, 161 reads (100%, 68 after write), 12,476 writes, 0 unknown reads, same distinct/status. M2's "in both profiles" requirement is met independently of the pending candidate-(B) repair.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 policy stats: 161/161 device reads beforeKnown, zero unknown reads
 
 November 5: device-log statistics from `browser-157-experiment.json` keep the M2 evidence current — 12,637 entries: 161 reads (100% `beforeKnown`, 68 of previously written addresses), 12,476 writes, **0 unknown-address reads**, 5,298 distinct device addresses, 0 status waits. D402's policy is applied exactly; the current fault at `0x6B6A6968` is a guest-memory read, not a device-register read. M3 acceptance remains pre-registered; repair ownership stays with the translator owner (candidate B).
 
