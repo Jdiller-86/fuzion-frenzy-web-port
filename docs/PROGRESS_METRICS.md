@@ -501,3 +501,17 @@ mandatory corrective decision in docs/DECISIONS.md.
   open with re-checks on the next integration head") is recorded as deliberately withheld, and this
   D-row authorizes nothing earlier. Tempo: 0 counted advances and the stop unchanged verbatim at
   status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-06 ops (D414): systemic ABI facts and the runtime-b trio decision - runtime-a's restored ABI
+  logger (`c2c60b1`, `8924710`) counts **136 ABI violations / 131 ESI** (first `0x1E04CC`, last
+  `0x202150`) with **0 ESP-delta**, so the one-dword deficit (D412) is a systemic symptom and the
+  consumed-vs-unconsumed icall return-word contract (D413/B, `0x1FB64C`) stays the repair site; the
+  flagged publication gap is re-verified CLOSED (`origin/codex/opencode-source` reads `8924710`).
+  Runtime-b trio option (b) is decided by the D393 single-owner rule: `thread_proof-worker.mjs` /
+  `proof-report.mjs` are runtime-a-owned, so runtime-b records ABI facts only in its own owned
+  checkpoints and routes fact requests through DECISIONS rows; options (a) new-ordinal evidence and
+  (c) quad-strip recapture remain valid lane-b work. No runtime advance.
+- 2026-11-06 ops (D414): tempo and directive - 0 counted advances, stop unchanged verbatim at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; the stale tick directive tail (the
+  D404-era `FUN_001F6240` register-identity investigation) is superseded by the D412/D413 owner
+  decisions, so the next card points runtime-a at the icall return-word repair implementation.
+  No runtime advance.
