@@ -517,4 +517,84 @@ So the survival is a value written in the tail of `FUN_001FB640`, not a skipped 
 
 No DECISIONS row: characterization only.
 
+## 34. Tail span: the writer is the epilogue `POP esi` (stack-accounting candidate)
+
+The probe now records per-access events in the `FUN_001FB640` tail (`0x1FB6FD..0x1FB740`). Run `browser-154-tail.json` (module 154), last events:
+
+- `0x1FB706` (rep-stosd loop): ESI `0x203B90`, addresses `0x205CF0..0x205D24`.
+- `0x1FB71B` (`[esi+0x2148]` compare): ESI `0x203B90`, address `0x205CD8`.
+- **No `0x1FB728` event** — the branch at `0x1FB71B` took `je 0x1FB72E`, so the indirect call at `0x1FB725` did **not** execute.
+- Next event: `0x1FC087` field read with ESI `0x205E98`.
+
+Between the last tail access (`0x1FB71B`, ESI `0x203B90`) and the field read, the only translated code is the epilogue `POP edi; POP esi; POP ebp; POP ebx; ret`. There is **no `esi =` assignment** in that span, so the write to ESI is the **epilogue `POP esi`** itself: it restores a stack word equal to `0x205E98` instead of the saved `0x203B90`.
+
+Classification: the writer is the `POP esi` at `FUN_001FB640`'s epilogue, i.e. a **stack-accounting (save-slot) defect** in the translated function — the popped slot does not hold the entry value. This is a translator/translation finding, not a guest-state, profile, or probe artifact; no fix or model is applied. Confirming the exact popped word needs a pop-value capture (site 0 read value) next.
+
+No DECISIONS row: characterization only.
+
+## 35. Pop-word capture: the restore slots are off by one
+
+The probe now records the value of every stack read at site 0 (`popEvents`). Run `browser-155-pop.json` (module 155), last stack reads before the field access:
+
+| Stack slot | Value read |
+| --- | --- |
+| `0x3C10E34` | **`0x205E98`** |
+| `0x3C10E38` | **`0x203B90`** |
+| `0x3C10E3C` | `0xFFFFFFFF` |
+| `0x3C10E40` | `0x3C10CFC` |
+
+`FUN_001FB640`'s epilogue pops `edi, esi, ebp, ebx` in that order, so the first slot (`0x3C10E34 = 0x205E98`) is consumed by the **EDI** pop and the second (`0x3C10E38 = 0x203B90`) by the **ESI** pop — yet the following field read observes `ESI = 0x205E98`. The save/pop slots are therefore **off by one register**: the value intended for one register (the restore slot at `0x3C10E34`) lands in `ESI`, and the correct `0x203B90` is consumed by the next pop.
+
+This is a translated stack-accounting/save-slot mismatch, not guest state, profile, or probe artifact. No fix or model; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
+## 36. Correction: the off-by-one reading is provisional, not confirmed
+
+The pop-word capture cannot yet be tied to specific registers: the four last stack reads (`0x3C10E34 = 0x205E98`, `0x3C10E38 = 0x203B90`, `0x3C10E3C = 0xFFFFFFFF`, `0x3C10E40 = 0x3C10CFC`) are **unordered with respect to the `edi/esi/ebp/ebx` pop sequence** — the probe records the value read at each site-0 stack access, not which register consumed it. Reading them as the epilogue order is an assumption.
+
+Two facts remain solid: (a) the field read at `0x1FC087` observes `ESI = 0x205E98` (arbiter-confirmed), and (b) the last monitored tail access `0x1FB71B` observes `ESI = 0x203B90` with only epilogue pops in between. The claim that the restore slots are off by one is therefore **provisional** and requires an order-tagged pop capture (record the pop sequence index and the destination register) before it is reported as a translator defect.
+
+Honest status: the writer is localised to the `FUN_001FB640` epilogue, the exact pop/register mapping is unconfirmed, and no fix or model is warranted. The next bounded task is the order-tagged pop capture.
+
+No DECISIONS row: characterization only.
+
+## 37. Order-tagged pops confirm: ESI receives the saved-EDI slot
+
+The probe now records `g_esi` after each stack pop (`popEvents` third field). Run `browser-156-postpop.json` (module 156):
+
+- `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` → slots `0x3C10E40 = 0x3C10CFC` (ebx), `0x3C10E3C = 0xFFFFFFFF` (ebp), `0x3C10E38 = 0x203B90` (esi), `0x3C10E34 = 0x205E98` (edi).
+- The .inc epilogue order is `pop edi; pop esi; pop ebp; pop ebx`.
+- Post-pop ESI trace: ESI is `0x203B90` after every pop up to `0x3C10E30`; it becomes **`0x205E98` at the pop consuming `0x3C10E34`** (the saved-EDI slot) and stays `0x205E98` for the remaining pops (`0x3C10E38`, `0x3C10E3C`, `0x3C10E40`).
+
+So the executed epilogue writes the **saved-EDI value into ESI**, while the saved-ESI value (`0x203B90`) is consumed by another pop. The literal source order would not do that, so the pop/register mapping in the executed translation is inconsistent with its own text — the exact defect class: **stack-slot/register mapping mismatch in the `FUN_001FB640` epilogue** (pop order or macro expansion), not guest state, profile, or probe artifact.
+
+This is now confirmed by direct post-pop tagging. No fix or model is applied; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization only.
+
+## 38. Save/pop-order rule pinned; EXECUTION_GOAL_NOV5 unavailable
+
+- `docs/EXECUTION_GOAL_NOV5.md` (referenced by the current AGENTS directive) is **not present in this worktree**; Runtime-b's milestone order is therefore unavailable. Blocker recorded; independent source-owned work chosen instead.
+- The confirmed epilogue mismatch is now expressed as a pure, tested rule: `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h`, with native test `tests/reg_save_order_test.c`. It accepts the literal reverse order (`ebx, ebp, esi, edi` → `edi, esi, ebp, ebx`) and rejects the observed runtime order (saved-EDI slot consumed first as ESI). Native suite passes **52/52**.
+
+Formal translator-owner finding: `FUN_001FB640`'s executed epilogue does not restore the callee-saved registers in the reverse of its push order; the saved-EDI value (`0x205E98`) lands in ESI, and the field read at `0x1FC087` uses it as `[ESI+0x47C]`. The rule that any repair must satisfy is now pinned by the native test. No translator edit is made; the repair decision belongs to the translator owner/user.
+
+No DECISIONS row: characterization plus a pure validation rule.
+
+## 39. Pop macro inspected: the shift is not in the macro
+
+`src/runtime/recomp_memory_access.h:54` defines the pop rule as: `ff_pop_value = FF_MEMORY_U32(sp, 1u); (sp) += 4u; (destination) = ff_pop_value;` — a correct read-before-increment with a single destination. The macro therefore cannot by itself place a saved-EDI value into ESI.
+
+Two possibilities remain, and neither can be decided with the memory hook alone:
+
+1. The **executed epilogue order** differs from the `.inc` text (`pop edi; pop esi; pop ebp; pop ebx`), e.g. an alternate path or a translation mismatch; or
+2. The **post-pop attribution** (recording `g_esi` at the next hook invocation) is off by one relative to the actual register assignment.
+
+Both are register-write questions; the memory hook observes addresses and stack words, not register destinations. No translator or macro defect is asserted beyond "the executed order/mapping is inconsistent with the source text". The repair decision and any register-level trace belong to the translator owner/user.
+
+Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-level), which this lane must not add. No fix, no model.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
