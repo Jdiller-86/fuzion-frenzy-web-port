@@ -9,7 +9,9 @@ The project follows CTR-2-WUP's separation of reviewed milestone scope, native G
 - [milestones.md](milestones.md) is generated from reviewed scope; [plans.md](../plans.md) gives the readable direction. [Status](status.md) retains actual main-branch runtime evidence.
 - Snapshots and the offline progress view are derived artifacts. Their source revision and generation time identify the observation; unavailable tracking is reported as unavailable.
 
-The current adapter uses repository milestones and status labels. CTR's separate user-owned Projects board requires project-level access; no such board or private management credential is configured here. Repository tracking uses the workflow's scoped GitHub credential.
+Repository milestones and issue status labels own acceptance. The user-owned GitHub Project mirrors their status and the Milestone/Task work type, with a Waiting resource field for human coordination. Its fields and saved views are copied from CTR-2-WUP's public Project #2 without importing its issues or drafts. [Project identity](../profiles/project-board.json) is pinned after verified creation.
+
+Repository tracking uses the workflow's scoped GitHub credential. Board operations use the repository Actions secret `FUZION_GITHUB_MANAGEMENT_TOKEN`, configured by the owner with `project` and `public_repo` access. Keep the credential in Actions; never put it in source, chat, arguments, receipts or issue bodies. A missing/expired credential fails the board operation instead of inventing progress.
 
 ## Status and acceptance
 
@@ -31,9 +33,11 @@ Work can overlap; dependency links govern acceptance. Implementation issues stil
 
 [Project tracking](../.github/workflows/project.yml) runs from trusted main. Reviewed scope changes synchronize owned labels, native milestones, marker-identified issues and native parent/dependency links. Existing human evidence and checked unchanged criteria are preserved. It neither closes gates automatically nor runs a coding agent.
 
-Issue events export current progress. Workflow dispatch supports snapshot or sync, with preview unless Apply is selected. The workflow verifies source identity, issue identity, parent/dependency read-back and the public snapshot. No cross-repository or project-account management is performed.
+Issue events export current progress and mirror validated issue status to the board. Edit issue labels and acceptance records to change status; a manual board Status change does not accept a gate and is replaced on the next synchronization. Waiting resource values and human notes outside the managed Project description are retained. Further public issues added manually to this repository's board are left untouched.
 
-The run's `project-tracking-*` artifact contains JSON receipts and `progress/index.html`, a standalone offline view. It separates accepted gates from completed tasks, provides status filtering and links to native issues. It is a downloadable report; no documentation site deployment is configured by this work.
+Workflow dispatch supports snapshot or sync, with preview unless Apply is selected. The workflow verifies source identity, issue identity, parent/dependency read-back, board membership/fields and the public snapshot. Writes are limited to this repository and its owned board; CTR's template remains read-only. Board creation is refused when an unregistered same-named project exists, so retries do not silently create duplicates or adopt unrelated work.
+
+The run's `project-tracking-*` artifact contains repository/board JSON receipts and `progress/index.html`, a standalone offline view. It separates accepted gates from completed tasks, provides status filtering and links to native issues. Arbitrary Project notes and Waiting resource text are excluded from the exported receipt. It is a downloadable report; no documentation site deployment is configured by this work.
 
 ## Local commands
 
@@ -44,5 +48,7 @@ npm run test:project
 ```
 
 With an appropriately scoped GitHub API connection, `npm run project:preview` previews metadata operations; `node tools/project.mjs sync --apply` applies them only from the current main revision. `npm run project:snapshot` and `npm run project:render` produce ignored artifacts. Prefer the GitHub workflow when local API access is unavailable. Credentials stay in the environment and are never printed.
+
+`node tools/project-board.mjs` previews board changes; `--apply` copies/configures the board or updates its managed cards only from current main. The trusted-main tracking workflow runs this after validating repository tracking. A new board copies saved views exactly; repository-specific template filters require review before copying. Existing view edits are retained after creation.
 
 Synchronization uses stable markers rather than issue titles. Do not remove those markers or register the same issue twice. An unknown/duplicate identity, conflicting status, changed parent, missing acceptance evidence or unavailable API fails verification instead of fabricating progress.

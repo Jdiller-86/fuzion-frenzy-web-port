@@ -4,7 +4,9 @@ on:
     branches: [main]
     paths:
       - profiles/project.json
+      - profiles/project-board.json
       - tools/project.mjs
+      - tools/project-board.mjs
       - tools/project-dashboard.html
       - .github/workflows/project.yml
   issues:
@@ -43,6 +45,7 @@ jobs:
         run: |
           node tools/project.mjs check
           node --test tests/project.test.mjs
+          node --test tests/project-board.test.mjs
       - name: Preview or apply reviewed metadata
         if: github.event_name == 'push' || inputs.operation == 'sync'
         env:
@@ -65,6 +68,18 @@ jobs:
       - name: Build read-only offline progress view
         if: always()
         run: node tools/project.mjs render
+      - name: Preview or synchronize the public GitHub Project
+        env:
+          GH_TOKEN: ${{ secrets.FUZION_GITHUB_MANAGEMENT_TOKEN }}
+          TRACKING_EVENT: ${{ github.event_name }}
+          TRACKING_APPLY: ${{ inputs.apply }}
+          TRACKING_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          if [ "$TRACKING_EVENT" = push ] || [ "$TRACKING_EVENT" = issues ] || [ "$TRACKING_APPLY" = true ]; then
+            node tools/project-board.mjs --apply
+          else
+            node tools/project-board.mjs
+          fi
       - name: Retain public progress and synchronization receipts
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -73,6 +88,7 @@ jobs:
           path: |
             artifacts/project.json
             artifacts/project-sync.json
+            artifacts/project-board.json
             artifacts/progress/
           retention-days: 14
           if-no-files-found: warn
