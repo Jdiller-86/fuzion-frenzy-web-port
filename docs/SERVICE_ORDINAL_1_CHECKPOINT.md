@@ -1423,3 +1423,28 @@ Re-running module 185 (unchanged profile 107) reproduces the same stop - **statu
 Recorded limitation: the log keeps the trap descriptor, not the text bytes. The guest buffer is reused between traps and resolves to the shared format area, so reading it after the run would not reproduce what was printed; copying bytes inside the probe at trap time is a future, separately tested change.
 
 Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 82. Capture the debug-service text at trap time; the title's Babel log is now readable
+
+The section-81 limitation was removed instead of left standing: the guest string is copied inside the probe when the trap is recorded, before anything can reuse the buffer.
+
+- `src/runtime/recomp_services.{c,h}`: a record now carries `textBytes` and a fixed `FF_DEBUG_SERVICE_TEXT_BYTES` (32) byte copy, taken only after the same checked-aperture validation that already admitted the descriptor.
+- `tools/fixtures/thread_startup_probe.c`: `ff_probe_debug_service_word(i, 4)` reports the captured length and the new `ff_probe_debug_service_byte` reads the bytes; both stay bounded by the record.
+- `src/runtime/thread-proof-worker.mjs` decodes the bytes to `message` only when every captured byte is printable ASCII, and `src/runtime/proof-report.mjs` validates `textBytes` (≤ 32) and `message` (printable, equal to the captured length, not longer than the declared string).
+- `tests/recomp_services_test.c` pins the 5-byte copy, the 32-byte truncation and the refused cases; `tests/proof-report.test.mjs` pins the validated and rejected message shapes (**24/24**).
+
+Module `recomp-post-memory-build-187` (unchanged profile 107): **1,115,933 bytes**, SHA-256 `1a88902c8de20ef3009f252dc02c0342bcaa257ebe768e4b954e4fee537793fe`. The controlled comparison is unchanged - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and the report now carries the title's own log:
+
+| # | Bytes | Text |
+| --- | --- | --- |
+| 1 | 43 | (captured prefix contains a non-printable byte; no message emitted) |
+| 2 | 42 | `Babel Execution Log, (c) 2001 Bl...` |
+| 3 | 40 | `  Babel 54.05, Thu Aug  9 09:46:...` |
+| 4 | 42 | `--------------------------------` |
+| 5 | 37 | `Current time is 13:38:01, 6 Nov ...` |
+
+The title is running its own timestamped Babel execution log through the failure path that began with the refused `z:\debugLog.txt` create; the log text is guest data, not host output.
+
+Frontier unchanged: `FUN_001e8e74` still needs the paired QPF/TSC time-source decision before it can be admitted (link gate on `xbox_ReadTimeStampCounter`).
+
+Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

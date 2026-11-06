@@ -1,4 +1,12 @@
-# Guest debug-service log captured; time-source gate still holds the frontier
+# Debug-service text captured at trap time; the title's Babel log is readable
+
+November 6: the section-81 limitation was closed. The probe now copies up to 32 guest string bytes inside `ff_debug_service_record` (after the same checked-aperture validation), exposes them through `ff_probe_debug_service_word(i,4)` and the new `ff_probe_debug_service_byte`, and the worker decodes a printable-ASCII `message` that `proof-report.mjs` validates (`textBytes` ≤ 32, message equal to captured length). Fixtures pin the copy, truncation and refusal cases (**native 62/62**, proof-report 24/24).
+
+Module 187 (unchanged profile 107) = **1,115,933 bytes**, SHA `1a88902c...`; the comparison is unchanged - **status 2 at `0x001E8E74`, 384 routines / 494 kernel ops** - and the report now shows the title's own Babel execution log: `Babel Execution Log, (c) 2001 Bl...`, `  Babel 54.05, Thu Aug  9 09:46:...`, a rule line, and `Current time is 13:38:01, 6 Nov ...` (five service-1 traps, 43/42/40/42/37 bytes; the first prefix contains a non-printable byte so no message is emitted).
+
+Frontier unchanged: `FUN_001e8e74` still needs the paired QPF (ordinal 127) / `rdtsc` time-source decision; the link gate on `xbox_ReadTimeStampCounter` holds. Checks: `test:native` 62/62, proof-report 24/24, `test:evidence` 6/6, `test:runtime` 200 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Guest debug-service log captured; time-source gate still holds the frontier
 
 November 6: independent source-owned step while the paired time-source decision is held. The startup report now carries a bounded `debugServices` list: `thread-proof-worker.mjs` reads the probe's recorded guest `INT 0x2D` traps (`service`, `argument`, `length`, `buffer`), `proof-report.mjs` validates it (`DEBUG_SERVICE_LIMIT = 8`, malformed/oversized rejected, field optional) and `tests/proof-report.test.mjs` covers the cases (**24/24**).
 

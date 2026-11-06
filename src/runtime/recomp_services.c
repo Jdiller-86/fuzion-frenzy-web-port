@@ -22,6 +22,8 @@ void ff_debug_service_reset(ff_debug_service_log *log)
         log->calls[i].argument = 0;
         log->calls[i].length = 0;
         log->calls[i].buffer = 0;
+        log->calls[i].textBytes = 0;
+        for (unsigned b = 0; b < FF_DEBUG_SERVICE_TEXT_BYTES; ++b) log->calls[i].text[b] = 0;
     }
 }
 
@@ -40,6 +42,8 @@ uint32_t ff_debug_service_record(ff_debug_service_log *log,
     call->argument = argument;
     call->length = 0;
     call->buffer = 0;
+    call->textBytes = 0;
+    for (unsigned b = 0; b < FF_DEBUG_SERVICE_TEXT_BYTES; ++b) call->text[b] = 0;
     /* The retained translator prints service 1 and reports every other
      * service as ignored; both leave the guest registers untouched. */
     if (service != 1u || !argument) return FF_DEBUG_SERVICE_OK;
@@ -54,5 +58,8 @@ uint32_t ff_debug_service_record(ff_debug_service_log *log,
         call->length = 0;
         return FF_DEBUG_SERVICE_UNREADABLE;
     }
+    uint32_t copied = length < FF_DEBUG_SERVICE_TEXT_BYTES ? length : FF_DEBUG_SERVICE_TEXT_BYTES;
+    for (uint32_t i = 0; i < copied; ++i) call->text[i] = memory->ram[buffer + i];
+    call->textBytes = copied;
     return FF_DEBUG_SERVICE_OK;
 }

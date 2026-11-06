@@ -2709,14 +2709,20 @@ uint32_t ff_probe_debug_service_count(void) { return debug_service_log.count; }
 uint32_t ff_probe_debug_service_dropped(void) { return debug_service_log.dropped; }
 uint32_t ff_probe_debug_service_word(uint32_t i, uint32_t n)
 {
-    if (i >= debug_service_log.count || n >= 4u) return 0;
+    if (i >= debug_service_log.count || n >= 5u) return 0;
     const ff_debug_service_call *call = &debug_service_log.calls[i];
     switch (n) {
         case 0: return call->service;
         case 1: return call->argument;
         case 2: return call->length;
-        default: return call->buffer;
+        case 3: return call->buffer;
+        default: return call->textBytes;
     }
+}
+uint32_t ff_probe_debug_service_byte(uint32_t i, uint32_t n)
+{
+    if (i >= debug_service_log.count || n >= FF_DEBUG_SERVICE_TEXT_BYTES) return 0;
+    return debug_service_log.calls[i].text[n];
 }
 uint32_t ff_probe_thread_word(uint32_t i, uint32_t n)
 {

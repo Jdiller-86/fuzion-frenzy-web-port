@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT, DEBUG_SERVICE_LIMIT } from '../src/runtime/proof-report.mjs';
+import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT, DEBUG_SERVICE_LIMIT, DEBUG_SERVICE_TEXT_LIMIT } from '../src/runtime/proof-report.mjs';
 
 const report = (edit = {}) => ({
   kind: 'thread-startup-boundary',
@@ -47,6 +47,10 @@ test('the debug-service log is bounded and shape-checked', () => {
   assert.equal(validateProofReport(valid), valid);
   const empty = report({ debugServices: [] });
   assert.equal(validateProofReport(empty), empty);
+  const captured = report({ debugServices: [{ ...entry, textBytes: 5, message: 'hello' }] });
+  assert.equal(validateProofReport(captured), captured);
+  const truncated = report({ debugServices: [{ ...entry, length: 40, textBytes: 32, message: 'A'.repeat(32) }] });
+  assert.equal(validateProofReport(truncated), truncated);
 
   assert.throws(() => validateProofReport(report({
     debugServices: Array.from({ length: DEBUG_SERVICE_LIMIT + 1 }, () => entry),
@@ -57,6 +61,18 @@ test('the debug-service log is bounded and shape-checked', () => {
   assert.throws(() => validateProofReport(report({
     debugServices: [{ ...entry, buffer: 0x1_0000_0000 }],
   })), /Malformed debug-service entry/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, textBytes: DEBUG_SERVICE_TEXT_LIMIT + 1 }],
+  })), /Malformed debug-service text length/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, textBytes: 5, message: 'hell' }],
+  })), /Malformed debug-service message/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, textBytes: 5, message: 'hel\u0001o' }],
+  })), /Malformed debug-service message/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, message: 'hello' }],
+  })), /requires its captured length/);
 });
 
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
