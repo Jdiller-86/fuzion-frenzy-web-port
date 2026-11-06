@@ -654,4 +654,18 @@ That is well over the M2 requirement of two boundary advances beyond M1, togethe
 
 No DECISIONS row: evidence consolidation for D402.
 
+## 44. Textual check narrows the package: emitted order is correct
+
+Targeted check of the retained translation (module 87, same bytes used at runtime):
+
+- `FUN_001FB640` prologue pushes, in order: `ebx, ebp, esi, edi`.
+- Epilogue pops, in order: `edi, esi, ebp, ebx`.
+- The pop sequence **is the exact reverse** of the push sequence — the emitted `.inc` text is correct.
+
+Candidate (A) — "the translator's emitted callee-saved order text is wrong" — is therefore **refuted for this function**. The remaining candidates are (B) the expansion/execution of that text (`src/runtime/recomp_memory_access.h:54` path, or an alternate executed exit) and the post-pop attribution. This narrows the translator-owner question: the repair is not in the emitted order but in why the executed mapping differs from correct text.
+
+A bounded corpus audit tool was added (`tools/reg-save-order-audit.mjs`) to check prologue/epilogue order across a translation; it reports addresses and register orders only. Its prologue detection is conservative and noisy for functions whose first statement is not a save push, so it is a targeted aid, not a corpus verdict.
+
+No DECISIONS row: narrowing evidence for D401.
+
 No DECISIONS row: tooling characterization.

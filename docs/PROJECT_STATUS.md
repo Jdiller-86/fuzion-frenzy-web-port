@@ -1,4 +1,10 @@
-# M2 closed with evidence: seven boundary advances since M1, policy D402
+# Emitted push/pop order is textually correct; package narrowed to expansion/attribution
+
+November 5: targeted textual check of module 87 — `FUN_001FB640` prologue pushes `ebx, ebp, esi, edi` and epilogue pops `edi, esi, ebp, ebx`, an **exact reverse**, so the emitted `.inc` order text is correct and candidate (A) (translator emission text) is **refuted** for this function. The blockers package (D401) is narrowed to candidate (B): the expansion/execution of that correct text (or the post-pop attribution). Bounded corpus audit tool added (`tools/reg-save-order-audit.mjs`, addresses/orders only; conservative prologue detection, targeted aid not a verdict).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 485 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M2 closed with evidence: seven boundary advances since M1, policy D402
 
 November 5: the retained report chain documents seven boundary/target advances since M1 — `0xFD800044` (339/405) → ordinal 159 (340/405) → ordinal 3 (340/406) → ordinal 2 (340/407) → ordinal 1 (340/408) → ordinal 2 (340/409) → `D3DDevice_Release` (344/411) → ordinal 171 (346/412) → the read fault (346/414). Together with the recorded device-access policy (D402) this satisfies M2's criteria; the lane is blocked at the translated `FUN_001FB640` epilogue mismatch (D401 package), not at a service or resource.
 
