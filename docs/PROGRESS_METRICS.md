@@ -525,3 +525,17 @@ mandatory corrective decision in docs/DECISIONS.md.
   duplicate `D370`, `D376`, `D383`, `D405`, `D410` (renumber still pending), markers naming
   `10cae5297…` instead of the real head `10cae5256…`, and PR #19 `OPEN`/`CLEAN`/`MERGEABLE` at
   `10cae52`. Local records only; the tick's own work is orchestration. No runtime advance.
+- 2026-11-06 ~01:00 ops (D430): merge-marker-topology defect - the 00:40 tick's `OPEN_MAIN_PR:` /
+  `QUEUE_MAIN_PR_MERGE:` markers name `10cae52978585938ac4beee11b4680d1a4ac83c`, which
+  `git cat-file -t` rejects ("Not a valid object name"), while the real integration head is
+  `10cae52567e2076d36f537b9f7deed6ad1a668f8` (= `refs/pull/19/head`, contains the runtime-a chain);
+  the state file's 00:44:34 write carried the bogus hash with `prManagement:
+  no_architect_open_request`, so no merge request was ever issued - the runner must re-issue
+  against `10cae5256`. Orchestration only. No runtime advance.
+- 2026-11-06 ~01:00 ops (D430 tempo): the second counted advance is NOT due - the count stays 1
+  (`ad0bffa`); runtime-a's tip is unchanged at `ad0bffa` locally and on
+  `origin/codex/opencode-source`, no lane commit has moved the stop past `0xFE0000C8` (advance
+  record: status 1 at `0xFE0000C8`, ordinal 100, 347/419), the pre-advance shape remains status 10
+  at `0x6B6A6968` / 346 / 414, main's `docs/PROJECT_STATUS.md` still carries the pre-advance text,
+  and runtime-b's tip `854958e` shows no new boundary (its in-flight set is 6 interrupt-vector /
+  kernel-service files, not the already-committed geometry refactor). No runtime advance.
