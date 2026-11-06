@@ -1088,3 +1088,44 @@ Module `recomp-post-memory-build-171` (profile 96): **1,045,793 bytes**, SHA-256
 `FUN_001e733d` executed (the stream table setup), and the caller `0x1E75C8` continued to `FUN_001e93e4` (`0x1E93E4..0x1E956E`), the next translation placeholder; eleven further kernel operations completed on the way (430 → 441). Halt and report.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 70. Admission of FUN_001e93e4 reaches NtCreateFile; unsupported stop (FILE_OVERWRITE) at ordinal 190
+
+Runtime-a continuation from `0x1E93E4` (directive head `832efee`). The body `0x1E93E4..0x1E956E` only calls already-translated code (`0x31155`, `0x31127`) and two supported ordinals: `[0x25338C]` = 289 `RtlInitAnsiString` and `[0x253404]` = 190 `NtCreateFile`.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e93e4-01/seed-93e4.json`: prior 27 seed functions plus `0x001E93E4`; 1 new function, `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 97: **488 functions, 20,251 instructions** (+1 / +136).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-172` (profile 97): **1,051,395 bytes**, SHA-256 `56f848b602347b0a306ba90ae5af5de3c90a077d36d9b543ede6b06bffb32e33`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 9 at ordinal 190, value `0xC00000BB`** | **364 / 442** |
+
+This is a genuine unsupported-service stop, not a placeholder. The reported call (return address `0x1E94CC`, `stackArguments`) is:
+
+| NtCreateFile arg | Value | Meaning |
+| --- | --- | --- |
+| FileHandle (out) | `0x3C10C04` | writable guest slot |
+| DesiredAccess | `0x40100080` | `GENERIC_WRITE \| SYNCHRONIZE \| FILE_READ_ATTRIBUTES` |
+| ObjectAttributes | `0x3C10BE8` | `{length, root, name descriptor}` |
+| IoStatusBlock | `0x3C10BF4` | writable guest slot |
+| AllocationSize | 0 | absent |
+| FileAttributes | `0x80` | `FILE_ATTRIBUTE_NORMAL` |
+| ShareAccess | 3 | read/write |
+| CreateDisposition | **5** | `FILE_OVERWRITE` |
+| CreateOptions | `0x60` | `FILE_NON_DIRECTORY_FILE \| FILE_SYNCHRONOUS_IO_NONALERT` |
+
+`FF_REGULAR_FILE_PROOF` is already in this module build, so the handler routed the call to `ff_volume_create_file` (CreateOptions bit 0 clear). Every gate term passes except `disposition>3` at `src/runtime/local_files.c:52`, which returns `FF_BOOT_UNSUPPORTED` (`0xC00000BB`); the probe then stops at ordinal 190.
+
+The same run already succeeded on the ratified path earlier: the report's captured `createFileRequest` is the `TitleMeta.xbx` create (`Disposition 3`, options `0x22`) with `serviceImplemented: true`, followed by a 52-byte metadata write, and the local volume reports `ready: 1`, 5 directories and 2 data files. The blocker is therefore specific to `FILE_OVERWRITE`.
+
+Options for the architect (no change made, model scope is not the lane's to widen unprompted):
+
+- A. Extend the ratified regular-file model to admit `CreateDisposition = 5` with defined overwrite/truncate semantics, native tests and the pair rerun.
+- B. Characterize the caller's intent first (the failing path name is not captured because the probe only records names after a successful create; it would need a diagnostic or a successful call).
+
+Halt and report. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

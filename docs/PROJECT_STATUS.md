@@ -1,10 +1,10 @@
-# FUN_001e733d batch admitted; next stop is FUN_001e93e4 at 0x1E93E4
+# NtCreateFile stop: ordinal 190 refuses CreateDisposition 5 (FILE_OVERWRITE)
 
-November 6: one evidenced batch translation increment (retained pipeline; 2 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E733D` and `0x001E72A8` to the prior seed (32-export cap kept); every other callee was already translated and both import thunks are ordinals 277/294 already routed. `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 96 (**487 functions, 20,115 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 171: **1,045,793 bytes**, SHA `57576342...`.
+November 6: one translation increment (retained pipeline; 1 function). Read-only Ghidra export added `0x001E93E4` to the prior seed (32-export cap kept); its callees and both import ordinals (289/190) were already supported. `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 97 (**488 functions, 20,251 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 172: **1,051,395 bytes**, SHA `56f848b6...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the stream-table setup and stops at **status 2, `0x001E93E4`** (363 routines / 441 kernel ops) — `FUN_001e93e4`, the next translation placeholder.
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment stops at **status 9, ordinal 190 (`NtCreateFile`), value `0xC00000BB`, 364 routines / 442 kernel ops** — a genuine unsupported-service stop. The call asks for `CreateDisposition = 5` (`FILE_OVERWRITE`) with `DesiredAccess 0x40100080`, `CreateOptions 0x60`, and the ratified regular-file model admits only dispositions 1–3 (`src/runtime/local_files.c:52`). An earlier create/write in the same run succeeded (`TitleMeta.xbx`, disposition 3).
 
-Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+Blocked on an architect decision: extend the file model to `FILE_OVERWRITE` with defined semantics and tests, or characterize the caller first. No source/model change made. Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 
