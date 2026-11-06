@@ -648,3 +648,18 @@ mandatory corrective decision in docs/DECISIONS.md.
   integration head is still `9158e70` (`refs/pull/19/head`; local mirror ref stale at `44af31d` per D431(a)) with both
   lane tails `6fdcd98` and `3f6c3ea` unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at `97d831bd`; the
   count stays 5. No runtime advance.
+- 2026-11-06 ~02:30 verify (D439, counted advance #6 at `9e563dc`): this pass is record verification, not execution.
+  The runtime-a lane's committed record carries the both-profile pair verbatim - "Pair: control 339/405 at `0xFD800044`;
+  inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes `FUN_0004b160` and the CRT `fopen` wrapper, then stops
+  at **status 2, `0x001E0151`** (354 routines / 422 kernel ops) - `__fsopen`, the next translation placeholder" - so the
+  batch rule (4 functions, within the 8-function set cap: `FUN_0004b160` + `0x0004C480`, `0x001E01AD`, `0x001DFE85`)
+  produced a NEW observed stop boundary past `0x004B160` (352/422) with both-profile evidence (profile 91: 476 functions /
+  19,434 instructions; module 166: 1,017,181 bytes). The count moves 5 -> 6. No runtime advance.
+- 2026-11-06 ~02:30 record (D439, runtime-b contract fact + the withhold quoted a fourth time): runtime-b's published tip
+  `6fc4b18` ("service: compose the ordinal-109 call shape into one served entry point", gates 58/58, 16/16, 214/1/0,
+  check 490 files, diff-check exit 0) is service/contract work - its own line "No run advance is claimed", its stop quote
+  stale (`0x004E480`, 350 routines / 422 kernel ops, quoted from runtime-a's `91e5e0b`/D435) - and is not counted. The
+  tick's EOF-withhold is quoted a fourth time (state mtime 01:43:38, no newer tick: `MERGE_MAIN_PR` withheld on "new blank
+  line at EOF") while this row's live `git diff --check origin/main 9158e70` exits 0; the integration head is still
+  `9158e70` with both lane tails (`9e563dc`, `6fc4b18`) unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at
+  `97d831bd`; the count stays 6. No runtime advance.
