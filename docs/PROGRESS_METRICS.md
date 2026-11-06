@@ -574,3 +574,18 @@ mandatory corrective decision in docs/DECISIONS.md.
   tick's markers still name the bogus `10cae52978...` ("Not a valid object name") so the D430/D431
   re-issue directive stands, PR #19 reads `OPEN`/`MERGEABLE`/`CLEAN` at `10cae52567`, and `553a0f6`
   is unabsorbed. No runtime advance.
+- 2026-11-06 ~01:15 ops (D433, three negative checks): the 00:40 tick's `OPEN_MAIN_PR` /
+  `QUEUE_MAIN_PR_MERGE` markers still name `10cae52978...` (`git cat-file -t` ->
+  "Not a valid object name") while `origin/main` stays `97d831b` and `refs/pull/19/head` reads
+  `10cae5256`, so the corrected marker stands at `10cae5256`; the PR head lacks the runtime-b
+  chain (`9957144` / `854958e` / `553a0f6` / `eb33cd9`, all containment exit 1) but DOES contain
+  the runtime-a tail (`87d74be`...`8924710`, exit 0 - correcting the audit's Check (2)); the
+  PR-head `docs/DECISIONS.md` blob is 418 rows / max D428 with `D405 x2` against local main's
+  408 rows / max D432 with `D405 x1`. No runtime advance.
+- 2026-11-06 ~01:15 ops (D433 divergence and tempo): the divergence is bidirectional - local main
+  (`37551c9`) contains neither `ad0bffa` nor `10cae5256` (exit 1 each), merge-base(main, PR19 head)
+  = `1275473`, main-only = 4 commits (D429-D432 doc rows), PR19-only = 57 commits (source chain),
+  so a reconciled superset needs BOTH lines with the D-row renumber applied at the integrated blob.
+  Tempo: count stays 1 - stop unchanged at status 1, `0xFE0000C8`, ordinal 100 (the first-advance
+  record), 347 routines / 419 kernel ops; the runtime-b "stop move" quote is runtime-a's D429-era
+  record transcribed verbatim. No runtime advance.
