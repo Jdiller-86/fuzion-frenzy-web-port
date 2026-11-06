@@ -609,3 +609,17 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-06 ~01:50 ops (runtime-b absorption, the hung item): `git merge-base --is-ancestor <c> 9158e70`
   exits 1 for all eleven commits `9957144` → `eb33cd9` (lane tip `eb33cd9`), so the D403 reconciled-superset
   gate stays open and the machine's next tick is the named window for that absorption. No runtime advance.
+- 2026-11-06 ~02:05 ops (D436, the EOF-withhold is a stale premise, not a gate failure): the 01:43:38 tick's own
+  `lastSummary` withheld `MERGE_MAIN_PR` and every PR marker on "`git diff --check origin/main HEAD` still flags
+  'new blank line at EOF' on `docs/DECISIONS.md`", but that check reads CLEAN on the head it named:
+  `git diff --check origin/main 9158e70` -> exit 0 (empty output), `git diff --check 97d831bd 9158e70` -> exit 0, and
+  `git show 9158e70:docs/DECISIONS.md` (419 rows / max D434) ends with a single trailing newline after the last D-row
+  (no blank line at EOF). The withhold is a stale machine-side premise; the next tick must recompute the check in its
+  own integration worktree, land `MERGE_MAIN_PR` at the live head if it exits 0, re-issue the marker against that
+  head's exact hash (not the bogus `10cae52978…` / `10cae52967…` spellings) and absorb the runtime-b chain
+  `9957144` -> `baf0365` (13 commits; all twelve ancestor reads exit 1 against `9158e70`). No runtime advance.
+- 2026-11-06 ~02:05 tempo: 4 counted advances - runtime-a's newest counted boundary stays `91e5e0b` (advance #4:
+  status 2 at `0x004E480`, 350 routines / 422 kernel ops; no new lane commit since); runtime-b's published lane tip
+  `baf0365` ("service: name the reached interrupt field contract; pin the Irql gap") is service/contract work and not a
+  runtime-boundary move. The integration head `9158e70` still carries neither `91e5e0b` nor the runtime-b chain.
+  No inflation. No runtime advance.
