@@ -1220,3 +1220,27 @@ Recorded model limits (not changed): root `0xFFFFFFFD` is refused as an unknown 
 Next bounded task: admit `GetLastError` at `0x310FF`.
 
 Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 74. Admission of GetLastError; next stop is __dosmaperr at 0x1E4F99
+
+Runtime-a continuation from the §73 frontier (directive head `d5c81d4`). `GetLastError` (`0x310FF..0x31126`, 9 instructions) calls nothing, so the set is one function.
+
+- Read-only Ghidra export `research/verification/recomp-admit-310ff-01/seed-310ff.json`: the previous 28 seed functions plus `0x001E310FF`; 29 functions, all `established=true`, 1,360 instructions.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory --attempt recomp-title-post-memory-98` produced private profile 98: **489 functions, 20,260 instructions** (+1 / +9).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Environment note: no local interpreter had the pinned `capstone 5.0.6`, so the manifest's own pinned wheel (`windowsWheelSha256` `761c3dea…`, digest re-verified on download) was installed into the ignored `.tools/recomp-venv`; no global dependency or PATH change.
+
+Module `recomp-post-memory-build-176` (profile 98): **1,052,675 bytes**, SHA-256 `47a1c75e5e00a7a7af0e9ed064da5ae216246a363027788cf7dfc8ca96b9ea24`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E4F99` (`__dosmaperr`)** | **366 / 442** |
+
+The ordinal-301 mapping is validated end to end: the CRT stored error `6` for `0xC0000008`, `GetLastError` (`0x310FF`) returned `6` from its TLS slot, and the caller `FUN_001e75c8` then passed `6` as the first stack argument to **`__dosmaperr` (`0x1E4F99..0x1E500B`)** from return address `0x1E7792` — the next untranslated original routine.
+
+`__dosmaperr` calls `0x1E2038` (not yet translated) and walks a 45-entry dos-error/errno table at `0x2B7888`, writing the dos error at thread-struct `+0xC` and the mapped errno at `+0x8`. Next bounded task: admit `__dosmaperr` together with its unseeded direct callee `0x1E2038`, per the standing callee-batch policy.
+
+Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

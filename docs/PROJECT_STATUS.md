@@ -1,4 +1,10 @@
-# Documented status conversion; run advances to untranslated GetLastError at 0x310FF
+# GetLastError admitted; run advances to untranslated __dosmaperr at 0x1E4F99
+
+November 6: runtime-a admission set of one function (`GetLastError`, `0x310FF..0x31126`, no callees). Seed `recomp-admit-310ff-01/seed-310ff.json` (29 functions, all established); profile 98 = **489 functions / 20,260 instructions**; `verify-seeds` 32 recorded / 32 offered / 0 unexpected / 0 missing. Module 176: **1,052,675 bytes**, SHA `47a1c75e...`.
+
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment **status 2 at `0x001E4F99` (`__dosmaperr`), 366 routines / 442 kernel ops** (return address `0x1E7792` in `FUN_001e75c8`). The ordinal-301 mapping is validated end to end: `0xC0000008` → error 6 → `GetLastError` returns 6 from TLS → `__dosmaperr(6)`. Next task: admit `__dosmaperr` with its unseeded direct callee `0x1E2038` (45-entry dos-error/errno table at `0x2B7888`). Environment note: the manifest-pinned capstone 5.0.6 wheel (digest re-verified) was installed into the ignored `.tools/recomp-venv`; no global change. Checks: `test:native` 60/60, proof-report 23/23, `test:runtime` 199 pass, `check` 489 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Documented status conversion (`kernel_error_map`) unblocked ordinal 301
 
 November 6: architect-authorized bounded model change (option A; the drive-letter-path reclassification stays deferred). New source-owned `src/runtime/kernel_error_map.{c,h}` converts the pinned NTSTATUS set (`0xC0000008`→6, `0xC0000022`→5, `0xC0000034`→2, `0xC0000035`→80, `0xC000003A`→3, `0xC0000043`→32, success→0) and returns an unmapped sentinel for everything else; the ordinal-301 handler now uses it and still stops on an unmapped status. Five emitted statuses stay unmapped on purpose (two candidate winerror columns each, no retained evidence picks one). New `kernel_error_map` fixture plus a pin that root words `0xFFFFFFFD`/`0xFFFFFFFF` are refused atomically (**60/60**).
 
