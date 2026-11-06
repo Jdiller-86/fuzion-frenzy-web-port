@@ -1,4 +1,12 @@
-# 0xFF user-settings block modeled; run advances to FUN_001e8e74 on the rdtsc path
+# Time source is now the hard gate: FUN_001e8e74 needs the unadmitted rdtsc model
+
+November 6: runtime-a advance attempt. `FUN_001e8e74` (7 instructions) is the CRT performance-frequency helper: it calls import slot `0x2534E8` = ordinal 127 `KeQueryPerformanceFrequency` and stores `EAX:EDX` through its argument. Seed `recomp-admit-1e8e74-01/seed-1e8e74.json`; profile 108 = **506 functions / 21,053 instructions**, `verify-seeds` 27/27/0/0.
+
+The module build **failed the link gate**: `undefined symbol: xbox_ReadTimeStampCounter`. The new translation makes the `rdtsc` routine `ff_title_0004C510` reachable (`0x4C526`/`0x4C58B`), and the probe has no TSC service because the architect kept that model unadmitted. The admission is therefore **not claimed** (no module, no comparison; profile 108 stays private).
+
+New evidence for the decision: the title queries its time base at runtime (ordinal 127) instead of carrying a compiled constant, so QPF and TSC scaling must be chosen as one pair; and the pinned translator's own pair is inconsistent — `xbox_KeQueryPerformanceFrequency` returns the host frequency while `xbox_ReadTimeStampCounter` scales to 733,333,333 Hz. Next task: architect ratification of the paired time-source model, then admit `FUN_001e8e74` with it. Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: 0xFF user-settings block modeled; run advances to FUN_001e8e74 on the rdtsc path
 
 November 6: architect-ratified Runtime-a step. `src/runtime/console_settings.{c,h}` gained `ff_query_console_block`/`ff_console_settings_block`: the 0x60-byte `XC_MAX_OS` block in the pinned translator's layout, every field an explicit input (no host time zone, EEPROM or save file), `REG_BINARY` type 3, `ResultLength 0x60`, `0xC0000023` below 0x60 with the value bytes untouched, zero fill beyond. The probe's ordinal-24 handler serves `0xFF` with zero time-zone fields (UTC) and the pinned fixed language/video/DVD values; the fixture pins layout, short buffer, wrong index, unmapped buffer and overlap rejection (**62/62**). Module 184 (profile 106) = 1,112,149 bytes SHA `c6c8b5d0...`; the block query returned type 3 / 96 bytes / status 0 and the run stopped at `0x001E8839` (380 routines / 483 ops).
 

@@ -1385,3 +1385,27 @@ The experiment passed the settings block, the two conversion helpers and the who
 Next bounded task: admit `FUN_001e8e74` and report the stop after it. The `rdtsc` decision is now the immediate next blocker: the return lands on the `0x4C526` `rdtsc`, so the architect-held host-rate model must be ratified or the run will stop there.
 
 Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 80. FUN_001e8e74 admission blocked by the link gate: the time source is now a hard stop
+
+Runtime-a continuation. `FUN_001e8e74` (`0x1E8E74..0x1E8E88`, 7 instructions) calls import slot `0x2534E8` and stores the returned `EAX:EDX` pair through its argument, then returns 1. The pinned profile resolves that slot to **ordinal 127 `KeQueryPerformanceFrequency`**, so this is the CRT's performance-frequency helper: the title *queries* its time base at runtime rather than carrying a compiled constant.
+
+- Seed `research/verification/recomp-admit-1e8e74-01/seed-1e8e74.json`: 1 function, `established=true`, 7 instructions.
+- Profile 108: **506 functions / 21,053 instructions** (+1 / +7); `verify-seeds` 27 recorded / 27 offered / 0 unexpected / 0 missing.
+
+The module build for profile 108 **failed the link gate**:
+
+```
+wasm-ld: error: thread_startup_probe_0.o: undefined symbol: xbox_ReadTimeStampCounter
+```
+
+The new translation makes the `rdtsc`-bearing routine `ff_title_0004C510` reachable (its first `rdtsc` sits at `0x4C526`, the second at `0x4C58B`), and the probe provides no `xbox_ReadTimeStampCounter`. Per the architect's hold the `rdtsc` model stays unadmitted, so this admission is **not claimed**: no module, no controlled comparison, and the profile remains private evidence only.
+
+Two facts sharpen the pending decision:
+
+- The guest asks for the divisor instead of assuming one, so the TSC scale and the QPF value must be decided as one pair; a mismatch makes every guest seconds computation wrong by the ratio.
+- The pinned translator's own pair is inconsistent for such a caller: `xbox_KeQueryPerformanceFrequency` returns the host `QueryPerformanceFrequency` (`src/kernel/kernel_hal.c`), while `xbox_ReadTimeStampCounter` scales to the 733,333,333 Hz console clock. Adopting both unchanged would hand the guest a host-rate divisor and a console-rate counter.
+
+Next bounded task: architect decision on the paired time-source model (ordinal 127 QPF value and the `rdtsc` scale). Once ratified, admit `FUN_001e8e74` with that model in the same set. No other reached original routine is pending; the frontier is the service decision.
+
+Checks: `test:native` 62/62, proof-report 23/23, `test:evidence` 6/6, `test:runtime` 199 pass, `check` 492 files, whitespace clean. No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
