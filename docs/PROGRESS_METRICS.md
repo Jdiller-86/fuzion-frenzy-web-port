@@ -342,3 +342,29 @@ mandatory corrective decision in docs/DECISIONS.md.
   `mergeResult` "PR is not cleanly mergeable: unstable", `origin/main` unmoved at `97d831b`) routed candidate (B)
   to the translator owner. Tempo fact: 0 counted advances, stop unchanged verbatim at status 10 `0x6B6A6968`,
   346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (D406): the merge gate is green but not the superset - `refs/pull/19/head` = `d1cc85a`
+  reports `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN` and 4/4 `preparation` checks SUCCESS, all
+  completed 21:44 EST (`preparation windows-latest` x2, `preparation ubuntu-latest` x2), with `origin/main`
+  unmoved at `97d831bd` and `refs/pull/22/head` still absent, so #19 is the only guarded route (PRs #3 and
+  #20 were closed earlier by the owner). The reconciled superset head per D394/D398/D403 is not yet met:
+  #19's head carries runtime-a content and the D-record chain through D404 but still lacks runtime-b's
+  `9957144` + `40af26d`, main's D405 record `c438e75` and post-D405 main content, so merging now would be the
+  silent-drop pattern the records guard against; the 22:40 tick is the next reconciliation window and only
+  then should the merge land. The tick's earlier `mergeResult` ("pending: not cleanly mergeable: unstable")
+  was state-read before CI completed, so the delay is the missing-lane-content reconciliation, not the check
+  gate. The owner's manual merge remains off until the reconciled superset head exists (D403 rule). Tempo
+  fact: 0 counted advances, stop unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
+- 2026-11-05 ops (D406): runtime-b's line/quad comparator extension is in flight and uncommitted at the read
+  (`M tools/compare-nv2a-geometry.mjs`, +252/-62, plus a new `?? tests/compare-nv2a-geometry.test.mjs`), and
+  its own checkpoint's newest section ("### 3a. Line/quad comparison - executed and exact (D404
+  authorization)") is the lane's own claim inside an in-flight record - the committed state is what counts;
+  the prior 21:27-cycle instance was interrupted at the D404 pause (`0xC000013A`), an unattended-window
+  scheduling fact whose state file's cycle read came from the pre-21:27 instance. runtime-a published two
+  lane commits (`1f3f0f5` compiled-artifact probe exonerating the owned macro pattern, 4 files +81;
+  `868d00e` pre-registering M3 and recording the reached cluster, docs, 2 files +21) - the graphics cluster
+  is REACHED with the free-framebuffer fault blocking its return path, which is pre-registered M3 status and
+  NOT an acceptance (the M3 gate remains unmet). No REA re-invocation this cycle; the `595faf0`
+  original-binary check covers the implicated order. Tempo fact: 0 counted advances, stop unchanged at
+  status 10 `0x6B6A6968`, 346 routines / 414 kernel ops (the control profile's own stop marker remains
+  unrelated to the boundary). No runtime advance.
