@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project roadmap
+    url: https://github.com/Jdiller-86/fuzion-frenzy-web-port/blob/main/plans.md
+    about: Read the five project outcomes and current foundation.
+  - name: Contribution guide
+    url: https://github.com/Jdiller-86/fuzion-frenzy-web-port/blob/main/CONTRIBUTING.md
+    about: Setup, evidence and source-publication requirements.

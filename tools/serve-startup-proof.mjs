@@ -7,17 +7,17 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const files = new Map([
   ['/', ['tools/fixtures/local_startup_check.html', 'text/html; charset=utf-8']],
   ['/thread', ['tools/fixtures/thread_startup_check.html', 'text/html; charset=utf-8']],
-  ['/src/xbe.mjs', ['src/xbe.mjs', 'text/javascript']],
-  ['/src/runtime/local-title-proof.mjs', ['src/runtime/local-title-proof.mjs', 'text/javascript']],
-  ['/src/runtime/browser-clock.mjs', ['src/runtime/browser-clock.mjs', 'text/javascript']],
-  ['/src/runtime/copy-proof.mjs', ['src/runtime/copy-proof.mjs', 'text/javascript']],
-  ['/src/runtime/file-request.mjs', ['src/runtime/file-request.mjs', 'text/javascript']],
-  ['/src/runtime/device-report.mjs', ['src/runtime/device-report.mjs', 'text/javascript']],
-  ['/src/runtime/submission-probe.mjs', ['src/runtime/submission-probe.mjs', 'text/javascript']],
-  ['/src/runtime/pfifo-scan.mjs', ['src/runtime/pfifo-scan.mjs', 'text/javascript']],
-  ['/src/runtime/thread-proof-worker.mjs', ['src/runtime/thread-proof-worker.mjs', 'text/javascript']],
-  ['/src/runtime/wasm-proof.mjs', ['src/runtime/wasm-proof.mjs', 'text/javascript']],
-  ['/src/runtime/startup-proof-worker.mjs', ['src/runtime/startup-proof-worker.mjs', 'text/javascript']]
+  ['/host/xbe.mjs', ['host/xbe.mjs', 'text/javascript']],
+  ['/runtime/browser/local-title-proof.mjs', ['runtime/browser/local-title-proof.mjs', 'text/javascript']],
+  ['/runtime/browser/browser-clock.mjs', ['runtime/browser/browser-clock.mjs', 'text/javascript']],
+  ['/runtime/browser/copy-proof.mjs', ['runtime/browser/copy-proof.mjs', 'text/javascript']],
+  ['/runtime/browser/file-request.mjs', ['runtime/browser/file-request.mjs', 'text/javascript']],
+  ['/runtime/browser/device-report.mjs', ['runtime/browser/device-report.mjs', 'text/javascript']],
+  ['/runtime/browser/submission-probe.mjs', ['runtime/browser/submission-probe.mjs', 'text/javascript']],
+  ['/runtime/browser/pfifo-scan.mjs', ['runtime/browser/pfifo-scan.mjs', 'text/javascript']],
+  ['/runtime/browser/thread-proof-worker.mjs', ['runtime/browser/thread-proof-worker.mjs', 'text/javascript']],
+  ['/runtime/browser/wasm-proof.mjs', ['runtime/browser/wasm-proof.mjs', 'text/javascript']],
+  ['/runtime/browser/startup-proof-worker.mjs', ['runtime/browser/startup-proof-worker.mjs', 'text/javascript']]
 ]);
 
 // Fixed source-only routes. Original XBE/Wasm/code is always selected locally.

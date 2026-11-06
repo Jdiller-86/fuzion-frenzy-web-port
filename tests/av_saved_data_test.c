@@ -1,5 +1,5 @@
 /* Owned saved-data address scenarios; no original code or device. */
-#include "../src/runtime/av_saved_data.h"
+#include "../runtime/core/av_saved_data.h"
 #include <assert.h>
 #include <stdio.h>
 

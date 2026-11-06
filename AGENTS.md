@@ -1,18 +1,18 @@
 # Repository instructions
 
-Read this file, [the handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and the relevant part of [the roadmap](DEVELOPMENT_PLAN.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. No project agent scheduler or model routing is configured.
+Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md), and the relevant part of [the roadmap](plans.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. No project agent scheduler or model routing is configured.
 
 ## Baseline state
 
-Implementation is paused pending the next user-directed objective. The pending PR and retired development branches have been closed out. The roadmap is future scope, not an assigned work queue. User-requested maintenance and review can proceed within that scope.
+Implementation is paused pending the next user-directed objective. The pending PR and retired development branches have been closed out. The five-milestone roadmap and planned GitHub work packages are future scope, not assigned implementation. Repository tracking workflows maintain metadata only. User-requested maintenance and review can proceed within that scope.
 
 ## Goal and current stage
 
 The product is the original Xbox Fuzion Frenzy executing entirely in the browser through static recompilation to WebAssembly, with the complete planned online/social/control features. A replica would have to be identical in every minute detail. Approximate reconstruction, native helpers, and streaming do not meet that goal. Preserve the Twisted System prototype as research.
 
-The current stage is bounded original-startup feasibility. The former stack/return-address fault is repaired; do not restart its obsolete repair hunt. Exact current stop, profile, counters, and next work belong in `docs/PROJECT_STATUS.md`, linked from the handoff. A controllable original screen and product completion remain unaccepted.
+The current stage is bounded original-startup feasibility. The former stack/return-address fault is repaired; do not restart its obsolete repair hunt. Exact current stop, profile, counters, and next work belong in `docs/status.md`, linked from the handoff. A controllable original screen and product completion remain unaccepted.
 
-Read [scope/fidelity](docs/SCOPE_AND_FIDELITY.md), [content policy](docs/PLAYER_SUPPLIED_CONTENT.md), and [concerns](docs/PROJECT_CONCERNS.md) before affected gameplay/import/network work. Keep static, synthetic, component, and actual browser evidence distinct.
+Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md), and [concerns](docs/risks.md) before affected gameplay/import/network work. Keep static, synthetic, component, and actual browser evidence distinct.
 
 ## Work method
 
@@ -28,11 +28,12 @@ Preserve in-flight edits and lane ownership. Do not discard work, force-push, re
 ## Current documentation
 
 - [Documentation map](docs/README.md): canonical guides and reading order.
-- [Runtime gates](docs/RUNTIME_MILESTONES.md): M1–M12 and runtime evidence requirements.
-- [Development](docs/DEVELOPMENT.md): actual commands and their limits.
-- [Architecture](docs/ARCHITECTURE.md): implemented components versus proposals.
-- [Research index](docs/RESEARCH.md): consolidated reference facts and evidence limits.
-- [Analysis setup](docs/ANALYSIS_SETUP.md): private tool prerequisites and evidence provenance.
+- [Project milestones](docs/milestones.md): five overall-project gates and explicit acceptance.
+- [Management](docs/management.md): native issue hierarchy, dependencies, status and exported progress.
+- [Development](docs/development.md): actual commands and their limits.
+- [Architecture](docs/architecture.md): implemented components versus proposals.
+- [Research index](docs/research.md): consolidated reference facts and evidence limits.
+- [Analysis setup](docs/analysis.md): private tool prerequisites and evidence provenance.
 
 Historical G0/G1/G2 checks do not accept the corrected original-game goal. Preserve byte identity, decoder agreement, complete layout, checked memory, fixed-resource admission, and player-local content guards. Do not expand into full decompilation or an emulator redesign without evidence it is necessary.
 
@@ -55,6 +56,8 @@ Run `npm run check` for preparation/publication contracts and `git diff --check`
 - The repository is public and source-only. Publishing a site, selecting a source license, and buying production services remain separate work. Never print credentials or place tokens in URLs/arguments/logs.
 
 ## Architecture contracts
+
+The public source is organized as host/, translator/, renderer/, runtime/core/, runtime/browser/, web/, profiles/, tests/, tools/ and docs/. Private original inputs stay in ignored research/ and .tools/; generated reports stay in artifacts/.
 
 Simulation and online authority remain unproved for the recompilation route. Preserve server-owned scoring, collisions, elimination, pickups, randomness, and round transitions. Shared code/fixed ticks do not prove cross-runtime determinism. Keep account, connection, local profile, and seat separate, with four total seats. Lobby ownership, reconnect, and match-process recovery are distinct. Persist complete tournament checkpoints atomically with results; never accept client-declared winners or expose privileged keys.
 

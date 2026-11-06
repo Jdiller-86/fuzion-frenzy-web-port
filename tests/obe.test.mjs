@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'; import {readStadiumRoot} from '../src/obe.mjs';
+import assert from 'node:assert/strict'; import {readStadiumRoot} from '../host/obe.mjs';
 function fixture() {
  const b=new ArrayBuffer(1024),v=new DataView(b),u=(o,x)=>v.setUint32(o,x,true); u(0x40,0x80);u(0xc4,1);u(0xc8,0x190);v.setFloat32(0xdc,1,true);u(0x160,0x80); for(let i=0;i<3;i++)v.setFloat32(0xa8+i*4,1,true);v.setUint8(0x79,1);v.setUint8(0x170,2);u(0xf0,3);u(0xf4,0x200);u(0xf8,1);u(0xfc,0x1c0);u(0x100,0x1d0);u(0x104,1);u(0x1c0,1);v.setUint16(0x1d0,5,true);v.setUint16(0x1d2,3,true);v.setUint16(0x1d4,1,true); for(let i=0;i<3;i++) v.setFloat32(0x210+i*44,i,true); return b;
 }

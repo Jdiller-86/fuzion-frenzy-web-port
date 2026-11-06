@@ -6,7 +6,7 @@ import {
   HOST_STEP_DEFAULT_MAX_CATCH_UP,
   HOST_STEP_MAX_HZ,
   HOST_STEP_MAX_CATCH_UP,
-} from '../src/runtime/host-step.mjs';
+} from '../runtime/browser/host-step.mjs';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} !== ${expected}`);
 

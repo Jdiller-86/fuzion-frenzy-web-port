@@ -7,12 +7,12 @@ test('a non-WSL host compiles with the driver and runs the product directly', ()
   const plan = commandPlan(
     { command: 'cc', prefix: [], wsl: false },
     ['-std=c11', '-O2'],
-    ['tests/x_test.c', 'src/runtime/x.c'],
+    ['tests/x_test.c', 'runtime/core/x.c'],
     '/tmp/ff-native/x'
   );
   assert.equal(plan.compile.command, 'cc');
   assert.deepEqual(plan.compile.args,
-    ['-std=c11', '-O2', 'tests/x_test.c', 'src/runtime/x.c', '-o', '/tmp/ff-native/x']);
+    ['-std=c11', '-O2', 'tests/x_test.c', 'runtime/core/x.c', '-o', '/tmp/ff-native/x']);
   assert.ok(!plan.compile.args.includes('gcc'),
     'a native driver must not receive a bare gcc token as an input file');
   assert.equal(plan.run.command, '/tmp/ff-native/x');

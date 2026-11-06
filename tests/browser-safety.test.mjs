@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {LocalInput} from '../packages/input/local-input.mjs';import {bindBrowserSafety} from '../packages/input/browser-safety.mjs';
+import {LocalInput} from '../runtime/browser/input/local-input.mjs';import {bindBrowserSafety} from '../runtime/browser/input/browser-safety.mjs';
 function harness(){const window=new EventTarget(),document=new EventTarget(),input=new LocalInput(2),reasons=[];let pads=[];bindBrowserSafety({window,document,getInput:()=>input,getGamepads:()=>pads,pause:reason=>reasons.push(reason)});return {window,document,input,reasons,setPads:value=>{pads=value;}};}
 test('bound blur and visibility events clear pending jumps and held ducks for every seat',()=>{
   const h=harness();for(const event of ['blur','visibilitychange']){h.input.keyDown('Space');h.input.keyDown('KeyS');if(event==='blur')h.window.dispatchEvent(new Event(event));else{h.document.hidden=true;h.document.dispatchEvent(new Event(event));}assert.deepEqual(h.input.consume(),[{jumpPressed:false,duckHeld:false},{jumpPressed:false,duckHeld:false}]);h.input.keyUp('Space');h.input.keyUp('KeyS');}

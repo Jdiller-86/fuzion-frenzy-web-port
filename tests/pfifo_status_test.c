@@ -1,6 +1,6 @@
 /* Owned PFIFO status seam: guest stores, predicate, and the explicit consumer
  * entry point. No firmware, original code or engine is used. */
-#include "../src/runtime/pfifo_status.h"
+#include "../runtime/core/pfifo_status.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

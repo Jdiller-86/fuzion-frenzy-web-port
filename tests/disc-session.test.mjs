@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DiscSessionCore, DiscSessionError } from '../src/runtime/disc-session-core.mjs';
-import { DiscSession } from '../src/runtime/disc-session.mjs';
-import { BUILD_REFERENCE } from '../src/runtime/local-title-proof.mjs';
+import { DiscSessionCore, DiscSessionError } from '../runtime/browser/disc-session-core.mjs';
+import { DiscSession } from '../runtime/browser/disc-session.mjs';
+import { BUILD_REFERENCE } from '../runtime/browser/local-title-proof.mjs';
 
 const SECTOR = 2048;
 function fixture() {

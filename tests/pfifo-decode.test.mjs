@@ -5,7 +5,7 @@ import {
   PFIFO_DECODE_MAX_WORDS,
   PFIFO_DECODE_ABSOLUTE_WORDS,
   PFIFO_DECODE_MAX_PACKETS,
-} from '../src/runtime/pfifo-decode.mjs';
+} from '../runtime/browser/pfifo-decode.mjs';
 
 const words = (...values) => {
   const view = new DataView(new ArrayBuffer(values.length * 4));

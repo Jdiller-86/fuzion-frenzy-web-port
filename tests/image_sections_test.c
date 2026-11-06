@@ -1,5 +1,5 @@
-#include "../src/runtime/image_sections.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/image_sections.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

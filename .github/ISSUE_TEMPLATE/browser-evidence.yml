@@ -1,0 +1,32 @@
+name: Browser acceptance evidence
+description: Record a scoped original-browser observation for review
+labels: [work:evidence]
+body:
+  - type: input
+    id: target
+    attributes:
+      label: Milestone or parent issue
+      description: Link the acceptance criterion being exercised.
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Source, environment and scenario
+      description: Record source/module/build identities, browser/OS/device, bounded input sequence and expected result. Keep private bytes and raw data local.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Observed result and evidence identities
+      description: Record outcome, relevant before/after stop or visible behavior, report/audit identities, discrepancy and remaining limits. A fixture or prototype does not accept original gameplay.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Source boundary
+      options:
+        - label: No original content, generated title code, RAM/save states, credentials or private raw logs are attached.
+          required: true

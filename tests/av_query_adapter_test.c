@@ -4,7 +4,7 @@
  * remove the return address and four stdcall arguments (ESP += 20), and leave
  * EAX, ESP and every output byte unchanged on denial.
  */
-#include "../src/runtime/av_query_adapter.h"
+#include "../runtime/core/av_query_adapter.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

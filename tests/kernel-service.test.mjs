@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { describeKernelService } from '../src/runtime/kernel-service.mjs';
+import { describeKernelService } from '../runtime/browser/kernel-service.mjs';
 
 test('ordinal 2 is named AvSendTVEncoderOption with static facts only', () => {
   assert.deepEqual(describeKernelService(2), {

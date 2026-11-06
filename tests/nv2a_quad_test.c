@@ -1,5 +1,5 @@
 /* Independently authored quad-geometry cases; no original content or GPU. */
-#include "../src/runtime/nv2a_quad.h"
+#include "../renderer/nv2a_quad.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,6 +1,6 @@
 /* Owned interrupt-vector service; no original code or hardware model. */
-#include "../src/runtime/interrupt_vector.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/interrupt_vector.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -3,7 +3,7 @@
  * Verify that an integration candidate preserves both lanes.
  *
  * The report/helper integration lost main-only decision rows twice: a
- * `-X theirs` merge reduced docs/DECISIONS.md to 245 rows with only A023, and a
+ * `-X theirs` merge reduced docs/decisions.md to 245 rows with only A023, and a
  * 20-commit rebase dropped 28 pre-slice source files. This check makes the
  * invariant explicit and repeatable:
  *
@@ -57,7 +57,7 @@ function git(args) {
 }
 
 function decisionText(ref) {
-  return git(['show', `${ref}:docs/DECISIONS.md`]);
+  return git(['show', `${ref}:docs/decisions.md`]);
 }
 
 function trackedFiles(ref) {
@@ -78,7 +78,7 @@ function main(argv) {
     sourceText = decisionText(source);
     candidateText = decisionText(candidate);
   } catch (error) {
-    console.error(`Cannot read docs/DECISIONS.md from one of the refs: ${error.message}`);
+    console.error(`Cannot read docs/decisions.md from one of the refs: ${error.message}`);
     return 2;
   }
   const baseIds = parseDecisionIds(baseText);

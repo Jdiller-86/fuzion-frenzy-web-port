@@ -1,6 +1,6 @@
 /* Owned volume/file-object/namespace scenarios. No game or disk content. */
-#include "../src/runtime/file_namespace.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/file_namespace.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

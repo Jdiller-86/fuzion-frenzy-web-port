@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSubmissionProbe, SUBMISSION_PROBE_BYTES } from '../src/runtime/submission-probe.mjs';
+import { createSubmissionProbe, SUBMISSION_PROBE_BYTES } from '../runtime/browser/submission-probe.mjs';
 
 function fixture({ put = 0x800, get = 0, status = 13, includePut = true, includeGet = false } = {}) {
   const buffer = new ArrayBuffer(0x1000);

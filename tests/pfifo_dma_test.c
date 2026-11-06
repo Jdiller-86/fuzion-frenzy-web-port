@@ -1,5 +1,5 @@
 /* Owned PFIFO DMA register classification; no original code or device model. */
-#include "../src/runtime/pfifo_dma.h"
+#include "../runtime/core/pfifo_dma.h"
 #include <assert.h>
 #include <stdio.h>
 

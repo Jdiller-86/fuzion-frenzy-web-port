@@ -1,0 +1,78 @@
+name: Project tracking
+on:
+  push:
+    branches: [main]
+    paths:
+      - profiles/project.json
+      - tools/project.mjs
+      - tools/project-dashboard.html
+      - .github/workflows/project.yml
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Export progress or synchronize the reviewed milestone/work scope
+        type: choice
+        options: [snapshot, sync]
+        default: snapshot
+      apply:
+        description: Apply metadata synchronization (otherwise preview)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: project-tracking-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  tracking:
+    if: github.repository == 'Jdiller-86/fuzion-frenzy-web-port' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - name: Verify tracking scope and acceptance rules
+        run: |
+          node tools/project.mjs check
+          node --test tests/project.test.mjs
+      - name: Preview or apply reviewed metadata
+        if: github.event_name == 'push' || inputs.operation == 'sync'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRACKING_EVENT: ${{ github.event_name }}
+          TRACKING_APPLY: ${{ inputs.apply }}
+          TRACKING_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          if [ "$TRACKING_EVENT" = push ] || [ "$TRACKING_APPLY" = true ]; then
+            node tools/project.mjs sync --apply --source-commit "$TRACKING_SOURCE_SHA"
+          else
+            node tools/project.mjs sync --source-commit "$TRACKING_SOURCE_SHA"
+          fi
+      - name: Export current public tracking state
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRACKING_SOURCE_SHA: ${{ github.sha }}
+        run: node tools/project.mjs snapshot --source-commit "$TRACKING_SOURCE_SHA"
+      - name: Build read-only offline progress view
+        if: always()
+        run: node tools/project.mjs render
+      - name: Retain public progress and synchronization receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: project-tracking-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/project.json
+            artifacts/project-sync.json
+            artifacts/progress/
+          retention-days: 14
+          if-no-files-found: warn

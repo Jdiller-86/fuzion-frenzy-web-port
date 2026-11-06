@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { scanPushbuffer, PFIFO_SCAN_MAX_WORDS, PFIFO_SCAN_ABSOLUTE_WORDS } from '../src/runtime/pfifo-scan.mjs';
+import { scanPushbuffer, PFIFO_SCAN_MAX_WORDS, PFIFO_SCAN_ABSOLUTE_WORDS } from '../runtime/browser/pfifo-scan.mjs';
 
 function words(values) {
   const buffer = new ArrayBuffer(Math.max(4, values.length * 4));

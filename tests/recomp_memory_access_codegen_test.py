@@ -20,7 +20,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "translator"))
 import recomp_memory_access as guard  # noqa: E402
 
 SITE = 0x00100000
@@ -175,9 +175,9 @@ class CompiledVectorAccessTests(unittest.TestCase):
 
     def command(self, source, output):
         return [compiler(), "-std=c11", "-Wall", "-Wextra", "-Werror",
-                "-I", str(ROOT / "src" / "runtime"), str(self.path / source),
-                str(ROOT / "src" / "runtime" / "virtual_memory.c"),
-                str(ROOT / "src" / "runtime" / "thread_bootstrap.c"), "-o", str(self.path / output)]
+                "-I", str(ROOT / "runtime" / "core"), str(self.path / source),
+                str(ROOT / "runtime" / "core" / "virtual_memory.c"),
+                str(ROOT / "runtime" / "core" / "thread_bootstrap.c"), "-o", str(self.path / output)]
 
     def test_generated_read_is_not_assignable(self):
         self.assertIn("(*(const RecompXmm*)", self.read)

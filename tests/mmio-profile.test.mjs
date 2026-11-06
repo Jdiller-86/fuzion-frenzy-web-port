@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseLocalMmioProfile, describeMmioExperiments } from '../src/runtime/local-title-proof.mjs';
+import { parseLocalMmioProfile, describeMmioExperiments } from '../runtime/browser/local-title-proof.mjs';
 
 const reached = [
   { address: 0xFD001804, initial: 0x10 },

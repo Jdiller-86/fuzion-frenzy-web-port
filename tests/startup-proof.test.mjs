@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../src/runtime/wasm-proof.mjs';
+import { inspectProofWasm, PROOF_MEMORY_PAGES, PROOF_WASM_LIMIT } from '../runtime/browser/wasm-proof.mjs';
 import { createStartupProofServer } from '../tools/serve-startup-proof.mjs';
-import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from '../src/runtime/local-title-proof.mjs';
-import { createProofClock } from '../src/runtime/browser-clock.mjs';
-import { runOriginalCopyProof } from '../src/runtime/copy-proof.mjs';
-import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../src/runtime/file-request.mjs';
+import { loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from '../runtime/browser/local-title-proof.mjs';
+import { createProofClock } from '../runtime/browser/browser-clock.mjs';
+import { runOriginalCopyProof } from '../runtime/browser/copy-proof.mjs';
+import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from '../runtime/browser/file-request.mjs';
 
 const header = [0, 97, 115, 109, 1, 0, 0, 0];
 const uint = value => {
@@ -532,9 +532,9 @@ test('startup host serves only owned source and rejects original modules, files,
     });
     req.on('error', reject); req.end(body);
   });
-  for (const url of ['/', '/thread', '/src/xbe.mjs', '/src/runtime/wasm-proof.mjs', '/src/runtime/startup-proof-worker.mjs',
-    '/src/runtime/local-title-proof.mjs', '/src/runtime/browser-clock.mjs', '/src/runtime/copy-proof.mjs',
-    '/src/runtime/file-request.mjs', '/src/runtime/thread-proof-worker.mjs']) {
+  for (const url of ['/', '/thread', '/host/xbe.mjs', '/runtime/browser/wasm-proof.mjs', '/runtime/browser/startup-proof-worker.mjs',
+    '/runtime/browser/local-title-proof.mjs', '/runtime/browser/browser-clock.mjs', '/runtime/browser/copy-proof.mjs',
+    '/runtime/browser/file-request.mjs', '/runtime/browser/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
     assert.ok(response.body.length > 100);
@@ -546,9 +546,9 @@ test('startup host serves only owned source and rejects original modules, files,
   }
   for (const url of ['/startup.wasm', '/default.xbe', '/Fuzion%20Frenzy%20(USA)/default.xbe',
     '/research/verification/recomp-title-build-02/startup.wasm', '/.tools/emulation/emsdk/.emscripten',
-    '/src/xbe.mjs?content=game', '/src/../../research/reference/default.xbe', '/%2e%2e/default.xbe']) {
+    '/host/xbe.mjs?content=game', '/host/../../research/reference/default.xbe', '/%2e%2e/default.xbe']) {
     assert.equal((await request(url)).status, 404);
   }
   assert.equal((await request('/', 'POST', 'source-owned payload')).status, 404);
-  assert.equal((await request('/src/xbe.mjs', 'PUT', 'source-owned payload')).status, 404);
+  assert.equal((await request('/host/xbe.mjs', 'PUT', 'source-owned payload')).status, 404);
 });

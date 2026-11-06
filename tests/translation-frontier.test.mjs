@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { analyzeReachability, analyzeTranslation, parseRunEvidence } from '../tools/translation-frontier.mjs';
+import { analyzeReachability, analyzeTranslation, parseRunEvidence } from '../translator/translation-frontier.mjs';
 
 const translation = [
   '/**',
@@ -151,7 +151,7 @@ test('the command line reads a run report without mistaking it for the translati
   const run = path.join(directory, 'run.json');
   fs.writeFileSync(run, JSON.stringify(reachReport));
   const result = spawnSync(process.execPath, [
-    path.resolve('tools/translation-frontier.mjs'), directory, '--run', run, '--json',
+    path.resolve('translator/translation-frontier.mjs'), directory, '--run', run, '--json',
   ], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location("verify_seeds", ROOT / "tools/verify-seeds.py")
+spec = importlib.util.spec_from_file_location("verify_seeds", ROOT / "translator/verify-seeds.py")
 verifier = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verifier)
 

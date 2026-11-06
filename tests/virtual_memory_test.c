@@ -1,6 +1,6 @@
 /* Owned guest-memory scenarios; no original instructions or native title run. */
-#include "../src/runtime/virtual_memory.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/virtual_memory.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,6 +1,6 @@
 /* Owned empty-ring PFIFO channel scenarios; no original code or device. */
-#include "../src/runtime/pfifo_channel.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/pfifo_channel.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

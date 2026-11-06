@@ -1,6 +1,6 @@
 /* Owned volume/handle/memory scenarios only. No original code or disk image. */
-#include "../src/runtime/local_volume.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/local_volume.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

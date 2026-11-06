@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { describeAvQueryOutcome } from '../src/runtime/local-title-proof.mjs';
+import { describeAvQueryOutcome } from '../runtime/browser/local-title-proof.mjs';
 
 const report = (edit = {}) => ({
   experiments: ['avQuery'], avQueryWord: 0x00800303, calls: [], ...edit,

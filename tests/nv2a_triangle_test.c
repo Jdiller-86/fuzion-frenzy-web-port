@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../src/runtime/nv2a_triangle.h"
+#include "../renderer/nv2a_triangle.h"
 
 int main(void)
 {

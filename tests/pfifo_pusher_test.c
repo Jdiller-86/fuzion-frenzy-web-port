@@ -1,5 +1,5 @@
 /* Owned PFIFO pusher prototype scenarios; no original code or device. */
-#include "../src/runtime/pfifo_pusher.h"
+#include "../runtime/core/pfifo_pusher.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

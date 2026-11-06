@@ -1,7 +1,7 @@
 /* Owned directory/handle/guest-memory cases only; no game or disk content. */
-#include "../src/runtime/local_volume.h"
-#include "../src/runtime/thread_bootstrap.h"
-#include "../src/runtime/guest_strings.h"
+#include "../runtime/core/local_volume.h"
+#include "../runtime/core/thread_bootstrap.h"
+#include "../runtime/core/guest_strings.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

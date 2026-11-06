@@ -36,7 +36,7 @@ run.onclick = async () => {
     const [moduleBytes, xbeBytes] = await Promise.all([moduleFile.arrayBuffer(), xbeFile.arrayBuffer()]);
     if (generation !== current) return;
     status.textContent = 'Validating local files and running original startup…';
-    worker = new Worker('/src/runtime/startup-proof-worker.mjs', { type: 'module' });
+    worker = new Worker('/runtime/browser/startup-proof-worker.mjs', { type: 'module' });
     const finishError = message => { if (generation !== current) return; release(); document.body.dataset.state = 'failed'; status.textContent = message; };
     timer = setTimeout(() => finishError('The bounded worker timed out and was stopped'), 15000);
     worker.onerror = event => finishError(event.message);

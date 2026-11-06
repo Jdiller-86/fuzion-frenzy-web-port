@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 1,
+  "repository": "Jdiller-86/fuzion-frenzy-web-port",
+  "reference": {
+    "repository": "Jdiller-86/CTR-2-WUP",
+    "commit": "9b2245595f7900d84a111ac7030bcba0bcb0a66a",
+    "path": "plans.md"
+  },
+  "milestones": [
+    {
+      "id": "m1",
+      "title": "Original browser execution",
+      "foundation": "Guarded translation, checked runtime components, bounded original startup, geometry and input research.",
+      "goal": "Play one original minigame through its original menus, round and results entirely in a desktop browser.",
+      "dependsOn": [],
+      "criteria": [
+        {
+          "id": "m1-1",
+          "text": "Complete original menu \u2192 minigame \u2192 results \u2192 menu three consecutive times, with original-program graphics and audible audio responding to recorded player input, and no unsupported stop or fault."
+        },
+        {
+          "id": "m1-2",
+          "text": "Execute the game entirely in the browser using compatible player-local content. A privately prepared local module may support this developer gate; end-user browser conversion is required by M2."
+        },
+        {
+          "id": "m1-3",
+          "text": "Retain source/build/module identities, browser/device details and the input/capture record, with the runtime control/experiment comparison and independent audit. The prototype and standalone component fixtures do not satisfy this gate."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "m1-build",
+          "title": "Integrate the original browser round path",
+          "kind": "implementation",
+          "scope": "Connect the reached CPU, kernel, graphics, audio and controller requirements through one original round, preserving admission and content guards.",
+          "criteria": [
+            {
+              "id": "m1-build-1",
+              "text": "The original title reaches a controllable menu and the selected minigame without replacement rules or scenes."
+            },
+            {
+              "id": "m1-build-2",
+              "text": "Reached unsupported behavior stops explicitly; changed CPU/memory/ABI/GPU contracts have targeted checks and independent review."
+            }
+          ],
+          "dependsOn": []
+        },
+        {
+          "id": "m1-verify",
+          "title": "Verify original browser gameplay and evidence",
+          "kind": "evidence",
+          "scope": "Execute and review the repeatable original-menu/round/results scenario on the identified build.",
+          "criteria": [
+            {
+              "id": "m1-verify-1",
+              "text": "Record three consecutive original rounds with visible output, audible audio and input-driven state changes."
+            },
+            {
+              "id": "m1-verify-2",
+              "text": "Bind the reports, independent audit, source/module identities and browser/device environment; list all remaining limits."
+            }
+          ],
+          "dependsOn": [
+            "m1-build"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Complete local game and conversion",
+      "foundation": "Limited browser-local XISO/asset preview, known reference identity and reusable prototype input.",
+      "goal": "A fresh browser converts the supported player-supplied image and runs the complete original offline game.",
+      "dependsOn": [
+        "m1"
+      ],
+      "criteria": [
+        {
+          "id": "m2-1",
+          "text": "From a fresh browser, select the supported image, validate/convert locally and start the original game without a developer toolchain. Exercise unsupported/corrupt input, cancel, clear/reimport and denied/evicted storage; original content never uploads."
+        },
+        {
+          "id": "m2-2",
+          "text": "Complete the verified catalog/variant/character/arena inventory and original practice, Minigame Frenzy and Tournament flows, with one to four local seats and original CPU behavior. Each required entry passes matching-build reference scenarios; unknown or untested entries remain blockers."
+        },
+        {
+          "id": "m2-3",
+          "text": "Verify original scoring/ties, rules, timing, movement/collisions, AI, camera/animation/audio and round/tournament progression, plus save/reload after closing and reopening the browser. Retain the full parity matrix and discrepancy record."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "m2-build",
+          "title": "Finish browser-local conversion and save recovery",
+          "kind": "implementation",
+          "scope": "Connect a compatible player-supplied image to browser-local preparation, original execution and durable local save/reimport handling.",
+          "criteria": [
+            {
+              "id": "m2-build-1",
+              "text": "The fresh-browser select \u2192 validate \u2192 convert \u2192 play path works without native helpers or uploaded content."
+            },
+            {
+              "id": "m2-build-2",
+              "text": "Unsupported inputs, cancellation, storage denial/eviction, clear/reimport and fresh-session save/reload have observed outcomes."
+            }
+          ],
+          "dependsOn": []
+        },
+        {
+          "id": "m2-verify",
+          "title": "Accept the complete original offline inventory",
+          "kind": "evidence",
+          "scope": "Build and execute the matching-build catalog/mode/reference matrix for the complete original offline game.",
+          "criteria": [
+            {
+              "id": "m2-verify-1",
+              "text": "Every required game/variant, mode, character and arena is accounted for and exercised; all one-to-four-seat and original CPU cases are covered."
+            },
+            {
+              "id": "m2-verify-2",
+              "text": "Original rules/presentation, save and full tournament scenarios pass; no required item is accepted as unknown, not reached or approximate."
+            }
+          ],
+          "dependsOn": [
+            "m1",
+            "m2-build"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Online multiplayer and recovery",
+      "foundation": "Authority, content locality and four-seat ownership requirements are recorded; online services are unimplemented.",
+      "goal": "The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results.",
+      "dependsOn": [
+        "m2"
+      ],
+      "criteria": [
+        {
+          "id": "m3-1",
+          "text": "Review and implement the execution/authority/content contract: the server owns outcomes, four total seats have explicit ownership, and original code/assets/RAM/save states remain local. Client-selected winners or a relay-only authority claim fail acceptance."
+        },
+        {
+          "id": "m3-2",
+          "text": "Pass four-browser and two-local-plus-two-remote cases across the required online catalog. Verify ten consecutive rounds per timing/contact/steering/orb family at 150 ms RTT, 30 ms jitter and 1% loss; music/pattern activities also pass an explicit audio/input fairness case."
+        },
+        {
+          "id": "m3-3",
+          "text": "Demonstrate disconnect/refresh/reconnect, stale-input handling, lobby-owner transfer and separate match-process recovery. Persist atomic tournament checkpoints/results, restore the committed state and prevent duplicate awards or seat ownership."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "m3-build",
+          "title": "Implement authoritative mixed-seat match services",
+          "kind": "implementation",
+          "scope": "Resolve the original-runtime/server contract and implement four-seat authority with local-content-safe messages and atomic results.",
+          "criteria": [
+            {
+              "id": "m3-build-1",
+              "text": "The reviewed protocol defines authority, identities, compatibility and required state without proprietary data transfer."
+            },
+            {
+              "id": "m3-build-2",
+              "text": "Server-owned outcomes, explicit seat ownership and atomic/idempotent tournament result writes are implemented and tested."
+            }
+          ],
+          "dependsOn": []
+        },
+        {
+          "id": "m3-verify",
+          "title": "Verify online agreement, fairness and recovery",
+          "kind": "evidence",
+          "scope": "Exercise remote/mixed parties, every required online catalog entry, impaired networks and recovery boundaries.",
+          "criteria": [
+            {
+              "id": "m3-verify-1",
+              "text": "Remote and mixed-seat results agree under the defined network/fairness scenarios and representative repeated rounds."
+            },
+            {
+              "id": "m3-verify-2",
+              "text": "Reconnect, ownership transfer and process recovery restore correct committed state without stuck inputs, duplicate rewards or leaked original content."
+            }
+          ],
+          "dependsOn": [
+            "m3-build",
+            "m2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Player experience",
+      "foundation": "The research app has local menus and owned keyboard/gamepad input; accounts, friends and production lobbies are unimplemented.",
+      "goal": "Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface.",
+      "dependsOn": [
+        "m2",
+        "m3"
+      ],
+      "criteria": [
+        {
+          "id": "m4-1",
+          "text": "Demonstrate fresh-account/recovery \u2192 content readiness \u2192 friend request/invite \u2192 public/private lobby or join code \u2192 ready/start \u2192 match \u2192 rematch. Verify permissions, privacy/block/report, incompatible content and rejected unauthorized API operations."
+        },
+        {
+          "id": "m4-2",
+          "text": "Verify per-seat keyboard/gamepad ownership, remapping/conflicts, calibration/prompts and saved preferences on named physical devices. Focus loss, disconnect/reconnect and stale input must produce the defined offline/online behavior without stuck actions."
+        },
+        {
+          "id": "m4-3",
+          "text": "Exercise keyboard-accessible navigation, visible focus, audio/fullscreen failure handling and quality/accessibility settings. Desktop support comes first; later mobile/touch support must pass these input flows and the M5 device matrix before it is advertised."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "m4-build",
+          "title": "Complete accounts, friends and lobby flows",
+          "kind": "implementation",
+          "scope": "Deliver account recovery, social permissions, content readiness and complete lobby/invite/rematch flows over the proven match service.",
+          "criteria": [
+            {
+              "id": "m4-build-1",
+              "text": "A fresh player can complete the account \u2192 friend/invite \u2192 compatible lobby \u2192 match/rematch journey."
+            },
+            {
+              "id": "m4-build-2",
+              "text": "Privacy, block/report, incompatible versions/content and unauthorized operations behave correctly."
+            }
+          ],
+          "dependsOn": []
+        },
+        {
+          "id": "m4-verify",
+          "title": "Accept owned controls and browser usability",
+          "kind": "evidence",
+          "scope": "Complete and exercise controls/preferences, focus/device lifecycle and accessible browser navigation with physical devices.",
+          "criteria": [
+            {
+              "id": "m4-verify-1",
+              "text": "Keyboard/gamepad remapping, conflicts, calibration/prompts and multiple owned seats work without stuck or misrouted input."
+            },
+            {
+              "id": "m4-verify-2",
+              "text": "Named device/browser sessions verify preferences, focus/disconnect, navigation, audio/fullscreen and quality settings; touch/mobile claims require their own observed cases."
+            }
+          ],
+          "dependsOn": [
+            "m4-build"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Release readiness",
+      "foundation": "Source publication guards, pinned runtime, source-only builds and Windows/Linux CI already exist.",
+      "goal": "Ship a reproducible, documented and operationally supported release for the declared browser/device matrix.",
+      "dependsOn": [
+        "m1",
+        "m2",
+        "m3",
+        "m4"
+      ],
+      "criteria": [
+        {
+          "id": "m5-1",
+          "text": "Accept M1\u2013M4 and reproduce the candidate from a clean checkout using pinned inputs/tool versions. Required CI and publication checks pass; distributed source/builds and diagnostics contain no original media, generated title code or credentials."
+        },
+        {
+          "id": "m5-2",
+          "text": "Freeze and test the required desktop Chrome/Edge/Firefox/Safari and named hardware matrix. Record full-tournament soak/relaunch/save/recovery, frame times toward 60 fps with a usable documented 30 fps mode, peak memory, import time and failure behavior against budgets fixed before acceptance runs."
+        },
+        {
+          "id": "m5-3",
+          "text": "Verify protocol/content/rules/converter versioning, deployment/rollback, backup/restore, capacity/admission limits, privacy/data handling and release documentation. Resolve licensing/content-release questions and authorize service costs/deployment before publication; later mobile releases pass the same applicable gates."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "m5-build",
+          "title": "Verify reproducible source-only release operations",
+          "kind": "implementation",
+          "scope": "Prepare the release candidate, version compatibility, operational recovery and documented deployment/cost/licensing decisions.",
+          "criteria": [
+            {
+              "id": "m5-build-1",
+              "text": "A clean checkout produces the candidate and passes source/CI checks without proprietary content or credentials in artifacts."
+            },
+            {
+              "id": "m5-build-2",
+              "text": "Versioning, rollback, backup/restore, capacity/privacy and release/cost decisions have reviewable procedures and evidence."
+            }
+          ],
+          "dependsOn": []
+        },
+        {
+          "id": "m5-verify",
+          "title": "Accept browser/device performance and release evidence",
+          "kind": "evidence",
+          "scope": "Run the frozen browser/hardware matrix and full-product soak, import, input and recovery scenarios.",
+          "criteria": [
+            {
+              "id": "m5-verify-1",
+              "text": "Required desktop browsers and named hardware pass the agreed frame/memory/import budgets, full-tournament sessions and recovery cases."
+            },
+            {
+              "id": "m5-verify-2",
+              "text": "All milestone acceptance records and remaining supported-device limits are reviewed; no unsupported platform or unfinished feature is advertised."
+            }
+          ],
+          "dependsOn": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5-build"
+          ]
+        }
+      ]
+    }
+  ]
+}

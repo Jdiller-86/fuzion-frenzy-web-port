@@ -1,5 +1,5 @@
 /* Owned display-mode declaration scenarios; no original code or device. */
-#include "../src/runtime/display_mode.h"
+#include "../runtime/core/display_mode.h"
 #include <assert.h>
 #include <stdio.h>
 

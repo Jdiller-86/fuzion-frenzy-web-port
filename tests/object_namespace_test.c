@@ -1,6 +1,6 @@
 /* Source-owned namespace scenarios, with no original code or mounted media. */
-#include "../src/runtime/object_namespace.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/object_namespace.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

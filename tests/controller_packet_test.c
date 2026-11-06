@@ -1,6 +1,6 @@
 /* Owned Xbox controller packet/state scenarios; no original code or device. */
-#include "../src/runtime/controller_packet.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/controller_packet.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

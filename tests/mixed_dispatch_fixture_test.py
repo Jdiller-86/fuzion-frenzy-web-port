@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location(
-    "prep_title", ROOT / "tools/prepare-title-recomp.py")
+    "prep_title", ROOT / "translator/prepare-title-recomp.py")
 PREP = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PREP)
 

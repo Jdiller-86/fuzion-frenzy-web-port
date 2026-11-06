@@ -1,6 +1,6 @@
 /* Source-owned block-device cases; no original executable or disk content. */
-#include "../src/runtime/local_disk.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/local_disk.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

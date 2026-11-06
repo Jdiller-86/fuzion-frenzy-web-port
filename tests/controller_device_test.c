@@ -1,6 +1,6 @@
 /* Owned four-port controller device scenarios; no host device or original code. */
-#include "../src/runtime/controller_device.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/controller_device.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

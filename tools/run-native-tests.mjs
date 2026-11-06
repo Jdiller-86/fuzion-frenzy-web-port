@@ -18,7 +18,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const runtime = (name) => `src/runtime/${name}`;
+const runtime = (name) => `runtime/core/${name}`;
 
 /* Each fixture lists its own translation units; a fixture that needs a new
  * source must say so here, which keeps the link set reviewable. */
@@ -52,9 +52,9 @@ const fixtures = [
   { name: 'recomp_memory_access_xmm', sources: ['tests/recomp_memory_access_xmm_test.c'] },
   { name: 'recomp_memory_access_vm', sources: ['tests/recomp_memory_access_vm_test.c', runtime('virtual_memory.c'), runtime('thread_bootstrap.c')] },
 ];
-const flags = ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-I', 'src/runtime'];
+const flags = ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-I', 'runtime/core'];
 /* The checkpoints quote sanitizer runs, so the runner reproduces them too. */
-const sanitizer = ['-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-I', 'src/runtime',
+const sanitizer = ['-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-I', 'runtime/core',
   '-fsanitize=address,undefined', '-fno-sanitize-recover=all'];
 
 /* Build outside the repository so the preparation scanner never sees a binary,

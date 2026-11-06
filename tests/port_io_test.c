@@ -1,5 +1,5 @@
 /* Owned port-output log scenarios; no device model or original code. */
-#include "../src/runtime/port_io.h"
+#include "../runtime/core/port_io.h"
 #include <assert.h>
 #include <stdio.h>
 

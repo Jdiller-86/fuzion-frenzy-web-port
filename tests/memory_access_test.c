@@ -1,8 +1,8 @@
 /* Compiles the transformed owned fixture with actual checked scalar/stack/bulk
  * accessors. Native/sanitizer/Wasm runs execute only these independent sources. */
-#include "../src/runtime/device_registers.h"
-#include "../src/runtime/recomp_memory_access.h"
-#include "../src/runtime/virtual_memory.h"
+#include "../runtime/core/device_registers.h"
+#include "../runtime/core/recomp_memory_access.h"
+#include "../runtime/core/virtual_memory.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>

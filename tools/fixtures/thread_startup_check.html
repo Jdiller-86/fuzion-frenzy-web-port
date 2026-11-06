@@ -28,7 +28,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef2f8; paddi
 <button id="run">Run thread startup proof</button><button id="clear">Clear local selection</button><button id="save" disabled>Save local report</button>
 <p id="status" role="status">Select local proof files</p><details><summary>Local research details</summary><pre id="details"></pre></details>
 <script type="module">
-import { describeAvQueryOutcome } from '/src/runtime/local-title-proof.mjs';
+import { describeAvQueryOutcome } from '/runtime/browser/local-title-proof.mjs';
 const moduleInput = document.getElementById('module'), xbeInput = document.getElementById('xbe');
 const settingsInput = document.getElementById('settings');
 const run = document.getElementById('run'), clear = document.getElementById('clear');
@@ -64,7 +64,7 @@ run.onclick = async () => {
     if (settingsFile && settingsFile.size > 8192) throw new Error('A settings profile exceeds this bounded proof');
     const settingsBytes = settingsFile ? await settingsFile.arrayBuffer() : undefined;
     if (generation !== current) return;
-    worker = new Worker('/src/runtime/thread-proof-worker.mjs', { type: 'module' });
+    worker = new Worker('/runtime/browser/thread-proof-worker.mjs', { type: 'module' });
     const fail = message => { if (generation !== current) return; release(); document.body.dataset.state = 'failed'; status.textContent = message; };
     timer = setTimeout(() => fail('The bounded worker timed out and was stopped'), 15000);
     worker.onerror = event => fail(event.message);

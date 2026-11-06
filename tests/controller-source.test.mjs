@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { collectControllerPorts, CONTROLLER_MAX_PORTS } from '../src/runtime/controller-source.mjs';
+import { collectControllerPorts, CONTROLLER_MAX_PORTS } from '../runtime/browser/controller-source.mjs';
 
 const button = () => ({ pressed: false, value: 0 });
 

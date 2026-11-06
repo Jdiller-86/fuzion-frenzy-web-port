@@ -3,7 +3,7 @@ import {readFile,stat,writeFile,realpath} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {readXbeProfile} from '../src/xbe.mjs';
+import {readXbeProfile} from '../host/xbe.mjs';
 const [input,output]=process.argv.slice(2);
 if(!input||!output||process.argv.length!==4)throw new Error('Usage: node tools/profile-execution.mjs <local.xbe> <new-report.json>');
 const research=await realpath(fileURLToPath(new URL('../research/',import.meta.url)));

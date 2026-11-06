@@ -1,7 +1,7 @@
 /* Owned CPU globals and callback; no vendor or original game code. */
-#include "../src/runtime/dpc_context.h"
-#include "../src/runtime/kernel_objects.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/dpc_context.h"
+#include "../runtime/core/kernel_objects.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +23,7 @@ FF_VECTOR(0) FF_VECTOR(1) FF_VECTOR(2) FF_VECTOR(3) FF_VECTOR(4) FF_VECTOR(5) FF
 #define ebx g_ebx
 #define esi g_esi
 #define edi g_edi
-#include "../src/runtime/recomp_cpu_snapshot.h"
+#include "../runtime/core/recomp_cpu_snapshot.h"
 
 static uint8_t ram[16384];
 static ff_timer_queue queue;

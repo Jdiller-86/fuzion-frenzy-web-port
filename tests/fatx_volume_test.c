@@ -1,7 +1,7 @@
 /* Owned FATX structures only; no original executable, files or disk image. */
-#include "../src/runtime/fatx_volume.h"
-#include "../src/runtime/file_namespace.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/fatx_volume.h"
+#include "../runtime/core/file_namespace.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

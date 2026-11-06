@@ -1,7 +1,7 @@
 /* Owned MmClaimGpuInstanceMemory scenarios; no original code or device model. */
-#include "../src/runtime/gpu_instance.h"
-#include "../src/runtime/thread_bootstrap.h"
-#include "../src/runtime/virtual_memory.h"
+#include "../runtime/core/gpu_instance.h"
+#include "../runtime/core/thread_bootstrap.h"
+#include "../runtime/core/virtual_memory.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

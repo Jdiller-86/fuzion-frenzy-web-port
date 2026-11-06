@@ -1,6 +1,6 @@
 /* Owned fresh-volume file scenarios. No original saves, media or host files. */
-#include "../src/runtime/local_volume.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/local_volume.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

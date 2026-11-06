@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {LocalInput,KEYBOARD_LAYOUTS} from '../packages/input/local-input.mjs';
+import {LocalInput,KEYBOARD_LAYOUTS} from '../runtime/browser/input/local-input.mjs';
 const pad=(index=0,{jump=false,duck=false,id='Test controller',mapping='standard'}={})=>({index,id,mapping,connected:true,buttons:[{pressed:jump},{pressed:duck}]});
 
 test('four disjoint keyboard seats latch short taps and ignore auto-repeat',()=>{

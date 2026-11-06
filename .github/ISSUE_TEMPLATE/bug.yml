@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible source, converter, runtime or browser problem
+labels: [bug]
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+      description: Link the relevant milestone or work package where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction and environment
+      description: Include source revision, browser/OS/device, input build identifier and exact steps. Use source-owned fixtures when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Curated evidence and limits
+      description: Describe the result and failed boundary. Never attach game files, converted assets, generated title modules, RAM, credentials or raw private analysis.

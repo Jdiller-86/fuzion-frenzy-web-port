@@ -1,6 +1,6 @@
 /* Native test for the unconnected numeric-6 query component.
  *
- * The test calls the real src/runtime/av_query.c component against a real
+ * The test calls the real runtime/core/av_query.c component against a real
  * ff_virtual_memory window. It does not reimplement the writer. The synthetic
  * DWORD is supplied through a nullable config pointer; a null config means the
  * value is absent, not zero. Stores are bytewise little-endian and the guest
@@ -8,7 +8,7 @@
  * and leave the surrounding bytes unchanged; every denial must leave them
  * unchanged.
  */
-#include "../src/runtime/av_query.h"
+#include "../runtime/core/av_query.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

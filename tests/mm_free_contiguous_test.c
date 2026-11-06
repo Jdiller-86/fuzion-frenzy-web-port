@@ -1,5 +1,5 @@
 /* Owned contiguous-free scenarios; no original code or device. */
-#include "../src/runtime/mm_free_contiguous.h"
+#include "../runtime/core/mm_free_contiguous.h"
 #include <assert.h>
 #include <stdio.h>
 

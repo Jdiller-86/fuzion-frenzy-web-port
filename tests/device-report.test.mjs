@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDeviceReport, DEVICE_ENTRIES, DEVICE_EVENTS } from '../src/runtime/device-report.mjs';
+import { createDeviceReport, DEVICE_ENTRIES, DEVICE_EVENTS } from '../runtime/browser/device-report.mjs';
 
 function fake(count, events, site = 0x00100020) {
   return {

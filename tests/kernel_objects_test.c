@@ -1,6 +1,6 @@
 /* Independent ABI cases with nonzero canaries; no original game bytes. */
-#include "../src/runtime/kernel_objects.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/kernel_objects.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

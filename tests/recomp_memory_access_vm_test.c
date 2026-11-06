@@ -5,8 +5,8 @@
  * so this fixture compiles that exact form and resolves the hook with
  * ff_vm_check over the owned identity-mapped window. RecompXmm mirrors the
  * pinned translation type; the memory header itself stays independent of it. */
-#include "../src/runtime/recomp_memory_access.h"
-#include "../src/runtime/virtual_memory.h"
+#include "../runtime/core/recomp_memory_access.h"
+#include "../runtime/core/virtual_memory.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <stdint.h>

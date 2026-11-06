@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import {webFiles} from './web-files.mjs';
 export function createWebServer({built=false}={}){
-  const root=new URL(built?'../dist/':'../',import.meta.url),allowed=new Map(webFiles.map(p=>['/'+p,p]));allowed.set('/','apps/web/index.html');
+  const root=new URL(built?'../dist/':'../',import.meta.url),allowed=new Map(webFiles.map(p=>['/'+p,p]));allowed.set('/','web/app/index.html');
   return createServer(async(req,res)=>{
     const path=req.method==='GET'?allowed.get(req.url):undefined;
     if(!path){res.writeHead(404);res.end();return;}

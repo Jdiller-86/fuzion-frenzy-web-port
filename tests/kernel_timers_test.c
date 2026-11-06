@@ -1,7 +1,7 @@
 /* Owned clock/object scenarios. No firmware, original code or wall-clock wait. */
-#include "../src/runtime/kernel_timers.h"
-#include "../src/runtime/kernel_objects.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/kernel_timers.h"
+#include "../runtime/core/kernel_objects.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>

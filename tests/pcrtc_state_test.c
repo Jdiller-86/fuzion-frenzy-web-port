@@ -1,5 +1,5 @@
 /* Owned PCRTC interrupt-state contract. No firmware, original code or timer. */
-#include "../src/runtime/pcrtc_state.h"
+#include "../runtime/core/pcrtc_state.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

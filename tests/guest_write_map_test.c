@@ -1,6 +1,6 @@
 /* Owned guest write-page map; no original code or device model. */
-#include "../src/runtime/guest_write_map.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/guest_write_map.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdir,mkdtemp,writeFile,readFile,stat} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';import {fileURLToPath} from 'node:url';import path from 'node:path';
-import {readXbeProfile} from '../src/xbe.mjs';
+import {readXbeProfile} from '../host/xbe.mjs';
 // Entirely source-owned executable metadata. No original instructions/resources.
 function fixture(variant='retail'){
   const b=new ArrayBuffer(0x600),v=new DataView(b),u=(o,n)=>v.setUint32(o,n,true);

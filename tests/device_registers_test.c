@@ -1,6 +1,6 @@
 /* Owned synthetic aperture scenarios; no original code or device model. */
-#include "../src/runtime/device_registers.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/device_registers.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

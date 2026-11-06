@@ -1,7 +1,7 @@
 /* Owned 16-byte checked-pointer permission/boundary fixture.
  * Includes only the source-owned memory header: it must not depend on the
  * pinned RecompXmm type. */
-#include "../src/runtime/recomp_memory_access.h"
+#include "../runtime/core/recomp_memory_access.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

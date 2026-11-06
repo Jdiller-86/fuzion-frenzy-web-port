@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 from types import SimpleNamespace
 
-spec = importlib.util.spec_from_file_location("title_prepare", Path(__file__).resolve().parents[1] / "tools/prepare-title-recomp.py")
+spec = importlib.util.spec_from_file_location("title_prepare", Path(__file__).resolve().parents[1] / "translator/prepare-title-recomp.py")
 prepare = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prepare)
 

@@ -1,5 +1,5 @@
-#include "../src/runtime/console_settings.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/console_settings.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

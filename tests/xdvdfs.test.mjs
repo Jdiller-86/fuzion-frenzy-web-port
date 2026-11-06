@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {openXiso} from '../src/xdvdfs.mjs';
+import {openXiso} from '../host/xdvdfs.mjs';
 function fixture() {
   const b = new Uint8Array(35 * 2048), v = new DataView(b.buffer), enc = new TextEncoder();
   const d = 32 * 2048, root = 33 * 2048;

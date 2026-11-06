@@ -1,6 +1,6 @@
 /* Owned FILETIME-to-TIME_FIELDS scenarios; no host timezone or locale. */
-#include "../src/runtime/time_fields.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/time_fields.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 

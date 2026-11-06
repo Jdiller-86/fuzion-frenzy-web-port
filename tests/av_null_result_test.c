@@ -1,5 +1,5 @@
 /* Owned null-result AV query scenarios; no original code or device. */
-#include "../src/runtime/av_null_result.h"
+#include "../runtime/core/av_null_result.h"
 #include <assert.h>
 #include <stdio.h>
 

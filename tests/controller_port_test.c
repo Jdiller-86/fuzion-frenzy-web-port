@@ -1,6 +1,6 @@
 /* Owned controller port query scenarios; no host device or original code. */
-#include "../src/runtime/controller_port.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/controller_port.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

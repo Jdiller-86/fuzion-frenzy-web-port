@@ -6,7 +6,7 @@ import {
   PFIFO_RING_MAX_BYTES,
   PFIFO_RING_ADDRESS_MASK,
   PFIFO_RING_JUMP_MASK,
-} from '../src/runtime/pfifo-ring.mjs';
+} from '../runtime/browser/pfifo-ring.mjs';
 
 test('the observed pushbuffer example reports the jump word, physical masks and zero get', () => {
   const ring = describePfifoRing({ base: 0x03B7D000, end: 0x03C00000, put: 0x03B7D000, get: 0, ramBytes: 0x04000000 });

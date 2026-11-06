@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readXbpIndex, xbpResource } from '../src/xbp.mjs';
+import { readXbpIndex, xbpResource } from '../host/xbp.mjs';
 function fixture() {
   const bytes = new Uint8Array(512), d = new DataView(bytes.buffer);
   const put = (o, v) => d.setUint32(o, v, true);

@@ -1,6 +1,6 @@
 /* Owned page/accounting scenarios; no original code or console defaults. */
-#include "../src/runtime/memory_statistics.h"
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/memory_statistics.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

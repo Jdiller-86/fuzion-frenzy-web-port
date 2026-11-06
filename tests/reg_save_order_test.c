@@ -1,5 +1,5 @@
 /* Owned callee-saved save/pop order scenarios; no original code or device. */
-#include "../src/runtime/reg_save_order.h"
+#include "../runtime/core/reg_save_order.h"
 #include <assert.h>
 #include <stdio.h>
 

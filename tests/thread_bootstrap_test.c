@@ -1,5 +1,5 @@
 /* Owned memory/API cases; no game content, vendor runtime or console firmware. */
-#include "../src/runtime/thread_bootstrap.h"
+#include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

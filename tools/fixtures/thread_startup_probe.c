@@ -6,41 +6,41 @@
 #define FF_RETURN_FRAME(address, frame) ff_probe_return_frame(address, frame)
 static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "title-profile.h"
-#include "../../src/runtime/thread_bootstrap.h"
-#include "../../src/runtime/kernel_objects.h"
-#include "../../src/runtime/local_settings.h"
-#include "../../src/runtime/port_io.h"
+#include "../../runtime/core/thread_bootstrap.h"
+#include "../../runtime/core/kernel_objects.h"
+#include "../../runtime/core/local_settings.h"
+#include "../../runtime/core/port_io.h"
 #ifdef FF_PFIFO_PROOF
-#include "../../src/runtime/pfifo_channel.h"
+#include "../../runtime/core/pfifo_channel.h"
 #endif
 #ifdef FF_VM_PROOF
-#include "../../src/runtime/virtual_memory.h"
-#include "../../src/runtime/guest_mirror.h"
-#include "../../src/runtime/guest_write_map.h"
-#include "../../src/runtime/interrupt_vector.h"
-#include "../../src/runtime/gpu_instance.h"
-#include "../../src/runtime/time_fields.h"
-#include "../../src/runtime/av_query.h"
-#include "../../src/runtime/av_query_adapter.h"
+#include "../../runtime/core/virtual_memory.h"
+#include "../../runtime/core/guest_mirror.h"
+#include "../../runtime/core/guest_write_map.h"
+#include "../../runtime/core/interrupt_vector.h"
+#include "../../runtime/core/gpu_instance.h"
+#include "../../runtime/core/time_fields.h"
+#include "../../runtime/core/av_query.h"
+#include "../../runtime/core/av_query_adapter.h"
 #ifndef FF_GUARDED_MEMORY
 #error Virtual-memory proof requires checked translated accesses
 #endif
 #endif
 #ifdef FF_TIMER_PROOF
-#include "../../src/runtime/kernel_timers.h"
-#include "../../src/runtime/dpc_context.h"
+#include "../../runtime/core/kernel_timers.h"
+#include "../../runtime/core/dpc_context.h"
 #endif
 #ifdef FF_VOLUME_PROOF
 #ifndef FF_VM_PROOF
 #error Volume services require checked guest memory
 #endif
-#include "../../src/runtime/local_volume.h"
+#include "../../runtime/core/local_volume.h"
 #endif
 #ifdef FF_DISK_PROOF
 #if !defined(FF_INITIALIZER_BATCH_PROOF) || !defined(FF_FILE_WRITE_PROOF)
 #error Disk startup retains the checked initializer proof
 #endif
-#include "../../src/runtime/local_disk.h"
+#include "../../runtime/core/local_disk.h"
 #define FF_DISK_DATA_ADDRESS 0x03f10000u
 static ff_local_disk local_disk;
 static uint32_t disk_ready;
@@ -61,7 +61,7 @@ static uint32_t disk_ready;
 #if !defined(FF_DISK_DISMOUNT_PROOF) || !defined(FF_NAMESPACE_PROOF)
 #error FATX retains explicit disk, RAW lifetime and namespace contracts
 #endif
-#include "../../src/runtime/fatx_volume.h"
+#include "../../runtime/core/fatx_volume.h"
 static ff_fatx_volume fatx_volume;
 static uint32_t fatx_ready;
 #endif
@@ -69,7 +69,7 @@ static uint32_t fatx_ready;
 #if !defined(FF_FATX_PROOF) || !defined(FF_SECTION_PROOF)
 #error Memory statistics retain the current checked startup and filesystem ABI
 #endif
-#include "../../src/runtime/memory_statistics.h"
+#include "../../runtime/core/memory_statistics.h"
 static ff_memory_statistics memory_statistics;
 static uint32_t memory_statistics_ready;
 #endif
@@ -77,25 +77,25 @@ static uint32_t memory_statistics_ready;
 #if !defined(FF_MEMORY_STATISTICS_PROOF)
 #error Device register storage retains the modeled memory statistics
 #endif
-#include "../../src/runtime/device_registers.h"
-#include "../../src/runtime/pcrtc_state.h"
-#include "../../src/runtime/pfifo_dma.h"
-#include "../../src/runtime/pfifo_status.h"
-#include "../../src/runtime/pfifo_pusher.h"
-#include "../../src/runtime/vblank_wait.h"
-#include "../../src/runtime/display_mode.h"
-#include "../../src/runtime/av_unknown_option.h"
-#include "../../src/runtime/av_saved_data.h"
-#include "../../src/runtime/av_null_result.h"
-#include "../../src/runtime/mm_free_contiguous.h"
-#include "../../src/runtime/tls_scope.h"
+#include "../../runtime/core/device_registers.h"
+#include "../../runtime/core/pcrtc_state.h"
+#include "../../runtime/core/pfifo_dma.h"
+#include "../../runtime/core/pfifo_status.h"
+#include "../../runtime/core/pfifo_pusher.h"
+#include "../../runtime/core/vblank_wait.h"
+#include "../../runtime/core/display_mode.h"
+#include "../../runtime/core/av_unknown_option.h"
+#include "../../runtime/core/av_saved_data.h"
+#include "../../runtime/core/av_null_result.h"
+#include "../../runtime/core/mm_free_contiguous.h"
+#include "../../runtime/core/tls_scope.h"
 static ff_device_registers device_registers;
 #endif
 #ifdef FF_NAMESPACE_PROOF
 #ifndef FF_VOLUME_PROOF
 #error Namespace proof retains the explicit local volume contract
 #endif
-#include "../../src/runtime/object_namespace.h"
+#include "../../runtime/core/object_namespace.h"
 #endif
 #if !defined(__wasm32__) || defined(__wasm64__)
 #error This proof requires wasm32
@@ -140,7 +140,7 @@ RECOMP_TLS double g_fp_stack[8];
 RECOMP_TLS RecompXmm g_xmm0, g_xmm1, g_xmm2, g_xmm3, g_xmm4, g_xmm5, g_xmm6, g_xmm7;
 RECOMP_TLS RecompMmx g_mm0, g_mm1, g_mm2, g_mm3, g_mm4, g_mm5, g_mm6, g_mm7;
 #ifdef FF_TIMER_PROOF
-#include "../../src/runtime/recomp_cpu_snapshot.h"
+#include "../../runtime/core/recomp_cpu_snapshot.h"
 #endif
 volatile uint32_t g_icall_trace[ICALL_TRACE_SIZE], g_icall_trace_idx;
 volatile uint64_t g_icall_count;
@@ -523,7 +523,7 @@ static uint32_t misc_flags, misc_flags_ready;
 #ifndef FF_SECTION_PROOF
 #error Expanded settings retain checked image and guest memory ownership
 #endif
-#include "../../src/runtime/console_settings.h"
+#include "../../runtime/core/console_settings.h"
 static uint32_t parental_games,parental_games_ready;
 #endif
 #ifdef FF_VOLUME_PROOF
@@ -534,13 +534,13 @@ static uint32_t volume_ready;
 #ifndef FF_NAMESPACE_PROOF
 #error Directory proof retains the explicit volume and namespace contracts
 #endif
-#include "../../src/runtime/guest_strings.h"
+#include "../../runtime/core/guest_strings.h"
 #endif
 #ifdef FF_FILE_LINK_PROOF
 #ifndef FF_DIRECTORY_PROOF
 #error File-target links retain the explicit fresh-directory contract
 #endif
-#include "../../src/runtime/file_namespace.h"
+#include "../../runtime/core/file_namespace.h"
 #endif
 #ifdef FF_REGULAR_FILE_PROOF
 #if !defined(FF_FILE_LINK_PROOF) || !defined(FF_TIMER_PROOF)
@@ -565,7 +565,7 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
 #error Section loading requires checked memory and real file writes
 #endif
-#include "../../src/runtime/image_sections.h"
+#include "../../runtime/core/image_sections.h"
 static uint8_t image_source[FF_IMAGE_SOURCE_BYTES] __attribute__((aligned(16)));
 static ff_image_sections image_sections;
 #endif

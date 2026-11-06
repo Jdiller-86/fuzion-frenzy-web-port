@@ -15,8 +15,8 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { validateProofReport } from '../src/runtime/proof-report.mjs';
-import { validateSuppliedDeviceProfile } from '../src/runtime/device-report.mjs';
+import { validateProofReport } from '../runtime/browser/proof-report.mjs';
+import { validateSuppliedDeviceProfile } from '../runtime/browser/device-report.mjs';
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const DWORD = value => Number.isInteger(value) && value >= 0 && value <= 0xffffffff;

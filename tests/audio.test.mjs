@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {decodeMonoCue} from '../src/audio.mjs';
+import {decodeMonoCue} from '../host/audio.mjs';
 function fixture() {
  const a = new ArrayBuffer(140), v = new DataView(a);
  v.setUint16(72, 0x69, true); v.setUint16(74, 1, true); v.setUint32(76, 22050, true);

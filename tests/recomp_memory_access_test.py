@@ -3,11 +3,11 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-spec = importlib.util.spec_from_file_location("memory_access", Path(__file__).resolve().parents[1] / "tools/recomp_memory_access.py")
+spec = importlib.util.spec_from_file_location("memory_access", Path(__file__).resolve().parents[1] / "translator/recomp_memory_access.py")
 guard = importlib.util.module_from_spec(spec); spec.loader.exec_module(guard)
 
 spec_verify = importlib.util.spec_from_file_location(
-    "verify_translation", Path(__file__).resolve().parents[1] / "tools/verify-translation.py")
+    "verify_translation", Path(__file__).resolve().parents[1] / "translator/verify-translation.py")
 verify_tool = importlib.util.module_from_spec(spec_verify); spec_verify.loader.exec_module(verify_tool)
 
 SITE = 0x00100000

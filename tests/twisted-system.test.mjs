@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createRound,stepRound,endPractice,courseRate,hazardKind,visibleHazards,makeRules} from '../packages/simulation/twisted-system.mjs';
+import {createRound,stepRound,endPractice,courseRate,hazardKind,visibleHazards,makeRules} from '../web/prototype/twisted-system.mjs';
 
 const commands=state=>Array.from({length:state.players.length},()=>({}));
 function perfect(state,id=0){

@@ -9,12 +9,8 @@
     "node": ">=24.14.0 <25",
     "npm": ">=11 <12"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "check": "node tools/check-preparation.mjs",
+    "check": "node tools/check-preparation.mjs && node tools/project.mjs check && node tools/check-docs.mjs",
     "check:environment": "node tools/check-environment.mjs",
     "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs && node --test tests/xbe.test.mjs",
     "dev:research": "node tools/serve-proof.mjs",
@@ -24,6 +20,11 @@
     "test:gameplay": "node --test tests/twisted-system.test.mjs tests/local-input.test.mjs tests/browser-safety.test.mjs tests/web-delivery.test.mjs",
     "test:runtime": "node --test tests/runtime-proof.test.mjs tests/startup-proof.test.mjs tests/device-report.test.mjs tests/mmio-profile.test.mjs tests/submission-probe.test.mjs tests/pfifo-scan.test.mjs tests/pfifo-decode.test.mjs tests/pfifo-ring.test.mjs tests/gamepad-adapter.test.mjs tests/controller-source.test.mjs tests/host-step.test.mjs tests/proof-report.test.mjs tests/compare-proof-profiles.test.mjs tests/kernel-service.test.mjs tests/av-observation.test.mjs tests/av-query-outcome.test.mjs tests/disc-session.test.mjs tests/translation-frontier.test.mjs tests/run-native-tests.test.mjs tests/integration-verification.test.mjs tests/verify-recomp-package.test.mjs",
     "test:native": "node tools/run-native-tests.mjs",
-    "test:evidence": "node tools/run-python-tests.mjs"
+    "test:evidence": "node tools/run-python-tests.mjs",
+    "test:project": "node --test tests/project.test.mjs",
+    "project:docs": "node tools/project.mjs docs",
+    "project:preview": "node tools/project.mjs sync",
+    "project:snapshot": "node tools/project.mjs snapshot",
+    "project:render": "node tools/project.mjs render"
   }
 }

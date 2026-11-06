@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { findSeeds, verifyManifest } from '../tools/verify-recomp-package.mjs';
+import { findSeeds, verifyManifest } from '../translator/verify-recomp-package.mjs';
 
 const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 

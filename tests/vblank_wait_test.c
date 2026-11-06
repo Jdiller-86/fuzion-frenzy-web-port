@@ -1,5 +1,5 @@
 /* Owned vblank-wait decision scenarios; no original code or device. */
-#include "../src/runtime/vblank_wait.h"
+#include "../runtime/core/vblank_wait.h"
 #include <assert.h>
 #include <stdio.h>
 

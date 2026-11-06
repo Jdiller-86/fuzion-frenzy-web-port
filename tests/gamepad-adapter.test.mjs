@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   adaptStandardGamepad, applyStickDeadzone, applyTriggerValue,
   GAMEPAD_DEADZONE_PERCENT, GAMEPAD_TRIGGER_THRESHOLD_PERCENT,
-} from '../src/runtime/gamepad-adapter.mjs';
+} from '../runtime/browser/gamepad-adapter.mjs';
 
 const neutral = () => ({
   connected: true,

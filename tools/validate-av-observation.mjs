@@ -7,7 +7,7 @@
  * rejected or replaced.
  */
 import fs from 'node:fs';
-import { validateAvObservation } from '../src/runtime/av-observation.mjs';
+import { validateAvObservation } from '../runtime/browser/av-observation.mjs';
 
 const file = process.argv[2];
 if (!file) {

@@ -1,5 +1,5 @@
 /* Independently authored line-geometry cases; no original content or GPU. */
-#include "../src/runtime/nv2a_line.h"
+#include "../renderer/nv2a_line.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

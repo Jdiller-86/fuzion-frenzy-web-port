@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../src/runtime/proof-report.mjs';
+import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../runtime/browser/proof-report.mjs';
 
 const report = (edit = {}) => ({
   kind: 'thread-startup-boundary',

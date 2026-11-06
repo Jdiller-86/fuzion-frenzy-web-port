@@ -1,5 +1,5 @@
 /* Owned guest contiguous-window descriptor; no original code or device model. */
-#include "../src/runtime/guest_mirror.h"
+#include "../runtime/core/guest_mirror.h"
 #include <assert.h>
 #include <stdio.h>
 

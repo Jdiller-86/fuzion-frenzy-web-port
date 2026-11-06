@@ -1,5 +1,5 @@
 /* Owned TLS-context scope scenarios; no original code or device. */
-#include "../src/runtime/tls_scope.h"
+#include "../runtime/core/tls_scope.h"
 #include <assert.h>
 #include <stdio.h>
 
