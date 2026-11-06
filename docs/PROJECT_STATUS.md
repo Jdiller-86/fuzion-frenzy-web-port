@@ -1,4 +1,12 @@
-# One-dword fix advances past the fault: status 1 at 0xFE0000C8, ordinal 100
+# Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
+
+November 6: architect-authorized default-off `KeDisconnectInterrupt` model (ordinal 100) with the +16 `Connected` offset from retained pinned references (modeled, not observed layout). `src/runtime/interrupt_vector.c/.h`: disconnect validates a writable 17-byte object, returns the previous `Connected` byte and clears it; connect now writes 1 at +16 and refuses a read-only object. Native test extended and the previously unregistered `interrupt_vector` fixture added: **56/56**. Harness/parser/worker/validator wiring added (default-off `keDisconnectInterrupt`).
+
+Pair (module 162): control unchanged at status 13 `0xFD800044` (339/405); inert unchanged at status 1 `0xFE0000C8`, ordinal 100 (347/419); experiment accepted the call (`object 0x206030`, previous 1, EAX 0→1, `esp + 8`) and advanced to **status 2 at `0x004F7A0`, 347 routines / 421 kernel ops** — a translation placeholder, the next genuine stop.
+
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row: integration head `8940d3f` lacks the lane commits (sync-first). No main push/merge; geometry untouched.
+
+## Prior: One-dword fix advances past the fault: status 1 at 0xFE0000C8, ordinal 100
 
 November 6: root cause found and fixed (D415). The modeled `AvGetSavedDataAddress` handler returned the pinned 0 but never consumed the call's return address, leaving four bytes on the guest stack; every later slot was read one dword low, so `[ESI+0x47C]` read `0x206314` and the run faulted at `0x6B6A6968`. Repair: `g_esp = esp_before + 4u` in the source-owned handler, validator updated for the 4-byte pop; newly observed null-result shape `(0x206080, 9, 0, 0)` added and the pair check relaxed to at least one observed null shape.
 

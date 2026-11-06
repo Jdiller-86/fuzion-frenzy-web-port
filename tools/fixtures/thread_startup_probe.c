@@ -173,6 +173,8 @@ static uint32_t av_null_eax_before, av_null_esp_before, av_null_eax_after, av_nu
 static uint32_t mm_free_enabled, mm_free_calls, mm_free_decision, mm_free_address;
 static uint32_t mm_free_eax_before, mm_free_esp_before, mm_free_eax_after, mm_free_esp_after;
 static uint32_t mm_free_write_before, mm_free_write_after;
+static uint32_t ke_disc_enabled, ke_disc_calls, ke_disc_object, ke_disc_previous;
+static uint32_t ke_disc_eax_before, ke_disc_esp_before, ke_disc_eax_after, ke_disc_esp_after;
 static uint32_t guest_watch_enabled, guest_watch_addr, guest_watch_site, guest_watch_count;
 static uint32_t guest_watch_read_site, guest_watch_read_count;
 static uint32_t site_watch_enabled, site_watch_entry_addr, site_watch_entry_ecx, site_watch_entry_ret;
@@ -454,8 +456,28 @@ uint32_t ff_probe_guest_watch_target(uint32_t address)
     guest_watch_read_count = 0u;
     return 0;
 }
-uint32_t ff_probe_vblank_word(uint32_t field)
+uint32_t ff_probe_ke_disconnect(uint32_t enable)
 {
+    if (enable > 1u) return FF_BOOT_INVALID;
+    if (enable && device_registers.ready) return FF_BOOT_INVALID;
+    ke_disc_enabled = enable;
+    return 0;
+}
+uint32_t ff_probe_ke_disconnect_word(uint32_t field)
+{
+    switch (field) {
+        case 0: return ke_disc_enabled;
+        case 1: return ke_disc_calls;
+        case 2: return ke_disc_object;
+        case 3: return ke_disc_previous;
+        case 4: return ke_disc_eax_before;
+        case 5: return ke_disc_esp_before;
+        case 6: return ke_disc_eax_after;
+        case 7: return ke_disc_esp_after;
+        default: return UINT32_MAX;
+    }
+}
+uint32_t ff_probe_vblank_word(uint32_t field){
         switch (field) {
         case 0: return vblank_wait_calls;
         case 1: return vblank_wait_type;
@@ -2430,8 +2452,29 @@ static void mm_free_contiguous_call(void)
     row[1] = 0u;
     row[2] = address;
 }
-recomp_func_t recomp_lookup_kernel(uint32_t address)
+static void ke_disconnect_interrupt(void)
 {
+    uint32_t *row = kernel_record(100u, 1u);
+    uint32_t object = MEM32(g_esp + 4u);
+    uint32_t eax_before = g_eax, esp_before = g_esp;
+    uint32_t previous = ff_ke_disconnect_interrupt(&virtual_memory, guest_ram, object);
+    ++ke_disc_calls;
+    ke_disc_object = object;
+    ke_disc_previous = previous;
+    if (previous == FF_BOOT_INVALID || previous == FF_VM_ACCESS_VIOLATION) {
+        row[1] = FF_BOOT_UNSUPPORTED;
+        stop(9, previous, 100u);
+    }
+    g_eax = previous;
+    g_esp = esp_before + 8u;
+    ke_disc_eax_before = eax_before;
+    ke_disc_esp_before = esp_before;
+    ke_disc_eax_after = g_eax;
+    ke_disc_esp_after = g_esp;
+    row[1] = 0u;
+    row[2] = object;
+}
+recomp_func_t recomp_lookup_kernel(uint32_t address){
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
         if (ordinal == 255) return create_thread;
@@ -2506,6 +2549,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address)
         if (ordinal == 3 && display_mode_enabled) return set_display_mode;
         if (ordinal == 1 && av_saved_enabled) return av_get_saved_data;
         if (ordinal == 171 && mm_free_enabled) return mm_free_contiguous_call;
+        if (ordinal == 100 && ke_disc_enabled) return ke_disconnect_interrupt;
 #endif
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is

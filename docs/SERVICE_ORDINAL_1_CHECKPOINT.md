@@ -877,3 +877,24 @@ Pair on module 161 (`browser-161-control.json` / `browser-161-experiment.json`):
 | experiment | **status 1 at `0xFE0000C8`, ordinal 100** | **347 / 419** |
 
 The fault at `0x6B6A6968` is **past**. The new genuine stop is ordinal 100 = `KeDisconnectInterrupt` with argument `0x206030`, return address inside the reached cluster. M6 acceptance: experiment progression past the fault (met) and control invariance (met). No translator or `.tools` edit. Next: bounded decision for ordinal 100.
+
+## 60. Ordinal-100 model accepted; next stop is translation placeholder 0x4F7A0
+
+The architect authorized one bounded default-off ordinal-100 model with the +16 `Connected` offset documented from retained pinned references (modeled, not observed original layout).
+
+- `src/runtime/interrupt_vector.c/.h`: `ff_ke_disconnect_interrupt` validates a 4-byte-aligned, writable 17-byte object, returns the previous `Connected` byte, then clears it; `ff_ke_connect_interrupt` now writes `1` at `+16` and refuses a read-only object.
+- Native test extended (connect/disconnect round trip, refusals, write confinement) and the previously unregistered `interrupt_vector` fixture is now in the native suite: **56/56**.
+- Harness: default-off `keDisconnectInterrupt` input; ordinal-100 handler (argument, previous state, EAX/ESP, 8-byte pop); router only when declared.
+- Validator: pairing and acceptance (previous 0/1, EAX = previous, `esp + 8`).
+
+Module 162 pair:
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 (unchanged) |
+| inert (no disconnect input) | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 (unchanged) |
+| disconnect input | **status 2 at `0x004F7A0`** | **347 / 421** |
+
+The call was accepted (`object 0x206030`, previous `1`, EAX 0→1, `esp + 8`), and the run advanced to a **translation placeholder** at `0x004F7A0` — the next genuine stop, to be characterized/admitted next.
+
+No DECISIONS row: the integration head `8940d3f` does not contain the lane commits (`ad0bffa` and later), so the sync-first rule still blocks it.
