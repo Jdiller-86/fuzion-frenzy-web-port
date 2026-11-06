@@ -57,4 +57,4 @@ It listens at <http://127.0.0.1:4180/> by default. Original executables, private
 
 Retain named control/experiment reports and an independent audit JSON for runtime acceptance. Keep generated code, original bytes, RAM/save states, raw exports, and logs local. Only curated non-content findings belong in public docs.
 
-The [pre-rebuild setup record](archive/ANALYSIS_SETUP_PRIOR_20261106.md) preserves tool verification and early export history. Its machine-specific paths are historical examples, not configuration instructions for a new contributor.
+The versioned tool manifests retain source/digest identities and verification limits. Prior setup transcripts and early export history remain in Git history; machine-specific historical paths are not setup instructions for a new contributor.

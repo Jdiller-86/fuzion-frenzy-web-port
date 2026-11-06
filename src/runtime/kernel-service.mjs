@@ -9,7 +9,7 @@
  * The descriptor deliberately carries only the facts that are not specific to
  * one observed option: name and ABI. The option-6/result-bit semantics and the
  * output pointer/permissions/masks/table are observed call facts; they live in
- * the run's call list and docs/AV_ENCODER_SERVICE_CHECKPOINT.md, with the
+ * the run's call list and docs/RESEARCH.md#av-services-and-provenance, with the
  * unresolved Cxbx provenance. A static service fact cannot be confused with an
  * observation, and option 6 is not asserted as a service-wide property.
  */

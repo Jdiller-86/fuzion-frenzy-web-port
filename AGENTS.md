@@ -1,6 +1,10 @@
 # Repository instructions
 
-Read this file, [the handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and the relevant part of [the roadmap](DEVELOPMENT_PLAN.md) before working. Use the latest cited observation as the task boundary; archived checkpoints describe their own historical states. No project agent scheduler or model routing is configured.
+Read this file, [the handoff](docs/DEVELOPMENT_HANDOFF.md), [current status](docs/PROJECT_STATUS.md), and the relevant part of [the roadmap](DEVELOPMENT_PLAN.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. No project agent scheduler or model routing is configured.
+
+## Baseline state
+
+Implementation is paused pending the next user-directed objective. The pending PR and retired development branches have been closed out. The roadmap is future scope, not an assigned work queue. User-requested maintenance and review can proceed within that scope.
 
 ## Goal and current stage
 
@@ -16,7 +20,7 @@ Read [scope/fidelity](docs/SCOPE_AND_FIDELITY.md), [content policy](docs/PLAYER_
 2. Inspect retained source and findings before repeating setup. State established facts, proposals, and unknowns; invent no original rules, timings, formats, instruction behavior, or runtime observations.
 3. Implement the smallest coherent result. Preserve existing bounded batch and pipeline admission limits. Stop at unsupported services/registers/resources or failed checks.
 4. Run targeted checks. CPU, memory, ABI, or GPU changes need independent correctness review. Broad repeat audits require a related change, regression, or unresolved risk.
-5. Update current status and handoff together when the boundary changes. Archive demoted history, record consequential decisions, and keep metrics separate from acceptance.
+5. Update current status and handoff together when the boundary changes. Replace superseded summaries, consolidate useful facts in the research/reference guides, and record consequential decisions. Git history preserves older versions; execution counts do not establish acceptance.
 6. Review the diff and explicit source-only paths. Report behavior, validation, remaining limits, and the next concrete task.
 
 Preserve in-flight edits and lane ownership. Do not discard work, force-push, rewrite published history, change global settings, or add unrelated cleanup.
@@ -24,10 +28,10 @@ Preserve in-flight edits and lane ownership. Do not discard work, force-push, re
 ## Current documentation
 
 - [Documentation map](docs/README.md): canonical guides and reading order.
-- [Runtime gates](docs/RUNTIME_MILESTONES.md): M0–M12 and runtime evidence requirements.
+- [Runtime gates](docs/RUNTIME_MILESTONES.md): M1–M12 and runtime evidence requirements.
 - [Development](docs/DEVELOPMENT.md): actual commands and their limits.
 - [Architecture](docs/ARCHITECTURE.md): implemented components versus proposals.
-- [Research index](docs/RESEARCH.md): retained checkpoints/manifests.
+- [Research index](docs/RESEARCH.md): consolidated reference facts and evidence limits.
 - [Analysis setup](docs/ANALYSIS_SETUP.md): private tool prerequisites and evidence provenance.
 
 Historical G0/G1/G2 checks do not accept the corrected original-game goal. Preserve byte identity, decoder agreement, complete layout, checked memory, fixed-resource admission, and player-local content guards. Do not expand into full decompilation or an emulator redesign without evidence it is necessary.
@@ -56,6 +60,6 @@ Simulation and online authority remain unproved for the recompilation route. Pre
 
 ## Collaboration and publication
 
-Use bounded tasks with clear ownership and acceptance criteria. Follow the current user's delegation/model instructions without changing global providers, credentials, or an active session's model. Historical automation and lane directives in archived records are not operative configuration.
+Use bounded tasks with clear ownership and acceptance criteria. Follow the current user's delegation/model instructions without changing global providers, credentials, or an active session's model. Historical automation and lane directives in Git history are not operative configuration.
 
 Review the exact committed source before publication, preserve required repository protections, and check ancestry before updating a shared branch. Never infer original-game fidelity from a passing component suite or elapsed effort. No project scheduler, model routing, or unattended promotion tooling is configured.

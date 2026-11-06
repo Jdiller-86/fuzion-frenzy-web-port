@@ -6,6 +6,8 @@ The selected route is static recompilation to WebAssembly. Each browser will use
 
 **Status — November 6, 2026:** bounded original-program startup has been demonstrated in browser research. A controllable original screen, complete runtime, full fidelity, and online play have not been delivered. See [current status](docs/PROJECT_STATUS.md) for the exact observed boundary and its limits.
 
+**Baseline:** implementation is paused pending the next user-directed objective. `main` is the single development baseline; the roadmap remains future scope.
+
 [Documentation](docs/README.md) · [Roadmap](DEVELOPMENT_PLAN.md) · [Contributing](CONTRIBUTING.md) · [Research index](docs/RESEARCH.md)
 
 ## What the project is building
@@ -45,7 +47,7 @@ See the [development guide](docs/DEVELOPMENT.md) for controls, build/preview com
 | [`src/`](src/) | Format readers, converters, and C/JavaScript runtime components |
 | [`proof/`](proof/) | Browser conversion and bounded-runtime research harnesses |
 | [`tests/`](tests/) and [`tools/`](tools/) | Source-owned fixtures, preparation, verification, and analysis tooling |
-| [`docs/`](docs/README.md) | Current guides, milestone definitions, and retained evidence |
+| [`docs/`](docs/README.md) | Current guides, milestone definitions, and consolidated research |
 
 The implemented client uses plain JavaScript modules, HTML/CSS, and C runtime components. The larger client/server/social stack remains proposed; see [architecture](docs/ARCHITECTURE.md).
 

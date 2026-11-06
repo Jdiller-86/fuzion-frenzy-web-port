@@ -2,9 +2,11 @@
 
 Build the original Xbox Fuzion Frenzy into a complete browser experience through static recompilation to WebAssembly, then deliver the planned online, social, and control features. Original behavior and presentation are the baseline. Native helpers and streamed execution do not meet the browser-only requirement.
 
-The route was selected in decision D023. The earlier approximate reconstruction and four-to-six-game release plan are preserved in the [prior plan](docs/archive/DEVELOPMENT_PLAN_PRIOR_20261106.md); they do not define completion. The offline Twisted System prototype remains research.
+The route was selected in [decision D023](docs/DECISIONS.md). Earlier approximate-reconstruction and partial-pack assumptions are retired; they do not define completion. The offline Twisted System prototype remains research.
 
 ## Current position
+
+Implementation is paused at the main-branch baseline pending the next user objective. The sequence below defines future acceptance; no task is currently assigned.
 
 As of November 6, 2026, the latest recorded experiment executes bounded original startup and stops at an untranslated routine. The former return-address/stack fault has been repaired and M6 is recorded met. No controllable original screen, complete runtime, full-game parity, or online service is accepted. [Current status](docs/PROJECT_STATUS.md) owns exact counts, stops, and evidence; this roadmap owns delivery goals.
 
@@ -35,7 +37,6 @@ Milestone IDs are retained so existing decisions and checkpoint links remain mea
 
 | Milestone | Observable result | Recorded state |
 | --- | --- | --- |
-| M0 — Recovery reset | Clear lane ownership, a current checkpoint, and a bounded integration/evidence process | Historical process-reset milestone; no new runtime claim |
 | M1 — Device-table startup | Reached original graphics initialization advances through the device-table boundary | Recorded complete within its bounded profile |
 | M2 — Device policy | Known-value provenance and fail-closed unknown device reads, with paired evidence and additional boundary advances | Recorded met for the modeled policy |
 | M3 — Graphics-cluster return | The reached graphics cluster returns and the next subsystem request is observed | Unaccepted |
@@ -86,4 +87,4 @@ Optional modernization must preserve an original baseline. PWA/offline caching, 
 
 ## Keep the plan current
 
-Update [status](docs/PROJECT_STATUS.md) and [handoff](docs/DEVELOPMENT_HANDOFF.md) with each changed runtime boundary. Record consequential decisions in [DECISIONS.md](docs/DECISIONS.md); keep execution progress separate from milestone acceptance. The [historical delivery ledger](docs/archive/PROGRESS_METRICS_PRIOR_20261106.md) preserves earlier measurements. Retain historical observations through the [research index](docs/RESEARCH.md). No milestone closes through documentation alone.
+Update [status](docs/PROJECT_STATUS.md) and [handoff](docs/DEVELOPMENT_HANDOFF.md) when a future task changes the runtime boundary. Record consequential decisions in [DECISIONS.md](docs/DECISIONS.md) and consolidate current findings in [research notes](docs/RESEARCH.md). Earlier logs remain in Git history. No milestone closes through documentation alone.

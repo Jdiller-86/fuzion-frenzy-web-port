@@ -1,41 +1,23 @@
 # Documentation
 
-Fuzion Frenzy Web Port is researching original-game execution entirely in a browser through static recompilation to WebAssembly. The original screen, full runtime, fidelity, and planned multiplayer/social product remain unaccepted. Start with the [project overview](../README.md).
+The project is paused at a clean baseline on `main`. No implementation task, project agent scheduler, or model routing is active. The [roadmap](../DEVELOPMENT_PLAN.md) retains the product goals; it is not an assigned work queue.
 
-## Start here
-
-| Your goal | Read |
+| Purpose | Current guide |
 | --- | --- |
-| Understand the product and delivery sequence | [Project roadmap](../DEVELOPMENT_PLAN.md) |
-| See what has actually been observed | [Current status](PROJECT_STATUS.md) and [handoff](DEVELOPMENT_HANDOFF.md) |
-| Run the prototype or source checks | [Development guide](DEVELOPMENT.md) |
-| Contribute a focused change | [Contributing](../CONTRIBUTING.md) and [repository instructions](../AGENTS.md) |
-| Understand the implementation | [Architecture](ARCHITECTURE.md) |
-| Understand game-file handling | [Player-supplied content](PLAYER_SUPPLIED_CONTENT.md) |
+| Project overview | [README](../README.md) |
+| Goals, requirements, and delivery sequence | [Project roadmap](../DEVELOPMENT_PLAN.md) |
+| Accepted main-branch checkpoint and limits | [Project status](PROJECT_STATUS.md) |
+| Baseline handoff and resuming work | [Development handoff](DEVELOPMENT_HANDOFF.md) |
+| Setup, commands, and controls | [Development guide](DEVELOPMENT.md) |
+| Implemented versus proposed architecture | [Architecture](ARCHITECTURE.md) |
+| Contributions and publication review | [Contributing](../CONTRIBUTING.md) and [repository instructions](../AGENTS.md) |
+| Player files and local processing | [Player-supplied content](PLAYER_SUPPLIED_CONTENT.md) |
+| Original-game fidelity and scope | [Scope and fidelity](SCOPE_AND_FIDELITY.md) |
+| Runtime acceptance gates | [Runtime milestones](RUNTIME_MILESTONES.md) |
+| Current risks | [Project concerns](PROJECT_CONCERNS.md) |
+| Retained research facts and evidence limits | [Research notes](RESEARCH.md) |
+| Compatible reference build and conversion coverage | [Reference inventory](REFERENCE_INVENTORY.md) |
+| Optional private analysis tools | [Analysis setup](ANALYSIS_SETUP.md) |
+| Current decisions | [Decision record](DECISIONS.md) |
 
-## Product and acceptance
-
-- [Scope and fidelity](SCOPE_AND_FIDELITY.md): the original-game baseline and browser/local-content contract.
-- [Runtime milestone gates](RUNTIME_MILESTONES.md): M0–M12 and runtime evidence requirements.
-- [Product acceptance ledger](ORIGINAL_EXECUTION_PROGRESS.md): complete requirements and remaining evidence.
-- [Selected execution route](ORIGINAL_EXECUTION_ROUTE.md): recompilation, supporting research, and excluded streaming/native helpers.
-- [Risks and unresolved questions](PROJECT_CONCERNS.md): technical, reference, authority, content, and release gaps.
-
-## Evidence and maintenance
-
-- [Research index](RESEARCH.md): all retained checkpoints and package manifests, grouped by subsystem.
-- [Decision history](DECISIONS.md): recorded decisions, including superseded and renumbered legacy entries.
-- [Historical delivery ledger](archive/PROGRESS_METRICS_PRIOR_20261106.md): prior counting rules and tempo baseline.
-- [Documentation archive](archive/README.md): prior plans, instructions, handoffs, status, and metrics.
-
-Historical records are marked as such and retain their original filenames. Their old “current” statements do not replace the current status page. Fixtures, synthetic profiles, static analysis, and original browser observations establish different things.
-
-## Optional research
-
-- [Analysis setup](ANALYSIS_SETUP.md): pinned private tools, retained local inputs, read-only analysis, and the source-only startup harness.
-
-Project automation was removed in commit `55ea550`. No project agent scheduler or model routing is configured. Archived workflow records describe historical arrangements and do not configure a current contributor session.
-
-## Updating these docs
-
-Keep stable goals in the roadmap, exact latest measurements in status, and the next owner/task in the handoff. Update the handoff and status together when execution changes. Archive replaced observations, link consequential decisions, and index new evidence in RESEARCH.md. Distinguish recorded results from checks performed in the current change. Never attach original game content or private raw output.
+Obsolete checkpoints, automation records, translation-package manifests, and duplicate snapshots have been removed from the working tree. Earlier material remains in Git history. Keep new evidence concise and tied to its source/commit; do not recreate a rolling archive of contradictory “current” tasks.

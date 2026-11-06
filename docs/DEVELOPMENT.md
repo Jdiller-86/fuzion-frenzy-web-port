@@ -35,7 +35,7 @@ Open <http://127.0.0.1:4174/>. Select a compatible uncompressed USA XISO locally
 
 Remap keys or assign a discovered standard gamepad per seat in the instructions screen. Gamepad A/bottom jumps; B/right ducks. Esc pauses. Focus loss, a hidden tab, or an owned-controller disconnect clears input and requires Resume. Physical keyboard rollover can limit shared-keyboard combinations; four software seats are not a hardware guarantee. Menus use keyboard/mouse.
 
-Cancel/clear discards the current imported session; there is no persistent asset cache. See [content handling](PLAYER_SUPPLIED_CONTENT.md) and the [G2 audit](G2_ACCEPTANCE.md) for fidelity and supported-input limits.
+Cancel/clear discards the current imported session; there is no persistent asset cache. See [content handling](PLAYER_SUPPLIED_CONTENT.md) and the [prototype evidence](RESEARCH.md#offline-prototype-evidence) for fidelity and supported-input limits.
 
 ## Build and preview
 

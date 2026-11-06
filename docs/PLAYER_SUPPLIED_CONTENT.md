@@ -40,4 +40,4 @@ Each browser must pass compatible content/converter/rules readiness before joini
 
 The authoritative server must not require redistribution of proprietary levels/assets or upload of original-containing machine state. Resolve the [authority/content design](PROJECT_CONCERNS.md) before promising online behavior. Public delivery also requires the complete [scope/fidelity](SCOPE_AND_FIDELITY.md) and [roadmap](../DEVELOPMENT_PLAN.md) gates.
 
-[The prior policy](archive/PLAYER_SUPPLIED_CONTENT_PRIOR_20261106.md) preserves earlier observations and planning budgets. New code has no selected repository license; this project is independent of Microsoft/Blitz.
+New code has no selected repository license; this project is independent of Microsoft/Blitz. Earlier policy revisions remain in Git history.

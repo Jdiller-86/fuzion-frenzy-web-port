@@ -21,4 +21,4 @@ These are the material gaps between the current research and the [product goal](
 | Rights and licensing | Player-local content and source-only publication are project boundaries | Resolve remaining code/upstream/content/branding/music release questions; no project code license has been selected |
 | Delivery and operating cost | No reliable full-runtime schedule or production service plan is established | Re-estimate from measured work and capacity; obtain authorization before service spending or a separate public deployment |
 
-The prior detailed concerns are retained in the [November 6 snapshot](archive/PROJECT_CONCERNS_PRIOR_20261106.md). Some describe resolved historical component defects; use [the evidence index](RESEARCH.md) to assess each at its recorded checkpoint. Source-owned prerequisites may proceed while an unrelated reference or release question remains open.
+These risks guide future work; no implementation task is assigned at the baseline. Use [research notes](RESEARCH.md) for consolidated facts and source/fixture limits. Earlier investigations and resolved defects remain in Git history.

@@ -1,5 +1,5 @@
 // TS-R1: independently written offline rules. No DOM, clock, rendering or transport.
-// Reference evidence and unverified reconstruction parameters: docs/TWISTED_SYSTEM_REFERENCE.md.
+// Reference evidence and unverified reconstruction parameters: docs/RESEARCH.md#offline-prototype-evidence.
 export const DEFAULT_RULES = Object.freeze({
   tickRate:60, countdownTicks:180, resolveTicks:90, missesToEliminate:7,
   jumpTicks:24, jumpSafeStart:5, jumpSafeEnd:18,

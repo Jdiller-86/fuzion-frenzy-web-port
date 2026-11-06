@@ -2,7 +2,7 @@
 
 This is the public runtime milestone definition, retaining milestone IDs used in the historical records. [The roadmap](../DEVELOPMENT_PLAN.md) owns the full product scope. [Current status](PROJECT_STATUS.md) owns the exact newest observation; [handoff](DEVELOPMENT_HANDOFF.md) points to it.
 
-The selected route remains static recompilation to WebAssembly. Original instructions/data and derived output stay player-local; no native helper or streaming can satisfy browser execution. The [prior goal](archive/EXECUTION_GOAL_NOV5_PRIOR_20261106.md) preserves the original wording and superseded fault diagnosis. Its scheduler, model routing, cadence, and lane rules are historical; project automation was removed in commit `55ea550`.
+The selected route remains static recompilation to WebAssembly. Original instructions/data and derived output stay player-local; no native helper or streaming can satisfy browser execution. These are future acceptance gates. Implementation is paused pending the next user objective; old process-recovery, cadence, and lane directives are retired.
 
 ## Evidence and recorded acceptance
 
@@ -16,7 +16,6 @@ M6 is recorded met in decision D429, citing commit `ad0bffa`. The source-owned `
 
 | ID | Acceptance gate | Recorded position |
 | --- | --- | --- |
-| M0 — Recovery reset | Current checkpoint, short status/history archive, lane ownership, functional naming, and working evidence/integration process | Operating recovery record; no new title behavior implied |
 | M1 — Device-table startup | Pass the reached device-table boundary under the recorded device policy, with original calls/writes evidenced | Recorded complete within bounded models |
 | M2 — Device policy | One explicit read-back/unknown-read/width/bounds policy, at least ten provenance-backed events, two further boundary advances, decision and passing checks | Recorded met for the synthetic policy; no NV2A semantics implied |
 | M3 — Graphics return | Reached graphics cluster returns through its caller chain and the next subsystem request is observed in both profiles | Unaccepted |
@@ -40,10 +39,10 @@ Keep one current checkpoint linked from handoff line 1, and update status/handof
 
 Work in bounded, reviewable tasks with a functional result, explicit acceptance, current exact stop, and a stop condition. Preserve the actual pipeline's byte/decoder/layout/memory and resource-admission guards. Unsupported services/registers/resources must stop explicitly. Review material CPU, memory, ABI, and GPU changes independently and use targeted checks.
 
-Separate component progress, observed runtime advances, and product acceptance. The historical [delivery ledger](archive/PROGRESS_METRICS_PRIOR_20261106.md) retains earlier measurements and targets; those are not a completion forecast or active scheduler policy. The [contribution guide](../CONTRIBUTING.md) describes the current manual review and publication process. No project agent scheduler or model routing is configured.
+Separate component progress, observed runtime advances, and product acceptance. The [contribution guide](../CONTRIBUTING.md) describes review and publication. No project agent scheduler or model routing is configured, and no implementation task is assigned.
 
 ## Analysis boundary
 
 Use read-only retained local XBE/Ghidra evidence for a named unresolved native fact. Follow [analysis setup](ANALYSIS_SETUP.md) and the applicable REA skill/provider boundaries. Record Evidence identity, digests, provider and tool; direct Ghidra output and derived translator text are different provenance. Neither substitutes for byte/decoder/layout/memory admission checks or actual browser execution.
 
-Unsupported provider access or missing private inputs is a recorded limitation; continue independent source-owned work. Never acquire firmware/game downloads, invent evidence, publish original-derived output, or repeat a closed historical repair investigation.
+Unsupported provider access or missing private inputs must be recorded as limitations of the assigned task. Never acquire firmware/game downloads, invent evidence, publish original-derived output, or repeat a closed historical repair investigation.
