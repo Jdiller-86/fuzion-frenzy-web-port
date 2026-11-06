@@ -94,3 +94,25 @@ mandatory corrective decision in docs/DECISIONS.md.
   ref exists yet, so the PR remains with the user/runner. No runtime advance. See D391.
 - 2026-11-05 ops: annotated tag `runtime-b-5ec83b8-archive` pins superseded `5ec83b8`
   against garbage collection; no other refs were created. No runtime advance. See D391.
+- 2026-11-05 executor: stall confirmed at trigger granularity - Cycle (PT5M), Geometry
+  (PT1H) and Verification (PT15M) had `Triggers[0].Enabled=False` while their tasks were
+  `Ready` with settings enabled, Cycle's `LastRunTime` was 18:52:28 with
+  `LastTaskResult 0`, and `CycleB` did not exist; the 19:35:05 orchestrator heartbeat
+  `idle` and the manager holds explain the silence without a failed run. No runtime
+  advance. See D392.
+- 2026-11-05 executor: `FuzionFrenzy-OpenCode-CycleB` registered from the Cycle template
+  (PT5M, P1D, start `2026-11-03T00:02:30-05:00`, limit PT1H30M, `-Lane runtime-b`,
+  workdir `.worktrees\opencode-runtime-b`) and its inherited disabled trigger armed with
+  `-Trigger` (the documented `-Triggers` spelling is invalid on this host). No runtime
+  advance. See D392.
+- 2026-11-05 executor: primary `FuzionFrenzy-OpenCode-Cycle` trigger re-enabled
+  (`TriggerEnabled=True`, `NextRunTime 19:45:00`); `Geometry`, `Verification` and
+  `Manager` set to `State=Disabled` per D391's dissolved-lane verdicts, with
+  `Architect` and both Cycle tasks left enabled. Revert: `Enable-ScheduledTask` for the
+  three, `Disable-ScheduledTask` for Cycle/CycleB. No runtime advance. See D392.
+- 2026-11-05 executor: cadence observed live - CycleB ran at 19:42:30
+  (`State=Running`, `LastTaskResult 267009`, `NextRunTime` rolled to 19:47:30) and
+  `.worktrees/opencode-runtime-b-cycle-state.json` mtime advanced 19:01:43 -> 19:42:31,
+  so a new runtime-b cycle began; primary Cycle still showed `LastRunTime 18:52:28` at
+  the 3-minute observation boundary with `NextRunTime 19:45:00`. No runtime advance is
+  claimed for this ops commit. See D392.
