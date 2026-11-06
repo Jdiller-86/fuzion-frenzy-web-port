@@ -800,3 +800,20 @@ The module-preparation path was inspected within the owned driver:
 The owned driver passes seeds, profile, limits and trace sets only; it contains **no register-identity mapping**. The emitted text is the verified correct reverse, and the compiled minimal artifact is LIFO-correct, so the remaining divergence is inside the pinned private lifter/translator emission — outside this lane's editable scope (`.tools`).
 
 Evidence-backed HOLD recorded as **D411**: name the divergence at those callsites, but do not attempt a repair from the lane; a translator-owner decision is required, with `ff_reg_order_is_reverse` and `[ESI+0x47C] = 0x20400C` as acceptance. No fabricated re-run, no `.tools` edit, no REA call.
+
+## 54. Gate-definition clarification: the control profile cannot reach the fault
+
+The M6 gate has been phrased as "the stop must move past `0x6B6A6968` in **both** profiles". The retained reports show that is unsatisfiable by construction:
+
+- control (`browser-157-control.json`, no experiment inputs): status 13 at `0xFD800044`, 339 / 405 — it stops at the PFIFO control seam before the graphics path, so it never reaches `0x6B6A6968`.
+- experiment (`browser-157-experiment.json`): status 10 at `0x6B6A6968`, 346 / 414.
+
+Operational gate for the translator-owner repair, therefore, recorded here for the decision record:
+
+1. **control invariance**: the control profile keeps its exact stop (status 13 at `0xFD800044`, 339/405) — unchanged by the repair;
+2. **experiment progression**: the experiment's stop moves past `0x6B6A6968` and the next genuine stop/service is recorded exactly;
+3. `[ESI+0x47C]` reads the device field (`0x20400C`) on the repaired path.
+
+This clarification does not change the evidence; it removes an impossible literal criterion so the repair can be judged unambiguously. No code change; the source path remains HOLD D411.
+
+No DECISIONS row: clarification of the existing gate.

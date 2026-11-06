@@ -1,4 +1,10 @@
-# Pipeline path named; evidence-backed HOLD recorded as D411
+# Gate clarified: control invariance plus experiment progression (not "both past the fault")
+
+November 5: the M6 gate as literally phrased ("stop past `0x6B6A6968` in both profiles") is unsatisfiable by construction — the control profile stops at status 13 `0xFD800044` (339/405), at the PFIFO control seam before the graphics path, and never reaches the fault; the experiment stops at status 10 `0x6B6A6968` (346/414). The operational gate is recorded for the translator-owner repair: (1) control invariance at `0xFD800044` 339/405, (2) experiment progression past `0x6B6A6968` with the next genuine stop recorded exactly, (3) `[ESI+0x47C]` reading `0x20400C`. No code change; source path remains HOLD D411 (lifter-owned).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: Pipeline path named; evidence-backed HOLD recorded as D411
 
 November 5 (source-work cycle per D410): the module-preparation path was inspected in the owned driver. `tools/prepare-title-recomp.py` imports the pinned private toolkit (lines 458-460), configures it from the XBE (530), constructs `FunctionTranslator` (544), and obtains the emitted text from `translate_function`/`translator.lifter` (577-583). The driver passes seeds/profile/limits/trace sets only and contains **no register-identity mapping**; the emitted text is the verified correct reverse and the compiled minimal artifact is LIFO-correct. The remaining divergence is inside the pinned private lifter/translator emission, outside this lane's editable scope. **D411 HOLD** records the exact callsites and requires a translator-owner decision with `ff_reg_order_is_reverse` + `[ESI+0x47C] = 0x20400C` acceptance; no `.tools` edit, no fabricated re-run, no REA call.
 
