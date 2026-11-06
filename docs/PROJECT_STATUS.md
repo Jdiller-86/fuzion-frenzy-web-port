@@ -1,4 +1,10 @@
-# Save/pop-order rule pinned; translator-owner finding is final
+# Pop macro is correct; the discrepancy needs a register-write trace
+
+November 5: inspected `src/runtime/recomp_memory_access.h:54` — `FF_MEMORY_POP` reads at `sp`, increments by 4, then assigns the single destination; the macro cannot by itself put a saved-EDI value into ESI. The remaining explanations are (1) the executed epilogue order differs from the `.inc` text, or (2) the post-pop attribution (sampling `g_esi` at the next hook) is off by one. Both are register-write questions the memory hook cannot decide, so no translator or macro defect is asserted beyond "executed order/mapping is inconsistent with the source text". Confirming needs a toolchain-level register-write trace, which this lane must not add (blocker recorded). The pinned `ff_reg_order_is_reverse` rule (native 52/52) remains the acceptance rule for any repair.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 52/52, proof-report 23/23, `test:runtime` pass, `check` 484 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: Save/pop-order rule pinned; translator-owner finding is final
 
 November 5: the confirmed epilogue mismatch is now a pure, tested rule — `ff_reg_order_is_reverse(push_order, pop_order, count)` in `src/runtime/reg_save_order.c/.h` with native test `tests/reg_save_order_test.c` accepts the literal reverse (`ebx,ebp,esi,edi → edi,esi,ebp,ebx`) and rejects the observed runtime order (saved-EDI `0x205E98` consumed first as ESI). Native **52/52**. Formal finding: `FUN_001FB640`'s epilogue does not restore in reverse push order, so `[ESI+0x47C]` reads the saved-EDI value; the repair rule is pinned, no translator edit made (decision belongs to the translator owner/user). Blocker: `docs/EXECUTION_GOAL_NOV5.md` is absent from this worktree, so Runtime-b's milestone order is unavailable.
 

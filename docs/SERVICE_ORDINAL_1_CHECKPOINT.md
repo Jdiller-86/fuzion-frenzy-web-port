@@ -582,4 +582,19 @@ Formal translator-owner finding: `FUN_001FB640`'s executed epilogue does not res
 
 No DECISIONS row: characterization plus a pure validation rule.
 
+## 39. Pop macro inspected: the shift is not in the macro
+
+`src/runtime/recomp_memory_access.h:54` defines the pop rule as: `ff_pop_value = FF_MEMORY_U32(sp, 1u); (sp) += 4u; (destination) = ff_pop_value;` — a correct read-before-increment with a single destination. The macro therefore cannot by itself place a saved-EDI value into ESI.
+
+Two possibilities remain, and neither can be decided with the memory hook alone:
+
+1. The **executed epilogue order** differs from the `.inc` text (`pop edi; pop esi; pop ebp; pop ebx`), e.g. an alternate path or a translation mismatch; or
+2. The **post-pop attribution** (recording `g_esi` at the next hook invocation) is off by one relative to the actual register assignment.
+
+Both are register-write questions; the memory hook observes addresses and stack words, not register destinations. No translator or macro defect is asserted beyond "the executed order/mapping is inconsistent with the source text". The repair decision and any register-level trace belong to the translator owner/user.
+
+Blocker recorded: confirming (1) vs (2) needs a register-write trace (toolchain-level), which this lane must not add. No fix, no model.
+
+No DECISIONS row: characterization only.
+
 No DECISIONS row: tooling characterization.
