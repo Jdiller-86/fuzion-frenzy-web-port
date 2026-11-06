@@ -663,3 +663,19 @@ mandatory corrective decision in docs/DECISIONS.md.
   line at EOF") while this row's live `git diff --check origin/main 9158e70` exits 0; the integration head is still
   `9158e70` with both lane tails (`9e563dc`, `6fc4b18`) unabsorbed (ancestor reads exit 1) and `origin/main` unmoved at
   `97d831bd`; the count stays 6. No runtime advance.
+- 2026-11-06 ~02:50 runtime-a counted advance #7: `9e563dc` + `768f31a` (`0x001E0151` -> `0x001E4C62`;
+  `__fsopen` batch admitted; `__lock_file2` next placeholder; module 167; 357/428); both-profile evidence;
+  COUNTED. The 02:40 tick's own facts: the previous withhold's stale premise was RESOLVED by its own fresh
+  check (`git diff --check origin/main HEAD` exit 0, re-verified here twice against `832efee`), the runtime-a
+  tail (`768f31aa`, with `9e563dc`) is ABSORBED at the integration head `832efee`, and local main's records
+  through `5cc1a8a` are absorbed too. Only `768f31a` is the increment (`9e563dc` was counted as #6 at D439):
+  6 -> 7 counted.
+- 2026-11-06 ~02:50 boundary fact (D441, merge pending): the integration head moved `9158e70` -> `832efee`
+  (`refs/pull/19/head`); at that blob the D-rows renumber is APPLIED (424 numbered rows, own max row D440) and
+  the malformed D438 row (`D438 facts (Nov 6 ~02:25): ...`, no number cell) persists there. The merge was
+  QUEUED at the new head - `OPEN_MAIN_PR`/`QUEUE_MAIN_PR_MERGE` = `832efee1826fb55dfc8ef3d63e834367fd25fce2`,
+  `promotion: queued_ci`, `mergeResult` "Approved merge remains pending: PR is not cleanly mergeable: unstable" -
+  but did NOT land (`origin/main` unmoved at `97d831bd`; PR #24 absent; the four SUCCESS checks in the state
+  belong to the prior head `9158e70`, so the new head's CI was not yet read green). The runtime-b chain
+  (`9957144`..`cef3b6e`, 16 commits) is still unabsorbed (ancestor read exit 1). The machine's own next tick
+  owns the merge landing. No runtime advance.
