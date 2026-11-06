@@ -1,10 +1,10 @@
-# FUN_0004c2e0 admitted; next stop is placeholder 0x4E480
+# FUN_0004e480 batch admitted; next stop is placeholder 0x4B160
 
-November 6: one translation increment (retained pipeline; batch of one). Read-only Ghidra export `0x00042BE0`/`0x001F54D0`/`0x001FC910`/`0x0004F7A0`/`0x0004C2E0` replaced the prior four-function seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 89 (**465 functions, 19,056 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 164: **1,010,556 bytes**, SHA `617a5126...`.
+November 6: one evidenced batch translation increment (retained pipeline; 7 functions, within the 8-function set cap). Read-only Ghidra export added `0x0004E480` and its six direct callees (`0x0004B450`, `0x0004C510`, `0x0004D4D0`, `0x0004DB50`, `0x0004B570`, `0x0004CC10`) to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 90 (**472 functions, 19,329 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 165: **1,013,193 bytes**, SHA `dde9cb13...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment passes the wrapper and stops at **status 2, `0x004E480`** (350 routines / 422 kernel ops) — the next translation placeholder, an initializer with six direct calls.
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the initializer and stops at **status 2, `0x004B160`** (352 routines / 422 kernel ops) — the next translation placeholder, called from `FUN_0004b450`.
 
-Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No DECISIONS row (integration head `10cae525` lacks `d721550`/`a2a83de`). No main push/merge; geometry untouched.
+Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. Claimed DECISIONS EOF defect absent (single trailing LF; `git diff --check origin/main HEAD` exit 0), so nothing was amended. No main push/merge; geometry untouched.
 
 ## Prior: Ordinal-100 model accepted; run advances to translation placeholder 0x4F7A0
 

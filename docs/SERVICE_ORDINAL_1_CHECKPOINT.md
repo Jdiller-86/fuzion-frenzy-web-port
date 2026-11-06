@@ -937,3 +937,25 @@ Module `recomp-post-memory-build-164` (profile 89, same sources): **1,010,556 by
 The wrapper ran and its already-translated callee `0x30ADE` did not stop the run; the caller `FUN_0004f7a0` then called `FUN_0004e480`, the next translation placeholder. That block is an initializer `0x4E480..0x4E4AD` with six direct calls (`0x4B450`, `0x4C510`, `0x4D4D0`, `0x4DB50`, `0x4B570`, `0x4CC10`), a store to `0x2D0758`, `MOV EAX,1` and `RET`. Halt and report; the next bounded admission is `0x4E480` with those evidenced direct dependencies (7 functions, within the 8-function set cap).
 
 No DECISIONS row: integration head `10cae525` contains `ad0bffa` (D415 return-pop) but not `d721550` (ordinal-100 model) or `a2a83de`, so the sync-first rule still blocks the remaining rows.
+
+## 63. Batch admission of FUN_0004e480 and its six direct callees; next stop 0x4B160
+
+Architect card for this cycle asked for an EOF trim of the last DECISIONS row and an amend of the record commit. Verified at the lane head: `docs/DECISIONS.md` already ends with the D415 row and exactly one line feed (no blank line; `git show HEAD:docs/DECISIONS.md` tail `...edit. |\n`), and `git diff --check origin/main HEAD` exits 0. The named defect is not present, so nothing was amended and no history was rewritten.
+
+The card's Runtime-a step ("advance past `0x004C2E0`") was already completed in `91e5e0b`; the latest verified checkpoint had the next stop at `0x004E480`. Continued there with an evidenced batch:
+
+- Read-only Ghidra export `research/verification/recomp-admit-4e480-01/seed-initializer.json` replaced the five-function seed with the union of the prior admissions plus the initializer and its six direct calls: `0x0004E480`, `0x0004B450`, `0x0004C510`, `0x0004D4D0`, `0x0004DB50`, `0x0004B570`, `0x0004CC10` (7 new functions, within the 8-function set cap; all `established=true`).
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 90: **472 functions, 19,329 instructions** (+7 / +273).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-165` (profile 90): **1,013,193 bytes**, SHA-256 `dde9cb137b7efec0a60ed9736240ee8b73fa05bd29b958186aa9b4421cc28d34`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x004B160`** | **352 / 422** |
+
+The initializer and its callees executed; `FUN_0004b450` then called `FUN_0004b160`, the next translation placeholder (`0x4B160..0x4B204`; its own first call is the still-unseeded `0x4C480`). Halt and report.
+
+No DECISIONS row: the lane's `docs/DECISIONS.md` stops at D415 while integration head `9158e70` carries rows through D434, so a new row needs that file synced first (numbering conflict otherwise).
