@@ -51,7 +51,17 @@ FF_MEMORY_TYPE(F32, float) FF_MEMORY_TYPE(F64, double)
 #define FF_MEMORY_SITE_F32(a, p, s) FF_MEMORY_VALUE(F32, a, p, s)
 #define FF_MEMORY_SITE_F64(a, p, s) FF_MEMORY_VALUE(F64, a, p, s)
 #define FF_MEMORY_PUSH(sp, value) do { uint32_t ff_push_value = (uint32_t)(value); (sp) -= 4u; FF_MEMORY_U32(sp, 2u) = ff_push_value; } while (0)
-#define FF_MEMORY_POP(sp, destination) do { uint32_t ff_pop_value = FF_MEMORY_U32(sp, 1u); (sp) += 4u; (destination) = ff_pop_value; } while (0)
+/* Optional destination capture for register diagnostics. It records the
+ * destination lvalue's address and the popped value; it never changes the
+ * assignment, so it cannot mask a binding defect. TUs opt in by defining
+ * FF_REG_TRACE_POP_ENABLED and providing ff_reg_trace_note_pop. */
+#ifdef FF_REG_TRACE_POP_ENABLED
+void ff_reg_trace_note_pop(const void *destination, uint32_t stack, uint32_t value);
+#define FF_REG_TRACE_POP(destination, stack, value) ff_reg_trace_note_pop((const void *)(destination), (stack), (value))
+#else
+#define FF_REG_TRACE_POP(destination, stack, value) ((void)0)
+#endif
+#define FF_MEMORY_POP(sp, destination) do { uint32_t ff_pop_value = FF_MEMORY_U32(sp, 1u); (sp) += 4u; (destination) = ff_pop_value; FF_REG_TRACE_POP(&(destination), (sp), ff_pop_value); } while (0)
 /* The pinned dispatch macros use these for their implicit guest call frames. */
 #undef PUSH32
 #undef POP32

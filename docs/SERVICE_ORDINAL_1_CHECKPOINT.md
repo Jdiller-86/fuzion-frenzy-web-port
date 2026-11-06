@@ -826,3 +826,19 @@ Authorized one-cycle read-only pass over the pinned lifter:
 - No register-remapping table, clobber set, or config-persisted state selects a different destination; the driver (`tools/prepare-title-recomp.py:458-460,530,544,577-583`) passes seeds/profile/limits only.
 
 Conclusion: the pop-destination **emission source is correct**, consistent with the original bytes, the emitted text and the LIFO-correct minimal artifact. The divergence is runtime/compiled-artifact-only and is routed to the toolkit owner as **"source-correct, runtime-divergent"** with the named sites (D412). Acceptance unchanged: `ff_reg_order_is_reverse`, control invariance at `0xFD800044` (339/405), experiment progression past `0x6B6A6968` with `[ESI+0x47C] = 0x20400C`, R11 evidence. No `.tools` edit, no fabricated re-run.
+## 56. Destination capture: the epilogue pops are offset by one dword (stack deficit)
+
+The owned `FF_MEMORY_POP` macro now optionally reports the destination lvalue's address (`&(destination)`) and the popped value; the probe resolves it against `&g_edi/&g_esi/&g_ebx` (a local `ebp` is reported as unmapped) and records it. Module 159 run `browser-159-dest.json`:
+
+| Destination | Read slot (reported stack - 4) | Value |
+| --- | --- | --- |
+| `edi` | `0x3C10E30` | `0x1FB64C` |
+| `esi` | `0x3C10E34` | `0x205E98` |
+| `ebp` (local, unmapped) | `0x3C10E38` | `0x203B90` |
+| `ebx` | `0x3C10E3C` | `0xFFFFFFFF` |
+
+The register order is the correct `edi, esi, ebp, ebx`, but it consumes slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40`. Every pop is therefore **one dword (4 bytes) low**: ESI receives the saved-EDI value `0x205E98`, EBP the saved-ESI value `0x203B90`, EBX the saved-EBP value `0xFFFFFFFF`.
+
+This supersedes the "register-identity" framing: the emission is correct, the destinations are correct, and the defect is a **stack-delta imbalance of one dword** somewhere between the prologue and the epilogue. The next bounded task is to locate that imbalance (a `push`/`pop` or `ret N` mismatch in the executed path, or a harness call-frame adjustment), using the same destination capture.
+
+No code change beyond the optional diagnostic hook; no `.tools` edit, no fabricated re-run.

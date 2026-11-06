@@ -1,3 +1,4 @@
+#define FF_REG_TRACE_POP_ENABLED 1
 /* Owned boot-thread host. Generated title code and upstream types stay private.
  * The previous stop-only harness is preserved separately and remains reproducible. */
 #define RECOMP_GENERATED_CODE
@@ -2741,5 +2742,26 @@ uint32_t ff_probe_abi_violation_word(uint32_t field)
          : field == 2u ? abi_violation_last : 0u;
 }
 #endif
+/* Destination capture for the pop diagnostic: identifies which register the
+ * compiled pop actually wrote, without touching the assignment. */
+static uint32_t dest_note_count, dest_note_reg[16], dest_note_stack[16], dest_note_value[16];
+void ff_reg_trace_note_pop(const void *destination, uint32_t stack, uint32_t value)
+{
+    uint32_t reg = destination == (const void *)&g_edi ? 3u
+                 : destination == (const void *)&g_esi ? 2u
+                 : destination == (const void *)&g_ebp ? 1u
+                 : destination == (const void *)&g_ebx ? 0u : 4u;
+    if (!site_watch_enabled || reg_trace_frozen) return;
+    uint32_t slot = dest_note_count & 15u;
+    dest_note_reg[slot] = reg; dest_note_stack[slot] = stack; dest_note_value[slot] = value;
+    ++dest_note_count;
+}
+uint32_t ff_probe_dest_note_count(void) { return dest_note_count; }
+uint32_t ff_probe_dest_note_word(uint32_t index)
+{
+    if (index >= 48u) return 0u;
+    uint32_t slot = index / 3u, field = index % 3u;
+    return field == 0u ? dest_note_reg[slot] : field == 1u ? dest_note_stack[slot] : dest_note_value[slot];
+}
 #include "title-functions.inc"
 #pragma clang diagnostic pop
