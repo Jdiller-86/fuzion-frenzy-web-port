@@ -1,3 +1,5 @@
+> GOAL UPDATE (Nov 5, owner directive): the operative development-loop, lane and naming rules are superseded by [docs/EXECUTION_GOAL_NOV5.md](EXECUTION_GOAL_NOV5.md) — read it first. Every evidence, source-only, local-content and no-false-playability rule in this file remains binding; sections that conflict with the new goal (three-lane distinct-model allocation, free-only geometry pinning, hold behavior) are superseded, not deleted.
+
 # Continuous development goal
 
 Deliver the actual original Xbox Fuzion Frenzy executing entirely inside a desktop browser through static recompilation to WebAssembly, then complete the planned fidelity, controls, online and social features. Original game content stays player supplied and local. Do not substitute a streamed/native runtime or approximate replica, and do not call a component fixture or translated-function count playable.

@@ -1,16 +1,31 @@
+# Lane runner for the OpenCode builder lanes. -Lane selects the worktree, branch, model
+# chain and task card for primary, geometry, verification or runtime-b; -NoPush keeps a
+# verified branch local instead of publishing it (validation and manual runs).
 param(
     [switch]$DryRun,
-    [ValidateSet('primary', 'geometry', 'verification')][string]$Lane = 'primary'
+    [switch]$NoPush,
+    [ValidateSet('primary', 'geometry', 'verification', 'runtime-b')][string]$Lane = 'primary'
 )
 
 $ErrorActionPreference = 'Stop'
 if (-not $env:UNSLOTH_API_KEY) { $env:UNSLOTH_API_KEY = [Environment]::GetEnvironmentVariable('UNSLOTH_API_KEY', 'User') }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $laneName = if ($Lane -eq 'primary') { 'opencode-source' } else { 'opencode-' + $Lane }
-$branchName = if ($Lane -eq 'primary') { 'codex/opencode-source' } else { 'codex/opencode-' + $Lane }
+$branchName = if ($Lane -eq 'primary') { 'codex/opencode-source' }
+              elseif ($Lane -eq 'runtime-b') { 'lane/runtime-b' }
+              else { 'codex/opencode-' + $Lane }
 $filePrefix = if ($Lane -eq 'primary') { 'opencode-cycle' } else { 'opencode-' + $Lane + '-cycle' }
 $modelPool = Get-Content (Join-Path $repo 'tools\opencode-builder-models.json') -Raw | ConvertFrom-Json
 $lanePool = $modelPool.builders.$Lane
+if (-not $lanePool -and $Lane -eq 'runtime-b') {
+    # runtime-b mirrors the runtime primary chain: DeepSeek Go primary, the free DeepSeek
+    # route, then free GLM Flash on a recognized allowance failure. Declared here so the
+    # lane can run before tools/opencode-builder-models.json carries a runtime-b entry.
+    $lanePool = [pscustomobject]@{
+        model = 'opencode-go/deepseek-v4.1-flash'
+        fallbacks = @('opencode/deepseek-v4.1-flash-free', 'opencode/glm-5.3-flash-free')
+    }
+}
 if (-not $lanePool -or -not $lanePool.model) { throw "No model pool for lane $Lane" }
 $worktree = Join-Path $repo ('.worktrees\' + $laneName)
 $statePath = Join-Path $repo ('.worktrees\' + $filePrefix + '-state.json')
@@ -58,6 +73,17 @@ function Test-LaneOwnership([string]$path, [string]$lane, [string]$before) {
     if ($lane -eq 'primary') { return }
     $changed = @(git -C $path diff --name-only ($before + '..HEAD') | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect lane changes.' }
+    if ($lane -eq 'runtime-b') {
+        # runtime-b owns reached-but-unserviced runtime service implementations, their
+        # fixtures/tests and the service checkpoint it updates. Seed export and admission/
+        # prep tooling, scheduler/model scripts and the runtime-a checkpoint files stay
+        # with their owners, so a violating commit is never published from this lane.
+        $unowned = '(^|/)(research|\.tools)/|^tools/(fixtures|ghidra|xemu)/|^tools/(prepare-title-recomp\.py|recomp_memory_access\.py|probe-[a-z-]+\.(py|mjs)|create_analysis_fixture\.py|bounded_layout_test\.py|[a-z-]*-toolchain\.json|opencode-builder-models\.json|(Invoke|Register|Publish)-OpenCode[^/]*)$|^docs/(RENDERER_ENTRY_CHECKPOINT|PROJECT_STATUS)\.md$'
+        foreach ($file in $changed) {
+            if ($file -match $unowned) { throw "Lane $lane touched an unowned path: $file" }
+        }
+        return
+    }
     foreach ($file in $changed) {
         $allowed = if ($lane -eq 'geometry') { $file -match '^(src/runtime/nv2a_[^/]+|tests/[^/]*nv2a[^/]*|docs/NV2A_GEOMETRY_CHECKPOINT\.md)$' }
                    else { $file -match '^(tools/(verify-|check-)[^/]+|tests/(integration-|verification-)[^/]+|docs/INTEGRATION_VERIFICATION_CHECKPOINT\.md)$' }
@@ -125,6 +151,9 @@ try {
     } elseif ($Lane -eq 'verification') {
         $prompt = 'Work in the independent verification worktree on one bounded source-owned integration/check tooling task. Read AGENTS.md and docs/OPENCODE_GOAL.md. Own only tools/verify-*, tools/check-*, tests/integration-*, tests/verification-* and docs/INTEGRATION_VERIFICATION_CHECKPOINT.md. Do not edit the runtime, general status, model/scheduler scripts or builder-owned tests. Do not access private research, delegate, merge or push. Run targeted checks, inspect staged paths and commit a verified result.'
         if ($dirty) { $prompt += ' Preserve and finish existing edits before new work.' }
+    } elseif ($Lane -eq 'runtime-b') {
+        $prompt = 'Work in the runtime-b service lane on one bounded source-owned runtime service implementation for a reached-but-unserviced request, ordinal or device service. Ownership rule for every cycle: runtime-b owns runtime service implementations for reached-but-unserviced requests/ordinals; it must not touch seed/admission pipeline files or the runtime-a checkpoint files. Read AGENTS.md, docs/OPENCODE_GOAL.md and the checkpoint named on line 1 of docs/DEVELOPMENT_HANDOFF.md, take the next unserviced request or ordinal from that checkpoint and stop condition, and stop at an unsupported register/resource. Stay inside src/runtime service modules, their source-owned fixtures and tests, and a service checkpoint you own; do not edit admission/prep tooling, orchestration scripts, docs/RENDERER_ENTRY_CHECKPOINT.md or docs/PROJECT_STATUS.md. Run targeted checks, keep every existing guard, inspect staged paths and commit one verified result on lane/runtime-b. Never access private game/research content and claim only what the service fixture proves. Do not delegate, push or merge.'
+        if ($dirty) { $prompt += ' Preserve and finish existing worktree edits before selecting another task.' }
     } elseif ($dirty -and $sessionId) {
         $prompt = 'Continue the unfinished task in this pinned session. Inspect the diff, finish one bounded result with targeted checks and a source-only commit. Preserve edits; switch tasks only on a verified blocker. Do not push or merge to main.'
     } else {
@@ -256,8 +285,12 @@ try {
     if ($exitCode -eq 0) {
         try {
             Test-LaneOwnership $worktree $Lane $head
-            Publish-VerifiedBranch $worktree $branchName
-            $state.publication = 'published'
+            if ($NoPush) {
+                $state.publication = 'local_only'
+            } else {
+                Publish-VerifiedBranch $worktree $branchName
+                $state.publication = 'published'
+            }
         } catch {
             $state.publication = 'retry'
             $state.publicationError = $_.Exception.Message
