@@ -695,3 +695,20 @@ mandatory corrective decision in docs/DECISIONS.md.
   (exit 1; `768f31a` is contained, exit 0); the D-rows reconcile at the merged blob (own max D440, `D438` still without a
   number cell, measured gaps 421/422/427/428 plus the standing 303-307 and 349-354) is the pending pass. The machine's own
   next tick is the named window for the live-read-driven merge. No runtime advance.
+- 2026-11-06 ~03:15 runtime-a counted advance #9: `61f7667` (`0x001E540F` -> `0x001E785E`, 360/430; `__sopen` next
+  placeholder; module 169). COUNTED - with the note that the rolling-7-day average vs the 9-counted-night still requires
+  the >=8/day window to SUSTAIN. Pair line carries both profiles (control 339/405 at `0xFD800044`; inert 347/419 at
+  `0xFE0000C8` ordinal 100); profile 94 = 482 functions / 19,697 instructions; module 169 = 1,029,534 bytes (SHA
+  `c16c3d8b...`); verify-seeds 32/32/0/0; checks: native 56/56, proof-report 23/23, `test:runtime` 199 pass, `check` 486
+  files. Published at `refs/heads/codex/opencode-source`. The night's ledger is 9 counted advances (`ad0bffa` #1,
+  `d721550` #2, `a2a83de` #3, `91e5e0b` #4, `6fdcd98` #5, `9e563dc` #6, `768f31a` #7, `a98af1f` #8, `61f7667` #9); the
+  prior days of the rolling-7-day window carried zero, so the 9-counted night does not by itself unit the window average.
+- 2026-11-06 ~03:15 boundary fact (D443, integration/window): the integration head remains `832efee` (`refs/pull/19/head`)
+  and `origin/main` stays at `97d831bd`; the runtime-b chain `9957144`..`cef3b6e` (16 commits, re-counted) is still
+  unabsorbed (ancestor exit 1), as is `61f7667` (exit 1; `768f31a` contained, exit 0). The runtime-b lane's own cycle is
+  in flight (`started 2026-11-06T03:07:31`, `attemptedHead cef3b6e`) and its checkpoint names the single-owner boundary
+  ("a file this lane may not edit, `tools/fixtures/thread_startup_probe.c`, runtime-a-owned under D393/D414"); no action
+  taken here. The reconcile-pass items at the merged blob are named: the malformed `D438` row (no number cell) and the
+  measured 421/422/427/428 number-cell gaps (plus the standing 303-307 and 349-354 gaps, absent on both sides). The
+  machine's own 03:40/04:40 tick window owns the absorption/merge and had not fired at this read (newest architect state
+  is the 02:40 tick, mtime 02:42:20; read clock 03:13). No runtime advance.
