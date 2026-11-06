@@ -789,3 +789,14 @@ Re-ran the marker check against the current heads:
 The D217 row's `===` snippets are ordinary JavaScript comparisons that already exist in `origin/main`, not conflict markers. No cell rewrite or amend is applicable at either head; the clean lane head for queueing remains `c942c58`.
 
 No code or decision change.
+
+## 53. Pipeline path named; evidence-backed HOLD recorded (D411)
+
+The module-preparation path was inspected within the owned driver:
+
+- `tools/prepare-title-recomp.py:458-460` imports the pinned private toolkit (`from tools.recomp import config`, `from tools.recomp.translator import FunctionTranslator`).
+- `:530` `config.configure_from_xbe(xbe_path)`; `:544` constructs `FunctionTranslator(xbe, database, trace_functions=set(functions))`; `:577` obtains the emitted text from `translator.translate_function(address, info)`; `:578-583` reads/uses `translator.lifter` state.
+
+The owned driver passes seeds, profile, limits and trace sets only; it contains **no register-identity mapping**. The emitted text is the verified correct reverse, and the compiled minimal artifact is LIFO-correct, so the remaining divergence is inside the pinned private lifter/translator emission — outside this lane's editable scope (`.tools`).
+
+Evidence-backed HOLD recorded as **D411**: name the divergence at those callsites, but do not attempt a repair from the lane; a translator-owner decision is required, with `ff_reg_order_is_reverse` and `[ESI+0x47C] = 0x20400C` as acceptance. No fabricated re-run, no `.tools` edit, no REA call.

@@ -1,4 +1,10 @@
-# M2 policy verified in both profiles: zero unknown device reads
+# Pipeline path named; evidence-backed HOLD recorded as D411
+
+November 5 (source-work cycle per D410): the module-preparation path was inspected in the owned driver. `tools/prepare-title-recomp.py` imports the pinned private toolkit (lines 458-460), configures it from the XBE (530), constructs `FunctionTranslator` (544), and obtains the emitted text from `translate_function`/`translator.lifter` (577-583). The driver passes seeds/profile/limits/trace sets only and contains **no register-identity mapping**; the emitted text is the verified correct reverse and the compiled minimal artifact is LIFO-correct. The remaining divergence is inside the pinned private lifter/translator emission, outside this lane's editable scope. **D411 HOLD** records the exact callsites and requires a translator-owner decision with `ff_reg_order_is_reverse` + `[ESI+0x47C] = 0x20400C` acceptance; no `.tools` edit, no fabricated re-run, no REA call.
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
+
+## Prior: M2 policy verified in both profiles: zero unknown device reads
 
 November 5: the device-log policy (D402) is verified in **both** profiles — control `browser-157-control.json`: 12,592 entries, 137 reads (100% `beforeKnown`, 54 after write), 12,455 writes, 0 unknown reads, 5,298 distinct, 0 status waits; experiment `browser-157-experiment.json`: 12,637 entries, 161 reads (100%, 68 after write), 12,476 writes, 0 unknown reads, same distinct/status. M2's "in both profiles" requirement is met independently of the pending candidate-(B) repair.
 
