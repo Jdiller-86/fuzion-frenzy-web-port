@@ -1,4 +1,10 @@
-# M3 pre-registered: cluster reached, fault blocks the return path
+# M2 policy stats: 161/161 device reads beforeKnown, zero unknown reads
+
+November 5: device-log statistics from `browser-157-experiment.json` keep the M2 evidence current — 12,637 entries: 161 reads (100% `beforeKnown`, 68 of previously written addresses), 12,476 writes, **0 unknown-address reads**, 5,298 distinct device addresses, 0 status waits. D402's policy is applied exactly; the current fault at `0x6B6A6968` is a guest-memory read, not a device-register read. M3 acceptance remains pre-registered; repair ownership stays with the translator owner (candidate B).
+
+Observed stop unchanged: **status 10 at `0x6B6A6968`**, 346 routines / 414 kernel ops. Checks: `test:native` 54/54, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No new decision row. No main push/merge; geometry untouched.
+
+## Prior: M3 pre-registered: cluster reached, fault blocks the return path
 
 November 5: read-only check of `browser-157-experiment.json` confirms all graphics-cluster functions are reached (`0x1F7650`, `0x1FBB00`, `0x1FE05A`, `0x1FE085`, `0x1FB3B0`, `0x1F54D0`, `0x1FC010`, `0x1FB640`); the fault sits in the cluster's return/teardown path, not at an unadmitted function or unsupported service. M3 post-repair acceptance is pre-registered: stop past `0x6B6A6968` in both named profiles, next request/system recorded exactly, and `[ESI+0x47C]` reading `0x20400C`. Repair ownership is the translator owner's (candidate B); no lane-side translator/toolkit/fixture change.
 

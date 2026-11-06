@@ -732,3 +732,21 @@ The current fault sits inside the cluster's **return/teardown path** (`D3DDevice
 Repair ownership is with the translator owner (candidate B); this lane makes no translator, toolkit, or fixture change. No code change is needed for M3 pre-registration.
 
 No DECISIONS row: evidence only.
+
+## 49. M2 policy application statistics (device log)
+
+From `browser-157-experiment.json` (`deviceRegisters.log`, 12,637 entries):
+
+| Metric | Value |
+| --- | --- |
+| Reads | 161 |
+| Writes | 12,476 |
+| Reads with `beforeKnown` | 161 (100%) |
+| Reads of previously written addresses | 68 |
+| Reads of unknown addresses | **0** |
+| Distinct device addresses | 5,298 |
+| Status waits | 0 |
+
+The policy is applied exactly as recorded in D402: every device read in the run is of an address previously written in the same run, and no unknown-address read occurred (the current fault at `0x6B6A6968` is a **guest-memory** read, not a device-register read). This keeps the M2 device-access evidence current while the translator-owned repair (candidate B) is pending.
+
+No DECISIONS row: evidence only.
