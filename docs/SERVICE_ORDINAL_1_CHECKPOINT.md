@@ -1068,3 +1068,23 @@ Module `recomp-post-memory-build-170` (profile 95): **1,032,801 bytes**, SHA-256
 `__sopen` and its worker `0x1E75C8` executed; the worker then called `FUN_001e733d` (`0x1E733D..0x1E7489`), the next translation placeholder. Its already-translated callees are `0x1E62E0` and `0x1E635C`; `0x1E731B` (the callee of the not-yet-reached cleanup helper `0x1E78A3`) is still unseeded. Halt and report.
 
 No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).
+
+## 69. Batch admission of FUN_001e733d and FUN_001e72a8; next stop FUN_001e93e4 at 0x1E93E4
+
+Runtime-a continuation from `0x1E733D` (directive head `832efee`). Full body read first: `0x1E733D..0x1E7489` calls `0x1E62E0`, `0x1E635C`, `0x1E78C3`, `0x1E62CE`, `0x1E0D41`, `0x1E72A8` plus the import thunks `[0x2533F0]` and `[0x2533EC]`. Everything except `0x1E72A8` was already translated; the two thunks are ordinals 277 (`RtlEnterCriticalSection`) and 294 (`RtlLeaveCriticalSection`), both already routed by the harness, so no model was needed.
+
+- Read-only Ghidra export `research/verification/recomp-admit-1e733d-01/seed-733d.json`: prior 25 seed functions plus `0x001E733D` and `0x001E72A8`; 2 new functions, within the 8-function set cap, both `established=true`.
+- `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced private profile 96: **487 functions, 20,115 instructions** (+2 / +167).
+- `verify-seeds.py`: 32 recorded / 32 offered / 0 unexpected / 0 missing.
+
+Module `recomp-post-memory-build-171` (profile 96): **1,045,793 bytes**, SHA-256 `5757634212fa6648f5436556d2842f6a1c414832cd22bdd0ddad3955ffb5c395`.
+
+| Run | Stop | Routines / ops |
+| --- | --- | --- |
+| control | status 13 at `0xFD800044` | 339 / 405 |
+| inert | status 1 at `0xFE0000C8`, ordinal 100 | 347 / 419 |
+| experiment | **status 2 at `0x001E93E4`** | **363 / 441** |
+
+`FUN_001e733d` executed (the stream table setup), and the caller `0x1E75C8` continued to `FUN_001e93e4` (`0x1E93E4..0x1E956E`), the next translation placeholder; eleven further kernel operations completed on the way (430 → 441). Halt and report.
+
+No DECISIONS row (same sync-first numbering block: lane file ends at D415, integration head at D434).

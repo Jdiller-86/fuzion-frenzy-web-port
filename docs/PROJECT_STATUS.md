@@ -1,8 +1,8 @@
-# __sopen batch admitted; next stop is FUN_001e733d at 0x1E733D
+# FUN_001e733d batch admitted; next stop is FUN_001e93e4 at 0x1E93E4
 
-November 6: one evidenced batch translation increment (retained pipeline; 3 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E785E` (`__sopen`), `0x001E75C8` and `0x001E78A3` to the prior seed (32-export cap kept); `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 95 (**485 functions, 19,948 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 170: **1,032,801 bytes**, SHA `f79f16c9...`.
+November 6: one evidenced batch translation increment (retained pipeline; 2 functions, within the 8-function set cap). Read-only Ghidra export added `0x001E733D` and `0x001E72A8` to the prior seed (32-export cap kept); every other callee was already translated and both import thunks are ordinals 277/294 already routed. `prepare-title-recomp.py --function-limit 512 --instruction-limit 32768 --guard-memory` produced profile 96 (**487 functions, 20,115 instructions**); `verify-seeds.py` reports 32/32/0/0. Module 171: **1,045,793 bytes**, SHA `57576342...`.
 
-Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment runs `__sopen` and its worker, then stops at **status 2, `0x001E733D`** (362 routines / 430 kernel ops) — `FUN_001e733d`, the next translation placeholder (its callees `0x1E62E0`/`0x1E635C` are already translated).
+Pair: control 339/405 at `0xFD800044`; inert 347/419 at `0xFE0000C8` ordinal 100; experiment executes the stream-table setup and stops at **status 2, `0x001E93E4`** (363 routines / 441 kernel ops) — `FUN_001e93e4`, the next translation placeholder.
 
 Checks: `test:native` 56/56, proof-report 23/23, `test:runtime` pass, `check` 486 files, whitespace clean. No main push/merge; geometry untouched.
 
