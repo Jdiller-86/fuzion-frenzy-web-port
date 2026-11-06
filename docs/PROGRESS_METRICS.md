@@ -254,3 +254,18 @@ mandatory corrective decision in docs/DECISIONS.md.
   directive stands (D398(d)); the 20:40 architect tick is the expected reconciliation
   actuator for the divergent integration lines, reading the D394-D399 rows. Stop unchanged:
   status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-05 ops (component progress, not tempo): runtime-b's published `7911e35` reproduced the
+  triangle browser prepass comparison against the digest-verified root reference
+  `.tools/emulation/geom-reference-01/reference.json` (SHA-256
+  `474497d8fb629580352390ec7705b4ed0ea47aa635b8064e9ad2f393d7b530e5`) with 960 records /
+  146,880 scalars, `exact-match`, 0 forwarded / 0 slope mismatches, and module/wasm/reference
+  hashes identical to the retained 2026-10-31 report; the line/quad comparison stays
+  feasible-but-not-run because the comparator is triangle-hard-coded and no built module exports
+  the line/quad entry points. Component progress only - no stop-boundary move and no newly
+  serviced original request. No runtime advance.
+- 2026-11-05 ops (tempo and handoff): 0 counted advances remains the honest count under the
+  rolling-7-day >=8/day metric; runtime-a's blockers package is committed and published as
+  `0f0b6c1` (row reusing D398, colliding with main's D398, to be renumbered at integration with a
+  one-line note) and carries the tested `ff_reg_order_is_reverse` rule, candidates A/B and the
+  bounded owner question, while `7911e35` is component progress. Stop unchanged: status 10 at
+  `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
