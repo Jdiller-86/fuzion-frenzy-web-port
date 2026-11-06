@@ -431,3 +431,87 @@ mandatory corrective decision in docs/DECISIONS.md.
 - 2026-11-05 ops (D410): tempo fact - 0 counted advances and the stop unchanged at status 10 at
   `0x6B6A6968`, 346 routines / 414 kernel ops; runtime-b tip `c4e46bd` stays unabsorbed into
   PR #19 (next window ~23:40) and no user presence is needed for that route. No runtime advance.
+- 2026-11-05 ops (D411): 23:40 tick landed a new integration head `8940d3f` (was
+  `39a8fa8`) in ~93 s (started 23:40:02, finished 23:41:35) with `mainHead` `8339912`
+  (main through D410); containment: `39a8fa8`, `8339912` (D410) and `a9724a7` are in,
+  while runtime-b `9957144`->`446a9c9`->`c4e46bd`->`3333cc7`->`bddbab1` and runtime-a
+  `87d74be`, `7337147`, `677d191`, `2665586` are NOT contained. The tick's own
+  "408 rows with zero duplicates" claim is contradicted by its blob (`D405` x2,
+  `D376` x2, `D383` x2 at `8940d3f`), so renumbering must be applied at the integration
+  head. #19 read MERGEABLE/UNSTABLE with one check IN_PROGRESS; the later re-read shows
+  all four checks success and `mergeable_state` clean. runtime-a named the lifter-pop
+  divergence (its lane D412): `_lift_pop` "emits `POP32(esp, r)` with the decoded
+  register unchanged", runtime/compiled-artifact-only, "routed to the toolkit owner as
+  'source-correct, runtime-divergent' (D412)" with no toolkit-owner decision yet.
+  No runtime advance.
+- 2026-11-05 ops (D411): tempo fact - 0 counted advances and the stop unchanged at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; the toolkit-owner decision
+  on the D412 lifter divergence is the M6 path and the M3 acceptance stays
+  `[ESI+0x47C] = 0x20400C post-repair`. No runtime advance.
+- 2026-11-06 ops (D412): repair decision (owner-delegated) - the divergence is a one-dword stack-delta
+  imbalance between the prologue's push-slot base and the epilogue's pop-slot base. runtime-a's lane
+  commit `e8a74a8` ("Capture pop destinations and show the epilogue is one dword low", published as the
+  tip of `refs/heads/codex/opencode-source`) shows destinations are the correct `edi, esi, ebp, ebx`
+  but they read slots `0x3C10E30..0x3C10E3C` while the prologue saved into `0x3C10E34..0x3C10E40`, so
+  every pop is one dword (4 bytes) low and ESI receives the saved-EDI value `0x205E98`. The repair is
+  directed to the pipeline frame-setup/emission slot-base alignment (epilogue pop base = prologue push
+  base) in runtime-a's OWN lane-owned pipeline files (`tools/prepare-title-recomp.py` emitted `POP`
+  block and/or the module-preparation call-frame path; no `.tools`/`research`/fixture edits, no REA
+  call, no runtime-engine re-design per R12). Acceptance is M6's gate: the stop must move past
+  `0x6B6A6968` in BOTH profiles with R11 evidence (two named browser reports + independent audit JSON,
+  zero source mismatches), with `[esi+0x47c]` reading `0x20400c` post-repair as the post-repair
+  observable; a non-moving stop routes to the harness call-frame candidate in a new dated row.
+  runtime-b's decision request (`6ad911e`, with `bddbab1` and `3333cc7`) is honored: it continues its
+  owned materials/comparator work, no new lane-b directive this turn. No runtime advance.
+- 2026-11-06 ops (D412): integration state and tempo - #19's head remains `8940d3f` (contained
+  `8339912`; NOT contained `87d74be`/`7337147`/`677d191`/`2665586`/`e8a74a8` (runtime-a) and
+  `9957144`->`6ad911e` (runtime-b), re-verified with `git merge-base --is-ancestor`); `origin/main`
+  unmoved at `97d831bd`; the 00:40 tick must integrate the lane chains and apply the D-rows renumber
+  rule before the guarded merge per D394/D398/D403 - `8940d3f`'s blob still shows `D405` twice and
+  already carries its own `D412` row, so this row renumbers at integration. Tempo: 0 counted advances
+  and the stop unchanged verbatim at status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
+- 2026-11-06 ops (D413): PR-head blob fact refreshed - after `git fetch origin --prune`,
+  `git show refs/pull/19/head:docs/DECISIONS.md` reads **392 D-rows, max row D400, duplicate
+  numbers `D376`, `D383`, `D392`** and carries none of rows D401-D412, so merging #19 at its
+  current head would regress `docs/DECISIONS.md` from local main's 402 rows / max D412 to
+  392 rows / max D400 with 3 duplicate numbers - the exact loss pattern the D403/D407/D411
+  rules guard. The earlier "603 lines / 400+ row tails / D405 x2" readings were local-cache
+  artifacts and are retracted as such. The repair site is narrowed (D412 refined): runtime-a
+  lane commit `7feb88d` "Localize the one-dword deficit to the leftover icall return address"
+  shows the indirect-call return word at `0x1FB64C` is not consumed by the resolved callee (or
+  the safe path), so the frame is one dword taller than the epilogue's pops assume; destinations
+  stay correct but every pop lands one dword low, and the cited safe-path macro file
+  `src/runtime/recomp_types.h` lives in the ignored prepared translation (not tracked in the
+  branch). runtime-a is directed to implement the icall return-word consumption repair in its
+  lane-owned pipeline files (`tools/prepare-title-recomp.py`-driven), with D412's R11 acceptance
+  unchanged (stop past `0x6B6A6968` in both profiles with R11 evidence; `[esi+0x47c] = 0x20400c`
+  post-repair; the harness call-frame/`ret N` fallback row stays reserved). runtime-b's a/b/c
+  trio (`6ad911e`) is answered by the M-milestone order: option (a), record the committed
+  comparator work and continue to the next owned step. Tempo: 0 counted advances and the stop
+  unchanged verbatim at status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops.
+  No runtime advance.
+- 2026-11-06 ops (D413): next-tick integration checklist - before any merge the next architect
+  tick (00:40 or later) must (i) integrate BOTH divergent chains into the integration head,
+  runtime-a `87d74be`->`7feb88d` and runtime-b `9957144`->`6ad911e` (both verified uncontained by
+  local main at this record), resolving the D-rows renumber at the integrated blob (local main's
+  D401-D412 rows into numeric order, the 3 duplicate numbers removed), (ii) only then execute the
+  guarded merge with exact-head green gates, and (iii) record `origin/main`'s move past `97d831bd`
+  in its own row. The current tick's directive ("MERGE_MAIN_PR withheld this cycle; PR #19 remains
+  open with re-checks on the next integration head") is recorded as deliberately withheld, and this
+  D-row authorizes nothing earlier. Tempo: 0 counted advances and the stop unchanged verbatim at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops. No runtime advance.
+- 2026-11-06 ops (D414): systemic ABI facts and the runtime-b trio decision - runtime-a's restored ABI
+  logger (`c2c60b1`, `8924710`) counts **136 ABI violations / 131 ESI** (first `0x1E04CC`, last
+  `0x202150`) with **0 ESP-delta**, so the one-dword deficit (D412) is a systemic symptom and the
+  consumed-vs-unconsumed icall return-word contract (D413/B, `0x1FB64C`) stays the repair site; the
+  flagged publication gap is re-verified CLOSED (`origin/codex/opencode-source` reads `8924710`).
+  Runtime-b trio option (b) is decided by the D393 single-owner rule: `thread_proof-worker.mjs` /
+  `proof-report.mjs` are runtime-a-owned, so runtime-b records ABI facts only in its own owned
+  checkpoints and routes fact requests through DECISIONS rows; options (a) new-ordinal evidence and
+  (c) quad-strip recapture remain valid lane-b work. No runtime advance.
+- 2026-11-06 ops (D414): tempo and directive - 0 counted advances, stop unchanged verbatim at
+  status 10 at `0x6B6A6968`, 346 routines / 414 kernel ops; the stale tick directive tail (the
+  D404-era `FUN_001F6240` register-identity investigation) is superseded by the D412/D413 owner
+  decisions, so the next card points runtime-a at the icall return-word repair implementation.
+  No runtime advance.
