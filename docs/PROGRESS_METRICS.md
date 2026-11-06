@@ -404,3 +404,21 @@ mandatory corrective decision in docs/DECISIONS.md.
   `9957144`->`446a9c9` chain is NOT contained in `39a8fa8`, so the D403 superset gate stays open
   for the next tick. Stop unchanged at status 10 `0x6B6A6968`, 346 routines / 414 kernel ops.
   No runtime advance.
+- 2026-11-05 ops (D409): blob correction withdrawn - the proposed "587 lines, max D-row 400, no
+  D405-D412" reading of the integration blob is the STALE local `refs/pull/19/head` (`44af31d`,
+  587 lines, 392 rows, last row D400), not the authoritative remote head `39a8fa8f`
+  (`git ls-remote`), which reads 603 lines / 403 D-rows with the `D409`/`D405`/`D410`/`D411` tail
+  order and a duplicated `D405` intact. Renumber-at-reconciliation (D400(c)) still applies at #19.
+  No runtime advance.
+- 2026-11-05 ops (D409): runtime-b tip advanced to `c4e46bd` "geometry: admit the recorded root
+  reference prefix" (one commit past `446a9c9`), so the chain
+  `9957144`->`40af26d`->`1546a83`->`446a9c9`->`c4e46bd` remains entirely unabsorbed
+  (`git merge-base --is-ancestor` exit 1 against both `39a8fa8f` and `origin/main`); the lane cycle
+  closed `no_progress` with comparator 10/10 and `test:runtime` 212 pass / 1 skip. The D403
+  superset gate stays open and `origin/main` is still `97d831bd`. No runtime advance.
+- 2026-11-05 ops (D409): primary card mismatch - runtime-a spent two consecutive cycles on a
+  retired marker-repair card (`791f4d7`, then docs-only `c942c58`, published on
+  `origin/codex/opencode-source`) although no marker fault exists at the authoritative blob
+  (anchored grep 0 hits, `git diff --check` exit 0, 82+/34-); the marker card is retired and the
+  D407 in-browser module-binding directive (`e74b4d6`) is still the lane's live objective, with no
+  binding divergence fact produced yet. No runtime advance.
