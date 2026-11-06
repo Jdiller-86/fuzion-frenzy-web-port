@@ -41,5 +41,34 @@ int main(void)
         }
         memcpy(saved,ram,sizeof ram);assert(ff_query_console_dword(&memory,query,1));assert(!memcmp(saved,ram,sizeof ram));
     }
-    puts("Owned console settings: explicit DWORD, permissions, short-buffer and atomic rejection checks passed");return 0;
+    setup();uint32_t block_args[5]={0xff,0x10010,0x10020,0x100,0x10018};
+    ff_console_settings_block block;memset(&block,0,sizeof block);
+    block.bias=-480;memcpy(block.standard_name,"PST",4);memcpy(block.daylight_name,"PDT",4);
+    block.standard_date=0x0b010200;block.daylight_date=0x03020200;
+    block.standard_bias=-480;block.daylight_bias=-420;
+    block.language=1;block.video=3;block.audio=0;block.parental=0;
+    block.online[0]=block.online[1]=block.online[2]=block.online[3]=0;
+    block.misc=0;block.dvd_region=1;
+    assert(!ff_query_console_block(&memory,block_args,&block));
+    assert(word(0x10010)==3 && word(0x10018)==0x60);
+    assert(word(0x10020+0x04)==(uint32_t)-480);
+    assert(!memcmp(ram+0x10020+0x08,"PST",4) && !memcmp(ram+0x10020+0x0c,"PDT",4));
+    assert(word(0x10020+0x18)==0x0b010200u && word(0x10020+0x1c)==0x03020200u);
+    assert(word(0x10020+0x28)==(uint32_t)-480 && word(0x10020+0x2c)==(uint32_t)-420);
+    assert(word(0x10020+0x30)==1 && word(0x10020+0x34)==3 && word(0x10020+0x5c)==1);
+    assert(word(0x10020+0x00)==0 && word(0x10020+0x10)==0 && word(0x10020+0x20)==0);
+    assert(ram[0x10020+0x60]==0 && ram[0x10020+0xff]==0);
+    setup();block_args[3]=0x40;memcpy(saved,ram,sizeof ram);
+    assert(ff_query_console_block(&memory,block_args,&block)==0xc0000023u);
+    assert(word(0x10010)==3 && word(0x10018)==0x60 && ram[0x10020]==0xa5);
+    setup();block_args[3]=0x100;block_args[0]=17;
+    memcpy(saved,ram,sizeof ram);assert(ff_query_console_block(&memory,block_args,&block));
+    assert(!memcmp(saved,ram,sizeof ram));
+    setup();block_args[0]=0xff;block_args[2]=0x12000;
+    memcpy(saved,ram,sizeof ram);assert(ff_query_console_block(&memory,block_args,&block));
+    assert(!memcmp(saved,ram,sizeof ram));
+    setup();block_args[2]=0x10020;block_args[1]=0x10024;
+    memcpy(saved,ram,sizeof ram);assert(ff_query_console_block(&memory,block_args,&block));
+    assert(!memcmp(saved,ram,sizeof ram));
+    puts("Owned console settings: explicit DWORD, block layout, permissions, short-buffer and atomic rejection checks passed");return 0;
 }

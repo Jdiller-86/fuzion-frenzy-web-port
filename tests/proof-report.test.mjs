@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../src/runtime/proof-report.mjs';
+import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT, DEBUG_SERVICE_LIMIT } from '../src/runtime/proof-report.mjs';
 
 const report = (edit = {}) => ({
   kind: 'thread-startup-boundary',
@@ -39,6 +39,24 @@ test('a well-formed startup report validates and is returned unchanged', () => {
     deviceRegisters: { count: 2, events: 1, entries: [{}, {}], log: [{}] },
   });
   assert.equal(validateProofReport(device), device);
+});
+
+test('the debug-service log is bounded and shape-checked', () => {
+  const entry = { service: 1, argument: 0x2B7668, length: 5, buffer: 0x2B7680 };
+  const valid = report({ debugServices: [entry] });
+  assert.equal(validateProofReport(valid), valid);
+  const empty = report({ debugServices: [] });
+  assert.equal(validateProofReport(empty), empty);
+
+  assert.throws(() => validateProofReport(report({
+    debugServices: Array.from({ length: DEBUG_SERVICE_LIMIT + 1 }, () => entry),
+  })), /debug-service log/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, service: -1 }],
+  })), /Malformed debug-service entry/);
+  assert.throws(() => validateProofReport(report({
+    debugServices: [{ ...entry, buffer: 0x1_0000_0000 }],
+  })), /Malformed debug-service entry/);
 });
 
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
