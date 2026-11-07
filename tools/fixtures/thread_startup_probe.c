@@ -2895,20 +2895,25 @@ static void wait_vblank(void)
     if ((type & 0xFFu) == 1u) MEM32(object + 4u) = 0u;
     row[1] = 0u;
     g_eax = 0u;
+    g_esp += 24u; /* stdcall: return address and five DWORD arguments */
 }
 static void set_display_mode(void)
 {
     uint32_t *row = kernel_record(3u, 6u);
     uint32_t addr = MEM32(g_esp + 4u), step = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
     uint32_t format = MEM32(g_esp + 16u), pitch = MEM32(g_esp + 20u), fb = MEM32(g_esp + 24u);
-    uint32_t mapped = addr && !(addr & 3u) && addr <= FF_GUEST_BYTES - 4u;
+    uint32_t register_base_declared = 0u;
+#ifdef FF_MMIO_PROOF
+    register_base_declared = device_registers.base == FF_DISPLAY_TUPLE_ADDR &&
+        ff_device_registers_contains(&device_registers, addr, 4u) == 0u;
+#endif
     display_mode_addr = addr;
     display_mode_step = step;
     display_mode_mode = mode;
     display_mode_format = format;
     display_mode_pitch = pitch;
     display_mode_fb = fb;
-    display_mode_decision = ff_display_mode_accept(mapped, addr, step, mode, format, pitch, fb);
+    display_mode_decision = ff_display_mode_accept(register_base_declared, addr, step, mode, format, pitch, fb);
     if (display_mode_decision != FF_DISPLAY_OK) {
         row[1] = 1u;
         stop(1, kernel_binding_address(3u), 3u);
@@ -2917,6 +2922,7 @@ static void set_display_mode(void)
     display_mode_ready = 1;
     row[1] = 0u;
     g_eax = 0u;
+    g_esp += 28u; /* stdcall: return address and six DWORD arguments */
 }
 static uint32_t av_saved_prior_setter(void)
 {

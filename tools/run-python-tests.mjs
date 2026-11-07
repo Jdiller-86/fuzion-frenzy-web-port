@@ -34,6 +34,7 @@ const suites = [
   'tests/thread_callback_guard_test.py',
   'tests/returning_trap_guard_test.py',
   'tests/trace_capture_bridge_test.py',
+  'tests/reached_display_wait_bridge_test.py',
 ];
 
 function probe(command, prefix) {

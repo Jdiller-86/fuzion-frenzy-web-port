@@ -236,7 +236,7 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
 });
 
 test('display-mode state requires the experiment and the pinned declaration', () => {
-  const state = { accepted: 1, addr: 0x3C10CFC, step: 0, mode: 0x60030307, format: 0,
+  const state = { accepted: 1, addr: 0xFD000000, step: 0, mode: 0x60030307, format: 0x1E,
     pitch: 0xA00, fb: 0x03920000, window: 0x83920000, decision: 0 };
   const valid = report({ experiments: ['displayMode'], displayModeState: state });
   assert.equal(validateProofReport(valid), valid);
@@ -247,6 +247,110 @@ test('display-mode state requires the experiment and the pinned declaration', ()
   assert.throws(() => validateProofReport(report({
     experiments: ['displayMode'], displayModeState: { ...state, fb: 0x04000000 },
   })), /pinned declaration/);
+  const oldFrameTuple = { ...state, addr: 0x3C10CFC, format: 0 };
+  assert.throws(() => validateProofReport(report({
+    experiments: ['displayMode'], displayModeState: oldFrameTuple,
+  })), /pinned declaration/);
+});
+
+test('display refusal reports use decision codes rather than tuple values', () => {
+  const refused = { accepted: 0, addr: 0, step: 0, mode: 0, format: 0,
+    pitch: 0, fb: 0, window: 0, decision: 1 };
+  for (const decision of [1, 2, 3]) {
+    const valid = report({ experiments: ['displayMode'], displayModeState: { ...refused, decision } });
+    assert.equal(validateProofReport(valid), valid);
+  }
+  for (const decision of [0x3C10CFC, 0x03920000]) {
+    assert.throws(() => validateProofReport(report({ experiments: ['displayMode'],
+      displayModeState: { ...refused, decision } })), /Malformed display-mode state/);
+  }
+});
+
+test('enabled but unreached AV and free probes require canonical zero observations', () => {
+  const cases = [
+    ['avUnknownOption', 'avUnknownOptionState', {
+      calls: 0, handle: 0, option: 0, param: 0, result: 0, decision: 0, written: 0,
+      eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+    }, { handle: 0xFD000000 }],
+    ['avSavedData', 'avSavedDataState', {
+      calls: 0, value: 0, decision: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0, priorSetter: 0,
+    }, { value: 1 }],
+    ['avNullResult', 'avNullResultState', {
+      calls: 0, handle: 0, option: 0, param: 0, result: 0, decision: 0, writeBefore: 0, writeAfter: 0,
+      checksumBefore: 0, checksumAfter: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+    }, { result: 0, handle: 0x03920000 }],
+    ['mmFreeContiguous', 'mmFreeContiguousState', {
+      calls: 0, address: 0, decision: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+      writeBefore: 0, writeAfter: 0,
+    }, { address: 0x1000 }],
+  ];
+  for (const [experiment, field, state, fabricated] of cases) {
+    const valid = report({ experiments: [experiment], [field]: state });
+    assert.equal(validateProofReport(valid), valid, `${field} canonical uncalled state`);
+    const noCapturedCalls = report({ experiments: [experiment], [field]: state, calls: [] });
+    assert.equal(validateProofReport(noCapturedCalls), noCapturedCalls, `${field} empty captured call list`);
+    assert.throws(() => validateProofReport(report({
+      experiments: [experiment], [field]: { ...state, ...fabricated },
+    })), /uncalled .* state must contain only zero observations/);
+  }
+  const wrongContracts = [
+    ['avUnknownOption', 'avUnknownOptionState', {
+      calls: 1, handle: 0xFD000004, option: 0x0F, param: 0, result: 0, decision: 0, written: 0,
+      eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1014,
+    }],
+    ['avSavedData', 'avSavedDataState', {
+      calls: 1, value: 1, decision: 0, eaxBefore: 1, espBefore: 0x1000, eaxAfter: 1, espAfter: 0x1004, priorSetter: 0,
+    }],
+    ['avNullResult', 'avNullResultState', {
+      calls: 1, handle: 0x03920000, option: 9, param: 0, result: 0, decision: 0, writeBefore: 0, writeAfter: 0,
+      checksumBefore: 1, checksumAfter: 2, eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1014,
+    }],
+    ['mmFreeContiguous', 'mmFreeContiguousState', {
+      calls: 1, address: 0x1000, decision: 0, eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1008,
+      writeBefore: 0, writeAfter: 0,
+    }],
+  ];
+  for (const [experiment, field, state] of wrongContracts)
+    assert.throws(() => validateProofReport(report({ experiments: [experiment], [field]: state })),
+      /pinned default|pinned 0|pinned no-op contract|pinned declaration-level effect/);
+  const nullUnreached = {
+    experiments: ['avNullResult'], avNullResultState: cases[2][2],
+    consoleSettings: { kernelCaptureStart: 0 }, kernelCapacity: 512, calls: [],
+    kernelCapture: {
+      kind: 'kernel-capture-window', version: 1, requestedStart: 0, capturedStart: 0,
+      capturedCount: 0, totalCount: 0, completedOperations: 0, prefixCompletedOperations: 0,
+      complete: true, sha256: 'a'.repeat(64),
+    },
+    originalStartup: { totalInitializers: 83, completedInitializers: 83,
+      distinctOriginalFunctions: 276, completedKernelOperations: 0 },
+  };
+  assert.equal(validateProofReport(report(nullUnreached)).kernelCapture.complete, true);
+  assert.throws(() => validateProofReport(report({
+    ...nullUnreached,
+    calls: [{ ordinal: 2, status: 0, arguments: [0x03920000, 9, 0, 0] }],
+    kernelCapture: { ...nullUnreached.kernelCapture, capturedCount: 1, totalCount: 1,
+      completedOperations: 1 },
+    originalStartup: { ...nullUnreached.originalStartup, completedKernelOperations: 1 },
+  })), /uncalled avNullResult state conflicts with a captured null-result call/);
+  const deniedStartupQuery = report({
+    stop: unsupportedOrdinal2(), experiments: ['avNullResult'], avNullResultState: cases[2][2],
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 0] }],
+  });
+  assert.equal(validateProofReport(deniedStartupQuery), deniedStartupQuery);
+});
+
+test('the newly observed null-result tuple correlates state and captured call', () => {
+  const valid = report({
+    experiments: ['avNullResult'],
+    avNullResultState: {
+      calls: 1, handle: 0xFD000000, option: 9, param: 0, result: 0, decision: 0,
+      writeBefore: 7, writeAfter: 7, checksumBefore: 0x12345678, checksumAfter: 0x12345678,
+      eaxBefore: 0xDEADBEEF, espBefore: 0x3C10C40,
+      eaxAfter: 0xDEADBEEF, espAfter: 0x3C10C54,
+    },
+    calls: [{ ordinal: 2, status: 0, arguments: [0xFD000000, 9, 0, 0] }],
+  });
+  assert.equal(validateProofReport(valid), valid);
 });
 
 test('PFIFO reset state allows consumer updates when the consumer is declared', () => {

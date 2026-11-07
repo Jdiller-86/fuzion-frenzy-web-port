@@ -490,7 +490,7 @@ export function validateProofReport(report) {
         !integer(d.window) || !integer(d.decision) || d.decision > 3)
       throw new Error('Malformed display-mode state');
     if (d.accepted === 1 &&
-        (d.addr !== 0x3C10CFC || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0 ||
+        (d.addr !== 0xFD000000 || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0x1E ||
          d.pitch !== 0xA00 || d.fb !== 0x03920000 || d.window !== 0x83920000 || d.decision !== 0))
       throw new Error('A display-mode acceptance must match the pinned declaration');
   }  /* Unknown-AV-option experiment and state pairing; acceptance requires the
@@ -507,7 +507,9 @@ export function validateProofReport(report) {
         !integer(u.written) || !integer(u.eaxBefore) || !integer(u.espBefore) ||
         !integer(u.eaxAfter) || !integer(u.espAfter))
       throw new Error('Malformed unknown-AV-option state');
-    if (u.decision === 0 &&
+    if (u.calls === 0 && Object.entries(u).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled unknown-AV-option state must contain only zero observations');
+    if (u.calls > 0 && u.decision === 0 &&
         (u.handle !== 0xFD000000 || u.option !== 0x0F || u.param !== 0 || u.written !== 0 ||
          u.eaxAfter !== u.eaxBefore || u.espAfter !== ((u.espBefore + 20) >>> 0)))
       throw new Error('An accepted unknown AV option must match the pinned default');
@@ -524,7 +526,9 @@ export function validateProofReport(report) {
         !integer(s.eaxBefore) || !integer(s.espBefore) || !integer(s.eaxAfter) ||
         !integer(s.espAfter) || !integer(s.priorSetter))
       throw new Error('Malformed saved-data state');
-    if (s.decision === 0 &&
+    if (s.calls === 0 && Object.entries(s).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled saved-data state must contain only zero observations');
+    if (s.calls > 0 && s.decision === 0 &&
         (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== ((s.espBefore + 4) >>> 0) || s.priorSetter !== 0))
       throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and a 4-byte stdcall pop');
   }
@@ -534,7 +538,7 @@ export function validateProofReport(report) {
    * nonzero Result reaches the unmodeled option switch. The state keeps the last
    * accepted tuple; the two observed pairs stay pinned pair evidence. */
   const claimsAvNull = experiments.includes('avNullResult');
-  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1], [0x206080, 9, 0]];
+  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1], [0x206080, 9, 0], [0xFD000000, 9, 0]];
   const isObservedNullShape = (handle, option, param) =>
     observedNullShapes.some(([h, o, p]) => handle === h && option === o && param === p);
   if (report.avNullResultState !== undefined && !claimsAvNull)
@@ -549,7 +553,9 @@ export function validateProofReport(report) {
         !integer(n.checksumAfter) || !integer(n.eaxBefore) || !integer(n.espBefore) ||
         !integer(n.eaxAfter) || !integer(n.espAfter))
       throw new Error('Malformed null-result state');
-    if (n.decision === 0 &&
+    if (n.calls === 0 && Object.entries(n).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled null-result state must contain only zero observations');
+    if (n.calls > 0 && n.decision === 0 &&
         (n.result !== 0 || !isObservedNullShape(n.handle, n.option, n.param) ||
          n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
          n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
@@ -570,7 +576,9 @@ export function validateProofReport(report) {
         !integer(f.eaxBefore) || !integer(f.espBefore) || !integer(f.eaxAfter) ||
         !integer(f.espAfter) || !integer(f.writeBefore) || !integer(f.writeAfter))
       throw new Error('Malformed contiguous-free state');
-    if (f.decision === 0 &&
+    if (f.calls === 0 && Object.entries(f).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled contiguous-free state must contain only zero observations');
+    if (f.calls > 0 && f.decision === 0 &&
         (!f.address || (f.address & 3) !== 0 || f.eaxAfter !== 0 ||
          f.espAfter !== ((f.espBefore + 8) >>> 0) || f.writeAfter !== f.writeBefore))
       throw new Error('An accepted contiguous-free call must match the pinned declaration-level effect');
@@ -866,7 +874,11 @@ export function validateProofReport(report) {
       }
     }
   }
-  if (claimsAvNull && report.calls !== undefined && report.kernelCapture?.complete !== false &&
+  if (claimsAvNull && report.avNullResultState.calls === 0 && report.calls?.some(call =>
+      call.ordinal === 2 && call.arguments[3] === 0 &&
+      !(call.arguments[0] === 0 && call.arguments[1] === 6)))
+    throw new Error('An uncalled avNullResult state conflicts with a captured null-result call');
+  if (claimsAvNull && report.avNullResultState.calls > 0 && report.calls !== undefined && report.kernelCapture?.complete !== false &&
       !(sawFirstNullShape || sawSecondNullShape || sawThirdNullShape))
     throw new Error('The avNullResult pair must reproduce at least one observed null-result shape');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was
