@@ -55,6 +55,14 @@ Pinned replacement-kernel references disagree about numeric option 6. Cxbx treat
 
 The current component/adapter, call records, and validators define supported modeled cases. Older “next task” or “unsupported stop” paragraphs do not supersede current source or [status](status.md).
 
+## Derived indirect entries and guest-thread evidence
+
+An observed thread request may publish an exact executable address without a retained Ghidra function. For `0x0004CBE0`, the existing decoded listing, an exact pointer reference in an admitted caller, non-fallthrough predecessor return, closed 43-byte flow and padding support automatic temporary derivation. The seed records newly established analysis; headless read-only discard output and reopening the retained project distinguish it from a persisted function. All 11 new instruction boundaries agree. The older aggregate decoder-boundary flag remains false for the explicitly retained FSTCW versus WAIT/FNSTCW normalization, with no new exception.
+
+Admission permits the existing bounded service to create a second READY context; it does not prove the callback ran. Its 17-page arena footprint includes one object/PCR page and 16 stack pages with TLS inside. Pool-to-stack role reclassification changes modeled ownership, not VM reservation, commitment or free capacity. Existing source-owned multi-thread/TLS/capacity and page-accounting fixtures are now part of the standard native runner. Preserve pointer, context metadata, actual execution trace and scheduling acceptance as separate evidence.
+
+The following named-mutant request is outside the existing unnamed-only model. Retain its Win32 root/open-if attributes, 13-byte counted name and zero initial owner; refusing it supplies no successful return or extra handle. Shared namespace/object-type identity and later synchronization remain implementation and acceptance work.
+
 ## Conversion and geometry
 
 [Reference inventory](reference.md) records the compatible executable and limited conversion coverage. Bounded character/arena/audio preview and NV2A native/Wasm/WebGL2 component comparisons support engineering work. They do not accept integrated original rendering, all primitives/state, depth/arithmetic fidelity, title performance, or full content conversion.

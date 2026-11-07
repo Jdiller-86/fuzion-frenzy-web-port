@@ -45,6 +45,12 @@ This example requires an already analyzed project; it is not a clean-clone setup
 
 REA 6.7.0's recorded Windows interface did not advertise XBE admission. Installing an XBE loader does not change that boundary; do not rename XBE to PE. Use supported REA providers/skills when available for the named fact and direct Ghidra otherwise. Record Evidence IDs, digests, provider, tool, and limits in [the decision log](decisions.md). Direct Ghidra output is not REA Evidence, and pseudocode is not original source or observed execution.
 
+## Missing function metadata at an observed entry
+
+An actual request pointer is an investigation anchor, not a complete function envelope. Check the retained listing, function containment, executable section, caller reference, predecessor fallthrough, closed control flow/return and neighboring code before deriving an entry. Independent original-byte/decoder/layout checks still apply.
+
+If that evidence supports a previously absent function, derive it automatically only in a read-only analysis session. Preserve the before-state and export a separate seed/provenance record; reject an unexpected body rather than forcing a convenient boundary. Record headless discard/no-save evidence and reopen the retained project to verify its state. Newly established in-memory metadata is different from a preexisting retained function, and a callable entry is different from observed execution. See [current limits](research.md#derived-indirect-entries-and-guest-thread-evidence).
+
 ## Browser proof boundary
 
 The [startup server](../tools/serve-startup-proof.mjs) serves an allowlisted source-only harness:

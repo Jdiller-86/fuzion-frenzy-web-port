@@ -27,6 +27,8 @@ const fixtures = [
   { name: 'kernel_capture', sources: ['tests/kernel_capture_test.c', runtime('kernel_capture.c'), runtime('sha256.c')] },
   { name: 'performance_clock', sources: ['tests/performance_clock_test.c', runtime('performance_clock.c')] },
   { name: 'unnamed_mutants', sources: ['tests/unnamed_mutants_test.c', runtime('unnamed_mutants.c'), runtime('virtual_memory.c')] },
+  { name: 'thread_bootstrap', sources: ['tests/thread_bootstrap_test.c', runtime('thread_bootstrap.c')] },
+  { name: 'memory_statistics', sources: ['tests/memory_statistics_test.c', runtime('memory_statistics.c'), runtime('virtual_memory.c')] },
   { name: 'named_events', sources: ['tests/named_events_test.c', runtime('named_events.c'), runtime('virtual_memory.c')] },
   { name: 'device_registers', sources: ['tests/device_registers_test.c', runtime('device_registers.c'), runtime('thread_bootstrap.c')] },
   { name: 'pcrtc_state', sources: ['tests/pcrtc_state_test.c', runtime('pcrtc_state.c')] },
