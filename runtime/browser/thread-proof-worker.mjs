@@ -288,7 +288,7 @@ self.onmessage = async event => {
     const capturedCalls = Array.from({ length: callCount }, (_, i) => {
       const ordinal = api.ff_probe_kernel_word(i, 0);
       const status = api.ff_probe_kernel_word(i, 1) >>> 0;
-      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
+      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 24: 5, 149: 4, 168: 2, 184: 5, 189: 4, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
       const length = ordinal===192 && consoleSettings?.mutants ? 3 : ordinal === 226 && status !== 1 ? 5 : count ?? 1;
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });

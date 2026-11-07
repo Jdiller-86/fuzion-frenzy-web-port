@@ -35,3 +35,10 @@ test('ordinal 126 names the counter query with static ABI only', () => {
   });
   assert.deepEqual(describeKernelService(125), { ordinal: 125, name: null, modeled: false });
 });
+
+test('ordinal 189 names NtCreateEvent with static ABI only and remains unsupported', () => {
+  assert.deepEqual(describeKernelService(189), {
+    ordinal: 189, name: 'NtCreateEvent', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus',
+  });
+});

@@ -34,6 +34,15 @@ const SERVICES = new Map([
     argumentBytes: 0,
     returns: 'uint64',
   }],
+  [189, {
+    /* Pinned xboxrecomp-source kernel.h:838 identifies the service; the four
+     * observed DWORD arguments and stdcall frame establish ABI only. No event
+     * behavior or parameter meanings are modeled here. */
+    name: 'NtCreateEvent',
+    callingConvention: 'stdcall',
+    argumentBytes: 16,
+    returns: 'ntstatus',
+  }],
 ]);
 
 export function describeKernelService(ordinal) {

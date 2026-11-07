@@ -206,6 +206,16 @@ export function validateProofReport(report) {
          stop.service.returns!=='uint64' || Object.keys(stop.service).length!==6 ||
          Object.keys(stop.service).some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key)))
         throw new Error('The performance-clock descriptor must retain its zero-argument 64-bit ABI');
+    } else if(stop.ordinal===189 || stop.service.name==='NtCreateEvent') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===189 && stop.service.name===null) {
+        if(keys.length!==3 || keys.some(key=>!['ordinal','name','modeled'].includes(key)))
+          throw new Error('The legacy unidentified ordinal-189 descriptor must contain only its identity');
+      } else if(stop.ordinal!==189 || stop.service.name!=='NtCreateEvent' || stop.service.callingConvention!=='stdcall' ||
+                stop.service.argumentBytes!==16 || stop.service.returns!=='ntstatus' || keys.length!==6 ||
+                keys.some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key))) {
+        throw new Error('The NtCreateEvent descriptor must retain its evidenced stdcall/16-byte/NTSTATUS ABI');
+      }
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
                stop.service.returns !== undefined || stop.service.resultBits !== undefined ||
                stop.service.option !== undefined || stop.service.output !== undefined) {
@@ -557,6 +567,23 @@ export function validateProofReport(report) {
               throw new Error('Mutant success requires checked output, unowned state and NTSTATUS/stack evidence');
           }
         }
+      }
+      if(call.ordinal===189) {
+        if(!call.arguments.every(dword))
+          throw new Error('NtCreateEvent arguments must be unsigned 32-bit words');
+        if(call.status===0 || call.output!==undefined)
+          throw new Error('NtCreateEvent remains unsupported and supplies no modeled result');
+        const legacyUnidentified=stop.status===1 && stop.ordinal===189 && stop.service?.ordinal===189 &&
+          stop.service.name===null && stop.service.modeled===false && Object.keys(stop.service).length===3 &&
+          ['ordinal','name','modeled'].every(key=>Object.hasOwn(stop.service,key));
+        if(call.status!==1 || stop.status!==1 || stop.ordinal!==189 || report.calls.at(-1)!==call ||
+           report.calls.filter(row=>row.ordinal===189).length!==1)
+          throw new Error('The NtCreateEvent refusal must be the sole final call at its matching unsupported stop');
+        if(legacyUnidentified ? ![1,4].includes(call.arguments.length) : call.arguments.length!==4) {
+          throw new Error('NtCreateEvent evidence must retain four arguments and no modeled result');
+        }
+        if(Array.isArray(stop.stackArguments) && call.arguments.some((argument,index)=>argument!==stop.stackArguments[index]))
+          throw new Error('The NtCreateEvent refusal arguments must match the captured stop stack arguments');
       }
       if((call.ordinal===126 || call.ordinal===127) && call.arguments.length!==0)
         throw new Error('The performance-clock call has no arguments');

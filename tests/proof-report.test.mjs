@@ -594,6 +594,68 @@ test('ordinal 126 unsupported stop carries no counter value or extra ABI claims'
     assert.throws(()=>validateProofReport({...valid,calls:[call]}),/supplies no value|requires the paired model/);
 });
 
+test('ordinal 189 accepts legacy unidentified and exact NtCreateEvent ABI metadata only', () => {
+  const args = [0x1000, 0x1010, 1, 0];
+  const call = { ordinal: 189, status: 1, arguments: args };
+  const legacy = report({ stop: { status: 1, target: 0xFE000000, ordinal: 189,
+    stackArguments: args, service: { ordinal: 189, name: null, modeled: false } }, calls: [call] });
+  assert.equal(validateProofReport(legacy), legacy);
+  const legacyDiagnostic = { ...legacy, calls: [{ ordinal: 189, status: 1, arguments: [args[0]] }] };
+  assert.equal(validateProofReport(legacyDiagnostic), legacyDiagnostic);
+  const legacyWithoutStackArguments = { ...legacyDiagnostic, stop: { ...legacy.stop } };
+  delete legacyWithoutStackArguments.stop.stackArguments;
+  assert.equal(validateProofReport(legacyWithoutStackArguments), legacyWithoutStackArguments);
+  assert.throws(() => validateProofReport({ ...legacyDiagnostic,
+    calls: [{ ordinal: 189, status: 1, arguments: [args[0] + 1] }],
+  }), /match the captured stop stack arguments/);
+  assert.throws(() => validateProofReport({ ...legacy,
+    stop: { ...legacy.stop, service: { ...legacy.stop.service, extra: true } },
+  }));
+
+  const service = { ordinal: 189, name: 'NtCreateEvent', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus' };
+  const known = report({ stop: { status: 1, target: 0xFE000000, ordinal: 189,
+    stackArguments: args, service }, calls: [call] });
+  assert.equal(validateProofReport(known), known);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ordinal: 189, status: 1, arguments: [args[0]] }],
+  }), /four arguments/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ordinal: 189, status: 0, arguments: args }],
+  }), /remains unsupported/);
+  assert.throws(() => validateProofReport({ ...legacy,
+    calls: [{ ordinal: 189, status: 0, arguments: [args[0]] }],
+  }), /remains unsupported/);
+  for (const change of [
+    { ordinal: 188 }, { callingConvention: 'cdecl' }, { argumentBytes: 12 },
+    { returns: 'void' }, { output: 'event-handle' }, { result: 'signaled' },
+    { nameSemantics: 'unnamed-event' }, { eventType: 'notification' },
+  ]) assert.throws(() => validateProofReport({ ...known,
+    stop: { ...known.stop, service: { ...service, ...change } },
+  }));
+  for (const length of [0, 1, 3, 5]) {
+    const malformed = report({ stop: known.stop, calls: [{ ...call,
+      arguments: Array.from({ length }, (_, index) => args[index] ?? 0) }] });
+    assert.throws(() => validateProofReport(malformed), /four arguments/);
+  }
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [call, { ordinal: 189, status: 1, arguments: args }],
+  }), /sole final call/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [call, { ordinal: 3, status: 1, arguments: [] }],
+  }), /sole final call/);
+  assert.throws(() => validateProofReport({ ...known, stop: { ...known.stop, ordinal: 190,
+    service: { ordinal: 190, name: null, modeled: false } } }), /sole final call/);
+  const oversized = 0x1_0000_0000;
+  assert.throws(() => validateProofReport({ ...known,
+    stop: { ...known.stop, stackArguments: [oversized, ...args.slice(1)] },
+    calls: [{ ...call, arguments: [oversized, ...args.slice(1)] }],
+  }), /unsigned 32-bit/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ...call, output: { status: 0, handle: 0x80004 } }],
+  }), /no modeled result/);
+});
+
 const counterReport=()=>{
   const r=performanceReport();
   const profile={kind:'synthetic-performance-counter',synthetic:true,source:'paired-performance-clock'};

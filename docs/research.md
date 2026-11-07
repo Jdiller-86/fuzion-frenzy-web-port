@@ -23,7 +23,7 @@ Preparation retains original-byte identity, independent decoder agreement, compl
 
 ## Startup observation limits
 
-The kernel capture digest covers the recorder's argument count/words and status. It is computed by the bounded runtime; some older JSON serializers omit argument tails for modeled services, so their displayed call objects cannot independently reconstruct the full digest. An unsupported recorder may retain only a diagnostic argument even when an original caller/stop proves a larger ABI. Keep these scopes explicit when comparing capture windows; matching runtime digests, serialized fields and source-owned hash fixtures establish different facts.
+The kernel capture digest covers the recorder's argument count/words and status. It is computed by the bounded runtime; some older JSON serializers omit argument tails for modeled services, so their displayed call objects cannot independently reconstruct the full digest. The current generic unsupported recorder captures four diagnostic words, while a legacy frontend may display only one; original caller/stop evidence establishes the actual ABI separately. Keep these scopes explicit when comparing capture windows; matching runtime digests, serialized fields and source-owned hash fixtures establish different facts.
 
 The legacy ABI diagnostic getter's slots 3-5 count stack inequality among logged calls, although the browser labels them as ESI. Slots 6-8 are unused zeros. Aggregate diagnostics therefore do not identify a particular changed nonvolatile register or establish absence of ESP faults. Call/return traces and static instruction review support their own bounded claims; preserve unresolved attribution rather than treating these labels as new CPU evidence.
 
@@ -32,6 +32,14 @@ The legacy ABI diagnostic getter's slots 3-5 count stack inequality among logged
 The explicit synthetic mutant profile supports only the reached null-attributes, initially unowned creation request. It retains up to four opaque handle records until whole-proof reset and preflights writable guest output before committing a record. It supplies no native mutex, named-object behavior, acquisition, waiting, release, close or complete kernel-object ABI. Source-owned native/compiled-bridge fixtures and the original browser call establish their respective bounded contracts, not retail-kernel equivalence.
 
 For this service, the generic default-off recorder captures four diagnostic stack words and the old frontend displays one. Original call-site and pinned declaration evidence establish three actual arguments; the newly selected handler and frontend record those three, with NTSTATUS/EAX and stack-return observations. Keep that arity correction distinct from the unreconstructable argument tails in older capture windows.
+
+## Named event request and namespace reference
+
+The reached original `CreateEventA` follows its nonzero-name path through `XapiFormatObjectAttributes`. Original bytes and checked browser execution agree on a 12-byte object-attributes layout: root, counted ANSI-name pointer and attribute word. The reached ordinal-189 request has type 1 and initial state zero. The pinned xboxrecomp declaration and original caller establish four 32-bit arguments, stdcall/16-byte cleanup and NTSTATUS return; metadata and four-word capture do not implement creation. Historical one-word diagnostic reports remain distinct from complete ABI evidence.
+
+The pinned [Cxbx object-manager header](https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/blob/585c49a50af1255ab155099e06f24505f9c5a800/src/core/kernel/common/ob.h) identifies -4 as the Win32 named-object directory, -3 as the DOS-device directory and `0x80` as `OBJ_OPENIF`. Its [object insertion implementation](https://github.com/Cxbx-Reloaded/Cxbx-Reloaded/blob/585c49a50af1255ab155099e06f24505f9c5a800/src/core/kernel/exports/EmuKrnlOb.cpp#L786) distinguishes a newly inserted object from a same-type object opened by name, returning a name-exists informational status for the latter. These are replacement-kernel reference semantics, not original-console observations. The retained xboxrecomp bridge ignores object attributes and documents only root -3, so it cannot establish the reached root -4 behavior by itself.
+
+Preserve the original counted name and namespace; do not substitute anonymous creation or discard flags. A bounded modeled event table, existing-name identity, successful output and all subsequent signal/wait/close behavior still require implementation and separate acceptance. Original name bytes and raw reports remain private. Static bytes at the observed buffer address are not a historical browser RAM witness.
 
 ## AV services and provenance
 
