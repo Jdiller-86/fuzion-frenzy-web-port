@@ -1,6 +1,6 @@
-# Project status: startup reads explicit modeled OS settings
+# Project status: startup continues through original time conversion
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. An explicit synthetic OS-settings profile completed the reached index-255 query. Original startup now reaches **status 2 at untranslated routine `0x001E8839`**, return address `0x001E88D7`, with 407 distinct routines and 573 completed kernel operations. Without the opt-in profile, the earlier settings refusal is reproduced. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. Original startup now reaches **status 2 at untranslated routine `0x001E8E74`**, return address `0x0004C526`, with 411 distinct routines and 605 completed kernel operations. The current comparison profile explicitly supplies synthetic UTC OS settings and a fixed system-time fixture while retaining the live monotonic clock. Live-clock runs reach the same stop with time-dependent formatting traces. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -201,7 +201,7 @@ Five successive admissions exported only the exact Chrome-reached functions from
 
 Fresh Chrome triples preserved fixed-control and inert stops and stable sequences; each experiment retained its predecessor's entry, trace and captured-call prefixes. An additional final candidate-module control matched the prior candidate control and its stable backend observations. A repeat final triple reproduced the new stop and stable sequences. Two pinned-compiler builds reproduced the final module byte for byte. The final report retains 61 suffix call rows and 573 total events, with the same first-window prefix digest. The new successful kernel operation is a system-time query; its clock-derived output is not a stable comparison field.
 
-The first new routine's signed divide has a source-established unsigned 16-bit dividend and constant divisor 100, excluding negative-shift, zero-divisor and quotient-overflow cases in that body. Signed low-product arithmetic in the later helper depends on the retained explicit `-fwrapv` compiler contract. These are bounded reviewed translation conditions, not a general correctness claim for every instruction in the upstream lifter. The new settings request stops before these helpers return to their callers.
+The first new routine's signed divide has a source-established unsigned 16-bit dividend and constant divisor 100, excluding negative-shift, zero-divisor and quotient-overflow cases in that body. Signed low-product arithmetic in the later helper depends on the retained explicit `-fwrapv` compiler contract. These are bounded reviewed translation conditions, not a general correctness claim for every instruction in the upstream lifter. The return paths were subsequently exercised by the time-conversion batch below.
 
 Independent Sol High review passed all five admissions. The [nxdk declaration](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h) identifies index `0xFF` as `XC_MAX_OS`, distinct from `XC_MAX_ALL` (`0xFFFF`). The earlier DWORD provider covers explicitly configured indices 17 and 10; the separate opt-in OS model is described below. All fixed capture, trace and Wasm memory limits remain unchanged.
 
@@ -215,6 +215,24 @@ The selected profile explicitly declares synthetic UTC, zero biases/date rules/n
 
 Two pinned-compiler builds reproduced module SHA-256 prefix `7917aab3`. With no opt-in, fresh Chrome runs preserved the earlier control, inert and settings-refusal stops and stable backend observations. The experiment changes only the selected OS profile, retains all earlier trace/entry prefixes and all preceding captured calls, and completes the same ordinal-24 arguments. Chrome reports type 3, 96 returned bytes, EAX zero and ESP advancing from `0x03C10A44` to `0x03C10A5C`. A provider snapshot compares the first 96 bytes immediately after copying; zero padding is source/native-fixture verified, and the snapshot does not establish later consumer memory. A subsequent status-to-DOS-error call succeeds before the new untranslated stop.
 
-The final report retains 62 suffix rows, 574 total kernel events, the same first-window prefix digest and 6,655 trace events. The 446 seeds, three direct views, 20,983 instructions, 31 exports and fixed resource limits are unchanged. Repeated triples and a direct candidate-module control comparison passed. Independent Sol High correctness review passed, as did 62/62 native checks including sanitizers and 214/214 runtime checks. CI remains pending. The next task is guarded original-byte/decoder-checked admission of `0x001E8839` using the retained profile and comparisons.
+That report retains 62 suffix rows, 574 total kernel events, the same first-window prefix digest and 6,655 trace events. The 446 seeds, three direct views, 20,983 instructions, 31 exports and fixed resource limits are unchanged. Repeated triples and a direct candidate-module control comparison passed. Independent Sol High correctness review passed, as did 62/62 native checks including sanitizers and 214/214 runtime checks. CI remains pending. Subsequent admissions and the comparison clock are recorded below.
+
+## Original time conversion and comparison clock
+
+| Admission | Prepared seeds + views / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / completed kernel operations |
+| --- | --- | --- | --- | --- |
+| `0x001E8839` | 447 + 3 / 20,998 | `06df19a8` | Status 2 at `0x001E885A`, return `0x001E88F7` | 408 / 573 |
+| `0x001E885A` | 448 + 3 / 21,017 | `fa947061` | Status 2 at `0x001DF950`, return `0x001E8DD1` | 409 / 574 |
+| `0x001DF950` | 449 + 3 / 21,036 | `4dfc3aad` | Status 2 at `0x001E8E74`, return `0x0004C526` | 411 / 605 |
+
+The three exact retained bodies passed original-byte, complete-layout and decoder checks without changing prior bodies, views, bindings or limits. Independent review checked the name/date helpers, the unsigned low-64-bit multiply, its saved register and both 16-byte callee-cleanup returns. Chrome continued through the original time-conversion path and its existing time-fields service. A further 38-byte FATX append advanced EOF from 172 to 210 and revision from 81 to 83, with the same cluster, free-cluster count and eight backing pages; the handle then closed. Each admission preserved the preceding control/inert sequences and experiment prefixes.
+
+Two live-clock runs reached the same stop and retained identical kernel call frames and canonical capture digests, but their time fields differed. A numeric-formatting path added one division-helper call for a different seconds value, then the traces rejoined. Its aggregate ABI diagnostic also differed by one event. Those live reports are retained as a measured variation; they are not an exact-repeat pass.
+
+The default-off `fixed-system-clock` profile now permits an explicit synthetic system-time fixture. It fixes only the wall-clock supplier; interrupt timing still uses `performance.now`. Settings and report metadata must identify the same fixed profile, and captured successful system-time queries must match its value. Without the profile, the existing live-clock behavior and metadata remain unchanged. This fixture supports comparison and does not establish original-console clock fidelity or gameplay timing.
+
+With the first live run's system timestamp selected explicitly, the candidate reproduced all 7,101 trace events, 3,572 original-entry events, 94 suffix call frames, capture digests and ABI diagnostics of that reference. A separate fixed-profile baseline/candidate pair preserved its full prefixes, and a repeat candidate matched the complete stop, stable sequences and backend observations. The final report contains 606 total kernel events and 605 completions; storage remains 512 call rows, 8,192 trace rows and 128 MiB fixed Wasm memory, with the 1,024-event total capture ceiling unchanged.
+
+Two pinned-compiler builds reproduced the final module. Independent Sol High review passed the admissions and the fixed-input comparisons. Runtime checks passed 219/219; the preceding native 62/62 result still covers the unchanged C components. CI remains pending. The next task is bounded admission of `0x001E8E74`, retaining the declared UTC/fixed-system-time comparison inputs and separate live-clock evidence.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

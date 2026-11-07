@@ -11,6 +11,7 @@
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 import { validateKernelCapture } from './kernel-capture.mjs';
 import { encodeConsoleOsSettings } from './console-os-settings.mjs';
+import { parseSystemClockProfile } from './browser-clock.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -30,6 +31,15 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
+  const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
+  const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
+  if((selectedClock===undefined)!==(declaredClock===undefined) ||
+     report.clock?.system==='configured synthetic fixed Unix time; UTC epoch 1601' && declaredClock===undefined ||
+     selectedClock && (selectedClock.unixMillis!==declaredClock.unixMillis ||
+       !Array.isArray(report.calls) || report.clock.kind!=='browser-clock' ||
+       report.clock.system!=='configured synthetic fixed Unix time; UTC epoch 1601' ||
+       report.clock.monotonic!=='performance.now'))
+    throw new Error('Fixed system clock evidence must match the explicitly selected synthetic profile');
   if(report.consoleSettings?.osSettings!==undefined) {
     encodeConsoleOsSettings(report.consoleSettings.osSettings);
     if(!Array.isArray(report.calls) || report.consoleSettings.osSettings.miscFlags!==report.consoleSettings.miscFlags ||
@@ -403,6 +413,10 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      if(selectedClock && call.ordinal===128 && call.status===0 &&
+         (call.arguments.length!==1 || !call.arguments[0] || call.arguments[0]%4 ||
+          call.output?.systemTicks!==((BigInt(selectedClock.unixMillis)+11644473600000n)*10000n).toString()))
+        throw new Error('System-time query must match the selected fixed clock');
       if(call.ordinal===24 && call.arguments[0]===255 && call.status===0) {
         const out=call.output;
         if(!report.consoleSettings?.osSettings || call.arguments.length!==5 ||

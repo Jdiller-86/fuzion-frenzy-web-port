@@ -27,12 +27,14 @@ const fields = ['id','handle','handleOpen','state','object','fs','stackLow','sta
   'routine','context','system','initialSp'];
 self.onmessage = async event => {
   try {
-    const clock = createProofClock();
+    const selectedClock=event.data.settingsBytes?parseLocalConsoleSettings(event.data.settingsBytes).systemClock:undefined;
+    const clock = createProofClock({fixedSystemProfile:selectedClock});
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
       await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
+    if(selectedClock && !timerAbi) throw new Error('This module does not consume the selected clock fixture');
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');

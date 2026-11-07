@@ -1,15 +1,29 @@
 const TICKS_PER_MS = 10000n;
 const EPOCH_OFFSET_MS = 11644473600000n;
 const U64_MAX = (1n << 64n) - 1n;
+const SYSTEM_CLOCK_MAX_UNIX_MILLIS = 253402300799999;
+
+export function parseSystemClockProfile(value) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).length !== 3 ||
+      !Object.hasOwn(value, 'kind') || !Object.hasOwn(value, 'synthetic') || !Object.hasOwn(value, 'unixMillis') ||
+      value.kind !== 'fixed-system-clock' || value.synthetic !== true ||
+      !Number.isSafeInteger(value.unixMillis) || value.unixMillis < 0 || value.unixMillis > SYSTEM_CLOCK_MAX_UNIX_MILLIS) {
+    throw new Error('Invalid explicit synthetic fixed system clock profile');
+  }
+  return { kind: 'fixed-system-clock', synthetic: true, unixMillis: value.unixMillis };
+}
 
 // Clock-only host capability. The caller supplies the already admitted Wasm
 // memory; a guest request can write exactly four bounded little-endian words.
-export function createProofClock({ monotonic = () => performance.now(), wall = () => Date.now() } = {}) {
+export function createProofClock({ monotonic = () => performance.now(), wall = () => Date.now(), fixedSystemProfile } = {}) {
+  const fixedSystem = parseSystemClockProfile(fixedSystemProfile);
   const origin = monotonic();
   if (!Number.isFinite(origin) || origin < 0) throw new Error('Invalid monotonic clock origin');
   let previous = origin, previousTicks = 0n, minimumDelta, samples = 0;
   function sample() {
-    const now = monotonic(), date = wall();
+    const now = monotonic(), date = fixedSystem === undefined ? wall() : fixedSystem.unixMillis;
     const elapsedTicks = Math.floor((now - origin) * Number(TICKS_PER_MS));
     if (!Number.isFinite(now) || now < previous || !Number.isSafeInteger(elapsedTicks) || elapsedTicks < 0 ||
         !Number.isSafeInteger(date)) throw new Error('Invalid browser clock sample');
@@ -31,9 +45,12 @@ export function createProofClock({ monotonic = () => performance.now(), wall = (
       view.setBigUint64(0, interrupt, true); view.setBigUint64(8, system, true);
     },
     describe() {
-      return { kind: 'browser-clock', monotonic: 'performance.now', system: 'Date.now; UTC epoch 1601',
+      const description = { kind: 'browser-clock', monotonic: 'performance.now',
+        system: fixedSystem === undefined ? 'Date.now; UTC epoch 1601' : 'configured synthetic fixed Unix time; UTC epoch 1601',
         samples, minimumObservedPositiveTicks: minimumDelta?.toString() ?? null,
         limitation: 'Observed sample deltas are not timer resolution or original-console/suspend fidelity.' };
+      if (fixedSystem !== undefined) description.fixedSystemProfile = { ...fixedSystem };
+      return description;
     }
   };
 }

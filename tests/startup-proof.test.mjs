@@ -385,6 +385,17 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
   assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(8193)));
 });
 
+test('local settings optionally propagate a strict fixed system clock profile',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify(value)).buffer;
+  const base={kind:'local-console-settings',synthetic:true,miscFlags:5};
+  const fixed={kind:'fixed-system-clock',synthetic:true,unixMillis:1234};
+  assert.deepEqual(parseLocalConsoleSettings(bytes(base)),base);
+  assert.deepEqual(parseLocalConsoleSettings(bytes({...base,systemClock:fixed})),{...base,systemClock:fixed});
+  for(const bad of [{...fixed,extra:1},{...fixed,synthetic:false},{...fixed,unixMillis:-1},
+    {...fixed,unixMillis:253402300800000},{...fixed,unixMillis:1.5},{...fixed,kind:'wall-clock'}])
+    assert.throws(()=>parseLocalConsoleSettings(bytes({...base,systemClock:bad})),/fixed system clock profile/);
+});
+
 test('the empty PFIFO profile requires explicit aligned base/end and put at the base', () => {
   const bytes = value => new TextEncoder().encode(JSON.stringify(value)).buffer;
   assert.equal(parseLocalPfifoProfile(bytes({})), undefined);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../runtime/browser/proof-report.mjs';
+import { createProofClock } from '../runtime/browser/browser-clock.mjs';
 
 const report = (edit = {}) => ({
   kind: 'thread-startup-boundary',
@@ -106,6 +107,30 @@ test('console OS settings profile requires coherent captured ordinal-24 evidence
   const refused = report({ stop: { status: 9, target: 255, ordinal: 24 },
     calls: [{ ordinal: 24, status: 0xc00000bb, arguments: [255, 0x1000, 0x2000, 256, 0] }] });
   assert.equal(validateProofReport(refused), refused);
+});
+
+test('fixed system clock reports bind selected profile, declaration and captured query', () => {
+  const fixed = { kind: 'fixed-system-clock', synthetic: true, unixMillis: 1234 };
+  const clock = createProofClock({ monotonic: () => 0, fixedSystemProfile: fixed }).describe();
+  const make = (settings = fixed, description = clock, calls) => report({
+    consoleSettings: { systemClock: settings }, clock: description, calls,
+  });
+  const ticks = ((1234n + 11644473600000n) * 10000n).toString();
+  const accepted = make(fixed, clock, [{ ordinal: 128, status: 0, arguments: [0x1000], output: { systemTicks: ticks } }]);
+  assert.equal(validateProofReport(accepted), accepted);
+  assert.throws(() => validateProofReport(make(fixed, clock)));
+  for (const bad of [null, { ...clock, fixedSystemProfile: undefined },
+    { ...clock, fixedSystemProfile: { ...fixed, extra: true } },
+    { ...clock, fixedSystemProfile: { ...fixed, synthetic: false } },
+    { ...clock, kind: 'other' }, { ...clock, system: 'Date.now; UTC epoch 1601' },
+    { ...clock, monotonic: 'Date.now' }])
+    assert.throws(() => validateProofReport(make(fixed, bad, accepted.calls)));
+  assert.throws(() => validateProofReport(make({ ...fixed, unixMillis: 1235 }, clock, accepted.calls)), /match the explicitly selected/);
+  assert.throws(() => validateProofReport(make(fixed, clock, [{ ordinal: 128, status: 0, arguments: [0x1000], output: { systemTicks: '1' } }])), /match the selected fixed clock/);
+  assert.throws(() => validateProofReport(make(fixed, clock, [{ ...accepted.calls[0], arguments: [] }])), /match the selected fixed clock/);
+  assert.throws(() => validateProofReport(report({clock:{...clock,fixedSystemProfile:undefined},calls:[]})), /match the explicitly selected/);
+  const liveLegacy = report();
+  assert.equal(validateProofReport(liveLegacy), liveLegacy);
 });
 
 test('bounded debug service accepts print metadata and binds refusal to the exact stop', () => {
