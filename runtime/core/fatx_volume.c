@@ -5,6 +5,7 @@
 enum { FF_FATX_HANDLE_ROOT=0, FF_FATX_HANDLE_FILE=1 };
 static uint32_t create_empty_internal(ff_fatx_volume *,uint32_t,const uint8_t *,uint32_t,uint32_t,
                                       const uint8_t *,uint32_t,ff_fatx_directory_entry *,int);
+static uint32_t reopen_empty_root_file(ff_fatx_volume *,const ff_fatx_mount *,const uint8_t *,uint32_t);
 
 static uint32_t get(const ff_fatx_volume *fs,uint32_t address,unsigned bytes)
 {
@@ -193,8 +194,9 @@ uint32_t ff_fatx_create_file_guest(ff_fatx_volume *fs,const uint32_t args[9])
        (name_bytes && !admitted(fs,buffer,name_bytes,FF_VM_READ)))
         return FF_BOOT_UNSUPPORTED;
     /* This service slice admits only the observed X:\\name request shape. */
+    const uint32_t disposition=args[7];
     if(access!=0x40100080u || allocation || args[5]!=0x80u || args[6]!=3u ||
-       args[7]!=5u || args[8]!=0x60u || flags!=0x40u || name_bytes<4u)
+       (disposition!=3u && disposition!=5u) || args[8]!=0x60u || flags!=0x40u || name_bytes<4u)
         return FF_BOOT_UNSUPPORTED;
     const uint8_t *guest=fs->disk->memory->ram+buffer;
     if(!((guest[0]>='A' && guest[0]<='Z') || (guest[0]>='a' && guest[0]<='z')) ||
@@ -228,14 +230,26 @@ uint32_t ff_fatx_create_file_guest(ff_fatx_volume *fs,const uint32_t args[9])
         if(!((c>='A'&&c<='Z') || (c>='a'&&c<='z') || (c>='0'&&c<='9') ||
              c=='.' || c=='_' || c=='-'))return FF_BOOT_UNSUPPORTED;
     }
-    ff_fatx_directory_entry created;
-    const uint32_t status=create_empty_internal(fs,mount->id,NULL,0,0x40u,name,file_name_bytes,&created,1);
-    if(status)return status==FF_BOOT_NO_MEMORY?result(fs,iosb,status,0):status;
+    uint32_t information=2u; /* FILE_CREATED */
+    if(disposition==3u) {
+        /* File objects lack pathname identity, including after a handle closes
+         * with a retained reference. Refuse ambiguous sharing on this mount. */
+        for(unsigned i=0;i<FF_FATX_FILES;++i)
+            if(fs->files[i].id && fs->files[i].kind==FF_FATX_HANDLE_FILE && fs->files[i].mount==mount->id)
+                return FF_BOOT_UNSUPPORTED;
+        const uint32_t status=reopen_empty_root_file(fs,mount,name,file_name_bytes);
+        if(status)return status;
+        information=1u; /* FILE_OPENED */
+    } else {
+        ff_fatx_directory_entry created;
+        const uint32_t status=create_empty_internal(fs,mount->id,NULL,0,0x40u,name,file_name_bytes,&created,1);
+        if(status)return status==FF_BOOT_NO_MEMORY?result(fs,iosb,status,0):status;
+    }
     *slot=(ff_fatx_file){.id=fs->next_file++,.mount=mount->id,.handle=fs->next_handle,
         .access=access,.share=args[6],.options=args[8],.references=1,.kind=FF_FATX_HANDLE_FILE};
     fs->next_handle+=4u;++fs->file_count;++fs->active;++fs->opened;++mount->file_objects;
     put(fs,output,slot->handle,4);
-    return result(fs,iosb,0,2u);
+    return result(fs,iosb,0,information);
 }
 uint32_t ff_fatx_query_size(ff_fatx_volume *fs,const uint32_t args[5])
 {
@@ -469,6 +483,26 @@ static int name_equal(const char *entry_name,const uint8_t *path,uint32_t bytes,
         if(a!=b)return 0;
     }
     return 1;
+}
+static uint32_t reopen_empty_root_file(ff_fatx_volume *fs,const ff_fatx_mount *mount,
+                                       const uint8_t *name,uint32_t bytes)
+{
+    const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(mount->root_cluster-1u)*mount->cluster_bytes;
+    int found=0;
+    /* The caller admits a current single-cluster root. Check every occupied
+     * entry for ambiguity and require backing even for the end marker. */
+    for(uint32_t offset=0;offset+64u<=mount->cluster_bytes;offset+=64u) {
+        if(!ff_disk_has(fs->disk,base+offset,64u))return FF_BOOT_UNSUPPORTED;
+        ff_fatx_directory_entry entry;
+        const uint32_t parsed=parse_entry(fs,mount,base+offset,&entry);
+        if(parsed==FF_FATX_PARSE_END)break;
+        if(parsed==FF_FATX_PARSE_DELETED)continue;
+        if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
+        if(!name_equal(entry.name,name,bytes,0x40u))continue;
+        if(found || entry.attributes!=0x20u || entry.first_cluster || entry.size)return FF_BOOT_UNSUPPORTED;
+        found=1;
+    }
+    return found?0:FF_BOOT_UNSUPPORTED;
 }
 static uint32_t directory_find(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t start,
                                const uint8_t *path,uint32_t bytes,uint32_t flags,

@@ -42,8 +42,9 @@ typedef struct {
 
 uint32_t ff_fatx_init(ff_fatx_volume *,ff_local_disk *,ff_object_namespace *);
 uint32_t ff_fatx_open_root(ff_fatx_volume *,const uint32_t args[6]);
-/* Narrow reached NtCreateFile shape: create a new root-level file through an
- * explicitly linked DOS drive to a current owned FATX mount. */
+/* Narrow reached NtCreateFile shapes: create a missing root-level file or
+ * reopen an existing empty file through an explicitly linked DOS drive to
+ * a current owned FATX mount. Other file-service cases remain guarded. */
 uint32_t ff_fatx_create_file_guest(ff_fatx_volume *,const uint32_t args[9]);
 uint32_t ff_fatx_query_size(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_close(ff_fatx_volume *,uint32_t handle);

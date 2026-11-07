@@ -78,6 +78,13 @@ static uint32_t create_guest_file(const char *path,uint32_t output)
     const uint32_t request[9]={output,0x40100080,ATTR,IOSB,0,0x80,3,5,0x60};
     return ff_fatx_create_file_guest(&fs,request);
 }
+static uint32_t open_if_guest_file(const char *path)
+{
+    string(NAME,TEXT,path);put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    const uint32_t request[9]={OUT,0x40100080,ATTR,IOSB,0,0x80,3,3,0x60};
+    save();
+    return ff_fatx_create_file_guest(&fs,request);
+}
 static void rewrite_fat(uint32_t first,uint32_t second)
 {
     name("\\Device\\Harddisk0\\Partition0");uint32_t raw[6]={OUT,0x100003,ATTR,IOSB,3,0x18};
@@ -337,6 +344,56 @@ static void guest_create_file_is_narrow_and_owned(void)
     for(unsigned i=0;i<64;++i)assert(ff_disk_byte(&disk,part_base+270336+i)==stale_entry[i]);
     assert(!ff_fatx_close(&fs,root));
 }
+static void guest_open_if_existing_file_is_narrow_and_read_only(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    const ff_local_disk before_disk=disk;
+    const uint32_t free_clusters=fs.mounts[0].free_clusters,files_before=fs.file_count;
+    ff_fatx_directory_entry before_entry,after_entry;
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"EMPTY.BIN",9,0x40,&before_entry));
+    assert(!open_if_guest_file("Z:\\empty.bin"));
+    const uint32_t handle=(uint32_t)get(OUT,4);
+    assert(handle>=FF_FATX_HANDLE_BASE && handle<FF_FATX_HANDLE_LIMIT && get(IOSB,4)==0 && get(IOSB+4,4)==1);
+    assert(fs.file_count==files_before+1 && fs.files[1].handle==handle && fs.files[1].kind==1 &&
+           fs.files[1].access==0x40100080 && fs.files[1].share==3);
+    assert(disk.revision==before_disk.revision && disk.allocated_pages==before_disk.allocated_pages &&
+           !memcmp(disk.pages,before_disk.pages,sizeof disk.pages) && fs.mounts[0].free_clusters==free_clusters &&
+           fs.mounts[0].revision==before_disk.revision);
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"empty.bin",9,0x40,&after_entry));
+    assert(!strcmp(before_entry.name,after_entry.name) && before_entry.attributes==after_entry.attributes &&
+           before_entry.first_cluster==after_entry.first_cluster && before_entry.size==after_entry.size);
+
+    /* File handles do not retain names, so a second open on this mount is an
+     * ambiguous sharing case and must be rejected transactionally. */
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    uint32_t token;
+    assert(!ff_fatx_reference_handle(&fs,handle,&token));
+    assert(!ff_fatx_close(&fs,handle));
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_release_file(&fs,token));
+    assert(!open_if_guest_file("z:\\EMPTY.BIN"));
+    assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
+    assert(open_if_guest_file("z:\\MISSING.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(open_if_guest_file("z:\\SUBDIR")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(open_if_guest_file("z:\\HELLO.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"EMPTY.BIN",0x20,0,0);
+    dirent(DATA+64,"empty.bin",0x20,0,0);write_raw_page(part_base+270336);
+    root=open_root();link_fatx_drive();
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);uint32_t roots[FF_FATX_FILES];
+    roots[0]=open_root();link_fatx_drive();
+    for(unsigned i=1;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    const uint64_t full_revision=disk.revision;const uint32_t full_pages=disk.allocated_pages;
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_NO_MEMORY);
+    assert(get(IOSB,4)==FF_BOOT_NO_MEMORY && fs.file_count==FF_FATX_FILES &&
+           disk.revision==full_revision && disk.allocated_pages==full_pages);
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+}
 static void fatx_create_file_with_data(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
@@ -569,6 +626,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, sparse-backing failure, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

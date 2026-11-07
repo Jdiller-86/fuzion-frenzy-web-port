@@ -988,10 +988,13 @@ self.onmessage = async event => {
       const fileFields=['id','mount','handle','access','share','options','references'];
       const files=Array.from({length:16},(_,i)=>Object.fromEntries(fileFields.map((key,n)=>[key,api.ff_probe_fatx_file_word(i,n)>>>0]))).filter(file=>file.id);
       if(files.length!==fileCount || files.some(file=>!file.references || !mounts.some(mount=>mount.id===file.mount)))throw new Error('Invalid FATX file lifetime');
-      const createdEmptyFile = calls.some(call=>call.ordinal===190 && call.status===0 &&
-        call.output?.handle>=0x70000 && call.output.handle<0x80000 && call.output.information===2);
+      const fatxCreateCalls = calls.filter(call=>call.ordinal===190 && call.status===0 &&
+        call.output?.handle>=0x70000 && call.output.handle<0x80000);
+      const createdEmptyFile = fatxCreateCalls.some(call=>call.output.information===2);
+      const reopenedFile = fatxCreateCalls.some(call=>call.arguments[7]===3 && call.output.information===1);
       localFatx={ready:true,mountCount,fileCount,active:api.ff_probe_fatx_word(3),opened:api.ff_probe_fatx_word(4),closed:api.ff_probe_fatx_word(5),mounts,files,
-        persistent:false,scope:createdEmptyFile?'backed FATX root/size and bounded empty-file creation':
+        persistent:false,scope:reopenedFile?'backed FATX root/size and bounded file create/reopen':
+          createdEmptyFile?'backed FATX root/size and bounded empty-file creation':
           'backed FATX root/size; general file operations unsupported'};
     }
     let memoryAccounting;

@@ -16,6 +16,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D451 | Route the reached DOS-drive create through the mounted FATX provider | Chrome observed ordinal 190 with disposition 5 and a title-created link to the mounted synthetic utility partition. Admit the missing-file case in its owned single-cluster root. Guard existing targets and other file operations until their behavior is established. |
 | D452 | Keep one original envelope for the reached CRT cleanup entry | The direct call at `0x001E4DC2` reaches an eight-byte entry already checked inside `0x001E4D58`. The opt-in emitter validates its single caller and stack shape, charges the extra emission to the existing budgets, and excludes it from indirect lookup. |
 | D453 | Serve the reached debug print with checked metadata only | The opt-in INT `0x2D` handler validates service 1 and the counted guest ranges, admits up to eight requests, and leaves guest state untouched. Chrome completed one 43-byte request before the file reopen stop. |
+| D454 | Reopen the reached empty FATX file | Chrome reached `FILE_OPEN_IF` for the previously created file after its handle closed. Require a unique backed empty archive entry and no live file objects on that mount. Return `FILE_OPENED` with a checked handle while preserving the directory, allocation and revision. |
 
 ## Contracts that remain in force
 

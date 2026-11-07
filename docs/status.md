@@ -1,6 +1,6 @@
-# Project status: startup reaches the debug-log reopen
+# Project status: startup passes the debug-log reopen
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed one guarded INT `0x2D` print request and reached **status 9 at ordinal 190 (`NtCreateFile`), value `0xC00000BB`**, with return address `0x001E950C`, 384 distinct routines and 457 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reopened its debug log through the owned FATX mount and reached **status 2 at untranslated address `0x001E0C90`**, with return address `0x0004B302`, 384 distinct routines and 460 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -65,10 +65,14 @@ The newly reached SEH epilog at `0x001E0505` produced one additional aggregate A
 
 The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The replay harness and local checks used the workstation's Node 24.22.1 and npm 11.19.1. CI on the repository's pinned Node version remains pending for these local commits. The browser comparisons and independent reviews are retained locally.
 
-## Debug print and next bounded dependency
+## Debug print and FATX reopen
 
 The opt-in `FF_DEBUG_SERVICE_PROOF` handler serves only INT `0x2D` service 1. It checks counted-ANSI descriptor and payload ranges through the guest VM, caps completed requests at eight, and exports bounded metadata. Chrome observed one 43-byte request with status zero. The handler leaves guest registers and memory untouched and does not expose message bytes. The fixed control and inert stops and stable sequences were preserved.
 
-The next request targets the same debug-log path and DOS root as the earlier successful create, with disposition 3 (`FILE_OPEN_IF`) instead of disposition 5. Its desired access, attributes, share and options match the earlier request. Verify the reached FATX reopen against the current file and handle state, then replay the paired browser runs. The corrected native suite passed 58/58 including sanitizers, runtime checks passed 201/201, and `npm run check` passed.
+The reached ordinal 190 request used disposition 3 (`FILE_OPEN_IF`) with the same path, DOS root, access, attributes, share and options as the earlier successful create. The earlier file handle had closed. The reopen requires one case-insensitive match to an empty archive entry with no allocation in the backed, single-cluster root. A missing or duplicate entry, unbacked directory data, a different target shape or any live file object on the mount keeps the service guarded.
+
+With the same 503 seeds, one direct entry and 20,714 emitted instructions, module `ecd8918d` served the unchanged request with status 0, information 1 (`FILE_OPENED`) and handle `0x00070008`. The mount stayed at revision 72 with 65,518 free clusters. Two ordinal 294 calls completed before the new stop, with the reopened handle still active. The fixed control and inert runs matched their prior stops, original entries, trace kind/address/stack sequences and kernel arguments/status. The experiment matched its earlier prefixes through the request whose result changed. Independent review and comparison reports are retained locally.
+
+Native checks passed 58/58 including sanitizers, runtime checks passed 201/201, and `npm run check` passed. The next bounded dependency is the untranslated call to `0x001E0C90`, with return address `0x0004B302`. Verify its original caller and complete routine layout before adding a checked translation within the existing budgets.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
