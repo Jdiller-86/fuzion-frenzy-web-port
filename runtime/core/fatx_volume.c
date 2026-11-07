@@ -332,21 +332,24 @@ static uint32_t parse_entry(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint64
     entry->name[length]=0;entry->attributes=attributes;entry->first_cluster=first;entry->size=size;
     return FF_FATX_PARSE_OK;
 }
+static int checked_empty_file(ff_fatx_volume *fs,const ff_fatx_file *file,ff_fatx_directory_entry *entry)
+{
+    const ff_fatx_mount *mount=mount_id(fs,file->mount);
+    if(file->kind!=FF_FATX_HANDLE_FILE || !current(fs,mount) || file->open_revision!=mount->revision)return 0;
+    const uint64_t address=file->entry_address;
+    return ff_disk_has(fs->disk,address,64u) && parse_entry(fs,mount,address,entry)==FF_FATX_PARSE_OK &&
+        entry->attributes==0x20u && !entry->first_cluster && !entry->size;
+}
 uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
 {
     if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;
     const ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
-    const ff_fatx_mount *mount=mount_id(fs,file->mount);
-    if(file->kind!=FF_FATX_HANDLE_FILE || !(file->access&0x80u) || args[4]!=34u ||
-       !current(fs,mount) || file->open_revision!=mount->revision)return FF_BOOT_UNSUPPORTED;
-    const uint64_t address=file->entry_address;
     ff_fatx_directory_entry entry;
-    if(!ff_disk_has(fs->disk,address,64u) || parse_entry(fs,mount,address,&entry)!=FF_FATX_PARSE_OK ||
-       entry.attributes!=0x20u || entry.first_cluster || entry.size)return FF_BOOT_UNSUPPORTED;
+    if(!(file->access&0x80u) || args[4]!=34u || !checked_empty_file(fs,file,&entry))return FF_BOOT_UNSUPPORTED;
     /* Owned create leaves all three on-disk timestamp words unset (all ones).
      * This profile exposes zero guest times for that placeholder only. */
     for(uint32_t offset=52u;offset<64u;offset+=4u)
-        if(disk_word(fs,address+offset,4)!=UINT32_MAX)return FF_BOOT_UNSUPPORTED;
+        if(disk_word(fs,file->entry_address+offset,4)!=UINT32_MAX)return FF_BOOT_UNSUPPORTED;
     const uint32_t iosb=args[1],output=args[2],bytes=args[3],info_bytes=56u;
     if((iosb&3u) || (output&7u))return FF_BOOT_INVALID;
     if(!admitted(fs,iosb,8,FF_VM_WRITE))return FF_VM_ACCESS_VIOLATION;
@@ -356,6 +359,21 @@ uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
     memset(fs->disk->memory->ram+output,0,info_bytes);
     put(fs,output+48u,entry.attributes,4);
     return result(fs,iosb,0,info_bytes);
+}
+uint32_t ff_fatx_set_position(ff_fatx_volume *fs,const uint32_t args[5])
+{
+    if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;
+    ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
+    ff_fatx_directory_entry entry;
+    if(file->options!=0x60u || args[3]!=8u || args[4]!=14u || !checked_empty_file(fs,file,&entry))
+        return FF_BOOT_UNSUPPORTED;
+    const uint32_t iosb=args[1],input=args[2];
+    if((iosb&3u) || (input&7u))return FF_BOOT_INVALID;
+    if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,input,8,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
+    if(overlap(iosb,8,input,8))return FF_BOOT_UNSUPPORTED;
+    if(get(fs,input,4) || get(fs,input+4u,4))return FF_BOOT_UNSUPPORTED;
+    file->position=0;
+    return result(fs,iosb,0,0);
 }
 static uint32_t directory_scan(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t start,
                                uint32_t max_clusters,uint32_t target,

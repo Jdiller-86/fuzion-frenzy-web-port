@@ -33,7 +33,7 @@ typedef struct {
 } ff_fatx_mount;
 typedef struct {
     uint32_t id,mount,handle,access,share,options,references,kind;
-    uint64_t entry_address,open_revision;
+    uint64_t entry_address,open_revision,position;
 } ff_fatx_file;
 typedef struct {
     ff_local_disk *disk;
@@ -50,6 +50,7 @@ uint32_t ff_fatx_open_root(ff_fatx_volume *,const uint32_t args[6]);
  * a current owned FATX mount. Other file-service cases remain guarded. */
 uint32_t ff_fatx_create_file_guest(ff_fatx_volume *,const uint32_t args[9]);
 uint32_t ff_fatx_query_file(ff_fatx_volume *,const uint32_t args[5]);
+uint32_t ff_fatx_set_position(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_query_size(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_close(ff_fatx_volume *,uint32_t handle);
 uint32_t ff_fatx_reference_handle(ff_fatx_volume *,uint32_t handle,uint32_t *file);

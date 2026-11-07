@@ -240,9 +240,13 @@ self.onmessage = async event => {
         exceptionHead: api.ff_probe_trace_cpu(i, 2) >>> 0 } } : {}) }));
     const state = Array.from(new Uint32Array(memory, range(api.ff_probe_state(), 64, 4), 16));
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
-    const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
-      status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
+    const calls = Array.from({ length: callCount }, (_, i) => {
+      const ordinal = api.ff_probe_kernel_word(i, 0);
+      const status = api.ff_probe_kernel_word(i, 1) >>> 0;
+      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
+      const length = ordinal === 226 && status !== 1 ? 5 : count ?? 1;
+      return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
+    });
     calls.forEach((call, i) => {
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
         call.output = {
@@ -278,6 +282,11 @@ self.onmessage = async event => {
       if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
       if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
+      if(call.ordinal===226 && !call.status) call.output={
+        ioStatus:api.ff_probe_kernel_word(i,7)>>>0,information:api.ff_probe_kernel_word(i,8)>>>0,
+        offsetWords:[api.ff_probe_kernel_word(i,9)>>>0,api.ff_probe_kernel_word(i,10)>>>0],
+        espBefore:api.ff_probe_kernel_word(i,11)>>>0,espAfter:api.ff_probe_kernel_word(i,12)>>>0,
+      };
       const diskTransfer=diskAbi && [219,236].includes(call.ordinal) && call.arguments[0]>=0x60000 && call.arguments[0]<0x70000;
       if(diskTransfer)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11)};
       if(diskTransfer && !call.status && call.output.information && api.ff_probe_disk_transfer_details?.()===1) {

@@ -1868,6 +1868,22 @@ static void query_file_information(void)
     }
     g_eax=row[1]; g_esp+=24;
 }
+#ifdef FF_FATX_PROOF
+static void set_file_position(void)
+{
+    uint32_t *row=kernel_record(226,5);
+    row[1]=fatx_ready && ff_fatx_owns_handle(row[2])?
+        ff_fatx_set_position(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],226);
+    if(!row[1]) {
+        row[7]=MEM32(row[3]);row[8]=MEM32(row[3]+4);
+        row[9]=MEM32(row[4]);row[10]=MEM32(row[4]+4);
+        row[11]=g_esp;
+    }
+    g_eax=row[1];g_esp+=24;
+    if(!row[1])row[12]=g_esp;
+}
+#endif
 #endif
 #ifdef FF_FILE_WRITE_PROOF
 static void write_regular_file(void)
@@ -2548,6 +2564,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
         if (ordinal == 289) return initialize_ansi_string;
 #ifdef FF_REGULAR_FILE_PROOF
         if (ordinal == 211) return query_file_information;
+#ifdef FF_FATX_PROOF
+        if (ordinal == 226) return set_file_position;
+#endif
 #endif
 #ifdef FF_FILE_WRITE_PROOF
 #ifdef FF_DISK_PROOF

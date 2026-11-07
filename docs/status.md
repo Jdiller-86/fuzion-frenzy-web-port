@@ -1,6 +1,6 @@
-# Project status: startup passes the FATX file-information query
+# Project status: startup passes the FATX file-position request
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the FATX file-information query and reached **status 1 at ordinal 226, target `0xFE000048`**, with return address `0x001E9195`, 392 distinct routines and 465 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the FATX file-position request and reached **status 2 at guarded direct entry `0x001E516A`**, with return address `0x001E5162`, 392 distinct routines and 466 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -98,6 +98,12 @@ Ordinal 211 queried `FileNetworkOpenInformation` for the reopened handle `0x0007
 
 With the same translation profile, module `06aa7f0f` returned status 0 and IOSB information 56. The query reported zero allocation and end of file, archive attributes `0x20` and zero padding. The reopened handle stayed live, and mount revision 72 and 65,518 free clusters stayed stable. The fixed control and inert observations matched, and the experiment preserved its stable prefix up to the same ordinal 211 request. Independent review passed. The saved trace has no immediate post-query register sample. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
 
-The next bounded dependency is ordinal 226 (`NtSetInformationFile`). The saved stack shows the same handle, class 14 and an eight-byte input. Verify the requested offset and implement only the reached, checked file-position behavior. The profile uses 511 of 512 function slots including the checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
+## FATX file-position request
+
+Ordinal 226 (`NtSetInformationFile`) requested `FilePositionInformation` on the same handle with an eight-byte signed offset. Retained call edges and the reached origin-2 branch show a zero displacement added to the queried EOF. Chrome directly captured both offset words as zero. The provider checks the current owned empty-file entry, synchronous open options, exact class and length, aligned input and IOSB ranges, and aliasing before setting the handle position. The response has status and IOSB information zero. [XboxDev declarations](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h)
+
+Module `be0e7ac4` advanced the guest stack by 24 bytes for the five-argument call and return address. The reopened handle remained live and FATX revision 72 and allocation counts stayed stable. Independent review confirmed the fixed control and inert runs matched and the experiment preserved its stable prefix through the same five arguments. A legacy module replay preserved the earlier unmodeled stop and its report shape. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
+
+The next bounded dependency is the guarded direct entry at `0x001E516A` within the existing `0x001E50E3` envelope. Verify the original call and entry shape before admitting it. The profile uses 511 of 512 function slots including the earlier checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

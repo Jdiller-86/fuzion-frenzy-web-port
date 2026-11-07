@@ -18,6 +18,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D453 | Serve the reached debug print with checked metadata only | The opt-in INT `0x2D` handler validates service 1 and the counted guest ranges, admits up to eight requests, and leaves guest state untouched. Chrome completed one 43-byte request before the file reopen stop. |
 | D454 | Reopen the reached empty FATX file | Chrome reached `FILE_OPEN_IF` for the previously created file after its handle closed. Require a unique backed empty archive entry and no live file objects on that mount. Return `FILE_OPENED` with a checked handle while preserving the directory, allocation and revision. |
 | D455 | Serve the reached FATX file-information query | Bind the file handle to its owned entry at the opening revision. Admit class 34 for the checked empty archive entry with unset timestamp placeholders, and report explicit synthetic zero times, zero allocation and EOF, and the backed archive attribute. |
+| D456 | Set the reached zero FATX file position | Chrome observed a signed zero offset on the reopened empty file. Admit the class 14 request with checked input, IOSB, synchronous handle and backing identity. Record the per-handle position without changing the disk. |
 
 ## Contracts that remain in force
 
