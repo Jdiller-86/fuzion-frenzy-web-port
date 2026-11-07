@@ -8,6 +8,7 @@ import { parseMutantProfile } from './unnamed-mutants.mjs';
 import { parseLocalMutantProfile } from './local-mutants.mjs';
 import { parseEventProfile } from './named-events.mjs';
 import { parseTraceCaptureStart } from './trace-capture.mjs';
+import { parseDebugServiceStart } from './debug-service-window.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -44,6 +45,7 @@ export function parseLocalConsoleSettings(buffer) {
     ?parseLocalMutantProfile(profile.mutants):parseMutantProfile(profile.mutants);
   const events=parseEventProfile(profile.events);
   const traceCaptureStart=parseTraceCaptureStart(profile.traceCaptureStart);
+  const debugServiceStart=parseDebugServiceStart(profile.debugServiceStart);
   if(mutants?.kind==='synthetic-win32-mutants'&&!events)
     throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
@@ -56,7 +58,8 @@ export function parseLocalConsoleSettings(buffer) {
     ...(performanceClock===undefined?{}:{performanceClock}),
     ...(systemClock===undefined?{}:{systemClock}),
     ...(profile.kernelCaptureStart === undefined ? {} : { kernelCaptureStart: profile.kernelCaptureStart }),
-    ...(traceCaptureStart === undefined ? {} : { traceCaptureStart }) };
+    ...(traceCaptureStart === undefined ? {} : { traceCaptureStart }),
+    ...(debugServiceStart === undefined ? {} : { debugServiceStart }) };
 }
 
 export function parseLocalNvConsoleSettings(buffer) {

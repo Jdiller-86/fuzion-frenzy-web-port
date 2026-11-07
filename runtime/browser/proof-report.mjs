@@ -18,6 +18,7 @@ import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
 import { parseLocalMutantProfile, validateLocalMutantState } from './local-mutants.mjs';
 import { parseEventProfile, validateEventState } from './named-events.mjs';
 import { parseTraceCaptureStart, validateTraceCapture } from './trace-capture.mjs';
+import { parseDebugServiceStart, validateDebugServiceWindow } from './debug-service-window.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -366,7 +367,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08])$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -628,9 +629,16 @@ export function validateProofReport(report) {
     if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast) || !integer(a.espCount) || !integer(a.espFirst) || !integer(a.espLast))
       throw new Error('Malformed ABI-violation state');
   }
+  const debugStart=parseDebugServiceStart(report.consoleSettings?.debugServiceStart);
+  const debugMarkers=experiments.filter(name=>name.startsWith('debugServiceWindow:'));
+  if (debugStart === undefined ? report.debugServiceWindow !== undefined || debugMarkers.length !== 0
+    : !report.debugServiceState || report.phase !== 'original-initializer-bringup' ||
+      debugMarkers.length !== 1 || debugMarkers[0] !== `debugServiceWindow:${debugStart}`)
+    throw new Error('Debug service window differs from selected settings and experiment');
+  if(debugStart !== undefined)validateDebugServiceWindow(report.debugServiceWindow,debugStart,report.debugServiceState.completed);
   if (report.debugServiceState !== undefined) {
     const d = report.debugServiceState;
-    if (!d || Object.keys(d).length !== 4 || !integer(d.completed) || d.completed > 8 || !integer(d.service) ||
+    if (!d || Object.keys(d).length !== 4 || !integer(d.completed) || d.completed > (debugStart ?? 0) + 8 || !integer(d.service) ||
         !integer(d.bytes) || d.bytes > 1024 || ![0, 0xc0000005, 0xc000000d, 0xc00000bb].includes(d.status))
       throw new Error('Malformed bounded debug-service state');
     if (d.status ? (stop.status !== 9 || stop.ordinal !== 0 || stop.target !== d.status || d.bytes !== 0)

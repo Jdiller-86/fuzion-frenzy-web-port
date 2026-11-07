@@ -42,6 +42,7 @@ const fixtures = [
   { name: 'pfifo_status', sources: ['tests/pfifo_status_test.c', runtime('pfifo_status.c')] },
   { name: 'guest_mirror', sources: ['tests/guest_mirror_test.c', runtime('guest_mirror.c')] },
   { name: 'guest_strings', sources: ['tests/guest_strings_test.c', runtime('guest_strings.c'), runtime('virtual_memory.c')] },
+  { name: 'debug_service', sources: ['tests/debug_service_test.c', runtime('debug_service.c'), runtime('guest_strings.c'), runtime('virtual_memory.c')] },
   { name: 'guest_write_map', sources: ['tests/guest_write_map_test.c', runtime('guest_write_map.c')] },
   { name: 'pfifo_channel', sources: ['tests/pfifo_channel_test.c', runtime('pfifo_channel.c')] },
   { name: 'pfifo_dma', sources: ['tests/pfifo_dma_test.c', runtime('pfifo_dma.c')] },

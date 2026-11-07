@@ -631,8 +631,8 @@ void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, u
 #if !defined(FF_VM_PROOF) || !defined(FF_DIRECTORY_PROOF)
 #error Debug service requires checked guest memory and counted strings
 #endif
-#define FF_DEBUG_SERVICE_CAPACITY 8u
-static uint32_t debug_service_state[4]; /* completed, service, length, status */
+#include "../../runtime/core/debug_service.h"
+static ff_debug_service debug_service_state;
 #endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
@@ -822,19 +822,29 @@ uint32_t ff_probe_performance_word(uint32_t index,uint32_t field)
 #ifdef FF_DEBUG_SERVICE_PROOF
 void recomp_debug_service(uint32_t service, uint32_t argument)
 {
-    uint32_t length = 0;
-    const uint32_t status = vm_ready && service == 1u && debug_service_state[0] < FF_DEBUG_SERVICE_CAPACITY
-        ? ff_debug_ansi_length(&virtual_memory, argument, &length)
-        : FF_BOOT_UNSUPPORTED;
-    debug_service_state[1] = service;
-    debug_service_state[2] = length;
-    debug_service_state[3] = status;
+    const uint32_t status = vm_ready
+        ? ff_debug_service_call(&debug_service_state, service, &virtual_memory, argument)
+        : ff_debug_service_call(&debug_service_state, service, NULL, argument);
     if (status) stop(9, status, 0);
-    ++debug_service_state[0];
 }
 uint32_t ff_probe_debug_service_word(uint32_t field)
 {
-    return field < 4u ? debug_service_state[field] : 0;
+    switch (field) {
+    case 0: return debug_service_state.total_completed;
+    case 1: return debug_service_state.last_service;
+    case 2: return debug_service_state.last_bytes;
+    case 3: return debug_service_state.last_status;
+    default: return 0;
+    }
+}
+uint32_t ff_probe_debug_service_profile(uint32_t requested_start)
+{
+    return ff_debug_service_profile(&debug_service_state, requested_start);
+}
+uint32_t ff_probe_debug_service_window_word(uint32_t field)
+{
+    return field < FF_DEBUG_SERVICE_WORDS
+        ? ff_debug_service_window_word(&debug_service_state, field) : 0;
 }
 #endif
 #ifdef FF_PFIFO_PROOF
@@ -3349,7 +3359,7 @@ void ff_probe_reset(void)
     kernel_prior_setter=0;
 #endif
 #ifdef FF_DEBUG_SERVICE_PROOF
-    memset(debug_service_state, 0, sizeof debug_service_state);
+    ff_debug_service_init(&debug_service_state);
 #endif
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_TIMESTAMP_COUNTER_GUARDS
@@ -3439,6 +3449,9 @@ void ff_probe_bind_kernels(void)
 }
 void ff_probe_run(void)
 {
+#ifdef FF_DEBUG_SERVICE_PROOF
+    ff_debug_service_begin(&debug_service_state);
+#endif
     g_esp = FF_STACK_TOP; MEM32(g_esp) = 0;
     FF_ENTRY_FUNCTION(); parent_returned = 1;
     ff_boot_thread *thread = ff_boot_next(&boot);
