@@ -29,6 +29,7 @@ const fixtures = [
   { name: 'performance_clock', sources: ['tests/performance_clock_test.c', runtime('performance_clock.c')] },
   { name: 'unnamed_mutants', sources: ['tests/unnamed_mutants_test.c', runtime('unnamed_mutants.c'), runtime('virtual_memory.c')] },
   { name: 'thread_bootstrap', sources: ['tests/thread_bootstrap_test.c', runtime('thread_bootstrap.c')] },
+  { name: 'irql_pair', sources: ['tests/irql_pair_test.c', runtime('irql_pair.c'), runtime('virtual_memory.c')] },
   { name: 'memory_statistics', sources: ['tests/memory_statistics_test.c', runtime('memory_statistics.c'), runtime('virtual_memory.c')] },
   { name: 'named_events', sources: ['tests/named_events_test.c', runtime('named_events.c'), runtime('virtual_memory.c')] },
   { name: 'local_mutants', sources: ['tests/local_mutants_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
