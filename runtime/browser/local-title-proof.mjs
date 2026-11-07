@@ -5,6 +5,7 @@ import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicCloc
 import { parsePerformanceClockProfile } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile } from './performance-counter.mjs';
 import { parseMutantProfile } from './unnamed-mutants.mjs';
+import { parseEventProfile } from './named-events.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -38,9 +39,11 @@ export function parseLocalConsoleSettings(buffer) {
     throw new Error('Performance clock source must match the selected deterministic or browser clock');
   const performanceCounter=parsePerformanceCounterProfile(profile.performanceCounter);
   const mutants=parseMutantProfile(profile.mutants);
+  const events=parseEventProfile(profile.events);
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
     ...(mutants===undefined?{}:{mutants}),
+    ...(events===undefined?{}:{events}),
     ...(deterministicClock===undefined?{}:{deterministicClock}),
     ...(clockPause===undefined?{}:{clockPause}),
     ...(performanceCounter===undefined?{}:{performanceCounter}),

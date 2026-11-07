@@ -15,6 +15,7 @@ import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicCloc
 import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
 import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
+import { parseEventProfile, validateEventState } from './named-events.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -38,6 +39,9 @@ export function validateProofReport(report) {
   if((selectedMutants===undefined)!==(report.mutantState===undefined))
     throw new Error('Mutant evidence requires its explicit synthetic profile and state');
   const mutantState=selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
+  const selectedEvents=parseEventProfile(report.consoleSettings?.events);
+  if((selectedEvents===undefined)!==(report.eventState===undefined))throw new Error('Named event evidence requires its explicit profile and state');
+  const eventState=selectedEvents?validateEventState(report.eventState,selectedEvents):undefined;
   if(mutantState) {
     if(!Array.isArray(report.calls) || report.calls.length>512)throw new Error('Mutant evidence requires bounded captured calls');
     const successes=report.calls.filter(call=>call.ordinal===192 && call.status===0);
@@ -55,6 +59,45 @@ export function validateProofReport(report) {
        mutantState.status===0xc000009a && mutantState.count!==4 ||
        report.calls.at(-1)?.ordinal!==192 || report.calls.at(-1)?.status!==1))
       throw new Error('Mutant refusal requires a matching guarded service stop');
+  }
+  if(eventState) {
+    if(!Array.isArray(report.calls)||report.calls.length>512)throw new Error('Named event evidence requires bounded captured calls');
+    const successes=report.calls.filter(c=>c.ordinal===189&&c.status===0);
+    const refusals=report.calls.filter(c=>c.ordinal===189&&c.status!==0);
+    if(refusals.length>1||refusals.length&&refusals[0]!==report.calls.at(-1))throw new Error('Named event refusal must be the sole final captured call');
+    const windowStart=report.kernelCapture?.capturedStart??0;
+    let priorHandles=windowStart&&successes.length?successes[0].output.handleCount-1:0;
+    let priorObjects=windowStart&&successes.length?successes[0].output.objectCount-(successes[0].output.openedExisting?0:1):0;
+    const seen=new Set();
+    for(const call of successes) {
+      const o=call.output,row=eventState.handles.find(h=>h.handle===o?.handle),obj=row&&eventState.objects.find(x=>x.object===row.object);
+      if(call.arguments.length!==4||!call.arguments.every(dword)||call.arguments[0]===0||call.arguments[0]%4||call.arguments[0]>0x4000000-4||
+         call.arguments[1]===0||call.arguments[1]%4||call.arguments[1]>0x4000000-12||call.arguments[2]!==1||call.arguments[3]!==0||
+         !o||!row||!obj||row.object!==o.object||obj.nameBytes!==o.nameBytes||o.handleCount!==priorHandles+1||
+         o.object>o.objectCount||
+         (o.openedExisting?(o.objectCount!==priorObjects||(!seen.has(o.object)&&windowStart===0)):(o.objectCount!==priorObjects+1||o.object!==priorObjects+1))||
+         o.objectCount>eventState.objectCount||o.handleCount>eventState.handleCount)
+        throw new Error('Named event creation order must match retained object and handle state');
+      priorHandles=o.handleCount;priorObjects=o.objectCount;seen.add(o.object);
+    }
+    const complete=!report.kernelCapture||report.kernelCapture.complete;
+    if(complete&&successes.length!==eventState.handleCount)throw new Error('Named event handle count must match successful captured calls');
+    if(eventState.status&&eventState.status!==0x40000000) {
+      if(report.stop?.ordinal!==189||report.stop.target!==eventState.status||report.stop.status!==(eventState.status===0xc000009a?4:9)||
+         report.calls.at(-1)?.ordinal!==189||report.calls.at(-1)?.status!==1||eventState.status===0xc000009a&&eventState.handleCount!==4)
+        throw new Error('Named event refusal requires a matching guarded service stop');
+    } else if(refusals.length) throw new Error('Named event error state cannot be reported as successful');
+    if(complete&&successes.length&&(priorHandles!==eventState.handleCount||priorObjects!==eventState.objectCount))
+      throw new Error('Named event final counters differ from successful calls');
+    if(!complete && successes.length && (priorHandles>eventState.handleCount||priorObjects>eventState.objectCount))
+      throw new Error('Named event window counters exceed retained state');
+    if(successes.length) {
+      const last=successes.at(-1).output;
+      if(last.objectCount!==eventState.objectCount||last.handleCount!==eventState.handleCount||
+         !refusals.length&&eventState.status!==last.eaxAfter)
+        throw new Error('Named event final status and counters differ from the last successful call');
+    } else if(complete&&(eventState.handleCount||eventState.objectCount||!refusals.length&&eventState.status!==0))
+      throw new Error('Named event state has no captured successful creation');
   }
   const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
   const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
@@ -569,8 +612,31 @@ export function validateProofReport(report) {
         }
       }
       if(call.ordinal===189) {
+        if(eventState && call.status===0) {
+          if(call.arguments.length!==4)throw new Error('Selected NtCreateEvent requires four arguments');
+          const o=call.output,keys=['backend','handle','object','openedExisting','objectCount','handleCount','eaxBefore','espBefore','eaxAfter','espAfter','root','attributes','nameBytes','nameDescriptor','nameBuffer'];
+          if(!o||Object.keys(o).length!==keys.length||Object.keys(o).some(k=>!keys.includes(k))||o.backend!==selectedEvents.kind||
+             !dword(o.handle)||!dword(o.object)||typeof o.openedExisting!=='boolean'||!dword(o.objectCount)||!dword(o.handleCount)||
+             !dword(o.nameBytes)||!dword(o.nameDescriptor)||!dword(o.nameBuffer)||o.handle!==0x90000+4*o.handleCount||
+             !dword(o.eaxBefore)||!dword(o.espBefore)||o.espBefore%4||o.espBefore>0x4000000-20||o.eaxAfter!==(o.openedExisting?0x40000000:0)||o.espAfter!==o.espBefore+20||
+             o.root!==0xfffffffc||o.attributes!==0x80||o.nameBytes<1||o.nameBytes>63||!o.nameDescriptor||o.nameDescriptor%4||o.nameDescriptor>0x4000000-8||!o.nameBuffer||o.nameBuffer>0x4000000-o.nameBytes||
+             call.arguments[0]===0||call.arguments[0]%4||call.arguments[0]>0x4000000-4||call.arguments[1]===0||call.arguments[1]%4||call.arguments[1]>0x4000000-12||call.arguments[2]!==1||call.arguments[3]!==0)
+            throw new Error('Named event success lacks checked Win32 named-object evidence');
+          const object=eventState.objects.find(x=>x.object===o.object),handle=eventState.handles.find(x=>x.handle===o.handle);
+          if(!object||!handle||handle.object!==o.object||object.nameBytes!==o.nameBytes||o.objectCount>eventState.objectCount||o.handleCount>eventState.handleCount)
+            throw new Error('Named event success does not match retained object state');
+          continue;
+        }
+        if(!eventState && call.status===0)throw new Error('NtCreateEvent remains unsupported without its explicit synthetic model');
+        if(eventState && call.status!==0 && call.status!==1)throw new Error('Selected named event has an invalid refusal status');
         if(!call.arguments.every(dword))
           throw new Error('NtCreateEvent arguments must be unsigned 32-bit words');
+        if(eventState && call.status===1) {
+          if(call.output!==undefined||!eventState.status||eventState.status===0x40000000||
+             report.calls.at(-1)!==call||report.stop?.ordinal!==189||report.stop.status!== (eventState.status===0xc000009a?4:9)||report.stop.target!==eventState.status)
+            throw new Error('Named event refusal requires a matching guarded service stop');
+          continue;
+        }
         if(call.status===0 || call.output!==undefined)
           throw new Error('NtCreateEvent remains unsupported and supplies no modeled result');
         const legacyUnidentified=stop.status===1 && stop.ordinal===189 && stop.service?.ordinal===189 &&

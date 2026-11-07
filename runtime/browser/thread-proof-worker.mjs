@@ -3,6 +3,7 @@ import { createProofClock } from './browser-clock.mjs';
 import { readPerformanceClockState } from './performance-clock.mjs';
 import { readPerformanceCounterState } from './performance-counter.mjs';
 import { readMutantState } from './unnamed-mutants.mjs';
+import { readEventState } from './named-events.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
 import { createDeviceReport } from './device-report.mjs';
@@ -41,6 +42,8 @@ self.onmessage = async event => {
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
     if(selectedClockSettings?.mutants && (!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function')))
       throw new Error('Missing explicit synthetic mutant creation capability');
+    if(selectedClockSettings?.events && (!memoryAbi || ['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic named event capability');
     if(selectedClock && !timerAbi) throw new Error('This module does not consume the selected clock fixture');
     if(selectedClockSettings?.clockPause && !timerAbi)throw new Error('This module does not consume the selected clock pause');
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
@@ -61,6 +64,10 @@ self.onmessage = async event => {
         if(!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function'))
           throw new Error('Missing explicit synthetic mutant creation capability');
         if(api.ff_probe_mutant_profile(1))throw new Error('Cannot configure explicit synthetic mutant creation');
+      }
+      if(consoleSettings.events) {
+        if(!memoryAbi||['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function'))throw new Error('Missing explicit synthetic named event capability');
+        if(api.ff_probe_event_profile(1))throw new Error('Cannot configure explicit synthetic named events');
       }
       if(consoleSettings.performanceClock) {
         if(!timerAbi || ['profile','word'].some(name=>typeof api['ff_probe_performance_'+name]!=='function'))
@@ -293,6 +300,12 @@ self.onmessage = async event => {
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });
     capturedCalls.forEach((call, i) => {
+      if(call.ordinal===189 && !call.status && consoleSettings?.events)call.output={
+        backend:'synthetic-win32-named-events',handle:api.ff_probe_kernel_word(i,8)>>>0,object:api.ff_probe_kernel_word(i,9)>>>0,
+        openedExisting:!!(api.ff_probe_kernel_word(i,10)>>>0),objectCount:api.ff_probe_kernel_word(i,11)>>>0,
+        handleCount:api.ff_probe_kernel_word(i,12)>>>0,eaxBefore:api.ff_probe_kernel_word(i,6)>>>0,espBefore:api.ff_probe_kernel_word(i,7)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,13)>>>0,espAfter:api.ff_probe_kernel_word(i,14)>>>0,root:api.ff_probe_kernel_word(i,15)>>>0,
+        attributes:api.ff_probe_kernel_word(i,16)>>>0,nameBytes:api.ff_probe_kernel_word(i,17)>>>0,nameDescriptor:api.ff_probe_kernel_word(i,18)>>>0,nameBuffer:api.ff_probe_kernel_word(i,19)>>>0};
       if(call.ordinal===192 && !call.status && consoleSettings?.mutants)call.output={
         backend:'synthetic-unnamed-unowned-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,
         created:api.ff_probe_kernel_word(i,10)>>>0,
@@ -403,6 +416,7 @@ self.onmessage = async event => {
       ?readPerformanceCounterState((_index,field)=>api.ff_probe_performance_counter_word(field),consoleSettings.performanceCounter,consoleSettings.performanceClock):undefined;
     const mutantState=consoleSettings?.mutants
       ?readMutantState((index,field)=>api.ff_probe_mutant_word(index,field)>>>0,consoleSettings.mutants):undefined;
+    const eventState=consoleSettings?.events?readEventState((index,field)=>api.ff_probe_event_word(index,field)>>>0,consoleSettings.events):undefined;
     const performanceClockState=consoleSettings?.performanceClock
       ?readPerformanceClockState((index,field)=>api.ff_probe_performance_word(index,field),consoleSettings.performanceClock):undefined;
     const timestampBoundary=typeof api.ff_probe_timestamp_boundary_word==='function' && api.ff_probe_timestamp_boundary_word(0)===1
@@ -1163,12 +1177,12 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
-        stopReason:mutantState?.status?'guarded synthetic mutant creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:state[0]===9 && state[2]===255 && capturedCalls.at(-1)?.ordinal===255 && capturedCalls.at(-1)?.status===1?'untranslated thread callback':mutantState?.status?'guarded synthetic mutant creation':eventState?.status && eventState.status!==0x40000000?'guarded synthetic named-event creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,mutantState,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,mutantState,eventState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
