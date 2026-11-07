@@ -1,6 +1,6 @@
-# Project status: startup continues through a bounded capture window
+# Project status: startup reaches a new nonvolatile-settings request
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. An explicit second capture window continued the original-startup experiment to **status 2 at untranslated original routine `0x0004FA60`**, return address `0x0004B4C9`, with 402 distinct routines and 570 completed kernel operations. The first window reproduced the earlier 512-record stop. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment now reaches **status 9 at ordinal 24 (`ExQueryNonVolatileSetting`), index `0xFF`**, requesting 256 output bytes with a null result-length pointer. The return address is `0x000309C9`, with 407 distinct routines and 571 completed kernel operations. Its captured row reports refusal status `0xC00000BB`; the probe stops before returning a result to the original caller. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -185,6 +185,24 @@ Two pinned-compiler builds reproduced module SHA-256 prefix `aabcd951`. Fresh Ch
 
 The experiment's second window retains 59 call rows, 571 total events and 570 completed operations. Its prefix digest matches the first-window digest `14fcb4cd259e4482e53b54e82a3bc6f08f13631a45e23f1563cc40ab4e32a785`; all 5,976 earlier trace events and 3,011 original-entry events remain prefixes. Two more reopen/seek/append/close cycles advanced EOF from 88 to 129 to 172 and mount revision from 77 to 81, with the same cluster, 65,517 free clusters and eight backing pages. No FATX handle remains live. Repeated second-window runs matched the stop, digests and stable sequences.
 
-Independent Sol High correctness review passed. Native checks passed 62/62 including sanitizers, runtime checks passed 207/207, and source/publication contracts passed. Local checks used Node 24.22.1 and npm 11.19.1; CI at the pinned Node 24.14.0 remains pending. Chrome directly verifies rotation through event 571; the hard 1,024-event ceiling has source and synthetic fixture coverage. The next task is bounded original-byte and decoder-checked admission of `0x0004FA60`, preserving the capture provenance and existing guards.
+Independent Sol High correctness review passed. Native checks passed 62/62 including sanitizers, runtime checks passed 207/207, and source/publication contracts passed. Local checks used Node 24.22.1 and npm 11.19.1; CI at the pinned Node 24.14.0 remains pending. Chrome directly verifies rotation through event 571; the hard 1,024-event ceiling has source and synthetic fixture coverage. Subsequent bounded admissions are recorded below.
+
+## Reached time and settings helpers
+
+Five successive admissions exported only the exact Chrome-reached functions from the retained read-only Ghidra project. Each retained original-byte identity, complete layout, independent instruction decoding and the existing x87 boundary normalization. Prior functions, all three checked direct views, import categories and admission limits stayed unchanged.
+
+| Admission | Prepared seeds + views / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / completed kernel operations |
+| --- | --- | --- | --- | --- |
+| `0x0004FA60` | 442 + 3 / 20,716 | `a7ddf426` | Status 2 at `0x001E8DE0`, return `0x0004FA6E` | 403 / 570 |
+| `0x001E8DE0` | 443 + 3 / 20,755 | `3512ded4` | Status 2 at `0x001E8D8A`, return `0x001E8DF9` | 404 / 571 |
+| `0x001E8D8A` | 444 + 3 / 20,789 | `f90975d5` | Status 2 at `0x001E8C2E`, return `0x001E8D9E` | 405 / 571 |
+| `0x001E8C2E` | 445 + 3 / 20,930 | `9bc06e19` | Status 2 at `0x001E8892`, return `0x001E8C45` | 406 / 571 |
+| `0x001E8892` | 446 + 3 / 20,983 | `a61a9f14` | Status 9, ordinal 24, index `0xFF`, return `0x000309C9` | 407 / 571 |
+
+Fresh Chrome triples preserved fixed-control and inert stops and stable sequences; each experiment retained its predecessor's entry, trace and captured-call prefixes. An additional final candidate-module control matched the prior candidate control and its stable backend observations. A repeat final triple reproduced the new stop and stable sequences. Two pinned-compiler builds reproduced the final module byte for byte. The final report retains 61 suffix call rows and 573 total events, with the same first-window prefix digest. The new successful kernel operation is a system-time query; its clock-derived output is not a stable comparison field.
+
+The first new routine's signed divide has a source-established unsigned 16-bit dividend and constant divisor 100, excluding negative-shift, zero-divisor and quotient-overflow cases in that body. Signed low-product arithmetic in the later helper depends on the retained explicit `-fwrapv` compiler contract. These are bounded reviewed translation conditions, not a general correctness claim for every instruction in the upstream lifter. The new settings request stops before these helpers return to their callers.
+
+Independent Sol High review passed all five admissions. The existing provider admits only explicitly configured DWORD settings for indices 17 and 10. The [nxdk declaration](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h) identifies index `0xFF` as `XC_MAX_OS`, distinct from `XC_MAX_ALL` (`0xFFFF`). A 256-byte buffer capacity does not establish a 256-byte result. Establish the result/type/length contract and consumed data layout before adding an explicit synthetic profile and independently reviewed bounded provider. Do not substitute an inferred original EEPROM image or hardware identity. All fixed capture, trace and Wasm memory limits remain unchanged.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
