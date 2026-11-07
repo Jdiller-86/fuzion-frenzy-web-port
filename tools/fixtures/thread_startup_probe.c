@@ -1889,6 +1889,8 @@ static void set_file_position(void)
 #ifdef FF_FATX_PROOF
 static void write_fatx_file(uint32_t *row)
 {
+    for(unsigned i=0;i<FF_FATX_FILES;++i)
+        if(fatx_volume.files[i].handle==row[2])row[19]=(uint32_t)fatx_volume.files[i].position;
     row[1]=fatx_ready?ff_fatx_write_file_guest(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],236);
     if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
@@ -1904,13 +1906,13 @@ static void write_fatx_file(uint32_t *row)
         }
         row[12]=file->id;row[13]=(uint32_t)file->position;row[14]=bytes;
         row[15]=mount->cluster_bytes;row[17]=cluster;
-        if(cluster<2u || cluster>mount->cluster_count || bytes!=row[8] || bytes>mount->cluster_bytes)return;
+        if(cluster<2u || cluster>mount->cluster_count || bytes!=row[19]+row[8] || bytes>mount->cluster_bytes)return;
         const uint64_t fat_address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
         for(unsigned n=0;n<mount->entry_bytes;++n)
             if(ff_disk_byte(&local_disk,fat_address+n)!=0xffu)return;
         const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1u)*mount->cluster_bytes;
-        for(uint32_t n=0;n<bytes;++n)
-            if(ff_disk_byte(&local_disk,data_address+n)!=guest_ram[row[7]+n])return;
+        for(uint32_t n=0;n<row[8];++n)
+            if(ff_disk_byte(&local_disk,data_address+row[19]+n)!=guest_ram[row[7]+n])return;
         row[18]=1u;
         return;
     }

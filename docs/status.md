@@ -1,6 +1,6 @@
-# Project status: startup requests the written FATX file again
+# Project status: startup reaches the bounded kernel capture limit
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment closed the written FATX file and reached **status 9 at ordinal 190 (`NtCreateFile`), value `0xC00000BB`**, with return address `0x001E950C`, 402 distinct routines and 487 completed kernel operations. The stopped `FILE_OPEN_IF` request targets the same debug-log path. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reopened the written FATX file, sought to its end and appended another record. It then reached **status 4 at the 512-record kernel capture limit**, target 0, attempted ordinal 277, with return address `0x001E6388`, 402 distinct routines and 511 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -160,6 +160,19 @@ Module `a36e2a07` returned through the new entry, continued startup and closed h
 
 Independent review passed. Actual worker execution records identify `gpt-6-luna` with low reasoning for the synthetic fixture and `gpt-6.1-sol` with high reasoning for the independent audit. The Python evidence suites passed 6/6.
 
-Preserve the 45-byte contents, extent and revision when admitting that reopen. The profile uses 31 exports, 444 of 512 function slots and 20,691 of 32,768 instructions. The bounded probe currently retains 488 kernel-call rows out of 512.
+## Written-file services and capture ceiling
+
+| Batch | Module SHA-256 prefix | Browser experiment stop | Routines / completed kernel operations |
+| --- | --- | --- | --- |
+| Reopen written single-cluster file | `9fade11f` | Status 9, ordinal 211, `0xC00000BB` | 402 / 494 |
+| Query written extent | `9c4cc5e8` | Status 9, ordinal 226, `0xC00000BB` | 402 / 495 |
+| Seek within the written extent | `fee97ce6` | Status 9, ordinal 236, `0xC00000BB` | 402 / 502 |
+| Append within the allocated cluster | `af157649` | Status 4, target 0, attempted ordinal 277, return `0x001E6388` | 402 / 511 |
+
+The reopen validates a unique archive entry with paired empty fields or a bounded single-cluster extent and a backed FAT end marker. Sparse data retains the owned disk's zero-read behavior. It allocates a fresh handle with a zero cursor while preserving all backing. The class 34 query returns allocation and EOF from that entry, and class 14 admits a nonnegative position within the extent.
+
+Chrome observed the reopened handle `0x0007000C`, allocation 16,384 and EOF 45, then captured a seek to offset 45. The next 43-byte write appended within the existing cluster, producing EOF and cursor 88. Revision advanced 75 to 77, with the same 65,517 free clusters and eight backing pages. The append's backing equality observation covers the appended span. Source review and synthetic readback fixtures cover preservation of the earlier prefix. The handle then closed successfully. Fixed control and inert stops and stable sequences matched, and each experiment preserved the prior stable prefixes. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
+
+The current stop is the probe's evidence ceiling. All 512 kernel-call rows are retained, and the attempted next critical-section call has no row or supplied result. The profile still uses 31 exports, 444 of 512 function slots and 20,691 of 32,768 instructions. Kernel record storage and its auxiliary observation arrays are fixed at 512, and trace storage is fixed at 8,192 rows. The next task is a reviewed bounded capture continuation that retains truthful comparison evidence and preserves those resource limits.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

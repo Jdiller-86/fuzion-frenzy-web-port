@@ -304,7 +304,7 @@ self.onmessage = async event => {
         information:api.ff_probe_kernel_word(i,11)>>>0,file:api.ff_probe_kernel_word(i,12)>>>0,
         position:api.ff_probe_kernel_word(i,13)>>>0,fileBytes:api.ff_probe_kernel_word(i,14)>>>0,
         allocatedBytes:api.ff_probe_kernel_word(i,15)>>>0,firstCluster:api.ff_probe_kernel_word(i,17)>>>0,
-        backingMatches:api.ff_probe_kernel_word(i,18)===1};
+        backingMatches:api.ff_probe_kernel_word(i,18)===1,initialPosition:api.ff_probe_kernel_word(i,19)>>>0};
       else if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),

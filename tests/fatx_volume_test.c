@@ -375,6 +375,12 @@ static void guest_open_if_existing_file_is_narrow_and_read_only(void)
     assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
     assert(open_if_guest_file("z:\\MISSING.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
     assert(open_if_guest_file("z:\\SUBDIR")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!open_if_guest_file("z:\\HELLO.TXT"));
+    assert(get(IOSB+4,4)==1 && !memcmp(&disk,&saved_disk,sizeof disk));
+    assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(3,5,2);root=open_root();link_fatx_drive();
     assert(open_if_guest_file("z:\\HELLO.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
     assert(!ff_fatx_close(&fs,root));
 
@@ -508,8 +514,8 @@ static void guest_set_file_position_is_bounded(void)
 }
 static void guest_first_write_is_transactional(void)
 {
-    const uint32_t lengths[]={1,45,16384};
-    for(unsigned test=0;test<3;++test) {
+    const uint32_t lengths[]={1,45,16384,45};
+    for(unsigned test=0;test<4;++test) {
         setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
         assert(!create_guest_file("z:\\WRITE.BIN",OUT));
         assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
@@ -519,7 +525,7 @@ static void guest_first_write_is_transactional(void)
         const uint32_t free_clusters=fs.mounts[0].free_clusters;
         uint8_t before[64],output[16384];
         for(unsigned i=0;i<64;++i)before[i]=ff_disk_byte(&disk,address+i);
-        for(uint32_t i=0;i<bytes;++i)ram[DATA+i]=(uint8_t)(i%251u+1u);
+        for(uint32_t i=0;i<bytes;++i)ram[DATA+i]=test==3?0:(uint8_t)(i%251u+1u);
         const uint32_t request[8]={handle,0,0,0,IOSB,DATA,bytes,0};
         assert(!ff_fatx_write_file_guest(&fs,request));
         assert(get(IOSB,4)==0 && get(IOSB+4,4)==bytes && fs.files[1].position==bytes);
@@ -531,8 +537,39 @@ static void guest_first_write_is_transactional(void)
         assert(disk_value(part_base+4096+(uint64_t)entry.first_cluster*4u,4)==UINT32_MAX);
         assert(!ff_fatx_read_entry(&fs,1,&entry,0,output,bytes,&read) && read==bytes &&
                !memcmp(output,ram+DATA,bytes));
+        fs.files[1].position=0;
         save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
-        assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+        fs.files[1].position=bytes;
+        assert(!ff_fatx_close(&fs,handle));
+        assert(!open_if_guest_file("z:\\WRITE.BIN"));
+        const uint32_t reopened=(uint32_t)get(OUT,4);
+        assert(!memcmp(&disk,&saved_disk,sizeof disk));
+        const uint32_t query[5]={reopened,IOSB,DATA,56,34};
+        assert(!ff_fatx_query_file(&fs,query));
+        assert(get(DATA+32,8)==16384 && get(DATA+40,8)==bytes && get(DATA+48,4)==0x20);
+        const uint32_t seek[5]={reopened,IOSB,OFFSET,8,14};
+        put(OFFSET,bytes,8);
+        assert(!ff_fatx_set_position(&fs,seek) && fs.files[1].position==bytes);
+        put(OFFSET,bytes+1u,8);save();
+        assert(ff_fatx_set_position(&fs,seek)==FF_BOOT_UNSUPPORTED);unchanged();
+        if(bytes<16384u) {
+            const uint64_t append_revision=disk.revision;
+            const uint32_t append_free=fs.mounts[0].free_clusters;
+            const uint32_t append[8]={reopened,0,0,0,IOSB,DATA,3,0};
+            ram[DATA]=17;ram[DATA+1]=18;ram[DATA+2]=19;
+            assert(!ff_fatx_write_file_guest(&fs,append));
+            assert(get(IOSB+4,4)==3 && fs.files[1].position==bytes+3u &&
+                   disk.revision==append_revision+2u && fs.mounts[0].free_clusters==append_free);
+            ff_fatx_directory_entry extended;
+            assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"WRITE.BIN",9,0,&extended) &&
+                   extended.first_cluster==entry.first_cluster && extended.size==bytes+3u);
+            assert(!ff_fatx_read_entry(&fs,1,&extended,0,output,bytes+3u,&read) && read==bytes+3u);
+            for(uint32_t i=0;i<bytes;++i)assert(output[i]==(test==3?0:(uint8_t)(i%251u+1u)));
+            assert(output[bytes]==17 && output[bytes+1]==18 && output[bytes+2]==19);
+            disk.revision=UINT64_MAX-1u;fs.mounts[0].revision=disk.revision;fs.files[1].open_revision=disk.revision;
+            save();assert(ff_fatx_write_file_guest(&fs,append)==FF_BOOT_UNSUPPORTED);unchanged();
+        }
+        assert(!ff_fatx_close(&fs,reopened));assert(!ff_fatx_close(&fs,root));
     }
 
     setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();

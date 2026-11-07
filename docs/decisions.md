@@ -24,6 +24,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D459 | Accept the reached four-byte-aligned FATX information buffers | A second guest frame passed four-byte-aligned buffers to class 34 and class 14. Use the existing four-byte local-file convention with bytewise access, retaining exact request and backing checks, full guest ranges and alias refusal. |
 | D460 | Serve the first bounded FATX file write | Admit the synchronous first write at zero on the current owned empty entry, limited to one cluster. Reuse transactional sparse allocation preflight, preserve non-extent entry bytes and report metadata plus backing equality without exposing payload. |
 | D461 | Admit the reached write cleanup direct entry | A third fixed opt-in validates the existing owner envelope, sole original call and four-instruction stack shape at `0x001E562A`. Charge the existing budgets and keep the entry outside indirect lookup. |
+| D462 | Reopen and append within the reached FATX extent | Validate the single-cluster entry and backed FAT end marker, preserve sparse-zero reads, report the actual extent and admit seeks within it. Append only at EOF within that cluster, preflight both stores and update cursor and revisions after success. |
 
 ## Contracts that remain in force
 

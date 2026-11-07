@@ -5,7 +5,7 @@
 enum { FF_FATX_HANDLE_ROOT=0, FF_FATX_HANDLE_FILE=1 };
 static uint32_t create_empty_internal(ff_fatx_volume *,uint32_t,const uint8_t *,uint32_t,uint32_t,
                                       const uint8_t *,uint32_t,ff_fatx_directory_entry *,uint64_t *);
-static uint32_t reopen_empty_root_file(ff_fatx_volume *,const ff_fatx_mount *,const uint8_t *,uint32_t,uint64_t *);
+static uint32_t reopen_root_file(ff_fatx_volume *,const ff_fatx_mount *,const uint8_t *,uint32_t,uint64_t *);
 
 static uint32_t get(const ff_fatx_volume *fs,uint32_t address,unsigned bytes)
 {
@@ -238,7 +238,7 @@ uint32_t ff_fatx_create_file_guest(ff_fatx_volume *fs,const uint32_t args[9])
         for(unsigned i=0;i<FF_FATX_FILES;++i)
             if(fs->files[i].id && fs->files[i].kind==FF_FATX_HANDLE_FILE && fs->files[i].mount==mount->id)
                 return FF_BOOT_UNSUPPORTED;
-        const uint32_t status=reopen_empty_root_file(fs,mount,name,file_name_bytes,&entry_address);
+        const uint32_t status=reopen_root_file(fs,mount,name,file_name_bytes,&entry_address);
         if(status)return status;
         information=1u; /* FILE_OPENED */
     } else {
@@ -332,20 +332,30 @@ static uint32_t parse_entry(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint64
     entry->name[length]=0;entry->attributes=attributes;entry->first_cluster=first;entry->size=size;
     return FF_FATX_PARSE_OK;
 }
-static int checked_empty_file(ff_fatx_volume *fs,const ff_fatx_file *file,ff_fatx_directory_entry *entry)
+static int single_cluster_file(ff_fatx_volume *fs,const ff_fatx_mount *mount,const ff_fatx_directory_entry *entry)
+{
+    if(entry->attributes!=0x20u)return 0;
+    if(!entry->size)return !entry->first_cluster;
+    if(entry->size>mount->cluster_bytes || entry->first_cluster<2u ||
+       entry->first_cluster==mount->root_cluster)return 0;
+    const uint64_t fat_address=mount->offset+4096+(uint64_t)entry->first_cluster*mount->entry_bytes;
+    return ff_disk_has(fs->disk,fat_address,mount->entry_bytes) &&
+        disk_word(fs,fat_address,mount->entry_bytes)==(mount->entry_bytes==2?0xffffu:UINT32_MAX);
+}
+static int checked_file_entry(ff_fatx_volume *fs,const ff_fatx_file *file,ff_fatx_directory_entry *entry)
 {
     const ff_fatx_mount *mount=mount_id(fs,file->mount);
     if(file->kind!=FF_FATX_HANDLE_FILE || !current(fs,mount) || file->open_revision!=mount->revision)return 0;
     const uint64_t address=file->entry_address;
     return ff_disk_has(fs->disk,address,64u) && parse_entry(fs,mount,address,entry)==FF_FATX_PARSE_OK &&
-        entry->attributes==0x20u && !entry->first_cluster && !entry->size;
+        single_cluster_file(fs,mount,entry);
 }
 uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
 {
     if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;
     const ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
     ff_fatx_directory_entry entry;
-    if(!(file->access&0x80u) || args[4]!=34u || !checked_empty_file(fs,file,&entry))return FF_BOOT_UNSUPPORTED;
+    if(!(file->access&0x80u) || args[4]!=34u || !checked_file_entry(fs,file,&entry))return FF_BOOT_UNSUPPORTED;
     /* Owned create leaves all three on-disk timestamp words unset (all ones).
      * This profile exposes zero guest times for that placeholder only. */
     for(uint32_t offset=52u;offset<64u;offset+=4u)
@@ -357,6 +367,8 @@ uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
     if(bytes<info_bytes)return result(fs,iosb,0xc0000023u,0);
     if(!admitted(fs,output,info_bytes,FF_VM_WRITE))return FF_VM_ACCESS_VIOLATION;
     memset(fs->disk->memory->ram+output,0,info_bytes);
+    put(fs,output+32u,entry.size?mount_id(fs,file->mount)->cluster_bytes:0,8);
+    put(fs,output+40u,entry.size,8);
     put(fs,output+48u,entry.attributes,4);
     return result(fs,iosb,0,info_bytes);
 }
@@ -365,14 +377,15 @@ uint32_t ff_fatx_set_position(ff_fatx_volume *fs,const uint32_t args[5])
     if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;
     ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
     ff_fatx_directory_entry entry;
-    if(file->options!=0x60u || args[3]!=8u || args[4]!=14u || !checked_empty_file(fs,file,&entry))
+    if(file->options!=0x60u || args[3]!=8u || args[4]!=14u || !checked_file_entry(fs,file,&entry))
         return FF_BOOT_UNSUPPORTED;
     const uint32_t iosb=args[1],input=args[2];
     if((iosb|input)&3u)return FF_BOOT_INVALID;
     if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,input,8,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
     if(overlap(iosb,8,input,8))return FF_BOOT_UNSUPPORTED;
-    if(get(fs,input,4) || get(fs,input+4u,4))return FF_BOOT_UNSUPPORTED;
-    file->position=0;
+    const uint32_t position=get(fs,input,4);
+    if(get(fs,input+4u,4) || position>entry.size)return FF_BOOT_UNSUPPORTED;
+    file->position=position;
     return result(fs,iosb,0,0);
 }
 static uint32_t directory_scan(ff_fatx_volume *fs,const ff_fatx_mount *mount,uint32_t start,
@@ -529,7 +542,7 @@ static int name_equal(const char *entry_name,const uint8_t *path,uint32_t bytes,
     }
     return 1;
 }
-static uint32_t reopen_empty_root_file(ff_fatx_volume *fs,const ff_fatx_mount *mount,
+static uint32_t reopen_root_file(ff_fatx_volume *fs,const ff_fatx_mount *mount,
                                        const uint8_t *name,uint32_t bytes,uint64_t *address)
 {
     const uint64_t base=mount->offset+mount->data_offset+(uint64_t)(mount->root_cluster-1u)*mount->cluster_bytes;
@@ -544,7 +557,7 @@ static uint32_t reopen_empty_root_file(ff_fatx_volume *fs,const ff_fatx_mount *m
         if(parsed==FF_FATX_PARSE_DELETED)continue;
         if(parsed!=FF_FATX_PARSE_OK)return FF_BOOT_UNSUPPORTED;
         if(!name_equal(entry.name,name,bytes,0x40u))continue;
-        if(match || entry.attributes!=0x20u || entry.first_cluster || entry.size)return FF_BOOT_UNSUPPORTED;
+        if(match || !single_cluster_file(fs,mount,&entry))return FF_BOOT_UNSUPPORTED;
         match=base+offset;
     }
     if(!match)return FF_BOOT_UNSUPPORTED;
@@ -742,31 +755,40 @@ uint32_t ff_fatx_write_file_guest(ff_fatx_volume *fs,const uint32_t args[8])
     ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
     ff_fatx_directory_entry entry;
     if(args[1] || args[2] || args[3] || args[7] || file->options!=0x60u ||
-       !(file->access&0x40000000u) || file->position || !checked_empty_file(fs,file,&entry))
+       !(file->access&0x40000000u) || !checked_file_entry(fs,file,&entry) || file->position!=entry.size)
         return FF_BOOT_UNSUPPORTED;
     ff_fatx_mount *mount=mount_id(fs,file->mount);
     const uint32_t iosb=args[4],input=args[5],bytes=args[6];
-    if(!bytes || bytes>mount->cluster_bytes)return FF_BOOT_UNSUPPORTED;
+    if(!bytes || bytes>mount->cluster_bytes-entry.size)return FF_BOOT_UNSUPPORTED;
     if(iosb&3u)return FF_BOOT_INVALID;
     if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,input,bytes,FF_VM_READ))
         return FF_VM_ACCESS_VIOLATION;
     if(overlap(iosb,8,input,bytes))return FF_BOOT_UNSUPPORTED;
-    if(!mount->free_clusters)return result(fs,iosb,FF_DISK_FULL,0);
-    uint32_t cluster;
-    uint32_t status=store_first_file_cluster(fs,mount,file->entry_address,fs->disk->memory->ram+input,bytes,&cluster);
+    uint32_t cluster=entry.first_cluster,status;
+    const uint8_t *data=fs->disk->memory->ram+input;
+    if(!entry.size) {
+        if(!mount->free_clusters)return result(fs,iosb,FF_DISK_FULL,0);
+        status=store_first_file_cluster(fs,mount,file->entry_address,data,bytes,&cluster);
+    } else {
+        if(!ff_disk_has(fs->disk,file->entry_address+44u,8u) || fs->disk->revision>UINT64_MAX-2u)
+            return FF_BOOT_UNSUPPORTED;
+        const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1u)*mount->cluster_bytes;
+        status=ff_disk_store_allocate(fs->disk,data_address+entry.size,data,bytes);
+    }
     if(status==FF_DISK_FULL || status==FF_BOOT_NO_MEMORY)return result(fs,iosb,FF_DISK_FULL,0);
     if(status)return status;
     /* The existing entry's name, attributes and timestamp bytes are kept. */
+    const uint32_t end=entry.size+bytes;
     uint8_t extent[8];
     for(unsigned i=0;i<4;++i) {
         extent[i]=(uint8_t)(cluster>>(8*i));
-        extent[4+i]=(uint8_t)(bytes>>(8*i));
+        extent[4+i]=(uint8_t)(end>>(8*i));
     }
     status=ff_disk_store(fs->disk,file->entry_address+44u,extent,sizeof extent);
     if(status)return status;
-    --mount->free_clusters;
+    if(!entry.size)--mount->free_clusters;
     file->open_revision=mount->revision=fs->disk->revision;
-    file->position=bytes;
+    file->position=end;
     return result(fs,iosb,0,bytes);
 }
 uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
