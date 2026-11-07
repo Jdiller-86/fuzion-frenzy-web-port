@@ -1,6 +1,6 @@
-# Project status: startup passes the CRT seek cleanup
+# Project status: startup advances past the CRT seek cleanup
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the CRT seek cleanup and reached **status 2 at untranslated address `0x001E624B`**, with return address `0x001E0CCF`, 393 distinct routines and 467 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced past the CRT seek cleanup and reached **status 2 at untranslated address `0x001E0CE4`**, with return address `0x001E0CDB`, 394 distinct routines and 467 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -110,6 +110,14 @@ The separate `--crt-seek-cleanup-entry` option admits four checked instructions 
 
 Module `f8c3352a` executed the view, returned to its owner and completed another ordinal 294 call. The fixed control and inert observations matched, and the experiment preserved the stable prefixes. The SEH epilog added one aggregate ABI event with a matching stack diagnostic. Independent review passed, and the Python evidence suites passed 6/6.
 
-The profile uses all 512 function slots with 510 seed functions and two checked direct entries. It uses 32 exports and 21,028 of 32,768 instructions. Before admitting the reached `0x001E624B`, verify a profile that removes unused seed entries under the same caps and reproduces the saved stops and stable sequences.
+| Batch | Prepared functions / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / kernel operations |
+| --- | --- | --- | --- | --- |
+| Second direct entry | 510 + 2 direct entries / 21,028 | `f8c3352a` | Status 2 at `0x001E624B`, return `0x001E0CCF` | 393 / 467 |
+| Remove one unused seed | 509 + 2 direct entries / 21,019 | `6b947ada` | Same | 393 / 467 |
+| Admit `0x001E624B` | 510 + 2 direct entries / 21,034 | `33af364f` | Status 2 at `0x001E0CE4`, return `0x001E0CDB` | 394 / 467 |
+
+The removed seed group contains only `0x001F65F0`, which had no selected static incoming reference or saved entry event. The reduced profile preserved all 625 retained definitions, the import bindings and both direct views. Chrome reproduced the control, inert and experiment stops and stable sequences before the freed slot was used. The next build admitted only `0x001E624B`, independently checked its 15 instruction rows and preserved the prior comparison prefixes. These observations cover the saved paths.
+
+The current profile uses 31 exports, all 512 function slots and 21,034 of 32,768 instructions. The next bounded dependency is `0x001E0CE4`. Verify its entry and establish capacity under the same guards before admission.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
