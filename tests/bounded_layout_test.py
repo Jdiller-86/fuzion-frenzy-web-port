@@ -355,5 +355,109 @@ class DispatchTableContractTest(unittest.TestCase):
             PREP.checked_dispatch_tables(layout, [bad])
 
 
+CRT_OWNER = 0x00100000
+CRT_CALL_SITE = 0x00100004
+CRT_ENTRY = 0x0010000c
+CRT_CALLEE = 0x00100100
+CRT_CONTRACT = (CRT_OWNER, CRT_CALL_SITE, CRT_ENTRY, CRT_CALLEE)
+
+
+def relative_call(address, target):
+    displacement = target - (address + 5)
+    return b"\xe8" + displacement.to_bytes(4, "little", signed=True)
+
+
+def crt_cleanup_case():
+    rows = [
+        {"address": f"{CRT_CALL_SITE:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{CRT_ENTRY:08x}"],
+         "fallthrough": f"{CRT_CALL_SITE + 5:08x}"},
+        {"address": f"{CRT_ENTRY:08x}", "length": 1, "mnemonic": "PUSH",
+         "call": False, "computed": False, "flows": [],
+         "fallthrough": f"{CRT_ENTRY + 1:08x}"},
+        {"address": f"{CRT_ENTRY + 1:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{CRT_CALLEE:08x}"],
+         "fallthrough": f"{CRT_ENTRY + 6:08x}"},
+        {"address": f"{CRT_ENTRY + 6:08x}", "length": 1, "mnemonic": "POP",
+         "call": False, "computed": False, "flows": [],
+         "fallthrough": f"{CRT_ENTRY + 7:08x}"},
+        {"address": f"{CRT_ENTRY + 7:08x}", "length": 1, "mnemonic": "RET",
+         "call": False, "computed": False, "flows": [], "fallthrough": None},
+    ]
+    item = {
+        "entry": f"{CRT_OWNER:08x}",
+        "bodyRanges": [{"start": f"{CRT_OWNER:08x}",
+                        "endInclusive": f"{CRT_CALL_SITE + 4:08x}"}],
+    }
+    layout = {"end": CRT_ENTRY + 8, "rows": rows}
+    image = {}
+
+    def place(address, content):
+        image.update({address + offset: byte for offset, byte in enumerate(content)})
+
+    place(CRT_CALL_SITE, relative_call(CRT_CALL_SITE, CRT_ENTRY))
+    place(CRT_ENTRY, b"\x53" + relative_call(CRT_ENTRY + 1, CRT_CALLEE) + b"\x59\xc3")
+
+    def read_bytes(address, size):
+        return bytes(image[address + offset] for offset in range(size))
+
+    return [item], {CRT_OWNER: layout}, {CRT_OWNER: object(), CRT_CALLEE: object()}, image, read_bytes
+
+
+class CrtCleanupEntryContractTest(unittest.TestCase):
+    def test_linked_cleanup_entry_is_admitted_with_exact_stack_shape(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+
+        result = PREP.checked_crt_cleanup_entry(
+            items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+        self.assertEqual((result["owner"], result["site"], result["entry"], result["callee"]),
+                         CRT_CONTRACT)
+        self.assertEqual([row["mnemonic"] for row in result["rows"]],
+                         ["PUSH", "CALL", "POP", "RET"])
+
+    def test_bad_encoded_direct_call_is_rejected(self):
+        items, layouts, functions, image, read_bytes = crt_cleanup_case()
+        image[CRT_CALL_SITE] = 0x90
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup caller does not match its original direct call"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_second_incoming_call_or_jump_is_rejected(self):
+        for mnemonic in ("CALL", "JMP"):
+            with self.subTest(mnemonic=mnemonic):
+                items, layouts, functions, _, read_bytes = crt_cleanup_case()
+                second_caller = CRT_OWNER + 0x20
+                layouts[second_caller] = {"rows": [{
+                    "address": f"{second_caller:08x}", "length": 5, "mnemonic": mnemonic,
+                    "call": mnemonic == "CALL", "computed": False, "flows": [f"{CRT_ENTRY:08x}"],
+                }]}
+                with self.assertRaisesRegex(
+                        ValueError, "The CRT cleanup entry requires one established direct caller"):
+                    PREP.checked_crt_cleanup_entry(
+                        items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_entry_inside_declared_owner_body_is_rejected(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+        items[0]["bodyRanges"].append({"start": f"{CRT_ENTRY:08x}",
+                                      "endInclusive": f"{CRT_ENTRY + 7:08x}"})
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup entry must use linked code outside the declared body"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_altered_stack_restore_is_rejected(self):
+        items, layouts, functions, image, read_bytes = crt_cleanup_case()
+        image[CRT_ENTRY + 6] = 0x5a  # POP EDX instead of restoring the pushed EBX to ECX.
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup entry does not match its bounded stack and return shape"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

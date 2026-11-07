@@ -21,6 +21,8 @@ MAX_SEED_FUNCTIONS = 64
 MAX_EXPANDED_FUNCTIONS = 512
 MAX_SEED_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
+# Owner, direct call site, shared cleanup entry, already admitted callee.
+CRT_CLEANUP_ENTRY = (0x001E4D58, 0x001E4DC2, 0x001E4DCF, 0x001E731B)
 
 
 def digest(data):
@@ -387,6 +389,48 @@ def observe_return_frames(text, address):
     return text.replace(marker, f'FF_RETURN_FRAME(0x{address:08X}u, ebp); ' + marker), count
 
 
+def checked_crt_cleanup_entry(items, layouts, functions, read_bytes, contract=CRT_CLEANUP_ENTRY):
+    """Admit a direct entry view of already verified bytes, without a second seed envelope."""
+    owner, site, entry, callee = contract
+    if owner not in layouts or entry in functions or callee not in functions:
+        raise ValueError("The CRT cleanup entry requires its checked owner and callee")
+    layout = layouts[owner]
+    end = entry + 8
+    if not owner < site < entry < end <= layout["end"]:
+        raise ValueError("The CRT cleanup entry must be inside its checked owner")
+    item = next((item for item in items if int(item["entry"], 16) == owner), None)
+    if item is None or any(entry <= int(span["endInclusive"], 16) and int(span["start"], 16) < end
+                           for span in item["bodyRanges"]):
+        raise ValueError("The CRT cleanup entry must use linked code outside the declared body")
+    incoming = [(start, row) for start, span in layouts.items() for row in span["rows"]
+                if any(re.fullmatch(r"[0-9a-fA-F]+", value) and int(value, 16) == entry
+                       for value in row["flows"])]
+    if len(incoming) != 1:
+        raise ValueError("The CRT cleanup entry requires one established direct caller")
+    caller, call = incoming[0]
+    call_bytes = read_bytes(site, 5)
+    if (caller != owner or not call["call"] or call["computed"] or
+            int(call["address"], 16) != site or call["length"] != 5 or
+            call["mnemonic"] != "CALL" or call["flows"] != [f"{entry:08x}"] or
+            int(call.get("fallthrough", "-1"), 16) != site + 5 or
+            len(call_bytes) != 5 or call_bytes[0] != 0xe8 or
+            site + 5 + int.from_bytes(call_bytes[1:], "little", signed=True) != entry):
+        raise ValueError("The CRT cleanup caller does not match its original direct call")
+    rows = [row for row in layout["rows"] if entry <= int(row["address"], 16) < end]
+    shape = [(int(row["address"], 16) - entry, row["length"], row["mnemonic"]) for row in rows]
+    code = read_bytes(entry, end - entry)
+    # PUSH EBX, CALL rel32, POP ECX, plain RET. The call has one stack argument.
+    if (shape != [(0, 1, "PUSH"), (1, 5, "CALL"), (6, 1, "POP"), (7, 1, "RET")] or
+            len(code) != 8 or code[:2] != b"\x53\xe8" or code[6:] != b"\x59\xc3" or
+            entry + 6 + int.from_bytes(code[2:6], "little", signed=True) != callee or
+            not rows[1]["call"] or rows[1]["computed"] or rows[1]["flows"] != [f"{callee:08x}"] or
+            any(row["computed"] or row["call"] or row["flows"] for row in (rows[0], rows[2], rows[3])) or
+            [row.get("fallthrough") for row in rows] !=
+            [f"{entry+1:08x}", f"{entry+6:08x}", f"{entry+7:08x}", None]):
+        raise ValueError("The CRT cleanup entry does not match its bounded stack and return shape")
+    return {"owner": owner, "site": site, "entry": entry, "callee": callee, "rows": rows, "end": end}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
@@ -396,7 +440,10 @@ def main():
     parser.add_argument("--instruction-limit", type=int, choices=(8192,16384,32768), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
+    parser.add_argument("--crt-cleanup-entry", action="store_true", help="Admit the checked direct CRT cleanup entry view")
     args = parser.parse_args()
+    if args.crt_cleanup_entry and not args.guard_memory:
+        parser.error("The CRT cleanup entry requires checked memory")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):
         parser.error("Use a simple new attempt label")
     research = (ROOT / "research").resolve(strict=True)
@@ -521,8 +568,24 @@ def main():
     except ValueError as error:parser.error(str(error))
     if profile["entry"] not in functions:
         parser.error("Include the actual entry")
-    boundaries = sorted(direct_targets - functions.keys())
+    direct_entry = None
+    if args.crt_cleanup_entry:
+        try:
+            direct_entry = checked_crt_cleanup_entry(functions_in, layouts, functions, original_bytes)
+            if len(functions) >= args.function_limit:
+                raise ValueError("The CRT cleanup entry exceeds the aggregate function budget")
+            instruction_count += len(direct_entry["rows"])
+            validate_instruction_count(instruction_count, args.instruction_limit)
+        except (KeyError, TypeError, ValueError) as error:
+            parser.error(str(error))
+    entry_views = {}
+    if direct_entry:
+        address = direct_entry["entry"]
+        end = direct_entry["end"]
+        entry_views[address] = {"name": f"ff_title_{address:08X}", "end": end, "size": end - address}
+    boundaries = sorted(direct_targets - functions.keys() - entry_views.keys())
     database = dict(functions)
+    database.update(entry_views)
     for address in boundaries:
         database[address] = {"name": f"ff_title_{address:08X}", "size": 0, "method": "untranslated_boundary"}
     out.mkdir()
@@ -541,7 +604,12 @@ def main():
             decoder_normalizations.extend(check_decoder_agreement(item['instructions'], decoded, original_bytes))
         decoded_instruction_count = instruction_count + len(decoder_normalizations)
         validate_instruction_count(decoded_instruction_count,args.instruction_limit)
-        translator = FunctionTranslator(xbe, database, trace_functions=set(functions))
+        if direct_entry:
+            address = direct_entry["entry"]
+            decoded = list(disassembler.disasm(original_bytes(address, direct_entry["end"] - address), address))
+            if check_decoder_agreement(direct_entry["rows"], decoded, original_bytes):
+                raise ValueError("The CRT cleanup entry requires exact independent decoding")
+        translator = FunctionTranslator(xbe, database, trace_functions=set(functions) | set(entry_views))
         dispatch_census = []
         for start, layout in layouts.items():
             if not layout["mixed"]:
@@ -573,7 +641,7 @@ def main():
             dispatch_census.append({"function": start, "sites": len(sites), "tableRegions": len(layout["tables"]),
                                     "anchors": len(tables), "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]})
         generated, return_observations, memory_observations = [], [], []
-        for address, info in functions.items():
+        for address, info in (functions | entry_views).items():
             text = translator.translate_function(address, info)
             modeled = admit_modeled_noop(translator.lifter.unimplemented)
             if modeled:
@@ -583,7 +651,8 @@ def main():
                 translator.lifter.unimplemented.clear()
             if not text:
                 raise ValueError("Translation produced no code")
-            returns = any(row.get("mnemonic", "").startswith("RET") for row in layouts[address]["rows"])
+            rows = direct_entry["rows"] if address in entry_views else layouts[address]["rows"]
+            returns = any(row.get("mnemonic", "").startswith("RET") for row in rows)
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
                 return_observations.append({"function": address, "sites": observations})
@@ -629,7 +698,8 @@ def main():
               "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk") and item['instructions'][0].get('computed')],
               "localTailThunks": [{"entry":int(item['entry'],16),"target":int(item['instructions'][0]['flows'][0],16)}
                                   for item in functions_in if item.get('thunk') and not item['instructions'][0].get('computed')],
-              "instructions": decoded_instruction_count, "ghidraInstructions": instruction_count,
+              "instructions": decoded_instruction_count,
+              "ghidraInstructions": instruction_count - (len(direct_entry["rows"]) if direct_entry else 0),
               "originalBytesMatchGhidra": True, "decoderBoundariesAgree": not decoder_normalizations,
               "decoderInstructionsAgree": True, "decoderNormalizations": decoder_normalizations,
               "untranslatedDirectTargets": boundaries,
@@ -639,6 +709,10 @@ def main():
               "unimplementedInstructions": {}, "originalCodeExecuted": False,
               "outputSha256": {name: digest((out / name).read_bytes()) for name in ["title-profile.h", "title-functions.inc"]},
               "limitation": "Only selected startup functions translated; unsupported calls must stop. No original execution outside the browser."}
+    if direct_entry:
+        report["checkedDirectEntryViews"] = [{
+            key: direct_entry[key] for key in ("owner", "site", "entry", "callee", "end")
+        } | {"instructions": len(direct_entry["rows"]), "indirectLookup": False}]
     with (out / "generation.json").open("x") as file:
         json.dump(report, file, indent=2)
     print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": decoded_instruction_count,

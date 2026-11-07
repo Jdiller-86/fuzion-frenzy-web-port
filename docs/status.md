@@ -1,6 +1,6 @@
-# Project status: startup reaches `0x001E7267`
+# Project status: startup reaches `0x001E041F`
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log on the mounted synthetic FATX Partition 5 and continued through guarded CRT batches to **status 2 at `0x001E7267`**, with return address `0x001E4CE3`, 377 distinct routines and 447 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment returned through the CRT debug-log close path and entered `0x0004B230`, reaching **status 2 at `0x001E041F`** with return address `0x0004B2B8`, 382 distinct routines and 450 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -47,15 +47,24 @@ Fresh Chrome comparisons preserved the fixed control and inert stop objects and 
 | Admit `0x001E4DF3` | 495 / 20,403 | `0cb93518` | Status 2 at `0x001E4D58`, return `0x001DFE5E` | 374 / 446 |
 | Admit `0x001E4D58` | 496 / 20,450 | `974d3c16` | Status 2 at `0x001E4CD7`, return `0x001E4DA9` | 376 / 447 |
 | Admit `0x001E4CD7` | 497 / 20,502 | `950a72fb` | Status 2 at `0x001E7267`, return `0x001E4CE3` | 377 / 447 |
+| Admit `0x001E7267` | 498 / 20,521 | `042793d0` | Status 2 at `0x001E721E`, return `0x001E4D2B` | 378 / 448 |
+| Admit `0x001E721E` | 499 / 20,543 | `7df18ca6` | Status 2 at `0x001E4DCF`, return `0x001E4DC7` | 379 / 448 |
+| Admit the direct entry at `0x001E4DCF` | 499 + 1 direct entry / 20,547 | `e9c8e3aa` | Status 2 at `0x001DFECE`, return `0x001DFEC9` | 380 / 449 |
+| Admit `0x001DFECE` | 500 + 1 direct entry / 20,551 | `752ada81` | Status 2 at `0x0004B230`, return `0x0004B4A1` | 381 / 450 |
+| Admit `0x0004B230` | 501 + 1 direct entry / 20,659 | `1296fa86` | Status 2 at `0x001E041F`, return `0x0004B2B8` | 382 / 450 |
 
 Read-only Ghidra exports added one established routine per batch. When the cumulative seed group reached 32 entries, later exports were appended to a group with room. Existing rows and the 32-export, 512-function and 32,768-instruction limits were preserved. The initial `0x001E4D58` export failed the complete-layout guard on three undefined bytes. The matching XBE's exception scope record points to that address. Bounded read-only disassembly established one handler instruction, preserved all 46 prior rows and passed the existing byte, decoder, layout and memory checks.
 
 Independent review confirmed unchanged control and inert stops, entry sequences, trace kind/address/stack and kernel ordinal/status/argument sequences. The experiment preserved those prefixes across the batches. Clock-dependent outputs varied between runs.
 
+The `--crt-cleanup-entry` option uses four verified instructions from the existing `0x001E4D58` envelope. It admits the single original near call at `0x001E4DC2`, rejects additional incoming edges and retains the existing overlap rule. The emitted view charges one function slot and four instructions to the existing budgets. It uses checked stack operations and is excluded from indirect lookup. Chrome recorded the entry returning after its already admitted callee completed ordinal 294. Both default preparation and the reviewed opt-in preparation reproduced their respective generated outputs and manifests byte for byte.
+
+The newly reached SEH epilog at `0x001E0505` produced one additional aggregate ABI diagnostic. The reviewed trace shows the owner restoring its entry stack and exception-chain head. The probe's legacy slots 3–5 record stack changes among logged calls, and the browser currently labels those slots as ESI. The saved trace does not resolve the diagnostic to an individual nonvolatile register.
+
 The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The replay harness and local checks used the workstation's Node 24.22.1 and npm 11.19.1. CI on the repository's pinned Node version remains pending for these local commits. The browser comparisons and independent reviews are retained locally.
 
 ## Next bounded dependency
 
-Build and replay the locally prepared `0x001E7267` candidate with the fixed control and inert cases, then obtain independent review. The current Chrome-verified module remains the `0x001E4CD7` admission.
+Build and replay the locally prepared `0x001E041F` candidate with the fixed control and inert cases and the existing checked direct entry, then obtain independent review.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
