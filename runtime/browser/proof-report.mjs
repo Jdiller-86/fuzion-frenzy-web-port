@@ -20,6 +20,7 @@ import { parseEventProfile, validateEventState } from './named-events.mjs';
 import { parseTraceCaptureStart, validateTraceCapture } from './trace-capture.mjs';
 import { parseDebugServiceStart, validateDebugServiceWindow } from './debug-service-window.mjs';
 import { parseMutantWaitProfile, validateMutantWaitReport } from './local-mutant-wait.mjs';
+import { parseMutantReleaseProfile, validateMutantReleaseReport } from './local-mutant-release.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -43,6 +44,8 @@ export function validateProofReport(report) {
     ?parseLocalMutantProfile(report.consoleSettings.mutants):parseMutantProfile(report.consoleSettings?.mutants);
   const localMutantProfile=selectedMutants?.kind==='synthetic-win32-mutants';
   const selectedMutantWait=parseMutantWaitProfile(report.consoleSettings?.mutantWait);
+  const selectedMutantRelease=parseMutantReleaseProfile(report.consoleSettings?.mutantRelease);
+  if(selectedMutantRelease&&!selectedMutantWait)throw new Error('Local mutant release requires explicit acquisition');
   if(selectedMutantWait&&!localMutantProfile)throw new Error('Local mutant acquisition requires its explicit creation model');
   if(localMutantProfile) {
     if(report.localMutantState===undefined||Object.hasOwn(report,'mutantState'))
@@ -326,6 +329,15 @@ export function validateProofReport(report) {
                 keys.some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key))) {
         throw new Error('The NtCreateEvent descriptor must retain its evidenced stdcall/16-byte/NTSTATUS ABI');
       }
+    } else if(stop.ordinal===221||stop.service.name==='NtReleaseMutant') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===221&&stop.service.name===null) {
+        if(keys.length!==3||keys.some(k=>!['ordinal','name','modeled'].includes(k)))
+          throw new Error('Legacy unidentified ordinal-221 descriptor must contain only its identity');
+      } else if(stop.ordinal!==221||stop.service.name!=='NtReleaseMutant'||stop.service.callingConvention!=='stdcall'||
+          stop.service.argumentBytes!==8||stop.service.returns!=='ntstatus'||keys.length!==6||
+          keys.some(k=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(k)))
+        throw new Error('NtReleaseMutant requires its two-argument NTSTATUS ABI');
     } else if(stop.ordinal===234||stop.service.name==='NtWaitForSingleObjectEx') {
       const keys=Object.keys(stop.service);
       if(stop.ordinal===234&&stop.service.name===null) {
@@ -379,7 +391,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08]|localMutantAcquire)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08]|localMutantAcquire|localMutantRelease)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -415,7 +427,8 @@ export function validateProofReport(report) {
    * show the proof without declaring the input, or claim the input without the
    * proof. */
   const experiments = report.experiments ?? [];
-  validateMutantWaitReport(report,selectedMutantWait,mutantState);
+  validateMutantReleaseReport(report,selectedMutantRelease,mutantState);
+  if(!selectedMutantRelease)validateMutantWaitReport(report,selectedMutantWait,mutantState);
   const claimsReset = experiments.includes('pfifoReset');
   if (report.pfifoResetState !== undefined && !claimsReset)
     throw new Error('PFIFO reset state requires the pfifoReset experiment');

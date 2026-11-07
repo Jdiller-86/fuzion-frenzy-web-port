@@ -16,6 +16,10 @@
  * observation, and option 6 is not asserted as a service-wide property.
  */
 const SERVICES = new Map([
+  [221, {
+    // Original two-word frame and pinned kernel header; ABI facts only.
+    name: 'NtReleaseMutant', callingConvention: 'stdcall', argumentBytes: 8, returns: 'ntstatus',
+  }],
   [234, {
     // Pinned kernel.h and the observed four pushed arguments; ABI facts only.
     name: 'NtWaitForSingleObjectEx', callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus',

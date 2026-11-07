@@ -27,4 +27,6 @@ uint32_t ff_local_mutants_guard_event(const ff_local_mutants *, uint32_t output,
 uint32_t ff_local_mutants_acquire(ff_local_mutants *, uint32_t handle,
                                   uint32_t wait_mode, uint32_t alertable,
                                   uint32_t timeout, uint32_t thread_id);
+uint32_t ff_local_mutants_release(ff_local_mutants *, uint32_t handle,
+                                  uint32_t previous_count_pointer, uint32_t thread_id);
 #endif

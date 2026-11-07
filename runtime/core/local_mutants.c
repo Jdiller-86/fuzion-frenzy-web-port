@@ -103,3 +103,18 @@ uint32_t ff_local_mutants_acquire(ff_local_mutants *m,uint32_t handle,
     }
     return FF_BOOT_BAD_HANDLE;
 }
+
+uint32_t ff_local_mutants_release(ff_local_mutants *m,uint32_t handle,
+                                  uint32_t previous_count_pointer,uint32_t thread_id)
+{
+    if(!valid_model(m))return FF_BOOT_INVALID;
+    if(!thread_id||thread_id>4u)return FF_BOOT_INVALID;
+    for(uint32_t i=0;i<m->handle_count;i++)if(m->handles[i].handle==handle){
+        ff_local_mutant_object *object=&m->objects[m->handles[i].object-1u];
+        if(previous_count_pointer)return FF_BOOT_UNSUPPORTED;
+        if(object->owner_thread!=thread_id)return FF_BOOT_UNSUPPORTED;
+        object->owner_thread=0;
+        return FF_BOOT_OK;
+    }
+    return FF_BOOT_BAD_HANDLE;
+}

@@ -10,6 +10,7 @@ import { parseEventProfile } from './named-events.mjs';
 import { parseTraceCaptureStart } from './trace-capture.mjs';
 import { parseDebugServiceStart } from './debug-service-window.mjs';
 import { parseMutantWaitProfile } from './local-mutant-wait.mjs';
+import { parseMutantReleaseProfile } from './local-mutant-release.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -48,6 +49,8 @@ export function parseLocalConsoleSettings(buffer) {
   const traceCaptureStart=parseTraceCaptureStart(profile.traceCaptureStart);
   const debugServiceStart=parseDebugServiceStart(profile.debugServiceStart);
   const mutantWait=parseMutantWaitProfile(profile.mutantWait);
+  const mutantRelease=parseMutantReleaseProfile(profile.mutantRelease);
+  if(mutantRelease&&!mutantWait)throw new Error('Local mutant release requires explicit acquisition');
   if(mutantWait&&mutants?.kind!=='synthetic-win32-mutants')throw new Error('Local mutant acquisition requires the explicit Win32 mutant profile');
   if(mutants?.kind==='synthetic-win32-mutants'&&!events)
     throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
@@ -56,6 +59,7 @@ export function parseLocalConsoleSettings(buffer) {
     ...(mutants===undefined?{}:{mutants}),
     ...(events===undefined?{}:{events}),
     ...(mutantWait===undefined?{}:{mutantWait}),
+    ...(mutantRelease===undefined?{}:{mutantRelease}),
     ...(deterministicClock===undefined?{}:{deterministicClock}),
     ...(clockPause===undefined?{}:{clockPause}),
     ...(performanceCounter===undefined?{}:{performanceCounter}),

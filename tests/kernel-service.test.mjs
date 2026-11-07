@@ -47,3 +47,8 @@ test('ordinal 234 has the observed four-argument extended wait ABI without servi
   assert.deepEqual(describeKernelService(234),{ordinal:234,name:'NtWaitForSingleObjectEx',modeled:false,
     callingConvention:'stdcall',argumentBytes:16,returns:'ntstatus'});
 });
+
+test('ordinal 221 retains the observed release ABI independently of model selection',()=>{
+  assert.deepEqual(describeKernelService(221),{ordinal:221,name:'NtReleaseMutant',modeled:false,
+    callingConvention:'stdcall',argumentBytes:8,returns:'ntstatus'});
+});

@@ -53,6 +53,12 @@ static uint32_t local_mutant_wait_mode,local_mutant_wait_alertable,local_mutant_
 static uint32_t local_mutant_wait_owner_before,local_mutant_wait_owner_after;
 static uint32_t local_mutant_wait_eax_before,local_mutant_wait_esp_before;
 static uint32_t local_mutant_wait_eax_after,local_mutant_wait_esp_after;
+static uint32_t local_mutant_release_enabled,local_mutant_release_sealed;
+static uint32_t local_mutant_release_attempts,local_mutant_release_completed,local_mutant_release_status;
+static uint32_t local_mutant_release_handle,local_mutant_release_thread,local_mutant_release_object;
+static uint32_t local_mutant_release_previous_count,local_mutant_release_owner_before,local_mutant_release_owner_after;
+static uint32_t local_mutant_release_eax_before,local_mutant_release_esp_before;
+static uint32_t local_mutant_release_eax_after,local_mutant_release_esp_after;
 #endif
 #include "../../runtime/core/local_settings.h"
 #include "../../runtime/core/port_io.h"
@@ -1711,6 +1717,7 @@ uint32_t ff_probe_local_mutant_wait_profile(uint32_t enable)
 {
     if(local_mutant_wait_sealed||probe_trace_count||kernel_call_count||parent_returned)return FF_BOOT_INVALID;
     if(enable>1u || (enable && !local_mutant_ready))return FF_BOOT_INVALID;
+    if(!enable&&local_mutant_release_enabled)return FF_BOOT_INVALID;
     local_mutant_wait_enabled=enable;
     local_mutant_wait_attempts=local_mutant_wait_completed=local_mutant_wait_status=0;
     local_mutant_wait_last_handle=local_mutant_wait_last_thread=local_mutant_wait_last_object=0;
@@ -1738,6 +1745,38 @@ uint32_t ff_probe_local_mutant_wait_word(uint32_t index,uint32_t field)
         case 12:return local_mutant_wait_owner_after; case 13:return local_mutant_wait_eax_before;
         case 14:return local_mutant_wait_esp_before; case 15:return local_mutant_wait_eax_after;
         case 16:return local_mutant_wait_esp_after; default:return 0;
+    }
+}
+uint32_t ff_probe_local_mutant_release_profile(uint32_t enable)
+{
+    if(local_mutant_release_sealed||probe_trace_count||kernel_call_count||parent_returned)return FF_BOOT_INVALID;
+    if(enable>1u || (enable && (!local_mutant_ready||!local_mutant_wait_enabled)))return FF_BOOT_INVALID;
+    local_mutant_release_enabled=enable;
+    local_mutant_release_attempts=local_mutant_release_completed=local_mutant_release_status=0;
+    local_mutant_release_handle=local_mutant_release_thread=local_mutant_release_object=0;
+    local_mutant_release_previous_count=0;
+    local_mutant_release_owner_before=local_mutant_release_owner_after=0;
+    local_mutant_release_eax_before=local_mutant_release_esp_before=0;
+    local_mutant_release_eax_after=local_mutant_release_esp_after=0;
+    return 0;
+}
+uint32_t ff_probe_local_mutant_release_word(uint32_t index,uint32_t field)
+{
+    if(index!=0xffffffffu) {
+        if(index>=local_mutants.object_count||index>=FF_LOCAL_MUTANT_CAPACITY)return 0;
+        if(field==0u)return index+1u;
+        if(field==1u)return local_mutants.objects[index].owner_thread;
+        return 0;
+    }
+    switch(field) {
+        case 0:return local_mutant_release_enabled; case 1:return local_mutant_release_attempts;
+        case 2:return local_mutant_release_completed; case 3:return local_mutant_release_status;
+        case 4:return FF_LOCAL_MUTANT_CAPACITY; case 5:return local_mutant_release_handle;
+        case 6:return local_mutant_release_thread; case 7:return local_mutant_release_object;
+        case 8:return local_mutant_release_previous_count; case 9:return local_mutant_release_owner_before;
+        case 10:return local_mutant_release_owner_after; case 11:return local_mutant_release_eax_before;
+        case 12:return local_mutant_release_esp_before; case 13:return local_mutant_release_eax_after;
+        case 14:return local_mutant_release_esp_after; default:return 0;
     }
 }
 uint32_t ff_probe_local_mutant_word(uint32_t index,uint32_t field)
@@ -1818,6 +1857,46 @@ static void wait_local_mutant(void)
     local_mutant_wait_eax_after=g_eax;local_mutant_wait_esp_after=g_esp;
     row[13]=local_mutant_wait_owner_after;row[14]=local_mutant_wait_eax_before;row[15]=local_mutant_wait_esp_before;
     row[16]=g_eax;row[17]=g_esp;row[1]=0;
+}
+static void release_local_mutant(void)
+{
+    uint32_t *row=kernel_record(221u,2u);
+    if(local_mutant_release_attempts==UINT32_MAX) {
+        local_mutant_release_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,221u);
+    }
+    ++local_mutant_release_attempts;
+    if(local_mutant_release_completed==UINT32_MAX) {
+        local_mutant_release_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,221u);
+    }
+    local_mutant_release_handle=row[2];local_mutant_release_previous_count=row[3];
+    local_mutant_release_eax_before=g_eax;local_mutant_release_esp_before=g_esp;
+    uint32_t status=FF_BOOT_INVALID,object_id=0,owner_before=0,thread_id=0;
+    if(boot.current<boot.count&&boot.current<FF_BOOT_MAX_THREADS) {
+        const ff_boot_thread *thread=&boot.threads[boot.current];
+        if(thread->state==FF_BOOT_RUNNING&&thread->id==boot.current+1u&&thread->id<=FF_BOOT_MAX_THREADS)
+            thread_id=thread->id;
+    }
+    if(thread_id&&local_mutants.handle_count<=FF_LOCAL_MUTANT_CAPACITY&&local_mutants.object_count<=FF_LOCAL_MUTANT_CAPACITY)
+      for(uint32_t i=0;i<local_mutants.handle_count;i++)if(local_mutants.handles[i].handle==row[2]) {
+        object_id=local_mutants.handles[i].object;
+        if(object_id&&object_id<=local_mutants.object_count)owner_before=local_mutants.objects[object_id-1u].owner_thread;
+        break;
+    }
+    local_mutant_release_thread=thread_id;local_mutant_release_object=object_id;
+    local_mutant_release_owner_before=owner_before;local_mutant_release_owner_after=owner_before;
+    row[6]=row[2];row[7]=thread_id;row[8]=object_id;row[9]=row[3];row[10]=owner_before;
+    status=thread_id?ff_local_mutants_release(&local_mutants,row[2],row[3],thread_id):FF_BOOT_INVALID;
+    if(status) {
+        local_mutant_release_status=status;local_mutant_release_eax_after=g_eax;local_mutant_release_esp_after=g_esp;
+        row[11]=owner_before;row[12]=g_eax;row[13]=g_esp;row[14]=g_eax;row[15]=g_esp;row[1]=1;
+        stop(9,status,221u);
+    }
+    ++local_mutant_release_completed;local_mutant_release_status=0;
+    local_mutant_release_owner_after=local_mutants.objects[object_id-1u].owner_thread;
+    g_eax=0;g_esp+=12u;
+    local_mutant_release_eax_after=g_eax;local_mutant_release_esp_after=g_esp;
+    row[11]=local_mutant_release_owner_after;row[12]=local_mutant_release_eax_before;
+    row[13]=local_mutant_release_esp_before;row[14]=g_eax;row[15]=g_esp;row[1]=0;
 }
 #endif
 #ifdef FF_MEMORY_STATISTICS_PROOF
@@ -3153,6 +3232,7 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
 #ifdef FF_LOCAL_MUTANT_PROOF
         if(ordinal==192u && local_mutant_ready)return create_local_mutant;
         if(ordinal==234u && local_mutant_wait_enabled)return wait_local_mutant;
+        if(ordinal==221u && local_mutant_release_enabled)return release_local_mutant;
 #endif
 #ifdef FF_MUTANT_PROOF
         if(ordinal==192u && mutant_ready)return create_unnamed_mutant;
@@ -3516,6 +3596,13 @@ void ff_probe_reset(void)
     local_mutant_wait_owner_before=local_mutant_wait_owner_after=0;
     local_mutant_wait_eax_before=local_mutant_wait_esp_before=0;
     local_mutant_wait_eax_after=local_mutant_wait_esp_after=0;
+    local_mutant_release_enabled=local_mutant_release_sealed=0;
+    local_mutant_release_attempts=local_mutant_release_completed=local_mutant_release_status=0;
+    local_mutant_release_handle=local_mutant_release_thread=local_mutant_release_object=0;
+    local_mutant_release_previous_count=0;
+    local_mutant_release_owner_before=local_mutant_release_owner_after=0;
+    local_mutant_release_eax_before=local_mutant_release_esp_before=0;
+    local_mutant_release_eax_after=local_mutant_release_esp_after=0;
 #endif
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;
     g_xbox_code_lo = FF_CODE_LOW; g_xbox_code_hi = FF_CODE_HIGH;
@@ -3541,6 +3628,7 @@ void ff_probe_run(void)
 {
 #ifdef FF_LOCAL_MUTANT_PROOF
     local_mutant_wait_sealed=1;
+    local_mutant_release_sealed=1;
 #endif
 #ifdef FF_DEBUG_SERVICE_PROOF
     ff_debug_service_begin(&debug_service_state);
