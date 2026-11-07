@@ -4,6 +4,8 @@ Public source checks and the browser prototype do not require original game file
 
 The [latest checkpoint](status.md) owns current execution claims. Configured tools, exported functions, or a compiled module do not establish original behavior.
 
+For assigned M1 work, follow [resource reuse and fast iteration](resource-reuse.md): reuse the native Fuzion configuration/automatic generator, adapt shared browser runtime interfaces, use applicable OpenCE platform solutions, and automate routine preparation. Use lightweight checks while developing; detailed testing and polish follow M1.
+
 ## Pinned tools
 
 | Tool | Recorded pin / purpose |

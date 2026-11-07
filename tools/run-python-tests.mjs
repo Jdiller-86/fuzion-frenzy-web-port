@@ -18,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const suites = [
+  'tests/recomp_batch_test.py',
+  'tests/sdk_title_prepare_test.py',
   'tests/recomp_memory_access_test.py',
   'tests/recomp_memory_access_codegen_test.py',
   'tests/title_seed_test.py',
