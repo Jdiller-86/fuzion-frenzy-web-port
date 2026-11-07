@@ -1,6 +1,6 @@
-# Project status: startup reaches `0x001E4C85`
+# Project status: startup reaches `0x001E4C33`
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log on the mounted synthetic FATX Partition 5, passed two CRT routines in successive guarded batches, and reached **status 2 at `0x001E4C85`**, with return address `0x001E01AB`, 368 distinct routines and 444 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log on the mounted synthetic FATX Partition 5, passed three CRT routines in successive guarded batches, and reached **status 2 at `0x001E4C33`**, with return address `0x001DFEB1`, 370 distinct routines and 445 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -40,13 +40,14 @@ Fresh Chrome comparisons preserved the fixed control and inert stop objects and 
 | FATX create, profile 97 | 488 / 20,251 | `4f32c34c` | Status 2 at `0x001E71D8`, return `0x001E779C` | 364 / 443 |
 | Admit `0x001E71D8` | 489 / 20,272 | `56194195` | Status 2 at `0x001E731B`, return `0x001E78B1` | 366 / 443 |
 | Admit `0x001E731B` | 490 / 20,282 | `ee740d85` | Status 2 at `0x001E4C85`, return `0x001E01AB` | 368 / 444 |
+| Admit `0x001E4C85` | 491 / 20,299 | `f00f734b` | Status 2 at `0x001E4C33`, return `0x001DFEB1` | 370 / 445 |
 
-Read-only Ghidra exports added one established routine per batch to the same bounded seed group. Both preparations passed byte identity, layout and normalized decoder checks with checked memory and unchanged admission limits. The last batch completed the already routed ordinal 294, `RtlLeaveCriticalSection`. Independent review confirmed unchanged control and inert stops, entry sequences, trace kind/address/stack and kernel ordinal/status/argument sequences. The experiment preserved those prefixes across both batches. Clock-dependent outputs varied between runs.
+Read-only Ghidra exports added one established routine per batch to the same bounded seed group. All preparations passed byte identity, layout and normalized decoder checks with checked memory and unchanged admission limits. Each unlock batch completed the already routed ordinal 294, `RtlLeaveCriticalSection`. Independent review confirmed unchanged control and inert stops, entry sequences, trace kind/address/stack and kernel ordinal/status/argument sequences. The experiment preserved those prefixes across the batches. Clock-dependent outputs varied between runs.
 
-The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The browser comparisons and independent reviews are retained locally.
+The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The replay harness and local checks used the workstation's Node 24.22.1 and npm 11.19.1. CI on the repository's pinned Node version remains pending for these local commits. The browser comparisons and independent reviews are retained locally.
 
 ## Next bounded dependency
 
-Validate and admit the reached CRT unlock helper at `0x001E4C85` from the retained read-only export. Verify its checked table reads and reached callee behavior, then replay the paired browser runs within the existing preparation limits.
+Validate and admit the reached CRT routine at `0x001E4C33` from the retained read-only export. Verify its checked memory and reached callee behavior, then replay the paired browser runs within the existing preparation limits.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
