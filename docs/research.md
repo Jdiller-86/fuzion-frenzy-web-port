@@ -21,6 +21,12 @@ The accepted main-branch frontier is recorded in [current status](status.md). Th
 
 Preparation retains original-byte identity, independent decoder agreement, complete layout, checked-memory, and resource-admission guards. A translated function count is different from an observed routine count. The Python/native developer workflow does not complete the required browser-local end-user conversion.
 
+## Startup observation limits
+
+The kernel capture digest covers the recorder's argument count/words and status. It is computed by the bounded runtime; some older JSON serializers omit argument tails for modeled services, so their displayed call objects cannot independently reconstruct the full digest. An unsupported recorder may retain only a diagnostic argument even when an original caller/stop proves a larger ABI. Keep these scopes explicit when comparing capture windows; matching runtime digests, serialized fields and source-owned hash fixtures establish different facts.
+
+The legacy ABI diagnostic getter's slots 3-5 count stack inequality among logged calls, although the browser labels them as ESI. Slots 6-8 are unused zeros. Aggregate diagnostics therefore do not identify a particular changed nonvolatile register or establish absence of ESP faults. Call/return traces and static instruction review support their own bounded claims; preserve unresolved attribution rather than treating these labels as new CPU evidence.
+
 ## AV services and provenance
 
 The source-owned service descriptor records ordinal 2 as `AvSendTVEncoderOption`, stdcall, 16 argument bytes, and void return. It is metadata rather than an implementation or service result. See [the descriptor](../runtime/browser/kernel-service.mjs).
