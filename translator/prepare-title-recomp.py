@@ -24,6 +24,7 @@ MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
 # Owner, direct call site, shared cleanup entry, already admitted callee.
 CRT_CLEANUP_ENTRY = (0x001E4D58, 0x001E4DC2, 0x001E4DCF, 0x001E731B)
 CRT_SEEK_CLEANUP_ENTRY = (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B)
+CRT_WRITE_CLEANUP_ENTRY = (0x001E55A3, 0x001E561D, 0x001E562A, 0x001E731B)
 
 
 def digest(data):
@@ -450,12 +451,15 @@ def main():
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     parser.add_argument("--crt-cleanup-entry", action="store_true", help="Admit the checked direct CRT cleanup entry view")
     parser.add_argument("--crt-seek-cleanup-entry", action="store_true", help="Admit the checked direct CRT seek cleanup entry view")
+    parser.add_argument("--crt-write-cleanup-entry", action="store_true", help="Admit the checked direct CRT write cleanup entry view")
     args = parser.parse_args()
     cleanup_contracts = []
     if args.crt_cleanup_entry:
         cleanup_contracts.append(CRT_CLEANUP_ENTRY)
     if args.crt_seek_cleanup_entry:
         cleanup_contracts.append(CRT_SEEK_CLEANUP_ENTRY)
+    if args.crt_write_cleanup_entry:
+        cleanup_contracts.append(CRT_WRITE_CLEANUP_ENTRY)
     if cleanup_contracts and not args.guard_memory:
         parser.error("The CRT cleanup entry requires checked memory")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):

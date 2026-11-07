@@ -1,6 +1,6 @@
-# Project status: startup completes the first FATX file write
+# Project status: startup requests the written FATX file again
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed its first FATX file write and reached **status 2 at guarded direct entry `0x001E562A`**, with return address `0x001E5622`, 399 distinct routines and 473 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment closed the written FATX file and reached **status 9 at ordinal 190 (`NtCreateFile`), value `0xC00000BB`**, with return address `0x001E950C`, 402 distinct routines and 487 completed kernel operations. The stopped `FILE_OPEN_IF` request targets the same debug-log path. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -152,6 +152,14 @@ The guest write path checks the synchronous writable file, its current owned emp
 
 Module `5a7d6f5d` returned status 0 and IOSB information 45. Chrome independently read the written backing and matched it to the guest input without reporting its bytes. The file's cursor and size are 45, with one 16,384-byte cluster allocated. Revision advanced 72 to 75, free clusters decreased 65,518 to 65,517, and backed pages increased seven to eight. The fixed control and inert observations matched, and the experiment preserved its stable prefixes through the same write request. Independent review passed. The EAX and 36-byte stack-return effects are source-verified without an immediate post-service register sample. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
 
-The next bounded dependency is the guarded direct entry at `0x001E562A` within the existing `0x001E55A3` envelope. Verify its exact call and stack shape before admission. The profile uses 31 exports, 443 of 512 function slots and 20,687 of 32,768 instructions.
+## Third checked cleanup entry
+
+The `--crt-write-cleanup-entry` option validates the original near call at `0x001E561D`, the four-instruction direct entry at `0x001E562A` and its nested call to `0x001E731B`. It reuses the existing owner, byte, decoder, incoming-edge, stack and resource checks. All three entries stay outside indirect lookup. Preparation with only the earlier two flags reproduced its generated C, header and manifest byte for byte.
+
+Module `a36e2a07` returned through the new entry, continued startup and closed handle `0x00070008` successfully. The next disposition-3 request has the same counted path and numeric request shape as the earlier empty-file reopen. The mount remains at revision 75, with no live FATX file object. The existing reopen guard requires an empty entry, so the written file is the next bounded dependency. A second checked debug request completed, reporting 42 bytes of metadata only. The aggregate ABI count and legacy ESP-change count each increased by 13 as further frames executed. Individual nonvolatile-register attribution remains unresolved.
+
+Independent review passed. Actual worker execution records identify `gpt-6-luna` with low reasoning for the synthetic fixture and `gpt-6.1-sol` with high reasoning for the independent audit. The Python evidence suites passed 6/6.
+
+Preserve the 45-byte contents, extent and revision when admitting that reopen. The profile uses 31 exports, 444 of 512 function slots and 20,691 of 32,768 instructions. The bounded probe currently retains 488 kernel-call rows out of 512.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

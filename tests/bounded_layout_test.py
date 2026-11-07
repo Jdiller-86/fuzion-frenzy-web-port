@@ -361,6 +361,7 @@ CRT_ENTRY = 0x0010000c
 CRT_CALLEE = 0x00100100
 CRT_CONTRACT = (CRT_OWNER, CRT_CALL_SITE, CRT_ENTRY, CRT_CALLEE)
 CRT_SEEK_CONTRACT = (0x00100200, 0x00100204, 0x00100210, CRT_CALLEE)
+CRT_WRITE_CONTRACT = (0x00100300, 0x00100304, 0x00100310, CRT_CALLEE)
 
 
 def relative_call(address, target):
@@ -422,26 +423,29 @@ class CrtCleanupEntryContractTest(unittest.TestCase):
         self.assertEqual([row["mnemonic"] for row in result["rows"]],
                          ["PUSH", "CALL", "POP", "RET"])
 
-    def test_two_cleanup_views_fit_exact_aggregate_cap(self):
+    def test_three_cleanup_views_fit_exact_aggregate_cap(self):
         self.assertEqual(PREP.CRT_SEEK_CLEANUP_ENTRY, (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B))
+        self.assertEqual(PREP.CRT_WRITE_CLEANUP_ENTRY, (0x001E55A3, 0x001E561D, 0x001E562A, 0x001E731B))
         first = crt_cleanup_case_for(CRT_CONTRACT)
         second = crt_cleanup_case_for(CRT_SEEK_CONTRACT)
-        items = first[0] + second[0]
-        layouts = {**first[1], **second[1]}
-        functions = {**first[2], **second[2]}
-        image = {**first[3], **second[3]}
-        self.assertEqual(len(functions), 3)  # two disjoint owners share the checked callee
+        third = crt_cleanup_case_for(CRT_WRITE_CONTRACT)
+        cases = (first, second, third)
+        items = [item for case in cases for item in case[0]]
+        layouts = {owner: layout for case in cases for owner, layout in case[1].items()}
+        functions = {owner: function for case in cases for owner, function in case[2].items()}
+        image = {address: byte for case in cases for address, byte in case[3].items()}
+        self.assertEqual(len(functions), 4)  # three disjoint owners share the checked callee
 
         def read_bytes(address, size):
             return bytes(image[address + offset] for offset in range(size))
 
-        contracts = (CRT_CONTRACT, CRT_SEEK_CONTRACT)
+        contracts = (CRT_CONTRACT, CRT_SEEK_CONTRACT, CRT_WRITE_CONTRACT)
         exact_limit = len(functions) + len(contracts)
         views = PREP.checked_crt_cleanup_entries(
             items, layouts, functions, read_bytes, contracts, exact_limit)
-        self.assertEqual(set(views), {CRT_ENTRY, CRT_SEEK_CONTRACT[2]})
-        self.assertEqual(views[CRT_ENTRY]["rows"][0]["mnemonic"], "PUSH")
-        self.assertEqual(views[CRT_SEEK_CONTRACT[2]]["rows"][0]["mnemonic"], "PUSH")
+        self.assertEqual(set(views), {contract[2] for contract in contracts})
+        for contract in contracts:
+            self.assertEqual(views[contract[2]]["rows"][0]["mnemonic"], "PUSH")
         with self.assertRaisesRegex(ValueError, "aggregate function budget"):
             PREP.checked_crt_cleanup_entries(
                 items, layouts, functions, read_bytes, contracts, exact_limit - 1)
