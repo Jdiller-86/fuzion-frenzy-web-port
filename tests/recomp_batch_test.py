@@ -5,6 +5,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / "translator" / "extend-recomp-batch.py"
 SPEC = importlib.util.spec_from_file_location("extend_recomp_batch", SOURCE)
@@ -187,8 +188,15 @@ class BatchIdentityTests(unittest.TestCase):
                 batch.load_seed_index(index, index_path, generation, generation_bytes)
 
     def test_private_path_rejects_external_path(self):
-        with self.assertRaisesRegex(ValueError, "inside research/verification"):
-            batch.private_path(Path.cwd() / "package.json")
+        with tempfile.TemporaryDirectory(dir=batch.ROOT) as temporary:
+            root = Path(temporary)
+            verification = root / "research" / "verification"
+            verification.mkdir(parents=True)
+            external = root / "external.json"
+            external.write_text("{}", encoding="utf-8")
+            with patch.object(batch, "VERIFY", verification):
+                with self.assertRaisesRegex(ValueError, "inside research/verification"):
+                    batch.private_path(external)
 
     def test_json_size_is_rejected_before_read(self):
         with tempfile.TemporaryDirectory(dir=batch.ROOT) as temporary:
