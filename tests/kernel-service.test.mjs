@@ -27,3 +27,11 @@ test('ordinal 127 names the frequency query with its declared ABI only', () => {
   });
   assert.deepEqual(describeKernelService(3), { ordinal: 3, name: null, modeled: false });
 });
+
+test('ordinal 126 names the counter query with static ABI only', () => {
+  assert.deepEqual(describeKernelService(126), {
+    ordinal: 126, name: 'KeQueryPerformanceCounter', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64',
+  });
+  assert.deepEqual(describeKernelService(125), { ordinal: 125, name: null, modeled: false });
+});

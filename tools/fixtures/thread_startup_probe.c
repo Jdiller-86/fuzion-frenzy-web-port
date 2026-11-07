@@ -2798,10 +2798,10 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
          * arguments, then stop. No return value is supplied and nothing is
          * modeled; the row makes the boundary inspectable in the report. */
 #ifdef FF_TIMESTAMP_COUNTER_GUARDS
-        if(ordinal==127u) {
-            uint32_t *row=kernel_record(127,0);
+        if(ordinal==126u || ordinal==127u) {
+            uint32_t *row=kernel_record(ordinal,0);
             row[1]=1;
-            stop(1,address,127);
+            stop(1,address,ordinal);
         }
 #endif
         {

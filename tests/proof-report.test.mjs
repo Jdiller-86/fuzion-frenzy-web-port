@@ -574,6 +574,26 @@ test('ordinal 127 stop carries only its known zero-argument frequency ABI', () =
     calls: [{ ordinal: 127, status: 1, arguments: [1] }] })), /has no arguments/);
 });
 
+test('ordinal 126 unsupported stop carries no counter value or extra ABI claims', () => {
+  const service = { ordinal: 126, name: 'KeQueryPerformanceCounter', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64' };
+  const valid = report({ stop: { status: 1, target: 0xFE000000, ordinal: 126, service },
+    calls: [{ ordinal: 126, status: 1, arguments: [] }] });
+  assert.equal(validateProofReport(valid), valid);
+  for (const change of [
+    { callingConvention: 'cdecl' }, { argumentBytes: 4 }, { returns: 'void' },
+    { output: 0x12345678 }, { counter: 0x12345678 }, { ticks: '12345678' },
+  ]) assert.throws(() => validateProofReport({ ...valid,
+    stop: { ...valid.stop, service: { ...service, ...change } },
+  }));
+  assert.throws(() => validateProofReport({ ...valid,
+    calls: [{ ordinal: 126, status: 1, arguments: [0] }],
+  }));
+  for(const call of [{ordinal:126,status:0,arguments:[]},
+    {ordinal:126,status:1,arguments:[],output:{counter:'123'}}])
+    assert.throws(()=>validateProofReport({...valid,calls:[call]}),/supplies no value/);
+});
+
 test('a worker-level error report is accepted without evidence fields', () => {
   const failure = { kind: 'error', message: 'Missing bounded device-aperture accessors' };
   assert.equal(validateProofReport(failure), failure);

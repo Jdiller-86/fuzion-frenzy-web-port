@@ -1,7 +1,7 @@
 /* Source-owned static facts for reached Xbox kernel services.
  *
  * This is metadata only: it never implements a service or supplies a return
- * value. Ordinal 127 has a zero-argument, 64-bit performance-frequency ABI;
+ * value. Ordinals 126/127 have zero-argument, 64-bit performance-clock ABIs;
  * its descriptor supplies no frequency or timing model. The pinned
  * xboxrecomp-source reference declares ordinal 2 as
  * `VOID __stdcall AvSendTVEncoderOption(PVOID RegisterBase, ULONG Option,
@@ -16,6 +16,12 @@
  * observation, and option 6 is not asserted as a service-wide property.
  */
 const SERVICES = new Map([
+  [126, {
+    name: 'KeQueryPerformanceCounter',
+    callingConvention: 'stdcall',
+    argumentBytes: 0,
+    returns: 'uint64',
+  }],
   [2, {
     name: 'AvSendTVEncoderOption',
     callingConvention: 'stdcall',

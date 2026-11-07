@@ -107,10 +107,11 @@ export function validateProofReport(report) {
       if (stop.service.resultBits !== undefined || stop.service.option !== undefined ||
           stop.service.output !== undefined)
         throw new Error('Observed option/result facts must not be stored in the static service descriptor');
-    } else if(stop.service.name==='KeQueryPerformanceFrequency') {
-      if(stop.ordinal!==127 || stop.service.callingConvention!=='stdcall' || stop.service.argumentBytes!==0 ||
-         stop.service.returns!=='uint64' || stop.service.output!==undefined || stop.service.resultBits!==undefined)
-        throw new Error('The performance-frequency descriptor must retain its zero-argument 64-bit ABI');
+    } else if(stop.service.name==='KeQueryPerformanceFrequency' || stop.service.name==='KeQueryPerformanceCounter') {
+      if(stop.ordinal!==(stop.service.name==='KeQueryPerformanceFrequency'?127:126) || stop.service.callingConvention!=='stdcall' || stop.service.argumentBytes!==0 ||
+         stop.service.returns!=='uint64' || Object.keys(stop.service).length!==6 ||
+         Object.keys(stop.service).some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key)))
+        throw new Error('The performance-clock descriptor must retain its zero-argument 64-bit ABI');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
                stop.service.returns !== undefined || stop.service.resultBits !== undefined ||
                stop.service.option !== undefined || stop.service.output !== undefined) {
@@ -442,8 +443,10 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
-      if(call.ordinal===127 && call.arguments.length!==0)
-        throw new Error('The performance-frequency call has no arguments');
+      if((call.ordinal===126 || call.ordinal===127) && call.arguments.length!==0)
+        throw new Error('The performance-clock call has no arguments');
+      if(call.ordinal===126 && (call.status!==1 || call.output!==undefined))
+        throw new Error('The unsupported performance-counter call supplies no value');
       if(call.ordinal===127 && call.status===0) {
         const out=call.output;
         if(!selectedPerformance || !out || Object.keys(out).length!==10 ||
