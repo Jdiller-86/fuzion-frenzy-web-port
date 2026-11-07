@@ -1,6 +1,6 @@
-# Project status: startup passes performance calibration
+# Project status: startup advances through formatting helpers
 
-Observed November 7, 2026 in Chrome 156.0.8078.80 on Windows. With explicit synthetic paired performance services and a measured one-shot browser wait, original startup now reaches **status 3 at untranslated indirect target `0x001E170D`**, return address `0x001E2838`, with 413 distinct routines and 608 completed kernel operations. Two counter queries and both checked timestamp instructions execute. The comparison profile retains synthetic UTC OS settings, fixed system time and live monotonic timing. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 7, 2026 in Chrome 156.0.8078.80 on Windows. With explicit synthetic paired performance services and a measured one-shot browser wait, original startup now reaches **status 2 at untranslated routine `0x001E8015`**, return address `0x001E69BF`, with 417 distinct routines and 608 completed kernel operations. Two counter queries and both checked timestamp instructions execute. The comparison profile retains synthetic UTC OS settings, fixed system time and live monotonic timing. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -278,5 +278,20 @@ Two fresh Chrome experiments measured waits of 504.7 and 501.73 ms. In each, the
 With counter support disabled, the earlier ordinal-126 refusal, full experiment trace, calls, capture and stable backend observations remain unchanged apart from the recorded live counter stack word. With the counter enabled but no pause, the 64-query refusal remains reproducible. Paused repeats preserve trace kind/address/stack sequences, entry sequences, call frames, capture digests and stable backend state. Three EAX trace observations vary exactly with the last timestamp and twice the measured timestamp delta; two stop-stack words equal the counter-query delta and first timestamp. Complete CPU, output-value or stop-stack identity is not claimed. The selected frequency and scheduling pause do not establish original-console timing; measured wait overshoot affects the original calibration result.
 
 Independent Sol High review passed arithmetic, CPU/kernel ABI, reciprocal ordering, normal-poll placement and comparisons. Native checks passed 64/64, evidence suites 9/9 (including actual compiled bridge regressions), and runtime checks 247/247. CI remains pending. The next task is admission and independent review of the reached established 29-instruction routine at `0x001E170D`, preserving its indirect-call provenance and all guards.
+
+## Reached formatting helpers
+
+| Admission | Prepared seeds + views / instructions | Module SHA-256 prefix | Next browser stop / return |
+| --- | --- | --- | --- |
+| `0x001E170D` | 452 + 3 / 21,079 | `d15810b4` | `0x001E162E` / `0x001E1730` |
+| `0x001E162E` | 453 + 3 / 21,113 | `1be7d6ab` | `0x001E698F` / `0x001E164A` |
+| `0x001E698F` | 454 + 3 / 21,159 | `aabb755e` | `0x001E68D5` / `0x001E69A4` |
+| `0x001E68D5` | 455 + 3 / 21,231 | `f8cac473` | `0x001E8015` / `0x001E69BF` |
+
+The first admission binds the actual indirect stop to its matching source/module identities and established function entry. The next three follow newly observed direct stops. Their 29, 34, 46 and 72 instructions passed original-byte, decoder and complete-layout checks. Each retained every prior admitted body, checked direct view, binding, timestamp site, decoder normalization and resource limit. Independent review checked call/return cleanup, register saves, checked packed accesses and flag snapshots across intervening moves. The fourth helper's six shifts use bounded constant counts on unsigned registers. Runtime services, browser code, fixtures and translator source are unchanged from the counter/wait checkpoint.
+
+Each fresh Chrome triple retained control/inert boundaries and stable sequences, the experiment's preceding trace/entry prefixes, all 97 kernel call frames and capture/backend observations. The final report contains 7,195 trace events and 3,622 original-entry events, with 609 total kernel events and the same prefix digest. A fresh final repeat preserves those stable observations and the new stop boundary. Three EAX observations retain the already proved live-calibration variation; two packed argument words at the final stop match the recorded calibration value's original binary64-to-extended conversion. The full CPU/argument values are not an exact-repeat claim. A direct final candidate-module control matches the earlier candidate control. Two pinned-compiler builds reproduce the 1,116,169-byte final module.
+
+The final module's two recorded waits were 514.255 and 509.4049 ms for the declared 500 ms request. That measured overshoot and its calibration effect remain explicit. Independent Sol High review passed all four admissions and browser comparisons. The unchanged source-owned runtime retains its 247/247 runtime, 9/9 evidence-suite and 64/64 native results; preparation/publication checks and the 17-file source-only build passed. An older generated build tree using retired paths was preserved locally before rebuilding. CI remains pending. The next task is inspection and bounded admission of the newly reached `0x001E8015`, preserving the declared clock inputs, indirect-entry provenance and all existing guards.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
