@@ -1,6 +1,6 @@
-# Project status: startup passes the debug-log reopen
+# Project status: startup advances through four more CRT routines
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reopened its debug log through the owned FATX mount and reached **status 2 at untranslated address `0x001E0C90`**, with return address `0x0004B302`, 384 distinct routines and 460 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced past the FATX debug-log reopen to **status 2 at untranslated address `0x001E50E3`**, with return address `0x001E2361`, 389 distinct routines and 463 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -73,6 +73,20 @@ The reached ordinal 190 request used disposition 3 (`FILE_OPEN_IF`) with the sam
 
 With the same 503 seeds, one direct entry and 20,714 emitted instructions, module `ecd8918d` served the unchanged request with status 0, information 1 (`FILE_OPENED`) and handle `0x00070008`. The mount stayed at revision 72 with 65,518 free clusters. Two ordinal 294 calls completed before the new stop, with the reopened handle still active. The fixed control and inert runs matched their prior stops, original entries, trace kind/address/stack sequences and kernel arguments/status. The experiment matched its earlier prefixes through the request whose result changed. Independent review and comparison reports are retained locally.
 
-Native checks passed 58/58 including sanitizers, runtime checks passed 201/201, and `npm run check` passed. The next bounded dependency is the untranslated call to `0x001E0C90`, with return address `0x0004B302`. Verify its original caller and complete routine layout before adding a checked translation within the existing budgets.
+Native checks passed 58/58 including sanitizers, runtime checks passed 201/201, and `npm run check` passed for the reopen.
+
+## CRT admission after the FATX reopen
+
+| Batch | Prepared functions / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / kernel operations |
+| --- | --- | --- | --- | --- |
+| FATX reopen | 503 + 1 direct entry / 20,714 | `ecd8918d` | Status 2 at `0x001E0C90`, return `0x0004B302` | 384 / 460 |
+| Admit `0x001E0C90` | 504 + 1 direct entry / 20,741 | `1cb37877` | Status 2 at `0x001E61C3`, return `0x001E0CB3` | 385 / 461 |
+| Admit `0x001E61C3` | 505 + 1 direct entry / 20,794 | `7a2a2f0e` | Status 2 at `0x001E6DED`, return `0x001E61D0` | 386 / 461 |
+| Admit `0x001E6DED` | 506 + 1 direct entry / 20,807 | `293cb08e` | Status 2 at `0x001E6DA9`, return `0x001E2300` | 388 / 461 |
+| Admit `0x001E6DA9` | 507 + 1 direct entry / 20,826 | `eb2cbb53` | Status 2 at `0x001E50E3`, return `0x001E2361` | 389 / 463 |
+
+Each admission used a single read-only Ghidra export, checked complete layout and byte identity against the original XBE, and passed the pinned Capstone decoder and checked memory preparation. Independent review confirmed the four fresh Chrome triples preserved the fixed control and inert stops and stable sequences, and each experiment preserved the preceding experiment's entry, trace kind/address/stack and kernel ordinal/status/argument prefixes. The FATX reopen handle remained live and its mount revision and allocation counts stayed stable. One additional aggregate ABI event in the first batch coincides with the already admitted SEH prolog at `0x001E04CC`. Two in the last batch coincide with another prolog and epilog pair at `0x001E04CC` and `0x001E0505`. The legacy ESP-change counter increased alongside those events. The trace identifies stack changes in those frames, while the aggregate diagnostic remains unresolved at the individual nonvolatile-register level.
+
+Python evidence checks passed 6/6. The next bounded dependency is the original call to `0x001E50E3`. The current profile uses 508 of 512 function slots, including the checked direct entry, within 32 exports and the 32,768-instruction limit. Continue to require exact admission and paired replay within those limits.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
