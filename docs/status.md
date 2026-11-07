@@ -1,6 +1,6 @@
-# Project status: startup advances past the CRT seek cleanup
+# Project status: compact startup profile reaches the next CRT call
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced past the CRT seek cleanup and reached **status 2 at untranslated address `0x001E0CE4`**, with return address `0x001E0CDB`, 394 distinct routines and 467 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced with the compact profile and reached **status 2 at untranslated address `0x001E7924`**, with return address `0x001E5466`, 397 distinct routines and 470 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -118,6 +118,21 @@ Module `f8c3352a` executed the view, returned to its owner and completed another
 
 The removed seed group contains only `0x001F65F0`, which had no selected static incoming reference or saved entry event. The reduced profile preserved all 625 retained definitions, the import bindings and both direct views. Chrome reproduced the control, inert and experiment stops and stable sequences before the freed slot was used. The next build admitted only `0x001E624B`, independently checked its 15 instruction rows and preserved the prior comparison prefixes. These observations cover the saved paths.
 
-The current profile uses 31 exports, all 512 function slots and 21,034 of 32,768 instructions. The next bounded dependency is `0x001E0CE4`. Verify its entry and establish capacity under the same guards before admission.
+## Compact profile and subsequent CRT admissions
+
+The compact profile retains observed entries, both checked direct entry contracts, the mixed-layout owners, and every source owner of a retained kernel binding. It also retains each already admitted direct callee and local tail-jump target of those routines. The private selection record maps the unchanged retained seed rows to their original export digests. Preparation preserved all 544 retained generated definitions, all 52 import bindings and their data and code-pointer categories. Indirect lookup has fewer entries, with the existing unsupported-target behavior.
+
+Chrome reproduced the complete stops and stable sequences for the fixed control, inert and experiment cases. A separate pair also compared the full and compact modules directly with the control settings. The paired runs matched stable debug, FATX and ABI observations. Clock-dependent fields varied, including one observed PTIMER register value at the same read site. The reduction is verified for these saved paths.
+
+| Batch | Prepared functions / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / kernel operations |
+| --- | --- | --- | --- | --- |
+| Compact baseline | 436 + 2 direct entries / 20,351 | `6e5f25fa` | Status 2 at `0x001E0CE4`, return `0x001E0CDB` | 394 / 467 |
+| Admit `0x001E0CE4` | 437 + 2 direct entries / 20,355 | `cb48d3aa` | Status 2 at `0x001E55A3`, return `0x001E4E4F` | 395 / 469 |
+| Admit `0x001E55A3` | 438 + 2 direct entries / 20,406 | `81d23f1e` | Status 2 at `0x001E5418`, return `0x001E55FA` | 396 / 470 |
+| Admit `0x001E5418` | 439 + 2 direct entries / 20,546 | `a83b4cc0` | Status 2 at `0x001E7924`, return `0x001E5466` | 397 / 470 |
+
+The original scope record at `0x0027C7C0` identifies the three-byte handler gap at `0x001E5627`. Bounded read-only decoding recovered one instruction, preserved all 50 existing rows and both body ranges, and passed original-byte, complete-layout and decoder checks. The separate direct target `0x001E562A` stays guarded. Independent review confirmed the stable comparison prefixes through the new batches.
+
+The current profile uses 31 exports, 441 of 512 function slots and 20,546 of 32,768 instructions. Verify the original caller and layout of the reached routine at `0x001E7924` before admission.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
