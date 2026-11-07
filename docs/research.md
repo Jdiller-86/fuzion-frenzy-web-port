@@ -27,6 +27,12 @@ The kernel capture digest covers the recorder's argument count/words and status.
 
 The legacy ABI diagnostic getter's slots 3-5 count stack inequality among logged calls, although the browser labels them as ESI. Slots 6-8 are unused zeros. Aggregate diagnostics therefore do not identify a particular changed nonvolatile register or establish absence of ESP faults. Call/return traces and static instruction review support their own bounded claims; preserve unresolved attribution rather than treating these labels as new CPU evidence.
 
+## Creation-only mutant model
+
+The explicit synthetic mutant profile supports only the reached null-attributes, initially unowned creation request. It retains up to four opaque handle records until whole-proof reset and preflights writable guest output before committing a record. It supplies no native mutex, named-object behavior, acquisition, waiting, release, close or complete kernel-object ABI. Source-owned native/compiled-bridge fixtures and the original browser call establish their respective bounded contracts, not retail-kernel equivalence.
+
+For this service, the generic default-off recorder captures four diagnostic stack words and the old frontend displays one. Original call-site and pinned declaration evidence establish three actual arguments; the newly selected handler and frontend record those three, with NTSTATUS/EAX and stack-return observations. Keep that arity correction distinct from the unreconstructable argument tails in older capture windows.
+
 ## AV services and provenance
 
 The source-owned service descriptor records ordinal 2 as `AvSendTVEncoderOption`, stdcall, 16 argument bytes, and void return. It is metadata rather than an implementation or service result. See [the descriptor](../runtime/browser/kernel-service.mjs).

@@ -4,6 +4,7 @@ import { parseConsoleOsSettings } from './console-os-settings.mjs';
 import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicClockProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile } from './performance-counter.mjs';
+import { parseMutantProfile } from './unnamed-mutants.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -36,8 +37,10 @@ export function parseLocalConsoleSettings(buffer) {
   if(performanceClock && performanceClock.source!==(deterministicClock?'synthetic-deterministic-100ns':'browser-monotonic-100ns'))
     throw new Error('Performance clock source must match the selected deterministic or browser clock');
   const performanceCounter=parsePerformanceCounterProfile(profile.performanceCounter);
+  const mutants=parseMutantProfile(profile.mutants);
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
+    ...(mutants===undefined?{}:{mutants}),
     ...(deterministicClock===undefined?{}:{deterministicClock}),
     ...(clockPause===undefined?{}:{clockPause}),
     ...(performanceCounter===undefined?{}:{performanceCounter}),

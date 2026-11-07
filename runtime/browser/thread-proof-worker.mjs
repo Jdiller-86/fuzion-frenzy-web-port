@@ -2,6 +2,7 @@ import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings,
 import { createProofClock } from './browser-clock.mjs';
 import { readPerformanceClockState } from './performance-clock.mjs';
 import { readPerformanceCounterState } from './performance-counter.mjs';
+import { readMutantState } from './unnamed-mutants.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
 import { createDeviceReport } from './device-report.mjs';
@@ -38,6 +39,8 @@ self.onmessage = async event => {
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
+    if(selectedClockSettings?.mutants && (!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic mutant creation capability');
     if(selectedClock && !timerAbi) throw new Error('This module does not consume the selected clock fixture');
     if(selectedClockSettings?.clockPause && !timerAbi)throw new Error('This module does not consume the selected clock pause');
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
@@ -54,6 +57,11 @@ self.onmessage = async event => {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
       consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
+      if(consoleSettings.mutants) {
+        if(!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function'))
+          throw new Error('Missing explicit synthetic mutant creation capability');
+        if(api.ff_probe_mutant_profile(1))throw new Error('Cannot configure explicit synthetic mutant creation');
+      }
       if(consoleSettings.performanceClock) {
         if(!timerAbi || ['profile','word'].some(name=>typeof api['ff_probe_performance_'+name]!=='function'))
           throw new Error('Missing explicit synthetic performance clock capability');
@@ -281,10 +289,16 @@ self.onmessage = async event => {
       const ordinal = api.ff_probe_kernel_word(i, 0);
       const status = api.ff_probe_kernel_word(i, 1) >>> 0;
       const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
-      const length = ordinal === 226 && status !== 1 ? 5 : count ?? 1;
+      const length = ordinal===192 && consoleSettings?.mutants ? 3 : ordinal === 226 && status !== 1 ? 5 : count ?? 1;
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });
     capturedCalls.forEach((call, i) => {
+      if(call.ordinal===192 && !call.status && consoleSettings?.mutants)call.output={
+        backend:'synthetic-unnamed-unowned-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,
+        created:api.ff_probe_kernel_word(i,10)>>>0,
+        eaxBefore:api.ff_probe_kernel_word(i,5)>>>0,espBefore:api.ff_probe_kernel_word(i,6)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
+      };
       if(call.ordinal===126 && !call.status)call.output={
         backend:'synthetic-performance-counter',frequencyHz:api.ff_probe_kernel_word(i,12)>>>0,
         interruptTicks:((BigInt(api.ff_probe_kernel_word(i,11)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,10)>>>0)).toString(),
@@ -387,6 +401,8 @@ self.onmessage = async event => {
     const kernelCapture = readKernelCapture(api, capturedCalls);
     const performanceCounterState=consoleSettings?.performanceCounter
       ?readPerformanceCounterState((_index,field)=>api.ff_probe_performance_counter_word(field),consoleSettings.performanceCounter,consoleSettings.performanceClock):undefined;
+    const mutantState=consoleSettings?.mutants
+      ?readMutantState((index,field)=>api.ff_probe_mutant_word(index,field)>>>0,consoleSettings.mutants):undefined;
     const performanceClockState=consoleSettings?.performanceClock
       ?readPerformanceClockState((index,field)=>api.ff_probe_performance_word(index,field),consoleSettings.performanceClock):undefined;
     const timestampBoundary=typeof api.ff_probe_timestamp_boundary_word==='function' && api.ff_probe_timestamp_boundary_word(0)===1
@@ -1147,12 +1163,12 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
-        stopReason:performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:mutantState?.status?'guarded synthetic mutant creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,mutantState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,

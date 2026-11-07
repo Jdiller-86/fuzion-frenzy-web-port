@@ -14,6 +14,7 @@ import { encodeConsoleOsSettings } from './console-os-settings.mjs';
 import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicClockProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
+import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -33,6 +34,28 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
+  const selectedMutants=parseMutantProfile(report.consoleSettings?.mutants);
+  if((selectedMutants===undefined)!==(report.mutantState===undefined))
+    throw new Error('Mutant evidence requires its explicit synthetic profile and state');
+  const mutantState=selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
+  if(mutantState) {
+    if(!Array.isArray(report.calls) || report.calls.length>512)throw new Error('Mutant evidence requires bounded captured calls');
+    const successes=report.calls.filter(call=>call.ordinal===192 && call.status===0);
+    const refusals=report.calls.filter(call=>call.ordinal===192 && call.status!==0);
+    if(refusals.length>1 || refusals.length && refusals[0]!==report.calls.at(-1))
+      throw new Error('A mutant refusal is terminal and must be the last captured call');
+    if(successes.length>mutantState.count || (!report.kernelCapture || report.kernelCapture.complete) && successes.length!==mutantState.count)
+      throw new Error('Mutant count must match captured creation evidence');
+    for(let i=0;i<successes.length;i++) {
+      if(successes[i].output?.created!==mutantState.count-successes.length+i+1)
+        throw new Error('Mutant creation order must match its retained handle table');
+    }
+    if(mutantState.status && (report.stop?.ordinal!==192 || report.stop.target!==mutantState.status ||
+       report.stop.status!==(mutantState.status===0xc000009a?4:9) ||
+       mutantState.status===0xc000009a && mutantState.count!==4 ||
+       report.calls.at(-1)?.ordinal!==192 || report.calls.at(-1)?.status!==1))
+      throw new Error('Mutant refusal requires a matching guarded service stop');
+  }
   const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
   const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
   const selectedDeterministic=parseDeterministicClockProfile(report.consoleSettings?.deterministicClock);
@@ -515,6 +538,26 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      if(call.ordinal===192) {
+        if(!mutantState && call.status===0)throw new Error('Mutant success requires its explicit synthetic model');
+        if(mutantState) {
+          if(call.arguments.length!==3)throw new Error('Selected mutant creation requires three arguments');
+          if(call.status!==0) {
+            if(call.status!==1 || call.output!==undefined || !mutantState.status)
+              throw new Error('Mutant refusal supplies no successful output');
+          } else {
+            const out=call.output, keys=['backend','handle','created','eaxBefore','espBefore','eaxAfter','espAfter'];
+            if(!out || Object.keys(out).length!==keys.length || Object.keys(out).some(key=>!keys.includes(key)) ||
+               out.backend!==selectedMutants.kind || !integer(out.created) || out.created<1 || out.created>mutantState.count ||
+               out.handle!==mutantState.handles[out.created-1].handle ||
+               /* Guest RAM is 64 MiB; the 128 MiB Wasm memory also holds host state. */
+               !call.arguments[0] || call.arguments[0]%4 || call.arguments[0]>0x4000000-4 || call.arguments[1]!==0 || call.arguments[2]!==0 ||
+               !dword(out.eaxBefore) || !dword(out.espBefore) || out.espBefore%4 || out.espBefore>0x4000000-16 ||
+               out.eaxAfter!==0 || out.espAfter!==out.espBefore+16)
+              throw new Error('Mutant success requires checked output, unowned state and NTSTATUS/stack evidence');
+          }
+        }
+      }
       if((call.ordinal===126 || call.ordinal===127) && call.arguments.length!==0)
         throw new Error('The performance-clock call has no arguments');
       if(call.ordinal===126) {

@@ -23,6 +23,14 @@ static uint64_t performance_counter_ticks,performance_counter_value;
 #endif
 #include "../../runtime/core/thread_bootstrap.h"
 #include "../../runtime/core/kernel_objects.h"
+#ifdef FF_MUTANT_PROOF
+#ifndef FF_VM_PROOF
+#error Mutant creation requires checked guest memory
+#endif
+#include "../../runtime/core/unnamed_mutants.h"
+static ff_unnamed_mutants unnamed_mutants;
+static uint32_t mutant_ready,mutant_status;
+#endif
 #include "../../runtime/core/local_settings.h"
 #include "../../runtime/core/port_io.h"
 #ifdef FF_PFIFO_PROOF
@@ -1468,6 +1476,40 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_MUTANT_PROOF
+/* Optional creation model only. It owns opaque handles until the whole proof
+ * resets; no wait, acquisition, release or close path is selected here. */
+uint32_t ff_probe_mutant_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+    mutant_ready=0;mutant_status=0;memset(&unnamed_mutants,0,sizeof unnamed_mutants);
+    if(enable>1u)return FF_BOOT_INVALID;
+    if(!enable)return 0;
+    if(!vm_ready)return FF_BOOT_INVALID;
+    uint32_t status=ff_unnamed_mutants_init(&unnamed_mutants,&virtual_memory);
+    if(status)return status;
+    mutant_ready=1;return 0;
+}
+uint32_t ff_probe_mutant_word(uint32_t index,uint32_t field)
+{
+    if(index==0xffffffffu)return field==0u?mutant_ready:field==1u?unnamed_mutants.count:
+        field==2u?FF_MUTANT_CAPACITY:field==3u?mutant_status:0u;
+    return index<unnamed_mutants.count && index<FF_MUTANT_CAPACITY && field==0u?unnamed_mutants.handles[index]:0u;
+}
+static void create_unnamed_mutant(void)
+{
+    uint32_t *row=kernel_record(192,3);
+    row[5]=g_eax;row[6]=g_esp;
+    mutant_status=ff_unnamed_mutants_create(&unnamed_mutants,row[2],row[3],row[4]);
+    if(mutant_status) {
+        row[1]=1;
+        stop(mutant_status==FF_MUTANT_NO_SLOTS?4:9,mutant_status,192);
+    }
+    row[7]=MEM32(row[2]);row[10]=unnamed_mutants.count;
+    g_eax=0;g_esp+=16u;
+    row[1]=0;row[8]=g_eax;row[9]=g_esp;
+}
+#endif
 #ifdef FF_MEMORY_STATISTICS_PROOF
 uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_pages)
 {
@@ -2789,6 +2831,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
 #ifdef FF_PERFORMANCE_COUNTER_PROOF
         if(ordinal==126u && performance_clock.ready && performance_counter_enabled)return query_performance_counter;
 #endif
+#ifdef FF_MUTANT_PROOF
+        if(ordinal==192u && mutant_ready)return create_unnamed_mutant;
+#endif
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
         if (ordinal == 277) return enter_critical;
@@ -3127,6 +3172,9 @@ void ff_probe_reset(void)
 #endif
     for (unsigned i = 0; i < ICALL_TRACE_SIZE; ++i) g_icall_trace[i] = 0;
     g_icall_trace_idx = 0; g_icall_count = 0; g_force_return = 0;
+#ifdef FF_MUTANT_PROOF
+    memset(&unnamed_mutants,0,sizeof unnamed_mutants);mutant_ready=mutant_status=0;
+#endif
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;
     g_xbox_code_lo = FF_CODE_LOW; g_xbox_code_hi = FF_CODE_HIGH;
     g_eax = g_ecx = g_edx = g_esp = g_ebx = g_esi = g_edi = g_ebp = 0;
