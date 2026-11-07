@@ -394,6 +394,63 @@ static void guest_open_if_existing_file_is_narrow_and_read_only(void)
            disk.revision==full_revision && disk.allocated_pages==full_pages);
     for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
 }
+static void guest_query_file_network_open_information(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\query.txt",OUT));
+    uint32_t handle=(uint32_t)get(OUT,4);
+    assert(!ff_fatx_close(&fs,handle));
+    assert(!open_if_guest_file("Z:\\QUERY.TXT"));
+    handle=(uint32_t)get(OUT,4);
+    assert(get(IOSB+4,4)==1);
+
+    uint32_t query[5]={handle,IOSB,DATA,56,34};
+    memset(ram+DATA,0xa5,56);
+    assert(!ff_fatx_query_file(&fs,query));
+    for(unsigned i=0;i<32;++i)assert(ram[DATA+i]==0); /* four unset synthetic timestamps */
+    assert(get(DATA+32,8)==0 && get(DATA+40,8)==0); /* allocation size and EOF */
+    assert(get(DATA+48,4)==0x20 && get(DATA+52,4)==0 && get(IOSB+4,4)==56);
+
+    memset(ram+DATA,0xa5,56);query[2]=0x3fff0;save();
+    assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[2]=DATA;
+    query[1]=0x3fffc;save();assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[1]=IOSB;
+    query[2]=DATA+4;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[2]=DATA;
+    query[1]=IOSB+2;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[1]=IOSB;
+    query[2]=IOSB;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[2]=DATA;
+    query[4]=5;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[4]=34;
+    const uint32_t root_query[5]={root,IOSB,DATA,56,34};save();
+    assert(ff_fatx_query_file(&fs,root_query)==FF_BOOT_UNSUPPORTED);unchanged();
+
+    query[3]=55;memset(ram+DATA,0xa5,56);
+    assert(ff_fatx_query_file(&fs,query)==0xc0000023u);
+    assert(get(IOSB,4)==0xc0000023u && get(IOSB+4,4)==0);
+    for(unsigned i=0;i<56;++i)assert(ram[DATA+i]==0xa5);
+    query[3]=56;
+    assert(!ff_fatx_close(&fs,handle));save();
+    assert(ff_fatx_query_file(&fs,query)==FF_BOOT_BAD_HANDLE);unchanged();
+
+    /* The mutation advances the mount revision without making it stale; the
+     * file handle retains its opening revision and therefore cannot query. */
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\stale.txt",OUT));handle=(uint32_t)get(OUT,4);
+    assert(!ff_fatx_close(&fs,handle));assert(!open_if_guest_file("z:\\stale.txt"));
+    handle=(uint32_t)get(OUT,4);query[0]=handle;
+    assert(!ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"OTHER.TXT",9,&(ff_fatx_directory_entry){0}));
+    assert(fs.mounts[0].revision==disk.revision);
+    save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+
+    /* A real backed empty entry with a set timestamp is outside the synthetic
+     * all-ones timestamp profile, even when opened at the current revision. */
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    for(unsigned i=0;i<4096;++i)ram[DATA+i]=ff_disk_byte(&disk,part_base+270336+i);
+    put(DATA+192+52,0x12345678u,4);write_raw_page(part_base+270336);
+    fs.mounts[0].revision=disk.revision;
+    assert(!open_if_guest_file("z:\\EMPTY.BIN"));handle=(uint32_t)get(OUT,4);query[0]=handle;
+    memset(ram+DATA,0xa5,56);save();
+    assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+}
 static void fatx_create_file_with_data(void)
 {
     setup_files(UINT32_MAX,5,2);uint32_t handle=open_root();
@@ -626,6 +683,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, sparse-backing failure, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest file query, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

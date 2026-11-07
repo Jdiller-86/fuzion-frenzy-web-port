@@ -1,6 +1,6 @@
-# Project status: startup reaches the FATX file-information query
+# Project status: startup passes the FATX file-information query
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reached **status 9 at ordinal 211 (`NtQueryInformationFile`), value `0xC00000BB`**, with return address `0x001E9112`, 392 distinct routines and 464 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the FATX file-information query and reached **status 1 at ordinal 226, target `0xFE000048`**, with return address `0x001E9195`, 392 distinct routines and 465 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -92,6 +92,12 @@ Each admission used a single read-only Ghidra export, checked complete layout an
 
 The original export of `0x001E50E3` failed complete-layout verification at the three-byte gap at `0x001E5167`. The original XBE's exception scope record at `0x0027C7A0` points to that handler. A bounded read-only decode added one instruction, preserved all 50 prior rows and both body ranges, and passed byte, decoder and layout checks. The separate direct target at `0x001E516A` remains guarded. Independent review confirmed that each of the three further Chrome comparisons preserved the control and inert stops and stable sequences, along with the preceding experiment's stable prefixes. Debug and FATX state stayed stable. Only the first of these batches added an aggregate ABI event and matching stack diagnostic at the reached SEH prolog.
 
-The stopped request uses the reopened FATX handle `0x00070008`, class 34 and a 56-byte output buffer. The dispatcher currently rejects FATX handles in this query. The next bounded dependency is `FileNetworkOpenInformation` for that live handle, with metadata grounded in the owned file entry and checked guest output. The class and fields are defined in the [XboxDev declarations](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h). The profile uses 511 of 512 function slots including the checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
+## FATX file-information query
+
+Ordinal 211 queried `FileNetworkOpenInformation` for the reopened handle `0x00070008` with a 56-byte buffer. The provider ties the handle to its owned directory slot and opening revision, rechecks the backed empty archive entry, and validates the aligned, nonoverlapping guest output ranges. The writer's all-ones FATX timestamp placeholders yield four explicit synthetic zero times. Other timestamp encodings stay guarded. The class and fields are defined in the [XboxDev declarations](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h).
+
+With the same translation profile, module `06aa7f0f` returned status 0 and IOSB information 56. The query reported zero allocation and end of file, archive attributes `0x20` and zero padding. The reopened handle stayed live, and mount revision 72 and 65,518 free clusters stayed stable. The fixed control and inert observations matched, and the experiment preserved its stable prefix up to the same ordinal 211 request. Independent review passed. The saved trace has no immediate post-query register sample. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
+
+The next bounded dependency is ordinal 226 (`NtSetInformationFile`). The saved stack shows the same handle, class 14 and an eight-byte input. Verify the requested offset and implement only the reached, checked file-position behavior. The profile uses 511 of 512 function slots including the checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

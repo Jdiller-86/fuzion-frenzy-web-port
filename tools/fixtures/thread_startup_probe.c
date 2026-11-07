@@ -1857,7 +1857,8 @@ static void query_file_information(void)
 {
     uint32_t *row=kernel_record(211,5);
 #ifdef FF_FATX_PROOF
-    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],211);}
+    if(ff_fatx_owns_handle(row[2])) row[1]=fatx_ready?ff_fatx_query_file(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
 #endif
     row[1]=ff_volume_query_file(&local_volume,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],211);
