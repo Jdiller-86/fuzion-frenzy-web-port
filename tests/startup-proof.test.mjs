@@ -534,6 +534,7 @@ test('startup host serves only owned source and rejects original modules, files,
   });
   for (const url of ['/', '/thread', '/host/xbe.mjs', '/runtime/browser/wasm-proof.mjs', '/runtime/browser/startup-proof-worker.mjs',
     '/runtime/browser/local-title-proof.mjs', '/runtime/browser/browser-clock.mjs', '/runtime/browser/copy-proof.mjs',
+    '/runtime/browser/proof-report.mjs', '/runtime/browser/kernel-service.mjs',
     '/runtime/browser/file-request.mjs', '/runtime/browser/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);
