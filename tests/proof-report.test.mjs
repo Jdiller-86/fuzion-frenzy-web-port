@@ -42,6 +42,20 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+test('timestamp-counter boundary remains a stop-only one-attempt declaration', () => {
+  const site = 0x00123456;
+  const valid = report({ stop: { status: 9, target: site, ordinal: 0 },
+    timestampBoundary: { kind: 'unmodeled-timestamp-counter', site, attempts: 1 } });
+  assert.equal(validateProofReport(valid), valid);
+  for (const boundary of [
+    { kind: 'other', site, attempts: 1 }, { kind: 'unmodeled-timestamp-counter', site, attempts: 1, value: 123 },
+    { kind: 'unmodeled-timestamp-counter', site, attempts: 0 }, { kind: 'unmodeled-timestamp-counter', site, attempts: 2 },
+  ]) assert.throws(() => validateProofReport({ ...valid, timestampBoundary: boundary }), /Timestamp-counter boundary/);
+  for (const stop of [{ status: 9, target: site + 4, ordinal: 0 }, { status: 9, target: site, ordinal: 1 },
+    { status: 10, target: site, ordinal: 0 }])
+    assert.throws(() => validateProofReport({ ...valid, stop }), /Timestamp-counter boundary/);
+});
+
 test('kernel capture reports bind calls, selected profile and captured suffix evidence', () => {
   const suffix = {
     kind: 'kernel-capture-window', version: 1, requestedStart: 512, capturedStart: 512,
@@ -507,6 +521,18 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: { ordinal: 1, name: null, modeled: false },
     },
   })), /Only an unsupported-service/);
+});
+
+test('ordinal 127 stop carries only its known zero-argument frequency ABI', () => {
+  const service = { ordinal: 127, name: 'KeQueryPerformanceFrequency', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64' };
+  const valid = report({ stop: { status: 1, target: 0xFE000000, ordinal: 127, service },
+    calls: [{ ordinal: 127, status: 1, arguments: [] }] });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({ stop: { ...valid.stop,
+    service: { ...service, argumentBytes: 4 } }, calls: valid.calls })), /zero-argument 64-bit ABI/);
+  assert.throws(() => validateProofReport(report({ stop: valid.stop,
+    calls: [{ ordinal: 127, status: 1, arguments: [1] }] })), /has no arguments/);
 });
 
 test('a worker-level error report is accepted without evidence fields', () => {

@@ -264,7 +264,7 @@ self.onmessage = async event => {
     const capturedCalls = Array.from({ length: callCount }, (_, i) => {
       const ordinal = api.ff_probe_kernel_word(i, 0);
       const status = api.ff_probe_kernel_word(i, 1) >>> 0;
-      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
+      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 127: 0, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
       const length = ordinal === 226 && status !== 1 ? 5 : count ?? 1;
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });
@@ -352,6 +352,9 @@ self.onmessage = async event => {
       data:Array.from(ram.slice(thread.tls+4,thread.tls+4+profile.tls.end-profile.tls.start+profile.tls.zeroFillBytes))};
     const expectedCreate = [stackTop - 28, 0, profile.stackBytes, tlsBytes, 0, REF.threadStart, 0, 0, 0, REF.systemStart];
     const kernelCapture = readKernelCapture(api, capturedCalls);
+    const timestampBoundary=typeof api.ff_probe_timestamp_boundary_word==='function' && api.ff_probe_timestamp_boundary_word(0)===1
+      ?{kind:'unmodeled-timestamp-counter',site:api.ff_probe_timestamp_boundary_word(1)>>>0,
+        attempts:api.ff_probe_timestamp_boundary_word(2)>>>0}:undefined;
     const calls = absoluteKernelCalls(kernelCapture, capturedCalls);
     const entered = trace.filter(row => row.kind === 'enter').map(row => row.address);
     const loaderExit = trace.findIndex(row => row.kind === 'exit' && row.address === REF.entry);
@@ -1107,12 +1110,12 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
-        stopReason:debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,

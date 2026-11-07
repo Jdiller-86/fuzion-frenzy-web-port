@@ -19,3 +19,11 @@ test('unknown and invalid ordinals are unnamed and not modeled', () => {
   assert.deepEqual(describeKernelService(0x10000), { ordinal: 0x10000, name: null, modeled: false });
   assert.deepEqual(describeKernelService(2.5), { ordinal: 2.5, name: null, modeled: false });
 });
+
+test('ordinal 127 names the frequency query with its declared ABI only', () => {
+  assert.deepEqual(describeKernelService(127), {
+    ordinal: 127, name: 'KeQueryPerformanceFrequency', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64',
+  });
+  assert.deepEqual(describeKernelService(3), { ordinal: 3, name: null, modeled: false });
+});

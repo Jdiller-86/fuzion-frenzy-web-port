@@ -148,6 +148,9 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+static uint32_t timestamp_boundary[2];
+#endif
 #ifdef FF_KERNEL_CAPTURE_PROOF
 #if !defined(FF_INITIALIZER_BATCH_PROOF)
 #error Kernel capture windows require the fixed initializer observation capacities
@@ -668,6 +671,21 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+static uint64_t ff_probe_read_tsc(uint32_t site)
+{
+    static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
+    for(uint32_t i=0;i<FF_TIMESTAMP_COUNTER_GUARD_COUNT;++i)if(site==sites[i]) {
+        timestamp_boundary[0]=site;timestamp_boundary[1]=1;
+        stop(9,site,0);
+    }
+    stop(9,site,0);
+}
+uint32_t ff_probe_timestamp_boundary_word(uint32_t field)
+{
+    return field==0?timestamp_boundary[1]:field==1?timestamp_boundary[0]:field==2?timestamp_boundary[1]:0;
+}
+#endif
 #ifdef FF_DEBUG_SERVICE_PROOF
 void recomp_debug_service(uint32_t service, uint32_t argument)
 {
@@ -2707,6 +2725,13 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is
          * modeled; the row makes the boundary inspectable in the report. */
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+        if(ordinal==127u) {
+            uint32_t *row=kernel_record(127,0);
+            row[1]=1;
+            stop(1,address,127);
+        }
+#endif
         {
             uint32_t *row = kernel_record(ordinal, 4);
             row[1] = 1;
@@ -2895,6 +2920,9 @@ void ff_probe_reset(void)
     memset(debug_service_state, 0, sizeof debug_service_state);
 #endif
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+    memset(timestamp_boundary,0,sizeof timestamp_boundary);
+#endif
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;
 #ifdef FF_OS_SETTINGS_PROOF

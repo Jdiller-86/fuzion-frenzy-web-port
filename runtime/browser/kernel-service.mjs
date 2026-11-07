@@ -1,7 +1,9 @@
 /* Source-owned static facts for reached Xbox kernel services.
  *
  * This is metadata only: it never implements a service or supplies a return
- * value. The pinned xboxrecomp-source reference declares ordinal 2 as
+ * value. Ordinal 127 has a zero-argument, 64-bit performance-frequency ABI;
+ * its descriptor supplies no frequency or timing model. The pinned
+ * xboxrecomp-source reference declares ordinal 2 as
  * `VOID __stdcall AvSendTVEncoderOption(PVOID RegisterBase, ULONG Option,
  * ULONG Param, PULONG Result)` (kernel.h:1100), and the call site evidences the
  * stdcall/16-byte/void convention.
@@ -19,6 +21,12 @@ const SERVICES = new Map([
     callingConvention: 'stdcall',
     argumentBytes: 16,
     returns: 'void',
+  }],
+  [127, {
+    name: 'KeQueryPerformanceFrequency',
+    callingConvention: 'stdcall',
+    argumentBytes: 0,
+    returns: 'uint64',
   }],
 ]);
 

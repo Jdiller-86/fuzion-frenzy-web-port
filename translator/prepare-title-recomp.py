@@ -449,10 +449,13 @@ def main():
     parser.add_argument("--instruction-limit", type=int, choices=(8192,16384,32768), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
+    parser.add_argument("--guard-timestamp-counter", action="store_true", help="Stop at checked original RDTSC sites without supplying a counter")
     parser.add_argument("--crt-cleanup-entry", action="store_true", help="Admit the checked direct CRT cleanup entry view")
     parser.add_argument("--crt-seek-cleanup-entry", action="store_true", help="Admit the checked direct CRT seek cleanup entry view")
     parser.add_argument("--crt-write-cleanup-entry", action="store_true", help="Admit the checked direct CRT write cleanup entry view")
     args = parser.parse_args()
+    if args.guard_timestamp_counter and not args.guard_memory:
+        parser.error("Timestamp-counter guards require checked memory")
     cleanup_contracts = []
     if args.crt_cleanup_entry:
         cleanup_contracts.append(CRT_CLEANUP_ENTRY)
@@ -653,6 +656,7 @@ def main():
             dispatch_census.append({"function": start, "sites": len(sites), "tableRegions": len(layout["tables"]),
                                     "anchors": len(tables), "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]})
         generated, return_observations, memory_observations = [], [], []
+        timestamp_guards = []
         for address, info in (functions | entry_views).items():
             text = translator.translate_function(address, info)
             modeled = admit_modeled_noop(translator.lifter.unimplemented)
@@ -664,6 +668,12 @@ def main():
             if not text:
                 raise ValueError("Translation produced no code")
             rows = direct_entries[address]["rows"] if address in entry_views else layouts[address]["rows"]
+            if args.guard_timestamp_counter:
+                from timestamp_counter_guard import guard_timestamp_reads
+                text, sites = guard_timestamp_reads(text, rows)
+                timestamp_guards.extend({"owner": address, "site": site, "bytes": 2} for site in sites)
+                if len(timestamp_guards) > 64:
+                    raise ValueError("Timestamp-counter guard site budget exceeded")
             returns = any(row.get("mnemonic", "").startswith("RET") for row in rows)
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
@@ -676,6 +686,8 @@ def main():
                     raise ValueError(f"0x{address:08X}: {error}") from error
                 memory_observations.append({"function": address, **access_counts})
             generated.append(text)
+        if args.guard_timestamp_counter and not timestamp_guards:
+            raise ValueError("No checked timestamp-counter instruction was selected")
     header = [f'#define FF_SOURCE_SHA256 "{sha}"', f'#define FF_ENTRY_ADDRESS 0x{profile["entry"]:08X}u',
               f'#define FF_ENTRY_FUNCTION {functions[profile["entry"]]["name"]}',
               f'#define FF_CODE_LOW 0x{min(s["address"] for s in profile["sections"] if s["executable"]):08X}u',
@@ -687,6 +699,10 @@ def main():
     header += ['#ifndef FF_GUEST_WBINVD', '#define FF_GUEST_WBINVD(address) ((void)0)', '#endif']
     if args.guard_memory:
         header += ['#define FF_GUARDED_MEMORY 1', '#include "recomp_memory_access.h"']
+    if args.guard_timestamp_counter:
+        header += ['#define FF_TIMESTAMP_COUNTER_GUARDS 1',
+                   f'#define FF_TIMESTAMP_COUNTER_GUARD_COUNT {len(timestamp_guards)}u',
+                   '#define FF_TIMESTAMP_COUNTER_SITES { ' + ', '.join(f'0x{row["site"]:08X}u' for row in timestamp_guards) + ' }']
     header += [f'void {info["name"]}(void);' for info in database.values()]
     for filename, text in [("title-profile.h", "\n".join(header) + "\n"),
                            ("title-functions.inc", "\n".join(generated) + "\n" + "\n".join(
@@ -726,6 +742,8 @@ def main():
             key: view[key] for key in ("owner", "site", "entry", "callee", "end")
         } | {"instructions": len(view["rows"]), "indirectLookup": False}
             for view in direct_entries.values()]
+    if args.guard_timestamp_counter:
+        report["timestampCounterGuards"] = timestamp_guards
     with (out / "generation.json").open("x") as file:
         json.dump(report, file, indent=2)
     print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": decoded_instruction_count,

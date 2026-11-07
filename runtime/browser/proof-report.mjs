@@ -89,6 +89,10 @@ export function validateProofReport(report) {
       if (stop.service.resultBits !== undefined || stop.service.option !== undefined ||
           stop.service.output !== undefined)
         throw new Error('Observed option/result facts must not be stored in the static service descriptor');
+    } else if(stop.service.name==='KeQueryPerformanceFrequency') {
+      if(stop.ordinal!==127 || stop.service.callingConvention!=='stdcall' || stop.service.argumentBytes!==0 ||
+         stop.service.returns!=='uint64' || stop.service.output!==undefined || stop.service.resultBits!==undefined)
+        throw new Error('The performance-frequency descriptor must retain its zero-argument 64-bit ABI');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
                stop.service.returns !== undefined || stop.service.resultBits !== undefined ||
                stop.service.option !== undefined || stop.service.output !== undefined) {
@@ -96,6 +100,13 @@ export function validateProofReport(report) {
     }
   } else if (stop.service !== undefined) {
     throw new Error('Only an unsupported-service stop may carry a service descriptor');
+  }
+  if(report.timestampBoundary!==undefined) {
+    const boundary=report.timestampBoundary;
+    if(!boundary || boundary.kind!=='unmodeled-timestamp-counter' || Object.keys(boundary).length!==3 ||
+       !dword(boundary.site) || !boundary.site || boundary.attempts!==1 ||
+       stop.status!==9 || stop.target!==boundary.site || stop.ordinal!==0)
+      throw new Error('Timestamp-counter boundary requires a matching stop and no supplied value');
   }
   const startup = report.originalStartup;
   if (!startup || !bounded(startup.totalInitializers, 4096) ||
@@ -413,6 +424,8 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      if(call.ordinal===127 && call.arguments.length!==0)
+        throw new Error('The performance-frequency call has no arguments');
       if(selectedClock && call.ordinal===128 && call.status===0 &&
          (call.arguments.length!==1 || !call.arguments[0] || call.arguments[0]%4 ||
           call.output?.systemTicks!==((BigInt(selectedClock.unixMillis)+11644473600000n)*10000n).toString()))
