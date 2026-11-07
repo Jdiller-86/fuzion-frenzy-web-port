@@ -11,6 +11,7 @@ const files = new Map([
   ['/runtime/browser/local-title-proof.mjs', ['runtime/browser/local-title-proof.mjs', 'text/javascript']],
   ['/runtime/browser/browser-clock.mjs', ['runtime/browser/browser-clock.mjs', 'text/javascript']],
   ['/runtime/browser/performance-clock.mjs', ['runtime/browser/performance-clock.mjs', 'text/javascript']],
+  ['/runtime/browser/performance-counter.mjs', ['runtime/browser/performance-counter.mjs', 'text/javascript']],
   ['/runtime/browser/copy-proof.mjs', ['runtime/browser/copy-proof.mjs', 'text/javascript']],
   ['/runtime/browser/file-request.mjs', ['runtime/browser/file-request.mjs', 'text/javascript']],
   ['/runtime/browser/device-report.mjs', ['runtime/browser/device-report.mjs', 'text/javascript']],

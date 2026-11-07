@@ -14,6 +14,13 @@ static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 static ff_performance_clock performance_clock;
 static uint32_t performance_status, performance_last_site, performance_frequency_queries;
 #endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+#ifndef FF_PERFORMANCE_CLOCK_PROOF
+#error Performance counter requires the explicit paired performance clock
+#endif
+static uint32_t performance_counter_enabled,performance_counter_status,performance_counter_count;
+static uint64_t performance_counter_ticks,performance_counter_value;
+#endif
 #include "../../runtime/core/thread_bootstrap.h"
 #include "../../runtime/core/kernel_objects.h"
 #include "../../runtime/core/local_settings.h"
@@ -692,7 +699,12 @@ static uint64_t ff_probe_read_tsc(uint32_t site)
              * kernel timer queue here would add unrelated CPU side effects. */
             ff_host_clock((uint32_t)(uintptr_t)clock_words);
             uint64_t ticks=clock_words[0]|(uint64_t)clock_words[1]<<32;
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+            performance_status=performance_counter_enabled && ticks<performance_counter_ticks
+                ?FF_PERFORMANCE_CLOCK_ORDER:ff_performance_clock_read(&performance_clock,ticks,site,&counter);
+#else
             performance_status=ff_performance_clock_read(&performance_clock,ticks,site,&counter);
+#endif
             if(performance_status==FF_PERFORMANCE_CLOCK_OK)return counter;
             stop(performance_status==FF_PERFORMANCE_CLOCK_CAPACITY_REACHED?4:9,site,0);
         }
@@ -712,8 +724,38 @@ uint32_t ff_probe_performance_profile(uint32_t frequency)
     if(probe_trace_count || kernel_call_count)return FF_PERFORMANCE_CLOCK_INVALID;
     memset(&performance_clock,0,sizeof performance_clock);
     performance_status=performance_last_site=performance_frequency_queries=0;
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
+#endif
     return ff_performance_clock_init(&performance_clock,frequency);
 }
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+uint32_t ff_probe_performance_counter_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count)return FF_PERFORMANCE_CLOCK_INVALID;
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
+    if(enable>1u || (enable && !performance_clock.ready))return FF_PERFORMANCE_CLOCK_INVALID;
+    performance_counter_enabled=enable;
+    return FF_PERFORMANCE_CLOCK_OK;
+}
+uint32_t ff_probe_performance_counter_word(uint32_t field)
+{
+    switch(field) {
+    case 0:return performance_counter_enabled;
+    case 1:return performance_clock.frequency_hz;
+    case 2:return performance_counter_count;
+    case 3:return FF_PERFORMANCE_CLOCK_CAPACITY;
+    case 4:return performance_counter_status;
+    case 5:return (uint32_t)performance_counter_ticks;
+    case 6:return (uint32_t)(performance_counter_ticks>>32);
+    case 7:return (uint32_t)performance_counter_value;
+    case 8:return (uint32_t)(performance_counter_value>>32);
+    default:return 0;
+    }
+}
+#endif
 uint32_t ff_probe_performance_word(uint32_t index,uint32_t field)
 {
     static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
@@ -2710,12 +2752,42 @@ static void query_performance_frequency(void)
     row[1]=0;row[2]=g_eax;row[3]=g_edx;
     row[7]=g_eax;row[8]=g_edx;row[9]=g_esp;
 }
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+static void query_performance_counter(void)
+{
+    uint32_t *row=kernel_record(126,0);
+    uint64_t counter=0,ticks=0;
+    row[4]=g_eax;row[5]=g_edx;row[6]=g_esp;
+    performance_counter_status=FF_PERFORMANCE_CLOCK_CAPACITY_REACHED;
+    if(performance_counter_count<FF_PERFORMANCE_CLOCK_CAPACITY) {
+        ff_host_clock((uint32_t)(uintptr_t)clock_words);
+        ticks=clock_words[0]|(uint64_t)clock_words[1]<<32;
+        performance_counter_status=ticks<performance_counter_ticks || ticks<performance_clock.last_ticks
+            ?FF_PERFORMANCE_CLOCK_ORDER
+            :ff_performance_clock_scale(performance_clock.frequency_hz,ticks,&counter);
+    }
+    if(performance_counter_status) {
+        row[1]=1;
+        stop(performance_counter_status==FF_PERFORMANCE_CLOCK_CAPACITY_REACHED?4:9,performance_counter_status,126);
+    }
+    performance_counter_ticks=ticks;performance_counter_value=counter;++performance_counter_count;
+    g_eax=(uint32_t)counter;g_edx=(uint32_t)(counter>>32);g_esp+=4u;
+    row[1]=0;row[2]=g_eax;row[3]=g_edx;row[7]=g_eax;row[8]=g_edx;row[9]=g_esp;
+    row[10]=(uint32_t)ticks;row[11]=(uint32_t)(ticks>>32);row[12]=performance_clock.frequency_hz;
+    /* Distinguish the normal kernel poll's last sample from the subsequent
+     * raw counter sample, including when an explicit browser wait occurs. */
+    row[13]=(uint32_t)timers.interrupt_time;row[14]=(uint32_t)(timers.interrupt_time>>32);
+}
+#endif
 #endif
 recomp_func_t recomp_lookup_kernel(uint32_t address){
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
 #ifdef FF_PERFORMANCE_CLOCK_PROOF
         if(ordinal==127u && performance_clock.ready)return query_performance_frequency;
+#endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+        if(ordinal==126u && performance_clock.ready && performance_counter_enabled)return query_performance_counter;
 #endif
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
@@ -2998,6 +3070,10 @@ void ff_probe_reset(void)
 #ifdef FF_PERFORMANCE_CLOCK_PROOF
     memset(&performance_clock,0,sizeof performance_clock);
     performance_status=performance_last_site=performance_frequency_queries=0;
+#endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
 #endif
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;

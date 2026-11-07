@@ -1,8 +1,9 @@
 import { readXbeProfile } from '../../host/xbe.mjs';
 import { inspectProofWasm } from './wasm-proof.mjs';
 import { parseConsoleOsSettings } from './console-os-settings.mjs';
-import { parseSystemClockProfile } from './browser-clock.mjs';
+import { parseSystemClockProfile, parseClockPauseProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile } from './performance-clock.mjs';
+import { parsePerformanceCounterProfile } from './performance-counter.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -27,8 +28,13 @@ export function parseLocalConsoleSettings(buffer) {
   if (profile.kernelCaptureStart !== undefined && ![0,512].includes(profile.kernelCaptureStart))
     throw new Error('Select kernel capture start 0 or 512');
   const systemClock=parseSystemClockProfile(profile.systemClock);
+  const clockPause=parseClockPauseProfile(profile.clockPause);
   const performanceClock=parsePerformanceClockProfile(profile.performanceClock);
+  const performanceCounter=parsePerformanceCounterProfile(profile.performanceCounter);
+  if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
+    ...(clockPause===undefined?{}:{clockPause}),
+    ...(performanceCounter===undefined?{}:{performanceCounter}),
     ...(performanceClock===undefined?{}:{performanceClock}),
     ...(systemClock===undefined?{}:{systemClock}),
     ...(profile.kernelCaptureStart === undefined ? {} : { kernelCaptureStart: profile.kernelCaptureStart }) };

@@ -11,8 +11,9 @@
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 import { validateKernelCapture } from './kernel-capture.mjs';
 import { encodeConsoleOsSettings } from './console-os-settings.mjs';
-import { parseSystemClockProfile } from './browser-clock.mjs';
+import { parseSystemClockProfile, parseClockPauseProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
+import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -34,7 +35,43 @@ export function validateProofReport(report) {
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
   const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
   const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
+  const selectedPause=parseClockPauseProfile(report.consoleSettings?.clockPause);
+  const declaredPause=parseClockPauseProfile(report.clock?.pauseProfile);
+  if((selectedPause===undefined)!==(declaredPause===undefined) ||
+     selectedPause===undefined && report.clock?.pauseState!==undefined)
+    throw new Error('Clock pause evidence requires its explicitly selected profile');
+  if(selectedPause) {
+    const p=report.clock?.pauseState;
+    if(!p || Object.keys(p).length!==5 || Object.keys(p).some(key=>!['performed','beforeSample','milliseconds','beforeTicks','afterTicks'].includes(key)) ||
+       selectedPause.beforeSample!==declaredPause.beforeSample || selectedPause.milliseconds!==declaredPause.milliseconds ||
+       p.beforeSample!==selectedPause.beforeSample || p.milliseconds!==selectedPause.milliseconds ||
+       typeof p.performed!=='boolean' || report.clock.kind!=='browser-clock' || report.clock.monotonic!=='performance.now' ||
+       !bounded(report.clock.samples,16384) ||
+       (!p.performed && (report.clock.samples>=p.beforeSample || p.beforeTicks!==null || p.afterTicks!==null)))
+      throw new Error('Malformed or inconsistent clock pause evidence');
+    if(p.performed) {
+      const ticks=value=>typeof value==='string' && value.length<=16 && /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value)<=BigInt(Number.MAX_SAFE_INTEGER);
+      if(report.clock.samples<p.beforeSample || !ticks(p.beforeTicks) || !ticks(p.afterTicks) ||
+         BigInt(p.afterTicks)-BigInt(p.beforeTicks)<BigInt(p.milliseconds)*10000n)
+        throw new Error('Clock pause requires a measured successful wait at its declared sample');
+    }
+  }
   const selectedPerformance=parsePerformanceClockProfile(report.consoleSettings?.performanceClock);
+  const selectedCounter=parsePerformanceCounterProfile(report.consoleSettings?.performanceCounter);
+  if((selectedCounter===undefined)!==(report.performanceCounterState===undefined))
+    throw new Error('Performance counter evidence requires its explicit profile and state');
+  const counterState=selectedCounter?validatePerformanceCounterState(report.performanceCounterState,selectedCounter,selectedPerformance):undefined;
+  if(counterState) {
+    if(!Array.isArray(report.calls) || counterState.status===4 && counterState.count!==64)
+      throw new Error('Performance counter requires bounded captured calls');
+    const accepted=report.calls.filter(call=>call.ordinal===126 && call.status===0);
+    if(counterState.count<accepted.length || (!report.kernelCapture || report.kernelCapture.complete) && counterState.count!==accepted.length ||
+       accepted.length && (counterState.lastTicks!==accepted.at(-1).output?.interruptTicks || counterState.lastCounter!==accepted.at(-1).output?.counter))
+      throw new Error('Performance counter state must match captured query evidence');
+    if(counterState.status && (report.stop?.ordinal!==126 || report.stop.target!==counterState.status ||
+       report.stop.status!==(counterState.status===4?4:9)))
+      throw new Error('Performance counter refusal requires a matching guarded service stop');
+  }
   if((selectedPerformance===undefined)!==(report.performanceClockState===undefined))
     throw new Error('Performance clock evidence requires its explicitly selected profile and state');
   if(selectedPerformance) {
@@ -429,6 +466,7 @@ export function validateProofReport(report) {
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
   let sawFirstNullShape = false, sawSecondNullShape = false, sawThirdNullShape = false;
+  let previousCounterTicks=-1n;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
@@ -445,8 +483,28 @@ export function validateProofReport(report) {
         throw new Error('Malformed kernel call record');
       if((call.ordinal===126 || call.ordinal===127) && call.arguments.length!==0)
         throw new Error('The performance-clock call has no arguments');
-      if(call.ordinal===126 && (call.status!==1 || call.output!==undefined))
-        throw new Error('The unsupported performance-counter call supplies no value');
+      if(call.ordinal===126) {
+        if(call.status!==0) {
+          if(call.status!==1 || call.output!==undefined || counterState && counterState.status===0)
+            throw new Error('The unsupported performance-counter call supplies no value');
+        } else {
+          const out=call.output;
+          if(!counterState || !out || Object.keys(out).length!==13 ||
+             Object.keys(out).some(key=>!['backend','frequencyHz','interruptTicks','polledInterruptTicks','counter','low','high','eaxBefore','edxBefore','espBefore','eaxAfter','edxAfter','espAfter'].includes(key)) ||
+             out.backend!=='synthetic-performance-counter' || out.frequencyHz!==selectedPerformance.frequencyHz ||
+             !dword(out.low) || !dword(out.high) || out.eaxAfter!==out.low || out.edxAfter!==out.high ||
+             !dword(out.eaxBefore) || !dword(out.edxBefore) || !dword(out.espBefore) || out.espBefore%4 ||
+             !dword(out.espAfter) || out.espAfter!==out.espBefore+4)
+            throw new Error('Performance counter success requires the paired model and EDX:EAX/stack evidence');
+          validatePerformanceCounterState({...selectedCounter,frequencyHz:out.frequencyHz,count:1,capacity:64,status:0,
+            lastTicks:out.interruptTicks,lastCounter:out.counter},selectedCounter,selectedPerformance);
+          const ticks=BigInt(out.interruptTicks);
+          if(typeof out.polledInterruptTicks!=='string' || out.polledInterruptTicks.length>20 || !/^(0|[1-9][0-9]*)$/.test(out.polledInterruptTicks) ||
+             BigInt(out.polledInterruptTicks)>ticks || ticks<previousCounterTicks || BigInt(out.counter)!==((BigInt(out.high)<<32n)|BigInt(out.low)))
+            throw new Error('Performance counter samples require ordered ticks and exact return words');
+          previousCounterTicks=ticks;
+        }
+      }
       if(call.ordinal===127 && call.status===0) {
         const out=call.output;
         if(!selectedPerformance || !out || Object.keys(out).length!==10 ||

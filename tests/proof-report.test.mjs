@@ -591,7 +591,58 @@ test('ordinal 126 unsupported stop carries no counter value or extra ABI claims'
   }));
   for(const call of [{ordinal:126,status:0,arguments:[]},
     {ordinal:126,status:1,arguments:[],output:{counter:'123'}}])
-    assert.throws(()=>validateProofReport({...valid,calls:[call]}),/supplies no value/);
+    assert.throws(()=>validateProofReport({...valid,calls:[call]}),/supplies no value|requires the paired model/);
+});
+
+const counterReport=()=>{
+  const r=performanceReport();
+  const profile={kind:'synthetic-performance-counter',synthetic:true,source:'paired-performance-clock'};
+  r.consoleSettings.performanceCounter=profile;
+  r.performanceCounterState={...profile,frequencyHz:733333333,count:1,capacity:64,status:0,
+    lastTicks:'1234567',lastCounter:'90534913'};
+  r.calls.push({ordinal:126,status:0,arguments:[],output:{backend:profile.kind,frequencyHz:733333333,
+    interruptTicks:'1234567',polledInterruptTicks:'1234566',counter:'90534913',low:90534913,high:0,
+    eaxBefore:8,edxBefore:9,espBefore:0x3c10000,eaxAfter:90534913,edxAfter:0,espAfter:0x3c10004}});
+  return r;
+};
+
+test('counter success binds the selected pair, arithmetic, count and actual return words',()=>{
+  const r=counterReport();assert.equal(validateProofReport(r),r);
+  for(const edit of [{performanceCounterState:undefined},{consoleSettings:{performanceClock:performanceProfile()}},
+    {performanceCounterState:{...r.performanceCounterState,count:0}}])
+    assert.throws(()=>validateProofReport({...r,...edit}),/counter/i);
+  for(const edit of [{high:1},{eaxAfter:1},{edxAfter:1},{espAfter:0x3c10008},{extra:true}]) {
+    const bad=counterReport();Object.assign(bad.calls[1].output,edit);
+    assert.throws(()=>validateProofReport(bad),/counter/i);
+  }
+  const scaled=counterReport();scaled.performanceCounterState.lastCounter='90534914';scaled.calls[1].output.counter='90534914';
+  assert.throws(()=>validateProofReport(scaled),/counter scaling/);
+  const refused=counterReport();refused.calls[1]={ordinal:126,status:1,arguments:[]};
+  Object.assign(refused.performanceCounterState,{count:0,lastTicks:'0',lastCounter:'0'});
+  assert.throws(()=>validateProofReport(refused),/supplies no value/);
+});
+
+test('counter model refusal binds exact service and diagnostic status without a return value',()=>{
+  const r=counterReport();r.performanceCounterState.status=3;r.stop={status:9,target:3,ordinal:126};
+  r.calls.push({ordinal:126,status:1,arguments:[]});assert.equal(validateProofReport(r),r);
+  for(const stop of [{status:9,target:2,ordinal:126},{status:4,target:3,ordinal:126},{status:9,target:3,ordinal:0}])
+    assert.throws(()=>validateProofReport({...r,stop}),/counter refusal/);
+  assert.throws(()=>validateProofReport({...r,performanceCounterState:{...r.performanceCounterState,status:4}}),/bounded captured calls/);
+});
+
+test('clock pause evidence binds the selected experiment and measured actual wait',()=>{
+  const r=performanceReport();
+  const p={kind:'one-shot-browser-clock-pause',synthetic:true,beforeSample:2,milliseconds:500};
+  r.consoleSettings.clockPause=p;
+  Object.assign(r.clock,{samples:3,pauseProfile:{...p},pauseState:{performed:true,beforeSample:2,milliseconds:500,
+    beforeTicks:'123',afterTicks:'5000123'}});
+  assert.equal(validateProofReport(r),r);
+  for(const edit of [{beforeTicks:'0123'},{afterTicks:'5000122'},{beforeSample:3},{extra:true}])
+    assert.throws(()=>validateProofReport({...r,clock:{...r.clock,pauseState:{...r.clock.pauseState,...edit}}}),/clock pause|Clock pause/);
+  assert.throws(()=>validateProofReport({...r,consoleSettings:{...r.consoleSettings,clockPause:undefined}}),/Clock pause/);
+  const unreached={...r,clock:{...r.clock,samples:1,pauseState:{performed:false,beforeSample:2,milliseconds:500,beforeTicks:null,afterTicks:null}}};
+  assert.equal(validateProofReport(unreached),unreached);
+  assert.throws(()=>validateProofReport({...unreached,clock:{...unreached.clock,samples:2}}),/clock pause/);
 });
 
 test('a worker-level error report is accepted without evidence fields', () => {

@@ -30,6 +30,10 @@ typedef struct {
 /* Explicit synthetic 100 ns ticks from a shared zero origin; no hardware
  * frequency is inferred or supplied by default. */
 ff_performance_clock_result ff_performance_clock_init(ff_performance_clock *state, uint32_t frequency_hz);
+/* Checked floor(interrupt_ticks * frequency_hz / 10,000,000); rejection
+ * preserves out_counter. */
+ff_performance_clock_result ff_performance_clock_scale(uint32_t frequency_hz,
+    uint64_t interrupt_ticks, uint64_t *out_counter);
 /* out_counter must not overlap state; rejection preserves both. */
 ff_performance_clock_result ff_performance_clock_read(ff_performance_clock *state,
     uint64_t interrupt_ticks, uint32_t site, uint64_t *out_counter);

@@ -15,11 +15,32 @@ ff_performance_clock_result ff_performance_clock_init(ff_performance_clock *stat
     return FF_PERFORMANCE_CLOCK_OK;
 }
 
+ff_performance_clock_result ff_performance_clock_scale(uint32_t frequency_hz,
+    uint64_t interrupt_ticks, uint64_t *out_counter)
+{
+    uint64_t quotient, remainder, whole, fraction, counter;
+
+    if (!out_counter || frequency_hz < 1u || frequency_hz > 1000000000u)
+        return FF_PERFORMANCE_CLOCK_INVALID;
+    quotient = interrupt_ticks / FF_TICKS_PER_SECOND;
+    remainder = interrupt_ticks % FF_TICKS_PER_SECOND;
+    if (quotient && frequency_hz > UINT64_MAX / quotient)
+        return FF_PERFORMANCE_CLOCK_OVERFLOW;
+    whole = quotient * frequency_hz;
+    fraction = (remainder * frequency_hz) / FF_TICKS_PER_SECOND;
+    if (fraction > UINT64_MAX - whole)
+        return FF_PERFORMANCE_CLOCK_OVERFLOW;
+    counter = whole + fraction;
+    *out_counter = counter;
+    return FF_PERFORMANCE_CLOCK_OK;
+}
+
 ff_performance_clock_result ff_performance_clock_read(ff_performance_clock *state,
     uint64_t interrupt_ticks, uint32_t site, uint64_t *out_counter)
 {
     uintptr_t state_begin, state_end, out_begin, out_end;
-    uint64_t quotient, remainder, whole, fraction, counter;
+    uint64_t counter;
+    ff_performance_clock_result scale_result;
 
     if (!state || !out_counter || !site || !state->ready ||
         state->frequency_hz < 1u || state->frequency_hz > 1000000000u ||
@@ -39,15 +60,9 @@ ff_performance_clock_result ff_performance_clock_read(ff_performance_clock *stat
     if (state->count == FF_PERFORMANCE_CLOCK_CAPACITY)
         return FF_PERFORMANCE_CLOCK_CAPACITY_REACHED;
 
-    quotient = interrupt_ticks / FF_TICKS_PER_SECOND;
-    remainder = interrupt_ticks % FF_TICKS_PER_SECOND;
-    if (quotient && state->frequency_hz > UINT64_MAX / quotient)
-        return FF_PERFORMANCE_CLOCK_OVERFLOW;
-    whole = quotient * state->frequency_hz;
-    fraction = (remainder * state->frequency_hz) / FF_TICKS_PER_SECOND;
-    if (fraction > UINT64_MAX - whole)
-        return FF_PERFORMANCE_CLOCK_OVERFLOW;
-    counter = whole + fraction;
+    scale_result = ff_performance_clock_scale(state->frequency_hz, interrupt_ticks, &counter);
+    if (scale_result != FF_PERFORMANCE_CLOCK_OK)
+        return scale_result;
 
     state->samples[state->count].site = site;
     state->samples[state->count].interrupt_ticks = interrupt_ticks;

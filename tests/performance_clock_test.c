@@ -31,6 +31,37 @@ static void vectors(void)
         UINT64_C(18446744073709551612), 6u);
 }
 
+static void scale_vectors(void)
+{
+    uint64_t output = UINT64_C(0xfeedfacecafebeef);
+    assert(ff_performance_clock_scale(1u, UINT64_C(10000000), &output) == FF_PERFORMANCE_CLOCK_OK);
+    assert(output == 1u);
+    assert(ff_performance_clock_scale(10000000u, UINT64_C(987654321), &output) == FF_PERFORMANCE_CLOCK_OK);
+    assert(output == UINT64_C(987654321));
+    assert(ff_performance_clock_scale(1000000000u, UINT64_C(10000000), &output) == FF_PERFORMANCE_CLOCK_OK);
+    assert(output == UINT64_C(1000000000));
+    assert(ff_performance_clock_scale(733333333u, UINT64_C(1234567), &output) == FF_PERFORMANCE_CLOCK_OK);
+    assert(output == UINT64_C(90534913));
+    assert(ff_performance_clock_scale(10000000u, UINT64_MAX, &output) == FF_PERFORMANCE_CLOCK_OK);
+    assert(output == UINT64_MAX);
+}
+
+static void scale_refusals(void)
+{
+    uint64_t output = UINT64_C(0x0123456789abcdef);
+    assert(ff_performance_clock_scale(0u, 0u, &output) == FF_PERFORMANCE_CLOCK_INVALID);
+    assert(output == UINT64_C(0x0123456789abcdef));
+    assert(ff_performance_clock_scale(1000000001u, 0u, &output) == FF_PERFORMANCE_CLOCK_INVALID);
+    assert(output == UINT64_C(0x0123456789abcdef));
+    assert(ff_performance_clock_scale(1u, 0u, NULL) == FF_PERFORMANCE_CLOCK_INVALID);
+    assert(ff_performance_clock_scale(1000000000u, UINT64_MAX, &output) == FF_PERFORMANCE_CLOCK_OVERFLOW);
+    assert(output == UINT64_C(0x0123456789abcdef)); /* whole-product overflow */
+    assert(ff_performance_clock_scale(1000000000u,
+        UINT64_C(184467440738000000),
+        &output) == FF_PERFORMANCE_CLOCK_OVERFLOW);
+    assert(output == UINT64_C(0x0123456789abcdef)); /* final addition overflow */
+}
+
 static void atomic_failure(ff_performance_clock_result expected, uint64_t ticks,
     uint32_t site, uint64_t *out, uint32_t initial_count)
 {
@@ -89,6 +120,8 @@ static void refusals(void)
 
 int main(void)
 {
+    scale_vectors();
+    scale_refusals();
     vectors();
     refusals();
     return 0;
