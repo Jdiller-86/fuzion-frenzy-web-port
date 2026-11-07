@@ -5,6 +5,7 @@ import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicCloc
 import { parsePerformanceClockProfile } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile } from './performance-counter.mjs';
 import { parseMutantProfile } from './unnamed-mutants.mjs';
+import { parseLocalMutantProfile } from './local-mutants.mjs';
 import { parseEventProfile } from './named-events.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
@@ -38,8 +39,11 @@ export function parseLocalConsoleSettings(buffer) {
   if(performanceClock && performanceClock.source!==(deterministicClock?'synthetic-deterministic-100ns':'browser-monotonic-100ns'))
     throw new Error('Performance clock source must match the selected deterministic or browser clock');
   const performanceCounter=parsePerformanceCounterProfile(profile.performanceCounter);
-  const mutants=parseMutantProfile(profile.mutants);
+  const mutants=profile.mutants?.kind==='synthetic-win32-mutants'
+    ?parseLocalMutantProfile(profile.mutants):parseMutantProfile(profile.mutants);
   const events=parseEventProfile(profile.events);
+  if(mutants?.kind==='synthetic-win32-mutants'&&!events)
+    throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
     ...(mutants===undefined?{}:{mutants}),

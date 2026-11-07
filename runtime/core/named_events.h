@@ -19,6 +19,9 @@ typedef struct {
 } ff_named_events;
 
 uint32_t ff_named_events_init(ff_named_events *, ff_virtual_memory *);
+/* Read-only structural validation for models that share the Win32 named
+ * namespace. */
+uint32_t ff_named_events_validate(const ff_named_events *);
 uint32_t ff_named_events_create(ff_named_events *, uint32_t output, uint32_t attributes,
                                 uint32_t event_type, uint32_t initial_state);
 #endif

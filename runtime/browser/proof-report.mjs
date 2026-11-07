@@ -15,6 +15,7 @@ import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicCloc
 import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
 import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
+import { parseLocalMutantProfile, validateLocalMutantState } from './local-mutants.mjs';
 import { parseEventProfile, validateEventState } from './named-events.mjs';
 
 export const TRACE_LIMIT = 8192;
@@ -35,14 +36,63 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
-  const selectedMutants=parseMutantProfile(report.consoleSettings?.mutants);
-  if((selectedMutants===undefined)!==(report.mutantState===undefined))
+  const selectedMutants=report.consoleSettings?.mutants?.kind==='synthetic-win32-mutants'
+    ?parseLocalMutantProfile(report.consoleSettings.mutants):parseMutantProfile(report.consoleSettings?.mutants);
+  const localMutantProfile=selectedMutants?.kind==='synthetic-win32-mutants';
+  if(localMutantProfile) {
+    if(report.localMutantState===undefined||Object.hasOwn(report,'mutantState'))
+      throw new Error('Local mutant evidence requires only its explicit profile and localMutantState');
+  } else if(selectedMutants) {
+    if(report.mutantState===undefined||Object.hasOwn(report,'localMutantState'))
+      throw new Error('Legacy mutant evidence requires its explicit synthetic profile and state in mutantState only');
+  } else if(report.mutantState!==undefined||report.localMutantState!==undefined) {
     throw new Error('Mutant evidence requires its explicit synthetic profile and state');
-  const mutantState=selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
+  }
+  const mutantState=selectedMutants?.kind==='synthetic-win32-mutants'
+    ?validateLocalMutantState(report.localMutantState,selectedMutants):selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
   const selectedEvents=parseEventProfile(report.consoleSettings?.events);
   if((selectedEvents===undefined)!==(report.eventState===undefined))throw new Error('Named event evidence requires its explicit profile and state');
   const eventState=selectedEvents?validateEventState(report.eventState,selectedEvents):undefined;
+  if(eventState?.status===0xc0000024 && (selectedMutants?.kind!=='synthetic-win32-mutants'||
+      !mutantState||![0,0x40000000].includes(mutantState.status)||!mutantState.objects.some(object=>object.named)))
+    throw new Error('Named event type mismatch requires an unchanged named local mutant namespace');
   if(mutantState) {
+    if(selectedMutants.kind==='synthetic-win32-mutants') {
+      if(!selectedEvents)throw new Error('Synthetic Win32 mutants require explicit named-event namespace evidence');
+      if(!Array.isArray(report.calls)||report.calls.length>512||report.calls.some(call=>!call||typeof call!=='object'||!integer(call.ordinal)||!integer(call.status)||!Array.isArray(call.arguments)))
+        throw new Error('Local mutant evidence requires bounded, well-shaped captured calls');
+      const successes=report.calls.filter(call=>call.ordinal===192&&call.status===0);
+      const refusals=report.calls.filter(call=>call.ordinal===192&&call.status!==0);
+      if(refusals.length>1||refusals.length&&refusals[0]!==report.calls.at(-1))throw new Error('Mutant refusal must be the sole final captured call');
+      const start=report.kernelCapture?.capturedStart??0, complete=!report.kernelCapture||report.kernelCapture.complete;
+      let priorHandles=start&&successes.length?successes[0].output.handleCount-1:0;
+      let priorObjects=start&&successes.length?successes[0].output.objectCount-(successes[0].output.openedExisting?0:1):0;
+      for(const call of successes) {
+        const o=call.output,row=mutantState.handles.find(h=>h.handle===o?.handle),obj=row&&mutantState.objects.find(x=>x.object===row.object);
+        if(call.arguments.length!==3||!call.arguments.every(dword)||!o||!row||!obj||row.object!==o.object||obj.named!==!!call.arguments[1]||
+           o.handleCount!==priorHandles+1||o.objectCount>mutantState.objectCount||o.handleCount>mutantState.handleCount||
+           (o.openedExisting?(o.objectCount!==priorObjects||(!start&&!mutantState.handles.slice(0,mutantState.handleCount-1).some(h=>h.object===o.object))):
+             (o.objectCount!==priorObjects+1||o.object!==priorObjects+1))||
+           (o.openedExisting&&o.nameBytes!==obj.nameBytes)||(!o.openedExisting&&o.nameBytes!==obj.nameBytes))
+          throw new Error('Named mutant creation order must match retained object and handle state');
+        priorHandles=o.handleCount;priorObjects=o.objectCount;
+      }
+      if(complete&&successes.length!==mutantState.handleCount)throw new Error('Mutant handle count must match captured calls');
+      if(mutantState.status && mutantState.status!==0x40000000) {
+        const stopStatus=mutantState.status===0xc000009a?4:9;
+        if(report.stop?.ordinal!==192||report.stop.target!==mutantState.status||report.stop.status!==stopStatus||
+           report.calls.at(-1)?.ordinal!==192||report.calls.at(-1)?.status!==1||!refusals.length||report.calls.at(-1).output!==undefined)
+          throw new Error('Mutant error state requires a matching guarded service stop');
+        if(mutantState.status===0xc0000024 && (!eventState.objectCount||report.calls.at(-1).arguments[1]===0||report.calls.at(-1).arguments[2]!==0))
+          throw new Error('Mutant type mismatch requires a named peer object and named zero-owner request');
+      } else if(refusals.length) throw new Error('Fresh mutant state cannot end in a refused call');
+      if(successes.length) {
+        const o=successes.at(-1).output;
+        if(o.objectCount!==mutantState.objectCount||o.handleCount!==mutantState.handleCount||(!refusals.length&&o.eaxAfter!==mutantState.status))
+          throw new Error('Final mutant counters and status must match the last successful call');
+      } else if(complete&&!refusals.length&&(mutantState.handleCount||mutantState.objectCount||mutantState.status))
+        throw new Error('Mutant state has no captured successful call');
+    } else {
     if(!Array.isArray(report.calls) || report.calls.length>512)throw new Error('Mutant evidence requires bounded captured calls');
     const successes=report.calls.filter(call=>call.ordinal===192 && call.status===0);
     const refusals=report.calls.filter(call=>call.ordinal===192 && call.status!==0);
@@ -59,6 +109,7 @@ export function validateProofReport(report) {
        mutantState.status===0xc000009a && mutantState.count!==4 ||
        report.calls.at(-1)?.ordinal!==192 || report.calls.at(-1)?.status!==1))
       throw new Error('Mutant refusal requires a matching guarded service stop');
+    }
   }
   if(eventState) {
     if(!Array.isArray(report.calls)||report.calls.length>512)throw new Error('Named event evidence requires bounded captured calls');
@@ -598,6 +649,27 @@ export function validateProofReport(report) {
           if(call.status!==0) {
             if(call.status!==1 || call.output!==undefined || !mutantState.status)
               throw new Error('Mutant refusal supplies no successful output');
+            if(selectedMutants.kind==='synthetic-win32-mutants' &&
+               (call.arguments.length!==3||!call.arguments.every(dword)))
+              throw new Error('Local mutant refusal requires exactly three DWORD arguments');
+          } else if(selectedMutants.kind==='synthetic-win32-mutants') {
+            const out=call.output,keys=['backend','handle','object','openedExisting','objectCount','handleCount','eaxBefore','espBefore','eaxAfter','espAfter','root','attributes','nameBytes','nameDescriptor','nameBuffer'];
+            const outputKeys=out&&typeof out==='object'?Reflect.ownKeys(out):[];
+            if(!out||outputKeys.length!==keys.length||outputKeys.some(k=>!keys.includes(k))||out.backend!==selectedMutants.kind||
+               !dword(out.handle)||!dword(out.object)||typeof out.openedExisting!=='boolean'||!dword(out.objectCount)||!dword(out.handleCount)||
+               !dword(out.nameDescriptor)||!dword(out.nameBuffer)||
+               out.handle!==0x80000+4*out.handleCount||out.object<1||out.object>out.objectCount||
+               !dword(out.eaxBefore)||!dword(out.espBefore)||out.espBefore%4||out.espBefore>0x4000000-16||
+               out.eaxAfter!==(out.openedExisting?0x40000000:0)||out.espAfter!==out.espBefore+16||
+               !call.arguments[0]||call.arguments[0]%4||call.arguments[0]>0x4000000-4||call.arguments[2]!==0||
+               (call.arguments[1]===0?(out.root!==0||out.attributes!==0||out.nameBytes!==0||out.nameDescriptor!==0||out.nameBuffer!==0||out.openedExisting):
+                 (call.arguments[1]%4||call.arguments[1]>0x4000000-12||out.root!==0xfffffffc||out.attributes!==0x80||
+                  !Number.isInteger(out.nameBytes)||out.nameBytes<1||out.nameBytes>63||!out.nameDescriptor||out.nameDescriptor%4||out.nameDescriptor>0x4000000-8||
+                  !out.nameBuffer||out.nameBuffer>0x4000000-out.nameBytes)))
+              throw new Error('Named mutant success lacks checked Win32 namespace and NTSTATUS evidence');
+            const row=mutantState.handles.find(h=>h.handle===out.handle),obj=row&&mutantState.objects.find(x=>x.object===row.object);
+            if(!row||row.object!==out.object||!obj||obj.named!==!!call.arguments[1]||obj.nameBytes!==out.nameBytes)
+              throw new Error('Named mutant output does not match retained object identity');
           } else {
             const out=call.output, keys=['backend','handle','created','eaxBefore','espBefore','eaxAfter','espAfter'];
             if(!out || Object.keys(out).length!==keys.length || Object.keys(out).some(key=>!keys.includes(key)) ||

@@ -29,6 +29,7 @@ const suites = [
   'tests/performance_counter_bridge_test.py',
   'tests/boundary_stack_snapshot_test.py',
   'tests/unnamed_mutants_bridge_test.py',
+  'tests/local_mutants_bridge_test.py',
   'tests/named_events_bridge_test.py',
   'tests/thread_callback_guard_test.py',
 ];

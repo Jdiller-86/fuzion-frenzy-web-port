@@ -2,7 +2,7 @@ const HEADER_INDEX = 0xffffffff;
 const CAPACITY = 4;
 const PROFILE_KEYS = ['kind', 'synthetic', 'capacity'];
 const STATE_KEYS = [...PROFILE_KEYS, 'objectCount', 'handleCount', 'status', 'objects', 'handles'];
-const STATUSES = new Set([0, 0x40000000, 0xc000000d, 0xc00000bb, 0xc0000005, 0xc000009a]);
+const STATUSES = new Set([0, 0x40000000, 0xc000000d, 0xc00000bb, 0xc0000005, 0xc000009a, 0xc0000024]);
 // Replacement model scope: ASCII counted names with case-folded lookup, Win32 root -4,
 // OPENIF semantics, type-1 synchronization events initially nonsignaled. No wait/signal/reset/close.
 

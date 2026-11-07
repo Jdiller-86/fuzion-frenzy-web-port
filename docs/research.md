@@ -27,11 +27,13 @@ The kernel capture digest covers the recorder's argument count/words and status.
 
 The legacy ABI diagnostic getter's slots 3-5 count stack inequality among logged calls, although the browser labels them as ESI. Slots 6-8 are unused zeros. Aggregate diagnostics therefore do not identify a particular changed nonvolatile register or establish absence of ESP faults. Call/return traces and static instruction review support their own bounded claims; preserve unresolved attribution rather than treating these labels as new CPU evidence.
 
-## Creation-only mutant model
+## Creation-only mutant models
 
-The explicit synthetic mutant profile supports only the reached null-attributes, initially unowned creation request. It retains up to four opaque handle records until whole-proof reset and preflights writable guest output before committing a record. It supplies no native mutex, named-object behavior, acquisition, waiting, release, close or complete kernel-object ABI. Source-owned native/compiled-bridge fixtures and the original browser call establish their respective bounded contracts, not retail-kernel equivalence.
+The legacy explicit profile supports null-attributes, initially unowned creation with four opaque handles. The new alternative `synthetic-win32-mutants` profile retains anonymous and named creation/open-if in one four-handle/object pool. It requires the selected named-event peer, copies bounded counted ASCII names under root -4/flag `0x80`, and guards cross-type name collisions in both creation paths before mutation. Anonymous objects cannot be reopened; duplicate named opens preserve the object and return informational `0x40000000` with another handle. Guest ranges/alias checks, provider storage separation, canonical tables and pre-start peer locks are independently reviewed.
 
-For this service, the generic default-off recorder captures four diagnostic stack words and the old frontend displays one. Original call-site and pinned declaration evidence establish three actual arguments; the newly selected handler and frontend record those three, with NTSTATUS/EAX and stack-return observations. Keep that arity correction distinct from the unreconstructable argument tails in older capture windows.
+The original browser path observes fresh anonymous handle `0x80004` and named handle `0x80008`, with the 13-byte counted name retained locally and zero initial ownership. Three DWORD arguments yield NTSTATUS/EAX and ESP +16. The new profile intentionally uses `localMutantState` and richer anonymous-call metadata; common prior handle/EAX/ESP words and the entire old raw CPU prefix remain unchanged. Unselected capability reproduces the entire prior deterministic report except module identity. Source-owned fixtures establish duplicate opens, typed collisions, shared capacity and refusals; no retail-kernel equivalence, ownership/acquire/wait/release/close/native mutex or full object layout is claimed.
+
+For this service, the old generic default-off recorder captures four diagnostic stack words and the old frontend displays one. Original call-site and pinned declaration evidence establish three actual arguments; selected handlers record those three. Keep that arity correction distinct from unreconstructable argument tails in older capture windows. Actual Wasm i32 status exports are signed JavaScript numbers; normalize only after integer/range validation, while serialized evidence remains unsigned-strict.
 
 ## Named event request and namespace reference
 
@@ -61,7 +63,7 @@ An observed thread request may publish an exact executable address without a ret
 
 Admission permits the existing bounded service to create a second READY context; it does not prove the callback ran. Its 17-page arena footprint includes one object/PCR page and 16 stack pages with TLS inside. Pool-to-stack role reclassification changes modeled ownership, not VM reservation, commitment or free capacity. Existing source-owned multi-thread/TLS/capacity and page-accounting fixtures are now part of the standard native runner. Preserve pointer, context metadata, actual execution trace and scheduling acceptance as separate evidence.
 
-The following named-mutant request is outside the existing unnamed-only model. Retain its Win32 root/open-if attributes, 13-byte counted name and zero initial owner; refusing it supplies no successful return or extra handle. Shared namespace/object-type identity and later synchronization remain implementation and acceptance work.
+The following named-mutant request is now served only by the explicit alternative creation model. Its Win32 root/open-if attributes, 13-byte counted name and zero initial owner remain preserved. Startup reaches the next untranslated routine; later synchronization and callback scheduling remain unaccepted. See [current status](status.md).
 
 ## Conversion and geometry
 

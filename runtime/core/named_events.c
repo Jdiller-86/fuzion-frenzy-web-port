@@ -1,6 +1,7 @@
 #include "named_events.h"
 #include "thread_bootstrap.h"
 #include <stdint.h>
+#include <stdalign.h>
 #include <string.h>
 
 #define STATUS_UNSUPPORTED FF_BOOT_UNSUPPORTED
@@ -20,18 +21,24 @@ uint32_t ff_named_events_init(ff_named_events *m, ff_virtual_memory *vm)
 }
 static unsigned char fold(unsigned char c) { return c>='A'&&c<='Z'?(unsigned char)(c+('a'-'A')):c; }
 static int equal_name(const uint8_t *a,const uint8_t *b,uint32_t n) { for(uint32_t i=0;i<n;i++) if(fold(a[i])!=fold(b[i])) return 0; return 1; }
-static uint32_t valid_model(ff_named_events *m)
+static uint32_t valid_model(const ff_named_events *m)
 {
-    if (!m || !valid_memory(m->memory) || m->object_count>FF_EVENT_CAPACITY || m->handle_count>FF_EVENT_CAPACITY || m->handle_count<m->object_count) return 0;
+    uintptr_t a,ae,b,be,c,ce;
+    if (!m || ((uintptr_t)m%alignof(ff_named_events)) || !span((uintptr_t)m,sizeof *m,&ae) ||
+        !m->memory || ((uintptr_t)m->memory%alignof(ff_virtual_memory)) || !span((uintptr_t)m->memory,sizeof *m->memory,&be) ||
+        !valid_memory(m->memory) || !span((uintptr_t)m->memory->ram,m->memory->bytes,&ce) ||
+        m->object_count>FF_EVENT_CAPACITY || m->handle_count>FF_EVENT_CAPACITY || m->handle_count<m->object_count) return 0;
+    a=(uintptr_t)m;b=(uintptr_t)m->memory;c=(uintptr_t)m->memory->ram;
+    if (overlap(a,ae,b,be)||overlap(a,ae,c,ce)||overlap(b,be,c,ce)) return 0;
     for(uint32_t i=0;i<m->object_count;i++) {
-        ff_named_event_object *o=&m->objects[i];
+        const ff_named_event_object *o=&m->objects[i];
         if(!o->name_bytes||o->name_bytes>FF_EVENT_NAME_BYTES) return 0;
         for(uint32_t k=0;k<o->name_bytes;k++) { uint8_t c=o->name[k]; if(c<0x20||c>0x7e||c=='/'||c=='\\'||c==':') return 0; }
         for(uint32_t j=0;j<i;j++) if(m->objects[j].name_bytes==o->name_bytes&&equal_name(m->objects[j].name,o->name,o->name_bytes)) return 0;
     }
     uint32_t seen=0, next=1;
     for(uint32_t i=0;i<m->handle_count;i++) {
-        ff_named_event_handle *h=&m->handles[i];
+        const ff_named_event_handle *h=&m->handles[i];
         if(h->handle!=FF_EVENT_HANDLE_BASE+4u*(i+1u)||!h->object||h->object>m->object_count) return 0;
         uint32_t bit=1u<<(h->object-1u);
         if(!(seen&bit)){if(h->object!=next)return 0;seen|=bit;next++;}
@@ -39,6 +46,8 @@ static uint32_t valid_model(ff_named_events *m)
     if(next!=m->object_count+1u) return 0;
     return 1;
 }
+uint32_t ff_named_events_validate(const ff_named_events *m)
+{ return valid_model(m) ? 0u : FF_BOOT_INVALID; }
 static uint32_t read32(const uint8_t *p) { return (uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24); }
 uint32_t ff_named_events_create(ff_named_events *m,uint32_t output,uint32_t attrs,uint32_t type,uint32_t state)
 {

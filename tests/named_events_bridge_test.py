@@ -18,7 +18,23 @@ def compiler():
 def extract_block():
     source = (ROOT / "tools" / "fixtures" / "thread_startup_probe.c").read_text(encoding="utf-8")
     start = source.index("#ifdef FF_NAMED_EVENT_PROOF\n/* Optional ASCII named-event")
-    end = source.index("\n#endif", source.index("static void create_named_event(void)", start)) + len("\n#endif")
+    if "static void create_named_event(void)" not in source[start:]:
+        raise AssertionError("named event bridge function is absent")
+    depth = 0
+    cursor = start
+    end = None
+    for line in source[start:].splitlines(keepends=True):
+        directive = line.lstrip()
+        if directive.startswith(("#if ", "#ifdef ", "#ifndef ")):
+            depth += 1
+        elif directive.startswith("#endif"):
+            depth -= 1
+            if depth == 0:
+                end = cursor + len(line)
+                break
+        cursor += len(line)
+    if end is None:
+        raise AssertionError("named event bridge block has no matching #endif")
     block = source[start:end]
     for required in ("ff_probe_event_profile", "ff_probe_event_word", "kernel_record(189,4)",
                      "ff_named_events_create", "g_esp+=20u"):

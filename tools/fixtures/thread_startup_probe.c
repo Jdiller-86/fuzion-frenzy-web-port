@@ -39,6 +39,14 @@ static uint32_t mutant_ready,mutant_status;
 static ff_named_events named_events;
 static uint32_t event_ready,event_status;
 #endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+#if !defined(FF_MUTANT_PROOF) || !defined(FF_NAMED_EVENT_PROOF)
+#error Local mutant creation retains explicit legacy and named-event capabilities
+#endif
+#include "../../runtime/core/local_mutants.h"
+static ff_local_mutants local_mutants;
+static uint32_t local_mutant_ready,local_mutant_status;
+#endif
 #include "../../runtime/core/local_settings.h"
 #include "../../runtime/core/port_io.h"
 #ifdef FF_PFIFO_PROOF
@@ -1490,6 +1498,9 @@ static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 uint32_t ff_probe_mutant_profile(uint32_t enable)
 {
     if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready)return FF_BOOT_INVALID;
+#endif
     mutant_ready=0;mutant_status=0;memset(&unnamed_mutants,0,sizeof unnamed_mutants);
     if(enable>1u)return FF_BOOT_INVALID;
     if(!enable)return 0;
@@ -1524,6 +1535,9 @@ static void create_unnamed_mutant(void)
 uint32_t ff_probe_event_profile(uint32_t enable)
 {
     if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready)return FF_BOOT_INVALID;
+#endif
     event_ready=0;event_status=0;memset(&named_events,0,sizeof named_events);
     if(enable>1u)return FF_BOOT_INVALID;
     if(!enable)return 0;
@@ -1552,7 +1566,12 @@ static void create_named_event(void)
 {
     uint32_t *row=kernel_record(189,4);
     row[6]=g_eax;row[7]=g_esp;
-    event_status=ff_named_events_create(&named_events,row[2],row[3],row[4],row[5]);
+    event_status=0;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready && row[4]==1u && row[5]==0u)
+        event_status=ff_local_mutants_guard_event(&local_mutants,row[2],row[3]);
+#endif
+    if(!event_status)event_status=ff_named_events_create(&named_events,row[2],row[3],row[4],row[5]);
     if(event_status && event_status!=FF_EVENT_NAME_EXISTS) {
         row[1]=1;
         stop(event_status==FF_EVENT_NO_SLOTS?4:9,event_status,189);
@@ -1567,6 +1586,60 @@ static void create_named_event(void)
     row[18]=descriptor;row[19]=MEM32(descriptor+4u);
     g_eax=event_status;g_esp+=20u;
     row[1]=0;row[13]=g_eax;row[14]=g_esp;
+}
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+/* Alternative four-handle mutant pool, not an extension of the legacy profile.
+ * The event peer is locked while active; both creation paths guard typed names. */
+uint32_t ff_probe_local_mutant_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+    if(enable>1u || (enable && (!vm_ready || !event_ready || mutant_ready)))return FF_BOOT_INVALID;
+    if(!enable) {
+        memset(&local_mutants,0,sizeof local_mutants);local_mutant_ready=local_mutant_status=0;
+        return 0;
+    }
+    uint32_t status=ff_local_mutants_init(&local_mutants,&virtual_memory,&named_events);
+    if(status)return status;
+    local_mutant_ready=1;local_mutant_status=0;return 0;
+}
+uint32_t ff_probe_local_mutant_word(uint32_t index,uint32_t field)
+{
+    if(index==0xffffffffu)return field==0u?local_mutant_ready:field==1u?local_mutants.object_count:
+        field==2u?local_mutants.handle_count:field==3u?FF_LOCAL_MUTANT_CAPACITY:field==4u?local_mutant_status:0u;
+    if(index<FF_LOCAL_MUTANT_CAPACITY && index<local_mutants.object_count) {
+        if(field==0u)return index+1u;
+        if(field==1u)return local_mutants.objects[index].name_bytes;
+        if(field==2u)return local_mutants.objects[index].name_bytes!=0u;
+        if(field==3u)return 0u;
+    }
+    if(index<FF_LOCAL_MUTANT_CAPACITY && index<local_mutants.handle_count) {
+        if(field==4u)return local_mutants.handles[index].handle;
+        if(field==5u)return local_mutants.handles[index].object;
+    }
+    return 0;
+}
+static void create_local_mutant(void)
+{
+    uint32_t *row=kernel_record(192,3);
+    row[5]=g_eax;row[6]=g_esp;
+    local_mutant_status=ff_local_mutants_create(&local_mutants,row[2],row[3],row[4]);
+    if(local_mutant_status && local_mutant_status!=FF_LOCAL_MUTANT_NAME_EXISTS) {
+        row[1]=1;stop(local_mutant_status==FF_LOCAL_MUTANT_NO_SLOTS?4:9,local_mutant_status,192);
+    }
+    const uint32_t object=local_mutants.handles[local_mutants.handle_count-1u].object;
+    row[7]=MEM32(row[2]);row[8]=object;row[9]=local_mutant_status==FF_LOCAL_MUTANT_NAME_EXISTS;
+    row[10]=local_mutants.object_count;row[11]=local_mutants.handle_count;
+    row[14]=row[15]=row[16]=row[17]=row[18]=row[19]=0;
+    if(row[3]) {
+        /* Component success preflights these inputs and forbids output alias. */
+        const uint32_t descriptor=MEM32(row[3]+4u);
+        row[14]=MEM32(row[3]);row[15]=MEM32(row[3]+8u);
+        row[16]=local_mutants.objects[object-1u].name_bytes;
+        row[17]=descriptor;row[18]=MEM32(descriptor+4u);
+    }
+    g_eax=local_mutant_status;g_esp+=16u;
+    row[1]=0;row[12]=g_eax;row[13]=g_esp;
 }
 #endif
 #ifdef FF_MEMORY_STATISTICS_PROOF
@@ -2893,6 +2966,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
 #ifdef FF_PERFORMANCE_COUNTER_PROOF
         if(ordinal==126u && performance_clock.ready && performance_counter_enabled)return query_performance_counter;
 #endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+        if(ordinal==192u && local_mutant_ready)return create_local_mutant;
+#endif
 #ifdef FF_MUTANT_PROOF
         if(ordinal==192u && mutant_ready)return create_unnamed_mutant;
 #endif
@@ -3242,6 +3318,9 @@ void ff_probe_reset(void)
 #endif
 #ifdef FF_NAMED_EVENT_PROOF
     memset(&named_events,0,sizeof named_events);event_ready=event_status=0;
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+    memset(&local_mutants,0,sizeof local_mutants);local_mutant_ready=local_mutant_status=0;
 #endif
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;
     g_xbox_code_lo = FF_CODE_LOW; g_xbox_code_hi = FF_CODE_HIGH;

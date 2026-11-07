@@ -3,6 +3,7 @@ import { createProofClock } from './browser-clock.mjs';
 import { readPerformanceClockState } from './performance-clock.mjs';
 import { readPerformanceCounterState } from './performance-counter.mjs';
 import { readMutantState } from './unnamed-mutants.mjs';
+import { readLocalMutantStateFromWasm } from './local-mutants.mjs';
 import { readEventState } from './named-events.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
@@ -40,7 +41,11 @@ self.onmessage = async event => {
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
-    if(selectedClockSettings?.mutants && (!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function')))
+    if(selectedClockSettings?.mutants?.kind==='synthetic-win32-mutants' &&
+       (!memoryAbi || ['local_mutant_profile','local_mutant_word','event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic Win32 mutant and namespace capability');
+    if(selectedClockSettings?.mutants && selectedClockSettings.mutants.kind!=='synthetic-win32-mutants' &&
+       (!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function')))
       throw new Error('Missing explicit synthetic mutant creation capability');
     if(selectedClockSettings?.events && (!memoryAbi || ['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function')))
       throw new Error('Missing explicit synthetic named event capability');
@@ -61,11 +66,19 @@ self.onmessage = async event => {
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
       consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
       if(consoleSettings.mutants) {
-        if(!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function'))
-          throw new Error('Missing explicit synthetic mutant creation capability');
-        if(api.ff_probe_mutant_profile(1))throw new Error('Cannot configure explicit synthetic mutant creation');
+        if(consoleSettings.mutants.kind==='synthetic-win32-mutants') {
+          if(!consoleSettings.events)throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
+          if(!memoryAbi||['event_profile','event_word','local_mutant_profile','local_mutant_word'].some(name=>typeof api['ff_probe_'+name]!=='function'))
+            throw new Error('Missing explicit synthetic Win32 mutant and namespace capability');
+          if(api.ff_probe_event_profile(1))throw new Error('Cannot configure explicit synthetic named events');
+          if(api.ff_probe_local_mutant_profile(1))throw new Error('Cannot configure explicit synthetic Win32 mutants');
+        } else {
+          if(!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function'))
+            throw new Error('Missing explicit synthetic mutant creation capability');
+          if(api.ff_probe_mutant_profile(1))throw new Error('Cannot configure explicit synthetic mutant creation');
+        }
       }
-      if(consoleSettings.events) {
+      if(consoleSettings.events && consoleSettings.mutants?.kind!=='synthetic-win32-mutants') {
         if(!memoryAbi||['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function'))throw new Error('Missing explicit synthetic named event capability');
         if(api.ff_probe_event_profile(1))throw new Error('Cannot configure explicit synthetic named events');
       }
@@ -306,12 +319,19 @@ self.onmessage = async event => {
         handleCount:api.ff_probe_kernel_word(i,12)>>>0,eaxBefore:api.ff_probe_kernel_word(i,6)>>>0,espBefore:api.ff_probe_kernel_word(i,7)>>>0,
         eaxAfter:api.ff_probe_kernel_word(i,13)>>>0,espAfter:api.ff_probe_kernel_word(i,14)>>>0,root:api.ff_probe_kernel_word(i,15)>>>0,
         attributes:api.ff_probe_kernel_word(i,16)>>>0,nameBytes:api.ff_probe_kernel_word(i,17)>>>0,nameDescriptor:api.ff_probe_kernel_word(i,18)>>>0,nameBuffer:api.ff_probe_kernel_word(i,19)>>>0};
-      if(call.ordinal===192 && !call.status && consoleSettings?.mutants)call.output={
+      if(call.ordinal===192 && !call.status && consoleSettings?.mutants?.kind==='synthetic-unnamed-unowned-mutants')call.output={
         backend:'synthetic-unnamed-unowned-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,
         created:api.ff_probe_kernel_word(i,10)>>>0,
         eaxBefore:api.ff_probe_kernel_word(i,5)>>>0,espBefore:api.ff_probe_kernel_word(i,6)>>>0,
         eaxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
       };
+      if(call.ordinal===192 && !call.status && consoleSettings?.mutants?.kind==='synthetic-win32-mutants')call.output={
+        backend:'synthetic-win32-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,object:api.ff_probe_kernel_word(i,8)>>>0,
+        openedExisting:!!(api.ff_probe_kernel_word(i,9)>>>0),objectCount:api.ff_probe_kernel_word(i,10)>>>0,
+        handleCount:api.ff_probe_kernel_word(i,11)>>>0,eaxBefore:api.ff_probe_kernel_word(i,5)>>>0,espBefore:api.ff_probe_kernel_word(i,6)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,12)>>>0,espAfter:api.ff_probe_kernel_word(i,13)>>>0,root:api.ff_probe_kernel_word(i,14)>>>0,
+        attributes:api.ff_probe_kernel_word(i,15)>>>0,nameBytes:api.ff_probe_kernel_word(i,16)>>>0,
+        nameDescriptor:api.ff_probe_kernel_word(i,17)>>>0,nameBuffer:api.ff_probe_kernel_word(i,18)>>>0};
       if(call.ordinal===126 && !call.status)call.output={
         backend:'synthetic-performance-counter',frequencyHz:api.ff_probe_kernel_word(i,12)>>>0,
         interruptTicks:((BigInt(api.ff_probe_kernel_word(i,11)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,10)>>>0)).toString(),
@@ -414,8 +434,9 @@ self.onmessage = async event => {
     const kernelCapture = readKernelCapture(api, capturedCalls);
     const performanceCounterState=consoleSettings?.performanceCounter
       ?readPerformanceCounterState((_index,field)=>api.ff_probe_performance_counter_word(field),consoleSettings.performanceCounter,consoleSettings.performanceClock):undefined;
-    const mutantState=consoleSettings?.mutants
-      ?readMutantState((index,field)=>api.ff_probe_mutant_word(index,field)>>>0,consoleSettings.mutants):undefined;
+    const mutantState=consoleSettings?.mutants?.kind==='synthetic-win32-mutants'
+      ?readLocalMutantStateFromWasm((index,field)=>api.ff_probe_local_mutant_word(index,field),consoleSettings.mutants)
+      :consoleSettings?.mutants?readMutantState((index,field)=>api.ff_probe_mutant_word(index,field)>>>0,consoleSettings.mutants):undefined;
     const eventState=consoleSettings?.events?readEventState((index,field)=>api.ff_probe_event_word(index,field)>>>0,consoleSettings.events):undefined;
     const performanceClockState=consoleSettings?.performanceClock
       ?readPerformanceClockState((index,field)=>api.ff_probe_performance_word(index,field),consoleSettings.performanceClock):undefined;
@@ -1177,12 +1198,13 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
-        stopReason:state[0]===9 && state[2]===255 && capturedCalls.at(-1)?.ordinal===255 && capturedCalls.at(-1)?.status===1?'untranslated thread callback':mutantState?.status?'guarded synthetic mutant creation':eventState?.status && eventState.status!==0x40000000?'guarded synthetic named-event creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:state[0]===9 && state[2]===255 && capturedCalls.at(-1)?.ordinal===255 && capturedCalls.at(-1)?.status===1?'untranslated thread callback':mutantState?.status && mutantState.status!==0x40000000?'guarded synthetic mutant creation':eventState?.status && eventState.status!==0x40000000?'guarded synthetic named-event creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,mutantState,eventState,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,
+      ...(consoleSettings?.mutants?.kind==='synthetic-win32-mutants'?{localMutantState:mutantState}:mutantState?{mutantState}:{}),eventState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,

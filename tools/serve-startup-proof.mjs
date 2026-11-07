@@ -13,6 +13,7 @@ const files = new Map([
   ['/runtime/browser/performance-clock.mjs', ['runtime/browser/performance-clock.mjs', 'text/javascript']],
   ['/runtime/browser/performance-counter.mjs', ['runtime/browser/performance-counter.mjs', 'text/javascript']],
   ['/runtime/browser/unnamed-mutants.mjs', ['runtime/browser/unnamed-mutants.mjs', 'text/javascript']],
+  ['/runtime/browser/local-mutants.mjs', ['runtime/browser/local-mutants.mjs', 'text/javascript']],
   ['/runtime/browser/named-events.mjs', ['runtime/browser/named-events.mjs', 'text/javascript']],
   ['/runtime/browser/copy-proof.mjs', ['runtime/browser/copy-proof.mjs', 'text/javascript']],
   ['/runtime/browser/file-request.mjs', ['runtime/browser/file-request.mjs', 'text/javascript']],
