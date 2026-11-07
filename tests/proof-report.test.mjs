@@ -41,6 +41,36 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+test('kernel capture reports bind calls, selected profile and captured suffix evidence', () => {
+  const suffix = {
+    kind: 'kernel-capture-window', version: 1, requestedStart: 512, capturedStart: 512,
+    capturedCount: 1, totalCount: 513, completedOperations: 512, prefixCompletedOperations: 511,
+    complete: false, sha256: 'a'.repeat(64), prefixSha256: 'b'.repeat(64),
+  };
+  const valid = report({
+    consoleSettings: { kernelCaptureStart: 512 }, kernelCapture: suffix, kernelCapacity: 512,
+    calls: [{ ordinal: 277, status: 0, arguments: [123] }],
+    originalStartup: { totalInitializers: 83, completedInitializers: 83,
+      distinctOriginalFunctions: 276, completedKernelOperations: 512 },
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport({ ...valid, calls: undefined }), /requires calls/);
+  assert.throws(() => validateProofReport({ ...valid, consoleSettings: { kernelCaptureStart: 0 } }), /declared profile/);
+  for (const kernelCaptureStart of [0, 512])
+    assert.throws(() => validateProofReport(report({ consoleSettings: { kernelCaptureStart } })),
+      /Selected kernel capture profile requires capture metadata/);
+  /* A suffix intentionally omits ordinal 2, so its captured rows are checked
+   * while historical pair claims cannot be inferred from absent prefix rows. */
+  const avNull = { ...valid, experiments: ['avNullResult'], avNullResultState: {
+    calls: 1, handle: 0x03920000, option: 9, param: 0, result: 0, decision: 1,
+    writeBefore: 0, writeAfter: 0, checksumBefore: 0, checksumAfter: 0,
+    eaxBefore: 0, espBefore: 100, eaxAfter: 0, espAfter: 120,
+  }, calls: [{ ordinal: 277, status: 0, arguments: [123] }] };
+  assert.equal(validateProofReport(avNull), avNull);
+  const badCapturedRow = { ...avNull, calls: [{ ordinal: 277, status: 0 }] };
+  assert.throws(() => validateProofReport(badCapturedRow), /Malformed kernel call record/);
+});
+
 test('bounded debug service accepts print metadata and binds refusal to the exact stop', () => {
   const printed = report({ debugServiceState: { completed: 1, service: 1, bytes: 24, status: 0 } });
   assert.equal(validateProofReport(printed), printed);

@@ -148,6 +148,14 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF)
+#error Kernel capture windows require the fixed initializer observation capacities
+#endif
+#include "../../runtime/core/kernel_capture.h"
+static ff_kernel_capture kernel_capture;
+static uint32_t kernel_prior_setter;
+#endif
 static ff_port_io port_io;
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 /* PCRTC interrupt state, enabled only when the profile supplies events. The
@@ -1264,6 +1272,9 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
         bytes > 4096u || bytes > count - destination || bytes > count - source) return 0x80000000u;
     ff_capture_cpu(&copy_saved);
     uint32_t old_calls = kernel_call_count, result = 0;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    old_calls=kernel_capture.total;
+#endif
     for (uint32_t i = 0; i < count; ++i) guest_ram[base + i] = copy_pattern(i, tag);
     memset(guest_ram + base - 32, 0xb7, 32); memset(guest_ram + base + count, 0xb7, 32);
     MEM32(frame) = 0xfffffff8u; MEM32(frame + 4) = base + destination;
@@ -1283,20 +1294,51 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
     if (g_ebx != 0x11223344u || g_esi != 0x55667788u || g_edi != 0x99aabbccu ||
         copy_return_seen != 1 || copy_return_frame != 0x13579bdfu) result |= 16;
     if (g_df) result |= 32;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    if(kernel_capture.total!=old_calls)result|=64;
+#else
     if (kernel_call_count != old_calls) result |= 64;
+#endif
     ff_probe_copy_recover(); return result;
 }
 #endif
 
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    /* The preceding record-owning handler has returned before a guest callback
+     * can enter here. Polling below precedes allocation of this handler's row. */
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+#endif
 #ifdef FF_VM_PROOF
     (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
-    if (kernel_call_count == FF_KERNEL_CAPACITY || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+    if ((g_esp & 3u) || argc>10u || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    /* A callback delivered by the poll may have completed the previous row. */
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+    uint32_t arguments[10];
+    for(unsigned i=0;i<argc;++i)arguments[i]=MEM32(g_esp+4u+i*4u);
+    const uint32_t capture_status=ff_kernel_capture_begin(&kernel_capture,ordinal,arguments,argc);
+    if(capture_status==FF_CAPTURE_FULL || capture_status==FF_CAPTURE_INVALID)stop(4,0,ordinal);
+    if(capture_status==FF_CAPTURE_ROTATE) {
+        memset(kernel_calls,0,sizeof kernel_calls);
+#ifdef FF_REGULAR_FILE_PROOF
+        memset(file_information,0,sizeof file_information);
+        memset(create_request_words,0,sizeof create_request_words);
+        memset(create_request_names,0,sizeof create_request_names);
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+        memset(disk_control_information,0,sizeof disk_control_information);
+#endif
+        kernel_call_count=0;
+    }
+    if(ordinal==4u)kernel_prior_setter=1;
+#endif
+    if (kernel_call_count == FF_KERNEL_CAPACITY) stop(4, 0, ordinal);
     uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
@@ -2478,10 +2520,14 @@ static void set_display_mode(void)
 }
 static uint32_t av_saved_prior_setter(void)
 {
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    return kernel_prior_setter;
+#else
     uint32_t count = kernel_call_count;
     if (count > FF_KERNEL_CAPACITY) count = FF_KERNEL_CAPACITY;
     for (uint32_t i = 0; i < count; ++i) av_saved_journal[i] = kernel_calls[i][0];
     return ff_av_saved_data_prior_setter(av_saved_journal, count);
+#endif
 }
 static void av_get_saved_data(void)
 {
@@ -2653,7 +2699,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_MMIO_PROOF
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    return 25;
+#elif defined(FF_MMIO_PROOF)
     return 24;
 #elif defined(FF_MEMORY_STATISTICS_PROOF)
     return 23;
@@ -2733,6 +2781,35 @@ uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
 uint32_t ff_probe_kernel_capacity(void) { return FF_KERNEL_CAPACITY; }
+#ifdef FF_KERNEL_CAPTURE_PROOF
+uint32_t ff_probe_kernel_capture_profile(uint32_t start)
+{
+    if(kernel_capture.total || kernel_call_count || probe_trace_count)return FF_CAPTURE_INVALID;
+    return ff_kernel_capture_init(&kernel_capture,start);
+}
+uint32_t ff_probe_kernel_capture_word(uint32_t field)
+{
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+    uint8_t digest[32];
+    ff_sha256_final(&kernel_capture.digest,digest);
+    switch(field) {
+    case 0:return 1;
+    case 1:return kernel_capture.requested_start;
+    case 2:return kernel_capture.captured_start;
+    case 3:return kernel_capture.total;
+    case 4:return kernel_capture.completed;
+    case 5:return kernel_capture.prefix_completed;
+    default:
+        if(field>=8u && field<24u) {
+            const uint8_t *bytes=field<16u?digest:kernel_capture.prefix_digest;
+            const uint32_t offset=(field&7u)*4u;
+            return (uint32_t)bytes[offset]<<24 | (uint32_t)bytes[offset+1]<<16 |
+                   (uint32_t)bytes[offset+2]<<8 | bytes[offset+3];
+        }
+        return 0;
+    }
+}
+#endif
 #ifdef FF_STARTUP_EXPANSION_PROOF
 uint32_t ff_probe_fp_word(uint32_t field)
 {
@@ -2771,6 +2848,10 @@ void ff_probe_reset(void)
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    (void)ff_kernel_capture_init(&kernel_capture,0);
+    kernel_prior_setter=0;
+#endif
 #ifdef FF_DEBUG_SERVICE_PROOF
     memset(debug_service_state, 0, sizeof debug_service_state);
 #endif

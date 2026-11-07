@@ -9,6 +9,7 @@
  * value or upgrades a run's meaning.
  */
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
+import { validateKernelCapture } from './kernel-capture.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -28,6 +29,12 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
+  if (report.consoleSettings?.kernelCaptureStart !== undefined && report.kernelCapture === undefined)
+    throw new Error('Selected kernel capture profile requires capture metadata');
+  if (report.kernelCapture !== undefined &&
+      (!Array.isArray(report.calls) ||
+       report.kernelCapture.requestedStart !== (report.consoleSettings?.kernelCaptureStart ?? 0)))
+    throw new Error('Kernel capture requires calls and its declared profile');
   if (report.verified !== false) throw new Error('A startup report must not claim verification');
   if (typeof report.phase !== 'string' || !report.phase) throw new Error('Proof report phase is required');
   if (!Array.isArray(report.trace) || report.trace.length > TRACE_LIMIT)
@@ -378,6 +385,12 @@ export function validateProofReport(report) {
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
+    if (report.kernelCapture !== undefined) {
+      validateKernelCapture(report.kernelCapture, report.calls);
+      if (report.originalStartup.completedKernelOperations !== report.kernelCapture.completedOperations ||
+          report.kernelCapacity !== 512)
+        throw new Error('Kernel capture evidence does not match startup counters');
+    }
     for (const call of report.calls) {
       if (!call || typeof call !== 'object' || !integer(call.ordinal) || !integer(call.status) ||
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
@@ -449,7 +462,7 @@ export function validateProofReport(report) {
       }
     }
   }
-  if (claimsAvNull && report.calls !== undefined &&
+  if (claimsAvNull && report.calls !== undefined && report.kernelCapture?.complete !== false &&
       !(sawFirstNullShape || sawSecondNullShape || sawThirdNullShape))
     throw new Error('The avNullResult pair must reproduce at least one observed null-result shape');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was

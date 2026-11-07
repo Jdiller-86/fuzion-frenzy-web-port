@@ -23,6 +23,8 @@ const runtime = (name) => `runtime/core/${name}`;
 /* Each fixture lists its own translation units; a fixture that needs a new
  * source must say so here, which keeps the link set reviewable. */
 const fixtures = [
+  { name: 'sha256', sources: ['tests/sha256_test.c', runtime('sha256.c')] },
+  { name: 'kernel_capture', sources: ['tests/kernel_capture_test.c', runtime('kernel_capture.c'), runtime('sha256.c')] },
   { name: 'device_registers', sources: ['tests/device_registers_test.c', runtime('device_registers.c'), runtime('thread_bootstrap.c')] },
   { name: 'pcrtc_state', sources: ['tests/pcrtc_state_test.c', runtime('pcrtc_state.c')] },
   { name: 'kernel_timers', sources: ['tests/kernel_timers_test.c', runtime('kernel_timers.c'), runtime('kernel_objects.c')] },

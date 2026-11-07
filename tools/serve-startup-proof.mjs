@@ -17,6 +17,7 @@ const files = new Map([
   ['/runtime/browser/pfifo-scan.mjs', ['runtime/browser/pfifo-scan.mjs', 'text/javascript']],
   ['/runtime/browser/proof-report.mjs', ['runtime/browser/proof-report.mjs', 'text/javascript']],
   ['/runtime/browser/kernel-service.mjs', ['runtime/browser/kernel-service.mjs', 'text/javascript']],
+  ['/runtime/browser/kernel-capture.mjs', ['runtime/browser/kernel-capture.mjs', 'text/javascript']],
   ['/runtime/browser/thread-proof-worker.mjs', ['runtime/browser/thread-proof-worker.mjs', 'text/javascript']],
   ['/runtime/browser/wasm-proof.mjs', ['runtime/browser/wasm-proof.mjs', 'text/javascript']],
   ['/runtime/browser/startup-proof-worker.mjs', ['runtime/browser/startup-proof-worker.mjs', 'text/javascript']]

@@ -1,6 +1,6 @@
-# Project status: startup reaches the bounded kernel capture limit
+# Project status: startup continues through a bounded capture window
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reopened the written FATX file, sought to its end and appended another record. It then reached **status 4 at the 512-record kernel capture limit**, target 0, attempted ordinal 277, with return address `0x001E6388`, 402 distinct routines and 511 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. An explicit second capture window continued the original-startup experiment to **status 2 at untranslated original routine `0x0004FA60`**, return address `0x0004B4C9`, with 402 distinct routines and 570 completed kernel operations. The first window reproduced the earlier 512-record stop. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -173,6 +173,18 @@ The reopen validates a unique archive entry with paired empty fields or a bounde
 
 Chrome observed the reopened handle `0x0007000C`, allocation 16,384 and EOF 45, then captured a seek to offset 45. The next 43-byte write appended within the existing cluster, producing EOF and cursor 88. Revision advanced 75 to 77, with the same 65,517 free clusters and eight backing pages. The append's backing equality observation covers the appended span. Source review and synthetic readback fixtures cover preservation of the earlier prefix. The handle then closed successfully. Fixed control and inert stops and stable sequences matched, and each experiment preserved the prior stable prefixes. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
 
-The current stop is the probe's evidence ceiling. All 512 kernel-call rows are retained, and the attempted next critical-section call has no row or supplied result. The profile still uses 31 exports, 444 of 512 function slots and 20,691 of 32,768 instructions. Kernel record storage and its auxiliary observation arrays are fixed at 512, and trace storage is fixed at 8,192 rows. The next task is a reviewed bounded capture continuation that retains truthful comparison evidence and preserves those resource limits.
+That stop was the probe's evidence ceiling. Window zero retains all 512 kernel-call rows; its attempted next critical-section call has no row or supplied result. The profile uses 31 exports, 444 of 512 function slots and 20,691 of 32,768 instructions. Kernel record storage and its auxiliary observation arrays remain fixed at 512, and trace storage remains fixed at 8,192 rows.
+
+## Bounded capture continuation
+
+The optional ABI 25 capture profile selects start 0 or 512. A second-window run executes and hashes the first 512 events, saves their digest and success count, then reuses the fixed record and indexed auxiliary arrays for at most 512 further events. Total admission stops at 1,024 events, with the independent trace limit unchanged. Callback polling precedes row allocation; semantic AV-setter history and the copy-service counter survive rotation.
+
+The canonical SHA-256 stream records the domain, ordinal, original argument count and original arguments, then status. The digest excludes output metadata and clocks. Legacy displayed argument arrays sometimes include overwritten outputs, so they cannot reconstruct this canonical stream. A suffix report explicitly omits prior call rows and carries their digest and completion count; it does not claim a complete call list. Native fixtures verify the digest against an independent expected value, rotation, finalization and the 1,024-event refusal boundary.
+
+Two pinned-compiler builds reproduced module SHA-256 prefix `aabcd951`. Fresh Chrome window-zero runs matched the earlier fixed control, inert and experiment stops, original entries, trace kind/address/stack sequences and displayed kernel arguments/status. The corresponding stable backend observations matched with clock-derived disk serials excluded. Separate control runs using the candidate module at both window selections matched each other and the fixed-control sequences. The inert case stops before rotation and retains its complete first window.
+
+The experiment's second window retains 59 call rows, 571 total events and 570 completed operations. Its prefix digest matches the first-window digest `14fcb4cd259e4482e53b54e82a3bc6f08f13631a45e23f1563cc40ab4e32a785`; all 5,976 earlier trace events and 3,011 original-entry events remain prefixes. Two more reopen/seek/append/close cycles advanced EOF from 88 to 129 to 172 and mount revision from 77 to 81, with the same cluster, 65,517 free clusters and eight backing pages. No FATX handle remains live. Repeated second-window runs matched the stop, digests and stable sequences.
+
+Independent Sol High correctness review passed. Native checks passed 62/62 including sanitizers, runtime checks passed 207/207, and source/publication contracts passed. Local checks used Node 24.22.1 and npm 11.19.1; CI at the pinned Node 24.14.0 remains pending. Chrome directly verifies rotation through event 571; the hard 1,024-event ceiling has source and synthetic fixture coverage. The next task is bounded original-byte and decoder-checked admission of `0x0004FA60`, preserving the capture provenance and existing guards.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

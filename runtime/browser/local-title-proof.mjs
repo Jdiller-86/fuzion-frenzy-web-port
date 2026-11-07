@@ -21,7 +21,10 @@ export function parseLocalConsoleSettings(buffer) {
       !Number.isInteger(profile.miscFlags) || profile.miscFlags < 0 || profile.miscFlags > 0xffffffff) {
     throw new Error('Use an explicit synthetic misc-flags test profile');
   }
-  return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags };
+  if (profile.kernelCaptureStart !== undefined && ![0,512].includes(profile.kernelCaptureStart))
+    throw new Error('Select kernel capture start 0 or 512');
+  return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
+    ...(profile.kernelCaptureStart === undefined ? {} : { kernelCaptureStart: profile.kernelCaptureStart }) };
 }
 
 export function parseLocalNvConsoleSettings(buffer) {
@@ -36,13 +39,13 @@ export function parseLocalNvConsoleSettings(buffer) {
 export function proofTraceCapacity(api) {
   const capacity=typeof api.ff_probe_trace_capacity==='function' ? api.ff_probe_trace_capacity() : 64;
   if (![64,128,1024,4096,8192].includes(capacity) ||
-      (capacity===4096 || capacity===8192) && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.()))
+      (capacity===4096 || capacity===8192) && ![16,17,18,19,20,21,22,23,24,25].includes(api.ff_probe_abi?.()))
     throw new Error('Unsupported bounded trace capacity');
   return capacity;
 }
 export function proofKernelCapacity(api) {
   const capacity=typeof api.ff_probe_kernel_capacity==='function'?api.ff_probe_kernel_capacity():32;
-  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17,18,19,20,21,22,23,24].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
+  if(![32,128,256,512].includes(capacity) || capacity===256 && api.ff_probe_abi?.()!==15 || capacity===512 && ![16,17,18,19,20,21,22,23,24,25].includes(api.ff_probe_abi?.())) throw new Error('Unsupported bounded kernel-record capacity');
   return capacity;
 }
 
@@ -326,34 +329,36 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     throw new Error('Module ABI/build does not match this proof');
   }
   const proofAbi = api.ff_probe_abi();
-  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
-  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
+  if (proofAbi === 25 && ['kernel_capture_profile','kernel_capture_word'].some(name =>
+      typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing bounded kernel capture ABI');
+  if ([4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25].includes(proofAbi) !== !!limits.clockImport) throw new Error('Only clock proof ABIs use the required clock import');
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25].includes(proofAbi) && ['vm_image','vm_map_image','vm_region_count','vm_region_word','vm_page_word','vm_access_count','vm_fault_word','vm_access_probe'].some(name =>
     typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing checked virtual-memory ABI');
   if(proofAbi>=13 && ['image_source','image_source_capacity','image_init','image_count','image_word'].some(name=>
     typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing local image-section ABI');
-  if([17,18,19,20,21,22,23,24].includes(proofAbi) && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([17,18,19,20,21,22,23,24,25].includes(proofAbi) && ['disk_profile','disk_word','disk_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing local disk-device ABI');
   }
-  if([18,19,20,21,22,23,24].includes(proofAbi) && ['disk_partition_profile','disk_partition_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([18,19,20,21,22,23,24,25].includes(proofAbi) && ['disk_partition_profile','disk_partition_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing local disk-partition ABI');
   }
-  if([19,20,21,22,23,24].includes(proofAbi) && ['disk_geometry_profile','disk_control_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([19,20,21,22,23,24,25].includes(proofAbi) && ['disk_geometry_profile','disk_control_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing local disk-control ABI');
   }
-  if([20,21,22,23,24].includes(proofAbi) && ['disk_partition_information','disk_information_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([20,21,22,23,24,25].includes(proofAbi) && ['disk_partition_information','disk_information_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing explicit disk-partition information ABI');
   }
-  if([21,22,23,24].includes(proofAbi) && ['disk_raw_volume','disk_volume_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([21,22,23,24,25].includes(proofAbi) && ['disk_raw_volume','disk_volume_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing explicit RAW-volume attachment ABI');
   }
-  if([22,23,24].includes(proofAbi) && ['fatx_word','fatx_mount_word','fatx_file_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([22,23,24,25].includes(proofAbi) && ['fatx_word','fatx_mount_word','fatx_file_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing backed FATX-root provider ABI');
   }
-  if([23,24].includes(proofAbi) && ['memory_profile','memory_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
+  if([23,24,25].includes(proofAbi) && ['memory_profile','memory_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) {
     throw new Error('Missing modeled memory-statistics ABI');
   }
-  if(proofAbi===24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
-  if(proofAbi===24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
+  if(proofAbi>=24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
+  if(proofAbi>=24 && ['mmio_profile','mmio_word'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing synthetic register-storage ABI');
   const memory = api.memory.buffer;
   if (memory.byteLength !== limits.minimumPages * 65536) throw new Error('Module memory differs from admission limits');
   const range = (address, size, alignment = 1) => {
@@ -373,7 +378,7 @@ export async function loadLocalTitleProof({ moduleBytes, xbeBytes } = {}, abi, e
     ram.set(new Uint8Array(xbeBytes, section.fileOffset, section.fileBytes), section.address);
   }
   let imageInitialState;
-  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24].includes(proofAbi)) {
+  if ([5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25].includes(proofAbi)) {
     if (api.ff_probe_vm_image(profile.base, profile.imageBytes)) {
       throw new Error('Cannot admit image and private runtime ranges');
     }
