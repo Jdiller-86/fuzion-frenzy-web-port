@@ -71,6 +71,43 @@ test('kernel capture reports bind calls, selected profile and captured suffix ev
   assert.throws(() => validateProofReport(badCapturedRow), /Malformed kernel call record/);
 });
 
+test('console OS settings profile requires coherent captured ordinal-24 evidence', () => {
+  const osSettings = { kind: 'synthetic-console-os-settings', synthetic: true,
+    layout: 'cxbx-user-settings-96-v1', timeZone: 'utc-no-dst', zeroOtherFields: true,
+    checksum: 0x1234, miscFlags: 7, parentalControlGames: 9 };
+  const call = (output = { backend: 'synthetic-console-os-settings', type: 3,
+    returnedBytes: 96, capacity: 256, providerSnapshotMatches: true,
+    eaxBefore: 0xdeadbeef, eaxAfter: 0, espBefore: 100, espAfter: 124 }, args = [255, 0x1000, 0x2000, 256, 0]) =>
+    ({ ordinal: 24, status: 0, arguments: args, output });
+  const accepted = report({
+    consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings },
+    calls: [call()],
+  });
+  assert.equal(validateProofReport(accepted), accepted);
+  const adjacent = { ...accepted, calls: [call(undefined, [255, 0x2100, 0x2000, 256, 0])] };
+  assert.equal(validateProofReport(adjacent), adjacent);
+  assert.throws(() => validateProofReport(report({ consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings } })), /captured calls/);
+  assert.throws(() => validateProofReport(report({ consoleSettings: { miscFlags: 7, parentalControlGames: 10, osSettings }, calls: [call()] })), /consistent declared DWORDs/);
+  for (const output of [
+    { ...call().output, type: 2 }, { ...call().output, returnedBytes: 95 },
+    { ...call().output, capacity: 255 }, { ...call().output, providerSnapshotMatches: false },
+    { ...call().output, eaxAfter: 1 }, { ...call().output, espAfter: 123 },
+    { ...call().output, rawPayload: 'unbounded' },
+  ]) assert.throws(() => validateProofReport(report({
+    consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings }, calls: [call(output)],
+  })), /Accepted console OS settings call/);
+  for (const args of [[255, 0, 0x2000, 256, 0], [255, 0x1000, 0, 256, 0],
+    [255, 0x1000, 0x2000, 255, 0], [255, 0x1000, 0x2000, 256, 1],
+    [255, 0x2000, 0x1f10, 256, 0]])
+    assert.throws(() => validateProofReport(report({
+      consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings }, calls: [call(undefined, args)],
+    })), /Accepted console OS settings call/);
+  /* Legacy profiles without this opt-in still retain the old unsupported-service stop. */
+  const refused = report({ stop: { status: 9, target: 255, ordinal: 24 },
+    calls: [{ ordinal: 24, status: 0xc00000bb, arguments: [255, 0x1000, 0x2000, 256, 0] }] });
+  assert.equal(validateProofReport(refused), refused);
+});
+
 test('bounded debug service accepts print metadata and binds refusal to the exact stop', () => {
   const printed = report({ debugServiceState: { completed: 1, service: 1, bytes: 24, status: 0 } });
   assert.equal(validateProofReport(printed), printed);

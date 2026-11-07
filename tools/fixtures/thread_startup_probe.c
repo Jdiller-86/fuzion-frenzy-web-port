@@ -527,12 +527,19 @@ static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#if defined(FF_OS_SETTINGS_PROOF) && !defined(FF_NV_QUERY_PROOF)
+#error Console OS settings retain the explicit expanded settings ABI
+#endif
 #ifdef FF_NV_QUERY_PROOF
 #ifndef FF_SECTION_PROOF
 #error Expanded settings retain checked image and guest memory ownership
 #endif
 #include "../../runtime/core/console_settings.h"
 static uint32_t parental_games,parental_games_ready;
+#ifdef FF_OS_SETTINGS_PROOF
+static uint8_t console_os_settings[FF_CONSOLE_OS_SETTINGS_BYTES];
+static uint32_t console_os_ready;
+#endif
 #endif
 #ifdef FF_VOLUME_PROOF
 static ff_local_volume local_volume;
@@ -2246,6 +2253,18 @@ static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
 #ifdef FF_NV_QUERY_PROOF
+#ifdef FF_OS_SETTINGS_PROOF
+    if(row[2]==255u && console_os_ready) {
+        row[11]=g_eax;row[12]=g_esp;
+        row[1]=ff_query_console_os(&virtual_memory,row+2,console_os_settings);
+        if(row[1])stop(9,row[1],24);
+        row[7]=3;row[9]=FF_CONSOLE_OS_SETTINGS_BYTES;
+        row[10]=!memcmp(guest_ram+row[4],console_os_settings,FF_CONSOLE_OS_SETTINGS_BYTES);
+        g_eax=0;g_esp+=24;
+        row[13]=g_eax;row[14]=g_esp;
+        return;
+    }
+#endif
     if(!misc_flags_ready || (row[2]!=17 && row[2]!=10) || (row[2]==10 && !parental_games_ready)) {
         row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[2],24);
     }
@@ -2750,6 +2769,26 @@ uint32_t ff_probe_abi(void) {
 void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
 #ifdef FF_NV_QUERY_PROOF
 void ff_probe_parental_games(uint32_t value) { parental_games=value;parental_games_ready=1; }
+#ifdef FF_OS_SETTINGS_PROOF
+uint32_t ff_probe_console_os_source(void) { return (uint32_t)(uintptr_t)console_os_settings; }
+uint32_t ff_probe_console_os_bytes(void) { return FF_CONSOLE_OS_SETTINGS_BYTES; }
+uint32_t ff_probe_console_os_profile(uint32_t bytes)
+{
+    if(probe_trace_count || kernel_call_count)return FF_BOOT_INVALID;
+    console_os_ready=0;
+    if(bytes!=FF_CONSOLE_OS_SETTINGS_BYTES || !misc_flags_ready || !parental_games_ready)return FF_BOOT_INVALID;
+    uint32_t misc=0,parental=0;
+    for(uint32_t i=0;i<4;++i) {
+        misc|=(uint32_t)console_os_settings[88+i]<<(8u*i);
+        parental|=(uint32_t)console_os_settings[60+i]<<(8u*i);
+    }
+    if(misc!=misc_flags || parental!=parental_games)return FF_BOOT_INVALID;
+    for(uint32_t i=4;i<FF_CONSOLE_OS_SETTINGS_BYTES;++i)
+        if(!(i>=60u && i<64u) && !(i>=88u && i<92u) && console_os_settings[i])return FF_BOOT_UNSUPPORTED;
+    console_os_ready=1;
+    return 0;
+}
+#endif
 #endif
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
@@ -2858,6 +2897,9 @@ void ff_probe_reset(void)
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;
+#ifdef FF_OS_SETTINGS_PROOF
+    console_os_ready=0;memset(console_os_settings,0,sizeof console_os_settings);
+#endif
 #endif
 #ifdef FF_SECTION_PROOF
     memset(&image_sections,0,sizeof image_sections);

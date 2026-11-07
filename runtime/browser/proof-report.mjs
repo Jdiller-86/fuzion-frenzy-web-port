@@ -10,6 +10,7 @@
  */
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 import { validateKernelCapture } from './kernel-capture.mjs';
+import { encodeConsoleOsSettings } from './console-os-settings.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -29,6 +30,12 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
+  if(report.consoleSettings?.osSettings!==undefined) {
+    encodeConsoleOsSettings(report.consoleSettings.osSettings);
+    if(!Array.isArray(report.calls) || report.consoleSettings.osSettings.miscFlags!==report.consoleSettings.miscFlags ||
+       report.consoleSettings.osSettings.parentalControlGames!==report.consoleSettings.parentalControlGames)
+      throw new Error('Console OS settings require captured calls and consistent declared DWORDs');
+  }
   if (report.consoleSettings?.kernelCaptureStart !== undefined && report.kernelCapture === undefined)
     throw new Error('Selected kernel capture profile requires capture metadata');
   if (report.kernelCapture !== undefined &&
@@ -396,6 +403,22 @@ export function validateProofReport(report) {
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      if(call.ordinal===24 && call.arguments[0]===255 && call.status===0) {
+        const out=call.output;
+        if(!report.consoleSettings?.osSettings || call.arguments.length!==5 ||
+           !call.arguments[1] || call.arguments[1]%4 || !call.arguments[2] || call.arguments[2]%4 ||
+           (call.arguments[1]<call.arguments[2]+256 && call.arguments[2]<call.arguments[1]+4) ||
+           call.arguments[3]!==256 || call.arguments[4]!==0 ||
+           !out || out.backend!=='synthetic-console-os-settings' || out.type!==3 ||
+           Object.keys(out).length!==9 || Object.keys(out).some(key=>![
+             'backend','type','returnedBytes','capacity','providerSnapshotMatches',
+             'eaxBefore','espBefore','eaxAfter','espAfter',
+           ].includes(key)) ||
+           out.returnedBytes!==96 || out.capacity!==256 || out.providerSnapshotMatches!==true ||
+           !integer(out.eaxBefore) || !integer(out.espBefore) || out.eaxAfter!==0 ||
+           out.espAfter!==out.espBefore+24)
+          throw new Error('Accepted console OS settings call requires the explicit bounded model and return evidence');
+      }
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');

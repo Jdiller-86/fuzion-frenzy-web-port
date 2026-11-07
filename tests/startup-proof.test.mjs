@@ -405,6 +405,22 @@ test('expanded console settings require an explicit DWORD without assuming a par
   for(const value of [undefined,null,false,-1,0.5,0x100000000,'0'])assert.throws(()=>parseLocalNvConsoleSettings(bytes(value)),/explicit synthetic/);
 });
 
+test('NV console settings accept an optional nested synthetic OS profile and preserve older profiles',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,
+    miscFlags:7,parentalControlGames:9,...value})).buffer;
+  const profile={kind:'synthetic-console-os-settings',synthetic:true,layout:'cxbx-user-settings-96-v1',
+    timeZone:'utc-no-dst',zeroOtherFields:true,checksum:0x1234};
+  const old=parseLocalNvConsoleSettings(bytes({}));
+  assert.equal(old.miscFlags,7);
+  assert.equal(old.parentalControlGames,9);
+  assert.equal(old.osSettings,undefined);
+  assert.deepEqual(parseLocalNvConsoleSettings(bytes({osSettings:profile})).osSettings,
+    {...profile,miscFlags:7,parentalControlGames:9});
+  for(const edit of [{synthetic:false},{layout:'other'},{timeZone:'local'},{zeroOtherFields:false},
+    {checksum:-1},{checksum:0x100000000},{extra:1}])
+    assert.throws(()=>parseLocalNvConsoleSettings(bytes({osSettings:{...profile,...edit}})));
+});
+
 test('volume settings require explicit synthetic capacity and geometry without unsafe integer conversion', () => {
   const valid = { kind:'local-volume-profile', synthetic:true, device:'harddisk0-partition1',
     totalAllocationUnits:'4294967299', availableAllocationUnits:'4294967297', sectorsPerAllocationUnit:32, bytesPerSector:512 };

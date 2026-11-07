@@ -1,5 +1,6 @@
 import { readXbeProfile } from '../../host/xbe.mjs';
 import { inspectProofWasm } from './wasm-proof.mjs';
+import { parseConsoleOsSettings } from './console-os-settings.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -29,11 +30,13 @@ export function parseLocalConsoleSettings(buffer) {
 
 export function parseLocalNvConsoleSettings(buffer) {
   const settings=parseLocalConsoleSettings(buffer);
-  const parentalControlGames=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer)).parentalControlGames;
+  const selected=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer));
+  const parentalControlGames=selected.parentalControlGames;
   if(!Number.isInteger(parentalControlGames) || parentalControlGames<0 || parentalControlGames>0xffffffff) {
     throw new Error('Select an explicit synthetic parental-control-games DWORD; no original console default is assumed');
   }
-  return {...settings,parentalControlGames};
+  const osSettings=parseConsoleOsSettings(selected.osSettings,{...settings,parentalControlGames});
+  return {...settings,parentalControlGames,...(osSettings===undefined?{}:{osSettings})};
 }
 
 export function proofTraceCapacity(api) {

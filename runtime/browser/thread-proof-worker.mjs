@@ -6,6 +6,7 @@ import { createDeviceReport } from './device-report.mjs';
 import { validateProofReport } from './proof-report.mjs';
 import { describeKernelService } from './kernel-service.mjs';
 import { readKernelCapture, absoluteKernelCalls } from './kernel-capture.mjs';
+import { encodeConsoleOsSettings, CONSOLE_OS_BYTES } from './console-os-settings.mjs';
 
 /* A boundary report is evidence for a human reader, so it is validated before it
  * is posted: a malformed or out-of-range report becomes an error message instead
@@ -50,6 +51,17 @@ self.onmessage = async event => {
       if(nvAbi) {
         if(typeof api.ff_probe_parental_games!=='function') throw new Error('Missing explicit console-settings ABI');
         api.ff_probe_parental_games(consoleSettings.parentalControlGames);
+      }
+      const selectedOs=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(event.data.settingsBytes)).osSettings;
+      if(selectedOs!==undefined && !nvAbi) throw new Error('This module does not support console OS settings');
+      if(consoleSettings.osSettings) {
+        if(['source','bytes','profile'].some(name=>typeof api['ff_probe_console_os_'+name]!=='function') ||
+            api.ff_probe_console_os_bytes()!==CONSOLE_OS_BYTES)
+          throw new Error('Missing explicit console OS settings capability');
+        new Uint8Array(memory,range(api.ff_probe_console_os_source(),CONSOLE_OS_BYTES),CONSOLE_OS_BYTES)
+          .set(encodeConsoleOsSettings(consoleSettings.osSettings));
+        if(api.ff_probe_console_os_profile(CONSOLE_OS_BYTES))
+          throw new Error('Cannot configure explicit console OS settings');
       }
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
     if(api.ff_probe_abi()>=24) {
@@ -266,6 +278,13 @@ self.onmessage = async event => {
         };
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
+      if(call.ordinal===24 && call.arguments[0]===255 && !call.status) call.output={
+        backend:'synthetic-console-os-settings',type:api.ff_probe_kernel_word(i,7)>>>0,
+        returnedBytes:api.ff_probe_kernel_word(i,9)>>>0,capacity:call.arguments[3],
+        providerSnapshotMatches:api.ff_probe_kernel_word(i,10)===1,
+        eaxBefore:api.ff_probe_kernel_word(i,11)>>>0,espBefore:api.ff_probe_kernel_word(i,12)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,13)>>>0,espAfter:api.ff_probe_kernel_word(i,14)>>>0,
+      };
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
         scope:'modeled-guest-memory-statistics'};
