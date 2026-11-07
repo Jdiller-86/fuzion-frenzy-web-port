@@ -49,11 +49,16 @@ def extract_blocks():
         required = {
             "legacy mutant": ("ff_probe_mutant_profile", "ff_probe_mutant_word", "kernel_record(192,3)", "g_esp+=16u"),
             "named event": ("ff_probe_event_profile", "ff_probe_event_word", "kernel_record(189,4)", "g_esp+=20u", "ff_local_mutants_guard_event"),
-            "local mutant": ("ff_probe_local_mutant_profile", "ff_probe_local_mutant_word", "ff_local_mutants_create", "kernel_record(192,3)"),
+            "local mutant": ("ff_probe_local_mutant_profile", "ff_probe_local_mutant_word",
+                             "ff_probe_local_mutant_wait_profile", "ff_probe_local_mutant_wait_word",
+                             "ff_local_mutants_create", "ff_local_mutants_acquire", "kernel_record(192,3)",
+                             "kernel_record(234u,4u)"),
         }[label]
         if any(item not in block for item in required):
             raise AssertionError(f"{label} bridge block is missing an expected source-owned contract")
         blocks.append(block)
+    if "if(ordinal==234u && local_mutant_wait_enabled)return wait_local_mutant;" not in source:
+        raise AssertionError("local mutant wait dispatcher is not explicitly gated by its selected profile")
     return blocks
 
 
@@ -81,9 +86,17 @@ static ff_virtual_memory virtual_memory;
 static ff_unnamed_mutants unnamed_mutants;
 static ff_named_events named_events;
 static ff_local_mutants local_mutants;
+static ff_boot_runtime boot;
 static uint32_t vm_ready,probe_trace_count,kernel_call_count,parent_returned;
 static uint32_t mutant_ready,mutant_status,event_ready,event_status;
 static uint32_t local_mutant_ready,local_mutant_status;
+static uint32_t local_mutant_wait_enabled,local_mutant_wait_sealed;
+static uint32_t local_mutant_wait_attempts,local_mutant_wait_completed,local_mutant_wait_status;
+static uint32_t local_mutant_wait_last_handle,local_mutant_wait_last_thread,local_mutant_wait_last_object;
+static uint32_t local_mutant_wait_mode,local_mutant_wait_alertable,local_mutant_wait_timeout;
+static uint32_t local_mutant_wait_owner_before,local_mutant_wait_owner_after;
+static uint32_t local_mutant_wait_eax_before,local_mutant_wait_esp_before;
+static uint32_t local_mutant_wait_eax_after,local_mutant_wait_esp_after;
 static uint32_t g_eax,g_edx,g_esp,g_ecx,g_ebx,g_esi,g_edi;
 static uint32_t kernel_calls[64][24];
 static jmp_buf stopped;
@@ -129,6 +142,7 @@ static void configure_named(uint32_t out,uint32_t attrs,uint32_t desc,uint32_t p
 static void reset_fixture(void) {
     memset(guest_ram,0xa5,sizeof guest_ram);memset(&virtual_memory,0,sizeof virtual_memory);
     assert(ff_vm_init(&virtual_memory,guest_ram,sizeof guest_ram)==0);
+    assert(ff_boot_init(&boot,guest_ram,sizeof guest_ram,0x1000,0x2000)==FF_BOOT_OK);
     assert(ff_vm_claim_fixed(&virtual_memory,0x10000,0x10000)==0);
     assert(ff_vm_map_fixed(&virtual_memory,0x10000,0x1000,2)==0);
     assert(ff_vm_map_fixed(&virtual_memory,0x11000,0x1000,4)==0);
@@ -137,6 +151,13 @@ static void reset_fixture(void) {
     vm_ready=1;probe_trace_count=kernel_call_count=parent_returned=0;
     mutant_ready=mutant_status=event_ready=event_status=0;
     local_mutant_ready=local_mutant_status=0;
+    local_mutant_wait_enabled=local_mutant_wait_sealed=0;
+    local_mutant_wait_attempts=local_mutant_wait_completed=local_mutant_wait_status=0;
+    local_mutant_wait_last_handle=local_mutant_wait_last_thread=local_mutant_wait_last_object=0;
+    local_mutant_wait_mode=local_mutant_wait_alertable=local_mutant_wait_timeout=0;
+    local_mutant_wait_owner_before=local_mutant_wait_owner_after=0;
+    local_mutant_wait_eax_before=local_mutant_wait_esp_before=0;
+    local_mutant_wait_eax_after=local_mutant_wait_esp_after=0;
     memset(&unnamed_mutants,0,sizeof unnamed_mutants);memset(&named_events,0,sizeof named_events);
     memset(&local_mutants,0,sizeof local_mutants);memset(kernel_calls,0,sizeof kernel_calls);init_cpu();
 }
@@ -167,6 +188,16 @@ static uint32_t local_profile(uint32_t enable) {
     if(result)assert(local_mutant_ready==ready&&local_mutant_status==status&&memcmp(&model,&local_mutants,sizeof model)==0);
     return result;
 }
+static uint32_t local_wait_profile(uint32_t enable) {
+    uint32_t enabled=local_mutant_wait_enabled,sealed=local_mutant_wait_sealed;
+    uint32_t attempts=local_mutant_wait_attempts,completed=local_mutant_wait_completed,status=local_mutant_wait_status;
+    ff_local_mutants model=local_mutants;
+    uint32_t result=ff_probe_local_mutant_wait_profile(enable);
+    if(result)assert(local_mutant_wait_enabled==enabled&&local_mutant_wait_sealed==sealed&&
+        local_mutant_wait_attempts==attempts&&local_mutant_wait_completed==completed&&
+        local_mutant_wait_status==status&&memcmp(&model,&local_mutants,sizeof model)==0);
+    return result;
+}
 static void assert_profiles_refuse_atomically(uint32_t peers_only) {
     uint8_t ram[sizeof guest_ram];uint32_t rows[64][24];
     ff_unnamed_mutants old=unnamed_mutants;ff_named_events events=named_events;ff_local_mutants local=local_mutants;
@@ -177,6 +208,8 @@ static void assert_profiles_refuse_atomically(uint32_t peers_only) {
     assert(ff_probe_mutant_profile(0)==FF_BOOT_INVALID&&ff_probe_mutant_profile(1)==FF_BOOT_INVALID);
     if(!peers_only)
         assert(ff_probe_local_mutant_profile(0)==FF_BOOT_INVALID&&ff_probe_local_mutant_profile(1)==FF_BOOT_INVALID);
+    if(!peers_only)
+        assert(ff_probe_local_mutant_wait_profile(0)==FF_BOOT_INVALID&&ff_probe_local_mutant_wait_profile(1)==FF_BOOT_INVALID);
     assert(memcmp(ram,guest_ram,sizeof ram)==0&&memcmp(rows,kernel_calls,sizeof rows)==0&&kernel_call_count==calls);
     assert(memcmp(&old,&unnamed_mutants,sizeof old)==0&&memcmp(&events,&named_events,sizeof events)==0&&
         memcmp(&local,&local_mutants,sizeof local)==0);
@@ -235,12 +268,64 @@ static void profile_locks(void) {
     assert(ff_probe_local_mutant_word(0xffffffffu,0)==1&&ff_probe_local_mutant_word(0xffffffffu,1)==0&&
         ff_probe_local_mutant_word(0xffffffffu,2)==0&&ff_probe_local_mutant_word(0xffffffffu,3)==FF_LOCAL_MUTANT_CAPACITY&&
         ff_probe_local_mutant_word(0xffffffffu,4)==0);
+    assert(local_wait_profile(1)==0&&ff_probe_local_mutant_wait_word(0xffffffffu,0)==1&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,1)==0&&ff_probe_local_mutant_wait_word(0xffffffffu,2)==0&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,3)==0&&ff_probe_local_mutant_wait_word(0xffffffffu,4)==4);
     assert(ff_probe_event_word(0xffffffffu,0)==1&&ff_probe_event_word(0xffffffffu,1)==0&&
         ff_probe_event_word(0xffffffffu,2)==0&&ff_probe_event_word(0xffffffffu,3)==FF_EVENT_CAPACITY&&
         ff_probe_event_word(0xffffffffu,4)==0);
     assert(ff_probe_mutant_word(0xffffffffu,0)==0&&ff_probe_mutant_word(0xffffffffu,1)==0&&
         ff_probe_mutant_word(0xffffffffu,2)==FF_MUTANT_CAPACITY&&ff_probe_mutant_word(0xffffffffu,3)==0);
     assert_profiles_refuse_atomically(1);
+}
+static void wait_local_unowned(void) {
+    reset_fixture();assert(event_profile(1)==0&&local_profile(1)==0);
+    assert(local_wait_profile(1)==0);
+    create_local_named(0x11000,0x12000,0x13000,0x10040,"Acquire");
+    /* Alias handle shares object 1, as created by the existing case-insensitive name path. */
+    create_local_named(0x11004,0x12000,0x13000,0x10040,"acquire");
+    boot.count=1;boot.current=0;boot.threads[0].id=1;boot.threads[0].state=FF_BOOT_RUNNING;
+    setargs(0x80004,1,0,0);init_cpu();wait_local_mutant();
+    assert(g_eax==0&&g_esp==0x1f014&&local_mutants.objects[0].owner_thread==1);
+    assert(local_mutant_wait_attempts==1&&local_mutant_wait_completed==1&&local_mutant_wait_status==0);
+    assert(ff_probe_local_mutant_wait_word(0xffffffffu,5)==0x80004&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,6)==1&&ff_probe_local_mutant_wait_word(0xffffffffu,7)==1&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,8)==1&&ff_probe_local_mutant_wait_word(0xffffffffu,9)==0&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,10)==0&&ff_probe_local_mutant_wait_word(0xffffffffu,11)==0&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,12)==1&&ff_probe_local_mutant_wait_word(0xffffffffu,13)==0x11112222&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,14)==0x1f000&&ff_probe_local_mutant_wait_word(0xffffffffu,15)==0&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,16)==0x1f014);
+    assert(ff_probe_local_mutant_wait_word(0,0)==1&&ff_probe_local_mutant_wait_word(0,1)==1&&
+        ff_probe_local_mutant_word(0,3)==1);
+    assert(kernel_calls[2][0]==234&&kernel_calls[2][1]==0&&kernel_calls[2][2]==0x80004&&
+        kernel_calls[2][3]==1&&kernel_calls[2][4]==0&&kernel_calls[2][5]==0&&
+        kernel_calls[2][6]==0x80004&&kernel_calls[2][7]==1&&kernel_calls[2][8]==1&&
+        kernel_calls[2][9]==1&&kernel_calls[2][10]==0&&kernel_calls[2][11]==0&&
+        kernel_calls[2][12]==0&&kernel_calls[2][13]==1&&kernel_calls[2][14]==0x11112222&&
+        kernel_calls[2][15]==0x1f000&&kernel_calls[2][16]==0&&kernel_calls[2][17]==0x1f014);
+    assert(local_wait_profile(0)==FF_BOOT_INVALID&&local_profile(0)==FF_BOOT_INVALID);
+}
+static void wait_owned_alias_refusal(void) {
+    reset_fixture();assert(event_profile(1)==0&&local_profile(1)==0);
+    assert(local_wait_profile(1)==0);
+    create_local_named(0x11000,0x12000,0x13000,0x10040,"Acquire");
+    create_local_named(0x11004,0x12000,0x13000,0x10040,"acquire");
+    boot.count=1;boot.current=0;boot.threads[0].id=1;boot.threads[0].state=FF_BOOT_RUNNING;
+    setargs(0x80004,1,0,0);init_cpu();wait_local_mutant();
+    uint32_t owner=local_mutants.objects[0].owner_thread,completed=local_mutant_wait_completed;
+    uint32_t eax=g_eax,esp=g_esp;setargs(0x80008,1,0,0);init_cpu();eax=g_eax;esp=g_esp;
+    if(!setjmp(stopped)){wait_local_mutant();assert(0&&"owned alias wait must stop");}
+    assert(stop_status==9&&stop_site==FF_BOOT_UNSUPPORTED&&stop_ordinal==234);
+    assert(local_mutant_wait_attempts==2&&local_mutant_wait_completed==completed&&
+        local_mutant_wait_status==FF_BOOT_UNSUPPORTED&&local_mutants.objects[0].owner_thread==owner);
+    assert(g_eax==eax&&g_esp==esp&&ff_probe_local_mutant_wait_word(0xffffffffu,12)==1&&
+        ff_probe_local_mutant_wait_word(0xffffffffu,15)==eax&&ff_probe_local_mutant_wait_word(0xffffffffu,16)==esp);
+    assert(kernel_calls[3][0]==234&&kernel_calls[3][1]==1&&kernel_calls[3][2]==0x80008&&
+        kernel_calls[3][3]==1&&kernel_calls[3][4]==0&&kernel_calls[3][5]==0&&
+        kernel_calls[3][12]==1&&kernel_calls[3][13]==1&&kernel_calls[3][14]==eax&&
+        kernel_calls[3][15]==esp&&kernel_calls[3][16]==eax&&kernel_calls[3][17]==esp);
+    local_mutant_wait_sealed=1;
+    assert(local_wait_profile(0)==FF_BOOT_INVALID);
 }
 static void namespace_and_creation(void) {
     create_local_unnamed(0x11004);
@@ -329,6 +414,7 @@ static void legacy_path(void) {
 }
 static void profiles_and_flags(void) {
     reset_fixture();
+    assert(local_wait_profile(1)==FF_BOOT_INVALID); /* ready local-mutant model required */
     assert(local_profile(1)==FF_BOOT_INVALID); /* event dependency */
     assert(event_profile(1)==0);assert(vm_ready&&event_ready);
     assert(old_profile(1)==0);assert(local_profile(1)==FF_BOOT_INVALID); /* legacy active */
@@ -364,6 +450,7 @@ static void invalid_model_refusal(void) {
 }
 int main(void) {
     reset_fixture();legacy_path();profiles_and_flags();event_first_collision();invalid_model_refusal();
+    wait_local_unowned();wait_owned_alias_refusal();
     assert(ff_probe_event_word(0xffffffffu,99)==0&&ff_probe_local_mutant_word(0xffffffffu,99)==0&&
         ff_probe_local_mutant_word(99,0)==0&&ff_probe_local_mutant_word(0,99)==0);
     return 0;
@@ -379,7 +466,8 @@ int main(void) {
         executable = self.path / "local-mutant-bridge"
         sources = [self.path / "harness.c", ROOT / "runtime" / "core" / "local_mutants.c",
                    ROOT / "runtime" / "core" / "named_events.c", ROOT / "runtime" / "core" / "unnamed_mutants.c",
-                   ROOT / "runtime" / "core" / "virtual_memory.c"]
+                   ROOT / "runtime" / "core" / "virtual_memory.c",
+                   ROOT / "runtime" / "core" / "thread_bootstrap.c"]
         build = subprocess.run([compiler(), "-std=c11", "-Wall", "-Wextra", "-Werror",
                                 "-I", str(ROOT), *(str(p) for p in sources), "-o", str(executable)],
                                capture_output=True, text=True)

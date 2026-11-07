@@ -9,7 +9,7 @@
 #define FF_LOCAL_MUTANT_NO_SLOTS 0xc000009au
 #define FF_LOCAL_MUTANT_TYPE_MISMATCH 0xc0000024u
 
-typedef struct { uint32_t name_bytes; uint8_t name[64]; } ff_local_mutant_object;
+typedef struct { uint32_t name_bytes, owner_thread; uint8_t name[64]; } ff_local_mutant_object;
 typedef struct { uint32_t handle, object; } ff_local_mutant_handle;
 typedef struct {
     ff_virtual_memory *memory;
@@ -24,4 +24,7 @@ uint32_t ff_local_mutants_create(ff_local_mutants *, uint32_t output, uint32_t a
                                  uint32_t initial_owner);
 uint32_t ff_local_mutants_guard_event(const ff_local_mutants *, uint32_t output,
                                       uint32_t attributes);
+uint32_t ff_local_mutants_acquire(ff_local_mutants *, uint32_t handle,
+                                  uint32_t wait_mode, uint32_t alertable,
+                                  uint32_t timeout, uint32_t thread_id);
 #endif

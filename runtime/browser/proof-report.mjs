@@ -19,6 +19,7 @@ import { parseLocalMutantProfile, validateLocalMutantState } from './local-mutan
 import { parseEventProfile, validateEventState } from './named-events.mjs';
 import { parseTraceCaptureStart, validateTraceCapture } from './trace-capture.mjs';
 import { parseDebugServiceStart, validateDebugServiceWindow } from './debug-service-window.mjs';
+import { parseMutantWaitProfile, validateMutantWaitReport } from './local-mutant-wait.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -41,6 +42,8 @@ export function validateProofReport(report) {
   const selectedMutants=report.consoleSettings?.mutants?.kind==='synthetic-win32-mutants'
     ?parseLocalMutantProfile(report.consoleSettings.mutants):parseMutantProfile(report.consoleSettings?.mutants);
   const localMutantProfile=selectedMutants?.kind==='synthetic-win32-mutants';
+  const selectedMutantWait=parseMutantWaitProfile(report.consoleSettings?.mutantWait);
+  if(selectedMutantWait&&!localMutantProfile)throw new Error('Local mutant acquisition requires its explicit creation model');
   if(localMutantProfile) {
     if(report.localMutantState===undefined||Object.hasOwn(report,'mutantState'))
       throw new Error('Local mutant evidence requires only its explicit profile and localMutantState');
@@ -51,7 +54,7 @@ export function validateProofReport(report) {
     throw new Error('Mutant evidence requires its explicit synthetic profile and state');
   }
   const mutantState=selectedMutants?.kind==='synthetic-win32-mutants'
-    ?validateLocalMutantState(report.localMutantState,selectedMutants):selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
+    ?validateLocalMutantState(report.localMutantState,selectedMutants,!!selectedMutantWait):selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
   const selectedEvents=parseEventProfile(report.consoleSettings?.events);
   if((selectedEvents===undefined)!==(report.eventState===undefined))throw new Error('Named event evidence requires its explicit profile and state');
   const eventState=selectedEvents?validateEventState(report.eventState,selectedEvents):undefined;
@@ -323,6 +326,15 @@ export function validateProofReport(report) {
                 keys.some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key))) {
         throw new Error('The NtCreateEvent descriptor must retain its evidenced stdcall/16-byte/NTSTATUS ABI');
       }
+    } else if(stop.ordinal===234||stop.service.name==='NtWaitForSingleObjectEx') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===234&&stop.service.name===null) {
+        if(keys.length!==3||keys.some(k=>!['ordinal','name','modeled'].includes(k)))
+          throw new Error('Legacy unidentified ordinal-234 descriptor must contain only its identity');
+      } else if(stop.ordinal!==234||stop.service.name!=='NtWaitForSingleObjectEx'||stop.service.callingConvention!=='stdcall'||
+          stop.service.argumentBytes!==16||stop.service.returns!=='ntstatus'||keys.length!==6||
+          keys.some(k=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(k)))
+        throw new Error('NtWaitForSingleObjectEx requires its four-argument NTSTATUS ABI');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
                stop.service.returns !== undefined || stop.service.resultBits !== undefined ||
                stop.service.option !== undefined || stop.service.output !== undefined) {
@@ -367,7 +379,7 @@ export function validateProofReport(report) {
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08])$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08]|localMutantAcquire)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -403,6 +415,7 @@ export function validateProofReport(report) {
    * show the proof without declaring the input, or claim the input without the
    * proof. */
   const experiments = report.experiments ?? [];
+  validateMutantWaitReport(report,selectedMutantWait,mutantState);
   const claimsReset = experiments.includes('pfifoReset');
   if (report.pfifoResetState !== undefined && !claimsReset)
     throw new Error('PFIFO reset state requires the pfifoReset experiment');

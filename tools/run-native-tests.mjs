@@ -32,6 +32,7 @@ const fixtures = [
   { name: 'memory_statistics', sources: ['tests/memory_statistics_test.c', runtime('memory_statistics.c'), runtime('virtual_memory.c')] },
   { name: 'named_events', sources: ['tests/named_events_test.c', runtime('named_events.c'), runtime('virtual_memory.c')] },
   { name: 'local_mutants', sources: ['tests/local_mutants_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
+  { name: 'local_mutant_acquire', sources: ['tests/local_mutant_acquire_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
   { name: 'device_registers', sources: ['tests/device_registers_test.c', runtime('device_registers.c'), runtime('thread_bootstrap.c')] },
   { name: 'pcrtc_state', sources: ['tests/pcrtc_state_test.c', runtime('pcrtc_state.c')] },
   { name: 'kernel_timers', sources: ['tests/kernel_timers_test.c', runtime('kernel_timers.c'), runtime('kernel_objects.c')] },

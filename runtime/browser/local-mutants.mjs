@@ -24,7 +24,8 @@ function exact(value, keys, label) {
     throw new Error(`Invalid local mutant ${label} shape`);
 }
 
-export function readLocalMutantState(getter, profile) {
+export function readLocalMutantState(getter, profile, allowOwned = false) {
+  if(typeof allowOwned!=='boolean')throw new Error('Invalid local mutant ownership capability');
   const selected = parseLocalMutantProfile(profile);
   if (typeof getter !== 'function' || !selected) throw new Error('Local mutant profile and state getter are required');
   const h = field => u32(getter, HEADER_INDEX, field, `header ${field}`);
@@ -35,9 +36,9 @@ export function readLocalMutantState(getter, profile) {
   for (let i = 0; i < objectCount; i++) {
     const object = u32(getter, i, 0, `object ${i}`), nameBytes = u32(getter, i, 1, `name length ${i}`);
     const named = u32(getter, i, 2, `named flag ${i}`), owned = u32(getter, i, 3, `ownership ${i}`);
-    if (object !== i + 1 || nameBytes > 63 || named > 1 || owned !== 0 || (named ? nameBytes < 1 : nameBytes !== 0))
+    if (object !== i + 1 || nameBytes > 63 || named > 1 || owned > 1 || (!allowOwned && owned !== 0) || (named ? nameBytes < 1 : nameBytes !== 0))
       throw new Error('Invalid local mutant object row');
-    objects.push({ object, nameBytes, named: !!named, owned: false });
+    objects.push({ object, nameBytes, named: !!named, owned: !!owned });
   }
   const handles = [];
   for (let i = 0; i < handleCount; i++) {
@@ -61,17 +62,17 @@ export function readLocalMutantState(getter, profile) {
   return { ...selected, objectCount, handleCount, status, objects, handles };
 }
 
-export function readLocalMutantStateFromWasm(getter, profile) {
+export function readLocalMutantStateFromWasm(getter, profile, allowOwned = false) {
   if (typeof getter !== 'function') throw new Error('Invalid local mutant WASM getter');
   return readLocalMutantState((index, field) => {
     const value = getter(index, field);
     if (!Number.isInteger(value) || value < -0x80000000 || value > 0xffffffff)
       throw new Error(`Invalid local mutant WASM word ${index}:${field}`);
     return value >>> 0;
-  }, profile);
+  }, profile, allowOwned);
 }
 
-export function validateLocalMutantState(value, profile) {
+export function validateLocalMutantState(value, profile, allowOwned = false) {
   const selected = parseLocalMutantProfile(profile);
   if (!selected) throw new Error('Local mutant profile is required');
   exact(value, STATE_KEYS, 'serialized state');
@@ -87,7 +88,7 @@ export function validateLocalMutantState(value, profile) {
     if (index === HEADER_INDEX) return [1, value.objectCount, value.handleCount, CAPACITY, value.status][field];
     if (field < 4) return [value.objects[index]?.object, value.objects[index]?.nameBytes, value.objects[index]?.named ? 1 : 0, value.objects[index]?.owned ? 1 : 0][field];
     return [value.handles[index]?.handle, value.handles[index]?.object][field - 4];
-  }, selected);
+  }, selected, allowOwned);
   if (JSON.stringify(canonical) !== JSON.stringify(value)) throw new Error('Serialized local mutant state is inconsistent');
   return canonical;
 }

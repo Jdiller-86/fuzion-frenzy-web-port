@@ -20,6 +20,7 @@ static int valid_model(const ff_local_mutants *m)
     if(!m||!memory_ok(m->memory)||!events_ok(m->events)||m->events->memory!=m->memory||m->object_count>4||m->handle_count>4||m->handle_count<m->object_count)return 0;
     for(uint32_t i=0;i<m->object_count;i++){
         const ff_local_mutant_object *o=&m->objects[i];
+        if(o->owner_thread>4u)return 0;
         if(o->name_bytes>FF_LOCAL_MUTANT_NAME_BYTES)return 0;
         if(o->name_bytes&&!name_valid(o->name,o->name_bytes))return 0;
         for(uint32_t j=0;j<i;j++)if(o->name_bytes&&m->objects[j].name_bytes==o->name_bytes&&equal_name(m->objects[j].name,o->name,o->name_bytes))return 0;
@@ -81,8 +82,24 @@ uint32_t ff_local_mutants_create(ff_local_mutants *m,uint32_t output,uint32_t at
     if(existing==UINT32_MAX&&m->object_count==FF_LOCAL_MUTANT_CAPACITY)return FF_LOCAL_MUTANT_NO_SLOTS;
     uint32_t obj=existing==UINT32_MAX?m->object_count+1u:existing+1u;
     uint32_t h=FF_LOCAL_MUTANT_HANDLE_BASE+4u*(m->handle_count+1u);
-    if(existing==UINT32_MAX){ff_local_mutant_object *o=&m->objects[obj-1u];o->name_bytes=n;if(n)memcpy(o->name,name,n);m->object_count++;}
+    if(existing==UINT32_MAX){ff_local_mutant_object *o=&m->objects[obj-1u];o->name_bytes=n;o->owner_thread=0;if(n)memcpy(o->name,name,n);m->object_count++;}
     m->handles[m->handle_count].handle=h;m->handles[m->handle_count].object=obj;m->handle_count++;
     uint8_t *p=m->memory->ram+output;p[0]=(uint8_t)h;p[1]=(uint8_t)(h>>8);p[2]=(uint8_t)(h>>16);p[3]=(uint8_t)(h>>24);
     return existing==UINT32_MAX?0:FF_LOCAL_MUTANT_NAME_EXISTS;
+}
+
+uint32_t ff_local_mutants_acquire(ff_local_mutants *m,uint32_t handle,
+                                  uint32_t wait_mode,uint32_t alertable,
+                                  uint32_t timeout,uint32_t thread_id)
+{
+    if(!valid_model(m))return FF_BOOT_INVALID;
+    if(!thread_id||thread_id>4u)return FF_BOOT_INVALID;
+    if(wait_mode!=1u||alertable||timeout)return FF_BOOT_UNSUPPORTED;
+    for(uint32_t i=0;i<m->handle_count;i++)if(m->handles[i].handle==handle){
+        ff_local_mutant_object *object=&m->objects[m->handles[i].object-1u];
+        if(object->owner_thread)return FF_BOOT_UNSUPPORTED;
+        object->owner_thread=thread_id;
+        return FF_BOOT_OK;
+    }
+    return FF_BOOT_BAD_HANDLE;
 }

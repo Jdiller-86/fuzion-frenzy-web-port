@@ -42,3 +42,8 @@ test('ordinal 189 names NtCreateEvent with static ABI only and remains unsupport
     callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus',
   });
 });
+
+test('ordinal 234 has the observed four-argument extended wait ABI without service behavior',()=>{
+  assert.deepEqual(describeKernelService(234),{ordinal:234,name:'NtWaitForSingleObjectEx',modeled:false,
+    callingConvention:'stdcall',argumentBytes:16,returns:'ntstatus'});
+});

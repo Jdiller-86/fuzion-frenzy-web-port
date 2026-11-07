@@ -9,6 +9,7 @@ import { parseLocalMutantProfile } from './local-mutants.mjs';
 import { parseEventProfile } from './named-events.mjs';
 import { parseTraceCaptureStart } from './trace-capture.mjs';
 import { parseDebugServiceStart } from './debug-service-window.mjs';
+import { parseMutantWaitProfile } from './local-mutant-wait.mjs';
 
 // Curated build/ABI observations; no original instructions or file content.
 export const BUILD_REFERENCE = {
@@ -46,12 +47,15 @@ export function parseLocalConsoleSettings(buffer) {
   const events=parseEventProfile(profile.events);
   const traceCaptureStart=parseTraceCaptureStart(profile.traceCaptureStart);
   const debugServiceStart=parseDebugServiceStart(profile.debugServiceStart);
+  const mutantWait=parseMutantWaitProfile(profile.mutantWait);
+  if(mutantWait&&mutants?.kind!=='synthetic-win32-mutants')throw new Error('Local mutant acquisition requires the explicit Win32 mutant profile');
   if(mutants?.kind==='synthetic-win32-mutants'&&!events)
     throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
     ...(mutants===undefined?{}:{mutants}),
     ...(events===undefined?{}:{events}),
+    ...(mutantWait===undefined?{}:{mutantWait}),
     ...(deterministicClock===undefined?{}:{deterministicClock}),
     ...(clockPause===undefined?{}:{clockPause}),
     ...(performanceCounter===undefined?{}:{performanceCounter}),

@@ -16,6 +16,10 @@
  * observation, and option 6 is not asserted as a service-wide property.
  */
 const SERVICES = new Map([
+  [234, {
+    // Pinned kernel.h and the observed four pushed arguments; ABI facts only.
+    name: 'NtWaitForSingleObjectEx', callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus',
+  }],
   [126, {
     name: 'KeQueryPerformanceCounter',
     callingConvention: 'stdcall',
