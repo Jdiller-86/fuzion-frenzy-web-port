@@ -1,6 +1,6 @@
-# Project status: startup passes the FATX file-position request
+# Project status: startup passes the CRT seek cleanup
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the FATX file-position request and reached **status 2 at guarded direct entry `0x001E516A`**, with return address `0x001E5162`, 392 distinct routines and 466 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed the CRT seek cleanup and reached **status 2 at untranslated address `0x001E624B`**, with return address `0x001E0CCF`, 393 distinct routines and 467 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -104,6 +104,12 @@ Ordinal 226 (`NtSetInformationFile`) requested `FilePositionInformation` on the 
 
 Module `be0e7ac4` advanced the guest stack by 24 bytes for the five-argument call and return address. The reopened handle remained live and FATX revision 72 and allocation counts stayed stable. Independent review confirmed the fixed control and inert runs matched and the experiment preserved its stable prefix through the same five arguments. A legacy module replay preserved the earlier unmodeled stop and its report shape. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
 
-The next bounded dependency is the guarded direct entry at `0x001E516A` within the existing `0x001E50E3` envelope. Verify the original call and entry shape before admitting it. The profile uses 511 of 512 function slots including the earlier checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
+## Checked CRT seek cleanup entry
+
+The separate `--crt-seek-cleanup-entry` option admits four checked instructions at `0x001E516A` inside the verified `0x001E50E3` envelope. It validates the single original direct call at `0x001E515D`, the nested call to `0x001E731B`, and the exact stack and return shape. Both direct views remain outside indirect lookup. Using only the earlier flag reproduced the existing generated C, header and manifest byte for byte.
+
+Module `f8c3352a` executed the view, returned to its owner and completed another ordinal 294 call. The fixed control and inert observations matched, and the experiment preserved the stable prefixes. The SEH epilog added one aggregate ABI event with a matching stack diagnostic. Independent review passed, and the Python evidence suites passed 6/6.
+
+The profile uses all 512 function slots with 510 seed functions and two checked direct entries. It uses 32 exports and 21,028 of 32,768 instructions. Before admitting the reached `0x001E624B`, verify a profile that removes unused seed entries under the same caps and reproduces the saved stops and stable sequences.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

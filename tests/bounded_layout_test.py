@@ -360,6 +360,7 @@ CRT_CALL_SITE = 0x00100004
 CRT_ENTRY = 0x0010000c
 CRT_CALLEE = 0x00100100
 CRT_CONTRACT = (CRT_OWNER, CRT_CALL_SITE, CRT_ENTRY, CRT_CALLEE)
+CRT_SEEK_CONTRACT = (0x00100200, 0x00100204, 0x00100210, CRT_CALLEE)
 
 
 def relative_call(address, target):
@@ -367,41 +368,46 @@ def relative_call(address, target):
     return b"\xe8" + displacement.to_bytes(4, "little", signed=True)
 
 
-def crt_cleanup_case():
+def crt_cleanup_case_for(contract):
+    owner, call_site, entry, callee = contract
     rows = [
-        {"address": f"{CRT_CALL_SITE:08x}", "length": 5, "mnemonic": "CALL",
-         "call": True, "computed": False, "flows": [f"{CRT_ENTRY:08x}"],
-         "fallthrough": f"{CRT_CALL_SITE + 5:08x}"},
-        {"address": f"{CRT_ENTRY:08x}", "length": 1, "mnemonic": "PUSH",
+        {"address": f"{call_site:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{entry:08x}"],
+         "fallthrough": f"{call_site + 5:08x}"},
+        {"address": f"{entry:08x}", "length": 1, "mnemonic": "PUSH",
          "call": False, "computed": False, "flows": [],
-         "fallthrough": f"{CRT_ENTRY + 1:08x}"},
-        {"address": f"{CRT_ENTRY + 1:08x}", "length": 5, "mnemonic": "CALL",
-         "call": True, "computed": False, "flows": [f"{CRT_CALLEE:08x}"],
-         "fallthrough": f"{CRT_ENTRY + 6:08x}"},
-        {"address": f"{CRT_ENTRY + 6:08x}", "length": 1, "mnemonic": "POP",
+         "fallthrough": f"{entry + 1:08x}"},
+        {"address": f"{entry + 1:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{callee:08x}"],
+         "fallthrough": f"{entry + 6:08x}"},
+        {"address": f"{entry + 6:08x}", "length": 1, "mnemonic": "POP",
          "call": False, "computed": False, "flows": [],
-         "fallthrough": f"{CRT_ENTRY + 7:08x}"},
-        {"address": f"{CRT_ENTRY + 7:08x}", "length": 1, "mnemonic": "RET",
+         "fallthrough": f"{entry + 7:08x}"},
+        {"address": f"{entry + 7:08x}", "length": 1, "mnemonic": "RET",
          "call": False, "computed": False, "flows": [], "fallthrough": None},
     ]
     item = {
-        "entry": f"{CRT_OWNER:08x}",
-        "bodyRanges": [{"start": f"{CRT_OWNER:08x}",
-                        "endInclusive": f"{CRT_CALL_SITE + 4:08x}"}],
+        "entry": f"{owner:08x}",
+        "bodyRanges": [{"start": f"{owner:08x}",
+                        "endInclusive": f"{call_site + 4:08x}"}],
     }
-    layout = {"end": CRT_ENTRY + 8, "rows": rows}
+    layout = {"end": entry + 8, "rows": rows}
     image = {}
 
     def place(address, content):
         image.update({address + offset: byte for offset, byte in enumerate(content)})
 
-    place(CRT_CALL_SITE, relative_call(CRT_CALL_SITE, CRT_ENTRY))
-    place(CRT_ENTRY, b"\x53" + relative_call(CRT_ENTRY + 1, CRT_CALLEE) + b"\x59\xc3")
+    place(call_site, relative_call(call_site, entry))
+    place(entry, b"\x53" + relative_call(entry + 1, callee) + b"\x59\xc3")
 
     def read_bytes(address, size):
         return bytes(image[address + offset] for offset in range(size))
 
-    return [item], {CRT_OWNER: layout}, {CRT_OWNER: object(), CRT_CALLEE: object()}, image, read_bytes
+    return [item], {owner: layout}, {owner: object(), callee: object()}, image, read_bytes
+
+
+def crt_cleanup_case():
+    return crt_cleanup_case_for(CRT_CONTRACT)
 
 
 class CrtCleanupEntryContractTest(unittest.TestCase):
@@ -415,6 +421,37 @@ class CrtCleanupEntryContractTest(unittest.TestCase):
                          CRT_CONTRACT)
         self.assertEqual([row["mnemonic"] for row in result["rows"]],
                          ["PUSH", "CALL", "POP", "RET"])
+
+    def test_two_cleanup_views_fit_exact_aggregate_cap(self):
+        self.assertEqual(PREP.CRT_SEEK_CLEANUP_ENTRY, (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B))
+        first = crt_cleanup_case_for(CRT_CONTRACT)
+        second = crt_cleanup_case_for(CRT_SEEK_CONTRACT)
+        items = first[0] + second[0]
+        layouts = {**first[1], **second[1]}
+        functions = {**first[2], **second[2]}
+        image = {**first[3], **second[3]}
+        self.assertEqual(len(functions), 3)  # two disjoint owners share the checked callee
+
+        def read_bytes(address, size):
+            return bytes(image[address + offset] for offset in range(size))
+
+        contracts = (CRT_CONTRACT, CRT_SEEK_CONTRACT)
+        exact_limit = len(functions) + len(contracts)
+        views = PREP.checked_crt_cleanup_entries(
+            items, layouts, functions, read_bytes, contracts, exact_limit)
+        self.assertEqual(set(views), {CRT_ENTRY, CRT_SEEK_CONTRACT[2]})
+        self.assertEqual(views[CRT_ENTRY]["rows"][0]["mnemonic"], "PUSH")
+        self.assertEqual(views[CRT_SEEK_CONTRACT[2]]["rows"][0]["mnemonic"], "PUSH")
+        with self.assertRaisesRegex(ValueError, "aggregate function budget"):
+            PREP.checked_crt_cleanup_entries(
+                items, layouts, functions, read_bytes, contracts, exact_limit - 1)
+
+    def test_first_cleanup_view_remains_admissible_by_itself(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+        views = PREP.checked_crt_cleanup_entries(
+            items, layouts, functions, read_bytes, (CRT_CONTRACT,), len(functions) + 1)
+        self.assertEqual(set(views), {CRT_ENTRY})
+        self.assertEqual(views[CRT_ENTRY]["callee"], CRT_CALLEE)
 
     def test_bad_encoded_direct_call_is_rejected(self):
         items, layouts, functions, image, read_bytes = crt_cleanup_case()

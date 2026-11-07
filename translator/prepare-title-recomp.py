@@ -23,6 +23,7 @@ MAX_SEED_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
 # Owner, direct call site, shared cleanup entry, already admitted callee.
 CRT_CLEANUP_ENTRY = (0x001E4D58, 0x001E4DC2, 0x001E4DCF, 0x001E731B)
+CRT_SEEK_CLEANUP_ENTRY = (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B)
 
 
 def digest(data):
@@ -431,6 +432,13 @@ def checked_crt_cleanup_entry(items, layouts, functions, read_bytes, contract=CR
     return {"owner": owner, "site": site, "entry": entry, "callee": callee, "rows": rows, "end": end}
 
 
+def checked_crt_cleanup_entries(items, layouts, functions, read_bytes, contracts, function_limit):
+    if len(functions) + len(contracts) > function_limit:
+        raise ValueError("The CRT cleanup entries exceed the aggregate function budget")
+    return {contract[2]: checked_crt_cleanup_entry(items, layouts, functions, read_bytes, contract)
+            for contract in contracts}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
@@ -441,8 +449,14 @@ def main():
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
     parser.add_argument("--crt-cleanup-entry", action="store_true", help="Admit the checked direct CRT cleanup entry view")
+    parser.add_argument("--crt-seek-cleanup-entry", action="store_true", help="Admit the checked direct CRT seek cleanup entry view")
     args = parser.parse_args()
-    if args.crt_cleanup_entry and not args.guard_memory:
+    cleanup_contracts = []
+    if args.crt_cleanup_entry:
+        cleanup_contracts.append(CRT_CLEANUP_ENTRY)
+    if args.crt_seek_cleanup_entry:
+        cleanup_contracts.append(CRT_SEEK_CLEANUP_ENTRY)
+    if cleanup_contracts and not args.guard_memory:
         parser.error("The CRT cleanup entry requires checked memory")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):
         parser.error("Use a simple new attempt label")
@@ -568,21 +582,16 @@ def main():
     except ValueError as error:parser.error(str(error))
     if profile["entry"] not in functions:
         parser.error("Include the actual entry")
-    direct_entry = None
-    if args.crt_cleanup_entry:
-        try:
-            direct_entry = checked_crt_cleanup_entry(functions_in, layouts, functions, original_bytes)
-            if len(functions) >= args.function_limit:
-                raise ValueError("The CRT cleanup entry exceeds the aggregate function budget")
-            instruction_count += len(direct_entry["rows"])
-            validate_instruction_count(instruction_count, args.instruction_limit)
-        except (KeyError, TypeError, ValueError) as error:
-            parser.error(str(error))
-    entry_views = {}
-    if direct_entry:
-        address = direct_entry["entry"]
-        end = direct_entry["end"]
-        entry_views[address] = {"name": f"ff_title_{address:08X}", "end": end, "size": end - address}
+    try:
+        direct_entries = checked_crt_cleanup_entries(
+            functions_in, layouts, functions, original_bytes, cleanup_contracts, args.function_limit)
+        view_instruction_count = sum(len(view["rows"]) for view in direct_entries.values())
+        instruction_count += view_instruction_count
+        validate_instruction_count(instruction_count, args.instruction_limit)
+    except (KeyError, TypeError, ValueError) as error:
+        parser.error(str(error))
+    entry_views = {address: {"name": f"ff_title_{address:08X}", "end": view["end"], "size": view["end"] - address}
+                   for address, view in direct_entries.items()}
     boundaries = sorted(direct_targets - functions.keys() - entry_views.keys())
     database = dict(functions)
     database.update(entry_views)
@@ -604,10 +613,9 @@ def main():
             decoder_normalizations.extend(check_decoder_agreement(item['instructions'], decoded, original_bytes))
         decoded_instruction_count = instruction_count + len(decoder_normalizations)
         validate_instruction_count(decoded_instruction_count,args.instruction_limit)
-        if direct_entry:
-            address = direct_entry["entry"]
-            decoded = list(disassembler.disasm(original_bytes(address, direct_entry["end"] - address), address))
-            if check_decoder_agreement(direct_entry["rows"], decoded, original_bytes):
+        for address, view in direct_entries.items():
+            decoded = list(disassembler.disasm(original_bytes(address, view["end"] - address), address))
+            if check_decoder_agreement(view["rows"], decoded, original_bytes):
                 raise ValueError("The CRT cleanup entry requires exact independent decoding")
         translator = FunctionTranslator(xbe, database, trace_functions=set(functions) | set(entry_views))
         dispatch_census = []
@@ -651,7 +659,7 @@ def main():
                 translator.lifter.unimplemented.clear()
             if not text:
                 raise ValueError("Translation produced no code")
-            rows = direct_entry["rows"] if address in entry_views else layouts[address]["rows"]
+            rows = direct_entries[address]["rows"] if address in entry_views else layouts[address]["rows"]
             returns = any(row.get("mnemonic", "").startswith("RET") for row in rows)
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
@@ -699,7 +707,7 @@ def main():
               "localTailThunks": [{"entry":int(item['entry'],16),"target":int(item['instructions'][0]['flows'][0],16)}
                                   for item in functions_in if item.get('thunk') and not item['instructions'][0].get('computed')],
               "instructions": decoded_instruction_count,
-              "ghidraInstructions": instruction_count - (len(direct_entry["rows"]) if direct_entry else 0),
+              "ghidraInstructions": instruction_count - view_instruction_count,
               "originalBytesMatchGhidra": True, "decoderBoundariesAgree": not decoder_normalizations,
               "decoderInstructionsAgree": True, "decoderNormalizations": decoder_normalizations,
               "untranslatedDirectTargets": boundaries,
@@ -709,10 +717,11 @@ def main():
               "unimplementedInstructions": {}, "originalCodeExecuted": False,
               "outputSha256": {name: digest((out / name).read_bytes()) for name in ["title-profile.h", "title-functions.inc"]},
               "limitation": "Only selected startup functions translated; unsupported calls must stop. No original execution outside the browser."}
-    if direct_entry:
+    if direct_entries:
         report["checkedDirectEntryViews"] = [{
-            key: direct_entry[key] for key in ("owner", "site", "entry", "callee", "end")
-        } | {"instructions": len(direct_entry["rows"]), "indirectLookup": False}]
+            key: view[key] for key in ("owner", "site", "entry", "callee", "end")
+        } | {"instructions": len(view["rows"]), "indirectLookup": False}
+            for view in direct_entries.values()]
     with (out / "generation.json").open("x") as file:
         json.dump(report, file, indent=2)
     print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": decoded_instruction_count,
