@@ -10,6 +10,8 @@ Four focused browser cases preserve the full guarded report with the host servic
 
 ## Reuse and next objective
 
+Use the [measured M1 work-scope ledger](m1-work-scope.md) when selecting development work. Its reviewed current-routine direct closure has 188 source candidates: 100 retained full C providers and 88 without retained full C/current SDK providers. The kernel inventory has 51 unrepresented imports (47 functions / 4 data), with M1 reachability unknown. Start with SCOPE-01 at the actual stop, assess shared-provider reuse under SCOPE-02, and promote later candidates only when reached. Update the ledger with scope changes; these overlapping counts are not remaining fixes or an acceptance percentage.
+
 The pinned native Fuzion config and SDK have produced an offline candidate of 10,589 reported functions across 64 C++ partitions. The reusable local launcher reproduced all 68 generated files byte-for-byte. Unsupported instructions, overlapping decodes and incomplete byte coverage remain; this is not an admitted browser title module.
 
 The SDK's owned arithmetic, checked adapter, original sentinel branch and wait-chain checks precede the integrated startup proof. Shared interfaces reuse actual RUNNING-thread/RAM/VM/service state and preserve direct/indirect mapping, current-stack and resource guards. The retained C baseline and SDK-on wait-only modules remain comparisons; their qualified component evidence does not establish full startup, final flags fidelity, scheduling or title compatibility.

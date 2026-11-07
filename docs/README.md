@@ -17,6 +17,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Curated facts, static/fixture/browser evidence distinctions | [Research](research.md) |
 | Optional private toolchain and analysis prerequisites | [Analysis](analysis.md) |
 | Resource reuse, automated preparation and fast M1 iteration | [Development workflow](resource-reuse.md) |
+| Measured M1 scope, existing providers, grouped gaps and next-task ledger | [M1 work scope](m1-work-scope.md) |
 | Consequential choices | [Decisions](decisions.md) |
 | Contributions and repository instructions | [Contributing](../CONTRIBUTING.md) and [AGENTS](../AGENTS.md) |
 
