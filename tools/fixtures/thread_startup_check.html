@@ -78,7 +78,10 @@ run.onclick = async () => {
         const inputs=(result.experiments??[]).length?` Experimental inputs: ${result.experiments.join(', ')}.`:'';
         const avQuery=describeAvQueryOutcome(result);
         const device=result.stop?.status===12?` Device wait at 0x${(result.stop.target>>>0).toString(16).toUpperCase()}.`:'';
-        status.textContent=`Original startup: ${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}.${device}${inputs}${avQuery} The game has not booted.`;
+        const initialization=progress.initializerCoverage==='prefix-omitted'
+          ?'initializer completion unavailable (trace prefix omitted)'
+          :`${progress.completedInitializers}/${progress.totalInitializers} initialization callbacks returned`;
+        status.textContent=`Original startup: ${initialization}; ${progress.distinctOriginalFunctions} original routines executed. Stopped at ${progress.stopReason}.${device}${inputs}${avQuery} The game has not booted.`;
         return;
       }
       document.body.dataset.state = result.verified ? 'verified-boundary' : 'differences';

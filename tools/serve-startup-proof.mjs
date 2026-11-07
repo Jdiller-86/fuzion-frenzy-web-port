@@ -21,6 +21,7 @@ const files = new Map([
   ['/runtime/browser/submission-probe.mjs', ['runtime/browser/submission-probe.mjs', 'text/javascript']],
   ['/runtime/browser/pfifo-scan.mjs', ['runtime/browser/pfifo-scan.mjs', 'text/javascript']],
   ['/runtime/browser/proof-report.mjs', ['runtime/browser/proof-report.mjs', 'text/javascript']],
+  ['/runtime/browser/trace-capture.mjs', ['runtime/browser/trace-capture.mjs', 'text/javascript']],
   ['/runtime/browser/kernel-service.mjs', ['runtime/browser/kernel-service.mjs', 'text/javascript']],
   ['/runtime/browser/kernel-capture.mjs', ['runtime/browser/kernel-capture.mjs', 'text/javascript']],
   ['/runtime/browser/console-os-settings.mjs', ['runtime/browser/console-os-settings.mjs', 'text/javascript']],

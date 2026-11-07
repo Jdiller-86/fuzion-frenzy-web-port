@@ -17,6 +17,7 @@ import { parsePerformanceCounterProfile, validatePerformanceCounterState } from 
 import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
 import { parseLocalMutantProfile, validateLocalMutantState } from './local-mutants.mjs';
 import { parseEventProfile, validateEventState } from './named-events.mjs';
+import { parseTraceCaptureStart, validateTraceCapture } from './trace-capture.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -259,6 +260,17 @@ export function validateProofReport(report) {
        report.kernelCapture.requestedStart !== (report.consoleSettings?.kernelCaptureStart ?? 0)))
     throw new Error('Kernel capture requires calls and its declared profile');
   if (report.verified !== false) throw new Error('A startup report must not claim verification');
+  const selectedTraceStart=parseTraceCaptureStart(report.consoleSettings?.traceCaptureStart);
+  if((selectedTraceStart===undefined)!==(report.traceCapture===undefined))
+    throw new Error('Trace capture metadata must match an explicitly selected capture profile');
+  if(report.traceCapture!==undefined) {
+    validateTraceCapture(report.traceCapture,report.trace);
+    if(report.traceCapture.requestedStart!==selectedTraceStart || report.traceCapacity!==8192 || report.phase!=='original-initializer-bringup')
+      throw new Error('Trace capture report does not match its selected profile and startup phase');
+    if(!Array.isArray(report.originalFunctionsReached) || JSON.stringify(report.originalFunctionsReached)!==
+       JSON.stringify(report.trace.filter(row=>row.kind==='enter').map(row=>row.address)))
+      throw new Error('Selected trace capture requires the exact captured entry sequence');
+  }
   if (typeof report.phase !== 'string' || !report.phase) throw new Error('Proof report phase is required');
   if (!Array.isArray(report.trace) || report.trace.length > TRACE_LIMIT)
     throw new Error('Proof report trace exceeds the bounded trace capacity');
@@ -326,12 +338,17 @@ export function validateProofReport(report) {
       throw new Error('Timestamp-counter boundary requires a matching stop and no supplied value');
   }
   const startup = report.originalStartup;
+  const prefixOmitted=report.traceCapture && !report.traceCapture.complete;
   if (!startup || !bounded(startup.totalInitializers, 4096) ||
-      !bounded(startup.completedInitializers, startup.totalInitializers) ||
+      !(prefixOmitted ? startup.completedInitializers===null : bounded(startup.completedInitializers, startup.totalInitializers)) ||
       !bounded(startup.distinctOriginalFunctions, 512) ||
       !bounded(startup.completedKernelOperations, 8192))
     throw new Error('Proof report startup counters are out of range');
-  if (startup.completedInitializers !== startup.totalInitializers) {
+  if(prefixOmitted) {
+    if(startup.initializerCoverage!=='prefix-omitted' || Object.hasOwn(startup,'nextInitializer'))
+      throw new Error('A suffix-only trace must declare omitted initializer coverage without a next initializer claim');
+  } else if(startup.initializerCoverage!==undefined) throw new Error('Initializer coverage metadata requires an omitted trace prefix');
+  if (!prefixOmitted && startup.completedInitializers !== startup.totalInitializers) {
     /* Partial progress is allowed but must be described, never presented as done. */
     if (typeof startup.stopReason !== 'string' || !startup.stopReason)
       throw new Error('An incomplete initializer run must state its stop reason');
@@ -339,9 +356,13 @@ export function validateProofReport(report) {
   /* The producer derives the distinct count from the reached-entry sequence.
    * When both are present they must agree; otherwise a report could inflate the
    * progress metric the comparison relies on without the corresponding list. */
-  if (report.originalFunctionsReached !== undefined &&
+  if ((!report.traceCapture || report.traceCapture.complete) && report.originalFunctionsReached !== undefined &&
       new Set(report.originalFunctionsReached).size !== startup.distinctOriginalFunctions)
     throw new Error('The reached original-routine list does not match the distinct function count');
+  if(report.traceCapture && (report.traceCapture.routines.length!==startup.distinctOriginalFunctions ||
+      report.traceCapture.totalEntries!==report.traceCapture.prefixEntries+report.trace.filter(row=>row.kind==='enter').length ||
+      report.traceCapture.totalEntries<report.traceCapture.routines.length))
+    throw new Error('Trace capture totals do not match original startup counters');
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {

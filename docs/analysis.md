@@ -51,6 +51,8 @@ An actual request pointer is an investigation anchor, not a complete function en
 
 If that evidence supports a previously absent function, derive it automatically only in a read-only analysis session. Preserve the before-state and export a separate seed/provenance record; reject an unexpected body rather than forcing a convenient boundary. Record headless discard/no-save evidence and reopen the retained project to verify its state. Newly established in-memory metadata is different from a preexisting retained function, and a callable entry is different from observed execution. See [current limits](research.md#derived-indirect-entries-and-guest-thread-evidence).
 
+A returning modeled trap can also reveal an incomplete retained envelope. Inspect adjacent bytes, ownership and incoming references before deriving a continuation. The debug-wrapper correction used temporary trap fallthrough metadata and automatic owner re-creation, with no byte changes, forced body or persisted project change. Keep regenerated reference metadata distinct from unchanged original instructions. Validate the derived original tail and the actual browser frame separately; do not substitute a synthetic stack adjustment for missing instructions.
+
 ## Browser proof boundary
 
 The [startup server](../tools/serve-startup-proof.mjs) serves an allowlisted source-only harness:

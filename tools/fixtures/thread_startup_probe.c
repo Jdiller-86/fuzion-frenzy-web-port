@@ -198,6 +198,15 @@ static uint32_t timestamp_boundary[2];
 static ff_kernel_capture kernel_capture;
 static uint32_t kernel_prior_setter;
 #endif
+#ifdef FF_TRACE_CAPTURE_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF) || !defined(FF_KERNEL_CAPTURE_PROOF)
+#error Trace windows retain the fixed initializer rows and kernel-capture contract
+#endif
+#include "../../runtime/core/trace_capture.h"
+_Static_assert(FF_TRACE_CAPACITY == FF_TRACE_CAPTURE_ROWS, "Trace window rows must retain the existing capacity");
+static ff_trace_capture trace_capture;
+static uint32_t trace_capture_ready;
+#endif
 static ff_port_io port_io;
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 /* PCRTC interrupt state, enabled only when the profile supplies events. The
@@ -1291,6 +1300,80 @@ uint32_t ff_probe_metadata_format_byte(uint32_t which,uint32_t index)
     return 0;
 }
 #endif
+/* FF_TRACE_WINDOW_HELPERS_BEGIN */
+static uint32_t retained_trace_count(void)
+{
+#ifdef FF_TRACE_CAPTURE_PROOF
+    if(trace_capture_ready)return trace_capture.total-trace_capture.captured_start;
+#endif
+    return probe_trace_count;
+}
+#ifdef FF_TRACE_CAPTURE_PROOF
+uint32_t ff_probe_trace_capture_profile(uint32_t start)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_TRACE_CAPTURE_INVALID;
+    if(start!=0u && start!=FF_TRACE_CAPTURE_MAX_START)return FF_TRACE_CAPTURE_INVALID;
+    uint32_t result=ff_trace_capture_init(&trace_capture,start);
+    if(result)return result;
+    trace_capture_ready=1;
+    return 0;
+}
+uint32_t ff_probe_trace_capture_word(uint32_t field)
+{
+    if(field==0u)return trace_capture_ready;
+    if(!trace_capture_ready)return 0;
+    return field==1u?1u:field==2u?trace_capture.requested_start:field==3u?trace_capture.captured_start:
+        field==4u?trace_capture.total:field==5u?retained_trace_count():field==6u?trace_capture.entries:
+        field==7u?trace_capture.prefix_entries:field==8u?trace_capture.routine_count:
+        field==9u?trace_capture.prefix_routines:field==10u?FF_TRACE_CAPTURE_ROWS:
+        field==11u?trace_capture.requested_start+FF_TRACE_CAPTURE_ROWS:0u;
+}
+uint32_t ff_probe_trace_capture_routine(uint32_t index)
+{
+    return trace_capture_ready && index<FF_TRACE_CAPTURE_ROUTINES && index<trace_capture.routine_count
+        ?trace_capture.routines[index]:0u;
+}
+uint32_t ff_probe_trace_capture_digest_word(uint32_t which,uint32_t index)
+{
+    if(!trace_capture_ready || which>1u || index>=8u)return 0;
+    uint8_t bytes[32];
+    if(which)memcpy(bytes,trace_capture.prefix_digest,sizeof bytes);
+    else ff_sha256_final(&trace_capture.digest,bytes);
+    uint32_t at=index*4u;
+    return (uint32_t)bytes[at]|((uint32_t)bytes[at+1u]<<8)|
+        ((uint32_t)bytes[at+2u]<<16)|((uint32_t)bytes[at+3u]<<24);
+}
+static void capture_trace_row(uint32_t kind,uint32_t address)
+{
+    /* Polling and format observers run before this call, as in the legacy path.
+     * Begun-row count stays monotonic for existing pre-start configuration guards. */
+    if(trace_capture.total!=probe_trace_count)stop(9,FF_BOOT_INVALID,0);
+    if(probe_trace_count>=trace_capture.requested_start+FF_TRACE_CAPTURE_ROWS)stop(5,address,0);
+    /* Legacy phase locks count begun rows, including a failed sample. The
+     * selected capture metadata counts only fully sampled/committed events. */
+    probe_trace_count++;
+    const uint32_t trace_stack=g_esp,trace_eax=g_eax,trace_fs=g_fs_base;
+    uint32_t head=UINT32_MAX;
+    if(trace_fs) {
+        if((trace_fs&3u) || trace_fs>FF_GUEST_BYTES-4u)stop(9,trace_fs,0);
+#ifdef FF_VM_PROOF
+        head=FF_MEMORY_U32(trace_fs,FF_VM_READ);
+#else
+        head=MEM32(trace_fs);
+#endif
+    }
+    /* Only a fully sampled row may rotate/hash/commit. A sampling fault leaves
+     * the first-window witness and all capture counters untouched. */
+    uint32_t result=ff_trace_capture_add(&trace_capture,kind,address,trace_stack,trace_eax,trace_fs,head);
+    if(result==FF_TRACE_CAPTURE_FULL)stop(5,address,0);
+    if(result!=FF_TRACE_CAPTURE_OK && result!=FF_TRACE_CAPTURE_ROTATE)stop(9,FF_BOOT_INVALID,0);
+    uint32_t index=(retained_trace_count()-1u)*3u;
+    probe_trace[index]=kind;probe_trace[index+1u]=address;probe_trace[index+2u]=trace_stack;
+    probe_cpu_trace[index]=trace_eax;probe_cpu_trace[index+1u]=trace_fs;probe_cpu_trace[index+2u]=head;
+    probe_trace_count=trace_capture.total;
+}
+#endif
+/* FF_TRACE_WINDOW_HELPERS_END */
 static void trace(uint32_t kind, uint32_t address)
 {
 #ifdef FF_COPY_PROOF
@@ -1301,6 +1384,9 @@ static void trace(uint32_t kind, uint32_t address)
 #endif
 #ifdef FF_METADATA_FORMAT_PROOF
     observe_metadata_format(kind,address);
+#endif
+#ifdef FF_TRACE_CAPTURE_PROOF
+    if(trace_capture_ready) { capture_trace_row(kind,address);return; }
 #endif
     if (probe_trace_count == FF_TRACE_CAPACITY) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
@@ -3152,7 +3238,7 @@ uint32_t ff_probe_source_digest(void) { return (uint32_t)(uintptr_t)source_diges
 uint32_t ff_probe_entry(void) { return FF_ENTRY_ADDRESS; }
 uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
-uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
+uint32_t ff_probe_trace_count(void) { return retained_trace_count(); }
 uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
 uint32_t ff_probe_timer_check(void) { return timer_check; }
 uint32_t ff_probe_dpc_head(void) { return timers.dpc_head; }
@@ -3166,7 +3252,7 @@ uint32_t ff_probe_guest_word(uint32_t address)
            (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
 }
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
-    return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
+    return index < FF_TRACE_CAPACITY && index < retained_trace_count() && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }
 /* Read-only diagnostic globals. Consumers must bind these to a published call
  * boundary; arbitrary translated points may retain a local frame value. This
@@ -3249,6 +3335,9 @@ void ff_probe_reset(void)
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
+#ifdef FF_TRACE_CAPTURE_PROOF
+    memset(&trace_capture,0,sizeof trace_capture);trace_capture_ready=0;
+#endif
 #ifdef FF_KERNEL_CAPTURE_PROOF
     (void)ff_kernel_capture_init(&kernel_capture,0);
     kernel_prior_setter=0;

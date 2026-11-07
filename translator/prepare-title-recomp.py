@@ -247,6 +247,168 @@ def _alignment_padding(raw):
     return bool(raw)
 
 
+def checked_returning_traps(rows, start, end, guarded_targets=(), slide_sites=None):
+    """Close every post-INT-2D path inside checked code or at a guarded exit.
+
+    This follows the pinned translator's INT 2D behavior and slide-byte rule:
+    an adjacent INT3 is stepped only when no direct/reference entry targets it.
+    Each returning trap needs a contiguous successor. All reachable successors
+    are then walked to RET or a known guarded external transfer; cycles are
+    bounded by the checked row count. No C return is treated as a fatal trap,
+    and this guard does not synthesize a return or repair guest stack state.
+    """
+    by_address = {int(row["address"], 16): row for row in rows}
+    guarded_targets = set(guarded_targets)
+    direct_targets = set()
+    referenced_targets = set()
+    for row in rows:
+        for value in row.get("flows", []):
+            if re.fullmatch(r"[0-9a-fA-F]+", value):
+                direct_targets.add(int(value, 16))
+        for ref in row.get("references", []):
+            value = ref.get("target", "")
+            if ref.get("type") in ("INDIRECTION", "COMPUTED_JUMP") and re.fullmatch(r"[0-9a-fA-F]+", value):
+                referenced_targets.add(int(value, 16))
+    entry_targets = direct_targets | referenced_targets
+
+    slides = set(slide_sites) if slide_sites is not None else set()
+    if slide_sites is None:
+        for index, row in enumerate(rows):
+            if row.get("mnemonic", "").upper() != "INT3":
+                continue
+            address = int(row["address"], 16)
+            raw = bytes.fromhex(row.get("analysisBytesHex", ""))
+            if raw != b"\xcc" or row.get("length") != 1:
+                raise ValueError("Unsupported INT3 encoding")
+            if index == 0:
+                continue
+            previous = rows[index - 1]
+            previous_address = int(previous["address"], 16)
+            if (previous.get("mnemonic", "").upper() == "INT" and
+                    bytes.fromhex(previous.get("analysisBytesHex", "")) == b"\xcd\x2d" and
+                    previous_address + previous["length"] == address and address not in entry_targets):
+                slides.add(address)
+
+    returning_sites = []
+    checked = []
+    for row in rows:
+        address = int(row["address"], 16)
+        mnemonic = row.get("mnemonic", "").upper()
+        if mnemonic != "INT":
+            continue
+        if bytes.fromhex(row.get("analysisBytesHex", "")) != b"\xcd\x2d" or row.get("length") != 2:
+            raise ValueError("Unsupported INT service")
+        returning_sites.append(address)
+
+    def successor(row, address, *, trap_step=False):
+        next_address = address + row["length"]
+        declared = row.get("fallthrough")
+        if declared is not None and int(declared, 16) != next_address:
+            raise ValueError("Post-trap control flow has an inconsistent fallthrough")
+        if next_address in by_address and next_address < end:
+            return next_address
+        if trap_step:
+            raise ValueError("Returning trap path has no contiguous same-function instruction")
+        if next_address == end and next_address in guarded_targets:
+            return next_address
+        raise ValueError("Returning trap path falls off checked function without a verified successor")
+
+    def close_from(initial):
+        pending, visited, terminals = [initial], set(), []
+        while pending:
+            address = pending.pop()
+            if address in guarded_targets and not start <= address < end:
+                terminals.append({"address": address, "kind": "guarded-tail-transfer"})
+                continue
+            row = by_address.get(address)
+            if row is None or not start <= address < end:
+                raise ValueError("Post-trap path leaves the checked function envelope")
+            if address in visited:
+                continue
+            visited.add(address)
+            if len(visited) > len(rows):
+                raise ValueError("Post-trap control-flow walk exceeded the checked row budget")
+            mnemonic = row.get("mnemonic", "").upper()
+            if mnemonic.startswith("RET"):
+                terminals.append({"address": address, "kind": "return"})
+                continue
+            if mnemonic in ("UD2", "HLT", "IRET", "IRETD"):
+                raise ValueError("Post-trap path reaches an unmodeled fatal instruction")
+            if mnemonic == "INT3":
+                if address not in slides:
+                    raise ValueError("Reachable INT3 is not a verified stepped-over slide")
+                pending.append(successor(row, address, trap_step=True))
+                continue
+            if mnemonic == "INT":
+                # It was already checked as the one modeled returning service.
+                if bytes.fromhex(row.get("analysisBytesHex", "")) != b"\xcd\x2d" or row.get("length") != 2:
+                    raise ValueError("Unsupported INT service")
+                pending.append(successor(row, address, trap_step=True))
+                continue
+            is_call = bool(row.get("call"))
+            is_jump = mnemonic == "JMP" and not is_call
+            is_conditional_jump = (not is_call and not is_jump and
+                                   (mnemonic.startswith("J") or mnemonic.startswith("LOOP") or
+                                    mnemonic in ("JCXZ", "JECXZ")))
+            flows = [int(value, 16) for value in row.get("flows", [])
+                     if re.fullmatch(r"[0-9a-fA-F]+", value)]
+            if is_call:
+                pending.append(successor(row, address))
+                continue
+            if row.get("computed") and is_jump:
+                raise ValueError("Post-trap computed JMP requires a separately checked dispatch proof")
+            if is_jump:
+                if not flows:
+                    raise ValueError("Post-trap branch has no verified target")
+                for target in flows:
+                    if start <= target < end:
+                        if target not in by_address:
+                            raise ValueError("Post-trap branch targets an unchecked instruction boundary")
+                        pending.append(target)
+                    elif target in guarded_targets:
+                        terminals.append({"address": target, "kind": "guarded-tail-transfer"})
+                    else:
+                        raise ValueError("Post-trap branch target is not a verified guarded transfer")
+                continue
+            fallthrough = successor(row, address)
+            if is_conditional_jump and not flows:
+                raise ValueError("Post-trap conditional branch has no verified target")
+            if flows:
+                for target in flows:
+                    if start <= target < end:
+                        if target not in by_address:
+                            raise ValueError("Post-trap branch targets an unchecked instruction boundary")
+                        pending.append(target)
+                    elif target in guarded_targets:
+                        terminals.append({"address": target, "kind": "guarded-tail-transfer"})
+                    else:
+                        raise ValueError("Post-trap branch target is not a verified guarded transfer")
+            if fallthrough == end:
+                terminals.append({"address": end, "kind": "guarded-tail-transfer"})
+            else:
+                pending.append(fallthrough)
+        return sorted(terminals, key=lambda row: (row["address"], row["kind"]))
+
+    for address in returning_sites:
+        row = by_address[address]
+        next_address = successor(row, address, trap_step=True)
+        following = by_address.get(next_address)
+        checked.append({"site": address, "next": next_address, "kind": "returning-int-2d",
+                        "nextMnemonic": following.get("mnemonic", "") if following else "guarded-tail-transfer"})
+        continuation = next_address
+        if continuation in slides:
+            slide_row = by_address[continuation]
+            slide_next = successor(slide_row, continuation, trap_step=True)
+            slide_following = by_address.get(slide_next)
+            checked.append({"site": continuation, "next": slide_next, "kind": "stepped-over-int3",
+                            "nextMnemonic": slide_following.get("mnemonic", "") if slide_following else "guarded-tail-transfer"})
+            continuation = slide_next
+        terminals = close_from(continuation)
+        checked.append({"site": address, "kind": "postTrapClosure", "terminals": terminals,
+                        "visitedRowLimit": len(rows)})
+    return checked
+
+
 def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries=None):
     """Account for the full original envelope, including typed local tables."""
     start, end = function_envelope(item, kernel_imports, local_entries)
@@ -655,6 +817,33 @@ def main():
             translator.coalesced_function_starts.add(start)
             dispatch_census.append({"function": start, "sites": len(sites), "tableRegions": len(layout["tables"]),
                                     "anchors": len(tables), "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]})
+        checked_returning_trap_steps = []
+        for start, layout in layouts.items():
+            if not any(row.get("mnemonic", "").upper() == "INT" for row in layout["rows"]):
+                continue
+            instructions, _ = translator.decode_function(start, layout["end"])
+            coalesced = start in translator.coalesced_function_starts
+            (_, _, slide_sites, _, _) = translator._control_flow_census(
+                instructions, start, layout["end"], coalesced,
+                jump_table_targets=(translator.lifter.jump_table_targets
+                                    if coalesced and start in translator._recovered_cfg else None))
+            checked_returning_trap_steps.extend(
+                {"function": start, **step} for step in checked_returning_traps(
+                    layout["rows"], start, layout["end"], guarded_targets=database.keys(),
+                    slide_sites=slide_sites))
+        for address, view in direct_entries.items():
+            if not any(row.get("mnemonic", "").upper() == "INT" for row in view["rows"]):
+                continue
+            instructions, _ = translator.decode_function(address, view["end"])
+            coalesced = address in translator.coalesced_function_starts
+            (_, _, slide_sites, _, _) = translator._control_flow_census(
+                instructions, address, view["end"], coalesced,
+                jump_table_targets=(translator.lifter.jump_table_targets
+                                    if coalesced and address in translator._recovered_cfg else None))
+            checked_returning_trap_steps.extend(
+                {"function": address, **step} for step in checked_returning_traps(
+                    view["rows"], address, view["end"], guarded_targets=database.keys(),
+                    slide_sites=slide_sites))
         generated, return_observations, memory_observations = [], [], []
         timestamp_guards = []
         for address, info in (functions | entry_views).items():
@@ -719,6 +908,7 @@ def main():
               "functionsPerExport": 32 if args.function_limit >=256 else 8,
               "instructionLimit": args.instruction_limit,
               "checkedMixedLayouts": dispatch_census,
+              "checkedReturningTraps": checked_returning_trap_steps,
               "modeledNoOpInstructions": modeled_noops,
               "returnFrameObservations": return_observations,
               "checkedMemoryAccesses": memory_observations,

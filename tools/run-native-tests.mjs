@@ -25,6 +25,7 @@ const runtime = (name) => `runtime/core/${name}`;
 const fixtures = [
   { name: 'sha256', sources: ['tests/sha256_test.c', runtime('sha256.c')] },
   { name: 'kernel_capture', sources: ['tests/kernel_capture_test.c', runtime('kernel_capture.c'), runtime('sha256.c')] },
+  { name: 'trace_capture', sources: ['tests/trace_capture_test.c', runtime('trace_capture.c'), runtime('sha256.c')] },
   { name: 'performance_clock', sources: ['tests/performance_clock_test.c', runtime('performance_clock.c')] },
   { name: 'unnamed_mutants', sources: ['tests/unnamed_mutants_test.c', runtime('unnamed_mutants.c'), runtime('virtual_memory.c')] },
   { name: 'thread_bootstrap', sources: ['tests/thread_bootstrap_test.c', runtime('thread_bootstrap.c')] },
