@@ -13,6 +13,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D448 | Add a public GitHub Project modeled after CTR-2-WUP | User-authorized board creation using an owner-configured Actions secret. Copy field/view configuration, import only this repository's managed issues, pin native Project identity and verify membership/status. Issue evidence owns milestone acceptance; board setup starts no implementation. |
 | D449 | Embed a derived tracking graph in the README | User-requested CTR-style SVG overview and interactive graph, refreshed from validated native issue status. Publish only report files to GitHub Pages, preserve source/snapshot provenance, keep task completion separate from accepted gates, and exclude original/private content. |
 | D450 | Persist the agreed local session agent structure | Project-local defaults select Sol High and up to two Luna Low workers; repository instructions define ownership, review and task boundaries. Verify model access and actual execution on each local client. Active sessions, global settings, private-input gates and unattended scheduling remain separate. |
+| D451 | Route the reached DOS-drive create through the mounted FATX provider | Chrome observed ordinal 190 with disposition 5 and a title-created link to the mounted synthetic utility partition. Admit the missing-file case in its owned single-cluster root. Guard existing targets and other file operations until their behavior is established. |
 
 ## Contracts that remain in force
 

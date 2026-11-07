@@ -1,6 +1,6 @@
-# Project status: startup stops at unsupported file overwrite
+# Project status: startup reaches `0x001E71D8`
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The bounded batch admits `FUN_001e93e4` and reaches **status 9 at kernel ordinal 190, `NtCreateFile`, with value `0xC00000BB`**. The request specifies disposition 5 (`FILE_OVERWRITE`), outside the regular-file proof's admitted range of 1–3. The batch stopped at that service boundary. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log through the title's `Z:` link to the mounted synthetic FATX Partition 5, then reached **status 2 at `0x001E71D8`**, with return address `0x001E779C`, 364 distinct routines and 443 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -25,10 +25,16 @@ The allowlisted loopback harness loaded the XBE, Wasm and synthetic settings thr
 
 Independent review confirmed the unchanged control and inert stop objects, original-entry sequences, trace kind/address/stack sequences and kernel ordinal/status sequences. The experiment retained the baseline prefixes, entered `0x001E93E4` and reached ordinal 289 successfully before stopping at ordinal 190. The failing request reports return address `0x001E94CC`, desired access `0x40100080` and create options `0x60`. The report identifies the service boundary and the out-of-range disposition. The exact internal return branch remains unobserved.
 
-The targeted runtime suite passed 200/200 and the native suite passed 56/56. The startup server now serves the two source modules required by the worker's existing imports. Its regression check covers those routes and the original-input and upload denials. Raw reports, preparation outputs and the audit remain in ignored local research.
+## FATX create batch
+
+The browser now preserves the stopping create request alongside the earlier successful create. The trapped call used DOS root `0xFFFFFFFD`, disposition 5 (`FILE_OVERWRITE_IF`), desired access `0x40100080`, share 3 and options `0x60`. The [XboxDev declarations](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h) identify `FILE_OVERWRITE` as disposition 4.
+
+The candidate retains profile 97 and adds the reached missing-file case to the owned FATX mount. It checks guest ranges and aliasing, follows the declared DOS link, preflights the fixed handle pool, and writes one empty root-directory entry without exposing a stale slot past the end marker. Existing targets and other file operations remain guarded. Two pinned compiler builds produced SHA-256 prefix `4f32c34c`.
+
+Fresh Chrome comparisons preserved the fixed control and inert stop objects and stable traces. The experiment preserved its previous entry and trace prefixes. Ordinal 190 returned status 0, information 2 (`FILE_CREATED`) and owned handle `0x00070004`. The mount revision advanced by one with the same disk page and free-cluster counts. Independent review verified the ABI, refusal guards and comparison evidence. Raw reports, preparation outputs and audits remain in ignored local research.
 
 ## Next bounded dependency
 
-Characterize the reached `FILE_OVERWRITE` request against the existing regular-file model and determine the target's existence and required overwrite semantics before any separately authorized service change. Keep the current disposition gate in place for this batch.
+Export and validate the exact reached routine at `0x001E71D8`. Admit only that routine and directly required reached callees within the existing preparation limits, then replay the paired browser runs.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

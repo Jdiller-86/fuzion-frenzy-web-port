@@ -67,6 +67,17 @@ static void format_owned(uint32_t width,uint32_t root_offset)
     name("\\Device\\Harddisk0\\Partition5\\");args[1]=0x100001;args[4]=3;args[5]=0x800021;
 }
 static uint32_t open_root(void){assert(!ff_fatx_open_root(&fs,args));assert(get(IOSB+4,4)==1);return (uint32_t)get(OUT,4);}
+static void link_fatx_drive(void)
+{
+    string(LINK,LINK_TEXT,"\\??\\Z:");string(TARGET,TARGET_TEXT,"\\Device\\Harddisk0\\Partition5");
+    uint32_t id;assert(!ff_namespace_create_link(&space,LINK,TARGET,&id));
+}
+static uint32_t create_guest_file(const char *path,uint32_t output)
+{
+    string(NAME,TEXT,path);put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    const uint32_t request[9]={output,0x40100080,ATTR,IOSB,0,0x80,3,5,0x60};
+    return ff_fatx_create_file_guest(&fs,request);
+}
 static void rewrite_fat(uint32_t first,uint32_t second)
 {
     name("\\Device\\Harddisk0\\Partition0");uint32_t raw[6]={OUT,0x100003,ATTR,IOSB,3,0x18};
@@ -263,6 +274,68 @@ static void fatx_create_empty_file(void)
     save();assert(ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"EXTRA.TXT",9,&created)==FF_BOOT_NO_MEMORY);
     unchanged();
     assert(!ff_fatx_close(&fs,handle));
+}
+static void guest_create_file_is_narrow_and_owned(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\sample-log.txt",OUT));
+    const uint32_t file=(uint32_t)get(OUT,4);
+    assert(file>=FF_FATX_HANDLE_BASE && file<FF_FATX_HANDLE_LIMIT && get(IOSB,4)==0 && get(IOSB+4,4)==2);
+    assert(fs.files[1].handle==file && fs.files[1].kind==1 && fs.files[1].access==0x40100080 && fs.files[1].share==3);
+    ff_fatx_directory_entry entry;assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"sample-log.txt",14,0x40,&entry));
+    assert(!entry.size && !entry.first_cluster && entry.attributes==0x20);
+    assert(!ff_fatx_close(&fs,root));
+    name("\\Device\\Harddisk0\\Partition5\\");put(ATTR,0,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    args[4]=0;uint32_t reopened=open_root();assert(!ff_fatx_close(&fs,reopened));
+    assert(ff_fatx_query_size(&fs,(uint32_t[5]){file,IOSB,DATA,24,3})==FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,file) && fs.files[1].id==0);
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    ff_fatx_directory_entry existing;assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"HELLO.TXT",9,0,&existing));
+    const uint64_t revision=disk.revision;const uint32_t pages=disk.allocated_pages;
+    const uint8_t first=disk.pages[0].data[0];
+    uint8_t io_before[8];memcpy(io_before,ram+IOSB,sizeof io_before);
+    assert(create_guest_file("Z:\\HELLO.TXT",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(disk.revision==revision && disk.allocated_pages==pages && disk.pages[0].data[0]==first && fs.file_count==1 &&
+           !memcmp(io_before,ram+IOSB,sizeof io_before));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(create_guest_file("z:\\SUBDIR\\nested.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("w:\\missing.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("z:/bad.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("z:\\../escape.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(fs.file_count==1 && disk.revision==fs.mounts[0].revision);
+    string(NAME,TEXT,"z:\\overlap.txt");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    save();assert(ff_fatx_create_file_guest(&fs,(uint32_t[9]){IOSB,0x40100080,ATTR,IOSB,0,0x80,3,5,0x60})==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    uint32_t roots[FF_FATX_FILES];roots[0]=root;
+    for(unsigned i=1;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    const uint64_t full_revision=disk.revision;
+    assert(create_guest_file("z:\\capacity.txt",OUT)==FF_BOOT_NO_MEMORY);
+    assert(get(IOSB,4)==FF_BOOT_NO_MEMORY && disk.revision==full_revision && fs.file_count==FF_FATX_FILES);
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    const uint32_t invalid_output=0x40000;
+    const uint64_t before=disk.revision;
+    uint8_t io_before_fail[8];memcpy(io_before_fail,ram+IOSB,sizeof io_before_fail);
+    assert(create_guest_file("z:\\memory.txt",invalid_output)==FF_VM_ACCESS_VIOLATION);
+    assert(disk.revision==before && fs.file_count==1 && !memcmp(io_before_fail,ram+IOSB,sizeof io_before_fail));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    memset(ram+DATA,0xff,4096);dirent(DATA+64,"STALE.TXT",0x20,0,0);
+    write_raw_page(part_base+270336);fs.mounts[0].revision=disk.revision;
+    const uint64_t stale_revision=disk.revision;uint8_t stale_entry[64];
+    for(unsigned i=0;i<64;++i)stale_entry[i]=ff_disk_byte(&disk,part_base+270336+i);
+    assert(create_guest_file("z:\\unsafe.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(disk.revision==stale_revision && fs.file_count==1);
+    for(unsigned i=0;i<64;++i)assert(ff_disk_byte(&disk,part_base+270336+i)==stale_entry[i]);
+    assert(!ff_fatx_close(&fs,root));
 }
 static void fatx_create_file_with_data(void)
 {
@@ -496,6 +569,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
     puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

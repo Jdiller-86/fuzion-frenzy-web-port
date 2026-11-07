@@ -1799,6 +1799,13 @@ static void create_directory(void)
 #endif
     if (!volume_ready) stop(9, 0, 190);
 #ifdef FF_REGULAR_FILE_PROOF
+#ifdef FF_FATX_PROOF
+    if (!(row[10]&1u) && row[4] && !(row[4]&3u) &&
+        !ff_vm_check(&virtual_memory,row[4],12,FF_VM_READ) &&
+        MEM32(row[4])==FF_FATX_DOS_DEVICE_ROOT)
+        row[1] = fatx_ready?ff_fatx_create_file_guest(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
+#endif
     row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
 #else
     row[1] = ff_volume_create_directory(&local_volume, row + 2);

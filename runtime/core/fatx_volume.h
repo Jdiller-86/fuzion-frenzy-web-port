@@ -3,16 +3,16 @@
 #include "local_disk.h"
 #include "object_namespace.h"
 
-/* Read-only FATX mounts over owned block backing. No prefilled tree, host disk
- * or original default geometry. Guest file operations beyond root/size stop;
- * the root directory/file reader below is an owned component, not a guest
- * service. */
+/* Bounded FATX mounts over owned block backing. No prefilled tree, host disk or
+ * original default geometry. Guest operations remain explicitly gated; the
+ * directory/file readers and mutators below are owned components. */
 #define FF_FATX_MOUNTS 4u
 #define FF_FATX_FILES 16u
 #define FF_FATX_SCAN_CLUSTERS 262144u
 #define FF_FATX_ROOT_CHAIN 64u
 #define FF_FATX_HANDLE_BASE 0x00070000u
 #define FF_FATX_HANDLE_LIMIT 0x00080000u
+#define FF_FATX_DOS_DEVICE_ROOT 0xfffffffdu
 #define FF_FATX_FILE_BASE 0x50000000u
 #define FF_FATX_FILE_LIMIT 0x50010000u
 #define FF_FATX_NAME 42u
@@ -31,7 +31,7 @@ typedef struct {
     uint32_t root_cluster,cluster_count,free_clusters,root_clusters,file_objects;
     uint64_t offset,bytes,fat_bytes,data_offset,revision;
 } ff_fatx_mount;
-typedef struct {uint32_t id,mount,handle,access,share,options,references;} ff_fatx_file;
+typedef struct {uint32_t id,mount,handle,access,share,options,references,kind;} ff_fatx_file;
 typedef struct {
     ff_local_disk *disk;
     ff_object_namespace *space;
@@ -42,6 +42,9 @@ typedef struct {
 
 uint32_t ff_fatx_init(ff_fatx_volume *,ff_local_disk *,ff_object_namespace *);
 uint32_t ff_fatx_open_root(ff_fatx_volume *,const uint32_t args[6]);
+/* Narrow reached NtCreateFile shape: create a new root-level file through an
+ * explicitly linked DOS drive to a current owned FATX mount. */
+uint32_t ff_fatx_create_file_guest(ff_fatx_volume *,const uint32_t args[9]);
 uint32_t ff_fatx_query_size(ff_fatx_volume *,const uint32_t args[5]);
 uint32_t ff_fatx_close(ff_fatx_volume *,uint32_t handle);
 uint32_t ff_fatx_reference_handle(ff_fatx_volume *,uint32_t handle,uint32_t *file);
