@@ -1,6 +1,6 @@
-# Project status: startup advances through four more CRT routines
+# Project status: startup reaches the FATX file-information query
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced past the FATX debug-log reopen to **status 2 at untranslated address `0x001E50E3`**, with return address `0x001E2361`, 389 distinct routines and 463 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reached **status 9 at ordinal 211 (`NtQueryInformationFile`), value `0xC00000BB`**, with return address `0x001E9112`, 392 distinct routines and 464 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -84,9 +84,14 @@ Native checks passed 58/58 including sanitizers, runtime checks passed 201/201, 
 | Admit `0x001E61C3` | 505 + 1 direct entry / 20,794 | `7a2a2f0e` | Status 2 at `0x001E6DED`, return `0x001E61D0` | 386 / 461 |
 | Admit `0x001E6DED` | 506 + 1 direct entry / 20,807 | `293cb08e` | Status 2 at `0x001E6DA9`, return `0x001E2300` | 388 / 461 |
 | Admit `0x001E6DA9` | 507 + 1 direct entry / 20,826 | `eb2cbb53` | Status 2 at `0x001E50E3`, return `0x001E2361` | 389 / 463 |
+| Admit `0x001E50E3` | 508 + 1 direct entry / 20,877 | `49d9af57` | Status 2 at `0x001E5071`, return `0x001E513A` | 390 / 464 |
+| Admit `0x001E5071` | 509 + 1 direct entry / 20,920 | `7c6bae9f` | Status 2 at `0x001E90D0`, return `0x001E50A3` | 391 / 464 |
+| Admit `0x001E90D0` | 510 + 1 direct entry / 21,024 | `53fb1b8c` | Status 9, ordinal 211, value `0xC00000BB`, return `0x001E9112` | 392 / 464 |
 
 Each admission used a single read-only Ghidra export, checked complete layout and byte identity against the original XBE, and passed the pinned Capstone decoder and checked memory preparation. Independent review confirmed the four fresh Chrome triples preserved the fixed control and inert stops and stable sequences, and each experiment preserved the preceding experiment's entry, trace kind/address/stack and kernel ordinal/status/argument prefixes. The FATX reopen handle remained live and its mount revision and allocation counts stayed stable. One additional aggregate ABI event in the first batch coincides with the already admitted SEH prolog at `0x001E04CC`. Two in the last batch coincide with another prolog and epilog pair at `0x001E04CC` and `0x001E0505`. The legacy ESP-change counter increased alongside those events. The trace identifies stack changes in those frames, while the aggregate diagnostic remains unresolved at the individual nonvolatile-register level.
 
-Python evidence checks passed 6/6. The next bounded dependency is the original call to `0x001E50E3`. The current profile uses 508 of 512 function slots, including the checked direct entry, within 32 exports and the 32,768-instruction limit. Continue to require exact admission and paired replay within those limits.
+The original export of `0x001E50E3` failed complete-layout verification at the three-byte gap at `0x001E5167`. The original XBE's exception scope record at `0x0027C7A0` points to that handler. A bounded read-only decode added one instruction, preserved all 50 prior rows and both body ranges, and passed byte, decoder and layout checks. The separate direct target at `0x001E516A` remains guarded. Independent review confirmed that each of the three further Chrome comparisons preserved the control and inert stops and stable sequences, along with the preceding experiment's stable prefixes. Debug and FATX state stayed stable. Only the first of these batches added an aggregate ABI event and matching stack diagnostic at the reached SEH prolog.
+
+The stopped request uses the reopened FATX handle `0x00070008`, class 34 and a 56-byte output buffer. The dispatcher currently rejects FATX handles in this query. The next bounded dependency is `FileNetworkOpenInformation` for that live handle, with metadata grounded in the owned file entry and checked guest output. The class and fields are defined in the [XboxDev declarations](https://github.com/XboxDev/nxdk/blob/master/lib/xboxkrnl/xboxkrnl.h). The profile uses 511 of 512 function slots including the checked direct entry, within 32 exports and 21,024 of 32,768 instructions.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
