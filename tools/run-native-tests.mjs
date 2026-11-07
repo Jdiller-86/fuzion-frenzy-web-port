@@ -23,6 +23,17 @@ const runtime = (name) => `runtime/core/${name}`;
 /* Each fixture lists its own translation units; a fixture that needs a new
  * source must say so here, which keeps the link set reviewable. */
 const fixtures = [
+  { name: 'sha256', sources: ['tests/sha256_test.c', runtime('sha256.c')] },
+  { name: 'kernel_capture', sources: ['tests/kernel_capture_test.c', runtime('kernel_capture.c'), runtime('sha256.c')] },
+  { name: 'trace_capture', sources: ['tests/trace_capture_test.c', runtime('trace_capture.c'), runtime('sha256.c')] },
+  { name: 'performance_clock', sources: ['tests/performance_clock_test.c', runtime('performance_clock.c')] },
+  { name: 'unnamed_mutants', sources: ['tests/unnamed_mutants_test.c', runtime('unnamed_mutants.c'), runtime('virtual_memory.c')] },
+  { name: 'thread_bootstrap', sources: ['tests/thread_bootstrap_test.c', runtime('thread_bootstrap.c')] },
+  { name: 'memory_statistics', sources: ['tests/memory_statistics_test.c', runtime('memory_statistics.c'), runtime('virtual_memory.c')] },
+  { name: 'named_events', sources: ['tests/named_events_test.c', runtime('named_events.c'), runtime('virtual_memory.c')] },
+  { name: 'local_mutants', sources: ['tests/local_mutants_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
+  { name: 'local_mutant_acquire', sources: ['tests/local_mutant_acquire_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
+  { name: 'local_mutant_release', sources: ['tests/local_mutant_release_test.c', runtime('local_mutants.c'), runtime('named_events.c'), runtime('virtual_memory.c')] },
   { name: 'device_registers', sources: ['tests/device_registers_test.c', runtime('device_registers.c'), runtime('thread_bootstrap.c')] },
   { name: 'pcrtc_state', sources: ['tests/pcrtc_state_test.c', runtime('pcrtc_state.c')] },
   { name: 'kernel_timers', sources: ['tests/kernel_timers_test.c', runtime('kernel_timers.c'), runtime('kernel_objects.c')] },
@@ -32,6 +43,8 @@ const fixtures = [
   { name: 'controller_port', sources: ['tests/controller_port_test.c', runtime('controller_port.c'), runtime('controller_packet.c')] },
   { name: 'pfifo_status', sources: ['tests/pfifo_status_test.c', runtime('pfifo_status.c')] },
   { name: 'guest_mirror', sources: ['tests/guest_mirror_test.c', runtime('guest_mirror.c')] },
+  { name: 'guest_strings', sources: ['tests/guest_strings_test.c', runtime('guest_strings.c'), runtime('virtual_memory.c')] },
+  { name: 'debug_service', sources: ['tests/debug_service_test.c', runtime('debug_service.c'), runtime('guest_strings.c'), runtime('virtual_memory.c')] },
   { name: 'guest_write_map', sources: ['tests/guest_write_map_test.c', runtime('guest_write_map.c')] },
   { name: 'pfifo_channel', sources: ['tests/pfifo_channel_test.c', runtime('pfifo_channel.c')] },
   { name: 'pfifo_dma', sources: ['tests/pfifo_dma_test.c', runtime('pfifo_dma.c')] },

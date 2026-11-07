@@ -48,3 +48,18 @@ uint32_t ff_equal_ansi_string(ff_virtual_memory *memory,uint32_t first,uint32_t 
     }
     *equal=1; return 0;
 }
+
+uint32_t ff_debug_ansi_length(const ff_virtual_memory *memory,uint32_t descriptor,uint32_t *length)
+{
+    if(!memory || !memory->ram || !length || !descriptor || (descriptor&3u)) return FF_BOOT_INVALID;
+    if(ff_vm_check(memory,descriptor,8,FF_VM_READ)) return FF_VM_ACCESS_VIOLATION;
+    const uint8_t *ram=memory->ram;
+    uint32_t bytes=word(ram,descriptor,2), maximum=word(ram,descriptor+2,2);
+    uint32_t buffer=word(ram,descriptor+4,4);
+    if(bytes>maximum) return FF_BOOT_INVALID;
+    if(bytes>FF_DEBUG_ANSI_MAX_BYTES) return FF_BOOT_UNSUPPORTED;
+    if(bytes && !buffer) return FF_BOOT_INVALID;
+    if(bytes && ff_vm_check(memory,buffer,bytes,FF_VM_READ)) return FF_VM_ACCESS_VIOLATION;
+    *length=bytes;
+    return 0;
+}

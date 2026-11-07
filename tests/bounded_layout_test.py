@@ -355,5 +355,150 @@ class DispatchTableContractTest(unittest.TestCase):
             PREP.checked_dispatch_tables(layout, [bad])
 
 
+CRT_OWNER = 0x00100000
+CRT_CALL_SITE = 0x00100004
+CRT_ENTRY = 0x0010000c
+CRT_CALLEE = 0x00100100
+CRT_CONTRACT = (CRT_OWNER, CRT_CALL_SITE, CRT_ENTRY, CRT_CALLEE)
+CRT_SEEK_CONTRACT = (0x00100200, 0x00100204, 0x00100210, CRT_CALLEE)
+CRT_WRITE_CONTRACT = (0x00100300, 0x00100304, 0x00100310, CRT_CALLEE)
+
+
+def relative_call(address, target):
+    displacement = target - (address + 5)
+    return b"\xe8" + displacement.to_bytes(4, "little", signed=True)
+
+
+def crt_cleanup_case_for(contract):
+    owner, call_site, entry, callee = contract
+    rows = [
+        {"address": f"{call_site:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{entry:08x}"],
+         "fallthrough": f"{call_site + 5:08x}"},
+        {"address": f"{entry:08x}", "length": 1, "mnemonic": "PUSH",
+         "call": False, "computed": False, "flows": [],
+         "fallthrough": f"{entry + 1:08x}"},
+        {"address": f"{entry + 1:08x}", "length": 5, "mnemonic": "CALL",
+         "call": True, "computed": False, "flows": [f"{callee:08x}"],
+         "fallthrough": f"{entry + 6:08x}"},
+        {"address": f"{entry + 6:08x}", "length": 1, "mnemonic": "POP",
+         "call": False, "computed": False, "flows": [],
+         "fallthrough": f"{entry + 7:08x}"},
+        {"address": f"{entry + 7:08x}", "length": 1, "mnemonic": "RET",
+         "call": False, "computed": False, "flows": [], "fallthrough": None},
+    ]
+    item = {
+        "entry": f"{owner:08x}",
+        "bodyRanges": [{"start": f"{owner:08x}",
+                        "endInclusive": f"{call_site + 4:08x}"}],
+    }
+    layout = {"end": entry + 8, "rows": rows}
+    image = {}
+
+    def place(address, content):
+        image.update({address + offset: byte for offset, byte in enumerate(content)})
+
+    place(call_site, relative_call(call_site, entry))
+    place(entry, b"\x53" + relative_call(entry + 1, callee) + b"\x59\xc3")
+
+    def read_bytes(address, size):
+        return bytes(image[address + offset] for offset in range(size))
+
+    return [item], {owner: layout}, {owner: object(), callee: object()}, image, read_bytes
+
+
+def crt_cleanup_case():
+    return crt_cleanup_case_for(CRT_CONTRACT)
+
+
+class CrtCleanupEntryContractTest(unittest.TestCase):
+    def test_linked_cleanup_entry_is_admitted_with_exact_stack_shape(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+
+        result = PREP.checked_crt_cleanup_entry(
+            items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+        self.assertEqual((result["owner"], result["site"], result["entry"], result["callee"]),
+                         CRT_CONTRACT)
+        self.assertEqual([row["mnemonic"] for row in result["rows"]],
+                         ["PUSH", "CALL", "POP", "RET"])
+
+    def test_three_cleanup_views_fit_exact_aggregate_cap(self):
+        self.assertEqual(PREP.CRT_SEEK_CLEANUP_ENTRY, (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B))
+        self.assertEqual(PREP.CRT_WRITE_CLEANUP_ENTRY, (0x001E55A3, 0x001E561D, 0x001E562A, 0x001E731B))
+        first = crt_cleanup_case_for(CRT_CONTRACT)
+        second = crt_cleanup_case_for(CRT_SEEK_CONTRACT)
+        third = crt_cleanup_case_for(CRT_WRITE_CONTRACT)
+        cases = (first, second, third)
+        items = [item for case in cases for item in case[0]]
+        layouts = {owner: layout for case in cases for owner, layout in case[1].items()}
+        functions = {owner: function for case in cases for owner, function in case[2].items()}
+        image = {address: byte for case in cases for address, byte in case[3].items()}
+        self.assertEqual(len(functions), 4)  # three disjoint owners share the checked callee
+
+        def read_bytes(address, size):
+            return bytes(image[address + offset] for offset in range(size))
+
+        contracts = (CRT_CONTRACT, CRT_SEEK_CONTRACT, CRT_WRITE_CONTRACT)
+        exact_limit = len(functions) + len(contracts)
+        views = PREP.checked_crt_cleanup_entries(
+            items, layouts, functions, read_bytes, contracts, exact_limit)
+        self.assertEqual(set(views), {contract[2] for contract in contracts})
+        for contract in contracts:
+            self.assertEqual(views[contract[2]]["rows"][0]["mnemonic"], "PUSH")
+        with self.assertRaisesRegex(ValueError, "aggregate function budget"):
+            PREP.checked_crt_cleanup_entries(
+                items, layouts, functions, read_bytes, contracts, exact_limit - 1)
+
+    def test_first_cleanup_view_remains_admissible_by_itself(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+        views = PREP.checked_crt_cleanup_entries(
+            items, layouts, functions, read_bytes, (CRT_CONTRACT,), len(functions) + 1)
+        self.assertEqual(set(views), {CRT_ENTRY})
+        self.assertEqual(views[CRT_ENTRY]["callee"], CRT_CALLEE)
+
+    def test_bad_encoded_direct_call_is_rejected(self):
+        items, layouts, functions, image, read_bytes = crt_cleanup_case()
+        image[CRT_CALL_SITE] = 0x90
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup caller does not match its original direct call"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_second_incoming_call_or_jump_is_rejected(self):
+        for mnemonic in ("CALL", "JMP"):
+            with self.subTest(mnemonic=mnemonic):
+                items, layouts, functions, _, read_bytes = crt_cleanup_case()
+                second_caller = CRT_OWNER + 0x20
+                layouts[second_caller] = {"rows": [{
+                    "address": f"{second_caller:08x}", "length": 5, "mnemonic": mnemonic,
+                    "call": mnemonic == "CALL", "computed": False, "flows": [f"{CRT_ENTRY:08x}"],
+                }]}
+                with self.assertRaisesRegex(
+                        ValueError, "The CRT cleanup entry requires one established direct caller"):
+                    PREP.checked_crt_cleanup_entry(
+                        items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_entry_inside_declared_owner_body_is_rejected(self):
+        items, layouts, functions, _, read_bytes = crt_cleanup_case()
+        items[0]["bodyRanges"].append({"start": f"{CRT_ENTRY:08x}",
+                                      "endInclusive": f"{CRT_ENTRY + 7:08x}"})
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup entry must use linked code outside the declared body"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+    def test_altered_stack_restore_is_rejected(self):
+        items, layouts, functions, image, read_bytes = crt_cleanup_case()
+        image[CRT_ENTRY + 6] = 0x5a  # POP EDX instead of restoring the pushed EBX to ECX.
+
+        with self.assertRaisesRegex(
+                ValueError, "The CRT cleanup entry does not match its bounded stack and return shape"):
+            PREP.checked_crt_cleanup_entry(
+                items, layouts, functions, read_bytes, CRT_CONTRACT)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

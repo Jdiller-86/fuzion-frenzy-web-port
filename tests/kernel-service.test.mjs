@@ -19,3 +19,36 @@ test('unknown and invalid ordinals are unnamed and not modeled', () => {
   assert.deepEqual(describeKernelService(0x10000), { ordinal: 0x10000, name: null, modeled: false });
   assert.deepEqual(describeKernelService(2.5), { ordinal: 2.5, name: null, modeled: false });
 });
+
+test('ordinal 127 names the frequency query with its declared ABI only', () => {
+  assert.deepEqual(describeKernelService(127), {
+    ordinal: 127, name: 'KeQueryPerformanceFrequency', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64',
+  });
+  assert.deepEqual(describeKernelService(3), { ordinal: 3, name: null, modeled: false });
+});
+
+test('ordinal 126 names the counter query with static ABI only', () => {
+  assert.deepEqual(describeKernelService(126), {
+    ordinal: 126, name: 'KeQueryPerformanceCounter', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64',
+  });
+  assert.deepEqual(describeKernelService(125), { ordinal: 125, name: null, modeled: false });
+});
+
+test('ordinal 189 names NtCreateEvent with static ABI only and remains unsupported', () => {
+  assert.deepEqual(describeKernelService(189), {
+    ordinal: 189, name: 'NtCreateEvent', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus',
+  });
+});
+
+test('ordinal 234 has the observed four-argument extended wait ABI without service behavior',()=>{
+  assert.deepEqual(describeKernelService(234),{ordinal:234,name:'NtWaitForSingleObjectEx',modeled:false,
+    callingConvention:'stdcall',argumentBytes:16,returns:'ntstatus'});
+});
+
+test('ordinal 221 retains the observed release ABI independently of model selection',()=>{
+  assert.deepEqual(describeKernelService(221),{ordinal:221,name:'NtReleaseMutant',modeled:false,
+    callingConvention:'stdcall',argumentBytes:8,returns:'ntstatus'});
+});

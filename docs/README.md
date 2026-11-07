@@ -1,6 +1,6 @@
 # Documentation
 
-Start with [the project overview](../README.md) and [development plan](../plans.md). The source and tracking follow CTR-2-WUP's domain layout and evidence-based planning, adapted to browser execution. Runtime implementation remains paused pending the next user-directed task.
+Start with [the project overview](../README.md) and [development plan](../plans.md). The source and tracking follow CTR-2-WUP's domain layout and evidence-based planning, adapted to browser execution. Follow the assigned user objective and [current status](status.md); later roadmap work is not implicitly assigned.
 
 | Purpose | Guide |
 | --- | --- |
@@ -16,6 +16,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Reference identities and conversion coverage | [Reference inventory](reference.md) |
 | Curated facts, static/fixture/browser evidence distinctions | [Research](research.md) |
 | Optional private toolchain and analysis prerequisites | [Analysis](analysis.md) |
+| Resource reuse, automated preparation and fast M1 iteration | [Development workflow](resource-reuse.md) |
 | Consequential choices | [Decisions](decisions.md) |
 | Contributions and repository instructions | [Contributing](../CONTRIBUTING.md) and [AGENTS](../AGENTS.md) |
 

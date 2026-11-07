@@ -21,6 +21,10 @@ MAX_SEED_FUNCTIONS = 64
 MAX_EXPANDED_FUNCTIONS = 512
 MAX_SEED_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_SEED_BYTES = 64 * 1024 * 1024
+# Owner, direct call site, shared cleanup entry, already admitted callee.
+CRT_CLEANUP_ENTRY = (0x001E4D58, 0x001E4DC2, 0x001E4DCF, 0x001E731B)
+CRT_SEEK_CLEANUP_ENTRY = (0x001E50E3, 0x001E515D, 0x001E516A, 0x001E731B)
+CRT_WRITE_CLEANUP_ENTRY = (0x001E55A3, 0x001E561D, 0x001E562A, 0x001E731B)
 
 
 def digest(data):
@@ -243,6 +247,168 @@ def _alignment_padding(raw):
     return bool(raw)
 
 
+def checked_returning_traps(rows, start, end, guarded_targets=(), slide_sites=None):
+    """Close every post-INT-2D path inside checked code or at a guarded exit.
+
+    This follows the pinned translator's INT 2D behavior and slide-byte rule:
+    an adjacent INT3 is stepped only when no direct/reference entry targets it.
+    Each returning trap needs a contiguous successor. All reachable successors
+    are then walked to RET or a known guarded external transfer; cycles are
+    bounded by the checked row count. No C return is treated as a fatal trap,
+    and this guard does not synthesize a return or repair guest stack state.
+    """
+    by_address = {int(row["address"], 16): row for row in rows}
+    guarded_targets = set(guarded_targets)
+    direct_targets = set()
+    referenced_targets = set()
+    for row in rows:
+        for value in row.get("flows", []):
+            if re.fullmatch(r"[0-9a-fA-F]+", value):
+                direct_targets.add(int(value, 16))
+        for ref in row.get("references", []):
+            value = ref.get("target", "")
+            if ref.get("type") in ("INDIRECTION", "COMPUTED_JUMP") and re.fullmatch(r"[0-9a-fA-F]+", value):
+                referenced_targets.add(int(value, 16))
+    entry_targets = direct_targets | referenced_targets
+
+    slides = set(slide_sites) if slide_sites is not None else set()
+    if slide_sites is None:
+        for index, row in enumerate(rows):
+            if row.get("mnemonic", "").upper() != "INT3":
+                continue
+            address = int(row["address"], 16)
+            raw = bytes.fromhex(row.get("analysisBytesHex", ""))
+            if raw != b"\xcc" or row.get("length") != 1:
+                raise ValueError("Unsupported INT3 encoding")
+            if index == 0:
+                continue
+            previous = rows[index - 1]
+            previous_address = int(previous["address"], 16)
+            if (previous.get("mnemonic", "").upper() == "INT" and
+                    bytes.fromhex(previous.get("analysisBytesHex", "")) == b"\xcd\x2d" and
+                    previous_address + previous["length"] == address and address not in entry_targets):
+                slides.add(address)
+
+    returning_sites = []
+    checked = []
+    for row in rows:
+        address = int(row["address"], 16)
+        mnemonic = row.get("mnemonic", "").upper()
+        if mnemonic != "INT":
+            continue
+        if bytes.fromhex(row.get("analysisBytesHex", "")) != b"\xcd\x2d" or row.get("length") != 2:
+            raise ValueError("Unsupported INT service")
+        returning_sites.append(address)
+
+    def successor(row, address, *, trap_step=False):
+        next_address = address + row["length"]
+        declared = row.get("fallthrough")
+        if declared is not None and int(declared, 16) != next_address:
+            raise ValueError("Post-trap control flow has an inconsistent fallthrough")
+        if next_address in by_address and next_address < end:
+            return next_address
+        if trap_step:
+            raise ValueError("Returning trap path has no contiguous same-function instruction")
+        if next_address == end and next_address in guarded_targets:
+            return next_address
+        raise ValueError("Returning trap path falls off checked function without a verified successor")
+
+    def close_from(initial):
+        pending, visited, terminals = [initial], set(), []
+        while pending:
+            address = pending.pop()
+            if address in guarded_targets and not start <= address < end:
+                terminals.append({"address": address, "kind": "guarded-tail-transfer"})
+                continue
+            row = by_address.get(address)
+            if row is None or not start <= address < end:
+                raise ValueError("Post-trap path leaves the checked function envelope")
+            if address in visited:
+                continue
+            visited.add(address)
+            if len(visited) > len(rows):
+                raise ValueError("Post-trap control-flow walk exceeded the checked row budget")
+            mnemonic = row.get("mnemonic", "").upper()
+            if mnemonic.startswith("RET"):
+                terminals.append({"address": address, "kind": "return"})
+                continue
+            if mnemonic in ("UD2", "HLT", "IRET", "IRETD"):
+                raise ValueError("Post-trap path reaches an unmodeled fatal instruction")
+            if mnemonic == "INT3":
+                if address not in slides:
+                    raise ValueError("Reachable INT3 is not a verified stepped-over slide")
+                pending.append(successor(row, address, trap_step=True))
+                continue
+            if mnemonic == "INT":
+                # It was already checked as the one modeled returning service.
+                if bytes.fromhex(row.get("analysisBytesHex", "")) != b"\xcd\x2d" or row.get("length") != 2:
+                    raise ValueError("Unsupported INT service")
+                pending.append(successor(row, address, trap_step=True))
+                continue
+            is_call = bool(row.get("call"))
+            is_jump = mnemonic == "JMP" and not is_call
+            is_conditional_jump = (not is_call and not is_jump and
+                                   (mnemonic.startswith("J") or mnemonic.startswith("LOOP") or
+                                    mnemonic in ("JCXZ", "JECXZ")))
+            flows = [int(value, 16) for value in row.get("flows", [])
+                     if re.fullmatch(r"[0-9a-fA-F]+", value)]
+            if is_call:
+                pending.append(successor(row, address))
+                continue
+            if row.get("computed") and is_jump:
+                raise ValueError("Post-trap computed JMP requires a separately checked dispatch proof")
+            if is_jump:
+                if not flows:
+                    raise ValueError("Post-trap branch has no verified target")
+                for target in flows:
+                    if start <= target < end:
+                        if target not in by_address:
+                            raise ValueError("Post-trap branch targets an unchecked instruction boundary")
+                        pending.append(target)
+                    elif target in guarded_targets:
+                        terminals.append({"address": target, "kind": "guarded-tail-transfer"})
+                    else:
+                        raise ValueError("Post-trap branch target is not a verified guarded transfer")
+                continue
+            fallthrough = successor(row, address)
+            if is_conditional_jump and not flows:
+                raise ValueError("Post-trap conditional branch has no verified target")
+            if flows:
+                for target in flows:
+                    if start <= target < end:
+                        if target not in by_address:
+                            raise ValueError("Post-trap branch targets an unchecked instruction boundary")
+                        pending.append(target)
+                    elif target in guarded_targets:
+                        terminals.append({"address": target, "kind": "guarded-tail-transfer"})
+                    else:
+                        raise ValueError("Post-trap branch target is not a verified guarded transfer")
+            if fallthrough == end:
+                terminals.append({"address": end, "kind": "guarded-tail-transfer"})
+            else:
+                pending.append(fallthrough)
+        return sorted(terminals, key=lambda row: (row["address"], row["kind"]))
+
+    for address in returning_sites:
+        row = by_address[address]
+        next_address = successor(row, address, trap_step=True)
+        following = by_address.get(next_address)
+        checked.append({"site": address, "next": next_address, "kind": "returning-int-2d",
+                        "nextMnemonic": following.get("mnemonic", "") if following else "guarded-tail-transfer"})
+        continuation = next_address
+        if continuation in slides:
+            slide_row = by_address[continuation]
+            slide_next = successor(slide_row, continuation, trap_step=True)
+            slide_following = by_address.get(slide_next)
+            checked.append({"site": continuation, "next": slide_next, "kind": "stepped-over-int3",
+                            "nextMnemonic": slide_following.get("mnemonic", "") if slide_following else "guarded-tail-transfer"})
+            continuation = slide_next
+        terminals = close_from(continuation)
+        checked.append({"site": address, "kind": "postTrapClosure", "terminals": terminals,
+                        "visitedRowLimit": len(rows)})
+    return checked
+
+
 def checked_function_layout(item, read_bytes, kernel_imports=None, local_entries=None):
     """Account for the full original envelope, including typed local tables."""
     start, end = function_envelope(item, kernel_imports, local_entries)
@@ -387,6 +553,55 @@ def observe_return_frames(text, address):
     return text.replace(marker, f'FF_RETURN_FRAME(0x{address:08X}u, ebp); ' + marker), count
 
 
+def checked_crt_cleanup_entry(items, layouts, functions, read_bytes, contract=CRT_CLEANUP_ENTRY):
+    """Admit a direct entry view of already verified bytes, without a second seed envelope."""
+    owner, site, entry, callee = contract
+    if owner not in layouts or entry in functions or callee not in functions:
+        raise ValueError("The CRT cleanup entry requires its checked owner and callee")
+    layout = layouts[owner]
+    end = entry + 8
+    if not owner < site < entry < end <= layout["end"]:
+        raise ValueError("The CRT cleanup entry must be inside its checked owner")
+    item = next((item for item in items if int(item["entry"], 16) == owner), None)
+    if item is None or any(entry <= int(span["endInclusive"], 16) and int(span["start"], 16) < end
+                           for span in item["bodyRanges"]):
+        raise ValueError("The CRT cleanup entry must use linked code outside the declared body")
+    incoming = [(start, row) for start, span in layouts.items() for row in span["rows"]
+                if any(re.fullmatch(r"[0-9a-fA-F]+", value) and int(value, 16) == entry
+                       for value in row["flows"])]
+    if len(incoming) != 1:
+        raise ValueError("The CRT cleanup entry requires one established direct caller")
+    caller, call = incoming[0]
+    call_bytes = read_bytes(site, 5)
+    if (caller != owner or not call["call"] or call["computed"] or
+            int(call["address"], 16) != site or call["length"] != 5 or
+            call["mnemonic"] != "CALL" or call["flows"] != [f"{entry:08x}"] or
+            int(call.get("fallthrough", "-1"), 16) != site + 5 or
+            len(call_bytes) != 5 or call_bytes[0] != 0xe8 or
+            site + 5 + int.from_bytes(call_bytes[1:], "little", signed=True) != entry):
+        raise ValueError("The CRT cleanup caller does not match its original direct call")
+    rows = [row for row in layout["rows"] if entry <= int(row["address"], 16) < end]
+    shape = [(int(row["address"], 16) - entry, row["length"], row["mnemonic"]) for row in rows]
+    code = read_bytes(entry, end - entry)
+    # PUSH EBX, CALL rel32, POP ECX, plain RET. The call has one stack argument.
+    if (shape != [(0, 1, "PUSH"), (1, 5, "CALL"), (6, 1, "POP"), (7, 1, "RET")] or
+            len(code) != 8 or code[:2] != b"\x53\xe8" or code[6:] != b"\x59\xc3" or
+            entry + 6 + int.from_bytes(code[2:6], "little", signed=True) != callee or
+            not rows[1]["call"] or rows[1]["computed"] or rows[1]["flows"] != [f"{callee:08x}"] or
+            any(row["computed"] or row["call"] or row["flows"] for row in (rows[0], rows[2], rows[3])) or
+            [row.get("fallthrough") for row in rows] !=
+            [f"{entry+1:08x}", f"{entry+6:08x}", f"{entry+7:08x}", None]):
+        raise ValueError("The CRT cleanup entry does not match its bounded stack and return shape")
+    return {"owner": owner, "site": site, "entry": entry, "callee": callee, "rows": rows, "end": end}
+
+
+def checked_crt_cleanup_entries(items, layouts, functions, read_bytes, contracts, function_limit):
+    if len(functions) + len(contracts) > function_limit:
+        raise ValueError("The CRT cleanup entries exceed the aggregate function budget")
+    return {contract[2]: checked_crt_cleanup_entry(items, layouts, functions, read_bytes, contract)
+            for contract in contracts}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--xbe", required=True, type=Path)
@@ -396,7 +611,22 @@ def main():
     parser.add_argument("--instruction-limit", type=int, choices=(8192,16384,32768), default=8192, help="Explicit aggregate instruction budget; older proofs retain 8192")
     parser.add_argument("--attempt", required=True)
     parser.add_argument("--guard-memory", action="store_true", help="Admit only checked scalar/stack/bulk memory surfaces")
+    parser.add_argument("--guard-timestamp-counter", action="store_true", help="Stop at checked original RDTSC sites without supplying a counter")
+    parser.add_argument("--crt-cleanup-entry", action="store_true", help="Admit the checked direct CRT cleanup entry view")
+    parser.add_argument("--crt-seek-cleanup-entry", action="store_true", help="Admit the checked direct CRT seek cleanup entry view")
+    parser.add_argument("--crt-write-cleanup-entry", action="store_true", help="Admit the checked direct CRT write cleanup entry view")
     args = parser.parse_args()
+    if args.guard_timestamp_counter and not args.guard_memory:
+        parser.error("Timestamp-counter guards require checked memory")
+    cleanup_contracts = []
+    if args.crt_cleanup_entry:
+        cleanup_contracts.append(CRT_CLEANUP_ENTRY)
+    if args.crt_seek_cleanup_entry:
+        cleanup_contracts.append(CRT_SEEK_CLEANUP_ENTRY)
+    if args.crt_write_cleanup_entry:
+        cleanup_contracts.append(CRT_WRITE_CLEANUP_ENTRY)
+    if cleanup_contracts and not args.guard_memory:
+        parser.error("The CRT cleanup entry requires checked memory")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", args.attempt):
         parser.error("Use a simple new attempt label")
     research = (ROOT / "research").resolve(strict=True)
@@ -521,8 +751,19 @@ def main():
     except ValueError as error:parser.error(str(error))
     if profile["entry"] not in functions:
         parser.error("Include the actual entry")
-    boundaries = sorted(direct_targets - functions.keys())
+    try:
+        direct_entries = checked_crt_cleanup_entries(
+            functions_in, layouts, functions, original_bytes, cleanup_contracts, args.function_limit)
+        view_instruction_count = sum(len(view["rows"]) for view in direct_entries.values())
+        instruction_count += view_instruction_count
+        validate_instruction_count(instruction_count, args.instruction_limit)
+    except (KeyError, TypeError, ValueError) as error:
+        parser.error(str(error))
+    entry_views = {address: {"name": f"ff_title_{address:08X}", "end": view["end"], "size": view["end"] - address}
+                   for address, view in direct_entries.items()}
+    boundaries = sorted(direct_targets - functions.keys() - entry_views.keys())
     database = dict(functions)
+    database.update(entry_views)
     for address in boundaries:
         database[address] = {"name": f"ff_title_{address:08X}", "size": 0, "method": "untranslated_boundary"}
     out.mkdir()
@@ -541,7 +782,11 @@ def main():
             decoder_normalizations.extend(check_decoder_agreement(item['instructions'], decoded, original_bytes))
         decoded_instruction_count = instruction_count + len(decoder_normalizations)
         validate_instruction_count(decoded_instruction_count,args.instruction_limit)
-        translator = FunctionTranslator(xbe, database, trace_functions=set(functions))
+        for address, view in direct_entries.items():
+            decoded = list(disassembler.disasm(original_bytes(address, view["end"] - address), address))
+            if check_decoder_agreement(view["rows"], decoded, original_bytes):
+                raise ValueError("The CRT cleanup entry requires exact independent decoding")
+        translator = FunctionTranslator(xbe, database, trace_functions=set(functions) | set(entry_views))
         dispatch_census = []
         for start, layout in layouts.items():
             if not layout["mixed"]:
@@ -572,8 +817,36 @@ def main():
             translator.coalesced_function_starts.add(start)
             dispatch_census.append({"function": start, "sites": len(sites), "tableRegions": len(layout["tables"]),
                                     "anchors": len(tables), "dataBytes": layout["dataBytes"], "paddingBytes": layout["paddingBytes"]})
+        checked_returning_trap_steps = []
+        for start, layout in layouts.items():
+            if not any(row.get("mnemonic", "").upper() == "INT" for row in layout["rows"]):
+                continue
+            instructions, _ = translator.decode_function(start, layout["end"])
+            coalesced = start in translator.coalesced_function_starts
+            (_, _, slide_sites, _, _) = translator._control_flow_census(
+                instructions, start, layout["end"], coalesced,
+                jump_table_targets=(translator.lifter.jump_table_targets
+                                    if coalesced and start in translator._recovered_cfg else None))
+            checked_returning_trap_steps.extend(
+                {"function": start, **step} for step in checked_returning_traps(
+                    layout["rows"], start, layout["end"], guarded_targets=database.keys(),
+                    slide_sites=slide_sites))
+        for address, view in direct_entries.items():
+            if not any(row.get("mnemonic", "").upper() == "INT" for row in view["rows"]):
+                continue
+            instructions, _ = translator.decode_function(address, view["end"])
+            coalesced = address in translator.coalesced_function_starts
+            (_, _, slide_sites, _, _) = translator._control_flow_census(
+                instructions, address, view["end"], coalesced,
+                jump_table_targets=(translator.lifter.jump_table_targets
+                                    if coalesced and address in translator._recovered_cfg else None))
+            checked_returning_trap_steps.extend(
+                {"function": address, **step} for step in checked_returning_traps(
+                    view["rows"], address, view["end"], guarded_targets=database.keys(),
+                    slide_sites=slide_sites))
         generated, return_observations, memory_observations = [], [], []
-        for address, info in functions.items():
+        timestamp_guards = []
+        for address, info in (functions | entry_views).items():
             text = translator.translate_function(address, info)
             modeled = admit_modeled_noop(translator.lifter.unimplemented)
             if modeled:
@@ -583,7 +856,14 @@ def main():
                 translator.lifter.unimplemented.clear()
             if not text:
                 raise ValueError("Translation produced no code")
-            returns = any(row.get("mnemonic", "").startswith("RET") for row in layouts[address]["rows"])
+            rows = direct_entries[address]["rows"] if address in entry_views else layouts[address]["rows"]
+            if args.guard_timestamp_counter:
+                from timestamp_counter_guard import guard_timestamp_reads
+                text, sites = guard_timestamp_reads(text, rows)
+                timestamp_guards.extend({"owner": address, "site": site, "bytes": 2} for site in sites)
+                if len(timestamp_guards) > 64:
+                    raise ValueError("Timestamp-counter guard site budget exceeded")
+            returns = any(row.get("mnemonic", "").startswith("RET") for row in rows)
             text, observations = observe_return_frames(text, address) if returns else (text, 0)
             if observations:
                 return_observations.append({"function": address, "sites": observations})
@@ -595,6 +875,8 @@ def main():
                     raise ValueError(f"0x{address:08X}: {error}") from error
                 memory_observations.append({"function": address, **access_counts})
             generated.append(text)
+        if args.guard_timestamp_counter and not timestamp_guards:
+            raise ValueError("No checked timestamp-counter instruction was selected")
     header = [f'#define FF_SOURCE_SHA256 "{sha}"', f'#define FF_ENTRY_ADDRESS 0x{profile["entry"]:08X}u',
               f'#define FF_ENTRY_FUNCTION {functions[profile["entry"]]["name"]}',
               f'#define FF_CODE_LOW 0x{min(s["address"] for s in profile["sections"] if s["executable"]):08X}u',
@@ -606,6 +888,10 @@ def main():
     header += ['#ifndef FF_GUEST_WBINVD', '#define FF_GUEST_WBINVD(address) ((void)0)', '#endif']
     if args.guard_memory:
         header += ['#define FF_GUARDED_MEMORY 1', '#include "recomp_memory_access.h"']
+    if args.guard_timestamp_counter:
+        header += ['#define FF_TIMESTAMP_COUNTER_GUARDS 1',
+                   f'#define FF_TIMESTAMP_COUNTER_GUARD_COUNT {len(timestamp_guards)}u',
+                   '#define FF_TIMESTAMP_COUNTER_SITES { ' + ', '.join(f'0x{row["site"]:08X}u' for row in timestamp_guards) + ' }']
     header += [f'void {info["name"]}(void);' for info in database.values()]
     for filename, text in [("title-profile.h", "\n".join(header) + "\n"),
                            ("title-functions.inc", "\n".join(generated) + "\n" + "\n".join(
@@ -622,6 +908,7 @@ def main():
               "functionsPerExport": 32 if args.function_limit >=256 else 8,
               "instructionLimit": args.instruction_limit,
               "checkedMixedLayouts": dispatch_census,
+              "checkedReturningTraps": checked_returning_trap_steps,
               "modeledNoOpInstructions": modeled_noops,
               "returnFrameObservations": return_observations,
               "checkedMemoryAccesses": memory_observations,
@@ -629,7 +916,8 @@ def main():
               "kernelThunks": [int(item["entry"], 16) for item in functions_in if item.get("thunk") and item['instructions'][0].get('computed')],
               "localTailThunks": [{"entry":int(item['entry'],16),"target":int(item['instructions'][0]['flows'][0],16)}
                                   for item in functions_in if item.get('thunk') and not item['instructions'][0].get('computed')],
-              "instructions": decoded_instruction_count, "ghidraInstructions": instruction_count,
+              "instructions": decoded_instruction_count,
+              "ghidraInstructions": instruction_count - view_instruction_count,
               "originalBytesMatchGhidra": True, "decoderBoundariesAgree": not decoder_normalizations,
               "decoderInstructionsAgree": True, "decoderNormalizations": decoder_normalizations,
               "untranslatedDirectTargets": boundaries,
@@ -639,6 +927,13 @@ def main():
               "unimplementedInstructions": {}, "originalCodeExecuted": False,
               "outputSha256": {name: digest((out / name).read_bytes()) for name in ["title-profile.h", "title-functions.inc"]},
               "limitation": "Only selected startup functions translated; unsupported calls must stop. No original execution outside the browser."}
+    if direct_entries:
+        report["checkedDirectEntryViews"] = [{
+            key: view[key] for key in ("owner", "site", "entry", "callee", "end")
+        } | {"instructions": len(view["rows"]), "indirectLookup": False}
+            for view in direct_entries.values()]
+    if args.guard_timestamp_counter:
+        report["timestampCounterGuards"] = timestamp_guards
     with (out / "generation.json").open("x") as file:
         json.dump(report, file, indent=2)
     print(json.dumps({"output": str(out.relative_to(ROOT)), "functions": len(functions), "instructions": decoded_instruction_count,

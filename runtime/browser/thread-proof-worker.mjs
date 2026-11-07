@@ -1,10 +1,21 @@
 import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, describeMmioExperiments, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
+import { readPerformanceClockState } from './performance-clock.mjs';
+import { readPerformanceCounterState } from './performance-counter.mjs';
+import { readMutantState } from './unnamed-mutants.mjs';
+import { readLocalMutantStateFromWasm } from './local-mutants.mjs';
+import { readEventState } from './named-events.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
 import { createDeviceReport } from './device-report.mjs';
 import { validateProofReport } from './proof-report.mjs';
 import { describeKernelService } from './kernel-service.mjs';
+import { readKernelCapture, absoluteKernelCalls } from './kernel-capture.mjs';
+import { encodeConsoleOsSettings, CONSOLE_OS_BYTES } from './console-os-settings.mjs';
+import { readTraceCapture, readTraceCpuWord, selectTraceCapture, traceCaptureExportsAvailable } from './trace-capture.mjs';
+import { selectDebugServiceWindow, readDebugServiceWindow } from './debug-service-window.mjs';
+import { requireMutantWaitCapability, selectMutantWait, readMutantWaitState } from './local-mutant-wait.mjs';
+import { requireMutantReleaseCapability, selectMutantRelease, readMutantSynchronizationStates } from './local-mutant-release.mjs';
 
 /* A boundary report is evidence for a human reader, so it is validated before it
  * is posted: a malformed or out-of-range report becomes an error message instead
@@ -25,12 +36,35 @@ const fields = ['id','handle','handleOpen','state','object','fs','stackLow','sta
   'routine','context','system','initialSp'];
 self.onmessage = async event => {
   try {
-    const clock = createProofClock();
+    const selectedClockSettings=event.data.settingsBytes?parseLocalConsoleSettings(event.data.settingsBytes):undefined;
+    const selectedClock=selectedClockSettings?.systemClock;
+    const clock = createProofClock({fixedSystemProfile:selectedClock,pauseProfile:selectedClockSettings?.clockPause,
+      deterministicProfile:selectedClockSettings?.deterministicClock});
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
-      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
+      await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;
+    const selectedMutantRelease=selectedClockSettings?.mutantRelease;
+    if(selectedMutantRelease)requireMutantReleaseCapability(api);
+    const selectedTraceStart=selectedClockSettings?.traceCaptureStart;
+    if(selectedTraceStart!==undefined && (api.ff_probe_abi()<25 || proofTraceCapacity(api)!==8192 || !traceCaptureExportsAvailable(api)))
+      throw new Error('Selected original trace capture requires ABI 25, capacity 8192 and all trace-window exports');
+    if(selectedTraceStart!==undefined)selectTraceCapture(api,selectedTraceStart);
+    const selectedDebugStart=selectedClockSettings?.debugServiceStart;
+    if(selectedDebugStart!==undefined)selectDebugServiceWindow(api,selectedDebugStart);
+    const selectedMutantWait=selectedClockSettings?.mutantWait;
+    if(selectedMutantWait)requireMutantWaitCapability(api);
     const directoryAbi = api.ff_probe_abi() >= 8, fileLinkAbi = api.ff_probe_abi() >= 9, regularAbi=api.ff_probe_abi()>=10, metadataAbi=api.ff_probe_abi()>=11, writeAbi=api.ff_probe_abi()>=12,sectionAbi=api.ff_probe_abi()>=13,nvAbi=api.ff_probe_abi()>=14;
     const abi=api.ff_probe_abi();const statisticsAbi=abi>=23,fatxAbi=abi>=22,dismountAbi=abi>=21,informationAbi=abi>=20,geometryAbi=abi>=19,partitionAbi=abi>=18,diskAbi=abi>=17,initializerAbi=abi>=16;
+    if(selectedClockSettings?.mutants?.kind==='synthetic-win32-mutants' &&
+       (!memoryAbi || ['local_mutant_profile','local_mutant_word','event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic Win32 mutant and namespace capability');
+    if(selectedClockSettings?.mutants && selectedClockSettings.mutants.kind!=='synthetic-win32-mutants' &&
+       (!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic mutant creation capability');
+    if(selectedClockSettings?.events && (!memoryAbi || ['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function')))
+      throw new Error('Missing explicit synthetic named event capability');
+    if(selectedClock && !timerAbi) throw new Error('This module does not consume the selected clock fixture');
+    if(selectedClockSettings?.clockPause && !timerAbi)throw new Error('This module does not consume the selected clock pause');
     if(api.ff_probe_abi()>=15 && (proofKernelCapacity(api)!==(initializerAbi?512:256) || typeof api.ff_probe_fp_word!=='function')) throw new Error('Expanded startup requires its declared bounded observation ABI');
     if(metadataAbi && ['metadata_format_word','metadata_format_byte'].some(name=>typeof api['ff_probe_'+name]!=='function')) throw new Error('Missing bounded metadata-format observation ABI');
     if(metadataAbi && proofTraceCapacity(api)!==(initializerAbi?8192:1024)) throw new Error('Metadata-format proof requires its explicit bounded trace capacity');
@@ -45,13 +79,54 @@ self.onmessage = async event => {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
       consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
+      if(consoleSettings.mutants) {
+        if(consoleSettings.mutants.kind==='synthetic-win32-mutants') {
+          if(!consoleSettings.events)throw new Error('Synthetic Win32 mutants require an explicitly selected named-event profile');
+          if(!memoryAbi||['event_profile','event_word','local_mutant_profile','local_mutant_word'].some(name=>typeof api['ff_probe_'+name]!=='function'))
+            throw new Error('Missing explicit synthetic Win32 mutant and namespace capability');
+          if(api.ff_probe_event_profile(1))throw new Error('Cannot configure explicit synthetic named events');
+          if(api.ff_probe_local_mutant_profile(1))throw new Error('Cannot configure explicit synthetic Win32 mutants');
+          if(selectedMutantWait)selectMutantWait(api);
+          if(selectedMutantRelease)selectMutantRelease(api);
+        } else {
+          if(!memoryAbi || ['profile','word'].some(name=>typeof api['ff_probe_mutant_'+name]!=='function'))
+            throw new Error('Missing explicit synthetic mutant creation capability');
+          if(api.ff_probe_mutant_profile(1))throw new Error('Cannot configure explicit synthetic mutant creation');
+        }
+      }
+      if(consoleSettings.events && consoleSettings.mutants?.kind!=='synthetic-win32-mutants') {
+        if(!memoryAbi||['event_profile','event_word'].some(name=>typeof api['ff_probe_'+name]!=='function'))throw new Error('Missing explicit synthetic named event capability');
+        if(api.ff_probe_event_profile(1))throw new Error('Cannot configure explicit synthetic named events');
+      }
+      if(consoleSettings.performanceClock) {
+        if(!timerAbi || ['profile','word'].some(name=>typeof api['ff_probe_performance_'+name]!=='function'))
+          throw new Error('Missing explicit synthetic performance clock capability');
+        if(api.ff_probe_performance_profile(consoleSettings.performanceClock.frequencyHz))
+          throw new Error('Cannot configure the explicit synthetic performance clock');
+      }
+      if(consoleSettings.performanceCounter) {
+        if(['profile','word'].some(name=>typeof api['ff_probe_performance_counter_'+name]!=='function'))
+          throw new Error('Missing explicit synthetic performance counter capability');
+        if(api.ff_probe_performance_counter_profile(1))throw new Error('Cannot configure explicit synthetic performance counter');
+      }
       api.ff_probe_misc_flags(consoleSettings.miscFlags);
       if(nvAbi) {
         if(typeof api.ff_probe_parental_games!=='function') throw new Error('Missing explicit console-settings ABI');
         api.ff_probe_parental_games(consoleSettings.parentalControlGames);
       }
+      const selectedOs=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(event.data.settingsBytes)).osSettings;
+      if(selectedOs!==undefined && !nvAbi) throw new Error('This module does not support console OS settings');
+      if(consoleSettings.osSettings) {
+        if(['source','bytes','profile'].some(name=>typeof api['ff_probe_console_os_'+name]!=='function') ||
+            api.ff_probe_console_os_bytes()!==CONSOLE_OS_BYTES)
+          throw new Error('Missing explicit console OS settings capability');
+        new Uint8Array(memory,range(api.ff_probe_console_os_source(),CONSOLE_OS_BYTES),CONSOLE_OS_BYTES)
+          .set(encodeConsoleOsSettings(consoleSettings.osSettings));
+        if(api.ff_probe_console_os_profile(CONSOLE_OS_BYTES))
+          throw new Error('Cannot configure explicit console OS settings');
+      }
     } else if (event.data.settingsBytes) throw new Error('The earlier proof ABI does not consume a settings profile');
-    if(api.ff_probe_abi()===24) {
+    if(api.ff_probe_abi()>=24) {
       mmioProfile=parseLocalMmioProfile(event.data.settingsBytes);
       const primary=mmioProfile.registers.find(entry=>entry.address===0xfd001804);
       const secondary=mmioProfile.registers.find(entry=>entry.address===0xfd600140);
@@ -215,6 +290,12 @@ self.onmessage = async event => {
     }
     if (profile.sections.some(s => s.address + s.virtualBytes > 0x03c00000)) throw new Error('Image overlaps boot-thread arena');
     const fileClockWindow=regularAbi?{beforeSystemTicks:clock.sample().system.toString()}:undefined;
+    if (abi >= 25) {
+      if (api.ff_probe_kernel_capture_profile(consoleSettings.kernelCaptureStart ?? 0))
+        throw new Error('Cannot configure the bounded kernel capture window');
+    } else if (consoleSettings?.kernelCaptureStart !== undefined) {
+      throw new Error('This module does not support kernel capture windows');
+    }
     let trapped = false;
     try { api.ff_probe_run(); } catch (error) {
       if (!(error instanceof WebAssembly.RuntimeError)) throw error;
@@ -234,16 +315,65 @@ self.onmessage = async event => {
     if (count < 0 || count > traceCapacity || threadCount > 4 || callCount < 0 || callCount > kernelCapacity) throw new Error('Invalid boot-proof counts');
     const words = new Uint32Array(memory, range(api.ff_probe_trace(), count * 12, 4), count * 3);
     const hasCpuTrace = typeof api.ff_probe_trace_cpu === 'function';
+    if(selectedTraceStart!==undefined) for(let i=0;i<count;i++) if(words[i*3]!==1 && words[i*3]!==2)
+      throw new Error('Selected original trace contains an unknown event kind');
     const trace = Array.from({ length: count }, (_, i) => ({ kind: words[i * 3] === 1 ? 'enter' : 'exit',
       address: words[i * 3 + 1], stack: words[i * 3 + 2], ...(hasCpuTrace ? { cpu: {
-        eax: api.ff_probe_trace_cpu(i, 0) >>> 0, fs: api.ff_probe_trace_cpu(i, 1) >>> 0,
-        exceptionHead: api.ff_probe_trace_cpu(i, 2) >>> 0 } } : {}) }));
+        eax: readTraceCpuWord(api,i,0), fs: readTraceCpuWord(api,i,1),
+        exceptionHead: readTraceCpuWord(api,i,2) } } : {}) }));
+    const traceCapture=selectedTraceStart===undefined?undefined:readTraceCapture(api,selectedTraceStart,trace);
     const state = Array.from(new Uint32Array(memory, range(api.ff_probe_state(), 64, 4), 16));
     const threads = Array.from({ length: threadCount }, (_, i) => Object.fromEntries(fields.map((key, n) => [key, api.ff_probe_thread_word(i, n) >>> 0])));
-    const calls = Array.from({ length: callCount }, (_, i) => ({ ordinal: api.ff_probe_kernel_word(i, 0),
-      status: api.ff_probe_kernel_word(i, 1) >>> 0,
-      arguments: Array.from({ length: ({ 2: 4, 255: 10, 107: 3, 113: 2, 24: 5, 149: 4, 168: 2, 184: 5, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[api.ff_probe_kernel_word(i, 0)] ?? 1 }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) }));
-    calls.forEach((call, i) => {
+    const capturedCalls = Array.from({ length: callCount }, (_, i) => {
+      const ordinal = api.ff_probe_kernel_word(i, 0);
+      const status = api.ff_probe_kernel_word(i, 1) >>> 0;
+      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 24: 5, 149: 4, 168: 2, 184: 5, 189: 4, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 221: 2, 234: 4, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
+      const length = ordinal===192 && consoleSettings?.mutants ? 3 : ordinal === 226 && status !== 1 ? 5 : count ?? 1;
+      return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
+    });
+    capturedCalls.forEach((call, i) => {
+      if(call.ordinal===221&&selectedMutantRelease)call.output={backend:selectedMutantRelease.kind,
+        ...Object.fromEntries(['handle','threadId','object','previousCount','ownerBefore','ownerAfter','eaxBefore','espBefore','eaxAfter','espAfter']
+          .map((key,n)=>[key,api.ff_probe_kernel_word(i,n+6)>>>0]))};
+      if(call.ordinal===234&&selectedMutantWait)call.output={backend:selectedMutantWait.kind,
+        ...Object.fromEntries(['handle','threadId','object','waitMode','alertable','timeout','ownerBefore','ownerAfter','eaxBefore','espBefore','eaxAfter','espAfter']
+          .map((key,n)=>[key,api.ff_probe_kernel_word(i,n+6)>>>0]))};
+      if(call.ordinal===189 && !call.status && consoleSettings?.events)call.output={
+        backend:'synthetic-win32-named-events',handle:api.ff_probe_kernel_word(i,8)>>>0,object:api.ff_probe_kernel_word(i,9)>>>0,
+        openedExisting:!!(api.ff_probe_kernel_word(i,10)>>>0),objectCount:api.ff_probe_kernel_word(i,11)>>>0,
+        handleCount:api.ff_probe_kernel_word(i,12)>>>0,eaxBefore:api.ff_probe_kernel_word(i,6)>>>0,espBefore:api.ff_probe_kernel_word(i,7)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,13)>>>0,espAfter:api.ff_probe_kernel_word(i,14)>>>0,root:api.ff_probe_kernel_word(i,15)>>>0,
+        attributes:api.ff_probe_kernel_word(i,16)>>>0,nameBytes:api.ff_probe_kernel_word(i,17)>>>0,nameDescriptor:api.ff_probe_kernel_word(i,18)>>>0,nameBuffer:api.ff_probe_kernel_word(i,19)>>>0};
+      if(call.ordinal===192 && !call.status && consoleSettings?.mutants?.kind==='synthetic-unnamed-unowned-mutants')call.output={
+        backend:'synthetic-unnamed-unowned-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,
+        created:api.ff_probe_kernel_word(i,10)>>>0,
+        eaxBefore:api.ff_probe_kernel_word(i,5)>>>0,espBefore:api.ff_probe_kernel_word(i,6)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
+      };
+      if(call.ordinal===192 && !call.status && consoleSettings?.mutants?.kind==='synthetic-win32-mutants')call.output={
+        backend:'synthetic-win32-mutants',handle:api.ff_probe_kernel_word(i,7)>>>0,object:api.ff_probe_kernel_word(i,8)>>>0,
+        openedExisting:!!(api.ff_probe_kernel_word(i,9)>>>0),objectCount:api.ff_probe_kernel_word(i,10)>>>0,
+        handleCount:api.ff_probe_kernel_word(i,11)>>>0,eaxBefore:api.ff_probe_kernel_word(i,5)>>>0,espBefore:api.ff_probe_kernel_word(i,6)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,12)>>>0,espAfter:api.ff_probe_kernel_word(i,13)>>>0,root:api.ff_probe_kernel_word(i,14)>>>0,
+        attributes:api.ff_probe_kernel_word(i,15)>>>0,nameBytes:api.ff_probe_kernel_word(i,16)>>>0,
+        nameDescriptor:api.ff_probe_kernel_word(i,17)>>>0,nameBuffer:api.ff_probe_kernel_word(i,18)>>>0};
+      if(call.ordinal===126 && !call.status)call.output={
+        backend:'synthetic-performance-counter',frequencyHz:api.ff_probe_kernel_word(i,12)>>>0,
+        interruptTicks:((BigInt(api.ff_probe_kernel_word(i,11)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,10)>>>0)).toString(),
+        counter:((BigInt(api.ff_probe_kernel_word(i,3)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,2)>>>0)).toString(),
+        polledInterruptTicks:((BigInt(api.ff_probe_kernel_word(i,14)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,13)>>>0)).toString(),
+        low:api.ff_probe_kernel_word(i,2)>>>0,high:api.ff_probe_kernel_word(i,3)>>>0,
+        eaxBefore:api.ff_probe_kernel_word(i,4)>>>0,edxBefore:api.ff_probe_kernel_word(i,5)>>>0,
+        espBefore:api.ff_probe_kernel_word(i,6)>>>0,eaxAfter:api.ff_probe_kernel_word(i,7)>>>0,
+        edxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
+      };
+      if(call.ordinal===127 && !call.status)call.output={
+        backend:'synthetic-performance-clock',frequencyHz:api.ff_probe_kernel_word(i,2)>>>0,
+        low:api.ff_probe_kernel_word(i,2)>>>0,high:api.ff_probe_kernel_word(i,3)>>>0,
+        eaxBefore:api.ff_probe_kernel_word(i,4)>>>0,edxBefore:api.ff_probe_kernel_word(i,5)>>>0,
+        espBefore:api.ff_probe_kernel_word(i,6)>>>0,eaxAfter:api.ff_probe_kernel_word(i,7)>>>0,
+        edxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
+      };
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
         call.output = {
           rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
@@ -255,6 +385,13 @@ self.onmessage = async event => {
         };
       if (call.ordinal === 24 && call.status!==0xc00000bb) call.output = { type: api.ff_probe_kernel_word(i, 7),
         value: api.ff_probe_kernel_word(i, 8) >>> 0, requiredBytes: api.ff_probe_kernel_word(i, 9) };
+      if(call.ordinal===24 && call.arguments[0]===255 && !call.status) call.output={
+        backend:'synthetic-console-os-settings',type:api.ff_probe_kernel_word(i,7)>>>0,
+        returnedBytes:api.ff_probe_kernel_word(i,9)>>>0,capacity:call.arguments[3],
+        providerSnapshotMatches:api.ff_probe_kernel_word(i,10)===1,
+        eaxBefore:api.ff_probe_kernel_word(i,11)>>>0,espBefore:api.ff_probe_kernel_word(i,12)>>>0,
+        eaxAfter:api.ff_probe_kernel_word(i,13)>>>0,espAfter:api.ff_probe_kernel_word(i,14)>>>0,
+      };
       if(call.ordinal===128 && !call.status)call.output={systemTicks:((BigInt(api.ff_probe_kernel_word(i,4)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,3)>>>0)).toString()};
       if(statisticsAbi && call.ordinal===181 && !call.status)call.output={words:Array.from({length:9},(_,n)=>api.ff_probe_kernel_word(i,n+3)>>>0),
         scope:'modeled-guest-memory-statistics'};
@@ -278,6 +415,11 @@ self.onmessage = async event => {
       if(call.ordinal===190 && regularAbi) Object.assign(call.output,{dataFiles:api.ff_probe_kernel_word(i,17),dataFilesCreated:api.ff_probe_kernel_word(i,18),dataFile:api.ff_probe_kernel_word(i,19)});
       if(call.ordinal===211 && regularAbi && !call.status) call.output={ioStatus:api.ff_probe_kernel_word(i,7),information:api.ff_probe_kernel_word(i,8),
         words:Array.from({length:14},(_,n)=>api.ff_probe_file_information_word(i,n)>>>0)};
+      if(call.ordinal===226 && !call.status) call.output={
+        ioStatus:api.ff_probe_kernel_word(i,7)>>>0,information:api.ff_probe_kernel_word(i,8)>>>0,
+        offsetWords:[api.ff_probe_kernel_word(i,9)>>>0,api.ff_probe_kernel_word(i,10)>>>0],
+        espBefore:api.ff_probe_kernel_word(i,11)>>>0,espAfter:api.ff_probe_kernel_word(i,12)>>>0,
+      };
       const diskTransfer=diskAbi && [219,236].includes(call.ordinal) && call.arguments[0]>=0x60000 && call.arguments[0]<0x70000;
       if(diskTransfer)call.output={backend:'local-synthetic-disk',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11)};
       if(diskTransfer && !call.status && call.output.information && api.ff_probe_disk_transfer_details?.()===1) {
@@ -290,7 +432,13 @@ self.onmessage = async event => {
         ioStatus:api.ff_probe_kernel_word(i,12)>>>0,information:api.ff_probe_kernel_word(i,13)>>>0,
         volume:api.ff_probe_kernel_word(i,14)>>>0,state:api.ff_probe_kernel_word(i,15)>>>0,
         references:api.ff_probe_kernel_word(i,16)>>>0,dismounts:api.ff_probe_kernel_word(i,17)>>>0};
-      if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
+      const fatxWrite=fatxAbi && call.ordinal===236 && !call.status && call.arguments[0]>=0x70000 && call.arguments[0]<0x80000;
+      if(fatxWrite) call.output={backend:'local-synthetic-fatx',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,
+        information:api.ff_probe_kernel_word(i,11)>>>0,file:api.ff_probe_kernel_word(i,12)>>>0,
+        position:api.ff_probe_kernel_word(i,13)>>>0,fileBytes:api.ff_probe_kernel_word(i,14)>>>0,
+        allocatedBytes:api.ff_probe_kernel_word(i,15)>>>0,firstCluster:api.ff_probe_kernel_word(i,17)>>>0,
+        backingMatches:api.ff_probe_kernel_word(i,18)===1,initialPosition:api.ff_probe_kernel_word(i,19)>>>0};
+      else if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
         writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
@@ -308,6 +456,22 @@ self.onmessage = async event => {
     const threadLocalStorage={base:thread.tls+4,templateBytes:profile.tls.end-profile.tls.start,zeroFillBytes:profile.tls.zeroFillBytes,
       data:Array.from(ram.slice(thread.tls+4,thread.tls+4+profile.tls.end-profile.tls.start+profile.tls.zeroFillBytes))};
     const expectedCreate = [stackTop - 28, 0, profile.stackBytes, tlsBytes, 0, REF.threadStart, 0, 0, 0, REF.systemStart];
+    const kernelCapture = readKernelCapture(api, capturedCalls);
+    const performanceCounterState=consoleSettings?.performanceCounter
+      ?readPerformanceCounterState((_index,field)=>api.ff_probe_performance_counter_word(field),consoleSettings.performanceCounter,consoleSettings.performanceClock):undefined;
+    const mutantState=consoleSettings?.mutants?.kind==='synthetic-win32-mutants'
+      ?readLocalMutantStateFromWasm((index,field)=>api.ff_probe_local_mutant_word(index,field),consoleSettings.mutants,!!selectedMutantWait)
+      :consoleSettings?.mutants?readMutantState((index,field)=>api.ff_probe_mutant_word(index,field)>>>0,consoleSettings.mutants):undefined;
+    const synchronization=selectedMutantRelease?readMutantSynchronizationStates(api,selectedMutantWait,selectedMutantRelease,mutantState):undefined;
+    const mutantWaitState=synchronization?.mutantWaitState??(selectedMutantWait?readMutantWaitState(api,selectedMutantWait,mutantState):undefined);
+    const mutantReleaseState=synchronization?.mutantReleaseState;
+    const eventState=consoleSettings?.events?readEventState((index,field)=>api.ff_probe_event_word(index,field)>>>0,consoleSettings.events):undefined;
+    const performanceClockState=consoleSettings?.performanceClock
+      ?readPerformanceClockState((index,field)=>api.ff_probe_performance_word(index,field),consoleSettings.performanceClock):undefined;
+    const timestampBoundary=typeof api.ff_probe_timestamp_boundary_word==='function' && api.ff_probe_timestamp_boundary_word(0)===1
+      ?{kind:'unmodeled-timestamp-counter',site:api.ff_probe_timestamp_boundary_word(1)>>>0,
+        attempts:api.ff_probe_timestamp_boundary_word(2)>>>0}:undefined;
+    const calls = absoluteKernelCalls(kernelCapture, capturedCalls);
     const entered = trace.filter(row => row.kind === 'enter').map(row => row.address);
     const loaderExit = trace.findIndex(row => row.kind === 'exit' && row.address === REF.entry);
     const childEnter = trace.findIndex(row => row.kind === 'enter' && row.address === REF.systemStart);
@@ -363,6 +527,7 @@ self.onmessage = async event => {
     if(reachedRegularFileRequest && expectedTlsData.length>=8) new DataView(expectedTlsData.buffer).setUint32(4,1168,true);
     const beyondThreadEntry = reachedThreadEntry || reachedTimerRequest || reachedTimerArmed;
     const checks = {
+      ...(kernelCapture ? { kernelPrefixCaptured: kernelCapture.complete } : {}),
       realThreadCreation: calls.length === (reachedPostImageSetting ? 110 : completedImageFlow ? 109 : reachedImageSectionRequest ? 103 : reachedWrittenFileHelper ? 100 : pastFileMetadataQuery ? 98 : reachedRegularFileRequest ? 97 : reachedDirectoryLink ? 22 : reachedNamespaceDependency || reachedFormatDependency ? 16 : reachedVolumeLifecycle ? 15 : reachedHeapDependency || reachedFileRequest ? 12 : reachedTimerArmed ? 9 : reachedTimerRequest ? 8 : reachedThreadEntry ? 4 : 2) && calls[0].ordinal === 255 && calls[0].status === 0 &&
         calls[0].arguments.every((n, i) => n === expectedCreate[i]) && threadCount === 1,
       closedHandleKeepsRunnableThread: calls[1]?.ordinal === 187 && calls[1].status === 0 &&
@@ -429,7 +594,7 @@ self.onmessage = async event => {
         checks.originalNextDependencyReached = (reachedNextHelper || reachedAllocation || reachedHeapDependency || reachedFileRequest || reachedVolumeLifecycle || reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest) && entered.includes(0x322ef);
       }
     }
-    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, imageFileRequest, sectionLoadRequest, imageSectionLifecycle, metadataWriteRequest, metadataFormat, localVolume, volumeAccounting, symbolicLinkRequest, objectNamespace, originalFormat;
+    let allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, createFileStopRequest, imageFileRequest, sectionLoadRequest, imageSectionLifecycle, metadataWriteRequest, metadataFormat, localVolume, volumeAccounting, symbolicLinkRequest, objectNamespace, originalFormat;
     if (typeof api.ff_probe_format_word==='function' && typeof api.ff_probe_format_byte==='function') {
       const words=Array.from({length:13},(_,i)=>api.ff_probe_format_word(i)>>>0);
       const text=(which,limit)=>{ let value=''; for(let i=0;i<limit;++i) { const byte=api.ff_probe_format_byte(which,i); if(!byte)return value;
@@ -486,7 +651,8 @@ self.onmessage = async event => {
       return true;
     };
     if (namespaceAbi && trapped && [1,9].includes(state[0]) && state[2] === 190) {
-      createFileRequest = inspectCreateFileRequest(ram,state.slice(6,15),admittedGuestRange);
+      createFileStopRequest = inspectCreateFileRequest(ram,state.slice(6,15),admittedGuestRange);
+      createFileRequest = createFileStopRequest;
     }
     const capturedCreateRequest=index=>{
       const args=calls[index].arguments, captured=Array.from({length:6},(_,n)=>api.ff_probe_create_request_word(index,n)>>>0);
@@ -599,7 +765,7 @@ self.onmessage = async event => {
       checks.nextOriginalDriveLinkReached = namespaceAbi ? (reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest) && calls[15]?.ordinal===67 && calls[15].status===0 :
         reachedVolumeLifecycle && symbolicLinkRequest?.link.name === '\\??\\D:' && symbolicLinkRequest.device.name === '\\Device\\CdRom0' && symbolicLinkRequest.serviceImplemented === false;
     }
-    if (directoryAbi) {
+    if (directoryAbi && kernelCapture?.complete !== false) {
       const first=calls[16], firstClose=calls[17], string=calls[18], title=calls[19], titleClose=calls[20], link=calls[21];
       const root=localVolume.directories.find(directory=>directory.parent===0);
       const data=localVolume.directories.find(directory=>directory.parent===root?.id && directory.name==='TDATA');
@@ -987,8 +1153,16 @@ self.onmessage = async event => {
       const fileFields=['id','mount','handle','access','share','options','references'];
       const files=Array.from({length:16},(_,i)=>Object.fromEntries(fileFields.map((key,n)=>[key,api.ff_probe_fatx_file_word(i,n)>>>0]))).filter(file=>file.id);
       if(files.length!==fileCount || files.some(file=>!file.references || !mounts.some(mount=>mount.id===file.mount)))throw new Error('Invalid FATX file lifetime');
+      const fatxCreateCalls = calls.filter(call=>call.ordinal===190 && call.status===0 &&
+        call.output?.handle>=0x70000 && call.output.handle<0x80000);
+      const createdEmptyFile = fatxCreateCalls.some(call=>call.output.information===2);
+      const reopenedFile = fatxCreateCalls.some(call=>call.arguments[7]===3 && call.output.information===1);
+      const wroteFile = calls.some(call=>call.output?.backend==='local-synthetic-fatx' && call.output.backingMatches);
       localFatx={ready:true,mountCount,fileCount,active:api.ff_probe_fatx_word(3),opened:api.ff_probe_fatx_word(4),closed:api.ff_probe_fatx_word(5),mounts,files,
-        persistent:false,scope:'backed FATX root/size; general file operations unsupported'};
+        persistent:false,scope:wroteFile?'backed FATX root/size and bounded file create/reopen/write':
+          reopenedFile?'backed FATX root/size and bounded file create/reopen':
+          createdEmptyFile?'backed FATX root/size and bounded empty-file creation':
+          'backed FATX root/size; general file operations unsupported'};
     }
     let memoryAccounting;
     if(statisticsAbi) {
@@ -999,10 +1173,10 @@ self.onmessage = async event => {
         ...(status===0?{words:Array.from({length:9},(_,n)=>api.ff_probe_memory_word(n+4)>>>0)}:{})};
     }
     let deviceRegisters;
-    if(api.ff_probe_abi()===24) {
+    if(api.ff_probe_abi()>=24) {
       deviceRegisters=createDeviceReport(api, mmioProfile);
     }
-    const claim = calls.find(call => call.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
+    const claim = calls.find(call => call?.ordinal === 168 && call.status === 0 && call.output?.baseAddress);
     let guestWritePages;
     if (typeof api.ff_probe_write_map_size === 'function') {
       const words = api.ff_probe_write_map_size() >>> 0, pages = [];
@@ -1027,6 +1201,12 @@ self.onmessage = async event => {
       memoryStatisticsRequest={pointer,suppliedLength,expectedBytes:36,
         outputWritable:admittedGuestRange(pointer,36,2),serviceImplemented:false,observation:'stopped-before-kernel-result'};
     }
+    const debugServiceState = typeof api.ff_probe_debug_service_word === 'function'
+      ? Object.fromEntries(['completed', 'service', 'bytes', 'status'].map(
+        (field, index) => [field, api.ff_probe_debug_service_word(index) >>> 0]))
+      : undefined;
+    const debugServiceWindow = selectedDebugStart === undefined ? undefined
+      : readDebugServiceWindow(api, selectedDebugStart, debugServiceState?.completed);
     let originalStartup;
     if(initializerAbi) {
       // Read the immutable selected file, not the reused live stack or a guessed catalog.
@@ -1046,19 +1226,25 @@ self.onmessage = async event => {
         cursor=returned;completed++;
       }
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
-        nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
-        completedKernelOperations:calls.filter(call=>call.status===0).length,
-        stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        nextInitializer:callbacks[completed],distinctOriginalFunctions:traceCapture?.routines.length??new Set(entered).size,
+        completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
+        stopReason:state[0]===9 && state[2]===255 && capturedCalls.at(-1)?.ordinal===255 && capturedCalls.at(-1)?.status===1?'untranslated thread callback':mutantState?.status && mutantState.status!==0x40000000?'guarded synthetic mutant creation':eventState?.status && eventState.status!==0x40000000?'guarded synthetic named-event creation':performanceCounterState?.status?'guarded synthetic performance counter':performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
+      if(traceCapture && !traceCapture.complete) {
+        originalStartup.completedInitializers=null;
+        delete originalStartup.nextInitializer;
+        originalStartup.initializerCoverage='prefix-omitted';
+      }
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,
+      ...(consoleSettings?.mutants?.kind==='synthetic-win32-mutants'?{localMutantState:mutantState}:mutantState?{mutantState}:{}),...(mutantWaitState?{mutantWaitState}:{}),...(mutantReleaseState?{mutantReleaseState}:{}),eventState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
-      sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
-      trace, traceCapacity, kernelCapacity, calls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: describeMmioExperiments(mmioProfile), avQueryWord: mmioProfile.avQueryWord, pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, pfifoConsumerState: typeof api.ff_probe_pfifo_consumer_word === 'function' && api.ff_probe_pfifo_consumer_word(0) === 1 ? { scope: 'prototype', classification: api.ff_probe_pfifo_consumer_word(2) >>> 0, get: api.ff_probe_pfifo_consumer_word(3) >>> 0, put: api.ff_probe_pfifo_consumer_word(4) >>> 0, base: api.ff_probe_pfifo_consumer_word(5) >>> 0, end: api.ff_probe_pfifo_consumer_word(6) >>> 0, wordsConsumed: api.ff_probe_pfifo_consumer_word(7) >>> 0, consumerUpdates: api.ff_probe_pfifo_consumer_word(8) >>> 0, lastHeader: api.ff_probe_pfifo_consumer_word(9) >>> 0, steps: api.ff_probe_pfifo_consumer_word(10) >>> 0, words: api.ff_probe_pfifo_consumer_word(11) >>> 0, budgetHit: api.ff_probe_pfifo_consumer_word(12) >>> 0, vmChecks: api.ff_probe_pfifo_consumer_word(13) >>> 0, releaseAttempted: api.ff_probe_pfifo_consumer_word(14) >>> 0, releaseFired: api.ff_probe_pfifo_consumer_word(15) >>> 0, releaseReason: api.ff_probe_pfifo_consumer_word(16) >>> 0, fenceVa: api.ff_probe_pfifo_consumer_word(17) >>> 0, releaseBefore: api.ff_probe_pfifo_consumer_word(18) >>> 0, releaseWritten: api.ff_probe_pfifo_consumer_word(19) >>> 0, releaseSeq: api.ff_probe_pfifo_consumer_word(20) >>> 0, drainedWords: api.ff_probe_pfifo_consumer_word(21) >>> 0 } : undefined, vblankWaitState: typeof api.ff_probe_vblank_word === 'function' && api.ff_probe_vblank_word(0) ? { calls: api.ff_probe_vblank_word(0) >>> 0, type: api.ff_probe_vblank_word(1) >>> 0, signal: api.ff_probe_vblank_word(2) >>> 0, decision: api.ff_probe_vblank_word(3) >>> 0, declared: api.ff_probe_vblank_word(4) >>> 0 } : undefined, displayModeState: typeof api.ff_probe_display_mode_word === 'function' && api.ff_probe_display_mode_word(9) === 1 ? { accepted: api.ff_probe_display_mode_word(0) >>> 0, addr: api.ff_probe_display_mode_word(1) >>> 0, step: api.ff_probe_display_mode_word(2) >>> 0, mode: api.ff_probe_display_mode_word(3) >>> 0, format: api.ff_probe_display_mode_word(4) >>> 0, pitch: api.ff_probe_display_mode_word(5) >>> 0, fb: api.ff_probe_display_mode_word(6) >>> 0, window: api.ff_probe_display_mode_word(7) >>> 0, decision: api.ff_probe_display_mode_word(8) >>> 0 } : undefined, avUnknownOptionState: typeof api.ff_probe_av_unknown_word === 'function' && api.ff_probe_av_unknown_word(0) === 1 ? { calls: api.ff_probe_av_unknown_word(1) >>> 0, handle: api.ff_probe_av_unknown_word(2) >>> 0, option: api.ff_probe_av_unknown_word(3) >>> 0, param: api.ff_probe_av_unknown_word(4) >>> 0, result: api.ff_probe_av_unknown_word(5) >>> 0, decision: api.ff_probe_av_unknown_word(6) >>> 0, written: api.ff_probe_av_unknown_word(7) >>> 0, eaxBefore: api.ff_probe_av_unknown_word(8) >>> 0, espBefore: api.ff_probe_av_unknown_word(9) >>> 0, eaxAfter: api.ff_probe_av_unknown_word(10) >>> 0, espAfter: api.ff_probe_av_unknown_word(11) >>> 0 } : undefined, avSavedDataState: typeof api.ff_probe_av_saved_word === 'function' && api.ff_probe_av_saved_word(0) === 1 ? { calls: api.ff_probe_av_saved_word(1) >>> 0, value: api.ff_probe_av_saved_word(2) >>> 0, decision: api.ff_probe_av_saved_word(3) >>> 0, eaxBefore: api.ff_probe_av_saved_word(4) >>> 0, espBefore: api.ff_probe_av_saved_word(5) >>> 0, eaxAfter: api.ff_probe_av_saved_word(6) >>> 0, espAfter: api.ff_probe_av_saved_word(7) >>> 0, priorSetter: api.ff_probe_av_saved_word(8) >>> 0 } : undefined, avNullResultState: typeof api.ff_probe_av_null_result_word === 'function' && api.ff_probe_av_null_result_word(0) === 1 ? { calls: api.ff_probe_av_null_result_word(1) >>> 0, handle: api.ff_probe_av_null_result_word(2) >>> 0, option: api.ff_probe_av_null_result_word(3) >>> 0, param: api.ff_probe_av_null_result_word(4) >>> 0, result: api.ff_probe_av_null_result_word(5) >>> 0, decision: api.ff_probe_av_null_result_word(6) >>> 0, writeBefore: api.ff_probe_av_null_result_word(7) >>> 0, writeAfter: api.ff_probe_av_null_result_word(8) >>> 0, checksumBefore: api.ff_probe_av_null_result_word(9) >>> 0, checksumAfter: api.ff_probe_av_null_result_word(10) >>> 0, eaxBefore: api.ff_probe_av_null_result_word(11) >>> 0, espBefore: api.ff_probe_av_null_result_word(12) >>> 0, eaxAfter: api.ff_probe_av_null_result_word(13) >>> 0, espAfter: api.ff_probe_av_null_result_word(14) >>> 0 } : undefined, mmFreeContiguousState: typeof api.ff_probe_mm_free_contiguous_word === 'function' && api.ff_probe_mm_free_contiguous_word(0) === 1 ? { calls: api.ff_probe_mm_free_contiguous_word(1) >>> 0, address: api.ff_probe_mm_free_contiguous_word(2) >>> 0, decision: api.ff_probe_mm_free_contiguous_word(3) >>> 0, eaxBefore: api.ff_probe_mm_free_contiguous_word(4) >>> 0, espBefore: api.ff_probe_mm_free_contiguous_word(5) >>> 0, eaxAfter: api.ff_probe_mm_free_contiguous_word(6) >>> 0, espAfter: api.ff_probe_mm_free_contiguous_word(7) >>> 0, writeBefore: api.ff_probe_mm_free_contiguous_word(8) >>> 0, writeAfter: api.ff_probe_mm_free_contiguous_word(9) >>> 0 } : undefined, guestWatchState: typeof api.ff_probe_guest_watch_word === 'function' && api.ff_probe_guest_watch_word(0) === 1 ? { address: api.ff_probe_guest_watch_word(1) >>> 0, site: api.ff_probe_guest_watch_word(2) >>> 0, count: api.ff_probe_guest_watch_word(3) >>> 0, readSite: api.ff_probe_guest_watch_word(4) >>> 0, readCount: api.ff_probe_guest_watch_word(5) >>> 0 } : undefined, destNotes: typeof api.ff_probe_dest_note_count === 'function' ? (() => { const n = api.ff_probe_dest_note_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_dest_note_word(slot*3) >>> 0, api.ff_probe_dest_note_word(slot*3+1) >>> 0, api.ff_probe_dest_note_word(slot*3+2) >>> 0]); } return out; })() : [], popEvents: typeof api.ff_probe_pop_event_count === 'function' ? (() => { const n = api.ff_probe_pop_event_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_pop_event_word(slot*5) >>> 0, api.ff_probe_pop_event_word(slot*5+1) >>> 0, api.ff_probe_pop_event_word(slot*5+2) >>> 0, api.ff_probe_pop_event_word(slot*5+3) >>> 0, api.ff_probe_pop_event_word(slot*5+4) >>> 0]); } return out; })() : [], esiEvents: typeof api.ff_probe_esi_event_count === 'function' ? (() => { const n = api.ff_probe_esi_event_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_esi_event_word(slot*3) >>> 0, api.ff_probe_esi_event_word(slot*3+1) >>> 0, api.ff_probe_esi_event_word(slot*3+2) >>> 0]); } return out; })() : [], esiArbiter: (() => { try { const active = typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1; const fieldCount = active ? api.ff_probe_site_watch_word(5) >>> 0 : 0; const fieldEsi = active ? api.ff_probe_site_watch_word(6) >>> 0 : 0; const fieldAddr = active ? api.ff_probe_site_watch_word(4) >>> 0 : 0; const ft = Array.from({length:6}, (_, i) => api.ff_probe_vm_fault_word(i)); if (!active || fieldCount < 1 || ft[4] !== 0x1FC091) return undefined; return { faultEsi: ft[5] >>> 0, fieldEsi, fieldAddr, deltaOk: ((fieldAddr - fieldEsi) >>> 0) === 0x47C, sameEsi: (ft[5] >>> 0) === fieldEsi }; } catch { return undefined; } })(), abiViolationState: typeof api.ff_probe_abi_violation_word === 'function' ? { count: api.ff_probe_abi_violation_word(0) >>> 0, first: api.ff_probe_abi_violation_word(1) >>> 0, last: api.ff_probe_abi_violation_word(2) >>> 0, esiCount: api.ff_probe_abi_violation_word(3) >>> 0, esiFirst: api.ff_probe_abi_violation_word(4) >>> 0, esiLast: api.ff_probe_abi_violation_word(5) >>> 0, espCount: api.ff_probe_abi_violation_word(6) >>> 0, espFirst: api.ff_probe_abi_violation_word(7) >>> 0, espLast: api.ff_probe_abi_violation_word(8) >>> 0 } : undefined, keDisconnectState: typeof api.ff_probe_ke_disconnect_word === 'function' && api.ff_probe_ke_disconnect_word(0) === 1 ? { calls: api.ff_probe_ke_disconnect_word(1) >>> 0, object: api.ff_probe_ke_disconnect_word(2) >>> 0, previous: api.ff_probe_ke_disconnect_word(3) >>> 0, eaxBefore: api.ff_probe_ke_disconnect_word(4) >>> 0, espBefore: api.ff_probe_ke_disconnect_word(5) >>> 0, eaxAfter: api.ff_probe_ke_disconnect_word(6) >>> 0, espAfter: api.ff_probe_ke_disconnect_word(7) >>> 0 } : undefined, siteWatchState: typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1 ? { entryAddr: api.ff_probe_site_watch_word(1) >>> 0, entryEcx: api.ff_probe_site_watch_word(2) >>> 0, entryReturn: api.ff_probe_site_watch_word(3) >>> 0, fieldAddr: api.ff_probe_site_watch_word(4) >>> 0, fieldCount: api.ff_probe_site_watch_word(5) >>> 0, fieldEsi: api.ff_probe_site_watch_word(6) >>> 0, spanEsi: [api.ff_probe_site_watch_word(7) >>> 0, api.ff_probe_site_watch_word(8) >>> 0, api.ff_probe_site_watch_word(9) >>> 0, api.ff_probe_site_watch_word(10) >>> 0], entryFs: api.ff_probe_site_watch_word(11) >>> 0, fieldFs: api.ff_probe_site_watch_word(12) >>> 0, devLastSite: api.ff_probe_site_watch_word(13) >>> 0, devLastValue: api.ff_probe_site_watch_word(14) >>> 0, devChangeCount: api.ff_probe_site_watch_word(15) >>> 0, esiChanges: typeof api.ff_probe_esi_change_count === 'function' ? (() => { const n = api.ff_probe_esi_change_count(); const c = Math.min(8, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 7; out.push([api.ff_probe_esi_change_word(slot*3) >>> 0, api.ff_probe_esi_change_word(slot*3+1) >>> 0, api.ff_probe_esi_change_word(slot*3+2) >>> 0, api.ff_probe_esi_change_word(24 + slot) >>> 0]); } return out; })() : [], entries: typeof api.ff_probe_site_entry_count === 'function' ? Array.from({length: Math.min(8, api.ff_probe_site_entry_count())}, (_, i) => [api.ff_probe_site_entry_word(i*3) >>> 0, api.ff_probe_site_entry_word(i*3+1) >>> 0, api.ff_probe_site_entry_word(i*3+2) >>> 0]) : [] } : undefined, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
-      threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
+      sourceSha256, moduleSha256, consoleSettings, ...(traceCapture?{traceCapture}:{}), ...(debugServiceWindow?{debugServiceWindow}:{}), floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
+      trace, traceCapacity, kernelCapacity, kernelCapture, calls:capturedCalls, memoryAccounting, deviceRegisters, submissionProbe, guestWritePages, memoryStatisticsRequest, kernelOperations:completedImageFlow?{completed:109,pending:reachedPostImageSetting?1:0}:undefined, pfifoProfile, experiments: [...describeMmioExperiments(mmioProfile), ...(selectedDebugStart===undefined?[]:[`debugServiceWindow:${selectedDebugStart}`]), ...(selectedMutantWait?['localMutantAcquire']:[]), ...(selectedMutantRelease?['localMutantRelease']:[])], avQueryWord: mmioProfile.avQueryWord, pcrtc: typeof api.ff_probe_pcrtc_word === 'function' && api.ff_probe_pcrtc_word(0) === 1 ? { pending: api.ff_probe_pcrtc_word(1) >>> 0, enabled: api.ff_probe_pcrtc_word(2) >>> 0, events: api.ff_probe_pcrtc_word(3) >>> 0 } : undefined, pfifoResetState: typeof api.ff_probe_pfifo_status_word === 'function' && api.ff_probe_pfifo_status_word(0) === 1 ? { scope: 'seam', cache1: api.ff_probe_pfifo_status_word(1) >>> 0, runout: api.ff_probe_pfifo_status_word(2) >>> 0, dmaPush: api.ff_probe_pfifo_status_word(3) >>> 0, consumerUpdates: api.ff_probe_pfifo_status_word(4) >>> 0, resets: api.ff_probe_pfifo_status_word(5) >>> 0 } : undefined, pfifoConsumerState: typeof api.ff_probe_pfifo_consumer_word === 'function' && api.ff_probe_pfifo_consumer_word(0) === 1 ? { scope: 'prototype', classification: api.ff_probe_pfifo_consumer_word(2) >>> 0, get: api.ff_probe_pfifo_consumer_word(3) >>> 0, put: api.ff_probe_pfifo_consumer_word(4) >>> 0, base: api.ff_probe_pfifo_consumer_word(5) >>> 0, end: api.ff_probe_pfifo_consumer_word(6) >>> 0, wordsConsumed: api.ff_probe_pfifo_consumer_word(7) >>> 0, consumerUpdates: api.ff_probe_pfifo_consumer_word(8) >>> 0, lastHeader: api.ff_probe_pfifo_consumer_word(9) >>> 0, steps: api.ff_probe_pfifo_consumer_word(10) >>> 0, words: api.ff_probe_pfifo_consumer_word(11) >>> 0, budgetHit: api.ff_probe_pfifo_consumer_word(12) >>> 0, vmChecks: api.ff_probe_pfifo_consumer_word(13) >>> 0, releaseAttempted: api.ff_probe_pfifo_consumer_word(14) >>> 0, releaseFired: api.ff_probe_pfifo_consumer_word(15) >>> 0, releaseReason: api.ff_probe_pfifo_consumer_word(16) >>> 0, fenceVa: api.ff_probe_pfifo_consumer_word(17) >>> 0, releaseBefore: api.ff_probe_pfifo_consumer_word(18) >>> 0, releaseWritten: api.ff_probe_pfifo_consumer_word(19) >>> 0, releaseSeq: api.ff_probe_pfifo_consumer_word(20) >>> 0, drainedWords: api.ff_probe_pfifo_consumer_word(21) >>> 0 } : undefined, vblankWaitState: typeof api.ff_probe_vblank_word === 'function' && api.ff_probe_vblank_word(0) ? { calls: api.ff_probe_vblank_word(0) >>> 0, type: api.ff_probe_vblank_word(1) >>> 0, signal: api.ff_probe_vblank_word(2) >>> 0, decision: api.ff_probe_vblank_word(3) >>> 0, declared: api.ff_probe_vblank_word(4) >>> 0 } : undefined, displayModeState: typeof api.ff_probe_display_mode_word === 'function' && api.ff_probe_display_mode_word(9) === 1 ? { accepted: api.ff_probe_display_mode_word(0) >>> 0, addr: api.ff_probe_display_mode_word(1) >>> 0, step: api.ff_probe_display_mode_word(2) >>> 0, mode: api.ff_probe_display_mode_word(3) >>> 0, format: api.ff_probe_display_mode_word(4) >>> 0, pitch: api.ff_probe_display_mode_word(5) >>> 0, fb: api.ff_probe_display_mode_word(6) >>> 0, window: api.ff_probe_display_mode_word(7) >>> 0, decision: api.ff_probe_display_mode_word(8) >>> 0 } : undefined, avUnknownOptionState: typeof api.ff_probe_av_unknown_word === 'function' && api.ff_probe_av_unknown_word(0) === 1 ? { calls: api.ff_probe_av_unknown_word(1) >>> 0, handle: api.ff_probe_av_unknown_word(2) >>> 0, option: api.ff_probe_av_unknown_word(3) >>> 0, param: api.ff_probe_av_unknown_word(4) >>> 0, result: api.ff_probe_av_unknown_word(5) >>> 0, decision: api.ff_probe_av_unknown_word(6) >>> 0, written: api.ff_probe_av_unknown_word(7) >>> 0, eaxBefore: api.ff_probe_av_unknown_word(8) >>> 0, espBefore: api.ff_probe_av_unknown_word(9) >>> 0, eaxAfter: api.ff_probe_av_unknown_word(10) >>> 0, espAfter: api.ff_probe_av_unknown_word(11) >>> 0 } : undefined, avSavedDataState: typeof api.ff_probe_av_saved_word === 'function' && api.ff_probe_av_saved_word(0) === 1 ? { calls: api.ff_probe_av_saved_word(1) >>> 0, value: api.ff_probe_av_saved_word(2) >>> 0, decision: api.ff_probe_av_saved_word(3) >>> 0, eaxBefore: api.ff_probe_av_saved_word(4) >>> 0, espBefore: api.ff_probe_av_saved_word(5) >>> 0, eaxAfter: api.ff_probe_av_saved_word(6) >>> 0, espAfter: api.ff_probe_av_saved_word(7) >>> 0, priorSetter: api.ff_probe_av_saved_word(8) >>> 0 } : undefined, avNullResultState: typeof api.ff_probe_av_null_result_word === 'function' && api.ff_probe_av_null_result_word(0) === 1 ? { calls: api.ff_probe_av_null_result_word(1) >>> 0, handle: api.ff_probe_av_null_result_word(2) >>> 0, option: api.ff_probe_av_null_result_word(3) >>> 0, param: api.ff_probe_av_null_result_word(4) >>> 0, result: api.ff_probe_av_null_result_word(5) >>> 0, decision: api.ff_probe_av_null_result_word(6) >>> 0, writeBefore: api.ff_probe_av_null_result_word(7) >>> 0, writeAfter: api.ff_probe_av_null_result_word(8) >>> 0, checksumBefore: api.ff_probe_av_null_result_word(9) >>> 0, checksumAfter: api.ff_probe_av_null_result_word(10) >>> 0, eaxBefore: api.ff_probe_av_null_result_word(11) >>> 0, espBefore: api.ff_probe_av_null_result_word(12) >>> 0, eaxAfter: api.ff_probe_av_null_result_word(13) >>> 0, espAfter: api.ff_probe_av_null_result_word(14) >>> 0 } : undefined, mmFreeContiguousState: typeof api.ff_probe_mm_free_contiguous_word === 'function' && api.ff_probe_mm_free_contiguous_word(0) === 1 ? { calls: api.ff_probe_mm_free_contiguous_word(1) >>> 0, address: api.ff_probe_mm_free_contiguous_word(2) >>> 0, decision: api.ff_probe_mm_free_contiguous_word(3) >>> 0, eaxBefore: api.ff_probe_mm_free_contiguous_word(4) >>> 0, espBefore: api.ff_probe_mm_free_contiguous_word(5) >>> 0, eaxAfter: api.ff_probe_mm_free_contiguous_word(6) >>> 0, espAfter: api.ff_probe_mm_free_contiguous_word(7) >>> 0, writeBefore: api.ff_probe_mm_free_contiguous_word(8) >>> 0, writeAfter: api.ff_probe_mm_free_contiguous_word(9) >>> 0 } : undefined, guestWatchState: typeof api.ff_probe_guest_watch_word === 'function' && api.ff_probe_guest_watch_word(0) === 1 ? { address: api.ff_probe_guest_watch_word(1) >>> 0, site: api.ff_probe_guest_watch_word(2) >>> 0, count: api.ff_probe_guest_watch_word(3) >>> 0, readSite: api.ff_probe_guest_watch_word(4) >>> 0, readCount: api.ff_probe_guest_watch_word(5) >>> 0 } : undefined, destNotes: typeof api.ff_probe_dest_note_count === 'function' ? (() => { const n = api.ff_probe_dest_note_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_dest_note_word(slot*3) >>> 0, api.ff_probe_dest_note_word(slot*3+1) >>> 0, api.ff_probe_dest_note_word(slot*3+2) >>> 0]); } return out; })() : [], popEvents: typeof api.ff_probe_pop_event_count === 'function' ? (() => { const n = api.ff_probe_pop_event_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_pop_event_word(slot*5) >>> 0, api.ff_probe_pop_event_word(slot*5+1) >>> 0, api.ff_probe_pop_event_word(slot*5+2) >>> 0, api.ff_probe_pop_event_word(slot*5+3) >>> 0, api.ff_probe_pop_event_word(slot*5+4) >>> 0]); } return out; })() : [], esiEvents: typeof api.ff_probe_esi_event_count === 'function' ? (() => { const n = api.ff_probe_esi_event_count(); const c = Math.min(16, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 15; out.push([api.ff_probe_esi_event_word(slot*3) >>> 0, api.ff_probe_esi_event_word(slot*3+1) >>> 0, api.ff_probe_esi_event_word(slot*3+2) >>> 0]); } return out; })() : [], esiArbiter: (() => { try { const active = typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1; const fieldCount = active ? api.ff_probe_site_watch_word(5) >>> 0 : 0; const fieldEsi = active ? api.ff_probe_site_watch_word(6) >>> 0 : 0; const fieldAddr = active ? api.ff_probe_site_watch_word(4) >>> 0 : 0; const ft = Array.from({length:6}, (_, i) => api.ff_probe_vm_fault_word(i)); if (!active || fieldCount < 1 || ft[4] !== 0x1FC091) return undefined; return { faultEsi: ft[5] >>> 0, fieldEsi, fieldAddr, deltaOk: ((fieldAddr - fieldEsi) >>> 0) === 0x47C, sameEsi: (ft[5] >>> 0) === fieldEsi }; } catch { return undefined; } })(), abiViolationState: typeof api.ff_probe_abi_violation_word === 'function' ? { count: api.ff_probe_abi_violation_word(0) >>> 0, first: api.ff_probe_abi_violation_word(1) >>> 0, last: api.ff_probe_abi_violation_word(2) >>> 0, esiCount: api.ff_probe_abi_violation_word(3) >>> 0, esiFirst: api.ff_probe_abi_violation_word(4) >>> 0, esiLast: api.ff_probe_abi_violation_word(5) >>> 0, espCount: api.ff_probe_abi_violation_word(6) >>> 0, espFirst: api.ff_probe_abi_violation_word(7) >>> 0, espLast: api.ff_probe_abi_violation_word(8) >>> 0 } : undefined, keDisconnectState: typeof api.ff_probe_ke_disconnect_word === 'function' && api.ff_probe_ke_disconnect_word(0) === 1 ? { calls: api.ff_probe_ke_disconnect_word(1) >>> 0, object: api.ff_probe_ke_disconnect_word(2) >>> 0, previous: api.ff_probe_ke_disconnect_word(3) >>> 0, eaxBefore: api.ff_probe_ke_disconnect_word(4) >>> 0, espBefore: api.ff_probe_ke_disconnect_word(5) >>> 0, eaxAfter: api.ff_probe_ke_disconnect_word(6) >>> 0, espAfter: api.ff_probe_ke_disconnect_word(7) >>> 0 } : undefined, siteWatchState: typeof api.ff_probe_site_watch_word === 'function' && api.ff_probe_site_watch_word(0) === 1 ? { entryAddr: api.ff_probe_site_watch_word(1) >>> 0, entryEcx: api.ff_probe_site_watch_word(2) >>> 0, entryReturn: api.ff_probe_site_watch_word(3) >>> 0, fieldAddr: api.ff_probe_site_watch_word(4) >>> 0, fieldCount: api.ff_probe_site_watch_word(5) >>> 0, fieldEsi: api.ff_probe_site_watch_word(6) >>> 0, spanEsi: [api.ff_probe_site_watch_word(7) >>> 0, api.ff_probe_site_watch_word(8) >>> 0, api.ff_probe_site_watch_word(9) >>> 0, api.ff_probe_site_watch_word(10) >>> 0], entryFs: api.ff_probe_site_watch_word(11) >>> 0, fieldFs: api.ff_probe_site_watch_word(12) >>> 0, devLastSite: api.ff_probe_site_watch_word(13) >>> 0, devLastValue: api.ff_probe_site_watch_word(14) >>> 0, devChangeCount: api.ff_probe_site_watch_word(15) >>> 0, esiChanges: typeof api.ff_probe_esi_change_count === 'function' ? (() => { const n = api.ff_probe_esi_change_count(); const c = Math.min(8, n); const out = []; for (let k = 0; k < c; k++) { const slot = (n - c + k) & 7; out.push([api.ff_probe_esi_change_word(slot*3) >>> 0, api.ff_probe_esi_change_word(slot*3+1) >>> 0, api.ff_probe_esi_change_word(slot*3+2) >>> 0, api.ff_probe_esi_change_word(24 + slot) >>> 0]); } return out; })() : [], entries: typeof api.ff_probe_site_entry_count === 'function' ? Array.from({length: Math.min(8, api.ff_probe_site_entry_count())}, (_, i) => [api.ff_probe_site_entry_word(i*3) >>> 0, api.ff_probe_site_entry_word(i*3+1) >>> 0, api.ff_probe_site_entry_word(i*3+2) >>> 0]) : [] } : undefined, timerCheck: typeof api.ff_probe_timer_check === 'function' ? api.ff_probe_timer_check() : undefined, dpcHead: typeof api.ff_probe_dpc_head === 'function' ? api.ff_probe_dpc_head() : undefined, dpcHeadValue: typeof api.ff_probe_dpc_head_value === 'function' ? api.ff_probe_dpc_head_value() : undefined, timerHead: typeof api.ff_probe_timer_head === 'function' ? api.ff_probe_timer_head() : undefined, timerHeadValue: typeof api.ff_probe_timer_head_value === 'function' ? api.ff_probe_timer_head_value() : undefined, dpcObjectWords: typeof api.ff_probe_dpc_head_value === 'function' && api.ff_probe_guest_word && api.ff_probe_dpc_head_value() ? Array.from({length:8},(_,i)=>api.ff_probe_guest_word(api.ff_probe_dpc_head_value()+i*4)) : undefined,
+      threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, createFileStopRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16), service: state[0] === 1 ? describeKernelService(state[2]) : undefined },
       gameBooted: false, memoryBytes: memory.byteLength,
       limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });
