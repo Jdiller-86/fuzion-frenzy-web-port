@@ -11,7 +11,7 @@
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
 import { validateKernelCapture } from './kernel-capture.mjs';
 import { encodeConsoleOsSettings } from './console-os-settings.mjs';
-import { parseSystemClockProfile, parseClockPauseProfile } from './browser-clock.mjs';
+import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicClockProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
 
@@ -35,6 +35,34 @@ export function validateProofReport(report) {
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
   const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
   const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
+  const selectedDeterministic=parseDeterministicClockProfile(report.consoleSettings?.deterministicClock);
+  const declaredDeterministic=parseDeterministicClockProfile(report.clock?.deterministicProfile);
+  const liveClock=report.clock?.kind==='browser-clock' && report.clock.monotonic==='performance.now';
+  if((selectedDeterministic===undefined)!==(declaredDeterministic===undefined) ||
+     !selectedDeterministic && (report.clock?.deterministicState!==undefined || report.clock?.kind==='synthetic-clock'))
+    throw new Error('Deterministic clock evidence requires its explicitly selected profile');
+  let deterministicTick;
+  if(selectedDeterministic) {
+    const p=selectedDeterministic, clock=report.clock, state=clock?.deterministicState;
+    if(!selectedClock || report.consoleSettings?.clockPause!==undefined || clock?.pauseProfile!==undefined || clock?.pauseState!==undefined ||
+       Object.keys(p).some(key=>p[key]!==declaredDeterministic[key]) ||
+       clock.kind!=='synthetic-clock' || clock.monotonic!=='configured deterministic 100ns ticks' ||
+       !bounded(clock.samples,16384) || !state || Object.keys(state).length!==2 ||
+       !Object.hasOwn(state,'capacity') || !Object.hasOwn(state,'lastInterruptTicks') || state.capacity!==16384)
+      throw new Error('Malformed or inconsistent deterministic clock evidence');
+    const tick=n=>BigInt(n)*BigInt(p.stepTicks)+(n>=p.jumpBeforeSample?BigInt(p.jumpTicks):0n);
+    if(state.lastInterruptTicks!==(clock.samples?tick(clock.samples).toString():null) ||
+       clock.minimumObservedPositiveTicks!==(clock.samples?(clock.samples===1&&p.jumpBeforeSample===1?tick(1):BigInt(p.stepTicks)).toString():null))
+      throw new Error('Deterministic clock sample state does not match its exact arithmetic');
+    deterministicTick=value=>{
+      if(typeof value!=='string' || value.length>20 || !/^(0|[1-9][0-9]*)$/.test(value))return false;
+      const t=BigInt(value),step=BigInt(p.stepTicks),jump=BigInt(p.jumpTicks);
+      const before=t%step===0n?t/step:0n,after=t>=jump&&(t-jump)%step===0n?(t-jump)/step:0n;
+      return before>=1n&&before<BigInt(p.jumpBeforeSample)&&before<=BigInt(clock.samples) ||
+        after>=BigInt(p.jumpBeforeSample)&&after<=BigInt(clock.samples);
+    };
+  }
+  const acceptedClock=selectedDeterministic ? true : liveClock;
   const selectedPause=parseClockPauseProfile(report.consoleSettings?.clockPause);
   const declaredPause=parseClockPauseProfile(report.clock?.pauseProfile);
   if((selectedPause===undefined)!==(declaredPause===undefined) ||
@@ -57,11 +85,15 @@ export function validateProofReport(report) {
     }
   }
   const selectedPerformance=parsePerformanceClockProfile(report.consoleSettings?.performanceClock);
+  if(selectedPerformance && selectedPerformance.source!==(selectedDeterministic?'synthetic-deterministic-100ns':'browser-monotonic-100ns'))
+    throw new Error('Performance clock source must match its explicitly selected clock');
   const selectedCounter=parsePerformanceCounterProfile(report.consoleSettings?.performanceCounter);
   if((selectedCounter===undefined)!==(report.performanceCounterState===undefined))
     throw new Error('Performance counter evidence requires its explicit profile and state');
   const counterState=selectedCounter?validatePerformanceCounterState(report.performanceCounterState,selectedCounter,selectedPerformance):undefined;
   if(counterState) {
+    if(deterministicTick && counterState.count && !deterministicTick(counterState.lastTicks))
+      throw new Error('Counter state is outside the deterministic sample sequence');
     if(!Array.isArray(report.calls) || counterState.status===4 && counterState.count!==64)
       throw new Error('Performance counter requires bounded captured calls');
     const accepted=report.calls.filter(call=>call.ordinal===126 && call.status===0);
@@ -76,11 +108,13 @@ export function validateProofReport(report) {
     throw new Error('Performance clock evidence requires its explicitly selected profile and state');
   if(selectedPerformance) {
     const state=validatePerformanceClockState(report.performanceClockState,selectedPerformance);
-    if(!Array.isArray(report.calls) || report.clock?.kind!=='browser-clock' || report.clock.monotonic!=='performance.now' ||
+    if(!Array.isArray(report.calls) || !acceptedClock ||
        report.timestampBoundary!==undefined || state.frequencyQueries>1024 ||
        state.status===0 && state.lastSite!==(state.samples.at(-1)?.site??0) ||
        state.status===4 && state.samples.length!==64)
       throw new Error('Performance clock evidence must retain its bounded clock and sample observations');
+    if(deterministicTick && state.samples.some(sample=>!deterministicTick(sample.interruptTicks)))
+      throw new Error('Performance clock sample is outside the deterministic sequence');
     const queries=report.calls.filter(call=>call.ordinal===127 && call.status===0).length;
     if(state.frequencyQueries<queries || (!report.kernelCapture || report.kernelCapture.complete) && state.frequencyQueries!==queries)
       throw new Error('Performance clock frequency-query count does not match captured evidence');
@@ -91,9 +125,9 @@ export function validateProofReport(report) {
   if((selectedClock===undefined)!==(declaredClock===undefined) ||
      report.clock?.system==='configured synthetic fixed Unix time; UTC epoch 1601' && declaredClock===undefined ||
      selectedClock && (selectedClock.unixMillis!==declaredClock.unixMillis ||
-       !Array.isArray(report.calls) || report.clock.kind!=='browser-clock' ||
+       !Array.isArray(report.calls) || !acceptedClock ||
        report.clock.system!=='configured synthetic fixed Unix time; UTC epoch 1601' ||
-       report.clock.monotonic!=='performance.now'))
+       selectedDeterministic===undefined && report.clock.monotonic!=='performance.now'))
     throw new Error('Fixed system clock evidence must match the explicitly selected synthetic profile');
   if(report.consoleSettings?.osSettings!==undefined) {
     encodeConsoleOsSettings(report.consoleSettings.osSettings);
@@ -499,6 +533,8 @@ export function validateProofReport(report) {
           validatePerformanceCounterState({...selectedCounter,frequencyHz:out.frequencyHz,count:1,capacity:64,status:0,
             lastTicks:out.interruptTicks,lastCounter:out.counter},selectedCounter,selectedPerformance);
           const ticks=BigInt(out.interruptTicks);
+          if(deterministicTick && (!deterministicTick(out.interruptTicks) || !deterministicTick(out.polledInterruptTicks)))
+            throw new Error('Counter call is outside the deterministic clock sample sequence');
           if(typeof out.polledInterruptTicks!=='string' || out.polledInterruptTicks.length>20 || !/^(0|[1-9][0-9]*)$/.test(out.polledInterruptTicks) ||
              BigInt(out.polledInterruptTicks)>ticks || ticks<previousCounterTicks || BigInt(out.counter)!==((BigInt(out.high)<<32n)|BigInt(out.low)))
             throw new Error('Performance counter samples require ordered ticks and exact return words');

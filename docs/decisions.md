@@ -25,6 +25,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D460 | Serve the first bounded FATX file write | Admit the synchronous first write at zero on the current owned empty entry, limited to one cluster. Reuse transactional sparse allocation preflight, preserve non-extent entry bytes and report metadata plus backing equality without exposing payload. |
 | D461 | Admit the reached write cleanup direct entry | A third fixed opt-in validates the existing owner envelope, sole original call and four-instruction stack shape at `0x001E562A`. Charge the existing budgets and keep the entry outside indirect lookup. |
 | D462 | Reopen and append within the reached FATX extent | Validate the single-cluster entry and backed FAT end marker, preserve sparse-zero reads, report the actual extent and admit seeks within it. Append only at EOF within that cluster, preflight both stores and update cursor and revisions after success. |
+| D463 | Separate deterministic clock inputs from live startup evidence | Same-module live calibration changes numeric values and carry branches. Keep those observations, and use a default-off, bounded step/jump clock with fixed system time for exact regression comparisons. Reports declare synthetic input and validate clock/source arithmetic; no elapsed-time or original-console timing claim follows. Preserve live profiles, measured waits, resource caps and independent correctness review. |
 
 ## Contracts that remain in force
 

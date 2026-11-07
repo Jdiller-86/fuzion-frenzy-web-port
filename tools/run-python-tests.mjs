@@ -27,6 +27,7 @@ const suites = [
   'tests/timestamp_counter_guard_test.py',
   'tests/performance_clock_bridge_test.py',
   'tests/performance_counter_bridge_test.py',
+  'tests/boundary_stack_snapshot_test.py',
 ];
 
 function probe(command, prefix) {

@@ -1,6 +1,6 @@
-# Project status: startup advances through formatting helpers
+# Project status: startup reaches decimal output formatting
 
-Observed November 7, 2026 in Chrome 156.0.8078.80 on Windows. With explicit synthetic paired performance services and a measured one-shot browser wait, original startup now reaches **status 2 at untranslated routine `0x001E8015`**, return address `0x001E69BF`, with 417 distinct routines and 608 completed kernel operations. Two counter queries and both checked timestamp instructions execute. The comparison profile retains synthetic UTC OS settings, fixed system time and live monotonic timing. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 7, 2026 in Chrome 156.0.8078.80 on Windows. With explicit synthetic paired performance services and a measured one-shot browser wait, original startup now reaches **status 2 at untranslated routine `0x001E1587`**, return address `0x001E1677`, with 424 distinct routines and 608 completed kernel operations. Two counter queries and both checked timestamp instructions execute. Live runs retain synthetic UTC OS settings, fixed system time and live monotonic timing. A separately declared deterministic clock fixture supplies exact regression comparisons; it measures no elapsed time. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -293,5 +293,29 @@ The first admission binds the actual indirect stop to its matching source/module
 Each fresh Chrome triple retained control/inert boundaries and stable sequences, the experiment's preceding trace/entry prefixes, all 97 kernel call frames and capture/backend observations. The final report contains 7,195 trace events and 3,622 original-entry events, with 609 total kernel events and the same prefix digest. A fresh final repeat preserves those stable observations and the new stop boundary. Three EAX observations retain the already proved live-calibration variation; two packed argument words at the final stop match the recorded calibration value's original binary64-to-extended conversion. The full CPU/argument values are not an exact-repeat claim. A direct final candidate-module control matches the earlier candidate control. Two pinned-compiler builds reproduce the 1,116,169-byte final module.
 
 The final module's two recorded waits were 514.255 and 509.4049 ms for the declared 500 ms request. That measured overshoot and its calibration effect remain explicit. Independent Sol High review passed all four admissions and browser comparisons. The unchanged source-owned runtime retains its 247/247 runtime, 9/9 evidence-suite and 64/64 native results; preparation/publication checks and the 17-file source-only build passed. An older generated build tree using retired paths was preserved locally before rebuilding. CI remains pending. The next task is inspection and bounded admission of the newly reached `0x001E8015`, preserving the declared clock inputs, indirect-entry provenance and all existing guards.
+
+## Numeric helpers and exact comparison inputs
+
+Seven further reached admissions retain original-byte, decoder, complete-layout, checked-memory and fixed-resource guards:
+
+| Admission | Prepared seeds + views / instructions | Module SHA-256 prefix | Next stop |
+| --- | --- | --- | --- |
+| `0x001E8015` | 456 + 3 / 21,454 | `c852164f` | `0x001E86F9` |
+| `0x001E86F9` | 457 + 3 / 21,504 | `e09e2190` | `0x001E84D7` |
+| `0x001E84D7` | 458 + 3 / 21,682 | `c0f10f3e` | `0x001E7E6D` |
+| `0x001E7E6D` | 459 + 3 / 21,697 | `380c8b79` | `0x001E7EEC` |
+| `0x001E7EEC` | 460 + 3 / 21,718 | `cc0946da` | `0x001E7E8E` |
+| `0x001E7E8E` | 461 + 3 / 21,756 | `3e0acf68` | `0x001E6856` |
+| `0x001E6856` | 462 + 3 / 21,818 | `3f519bf7` | `0x001E1587` |
+
+Each retains every prior admitted body, three checked direct views, 31 seed exports, bindings, timestamp sites, decoder normalizations and admission limits. Independent review covers packed accesses, call cleanup, register saves, flag snapshots, bounded shifts and unsigned carry propagation. Generated title code and raw findings remain private.
+
+A strict comparison initially failed on later numeric values. Read-only Chrome debugger witnesses bind the first 15 limb additions to published owned-stack call boundaries. Independent integer arithmetic predicts their products and carries from the recorded calibration and matching XBE constants under the existing positive-normal binary64 model. Five retained reports pass the bounded oracle; malformed identities, counters, frames, traces and stores reject. A source-owned getter exposes only published ESP/EBP globals and changes no guest state. Its compiled fixture passes; standard modules omit that optional diagnostic export. Debugger scheduling differs from ordinary runs, and these fresh observations do not claim historical RAM evidence or original extended-precision fidelity.
+
+A subsequent same-module live repeat reaches the same guard but takes different carry branches (7,524 versus 7,520 trace rows). These raw observations remain retained; full live CPU/trace identity is not claimed. The separate, default-off deterministic fixture addresses exact regression comparisons without normalizing later branches. Its explicit profile declares a positive tick step and one jump, requires fixed system time, excludes a measured browser pause and refuses after 16,384 samples. It allocates no journal and changes no Wasm import or C service. Its report identifies synthetic clock input, validates sample arithmetic and paired-service source identity, and cannot claim measured elapsed time. The selected comparison uses one 100 ns tick per sample and a 5,000,000-tick jump before sample 4,183. Existing live-clock behavior and the measured pause remain unchanged.
+
+Both modes reach the new guard at `0x001E1587`, return `0x001E1677`, with 424 routines and 608 completed kernel operations. The deterministic report contains 7,530 traces, 3,789 original-entry events, 97 suffix call rows and 609 total kernel events. The first-window digest and FATX EOF 210/revision 83 remain unchanged. Its repeat is identical across the entire report, including CPU values, stop arguments and outputs. The last two deterministic admissions preserve the preceding full CPU trace and all captured kernel outputs exactly, without normalization. The final live run retains 7,528 traces and measures 508.3551 ms for the requested 500 ms wait; its variable numeric arguments remain separate.
+
+Independent Sol High review passed the fixture and admissions. Two pinned-compiler builds reproduce the 1,141,068-byte final module. Runtime checks pass 256/256, Python evidence suites 10/10, preparation/publication checks and the 17-file source-only build pass. The retained 64/64 native component result covers unchanged component code; original title execution stays in Chrome. Local Node 24.22.1/npm 11.19.1 differ from the pinned CI versions, and CI remains pending. The next dependency is inspection and bounded admission of `0x001E1587`; retain exact synthetic comparisons and separate live-clock execution evidence.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

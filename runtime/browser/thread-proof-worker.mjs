@@ -31,7 +31,8 @@ self.onmessage = async event => {
   try {
     const selectedClockSettings=event.data.settingsBytes?parseLocalConsoleSettings(event.data.settingsBytes):undefined;
     const selectedClock=selectedClockSettings?.systemClock;
-    const clock = createProofClock({fixedSystemProfile:selectedClock,pauseProfile:selectedClockSettings?.clockPause});
+    const clock = createProofClock({fixedSystemProfile:selectedClock,pauseProfile:selectedClockSettings?.clockPause,
+      deterministicProfile:selectedClockSettings?.deterministicClock});
     const { api, memory, range, view, ram, profile, imageInitialState, sourceSha256, moduleSha256, stackTop } =
       await loadLocalTitleProof(event.data, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], ['thread_count','parent_returned','kernel_count','kernel_word','thread_word'], { clock });
     const timerAbi = api.ff_probe_abi() >= 4, memoryAbi = api.ff_probe_abi() >= 5, volumeAbi = api.ff_probe_abi() >= 6, namespaceAbi = api.ff_probe_abi() >= 7;

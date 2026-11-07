@@ -1,7 +1,7 @@
 import { readXbeProfile } from '../../host/xbe.mjs';
 import { inspectProofWasm } from './wasm-proof.mjs';
 import { parseConsoleOsSettings } from './console-os-settings.mjs';
-import { parseSystemClockProfile, parseClockPauseProfile } from './browser-clock.mjs';
+import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicClockProfile } from './browser-clock.mjs';
 import { parsePerformanceClockProfile } from './performance-clock.mjs';
 import { parsePerformanceCounterProfile } from './performance-counter.mjs';
 
@@ -29,10 +29,16 @@ export function parseLocalConsoleSettings(buffer) {
     throw new Error('Select kernel capture start 0 or 512');
   const systemClock=parseSystemClockProfile(profile.systemClock);
   const clockPause=parseClockPauseProfile(profile.clockPause);
+  const deterministicClock=parseDeterministicClockProfile(profile.deterministicClock);
+  if(deterministicClock && (!systemClock || clockPause))
+    throw new Error('Deterministic clock requires fixed system time and excludes a browser clock pause');
   const performanceClock=parsePerformanceClockProfile(profile.performanceClock);
+  if(performanceClock && performanceClock.source!==(deterministicClock?'synthetic-deterministic-100ns':'browser-monotonic-100ns'))
+    throw new Error('Performance clock source must match the selected deterministic or browser clock');
   const performanceCounter=parsePerformanceCounterProfile(profile.performanceCounter);
   if(performanceCounter && !performanceClock)throw new Error('Performance counter requires the paired performance clock profile');
   return { kind: profile.kind, synthetic: true, miscFlags: profile.miscFlags,
+    ...(deterministicClock===undefined?{}:{deterministicClock}),
     ...(clockPause===undefined?{}:{clockPause}),
     ...(performanceCounter===undefined?{}:{performanceCounter}),
     ...(performanceClock===undefined?{}:{performanceClock}),

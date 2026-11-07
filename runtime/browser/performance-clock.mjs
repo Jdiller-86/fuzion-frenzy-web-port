@@ -13,12 +13,12 @@ export function parsePerformanceClockProfile(value) {
       !Object.hasOwn(value, 'frequencyHz') || !Object.hasOwn(value, 'source') || !Object.hasOwn(value, 'origin') ||
       value.kind !== 'synthetic-performance-clock' || value.synthetic !== true ||
       !Number.isInteger(value.frequencyHz) || value.frequencyHz < 1 || value.frequencyHz > 1_000_000_000 ||
-      value.source !== 'browser-monotonic-100ns' || value.origin !== 'proof-clock-zero') {
+      !['browser-monotonic-100ns','synthetic-deterministic-100ns'].includes(value.source) || value.origin !== 'proof-clock-zero') {
     throw new Error('Invalid synthetic performance clock profile');
   }
   return {
     kind: 'synthetic-performance-clock', synthetic: true, frequencyHz: value.frequencyHz,
-    source: 'browser-monotonic-100ns', origin: 'proof-clock-zero'
+    source: value.source, origin: 'proof-clock-zero'
   };
 }
 

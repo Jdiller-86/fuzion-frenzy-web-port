@@ -2982,6 +2982,13 @@ uint32_t ff_probe_guest_word(uint32_t address)
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
     return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
 }
+/* Read-only diagnostic globals. Consumers must bind these to a published call
+ * boundary; arbitrary translated points may retain a local frame value. This
+ * is not a full CPU or pre-instruction snapshot. */
+uint32_t ff_probe_boundary_stack_word(uint32_t field)
+{
+    return field==0u?g_esp:field==1u?g_ebp:0u;
+}
 uint32_t ff_probe_binding_count(void) { return FF_KERNEL_BINDING_COUNT; }
 uint32_t ff_probe_binding_slot(uint32_t i) { return i < FF_KERNEL_BINDING_COUNT ? bindings[i].slot : 0; }
 uint32_t ff_probe_binding_ordinal(uint32_t i) { return i < FF_KERNEL_BINDING_COUNT ? bindings[i].ordinal : 0; }
