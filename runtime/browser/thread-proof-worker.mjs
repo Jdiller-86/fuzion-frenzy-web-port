@@ -1031,6 +1031,10 @@ self.onmessage = async event => {
       memoryStatisticsRequest={pointer,suppliedLength,expectedBytes:36,
         outputWritable:admittedGuestRange(pointer,36,2),serviceImplemented:false,observation:'stopped-before-kernel-result'};
     }
+    const debugServiceState = typeof api.ff_probe_debug_service_word === 'function'
+      ? Object.fromEntries(['completed', 'service', 'bytes', 'status'].map(
+        (field, index) => [field, api.ff_probe_debug_service_word(index) >>> 0]))
+      : undefined;
     let originalStartup;
     if(initializerAbi) {
       // Read the immutable selected file, not the reused live stack or a guessed catalog.
@@ -1052,12 +1056,12 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:calls.filter(call=>call.status===0).length,
-        stopReason:state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,

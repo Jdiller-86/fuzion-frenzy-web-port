@@ -15,6 +15,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D450 | Persist the agreed local session agent structure | Project-local defaults select Sol High and up to two Luna Low workers; repository instructions define ownership, review and task boundaries. Verify model access and actual execution on each local client. Active sessions, global settings, private-input gates and unattended scheduling remain separate. |
 | D451 | Route the reached DOS-drive create through the mounted FATX provider | Chrome observed ordinal 190 with disposition 5 and a title-created link to the mounted synthetic utility partition. Admit the missing-file case in its owned single-cluster root. Guard existing targets and other file operations until their behavior is established. |
 | D452 | Keep one original envelope for the reached CRT cleanup entry | The direct call at `0x001E4DC2` reaches an eight-byte entry already checked inside `0x001E4D58`. The opt-in emitter validates its single caller and stack shape, charges the extra emission to the existing budgets, and excludes it from indirect lookup. |
+| D453 | Serve the reached debug print with checked metadata only | The opt-in INT `0x2D` handler validates service 1 and the counted guest ranges, admits up to eight requests, and leaves guest state untouched. Chrome completed one 43-byte request before the file reopen stop. |
 
 ## Contracts that remain in force
 

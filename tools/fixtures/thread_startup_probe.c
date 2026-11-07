@@ -561,6 +561,13 @@ static ff_guest_write_map guest_write_map;
 static uint32_t vm_ready, vm_access_count, vm_fault[6];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
 #endif
+#ifdef FF_DEBUG_SERVICE_PROOF
+#if !defined(FF_VM_PROOF) || !defined(FF_DIRECTORY_PROOF)
+#error Debug service requires checked guest memory and counted strings
+#endif
+#define FF_DEBUG_SERVICE_CAPACITY 8u
+static uint32_t debug_service_state[4]; /* completed, service, length, status */
+#endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
 #error Section loading requires checked memory and real file writes
@@ -646,6 +653,24 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
+#ifdef FF_DEBUG_SERVICE_PROOF
+void recomp_debug_service(uint32_t service, uint32_t argument)
+{
+    uint32_t length = 0;
+    const uint32_t status = vm_ready && service == 1u && debug_service_state[0] < FF_DEBUG_SERVICE_CAPACITY
+        ? ff_debug_ansi_length(&virtual_memory, argument, &length)
+        : FF_BOOT_UNSUPPORTED;
+    debug_service_state[1] = service;
+    debug_service_state[2] = length;
+    debug_service_state[3] = status;
+    if (status) stop(9, status, 0);
+    ++debug_service_state[0];
+}
+uint32_t ff_probe_debug_service_word(uint32_t field)
+{
+    return field < 4u ? debug_service_state[field] : 0;
+}
+#endif
 #ifdef FF_PFIFO_PROOF
 static ff_pfifo_channel pfifo_profile_channel;
 static uint32_t pfifo_profile_ready;
@@ -2690,6 +2715,9 @@ void ff_probe_reset(void)
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
+#ifdef FF_DEBUG_SERVICE_PROOF
+    memset(debug_service_state, 0, sizeof debug_service_state);
+#endif
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;

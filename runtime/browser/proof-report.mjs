@@ -347,6 +347,15 @@ export function validateProofReport(report) {
     if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast) || !integer(a.espCount) || !integer(a.espFirst) || !integer(a.espLast))
       throw new Error('Malformed ABI-violation state');
   }
+  if (report.debugServiceState !== undefined) {
+    const d = report.debugServiceState;
+    if (!d || Object.keys(d).length !== 4 || !integer(d.completed) || d.completed > 8 || !integer(d.service) ||
+        !integer(d.bytes) || d.bytes > 1024 || ![0, 0xc0000005, 0xc000000d, 0xc00000bb].includes(d.status))
+      throw new Error('Malformed bounded debug-service state');
+    if (d.status ? (stop.status !== 9 || stop.ordinal !== 0 || stop.target !== d.status || d.bytes !== 0)
+      : (d.completed ? d.service !== 1 : d.service !== 0 || d.bytes !== 0))
+      throw new Error('Debug-service state differs from the guarded result');
+  }
   /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
    * the +0x47C field address. Diagnostic only, never a service model. */
   const claimsSiteWatch = experiments.includes('siteWatch');

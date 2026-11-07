@@ -1,6 +1,6 @@
-# Project status: startup reaches `0x001E041F`
+# Project status: startup reaches the debug-log reopen
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment returned through the CRT debug-log close path and entered `0x0004B230`, reaching **status 2 at `0x001E041F`** with return address `0x0004B2B8`, 382 distinct routines and 450 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed one guarded INT `0x2D` print request and reached **status 9 at ordinal 190 (`NtCreateFile`), value `0xC00000BB`**, with return address `0x001E950C`, 384 distinct routines and 457 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -52,6 +52,8 @@ Fresh Chrome comparisons preserved the fixed control and inert stop objects and 
 | Admit the direct entry at `0x001E4DCF` | 499 + 1 direct entry / 20,547 | `e9c8e3aa` | Status 2 at `0x001DFECE`, return `0x001DFEC9` | 380 / 449 |
 | Admit `0x001DFECE` | 500 + 1 direct entry / 20,551 | `752ada81` | Status 2 at `0x0004B230`, return `0x0004B4A1` | 381 / 450 |
 | Admit `0x0004B230` | 501 + 1 direct entry / 20,659 | `1296fa86` | Status 2 at `0x001E041F`, return `0x0004B2B8` | 382 / 450 |
+| Admit `0x001E041F` | 502 + 1 direct entry / 20,694 | `41d1f423` | Status 2 at `0x00031227`, return `0x0004B2D3` | 383 / 450 |
+| Admit `0x00031227` and guard INT `0x2D` | 503 + 1 direct entry / 20,714 | `e756b0ce` | Status 9, ordinal 190, value `0xC00000BB`, return `0x001E950C` | 384 / 457 |
 
 Read-only Ghidra exports added one established routine per batch. When the cumulative seed group reached 32 entries, later exports were appended to a group with room. Existing rows and the 32-export, 512-function and 32,768-instruction limits were preserved. The initial `0x001E4D58` export failed the complete-layout guard on three undefined bytes. The matching XBE's exception scope record points to that address. Bounded read-only disassembly established one handler instruction, preserved all 46 prior rows and passed the existing byte, decoder, layout and memory checks.
 
@@ -63,8 +65,10 @@ The newly reached SEH epilog at `0x001E0505` produced one additional aggregate A
 
 The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The replay harness and local checks used the workstation's Node 24.22.1 and npm 11.19.1. CI on the repository's pinned Node version remains pending for these local commits. The browser comparisons and independent reviews are retained locally.
 
-## Next bounded dependency
+## Debug print and next bounded dependency
 
-Build and replay the locally prepared `0x001E041F` candidate with the fixed control and inert cases and the existing checked direct entry, then obtain independent review.
+The opt-in `FF_DEBUG_SERVICE_PROOF` handler serves only INT `0x2D` service 1. It checks counted-ANSI descriptor and payload ranges through the guest VM, caps completed requests at eight, and exports bounded metadata. Chrome observed one 43-byte request with status zero. The handler leaves guest registers and memory untouched and does not expose message bytes. The fixed control and inert stops and stable sequences were preserved.
+
+The next request targets the same debug-log path and DOS root as the earlier successful create, with disposition 3 (`FILE_OPEN_IF`) instead of disposition 5. Its desired access, attributes, share and options match the earlier request. Verify the reached FATX reopen against the current file and handle state, then replay the paired browser runs. The corrected native suite passed 58/58 including sanitizers, runtime checks passed 201/201, and `npm run check` passed.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

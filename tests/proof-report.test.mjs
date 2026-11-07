@@ -41,6 +41,23 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+test('bounded debug service accepts print metadata and binds refusal to the exact stop', () => {
+  const printed = report({ debugServiceState: { completed: 1, service: 1, bytes: 24, status: 0 } });
+  assert.equal(validateProofReport(printed), printed);
+  const refused = report({
+    stop: { status: 9, ordinal: 0, target: 0xc00000bb },
+    debugServiceState: { completed: 0, service: 2, bytes: 0, status: 0xc00000bb },
+  });
+  assert.equal(validateProofReport(refused), refused);
+  assert.throws(() => validateProofReport({ ...refused, stop: printed.stop }), /guarded result/);
+  assert.throws(() => validateProofReport({
+    ...printed, debugServiceState: { ...printed.debugServiceState, bytes: 1025 },
+  }), /Malformed bounded debug-service state/);
+  assert.throws(() => validateProofReport({
+    ...printed, debugServiceState: { ...printed.debugServiceState, payload: 'synthetic' },
+  }), /Malformed bounded debug-service state/);
+});
+
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
   const valid = report({
     experiments: ['pfifoReset'],
