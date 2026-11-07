@@ -1886,11 +1886,45 @@ static void set_file_position(void)
 #endif
 #endif
 #ifdef FF_FILE_WRITE_PROOF
+#ifdef FF_FATX_PROOF
+static void write_fatx_file(uint32_t *row)
+{
+    row[1]=fatx_ready?ff_fatx_write_file_guest(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],236);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
+    if(row[1])return;
+    for(unsigned i=0;i<FF_FATX_FILES;++i) {
+        const ff_fatx_file *file=&fatx_volume.files[i];
+        if(file->handle!=row[2])continue;
+        const ff_fatx_mount *mount=&fatx_volume.mounts[file->mount-1u];
+        uint32_t cluster=0,bytes=0;
+        for(unsigned n=0;n<4;++n) {
+            cluster|=(uint32_t)ff_disk_byte(&local_disk,file->entry_address+44u+n)<<(8u*n);
+            bytes|=(uint32_t)ff_disk_byte(&local_disk,file->entry_address+48u+n)<<(8u*n);
+        }
+        row[12]=file->id;row[13]=(uint32_t)file->position;row[14]=bytes;
+        row[15]=mount->cluster_bytes;row[17]=cluster;
+        if(cluster<2u || cluster>mount->cluster_count || bytes!=row[8] || bytes>mount->cluster_bytes)return;
+        const uint64_t fat_address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
+        for(unsigned n=0;n<mount->entry_bytes;++n)
+            if(ff_disk_byte(&local_disk,fat_address+n)!=0xffu)return;
+        const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1u)*mount->cluster_bytes;
+        for(uint32_t n=0;n<bytes;++n)
+            if(ff_disk_byte(&local_disk,data_address+n)!=guest_ram[row[7]+n])return;
+        row[18]=1u;
+        return;
+    }
+}
+#endif
 static void write_regular_file(void)
 {
     uint32_t *row=kernel_record(236,8);
 #ifdef FF_FATX_PROOF
-    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],236);}
+    if(ff_fatx_owns_handle(row[2])) {
+        write_fatx_file(row);
+        g_eax=row[1];g_esp+=36;
+        return;
+    }
 #endif
     ff_volume_handle *handle=NULL;
     for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[2]) handle=&local_volume.handles[i];

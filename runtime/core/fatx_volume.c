@@ -721,6 +721,54 @@ static uint32_t find_free_cluster(ff_fatx_volume *fs,const ff_fatx_mount *mount,
         }
     return FF_BOOT_NO_MEMORY;
 }
+static uint32_t store_first_file_cluster(ff_fatx_volume *fs,const ff_fatx_mount *mount,
+                                         uint64_t entry,const uint8_t *data,uint32_t bytes,uint32_t *cluster)
+{
+    uint32_t status=find_free_cluster(fs,mount,cluster);
+    if(status)return status;
+    const uint64_t fat_address=mount->offset+4096+(uint64_t)*cluster*mount->entry_bytes;
+    /* Preflight both metadata stores and all three revision increments. The
+     * allocation helper checks its page budget before touching disk state. */
+    if(!ff_disk_has(fs->disk,entry,64u) || !ff_disk_has(fs->disk,fat_address,mount->entry_bytes) ||
+       fs->disk->revision>UINT64_MAX-3u)return FF_BOOT_UNSUPPORTED;
+    const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(*cluster-1)*mount->cluster_bytes;
+    status=ff_disk_store_allocate(fs->disk,data_address,data,bytes);
+    if(status)return status;
+    return fat_set(fs,mount,*cluster,mount->entry_bytes==2?0xffffu:UINT32_MAX);
+}
+uint32_t ff_fatx_write_file_guest(ff_fatx_volume *fs,const uint32_t args[8])
+{
+    if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;
+    ff_fatx_file *file=file_handle(fs,args[0]);if(!file)return FF_BOOT_BAD_HANDLE;
+    ff_fatx_directory_entry entry;
+    if(args[1] || args[2] || args[3] || args[7] || file->options!=0x60u ||
+       !(file->access&0x40000000u) || file->position || !checked_empty_file(fs,file,&entry))
+        return FF_BOOT_UNSUPPORTED;
+    ff_fatx_mount *mount=mount_id(fs,file->mount);
+    const uint32_t iosb=args[4],input=args[5],bytes=args[6];
+    if(!bytes || bytes>mount->cluster_bytes)return FF_BOOT_UNSUPPORTED;
+    if(iosb&3u)return FF_BOOT_INVALID;
+    if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,input,bytes,FF_VM_READ))
+        return FF_VM_ACCESS_VIOLATION;
+    if(overlap(iosb,8,input,bytes))return FF_BOOT_UNSUPPORTED;
+    if(!mount->free_clusters)return result(fs,iosb,FF_DISK_FULL,0);
+    uint32_t cluster;
+    uint32_t status=store_first_file_cluster(fs,mount,file->entry_address,fs->disk->memory->ram+input,bytes,&cluster);
+    if(status==FF_DISK_FULL || status==FF_BOOT_NO_MEMORY)return result(fs,iosb,FF_DISK_FULL,0);
+    if(status)return status;
+    /* The existing entry's name, attributes and timestamp bytes are kept. */
+    uint8_t extent[8];
+    for(unsigned i=0;i<4;++i) {
+        extent[i]=(uint8_t)(cluster>>(8*i));
+        extent[4+i]=(uint8_t)(bytes>>(8*i));
+    }
+    status=ff_disk_store(fs->disk,file->entry_address+44u,extent,sizeof extent);
+    if(status)return status;
+    --mount->free_clusters;
+    file->open_revision=mount->revision=fs->disk->revision;
+    file->position=bytes;
+    return result(fs,iosb,0,bytes);
+}
 uint32_t ff_fatx_create_empty(ff_fatx_volume *fs,uint32_t id,
                               const uint8_t *directory_path,uint32_t path_bytes,uint32_t flags,
                               const uint8_t *name,uint32_t name_bytes,
@@ -776,17 +824,7 @@ uint32_t ff_fatx_create_file(ff_fatx_volume *fs,uint32_t id,
     status=directory_free_slot(fs,mount,start,name,name_bytes,flags,&address);
     if(status)return status;
     uint32_t cluster;
-    status=find_free_cluster(fs,mount,&cluster);
-    if(status)return status;
-    const uint64_t fat_address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
-    if(!ff_disk_has(fs->disk,address,64u) ||
-       !ff_disk_has(fs->disk,fat_address,mount->entry_bytes))
-        return FF_BOOT_UNSUPPORTED;
-    if(fs->disk->revision>UINT64_MAX-3u)return FF_BOOT_UNSUPPORTED;
-    const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1)*mount->cluster_bytes;
-    status=ff_disk_store_allocate(fs->disk,data_address,data,bytes);
-    if(status)return status;
-    status=fat_set(fs,mount,cluster,mount->entry_bytes==2?0xffffu:UINT32_MAX);
+    status=store_first_file_cluster(fs,mount,address,data,bytes,&cluster);
     if(status)return status;
     status=write_entry(fs,address,name,name_bytes,cluster,bytes,created);
     if(status)return status;

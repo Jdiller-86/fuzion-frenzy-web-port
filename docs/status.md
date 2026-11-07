@@ -1,6 +1,6 @@
-# Project status: startup reaches a FATX file write
+# Project status: startup completes the first FATX file write
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reached **status 9 at ordinal 236 (`NtWriteFile`), value `0xC00000BB`**, with return address `0x001E9004`, 399 distinct routines and 472 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment completed its first FATX file write and reached **status 2 at guarded direct entry `0x001E562A`**, with return address `0x001E5622`, 399 distinct routines and 473 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -144,6 +144,14 @@ The original scope record at `0x0027C7C0` identifies the three-byte handler gap 
 
 The second file-information wrapper uses four-byte-aligned guest stack buffers at `0x03C1079C` for class 34 and `0x03C107DC` for class 14. These were refused by the earlier eight-byte rule. Both providers now check four-byte alignment, as the local-file query already did, and retain checked ranges, nonoverlap, file identity and the original request restrictions. Chrome observed the same 56-byte metadata and a successful seek with both offset words zero and a 24-byte stack advance. FATX revision, allocation and handle state stayed stable. Independent review and 58/58 native checks including sanitizers passed.
 
-The `0x001E8F76` admission added one verified ordinal 233 binding for an unreached call site. The reached write uses the existing ordinal 236 binding. It requests 45 bytes on FATX handle `0x00070008` at its current position, with null event, APC and explicit byte-offset arguments. The dispatcher currently guards FATX writes. Verify the reached write against the owned empty file and preserve preflight and revision guarantees. The profile uses 31 exports, 443 of 512 function slots and 20,687 of 32,768 instructions.
+The `0x001E8F76` admission added one verified ordinal 233 binding for an unreached call site. The reached write uses the existing ordinal 236 binding. It requests 45 bytes on FATX handle `0x00070008` at its current position, with null event, APC and explicit byte-offset arguments.
+
+## First FATX file write
+
+The guest write path checks the synchronous writable file, its current owned empty entry and zero cursor, the complete guest buffer and IOSB, and nonoverlap. It admits a first nonempty write of at most one cluster. The shared allocation helper preflights backed directory/FAT metadata, sparse-page capacity and all three revision increments. Data and FAT stores precede an eight-byte extent update that preserves the existing name, attributes and timestamp bytes. Cursor, free-cluster count and mount/file revisions update after those stores.
+
+Module `5a7d6f5d` returned status 0 and IOSB information 45. Chrome independently read the written backing and matched it to the guest input without reporting its bytes. The file's cursor and size are 45, with one 16,384-byte cluster allocated. Revision advanced 72 to 75, free clusters decreased 65,518 to 65,517, and backed pages increased seven to eight. The fixed control and inert observations matched, and the experiment preserved its stable prefixes through the same write request. Independent review passed. The EAX and 36-byte stack-return effects are source-verified without an immediate post-service register sample. Native checks passed 58/58 including sanitizers, and runtime checks passed 201/201.
+
+The next bounded dependency is the guarded direct entry at `0x001E562A` within the existing `0x001E55A3` envelope. Verify its exact call and stack shape before admission. The profile uses 31 exports, 443 of 512 function slots and 20,687 of 32,768 instructions.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

@@ -299,7 +299,13 @@ self.onmessage = async event => {
         ioStatus:api.ff_probe_kernel_word(i,12)>>>0,information:api.ff_probe_kernel_word(i,13)>>>0,
         volume:api.ff_probe_kernel_word(i,14)>>>0,state:api.ff_probe_kernel_word(i,15)>>>0,
         references:api.ff_probe_kernel_word(i,16)>>>0,dismounts:api.ff_probe_kernel_word(i,17)>>>0};
-      if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
+      const fatxWrite=fatxAbi && call.ordinal===236 && !call.status && call.arguments[0]>=0x70000 && call.arguments[0]<0x80000;
+      if(fatxWrite) call.output={backend:'local-synthetic-fatx',ioStatus:api.ff_probe_kernel_word(i,10)>>>0,
+        information:api.ff_probe_kernel_word(i,11)>>>0,file:api.ff_probe_kernel_word(i,12)>>>0,
+        position:api.ff_probe_kernel_word(i,13)>>>0,fileBytes:api.ff_probe_kernel_word(i,14)>>>0,
+        allocatedBytes:api.ff_probe_kernel_word(i,15)>>>0,firstCluster:api.ff_probe_kernel_word(i,17)>>>0,
+        backingMatches:api.ff_probe_kernel_word(i,18)===1};
+      else if(call.ordinal===236 && writeAbi && !diskTransfer) call.output={ioStatus:api.ff_probe_kernel_word(i,10)>>>0,information:api.ff_probe_kernel_word(i,11),
         dataFile:api.ff_probe_kernel_word(i,12),position:api.ff_probe_kernel_word(i,13),fileBytes:api.ff_probe_kernel_word(i,14),
         allocatedBytes:((BigInt(api.ff_probe_kernel_word(i,16)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,15)>>>0)).toString(),
         writeTime:((BigInt(api.ff_probe_kernel_word(i,18)>>>0)<<32n)|BigInt(api.ff_probe_kernel_word(i,17)>>>0)).toString(),initialPosition:api.ff_probe_kernel_word(i,19)};
@@ -1001,8 +1007,10 @@ self.onmessage = async event => {
         call.output?.handle>=0x70000 && call.output.handle<0x80000);
       const createdEmptyFile = fatxCreateCalls.some(call=>call.output.information===2);
       const reopenedFile = fatxCreateCalls.some(call=>call.arguments[7]===3 && call.output.information===1);
+      const wroteFile = calls.some(call=>call.output?.backend==='local-synthetic-fatx' && call.output.backingMatches);
       localFatx={ready:true,mountCount,fileCount,active:api.ff_probe_fatx_word(3),opened:api.ff_probe_fatx_word(4),closed:api.ff_probe_fatx_word(5),mounts,files,
-        persistent:false,scope:reopenedFile?'backed FATX root/size and bounded file create/reopen':
+        persistent:false,scope:wroteFile?'backed FATX root/size and bounded file create/reopen/write':
+          reopenedFile?'backed FATX root/size and bounded file create/reopen':
           createdEmptyFile?'backed FATX root/size and bounded empty-file creation':
           'backed FATX root/size; general file operations unsupported'};
     }
