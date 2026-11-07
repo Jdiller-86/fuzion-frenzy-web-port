@@ -1,6 +1,6 @@
-# Project status: startup reaches `0x001E71D8`
+# Project status: startup reaches `0x001E4C85`
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log through the title's `Z:` link to the mounted synthetic FATX Partition 5, then reached **status 2 at `0x001E71D8`**, with return address `0x001E779C`, 364 distinct routines and 443 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment created an empty debug log on the mounted synthetic FATX Partition 5, passed two CRT routines in successive guarded batches, and reached **status 2 at `0x001E4C85`**, with return address `0x001E01AB`, 368 distinct routines and 444 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -33,8 +33,20 @@ The candidate retains profile 97 and adds the reached missing-file case to the o
 
 Fresh Chrome comparisons preserved the fixed control and inert stop objects and stable traces. The experiment preserved its previous entry and trace prefixes. Ordinal 190 returned status 0, information 2 (`FILE_CREATED`) and owned handle `0x00070004`. The mount revision advanced by one with the same disk page and free-cluster counts. Independent review verified the ABI, refusal guards and comparison evidence. Raw reports, preparation outputs and audits remain in ignored local research.
 
+## CRT admission batches
+
+| Batch | Prepared functions / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / kernel operations |
+| --- | --- | --- | --- | --- |
+| FATX create, profile 97 | 488 / 20,251 | `4f32c34c` | Status 2 at `0x001E71D8`, return `0x001E779C` | 364 / 443 |
+| Admit `0x001E71D8` | 489 / 20,272 | `56194195` | Status 2 at `0x001E731B`, return `0x001E78B1` | 366 / 443 |
+| Admit `0x001E731B` | 490 / 20,282 | `ee740d85` | Status 2 at `0x001E4C85`, return `0x001E01AB` | 368 / 444 |
+
+Read-only Ghidra exports added one established routine per batch to the same bounded seed group. Both preparations passed byte identity, layout and normalized decoder checks with checked memory and unchanged admission limits. The last batch completed the already routed ordinal 294, `RtlLeaveCriticalSection`. Independent review confirmed unchanged control and inert stops, entry sequences, trace kind/address/stack and kernel ordinal/status/argument sequences. The experiment preserved those prefixes across both batches. Clock-dependent outputs varied between runs.
+
+The runtime checks passed 200/200, native checks passed 56/56 including sanitizer fixtures, and Python evidence suites passed 6/6. The browser comparisons and independent reviews are retained locally.
+
 ## Next bounded dependency
 
-Export and validate the exact reached routine at `0x001E71D8`. Admit only that routine and directly required reached callees within the existing preparation limits, then replay the paired browser runs.
+Validate and admit the reached CRT unlock helper at `0x001E4C85` from the retained read-only export. Verify its checked table reads and reached callee behavior, then replay the paired browser runs within the existing preparation limits.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.
