@@ -25,6 +25,7 @@ const suites = [
   'tests/bounded_layout_test.py',
   'tests/mixed_dispatch_fixture_test.py',
   'tests/timestamp_counter_guard_test.py',
+  'tests/performance_clock_bridge_test.py',
 ];
 
 function probe(command, prefix) {

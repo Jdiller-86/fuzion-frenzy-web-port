@@ -12,6 +12,7 @@ import { validateSuppliedDeviceProfile } from './device-report.mjs';
 import { validateKernelCapture } from './kernel-capture.mjs';
 import { encodeConsoleOsSettings } from './console-os-settings.mjs';
 import { parseSystemClockProfile } from './browser-clock.mjs';
+import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -33,6 +34,23 @@ export function validateProofReport(report) {
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
   const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
   const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
+  const selectedPerformance=parsePerformanceClockProfile(report.consoleSettings?.performanceClock);
+  if((selectedPerformance===undefined)!==(report.performanceClockState===undefined))
+    throw new Error('Performance clock evidence requires its explicitly selected profile and state');
+  if(selectedPerformance) {
+    const state=validatePerformanceClockState(report.performanceClockState,selectedPerformance);
+    if(!Array.isArray(report.calls) || report.clock?.kind!=='browser-clock' || report.clock.monotonic!=='performance.now' ||
+       report.timestampBoundary!==undefined || state.frequencyQueries>1024 ||
+       state.status===0 && state.lastSite!==(state.samples.at(-1)?.site??0) ||
+       state.status===4 && state.samples.length!==64)
+      throw new Error('Performance clock evidence must retain its bounded clock and sample observations');
+    const queries=report.calls.filter(call=>call.ordinal===127 && call.status===0).length;
+    if(state.frequencyQueries<queries || (!report.kernelCapture || report.kernelCapture.complete) && state.frequencyQueries!==queries)
+      throw new Error('Performance clock frequency-query count does not match captured evidence');
+    if(state.status && (!state.lastSite || report.stop?.ordinal!==0 || report.stop.target!==state.lastSite ||
+       report.stop.status!==(state.status===4?4:9)))
+      throw new Error('Performance clock refusal requires its matching guarded stop');
+  }
   if((selectedClock===undefined)!==(declaredClock===undefined) ||
      report.clock?.system==='configured synthetic fixed Unix time; UTC epoch 1601' && declaredClock===undefined ||
      selectedClock && (selectedClock.unixMillis!==declaredClock.unixMillis ||
@@ -426,6 +444,16 @@ export function validateProofReport(report) {
         throw new Error('Malformed kernel call record');
       if(call.ordinal===127 && call.arguments.length!==0)
         throw new Error('The performance-frequency call has no arguments');
+      if(call.ordinal===127 && call.status===0) {
+        const out=call.output;
+        if(!selectedPerformance || !out || Object.keys(out).length!==10 ||
+           Object.keys(out).some(key=>!['backend','frequencyHz','low','high','eaxBefore','edxBefore','espBefore','eaxAfter','edxAfter','espAfter'].includes(key)) ||
+           out.backend!=='synthetic-performance-clock' || out.frequencyHz!==selectedPerformance.frequencyHz ||
+           out.low!==out.frequencyHz || out.high!==0 || out.eaxAfter!==out.low || out.edxAfter!==0 ||
+           !dword(out.eaxBefore) || !dword(out.edxBefore) || !dword(out.espBefore) || out.espBefore%4 ||
+           !dword(out.espAfter) || out.espAfter!==out.espBefore+4)
+          throw new Error('Performance-frequency success requires the explicit model and EDX:EAX/stack evidence');
+      }
       if(selectedClock && call.ordinal===128 && call.status===0 &&
          (call.arguments.length!==1 || !call.arguments[0] || call.arguments[0]%4 ||
           call.output?.systemTicks!==((BigInt(selectedClock.unixMillis)+11644473600000n)*10000n).toString()))

@@ -153,7 +153,8 @@ int main(void) {
         self.assertEqual(build.returncode, 0, build.stderr)
         run = subprocess.run([str(executable)], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertNotIn("return ", self.guard_source.split("uint32_t ff_probe_timestamp_boundary_word", 1)[0])
+        # The compiled default-off fixture above proves no timestamp returns.
+        # An explicitly enabled performance-clock branch may return a value.
 
 
 if __name__ == "__main__":

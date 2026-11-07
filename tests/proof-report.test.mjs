@@ -42,6 +42,45 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+const performanceProfile=()=>({kind:'synthetic-performance-clock',synthetic:true,frequencyHz:733333333,
+  source:'browser-monotonic-100ns',origin:'proof-clock-zero'});
+const performanceReport=()=>report({
+  consoleSettings:{performanceClock:performanceProfile()},
+  clock:{kind:'browser-clock',monotonic:'performance.now'},
+  performanceClockState:{...performanceProfile(),capacity:64,status:0,lastSite:0x4c526,frequencyQueries:1,
+    admittedSites:[0x4c526,0x4c58b],samples:[{site:0x4c526,interruptTicks:'1234567',counter:'90534913'}]},
+  calls:[{ordinal:127,status:0,arguments:[],output:{backend:'synthetic-performance-clock',frequencyHz:733333333,
+    low:733333333,high:0,eaxBefore:3,edxBefore:4,espBefore:0x3c10000,
+    eaxAfter:733333333,edxAfter:0,espAfter:0x3c10004}}],
+});
+
+test('paired performance clock requires profile, exact scaling and frequency ABI evidence',()=>{
+  const good=performanceReport();
+  assert.equal(validateProofReport(good),good);
+  for(const edit of [{performanceClockState:undefined},{consoleSettings:{}},{clock:{kind:'browser-clock',monotonic:'Date.now'}}])
+    assert.throws(()=>validateProofReport({...good,...edit}),/Performance clock/);
+  for(const edit of [{low:1},{high:1},{edxAfter:1},{eaxAfter:1},{espAfter:0x3c10008},{extra:true}]) {
+    const bad=performanceReport();Object.assign(bad.calls[0].output,edit);
+    assert.throws(()=>validateProofReport(bad),/Performance-frequency success/);
+  }
+  const absent=performanceReport();delete absent.consoleSettings.performanceClock;delete absent.performanceClockState;
+  assert.throws(()=>validateProofReport(absent),/Performance-frequency success/);
+  const altered=performanceReport();altered.performanceClockState.samples[0].counter='90534914';
+  assert.throws(()=>validateProofReport(altered),/performance clock sample/);
+});
+
+test('performance clock refusals bind status, site and bounded sample count',()=>{
+  const good=performanceReport();
+  good.performanceClockState.status=3;good.stop={status:9,target:0x4c526,ordinal:0};
+  assert.equal(validateProofReport(good),good);
+  for(const stop of [{status:4,target:0x4c526,ordinal:0},{status:9,target:0x4c58b,ordinal:0},
+    {status:9,target:0x4c526,ordinal:1}])
+    assert.throws(()=>validateProofReport({...good,stop}),/Performance clock refusal/);
+  for(const state of [{...good.performanceClockState,status:4},{...good.performanceClockState,frequencyQueries:0},
+    {...good.performanceClockState,status:0,lastSite:0}])
+    assert.throws(()=>validateProofReport({...good,performanceClockState:state}),/Performance clock/);
+});
+
 test('timestamp-counter boundary remains a stop-only one-attempt declaration', () => {
   const site = 0x00123456;
   const valid = report({ stop: { status: 9, target: site, ordinal: 0 },

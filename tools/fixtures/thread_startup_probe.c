@@ -6,6 +6,14 @@
 #define FF_RETURN_FRAME(address, frame) ff_probe_return_frame(address, frame)
 static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "title-profile.h"
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+#if !defined(FF_TIMESTAMP_COUNTER_GUARDS) || !defined(FF_TIMER_PROOF)
+#error Performance clock requires checked timestamp sites and the admitted browser clock
+#endif
+#include "../../runtime/core/performance_clock.h"
+static ff_performance_clock performance_clock;
+static uint32_t performance_status, performance_last_site, performance_frequency_queries;
+#endif
 #include "../../runtime/core/thread_bootstrap.h"
 #include "../../runtime/core/kernel_objects.h"
 #include "../../runtime/core/local_settings.h"
@@ -676,6 +684,19 @@ static uint64_t ff_probe_read_tsc(uint32_t site)
 {
     static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
     for(uint32_t i=0;i<FF_TIMESTAMP_COUNTER_GUARD_COUNT;++i)if(site==sites[i]) {
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+        if(performance_clock.ready) {
+            uint64_t counter=0;
+            performance_last_site=site;
+            /* Sample the same zero-origin host clock directly. Advancing the
+             * kernel timer queue here would add unrelated CPU side effects. */
+            ff_host_clock((uint32_t)(uintptr_t)clock_words);
+            uint64_t ticks=clock_words[0]|(uint64_t)clock_words[1]<<32;
+            performance_status=ff_performance_clock_read(&performance_clock,ticks,site,&counter);
+            if(performance_status==FF_PERFORMANCE_CLOCK_OK)return counter;
+            stop(performance_status==FF_PERFORMANCE_CLOCK_CAPACITY_REACHED?4:9,site,0);
+        }
+#endif
         timestamp_boundary[0]=site;timestamp_boundary[1]=1;
         stop(9,site,0);
     }
@@ -685,6 +706,43 @@ uint32_t ff_probe_timestamp_boundary_word(uint32_t field)
 {
     return field==0?timestamp_boundary[1]:field==1?timestamp_boundary[0]:field==2?timestamp_boundary[1]:0;
 }
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+uint32_t ff_probe_performance_profile(uint32_t frequency)
+{
+    if(probe_trace_count || kernel_call_count)return FF_PERFORMANCE_CLOCK_INVALID;
+    memset(&performance_clock,0,sizeof performance_clock);
+    performance_status=performance_last_site=performance_frequency_queries=0;
+    return ff_performance_clock_init(&performance_clock,frequency);
+}
+uint32_t ff_probe_performance_word(uint32_t index,uint32_t field)
+{
+    static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
+    if(index==UINT32_MAX) {
+        switch(field) {
+        case 0:return performance_clock.ready;
+        case 1:return performance_clock.frequency_hz;
+        case 2:return performance_clock.count;
+        case 3:return FF_PERFORMANCE_CLOCK_CAPACITY;
+        case 4:return performance_status;
+        case 5:return performance_last_site;
+        case 6:return performance_frequency_queries;
+        case 7:return FF_TIMESTAMP_COUNTER_GUARD_COUNT;
+        default:return 0;
+        }
+    }
+    if(field==5)return index<FF_TIMESTAMP_COUNTER_GUARD_COUNT?sites[index]:0;
+    if(index>=performance_clock.count)return 0;
+    const ff_performance_clock_sample *sample=&performance_clock.samples[index];
+    switch(field) {
+    case 0:return sample->site;
+    case 1:return (uint32_t)sample->interrupt_ticks;
+    case 2:return (uint32_t)(sample->interrupt_ticks>>32);
+    case 3:return (uint32_t)sample->counter;
+    case 4:return (uint32_t)(sample->counter>>32);
+    default:return 0;
+    }
+}
+#endif
 #endif
 #ifdef FF_DEBUG_SERVICE_PROOF
 void recomp_debug_service(uint32_t service, uint32_t argument)
@@ -2642,9 +2700,23 @@ static void ke_disconnect_interrupt(void)
     row[1] = 0u;
     row[2] = object;
 }
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+static void query_performance_frequency(void)
+{
+    uint32_t *row=kernel_record(127,0);
+    row[4]=g_eax;row[5]=g_edx;row[6]=g_esp;
+    g_eax=performance_clock.frequency_hz;g_edx=0;g_esp+=4u;
+    ++performance_frequency_queries;
+    row[1]=0;row[2]=g_eax;row[3]=g_edx;
+    row[7]=g_eax;row[8]=g_edx;row[9]=g_esp;
+}
+#endif
 recomp_func_t recomp_lookup_kernel(uint32_t address){
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+        if(ordinal==127u && performance_clock.ready)return query_performance_frequency;
+#endif
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
         if (ordinal == 277) return enter_critical;
@@ -2922,6 +2994,10 @@ void ff_probe_reset(void)
     misc_flags = misc_flags_ready = 0;
 #ifdef FF_TIMESTAMP_COUNTER_GUARDS
     memset(timestamp_boundary,0,sizeof timestamp_boundary);
+#endif
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+    memset(&performance_clock,0,sizeof performance_clock);
+    performance_status=performance_last_site=performance_frequency_queries=0;
 #endif
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;

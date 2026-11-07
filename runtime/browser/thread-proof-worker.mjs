@@ -1,5 +1,6 @@
 import { BUILD_REFERENCE as REF, loadLocalTitleProof, parseLocalConsoleSettings, parseLocalNvConsoleSettings, parseLocalVolumeProfile, parseLocalDirectoryProfile, parseLocalFileProfile, parseLocalDiskProfile, parseLocalDiskPartitions, parseLocalDiskGeometry, parseLocalPartitionInformation, parseLocalRawDiskVolumes, parseLocalMemoryProfile, parseLocalMmioProfile, describeMmioExperiments, parseLocalPfifoProfile, proofTraceCapacity, proofKernelCapacity } from './local-title-proof.mjs';
 import { createProofClock } from './browser-clock.mjs';
+import { readPerformanceClockState } from './performance-clock.mjs';
 import { runOriginalCopyProof } from './copy-proof.mjs';
 import { inspectOpenFileRequest, inspectCreateFileRequest, inspectWriteFileRequest, inspectLoadSectionRequest, compareWideMetadataFormat, inspectCountedAnsiString } from './file-request.mjs';
 import { createDeviceReport } from './device-report.mjs';
@@ -49,6 +50,12 @@ self.onmessage = async event => {
       if (typeof api.ff_probe_misc_flags !== 'function') throw new Error('Missing local settings ABI');
       if (!event.data.settingsBytes) throw new Error('Select an explicit local test console-settings profile');
       consoleSettings = nvAbi?parseLocalNvConsoleSettings(event.data.settingsBytes):parseLocalConsoleSettings(event.data.settingsBytes);
+      if(consoleSettings.performanceClock) {
+        if(!timerAbi || ['profile','word'].some(name=>typeof api['ff_probe_performance_'+name]!=='function'))
+          throw new Error('Missing explicit synthetic performance clock capability');
+        if(api.ff_probe_performance_profile(consoleSettings.performanceClock.frequencyHz))
+          throw new Error('Cannot configure the explicit synthetic performance clock');
+      }
       api.ff_probe_misc_flags(consoleSettings.miscFlags);
       if(nvAbi) {
         if(typeof api.ff_probe_parental_games!=='function') throw new Error('Missing explicit console-settings ABI');
@@ -269,6 +276,13 @@ self.onmessage = async event => {
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });
     capturedCalls.forEach((call, i) => {
+      if(call.ordinal===127 && !call.status)call.output={
+        backend:'synthetic-performance-clock',frequencyHz:api.ff_probe_kernel_word(i,2)>>>0,
+        low:api.ff_probe_kernel_word(i,2)>>>0,high:api.ff_probe_kernel_word(i,3)>>>0,
+        eaxBefore:api.ff_probe_kernel_word(i,4)>>>0,edxBefore:api.ff_probe_kernel_word(i,5)>>>0,
+        espBefore:api.ff_probe_kernel_word(i,6)>>>0,eaxAfter:api.ff_probe_kernel_word(i,7)>>>0,
+        edxAfter:api.ff_probe_kernel_word(i,8)>>>0,espAfter:api.ff_probe_kernel_word(i,9)>>>0,
+      };
       if (call.ordinal === 2 && call.status === 0 && mmioProfile.avQueryWord !== undefined)
         call.output = {
           rawWord: api.ff_probe_kernel_word(i, 6) >>> 0,
@@ -352,6 +366,8 @@ self.onmessage = async event => {
       data:Array.from(ram.slice(thread.tls+4,thread.tls+4+profile.tls.end-profile.tls.start+profile.tls.zeroFillBytes))};
     const expectedCreate = [stackTop - 28, 0, profile.stackBytes, tlsBytes, 0, REF.threadStart, 0, 0, 0, REF.systemStart];
     const kernelCapture = readKernelCapture(api, capturedCalls);
+    const performanceClockState=consoleSettings?.performanceClock
+      ?readPerformanceClockState((index,field)=>api.ff_probe_performance_word(index,field),consoleSettings.performanceClock):undefined;
     const timestampBoundary=typeof api.ff_probe_timestamp_boundary_word==='function' && api.ff_probe_timestamp_boundary_word(0)===1
       ?{kind:'unmodeled-timestamp-counter',site:api.ff_probe_timestamp_boundary_word(1)>>>0,
         attempts:api.ff_probe_timestamp_boundary_word(2)>>>0}:undefined;
@@ -1110,12 +1126,12 @@ self.onmessage = async event => {
       originalStartup={tableStart:start,tableEndExclusive:end,totalInitializers:callbacks.length,completedInitializers:completed,
         nextInitializer:callbacks[completed],distinctOriginalFunctions:new Set(entered).size,
         completedKernelOperations:kernelCapture?.completedOperations ?? calls.filter(call=>call.status===0).length,
-        stopReason:timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
+        stopReason:performanceClockState?.status?'guarded synthetic performance clock':timestampBoundary?'unmodeled timestamp counter':debugServiceState?.status?'guarded debug service':state[0]===2 || state[0]===3?'untranslated original routine':state[0]===1 || state[0]===9 && state[2]?'unsupported Xbox service':
           state[0]===4 || state[0]===5?'diagnostic capacity reached':state[0]===10?'guest memory access stopped':state[0]===12?'device poll limit reached':state[0]===13?'pushbuffer consumption required':state[0]===14?'unmodeled port input':state[0]===15?'device register capacity reached':'unsupported execution boundary',
         limitation:'Observed startup progress; no playable screen or original-game fidelity acceptance.'};
     }
     postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
-      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,
+      verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,
       contextWords: typeof api.ff_probe_context_word === 'function'
         ? Array.from({length:32},(_,i)=>api.ff_probe_context_word(i) >>> 0) : undefined,
       sourceSha256, moduleSha256, consoleSettings, floatingPointState, volumeProfile, directoryProfile, fileStorageProfile, diskProfile, localDisk, localFatx, fileClockWindow, localVolume, objectNamespace, originalFormat, biosUsed: false, hostImports: timerAbi ? 1 : 0, clock: timerAbi ? clock.describe() : undefined, originalFunctionsReached: entered,
