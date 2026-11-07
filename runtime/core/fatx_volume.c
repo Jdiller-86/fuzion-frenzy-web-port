@@ -351,7 +351,7 @@ uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
     for(uint32_t offset=52u;offset<64u;offset+=4u)
         if(disk_word(fs,file->entry_address+offset,4)!=UINT32_MAX)return FF_BOOT_UNSUPPORTED;
     const uint32_t iosb=args[1],output=args[2],bytes=args[3],info_bytes=56u;
-    if((iosb&3u) || (output&7u))return FF_BOOT_INVALID;
+    if((iosb|output)&3u)return FF_BOOT_INVALID;
     if(!admitted(fs,iosb,8,FF_VM_WRITE))return FF_VM_ACCESS_VIOLATION;
     if(overlap(iosb,8,output,bytes<info_bytes?bytes:info_bytes))return FF_BOOT_UNSUPPORTED;
     if(bytes<info_bytes)return result(fs,iosb,0xc0000023u,0);
@@ -368,7 +368,7 @@ uint32_t ff_fatx_set_position(ff_fatx_volume *fs,const uint32_t args[5])
     if(file->options!=0x60u || args[3]!=8u || args[4]!=14u || !checked_empty_file(fs,file,&entry))
         return FF_BOOT_UNSUPPORTED;
     const uint32_t iosb=args[1],input=args[2];
-    if((iosb&3u) || (input&7u))return FF_BOOT_INVALID;
+    if((iosb|input)&3u)return FF_BOOT_INVALID;
     if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,input,8,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
     if(overlap(iosb,8,input,8))return FF_BOOT_UNSUPPORTED;
     if(get(fs,input,4) || get(fs,input+4u,4))return FF_BOOT_UNSUPPORTED;

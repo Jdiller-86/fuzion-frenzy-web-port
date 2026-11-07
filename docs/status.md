@@ -1,6 +1,6 @@
-# Project status: compact startup profile reaches the next CRT call
+# Project status: startup reaches a FATX file write
 
-Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment advanced with the compact profile and reached **status 2 at untranslated address `0x001E7924`**, with return address `0x001E5466`, 397 distinct routines and 470 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
+Observed November 6, 2026 in Chrome 156.0.8078.80 on Windows. The original-startup experiment reached **status 9 at ordinal 236 (`NtWriteFile`), value `0xC00000BB`**, with return address `0x001E9004`, 399 distinct routines and 472 completed kernel operations. [Handoff](handoff.md) · [Roadmap](../plans.md) · [Project milestones](milestones.md)
 
 ## Matching baseline and guarded preparation
 
@@ -133,6 +133,17 @@ Chrome reproduced the complete stops and stable sequences for the fixed control,
 
 The original scope record at `0x0027C7C0` identifies the three-byte handler gap at `0x001E5627`. Bounded read-only decoding recovered one instruction, preserved all 50 existing rows and both body ranges, and passed original-byte, complete-layout and decoder checks. The separate direct target `0x001E562A` stays guarded. Independent review confirmed the stable comparison prefixes through the new batches.
 
-The current profile uses 31 exports, 441 of 512 function slots and 20,546 of 32,768 instructions. Verify the original caller and layout of the reached routine at `0x001E7924` before admission.
+## FATX information alignment and first reached write
+
+| Batch | Prepared functions / instructions | Module SHA-256 prefix | Browser experiment stop | Routines / kernel operations |
+| --- | --- | --- | --- | --- |
+| Admit `0x001E7924` | 440 + 2 direct entries / 20,597 | `9080381e` | Status 9, ordinal 211, value `0xC000000D`, return `0x001E9112` | 398 / 470 |
+| Accept four-byte-aligned query output | Same | `d1df27ac` | Status 9, ordinal 226, value `0xC000000D`, return `0x001E9195` | 398 / 471 |
+| Accept four-byte-aligned position input | Same | `e1398cbc` | Status 2 at `0x001E8F76`, return `0x001E54E6` | 398 / 472 |
+| Admit `0x001E8F76` | 441 + 2 direct entries / 20,687 | `c5c487f5` | Status 9, ordinal 236, value `0xC00000BB`, return `0x001E9004` | 399 / 472 |
+
+The second file-information wrapper uses four-byte-aligned guest stack buffers at `0x03C1079C` for class 34 and `0x03C107DC` for class 14. These were refused by the earlier eight-byte rule. Both providers now check four-byte alignment, as the local-file query already did, and retain checked ranges, nonoverlap, file identity and the original request restrictions. Chrome observed the same 56-byte metadata and a successful seek with both offset words zero and a 24-byte stack advance. FATX revision, allocation and handle state stayed stable. Independent review and 58/58 native checks including sanitizers passed.
+
+The `0x001E8F76` admission added one verified ordinal 233 binding for an unreached call site. The reached write uses the existing ordinal 236 binding. It requests 45 bytes on FATX handle `0x00070008` at its current position, with null event, APC and explicit byte-offset arguments. The dispatcher currently guards FATX writes. Verify the reached write against the owned empty file and preserve preflight and revision guarantees. The profile uses 31 exports, 443 of 512 function slots and 20,687 of 32,768 instructions.
 
 M1 and the other project milestones remain unaccepted. The experiment is bounded startup with explicit synthetic service inputs. Original presentation, a controllable original screen and gameplay acceptance are still pending.

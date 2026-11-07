@@ -404,17 +404,18 @@ static void guest_query_file_network_open_information(void)
     handle=(uint32_t)get(OUT,4);
     assert(get(IOSB+4,4)==1);
 
-    uint32_t query[5]={handle,IOSB,DATA,56,34};
-    memset(ram+DATA,0xa5,56);
+    const uint32_t output=DATA+4; /* The reached guest buffer is four-byte aligned. */
+    uint32_t query[5]={handle,IOSB,output,56,34};
+    memset(ram+output,0xa5,56);
     assert(!ff_fatx_query_file(&fs,query));
-    for(unsigned i=0;i<32;++i)assert(ram[DATA+i]==0); /* four unset synthetic timestamps */
-    assert(get(DATA+32,8)==0 && get(DATA+40,8)==0); /* allocation size and EOF */
-    assert(get(DATA+48,4)==0x20 && get(DATA+52,4)==0 && get(IOSB+4,4)==56);
+    for(unsigned i=0;i<32;++i)assert(ram[output+i]==0); /* four unset synthetic timestamps */
+    assert(get(output+32,8)==0 && get(output+40,8)==0); /* allocation size and EOF */
+    assert(get(output+48,4)==0x20 && get(output+52,4)==0 && get(IOSB+4,4)==56);
 
     memset(ram+DATA,0xa5,56);query[2]=0x3fff0;save();
     assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[2]=DATA;
     query[1]=0x3fffc;save();assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[1]=IOSB;
-    query[2]=DATA+4;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[2]=DATA;
+    query[2]=DATA+2;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[2]=DATA;
     query[1]=IOSB+2;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[1]=IOSB;
     query[2]=IOSB;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[2]=DATA;
     query[4]=5;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[4]=34;
@@ -467,6 +468,9 @@ static void guest_set_file_position_is_bounded(void)
     assert(get(IOSB,4)==0 && get(IOSB+4,4)==0 && fs.files[1].position==0);
     assert(disk.revision==before_disk.revision && disk.allocated_pages==before_disk.allocated_pages &&
            !memcmp(disk.pages,before_disk.pages,sizeof disk.pages) && fs.mounts[0].revision==before_revision);
+    request[2]=DATA+4;put(DATA+4,0,8);fs.files[1].position=37;
+    assert(!ff_fatx_set_position(&fs,request) && fs.files[1].position==0);
+    request[2]=DATA;
 
     request[4]=13;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[4]=14;
     request[3]=7;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[3]=8;
@@ -486,7 +490,7 @@ static void guest_set_file_position_is_bounded(void)
     assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[2]=DATA;
     request[2]=0x40000;save();assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[2]=DATA;
     request[1]=0x3fffc;save();assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[1]=IOSB;
-    request[2]=DATA+4;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_INVALID);unchanged();request[2]=DATA;
+    request[2]=DATA+2;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_INVALID);unchanged();request[2]=DATA;
     request[1]=IOSB+2;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_INVALID);unchanged();request[1]=IOSB;
 
     /* Root handles cannot carry a file cursor. */

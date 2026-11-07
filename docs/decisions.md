@@ -21,6 +21,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 | D456 | Set the reached zero FATX file position | Chrome observed a signed zero offset on the reopened empty file. Admit the class 14 request with checked input, IOSB, synchronous handle and backing identity. Record the per-handle position without changing the disk. |
 | D457 | Admit the reached CRT seek cleanup direct entry | A second fixed opt-in reuses the checked owner, original call and stack-shape contract for `0x001E516A`. Both entries consume the existing function and instruction budgets and stay outside indirect lookup. |
 | D458 | Compact the private startup profile under the existing caps | Keep the observed entries, checked views, mixed layouts, kernel binding sources and their established direct dependencies. Preserve retained rows, bindings and generated bodies, then reproduce the saved Chrome paths before spending the recovered slots. |
+| D459 | Accept the reached four-byte-aligned FATX information buffers | A second guest frame passed four-byte-aligned buffers to class 34 and class 14. Use the existing four-byte local-file convention with bytewise access, retaining exact request and backing checks, full guest ranges and alias refusal. |
 
 ## Contracts that remain in force
 
