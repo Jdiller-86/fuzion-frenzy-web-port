@@ -2,31 +2,31 @@
 
 Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
-## Current planning refresh: profile twenty-one
+## Current planning refresh: profile twenty-two
 
-The first original `0x4D4F0` invocation returns EAX 1 to actual parent `0x488AD`, SP `0x03C10E6C`, before caller cleanup. Startup reaches guarded **`0x488B9` before the original tail jump**, SP **`0x03C10E78`**, inherited return **`0x4F7FF`**, argument **`0x256410`**, after **457 routines / 837 operations**. Outer `0x48880` remains pending and another invocation is unadmitted. Module `3ec70d60283ee91dbbf64d8f96a6ac49b1f846932be35797f2a2f72c0cf91c9d` is 1,253,812 bytes. Default profile twenty reproduces the entire preceding canonical report except module identity and all 717 diagnostic words exactly. See [status](status.md) and private `sdk-04d555-continuation-20261108/` evidence.
+Both original `0x4D4F0` invocations and the enclosing `0x48880` tail path return EAX 1. Actual inherited `0x4F7FF` return has SP `0x03C10E7C`; retained C parent cleanup then reaches untranslated **`0x4F5E0`**, return **`0x4F807`**, SP **`0x03C10E7C`**, after **457 routines / 839 operations**. Module `b2babb4423924160a635b2bc0c96a14add822c6b0adbd4941121e3c60c8862f3` is 1,257,938 bytes. Default profile twenty-one reproduces the entire preceding canonical report except module identity and all 765 diagnostic words exactly. The selected run preserves all 352 first-invocation words. See [status](status.md) and private `sdk-0488b9-reentry-20261108/` evidence.
 
-SCOPE-13 reuses eighteen unique original continuation instructions inside the existing 154-byte / 55-instruction function, with no new guest function/call/map/import. Its actual return and restored frame are observed. SCOPE-14 selects the reached tail re-entry through common checked invocation state; no extra return word is permitted.
+SCOPE-13/14 reuse the original code through two fixed invocation diagnostic banks and shared authoritative state, with no new guest function, CALL, return word, mapping or import. Actual tail return and SDK-to-C handoff are observed. Together they close one continuation/parent-re-entry allowance in the forecast; SCOPE-15 selects the actual next original dependency. This is not menu or gameplay acceptance.
 
-Imports remain **63 of 111 represented**, leaving **48 unrepresented (45 functions / 3 data)**; M1 necessity is unknown. Old `0x49990` closure: **188 candidates / 102 providers / 86 without either**; `0x4B230`: **126 / 100 / 26**. Joins retain 478 ordinary full C bodies plus three checked views outside lookup. Conservative charges are **498 / 22,789 / 32 groups / last twenty-one / 17 maps**, under unchanged caps. Private `scope-inventory.json` and `current-scope.json` bind unchanged joins; no whole-image rescan or routine subtraction was needed. Provider presence is not general callability or acceptance.
+Imports remain **63 of 111 represented**, leaving **48 unrepresented (45 functions / 3 data)**; M1 necessity is unknown. Old `0x49990` closure: **188 candidates / 102 providers / 86 without either**; `0x4B230`: **126 / 100 / 26**. Joins retain 478 ordinary full C bodies plus three checked views outside lookup. Charges remain **498 / 22,789 / 32 groups / last twenty-one / 17 maps**, under unchanged caps. Private `scope-inventory.json` and `current-scope.json` bind unchanged joins; no whole-image rescan or routine subtraction was needed. Provider presence is not general callability or acceptance.
 
 ## Remaining M1 planning estimate (E1)
 
-**Plan around 30 remaining engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** This estimate starts from source checkpoint `05380a2` / profile twenty. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
+**Plan around 30 remaining engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** E1 was established at source checkpoint `05380a2` / profile twenty. The current profile-twenty-two refresh closes one grouped continuation/parent-re-entry package; the worksheet below reflects that single reduction and leaves all other areas unchanged. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
 
 One task means a task-sized functional capability or reached-path integration batch, including its targeted verification. Examples are providing original controller polling, translating the needed shader/state path, or finishing an original startup call cluster. Several functions/imports can share one task; one shared adapter fix may remove many stops. Tasks have unequal effort. Do not convert this count into hours or a milestone percentage.
 
 | Remaining area | Optimistic | Working | Contingency-heavy | What the allowance covers |
 | --- | ---: | ---: | ---: | --- |
-| Startup and shared CPU/memory/ABI/kernel support | 5 | 11 | 24 | Current continuation/re-entry; common dispatch/helper gaps; VM/heap lifecycle; required grouped object/thread/timer/service behavior. |
+| Startup and shared CPU/memory/ABI/kernel support | 4 | 10 | 23 | Next reached startup dependencies; common dispatch/helper gaps; VM/heap lifecycle; required grouped object/thread/timer/service behavior. |
 | Original graphics in the browser | 4 | 6 | 9 | Device/surfaces/presentation, geometry submission, textures/sampling, shader/render-state mapping and required synchronization/readback. |
 | Original audio | 2 | 3 | 4 | Guest sound buffers/voices/mixing, browser output and required streaming/codec/timing support. |
 | Controls | 1 | 2 | 3 | Original device open/poll and live browser input, plus required packet/seat lifecycle. |
 | Local original game resources | 2 | 3 | 4 | Local content backing and checked non-audio/non-GPU resource layout/binding. Audio codecs and GPU formats belong to their own rows. |
 | Menu/round/results joins and final M1 acceptance | 5 | 6 | 8 | Original menu, selected-game launch, round/results, return/re-entry, and one combined three-cycle evidence/comparison/independent acceptance task. |
-| **Worksheet total** | **19** | **31** | **52** | Reported approximately as **20 / 30 / 50**; single-task precision is not meaningful. |
+| **Worksheet total** | **18** | **30** | **51** | Reported approximately as **20 / 30 / 50**; single-task precision is not meaningful. |
 
-These are coordinator-normalized scenario allowances, not summed raw worker subtotals or 31 identified blockers. Whole graphics-backend work is split into task-sized capabilities rather than counted as one large item. Normal checks and reviews are included in implementation tasks; final acceptance reuses the existing capture/provenance/control infrastructure. The high column already includes area-specific contingency—do not add a second global reserve or count a discovered task and its allowance twice.
+These are coordinator-normalized scenario allowances, not summed raw worker subtotals or thirty identified blockers. Whole graphics-backend work is split into task-sized capabilities rather than counted as one large item. Normal checks and reviews are included in implementation tasks; final acceptance reuses the existing capture/provenance/control infrastructure. The high column already includes area-specific contingency—do not add a second global reserve or count a discovered task and its allowance twice.
 
 The range assumes one selected original minigame on one desktop browser, a privately prepared local module, available compatible local inputs, and substantial reuse of the matching generated C++, native SDK services, existing checked core and applicable browser/SDL/OpenCE components. It excludes full-game parity/catalog, end-user conversion, networking/accounts/social, mobile, release browser/device matrices and polish. Original three-cycle audiovisual/input acceptance remains mandatory.
 
@@ -38,12 +38,12 @@ A retrospective grouping gives **about twelve completed M1-enabling foundation p
 
 ### Use the forecast to guide work
 
-1. Finish SCOPE-14 and the actual original parent/re-entry path. Prefer common SDK call, memory, dispatch and repeated-invocation support over another manually rewritten function.
+1. Integrate SCOPE-15 at the actual next original dependency. Prefer common SDK call, memory, dispatch and repeated-invocation support over another manually rewritten function.
 2. Resolve the browser graphics integration seam early while continuing reached startup work; it carries more uncertainty than another small translated helper. Reuse the native game-specific/XDK state and applicable browser platform components, with the existing resource/content guards.
 3. Convert allowances into named reached tasks, record completion/split/merge changes, and update the remaining range when a major shared capability changes. A new guard is not automatically a new task.
 4. Re-estimate at the first controllable original menu and first complete original cycle. Keep required checks focused; do not invent broad test/refinement packages before M1.
 
-Private source assessments and the independent estimate review remain in `research/verification/m1-remaining-estimate-20261108/`. No new game execution was performed to create E1, and no M1 gate closes from this forecast.
+Private source assessments and the independent estimate review remain in `research/verification/m1-remaining-estimate-20261108/`; the one-package profile-twenty-two refresh is bound in `sdk-0488b9-reentry-20261108/forecast-refresh.json`. No new game execution was performed to create E1, and no M1 gate closes from this forecast.
 
 ## Reviewed observation: 2026-11-07
 
@@ -63,7 +63,7 @@ The broader original-source closure rooted at `0x0004F7A0` contains 688 candidat
 
 ## Tracked work and selection order
 
-The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bounded observations. SCOPE-08/13 now have a verified first invocation return; SCOPE-09's observed invocation and SCOPE-10/11/12 return paths are verified only for their selected callers/model. SCOPE-14 is next. Private candidates/reports stay ignored; public records contain curated findings only.
+The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bounded observations. SCOPE-08/13 now have a verified first invocation return; SCOPE-09's observed invocation and SCOPE-10/11/12 return paths are verified only for their selected callers/model. SCOPE-14 verifies the selected tail return and SDK-to-C handoff; SCOPE-15 is next. Private candidates/reports stay ignored; public records contain curated findings only.
 
 | ID | Evidence and state | Functional objective / scope | Acceptance and stop condition |
 | --- | --- | --- | --- |
@@ -80,7 +80,8 @@ The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bound
 | SCOPE-11 | Zero-stack-argument `0x4BE40` EAX-node helper returned in profile nineteen | Reuse its original 125 bytes / 43 instructions and common checked memory; preserve EAX and nonvolatiles with EBP distinct from SEH. | Actual `0x4C048` post-RET verified; separate `0x4C19B` caller remains guarded. No independent raw-RAM link-readback claim. |
 | SCOPE-12 | Exact `0x4C0DA` release caller returned in profile twenty | Reuse original 32-byte / 12-instruction `0x3080D` and existing ordinal-221 model, registered object/current owner and NULL second argument. | Actual owner 1→0, original EAX 1, RET 4 and enclosing pointer return verified. Negative `0x31155` and other `0x4BFB8` caller remain guarded. |
 | SCOPE-13 | First original invocation returned at actual `0x488AD` in profile twenty-one | Reuse eighteen unique original fallthrough instructions within the existing function, with the shared epilogue once and no extra call/return frame. | Original source/layout and independent source/build/browser review pass; old profile twenty is exact. Original EAX 1, restored frame/nonvolatiles/DF/SEH and real parent return observed; stop before `0x488B9`. |
-| SCOPE-14 | Reached tail `0x488B9`, unadmitted | Coordinator owns shared invocation state and actual original tail re-entry. Reuse the existing generated function, separating invocation diagnostics and preserving inherited `0x4F7FF` return/argument frame. | Independent CPU/memory/ABI review and focused comparison; actual original return plus SDK-to-C handoff must be checked. No invented CALL, return word, service result or cap expansion; stop at unsupported behavior. |
+| SCOPE-14 | Selected tail returns through inherited `0x4F7FF` in profile twenty-two | Two fixed invocation diagnostic banks reuse original code and authoritative state; the first bank is preserved. | Independent source/build/browser review passes; actual EAX 1/SP+4/nonvolatiles/DF/SEH/FS and C-parent handoff observed. No new guest push/body/map/import/cap; next dependency stops at `0x4F5E0`. |
+| SCOPE-15 | Actual original `0x4F5E0` reached, body unadmitted | Coordinator owns generated-code/shared-adapter integration after exact caller, arity, full layout, return and direct-dependency assessment. | Reuse retained extraction; independent CPU/memory/ABI review and one focused comparison preserve prior profiles/caps. Do not infer arity from ambient stack words; stop at unsupported behavior. |
 
 The current 48 unrepresented imports group into contiguous GPU-accessible memory (1), events/semaphores (2), file I/O (2), HAL/system (8), I/O manager (10), object manager (2), runtime library (2), synchronization (2), system/pool memory (9), threading (3), timers/DPCs (3), virtual memory (1), and data exports (3). The two scoped IRQL imports were removed from the initial HAL/system group; the clock data export was removed from the data group. These source classifications help choose reuse seams; they do not prove reachability or independent task boundaries.
 
