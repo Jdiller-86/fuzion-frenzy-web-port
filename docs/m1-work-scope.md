@@ -1,6 +1,6 @@
 # M1 measured work scope
 
-Use this ledger to select bounded development tasks and reuse existing implementations. It records measured coverage, source candidates and unresolved work separately. It is not a count of manual fixes, an M1 percentage or a delivery estimate. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
+Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
 ## Current planning refresh: profile twenty
 
@@ -9,6 +9,37 @@ The original six-word `0x4BF10` invocation has returned actual guest pointer `0x
 SCOPE-10/11/12 verify the exact wait caller, zero-argument EAX node helper and release caller, including actual return to the six-word routine's parent. Other callers and branches remain guarded; the full surrounding startup is incomplete. SCOPE-13 selects the reached original shared continuation, preserving its enclosing frame and original epilogue rather than inventing another call.
 
 Imports remain **63 of 111 represented**, leaving **48 unrepresented (45 functions / 3 data)**; M1 necessity is unknown. Old `0x49990` closure: **188 candidates / 102 providers / 86 without either**; `0x4B230`: **126 / 100 / 26**. New `0x4BE40` and `0x3080D` mappings are outside both; the latter already had a full C body, so a duplicate backend is not new provider coverage. Joins retain 478 ordinary full C bodies plus three checked views outside lookup. Conservative charges are **498 / 22,771 / 32 groups / last twenty-one / 17 maps**, under unchanged caps. Private `scope-inventory.json` and `current-scope.json` bind affected joins; no whole-image rescan or routine subtraction was needed. Provider presence is not general callability or acceptance.
+
+## Remaining M1 planning estimate (E1)
+
+**Plan around 30 remaining engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** This estimate starts from source checkpoint `05380a2` / profile twenty. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
+
+One task means a task-sized functional capability or reached-path integration batch, including its targeted verification. Examples are providing original controller polling, translating the needed shader/state path, or finishing an original startup call cluster. Several functions/imports can share one task; one shared adapter fix may remove many stops. Tasks have unequal effort. Do not convert this count into hours or a milestone percentage.
+
+| Remaining area | Optimistic | Working | Contingency-heavy | What the allowance covers |
+| --- | ---: | ---: | ---: | --- |
+| Startup and shared CPU/memory/ABI/kernel support | 5 | 11 | 24 | Current continuation/re-entry; common dispatch/helper gaps; VM/heap lifecycle; required grouped object/thread/timer/service behavior. |
+| Original graphics in the browser | 4 | 6 | 9 | Device/surfaces/presentation, geometry submission, textures/sampling, shader/render-state mapping and required synchronization/readback. |
+| Original audio | 2 | 3 | 4 | Guest sound buffers/voices/mixing, browser output and required streaming/codec/timing support. |
+| Controls | 1 | 2 | 3 | Original device open/poll and live browser input, plus required packet/seat lifecycle. |
+| Local original game resources | 2 | 3 | 4 | Local content backing and checked non-audio/non-GPU resource layout/binding. Audio codecs and GPU formats belong to their own rows. |
+| Menu/round/results joins and final M1 acceptance | 5 | 6 | 8 | Original menu, selected-game launch, round/results, return/re-entry, and one combined three-cycle evidence/comparison/independent acceptance task. |
+| **Worksheet total** | **19** | **31** | **52** | Reported approximately as **20 / 30 / 50**; single-task precision is not meaningful. |
+
+These are coordinator-normalized scenario allowances, not summed raw worker subtotals or 31 identified blockers. Whole graphics-backend work is split into task-sized capabilities rather than counted as one large item. Normal checks and reviews are included in implementation tasks; final acceptance reuses the existing capture/provenance/control infrastructure. The high column already includes area-specific contingency—do not add a second global reserve or count a discovered task and its allowance twice.
+
+The range assumes one selected original minigame on one desktop browser, a privately prepared local module, available compatible local inputs, and substantial reuse of the matching generated C++, native SDK services, existing checked core and applicable browser/SDL/OpenCE components. It excludes full-game parity/catalog, end-user conversion, networking/accounts/social, mobile, release browser/device matrices and polish. Original three-cycle audiovisual/input acceptance remains mandatory.
+
+**Graphics and later runtime integration are the largest uncertainties.** Public renderer code is geometry prepasses plus a preview, not an integrated original-title renderer. The pinned native SDK has reusable GPU/XDK, sound and input code, but its D3D12/Vulkan backends are not browser drop-ins. The 48 unrepresented imports are an inventory, not 48 tasks or proof they are all needed for M1. Failure of the assumed shared-runtime or graphics reuse route can exceed the high scenario.
+
+### Use the forecast to guide work
+
+1. Finish SCOPE-13 and the actual original parent/re-entry path. Prefer common SDK call, memory, dispatch and repeated-invocation support over another manually rewritten function.
+2. Resolve the browser graphics integration seam early while continuing reached startup work; it carries more uncertainty than another small translated helper. Reuse the native game-specific/XDK state and applicable browser platform components, with the existing resource/content guards.
+3. Convert allowances into named reached tasks, record completion/split/merge changes, and update the remaining range when a major shared capability changes. A new guard is not automatically a new task.
+4. Re-estimate at the first controllable original menu and first complete original cycle. Keep required checks focused; do not invent broad test/refinement packages before M1.
+
+Private source assessments and the independent estimate review remain in `research/verification/m1-remaining-estimate-20261108/`. No new game execution was performed to create E1, and no M1 gate closes from this forecast.
 
 ## Reviewed observation: 2026-11-07
 

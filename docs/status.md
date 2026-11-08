@@ -18,6 +18,8 @@ Each bounded step uses one focused four-case comparison. Final default profile n
 
 The [ledger](m1-work-scope.md) retains **48 unrepresented imports (45 functions / 3 data)** with unknown M1 subset. Old provider joins remain 188/102/86 and 126/100/26; the two new mappings are outside both closures, and `0x3080D` already had a full C provider. SCOPE-10/11/12 have bounded return observations; SCOPE-13 selects the actual `0x4D555` continuation. Independent source/build/browser review of all three steps passed. Public baseline `afd689c` passes Ubuntu/Windows CI; proprietary browser execution has separate local evidence. Fresh-RAM, declared clock origin/cadence, empty-input HOST policy, generic ABI/flags/FP and physical-device limits remain qualified in [research](research.md).
 
+Planning forecast E1 is **about 30 remaining functional engineering tasks**, with a rough **20–50** scenario range and low confidence. See the [remaining-work estimate](m1-work-scope.md#remaining-m1-planning-estimate-e1) for task boundaries, reuse assumptions and update rules. It is not a measured count of future guards, an ETA or M1 acceptance.
+
 ## Retained C comparison baseline
 
 Chrome 156.0.8078.80 on Windows reaches **status 2 at untranslated `0x0003055A`**, return `0x0004E828`, SP `0x03C10E6C`, after **443 original routines / 741 completed kernel operations**. Original `0x0004E800` has entered and remains pending. The earlier `0x0003080D`, `0x0004BDC0` and `0x0004C380` returned with balanced frames. READY callback `0x0004CBE0` remains unexecuted. No original screen, rendering, audible gameplay, recorded player round or three-round M1 acceptance exists.

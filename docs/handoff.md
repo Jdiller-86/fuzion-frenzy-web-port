@@ -12,6 +12,8 @@ Three existing wait bodies and two unchanged generated helpers reuse the existin
 
 Final default reproduces profile nineteen's full canonical report except module identity. All 653 diagnostic words also match exactly. Selected execution adds three CPU rows/one entry/one kernel operation, 27 VM checks, 20 PFIFO charges and two clock samples. CPU totals: 10,718 rows / 5,379 entries; kernel totals: 838 events / 837 completions. Captured prefixes/digests, VM state/accounting, dirty pages and legacy ABI evidence are preserved with the qualifications in [status](status.md) and [research](research.md). Independent source/build/browser review of all three steps passed. Public baseline `afd689c` passes Ubuntu/Windows CI. No original menu, audiovisual/input round or M1 acceptance exists.
 
+Planning forecast E1 is **about 30 remaining functional engineering tasks**, with a rough **20–50** scenario range and low confidence. See the [remaining-work estimate](m1-work-scope.md#remaining-m1-planning-estimate-e1) for task boundaries, reuse assumptions and update rules. It is not a measured count of future guards, an ETA or M1 acceptance.
+
 ## Next bounded task
 
 SCOPE-13: coordinator owns the private `0x4D555` continuation and existing SDK callback/guard interfaces. Reuse its retained generated block as continuation of the pending `0x4D4F0` invocation. Preserve actual enclosing frame, pointer, registers, DF/flags and the shared `0x4D582` epilogue. Do not create a guest CALL, stack return word, separate original function entry or poll. Independently verify source/layout, actual original return to the parent and old-profile preservation; stop before unadmitted `0x488B9` or earlier unsupported behavior. Other callers/services remain out of scope.

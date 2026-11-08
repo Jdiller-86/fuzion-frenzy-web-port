@@ -19,6 +19,8 @@ OpenCE is a Halo-specific browser platform layer, not an XboxXBERecomp kernel ba
 
 Consult the [measured work-scope ledger](m1-work-scope.md) before selecting a task. Use its observed stop, existing-provider inventory and grouped gaps to guide reuse and shared-interface work. Claim one entry with owned files and targeted acceptance checks; update its result and affected counts at coherent checkpoints. Static call candidates and unrepresented imports are planning evidence, not a queue of mandatory manual fixes. Refresh only affected scope and keep runtime status/handoff aligned when the boundary changes.
 
+Maintain the ledger's [provisional M1 task forecast](m1-work-scope.md#remaining-m1-planning-estimate-e1) alongside actual reached work. Convert allowances into concrete shared-interface tasks without double-counting them, refresh the range at meaningful integration checkpoints, and prioritize the browser graphics seam early. Forecast counts are not elapsed-time or completion percentages.
+
 **Use simple, targeted verification. Defer detailed testing, broad matrices, refinements and polish until after M1.** For each change, check the affected behavior and use one meaningful browser comparison when applicable. Reuse passing unchanged checks. A failure or a specific unresolved correctness concern can justify a deeper check; routine work should not become a repeated full audit.
 
 Keep brief independent correctness review for changed CPU, memory, ABI or GPU behavior. Run required preparation/publication checks at coherent source checkpoints. The final M1 gate still needs the three original menu/round/results/menu sequences, audiovisual/input evidence and reproducibility review; intermediate fixtures and compilation cannot substitute for that result.
