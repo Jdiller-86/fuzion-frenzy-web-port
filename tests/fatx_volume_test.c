@@ -72,6 +72,51 @@ static void link_fatx_drive(void)
     string(LINK,LINK_TEXT,"\\??\\Z:");string(TARGET,TARGET_TEXT,"\\Device\\Harddisk0\\Partition5");
     uint32_t id;assert(!ff_namespace_create_link(&space,LINK,TARGET,&id));
 }
+static void fatx_dos_root_open_is_exact_and_owned(void)
+{
+    reset(0x40000000);format_owned(4,270336);uint32_t existing=open_root();assert(!ff_fatx_close(&fs,existing));
+    string(NAME,TEXT,"Z:\\");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    args[0]=OUT;args[1]=0x100001;args[2]=ATTR;args[3]=IOSB;args[4]=3;args[5]=0x4021;
+    const uint32_t device=fs.mounts[0].device;
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged(); /* alias absent */
+    link_fatx_drive();
+    const uint32_t namespace_count=space.count;
+    uint32_t handle=open_root();assert(fs.mount_count==1 && space.count==namespace_count && fs.mounts[0].device==device);
+    assert(fs.active==1 && fs.file_count==1 && fs.mounts[0].file_objects==1);
+    assert(!ff_fatx_close(&fs,handle) && !fs.active && !fs.file_count && !fs.mounts[0].file_objects);
+
+    string(NAME,TEXT,"Z:\\leaf");save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    string(NAME,TEXT,"Z:");save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    string(NAME,TEXT,"Z:\\");
+    args[5]=0x8021;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[5]=0x4021;
+    args[1]=0x100003;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[1]=0x100001;
+    args[4]=1;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[4]=3;
+    const uint32_t bad_buffer=0x40000;put(NAME+4,bad_buffer,4);save();
+    assert(ff_fatx_open_root(&fs,args)==FF_VM_ACCESS_VIOLATION);unchanged();put(NAME+4,TEXT,4);
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)if(space.objects[i].id==device)space.objects[i].media_ready=0;
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)if(space.objects[i].id==device)space.objects[i].media_ready=1;
+    uint32_t wrong_device;assert(!ff_namespace_add_device(&space,"\\Device\\Wrong",13,FF_NS_LOCAL_DISC,&wrong_device));
+    assert(!ff_namespace_delete_link(&space,"\\??\\Z:",6));
+    string(LINK,LINK_TEXT,"\\??\\Z:");string(TARGET,TARGET_TEXT,"\\Device\\Wrong");uint32_t wrong_link;
+    assert(!ff_namespace_create_link(&space,LINK,TARGET,&wrong_link));save();
+    assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_namespace_delete_link(&space,"\\??\\Z:",6));link_fatx_drive();
+    name("\\Device\\Harddisk0\\Partition5");put(ATTR,0,4);args[1]=0x100001;args[4]=0;args[5]=0x21;
+    uint32_t exclusive=open_root();name("Z:\\");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);args[1]=0x100001;args[4]=3;args[5]=0x4021;
+    saved_fs=fs;const uint32_t old_output=(uint32_t)get(OUT,4);
+    assert(ff_fatx_open_root(&fs,args)==FF_DISK_SHARING && !memcmp(&fs,&saved_fs,sizeof fs) &&
+           (uint32_t)get(OUT,4)==old_output && get(IOSB,4)==FF_DISK_SHARING && get(IOSB+4,4)==0);
+    assert(!ff_fatx_close(&fs,exclusive));
+    uint32_t roots[FF_FATX_FILES];
+    for(unsigned i=0;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_NO_MEMORY);
+    assert(!memcmp(&fs,&saved_fs,sizeof fs) && !memcmp(&disk,&saved_disk,sizeof disk) &&
+           !memcmp(&space,&saved_space,sizeof space));
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+    args[5]=0x4021;args[1]=0x100001;args[4]=3;
+    ++disk.revision;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();--disk.revision;
+}
 static uint32_t create_guest_file(const char *path,uint32_t output)
 {
     string(NAME,TEXT,path);put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
@@ -832,7 +877,7 @@ static void capacity_failures_do_not_partially_mount(void)
 }
 int main(void)
 {
-    fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
+    fat32_root_query_namespace_and_references();fatx_dos_root_open_is_exact_and_owned();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
     read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
     puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest file query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

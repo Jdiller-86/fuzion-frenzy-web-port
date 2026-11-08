@@ -137,11 +137,36 @@ uint32_t ff_fatx_open_root(ff_fatx_volume *fs,const uint32_t args[6])
     if(bytes && !admitted(fs,buffer,bytes,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
     if(overlap(output,4,iosb,8) || overlap(output,4,attributes,12) || overlap(iosb,8,attributes,12) ||
        overlap(output,4,descriptor,8) || overlap(iosb,8,descriptor,8) || overlap(output,4,buffer,bytes) || overlap(iosb,8,buffer,bytes))return FF_BOOT_UNSUPPORTED;
-    if((flags&~0x40u) || (share&~7u) || (access&~0x001200a9u) || (options&~0x00800061u))return FF_BOOT_UNSUPPORTED;
+    if((flags&~0x40u) || (share&~7u) || (access&~0x001200a9u) ||
+       (options&~0x00804061u))return FF_BOOT_UNSUPPORTED;
+    /* NtOpenFile's reached cache-root request includes FILE_OPEN_FOR_BACKUP_INTENT
+     * (0x4000). Admit only this observed DOS-root profile; the synthetic local
+     * FATX provider does not model privilege, ACL, or general backup semantics. */
+    const int dos_cache_root=relative==FF_FATX_DOS_DEVICE_ROOT && bytes==3 &&
+        (options&0x00804061u)==0x00004021u && flags==0x40u && access==0x00100001u && share==3u;
+    if(options&0x4000u) {
+        if(!dos_cache_root)return FF_BOOT_UNSUPPORTED;
+    } else if(options&~0x00800061u)return FF_BOOT_UNSUPPORTED;
     if((options&0x20u) && !(access&0x100000u))return FF_BOOT_INVALID;
     if(options&0x40u)return FF_BOOT_UNSUPPORTED;
     uint32_t partition=0;
-    if(relative) {
+    if(dos_cache_root) {
+        const char *drive=(const char *)(fs->disk->memory->ram+buffer);
+        if(!((drive[0]>='A'&&drive[0]<='Z')||(drive[0]>='a'&&drive[0]<='z')) ||
+           drive[1]!=':' || drive[2]!='\\')return FF_BOOT_UNSUPPORTED;
+        char device_path[16]="\\??\\X:";
+        device_path[4]=(char)fold((uint8_t)drive[0]);
+        ff_namespace_resolution resolution;
+        if(ff_namespace_resolve(fs->space,device_path,6,&resolution) || resolution.remaining_bytes)
+            return FF_BOOT_UNSUPPORTED;
+        const ff_namespace_object *device=NULL;
+        for(unsigned i=0;i<FF_NS_OBJECTS;++i)if(fs->space->objects[i].id==resolution.object)device=&fs->space->objects[i];
+        if(!device || device->kind!=FF_NS_DEVICE || device->device_kind!=FF_NS_LOCAL_FATX || !device->media_ready)
+            return FF_BOOT_UNSUPPORTED;
+        ff_fatx_mount *owned=mount_id(fs,device->provider_object);
+        if(!owned || owned->device!=device->id || !current(fs,owned))return FF_BOOT_UNSUPPORTED;
+        partition=owned->partition;
+    } else if(relative) {
         ff_fatx_file *parent=file_handle(fs,relative);
         if(!parent || parent->kind!=FF_FATX_HANDLE_ROOT)return FF_BOOT_UNSUPPORTED;
         if(bytes)return FF_BOOT_UNSUPPORTED;
