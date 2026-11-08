@@ -397,6 +397,84 @@ uint32_t ff_fatx_query_file(ff_fatx_volume *fs,const uint32_t args[5])
     put(fs,output+48u,entry.attributes,4);
     return result(fs,iosb,0,info_bytes);
 }
+static void record_put(uint8_t *record,uint32_t offset,uint64_t value,unsigned bytes)
+{
+    for(unsigned i=0;i<bytes;++i)record[offset+i]=(uint8_t)(value>>(8*i));
+}
+uint32_t ff_fatx_query_directory_first(ff_fatx_volume *fs,const uint32_t args[10])
+{
+    if(!fs || !fs->disk || !fs->space || !args || !fs->disk->memory ||
+       fs->space->memory!=fs->disk->memory)return FF_BOOT_INVALID;
+    ff_fatx_file *file=file_handle(fs,args[0]);
+    if(!file || !ff_fatx_owns_handle(args[0]))return FF_BOOT_BAD_HANDLE;
+    if(file->kind!=FF_FATX_HANDLE_ROOT || file->handle!=args[0] || file->references!=1u ||
+       file->access!=0x00100001u || args[1] || args[2] || args[3] ||
+       args[6]!=0x148u || args[7]!=1u || args[9])return FF_BOOT_UNSUPPORTED;
+
+    const uint32_t iosb=args[4],output=args[5],descriptor=args[8];
+    if((iosb|output|descriptor)&3u)return FF_BOOT_INVALID;
+    if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,output,0x148u,FF_VM_WRITE) ||
+       !admitted(fs,descriptor,8,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
+    const uint32_t mask_buffer=get(fs,descriptor+4u,4);
+    if(!mask_buffer || !admitted(fs,mask_buffer,3,FF_VM_READ))return FF_VM_ACCESS_VIOLATION;
+    if(overlap(iosb,8,output,0x148u) || overlap(iosb,8,descriptor,8) ||
+       overlap(iosb,8,mask_buffer,3) || overlap(output,0x148u,descriptor,8) ||
+       overlap(output,0x148u,mask_buffer,3) || overlap(descriptor,8,mask_buffer,3))
+        return FF_BOOT_UNSUPPORTED;
+    if(get(fs,descriptor,2)!=0u || get(fs,descriptor+2u,2)!=3u ||
+       memcmp(fs->disk->memory->ram+mask_buffer,"*.*",3))return FF_BOOT_UNSUPPORTED;
+
+    ff_fatx_mount *mount=mount_id(fs,file->mount);
+    if(!mount || mount->id!=file->mount || !current(fs,mount) || mount->root_cluster!=1u ||
+       mount->root_clusters!=1u || mount->cluster_bytes!=16384u || mount->entry_bytes!=4u)
+        return FF_BOOT_UNSUPPORTED;
+    const ff_namespace_object *device=NULL;
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)
+        if(fs->space->objects[i].id==mount->device)device=&fs->space->objects[i];
+    if(!device || device->kind!=FF_NS_DEVICE || device->device_kind!=FF_NS_LOCAL_FATX ||
+       !device->media_ready || device->provider_object!=mount->id)return FF_BOOT_UNSUPPORTED;
+
+    if(mount->offset>UINT64_MAX-mount->data_offset)return FF_BOOT_UNSUPPORTED;
+    const uint64_t root_address=mount->offset+mount->data_offset;
+    const uint64_t root_fat_relative=4096u+(uint64_t)mount->root_cluster*mount->entry_bytes;
+    if(root_address<mount->offset || root_address-mount->offset>mount->bytes ||
+       mount->cluster_bytes>mount->bytes-(root_address-mount->offset) ||
+       root_fat_relative>mount->bytes || mount->entry_bytes>mount->bytes-root_fat_relative)
+        return FF_BOOT_UNSUPPORTED;
+    const uint64_t root_fat=mount->offset+root_fat_relative;
+    if(root_fat<mount->offset || !ff_disk_has(fs->disk,root_address,mount->cluster_bytes) ||
+       !ff_disk_has(fs->disk,root_fat,mount->entry_bytes) ||
+       disk_word(fs,root_fat,mount->entry_bytes)!=UINT32_MAX)
+        return FF_BOOT_UNSUPPORTED;
+
+    uint32_t count=0;
+    if(ff_fatx_directory_count(fs,mount->id,NULL,0,0,&count) || count!=1u)return FF_BOOT_UNSUPPORTED;
+    ff_fatx_directory_entry entry;
+    if(ff_fatx_directory_at(fs,mount->id,NULL,0,0,0,&entry))return FF_BOOT_UNSUPPORTED;
+    const uint32_t name_bytes=ff_disk_byte(fs->disk,root_address);
+    if(name_bytes!=12u || entry.attributes!=0x20u || entry.first_cluster!=2u || entry.size!=586u ||
+       ff_disk_byte(fs->disk,root_address+1u)!=0x20u ||
+       ff_disk_byte(fs->disk,root_address+64u)!=0xffu || !single_cluster_file(fs,mount,&entry))
+        return FF_BOOT_UNSUPPORTED;
+    for(uint32_t i=0;i<name_bytes;++i) {
+        const uint8_t c=(uint8_t)entry.name[i];
+        if(ff_disk_byte(fs->disk,root_address+2u+i)!=c ||
+           !((c>='A'&&c<='Z') || (c>='a'&&c<='z') || (c>='0'&&c<='9') ||
+             c=='.' || c=='_' || c=='-'))return FF_BOOT_UNSUPPORTED;
+    }
+    if(entry.name[name_bytes])return FF_BOOT_UNSUPPORTED;
+    for(uint32_t offset=52u;offset<64u;offset+=4u)
+        if(disk_word(fs,root_address+offset,4)!=UINT32_MAX)return FF_BOOT_UNSUPPORTED;
+
+    uint8_t record[0x40u+12u]={0};
+    record_put(record,0x28u,entry.size,8);
+    record_put(record,0x30u,mount->cluster_bytes,8);
+    record_put(record,0x38u,entry.attributes,4);
+    record_put(record,0x3cu,name_bytes,4);
+    memcpy(record+0x40u,entry.name,name_bytes);
+    memcpy(fs->disk->memory->ram+output,record,sizeof record);
+    return result(fs,iosb,0,(uint32_t)sizeof record);
+}
 uint32_t ff_fatx_set_position(ff_fatx_volume *fs,const uint32_t args[5])
 {
     if(!fs || !fs->disk || !args)return FF_BOOT_INVALID;

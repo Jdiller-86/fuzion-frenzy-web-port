@@ -14,7 +14,8 @@ static ff_object_namespace space,saved_space;
 static ff_fatx_volume fs,saved_fs;
 static ff_local_volume primary;
 enum {OUT=0x10100,IOSB=0x10120,ATTR=0x10140,NAME=0x10180,TEXT=0x10200,OFFSET=0x10300,
-      LINK=0x10400,TARGET=0x10420,LINK_TEXT=0x10500,TARGET_TEXT=0x10600,DATA=0x11000};
+      LINK=0x10400,TARGET=0x10420,LINK_TEXT=0x10500,TARGET_TEXT=0x10600,DATA=0x11000,
+      D207_OUT=0x18000,D207_IOSB=0x19000,D207_DESC=0x1a000,D207_MASK=0x1b000};
 static uint32_t args[6];
 static const uint64_t part_base=0x180000000ull;
 static void put(uint32_t p,uint64_t value,unsigned bytes){for(unsigned i=0;i<bytes;++i)ram[p+i]=(uint8_t)(value>>(8*i));}
@@ -181,6 +182,117 @@ static void setup_two_cluster_root(void)
         write_raw_page(part_base+270336+page*4096);
     }
     memset(ram+DATA,0xff,4096);dirent(DATA,"SECOND.TXT",0x20,4,0);write_raw_page(part_base+286720);
+}
+static uint32_t setup_query207_root(uint32_t entries)
+{
+    reset(0x40000000);format_owned(4,270336);
+    memset(ram+DATA,0,4096);put(DATA,0xfffffff8u,4);put(DATA+4,UINT32_MAX,4);
+    put(DATA+8,UINT32_MAX,4);write_raw_page(part_base+4096);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"QUERY207.DAT",0x20,2,586);
+    if(entries>1)dirent(DATA+64,"SECOND.TXT",0x20,3,1);
+    write_raw_page(part_base+270336);
+    for(uint32_t page=0;page<4;++page) {
+        memset(ram+DATA,0,4096);
+        write_raw_page(part_base+286720+(uint64_t)page*4096u);
+    }
+    return open_root();
+}
+static void query207_args(uint32_t handle,uint32_t args[10])
+{
+    put(D207_DESC,0,2);put(D207_DESC+2,3,2);put(D207_DESC+4,D207_MASK,4);
+    memcpy(ram+D207_MASK,"*.*",3);
+    memset(ram+D207_OUT,0xa5,0x148);put(D207_IOSB,0,4);put(D207_IOSB+4,1,4);
+    const uint32_t request[10]={handle,0,0,0,D207_IOSB,D207_OUT,0x148,1,D207_DESC,0};
+    memcpy(args,request,sizeof request);
+}
+static void query207_reject_without_writes(const uint32_t args[10],uint32_t expected)
+{
+    save();assert(ff_fatx_query_directory_first(&fs,args)==expected);unchanged();
+}
+static void query207_first_actual_wildcard_entry(void)
+{
+    const uint32_t handle=setup_query207_root(1);uint32_t args[10];query207_args(handle,args);
+    uint8_t before[sizeof ram];memcpy(before,ram,sizeof before);
+    saved_fs=fs;saved_disk=disk;saved_space=space;
+    assert(!ff_fatx_query_directory_first(&fs,args));
+    assert(!memcmp(&fs,&saved_fs,sizeof fs) && !memcmp(&disk,&saved_disk,sizeof disk) &&
+           !memcmp(&space,&saved_space,sizeof space));
+    assert(get(D207_IOSB,4)==0 && get(D207_IOSB+4,4)==76);
+    assert(get(D207_OUT,4)==0 && get(D207_OUT+4,4)==0);
+    for(uint32_t i=8;i<0x28;++i)assert(ram[D207_OUT+i]==0);
+    assert(get(D207_OUT+0x28,8)==586 && get(D207_OUT+0x30,8)==16384);
+    assert(get(D207_OUT+0x38,4)==0x20 && get(D207_OUT+0x3c,4)==12);
+    assert(!memcmp(ram+D207_OUT+0x40,"QUERY207.DAT",12));
+    for(uint32_t i=76;i<0x148;++i)assert(ram[D207_OUT+i]==before[D207_OUT+i]);
+    for(uint32_t i=0;i<sizeof ram;++i)
+        if((i<D207_OUT || i>=D207_OUT+76u) && (i<D207_IOSB || i>=D207_IOSB+8u))
+            assert(ram[i]==before[i]);
+    assert(!ff_fatx_close(&fs,handle));
+}
+static void query207_profile_and_span_guards(void)
+{
+    uint32_t handle=setup_query207_root(1),args[10];query207_args(handle,args);
+#define REJECT207(field,value,status) do { const uint32_t old=args[field];args[field]=(value); \
+    query207_reject_without_writes(args,(status));args[field]=old; } while(0)
+    REJECT207(1,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(2,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(3,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(6,0x147,FF_BOOT_UNSUPPORTED);
+    REJECT207(7,2,FF_BOOT_UNSUPPORTED);
+    REJECT207(9,1,FF_BOOT_UNSUPPORTED);
+    put(D207_DESC,1,2);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC,0,2);
+    put(D207_DESC+2,4,2);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC+2,3,2);
+    ram[D207_MASK]='?';query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);ram[D207_MASK]='*';
+    REJECT207(5,D207_DESC,FF_BOOT_UNSUPPORTED);
+    REJECT207(4,D207_DESC,FF_BOOT_UNSUPPORTED);
+    put(D207_DESC+4,D207_DESC,4);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC+4,D207_MASK,4);
+    put(D207_DESC+4,0x3fffe,4);query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);put(D207_DESC+4,D207_MASK,4);
+    REJECT207(4,0x3fffc,FF_VM_ACCESS_VIOLATION);
+    REJECT207(5,0x3ff00,FF_VM_ACCESS_VIOLATION);
+    const unsigned out_page=D207_OUT/FF_VM_PAGE,iosb_page=D207_IOSB/FF_VM_PAGE;
+    const unsigned desc_page=D207_DESC/FF_VM_PAGE,mask_page=D207_MASK/FF_VM_PAGE;
+    uint8_t old_permission=memory.permission[out_page];memory.permission[out_page]=FF_VM_READ;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[out_page]==FF_VM_READ);
+    memory.permission[out_page]=old_permission;
+    old_permission=memory.permission[iosb_page];memory.permission[iosb_page]=FF_VM_READ;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[iosb_page]==FF_VM_READ);
+    memory.permission[iosb_page]=old_permission;
+    old_permission=memory.permission[desc_page];memory.permission[desc_page]=FF_VM_WRITE;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[desc_page]==FF_VM_WRITE);
+    memory.permission[desc_page]=old_permission;
+    old_permission=memory.permission[mask_page];memory.permission[mask_page]=FF_VM_WRITE;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[mask_page]==FF_VM_WRITE);
+    memory.permission[mask_page]=old_permission;
+    uint32_t token;assert(!ff_fatx_reference_handle(&fs,handle,&token));
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);assert(!ff_fatx_release_file(&fs,token));
+    const uint32_t old_access=fs.files[0].access;fs.files[0].access=0;
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);fs.files[0].access=old_access;
+    ++disk.revision;query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);--disk.revision;
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(2);query207_args(handle,args);
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    drop_page(part_base+270336+12288);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    drop_page(part_base+4096);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    const uint64_t root_page=(part_base+270336)/FF_DISK_PAGE_BYTES;
+    int found_root_page=0;
+    for(unsigned i=0;i<FF_DISK_PAGES;++i)
+        if(disk.pages[i].used && disk.pages[i].index==root_page) {
+            disk.pages[i].data[52]=0;found_root_page=1;
+        }
+    assert(found_root_page);
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+#undef REJECT207
 }
 static void setup_fat16_file(void)
 {
@@ -878,6 +990,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fatx_dos_root_open_is_exact_and_owned();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest file query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();query207_first_actual_wildcard_entry();query207_profile_and_span_guards();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, first wildcard directory record, query profile/span/backing guards, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

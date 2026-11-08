@@ -2,13 +2,13 @@
 
 Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
-## Current planning refresh: profile twenty-five
+## Current planning refresh: profile twenty-six
 
-The exact utility-root open returns status zero, information 1 and typed FATX root handle `0x70038` through the existing dispatcher, current namespace and unchanged synthetic cache mount. Original code then stops before **ordinal 207**, return `0x1E96AD`, SP `0x03C10AB4`, after **460 routines / 841 operations**. No enumeration occurs; the surrounding original routines remain pending. Module `c7c6c0ed28d4653114f9e3e5f5571d90ea0f0d4f7870977d8995903c3ed09d05` is 1,272,102 bytes. Default profile twenty-four preserves its entire canonical report except module identity and all 1,261 words. See [status](status.md) and private `sdk-ntopen-cache-root-20261108/` evidence.
+The first ordinal-207 query returns the actual backed cache entry as a checked 76-byte record, then original code reaches **`0x1E956F`**, return `0x1E96D3`, SP `0x03C10AD4`, arguments `[0x03C10AE8, 0x03C10C9C]`, after **460 routines / 842 operations**. The helper body is unentered. Module `5f29d2617c42239de44e883fbc536877cd8e72d0f490481364dd7e608745fcb3` is 1,277,588 bytes. Default profile twenty-five preserves its full canonical report except module identity and all 1,261 words. See [status](status.md) and private `sdk-query-directory-20261108/`.
 
-SCOPE-17 verifies only the reached open and lifetime path; SCOPE-18 selects the actual directory query. Enumeration must reflect actual backing entries/statuses. The separate disc-parser and owned synchronous-file proofs do not implement it or close the file/directory forecast allowance.
+SCOPE-18 verifies only the exact first normalized all-files query over the real single-entry cache root, with complete root/FAT backing checks. No fake empty listing, cursor, restart or general service is used. SCOPE-19 selects the reached original record-copy helper. The file/directory forecast allowance remains open.
 
-Imports remain **63 of 111 represented**, leaving **48 unrepresented (45 functions / 3 data)**, including ordinal 207; the complete M1 subset remains unknown. Provider joins remain **188 / 102 / 86** and **126 / 100 / 26**. Charges remain **501 bodies / 23,078 instructions / 32 groups / last twenty-four / 20 SDK maps**, under unchanged caps. No original body, mapping or import is added by this service step.
+Imports are **64 of 111 represented**, leaving **47 unrepresented (44 functions / 3 data)**, with unknown M1 subset. The new service is an exact scoped raw-slot SDK bridge; the compiled table and original slot bytes remain unchanged, at the existing 64 ceiling. Provider joins remain **188 / 102 / 86** and **126 / 100 / 26**. Charges remain **501 bodies / 23,078 instructions / 32 groups / last twenty-four / 20 SDK maps**. No original body/mapping or cap is added.
 
 ## Remaining M1 planning estimate (E1)
 
@@ -30,7 +30,7 @@ These are coordinator-normalized scenario allowances, not summed raw worker subt
 
 The range assumes one selected original minigame on one desktop browser, a privately prepared local module, available compatible local inputs, and substantial reuse of the matching generated C++, native SDK services, existing checked core and applicable browser/SDL/OpenCE components. It excludes full-game parity/catalog, end-user conversion, networking/accounts/social, mobile, release browser/device matrices and polish. Original three-cycle audiovisual/input acceptance remains mandatory.
 
-**Graphics and later runtime integration are the largest uncertainties.** Public renderer code is geometry prepasses plus a preview, not an integrated original-title renderer. The pinned native SDK has reusable GPU/XDK, sound and input code, but its D3D12/Vulkan backends are not browser drop-ins. The 48 unrepresented imports are an inventory, not 48 tasks or proof they are all needed for M1. Failure of the assumed shared-runtime or graphics reuse route can exceed the high scenario.
+**Graphics and later runtime integration are the largest uncertainties.** Public renderer code is geometry prepasses plus a preview, not an integrated original-title renderer. The pinned native SDK has reusable GPU/XDK, sound and input code, but its D3D12/Vulkan backends are not browser drop-ins. The 47 unrepresented imports are an inventory, not 47 tasks or proof they are all needed for M1. Failure of the assumed shared-runtime or graphics reuse route can exceed the high scenario.
 
 ### Completed foundations compared with E1
 
@@ -38,7 +38,7 @@ A retrospective grouping gives **about twelve completed M1-enabling foundation p
 
 ### Use the forecast to guide work
 
-1. Integrate SCOPE-18 at the actual directory-query service boundary. Prefer common SDK call, memory, dispatch and repeated-invocation support over another manually rewritten function.
+1. Integrate SCOPE-19 at the actual directory-record copy boundary. Prefer common SDK call, memory, dispatch and repeated-invocation support over another manually rewritten function.
 2. Resolve the browser graphics integration seam early while continuing reached startup work; it carries more uncertainty than another small translated helper. Reuse the native game-specific/XDK state and applicable browser platform components, with the existing resource/content guards.
 3. Convert allowances into named reached tasks, record completion/split/merge changes, and update the remaining range when a major shared capability changes. A new guard is not automatically a new task.
 4. Re-estimate at the first controllable original menu and first complete original cycle. Keep required checks focused; do not invent broad test/refinement packages before M1.
@@ -63,7 +63,7 @@ The broader original-source closure rooted at `0x0004F7A0` contains 688 candidat
 
 ## Tracked work and selection order
 
-The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bounded observations. SCOPE-08/13 now have a verified first invocation return; SCOPE-09's observed invocation and SCOPE-10/11/12 return paths are verified only for their selected callers/model. SCOPE-14 verifies the selected tail return and SDK-to-C handoff; SCOPE-15/16 verify reached fill/string paths while their routines remain pending. SCOPE-17 verifies the selected utility-root open; SCOPE-18 is next. Private candidates/reports stay ignored; public records contain curated findings only.
+The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bounded observations. SCOPE-08/13 now have a verified first invocation return; SCOPE-09's observed invocation and SCOPE-10/11/12 return paths are verified only for their selected callers/model. SCOPE-14 verifies the selected tail return and SDK-to-C handoff; SCOPE-15/16 verify reached fill/string paths while their routines remain pending. SCOPE-17 verifies the selected utility-root open; SCOPE-18 verifies the first actual record; SCOPE-19 is next. Private candidates/reports stay ignored; public records contain curated findings only.
 
 | ID | Evidence and state | Functional objective / scope | Acceptance and stop condition |
 | --- | --- | --- | --- |
@@ -84,9 +84,10 @@ The coordinator owns integration and acceptance. SCOPE-01/02/03/06/07 have bound
 | SCOPE-15 | Two exact original fills and child entry observed in profile twenty-three; surrounding routines pending | Reuse unchanged 78-/119-instruction bodies and shared checked REP STOS for 36,024-/44-byte spans. | Independent source/build/browser review passes; all 9,017 zero words read back, original next call frame observed, old profile exact. New dirty pages/access charges are explicit; no routine/menu acceptance. |
 | SCOPE-16 | Existing ordinal-289 model returns through exact SDK frame in profile twenty-four; candidate routine pending | Reuse unchanged 92-instruction candidate and existing checked ANSI-string provider; validate void return, descriptor and actual stdcall cleanup. | Independent review and focused comparison pass; stop before ordinal 202 handler/record/output mutation. Other direct children and later services remain guarded. |
 | SCOPE-17 | Exact utility-cache root open returns in profile twenty-five | Reuse the current namespace/FATX mount, scoped DOS-root option profile, existing typed handle/lifetime model and ordinal-202 dispatcher. | Owned optimized/sanitizer checks and independent source/build/browser review pass; actual handle/status/IOSB/stdcall28 and old-profile evidence verified. No general backup/ACL or original-disc support; next query remains guarded. |
-| SCOPE-18 | Actual ordinal-207 ten-word directory-query frame reached, unserved | Coordinator owns current FATX root-handle enumeration via checked directory accessors; prove Xbox class-1 layout, byte names, mask/restart/status/cursor semantics. | Preserve spans/aliases, current mount/revision, real backing entries, atomic effects, prior profiles and the 64-import cap. Do not copy conflicting native SDK record offsets or fabricate empty results. |
+| SCOPE-18 | Exact first wildcard directory query returns actual backed record in profile twenty-six | Reuse current FATX handle/mount/accessors, verified Xbox/SDK layout and placeholder-time policy; check full root/FAT backing and all guest spans/aliases before atomic record/IOSB writes. | Optimized/sanitizer checks and independent source/build/browser review pass; actual name/metadata and untouched suffix verified, old profile exact. No cursor/later query/general timestamps; next helper remains guarded. |
+| SCOPE-19 | Actual `0x1E956F` two-argument call reached, body unentered | Coordinator owns retained 108-byte / 39-instruction original helper and checked shared REP MOVS interface. | Full source/layout/operand/caller proof is prepared; actual copy bounds, DF/register/overlap/permission policy and independent CPU/memory review precede admission. Preserve caps and old profiles; stop at unsupported behavior. |
 
-The current 48 unrepresented imports group into contiguous GPU-accessible memory (1), events/semaphores (2), file I/O (2), HAL/system (8), I/O manager (10), object manager (2), runtime library (2), synchronization (2), system/pool memory (9), threading (3), timers/DPCs (3), virtual memory (1), and data exports (3). The two scoped IRQL imports were removed from the initial HAL/system group; the clock data export was removed from the data group. These source classifications help choose reuse seams; they do not prove reachability or independent task boundaries.
+The current 47 unrepresented imports group into contiguous GPU-accessible memory (1), events/semaphores (2), file I/O (1), HAL/system (8), I/O manager (10), object manager (2), runtime library (2), synchronization (2), system/pool memory (9), threading (3), timers/DPCs (3), virtual memory (1), and data exports (3). The two scoped IRQL imports were removed from the initial HAL/system group; the clock data export was removed from the data group. These source classifications help choose reuse seams; they do not prove reachability or independent task boundaries.
 
 ## Keep the ledger useful
 

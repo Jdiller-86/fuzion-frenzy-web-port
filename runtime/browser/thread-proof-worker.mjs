@@ -328,7 +328,7 @@ self.onmessage = async event => {
       const ordinal = api.ff_probe_kernel_word(i, 0);
       const status = api.ff_probe_kernel_word(i, 1) >>> 0;
       // 129 has no arguments; 161 takes CL through fastcall, not a stack word.
-      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 129: 0, 161: 0, 24: 5, 149: 4, 168: 2, 184: 5, 189: 4, 190: 9, 196:10, 200:10, 202: 6, 211: 5, 218: 5, 219:8, 221: 2, 234: 4, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
+      const count = ({ 2: 4, 255: 10, 107: 3, 113: 2, 126: 0, 127: 0, 129: 0, 161: 0, 24: 5, 149: 4, 168: 2, 184: 5, 189: 4, 190: 9, 196:10, 200:10, 202: 6, 207: 10, 211: 5, 218: 5, 219:8, 221: 2, 234: 4, 236: 8, 279: 3, 289: 2, 305: 2, 67: 2 })[ordinal];
       const length = ordinal===192 && consoleSettings?.mutants ? 3 : ordinal === 226 && status !== 1 ? 5 : count ?? 1;
       return { ordinal, status, arguments: Array.from({ length }, (_, n) => api.ff_probe_kernel_word(i, n + 2) >>> 0) };
     });
@@ -403,6 +403,9 @@ self.onmessage = async event => {
       if (call.ordinal === 305 && !call.status) call.output = { fields: Array.from({length:8},(_,n)=>api.ff_probe_kernel_word(i,n+4)>>>0) };
       if (call.ordinal === 202 && !call.status) call.output = { handle: api.ff_probe_kernel_word(i, 8) >>> 0,
         ioStatus: api.ff_probe_kernel_word(i, 9) >>> 0, information: api.ff_probe_kernel_word(i, 10) >>> 0 };
+      if (call.ordinal === 207 && !call.status) call.output = Object.fromEntries(
+        ['ioStatus','information','fileNameLength','attributes','endOfFileLow','endOfFileHigh','allocationLow','allocationHigh']
+          .map((key,n)=>[key,api.ff_probe_kernel_word(i,n+12)>>>0]));
       if (call.ordinal === 218 && !call.status) call.output = { ioStatus: api.ff_probe_kernel_word(i, 7) >>> 0, information: api.ff_probe_kernel_word(i, 8) >>> 0,
         sizeWords:Array.from({length:6}, (_, n) => api.ff_probe_kernel_word(i, n + 9) >>> 0) };
       if (call.ordinal === 67 && !call.status) call.output = { link:api.ff_probe_kernel_word(i,4), target:api.ff_probe_kernel_word(i,5),
