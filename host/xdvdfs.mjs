@@ -18,6 +18,8 @@ export async function openXiso(blob) {
     if (!dir || !dir.directory || !Number.isSafeInteger(dir.offset) || !Number.isSafeInteger(dir.size) || dir.offset < 0 || dir.size < 0 || dir.offset > blob.size || dir.size > blob.size-dir.offset || dir.size > MAX_DIRECTORY) throw new Error('Unsupported XDVDFS directory');
     if (!dir.size) return [];
     const data = new Uint8Array(await range(blob, dir.offset, dir.size));
+    // Empty tables can be padded entirely with 0xFF instead of a tree node.
+    if (data.length >= 14 && data.every(byte => byte === 0xff)) return [];
     const view = new DataView(data.buffer), stack = [0], seen = new Set(), result = [], names = new Set(), extents=[];
     while (stack.length) {
       const p = stack.pop();
