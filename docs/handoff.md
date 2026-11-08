@@ -12,6 +12,10 @@ Build01 reused 79/88 objects and compiled 9. Module: 1,409,522 bytes, SHA `a31a4
 
 Forecast16/28/49, about15 completed packages and22 smaller checkpoints since E1 remain low confidence. The selected call completes within open startup work; no new package, original screen/audio/round or M1 acceptance is claimed. Preserve synthetic-service, partial-capture, general flags/scheduling/allocator and physical-input limits.
 
+## In-progress preparation
+
+SCOPE-35 has a frozen private profile43 source candidate for `0x4D620` and its related caller family. Separate original-byte/layout/decoder evidence passes static review; the candidate integration review is still pending and has found a count/register expectation error and missing direct-child context/mapping/execute-admission checks. Correct and re-review the source before compilation. The comparison harness has syntax verification only; no M43 build or execution exists. [Status](status.md#current-preparation-and-review) records candidate identities and provider/evidence limits. M42 remains the last browser-verified boundary; no package or milestone acceptance changes.
+
 ## Next bounded task
 
 **SCOPE-35:** assess the reached `0x4D620` and the remaining `0x4F5E0` caller family. Reuse matching generated bodies and supported helper/provider paths as a coherent batch, preserving separate invocation records, actual call/return state, full default42 comparison and all caps. Stop at unsupported behavior; static source availability is not runtime admission.
