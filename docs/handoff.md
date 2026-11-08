@@ -14,7 +14,7 @@ Forecast16/28/49, about15 completed packages and22 smaller checkpoints since E1 
 
 ## In-progress preparation
 
-SCOPE-35 has a frozen private profile43 source candidate for `0x4D620` and its related caller family. Separate original-byte/layout/decoder evidence passes static review; the candidate integration review is still pending and has found a count/register expectation error and missing direct-child context/mapping/execute-admission checks. Correct and re-review the source before compilation. The comparison harness has syntax verification only; no M43 build or execution exists. [Status](status.md#current-preparation-and-review) records candidate identities and provider/evidence limits. M42 remains the last browser-verified boundary; no package or milestone acceptance changes.
+SCOPE-35 has a frozen private profile43 source candidate for `0x4D620` and its related caller family. Separate original-byte/layout/decoder evidence passes static review; the completed candidate integration review rejects a count/register expectation error and missing direct-child context/mapping/execute-admission checks. Correct and re-review the source before compilation. The comparison harness has syntax verification only; no M43 build or execution exists. [Status](status.md#current-preparation-and-review) records candidate/review identities and provider/evidence limits. M42 remains the last browser-verified boundary; no package or milestone acceptance changes.
 
 ## Next bounded task
 
