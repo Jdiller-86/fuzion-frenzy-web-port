@@ -28,13 +28,26 @@ One task means a task-sized functional capability or reached-path integration ba
 
 These are coordinator-normalized scenario allowances, not summed raw worker subtotals or thirty identified blockers. Whole graphics-backend work is split into task-sized capabilities rather than counted as one large item. Normal checks and reviews are included in implementation tasks; final acceptance reuses the existing capture/provenance/control infrastructure. The high column already includes area-specific contingency—do not add a second global reserve or count a discovered task and its allowance twice.
 
+### Forecast movement since E1
+
+The working worksheet has fallen **31 → 30 → 29 remaining packages**. Rounding each checkpoint to “about30” hides that movement. Keep this change record alongside the current forecast:
+
+| Checkpoint | Packages closed since E1 | Remaining worksheet, low / working / high | Evidence and work still open |
+| --- | ---: | --- | --- |
+| E1 / profile20 | 0 | 19 / 31 / 52 | Initial forecast; about twelve foundation packages already existed. |
+| Profile22 | 1 | 18 / 30 / 51 | Selected continuation, original parent return and tail re-entry complete as one grouped package. |
+| Profile34 | 2 | 17 / 29 / 50 | Selected directory-call cluster completes as a second distinct package. |
+| Profile37 | 2 | 17 / 29 / 50 | C startup prefix, local-disc denial/release and error/TLS helper returns advance the next startup package. Its enclosing original return remains pending at310FF; no additional whole package closes. |
+
+Profiles21–37 provide **17 bounded execution checkpoints**, grouped into the two closed packages and progress within still-open work. A checkpoint is not automatically a package. Report both kinds of progress; do not subtract seventeen from the package forecast. The private `sdk-status-denied-20261108/forecast-movement-assessment.json` binds the earlier estimate and reduction records. Refresh this table at coherent checkpoints; change the remaining allowances when a package closes, splits, merges, or new evidence changes the forecast. An unchanged estimate must identify the still-open capability rather than imply no work occurred.
+
 The range assumes one selected original minigame on one desktop browser, a privately prepared local module, available compatible local inputs, and substantial reuse of the matching generated C++, native SDK services, existing checked core and applicable browser/SDL/OpenCE components. It excludes full-game parity/catalog, end-user conversion, networking/accounts/social, mobile, release browser/device matrices and polish. Original three-cycle audiovisual/input acceptance remains mandatory.
 
 **Graphics and later runtime integration are the largest uncertainties.** Public renderer code is geometry prepasses plus a preview, not an integrated original-title renderer. The pinned native SDK has reusable GPU/XDK, sound and input code, but its D3D12/Vulkan backends are not browser drop-ins. The 47 unrepresented imports are an inventory, not 47 tasks or proof they are all needed for M1. Failure of the assumed shared-runtime or graphics reuse route can exceed the high scenario.
 
 ### Completed foundations compared with E1
 
-A retrospective grouping gives **about twelve completed M1-enabling foundation packages**, roughly **10–15 depending on grouping**, compared with E1's about thirty remaining packages. Completed bounded foundations include generation/preparation, browser hosting, checked CPU/memory/ABI, boot/TLS, selected clock/object/file/synchronization models, shared SDK/C-provider integration and reached startup clusters. Normal checks are included with their capability; individual functions, service calls and repeated checkpoints are not separate packages. This is a retrospective estimate, not a previously maintained exact completion checklist. These foundations were already available at E1's starting point and must not be subtracted from its remaining forecast. Graphics/audio/input components remain partial; no original playable feature or M1 gate is counted complete. Unequal effort prevents a defensible completion percentage or time ratio.
+At E1, a retrospective grouping gave **about twelve completed M1-enabling foundation packages**, roughly **10–15 depending on grouping**. Since then two additional grouped packages have closed: using that same approximate grouping, **about fourteen are now complete, with29 forecast remaining**. Completed bounded foundations include generation/preparation, browser hosting, checked CPU/memory/ABI, boot/TLS, selected clock/object/file/synchronization models, shared SDK/C-provider integration and reached startup clusters. Normal checks are included with their capability; individual functions, service calls and repeated checkpoints are not separate packages. This is a retrospective estimate, not a previously maintained exact completion checklist. The original twelve foundations predate E1 and must not be subtracted again from its remaining forecast. Graphics/audio/input components remain partial; no original playable feature or M1 gate is counted complete. Unequal effort prevents a defensible completion percentage or time ratio.
 
 ### Use the forecast to guide work
 
