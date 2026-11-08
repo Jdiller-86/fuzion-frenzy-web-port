@@ -18,6 +18,14 @@ All 3,066 prior CPU rows and 375 kernel rows remain exact prefixes. CPU capture 
 
 The forecast remains **16/28/49**, about **15 completed packages** and **22 smaller checkpoints** since E1. Reused allocator services do not close another distinct package while `0x4D620` and enclosing startup remain pending. Successful original resource reads, general flags/scheduling/allocator behavior, retail equivalence, physical input, cold/cache behavior and omitted-prefix limits remain unproved. No original menu, audible gameplay, recorded round or M1 acceptance exists.
 
+## Current preparation and review
+
+SCOPE-35 requires source corrections after independent integration review; the browser-verified frontier above remains M42. The retained automatic translator supplies the next `0x4D620` body. Original-byte identity, complete 164-byte / 56-instruction layout, decoder agreement and control-flow evidence pass a separate independent static review (`fb0929d79345af3ff0c206ae66f2cb2028b0884bf45ef78d0de95d2bd5b9eafc`). This verifies source evidence, not generated-code semantics or execution. REA's available Windows provider refused raw x86; the retained direct Ghidra export is separately identified and has no REA Evidence ID.
+
+A private profile43 candidate now combines that body with the related caller family and existing checked allocator services. The frozen source manifest is `dd50cbbe83d717dc4dc266cb184a8fb4a9fd785eba12eebab62a5be4d4209f98`; proposal `4faa76a30b76c935e607a6e42d4455050c9379b40a4cf4c54f381f782285472e`. Its proposed one-body / 56-instruction / one-mapping addition fits existing caps; no cap increase is proposed. The comparison harness passes syntax checking only. No M43 module has been compiled or executed.
+
+Independent integration review is complete and rejects this frozen candidate: a count/register expectation is incorrect, and direct child calls lack context/mapping/execute-admission checks. Review SHA-256: `2b5dfd32ebe3d6759b8155f17034e8491441c94525fdc240f53640c10d3d4526`. Correct both findings and review the revised source before compilation. These are internal implementation fixes; no external dependency prevents correction. Preparation and review do not close another work package, change the forecast or establish an original screen. Private sources and raw evidence remain in ignored `research/verification/sdk-4d620-family-20261108/`; this public update contains curated findings only.
+
 ## Retained C comparison baseline
 
 Chrome 156.0.8078.80 on Windows reaches **status 2 at untranslated `0x0003055A`**, return `0x0004E828`, SP `0x03C10E6C`, after **443 original routines / 741 completed kernel operations**. Original `0x0004E800` has entered and remains pending. The earlier `0x0003080D`, `0x0004BDC0` and `0x0004C380` returned with balanced frames. READY callback `0x0004CBE0` remains unexecuted. No original screen, rendering, audible gameplay, recorded player round or three-round M1 acceptance exists.
