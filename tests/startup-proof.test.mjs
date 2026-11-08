@@ -385,6 +385,17 @@ test('local settings require explicit synthetic provenance and a bounded DWORD v
   assert.throws(() => parseLocalConsoleSettings(new ArrayBuffer(8193)));
 });
 
+test('local settings optionally propagate a strict fixed system clock profile',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify(value)).buffer;
+  const base={kind:'local-console-settings',synthetic:true,miscFlags:5};
+  const fixed={kind:'fixed-system-clock',synthetic:true,unixMillis:1234};
+  assert.deepEqual(parseLocalConsoleSettings(bytes(base)),base);
+  assert.deepEqual(parseLocalConsoleSettings(bytes({...base,systemClock:fixed})),{...base,systemClock:fixed});
+  for(const bad of [{...fixed,extra:1},{...fixed,synthetic:false},{...fixed,unixMillis:-1},
+    {...fixed,unixMillis:253402300800000},{...fixed,unixMillis:1.5},{...fixed,kind:'wall-clock'}])
+    assert.throws(()=>parseLocalConsoleSettings(bytes({...base,systemClock:bad})),/fixed system clock profile/);
+});
+
 test('the empty PFIFO profile requires explicit aligned base/end and put at the base', () => {
   const bytes = value => new TextEncoder().encode(JSON.stringify(value)).buffer;
   assert.equal(parseLocalPfifoProfile(bytes({})), undefined);
@@ -403,6 +414,22 @@ test('expanded console settings require an explicit DWORD without assuming a par
   const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,miscFlags:0,parentalControlGames:value})).buffer;
   for(const value of [0,1,0xffffffff])assert.equal(parseLocalNvConsoleSettings(bytes(value)).parentalControlGames,value);
   for(const value of [undefined,null,false,-1,0.5,0x100000000,'0'])assert.throws(()=>parseLocalNvConsoleSettings(bytes(value)),/explicit synthetic/);
+});
+
+test('NV console settings accept an optional nested synthetic OS profile and preserve older profiles',()=>{
+  const bytes=value=>new TextEncoder().encode(JSON.stringify({kind:'local-console-settings',synthetic:true,
+    miscFlags:7,parentalControlGames:9,...value})).buffer;
+  const profile={kind:'synthetic-console-os-settings',synthetic:true,layout:'cxbx-user-settings-96-v1',
+    timeZone:'utc-no-dst',zeroOtherFields:true,checksum:0x1234};
+  const old=parseLocalNvConsoleSettings(bytes({}));
+  assert.equal(old.miscFlags,7);
+  assert.equal(old.parentalControlGames,9);
+  assert.equal(old.osSettings,undefined);
+  assert.deepEqual(parseLocalNvConsoleSettings(bytes({osSettings:profile})).osSettings,
+    {...profile,miscFlags:7,parentalControlGames:9});
+  for(const edit of [{synthetic:false},{layout:'other'},{timeZone:'local'},{zeroOtherFields:false},
+    {checksum:-1},{checksum:0x100000000},{extra:1}])
+    assert.throws(()=>parseLocalNvConsoleSettings(bytes({osSettings:{...profile,...edit}})));
 });
 
 test('volume settings require explicit synthetic capacity and geometry without unsafe integer conversion', () => {
@@ -534,6 +561,7 @@ test('startup host serves only owned source and rejects original modules, files,
   });
   for (const url of ['/', '/thread', '/host/xbe.mjs', '/runtime/browser/wasm-proof.mjs', '/runtime/browser/startup-proof-worker.mjs',
     '/runtime/browser/local-title-proof.mjs', '/runtime/browser/browser-clock.mjs', '/runtime/browser/copy-proof.mjs',
+    '/runtime/browser/proof-report.mjs', '/runtime/browser/kernel-service.mjs',
     '/runtime/browser/file-request.mjs', '/runtime/browser/thread-proof-worker.mjs']) {
     const response = await request(url);
     assert.equal(response.status, 200);

@@ -4,6 +4,8 @@ Public source checks and the browser prototype do not require original game file
 
 The [latest checkpoint](status.md) owns current execution claims. Configured tools, exported functions, or a compiled module do not establish original behavior.
 
+For assigned M1 work, follow [resource reuse and fast iteration](resource-reuse.md): reuse the native Fuzion configuration/automatic generator, adapt shared browser runtime interfaces, use applicable OpenCE platform solutions, and automate routine preparation. Use lightweight checks while developing; detailed testing and polish follow M1.
+
 ## Pinned tools
 
 | Tool | Recorded pin / purpose |
@@ -44,6 +46,14 @@ Use the [PowerShell wrapper](../tools/Invoke-ProjectGhidra.ps1) on a workstation
 This example requires an already analyzed project; it is not a clean-clone setup command. The [Ghidra helpers](../tools/ghidra) implement bounded export/inspection. Select only the needed helper/functions and keep its output under ignored research. Verify coverage, byte identity, independent decoder agreement, function envelopes, and admission/resource budgets before preparation.
 
 REA 6.7.0's recorded Windows interface did not advertise XBE admission. Installing an XBE loader does not change that boundary; do not rename XBE to PE. Use supported REA providers/skills when available for the named fact and direct Ghidra otherwise. Record Evidence IDs, digests, provider, tool, and limits in [the decision log](decisions.md). Direct Ghidra output is not REA Evidence, and pseudocode is not original source or observed execution.
+
+## Missing function metadata at an observed entry
+
+An actual request pointer is an investigation anchor, not a complete function envelope. Check the retained listing, function containment, executable section, caller reference, predecessor fallthrough, closed control flow/return and neighboring code before deriving an entry. Independent original-byte/decoder/layout checks still apply.
+
+If that evidence supports a previously absent function, derive it automatically only in a read-only analysis session. Preserve the before-state and export a separate seed/provenance record; reject an unexpected body rather than forcing a convenient boundary. Record headless discard/no-save evidence and reopen the retained project to verify its state. Newly established in-memory metadata is different from a preexisting retained function, and a callable entry is different from observed execution. See [current limits](research.md#derived-indirect-entries-and-guest-thread-evidence).
+
+A returning modeled trap can also reveal an incomplete retained envelope. Inspect adjacent bytes, ownership and incoming references before deriving a continuation. The debug-wrapper correction used temporary trap fallthrough metadata and automatic owner re-creation, with no byte changes, forced body or persisted project change. Keep regenerated reference metadata distinct from unchanged original instructions. Validate the derived original tail and the actual browser frame separately; do not substitute a synthetic stack adjustment for missing instructions.
 
 ## Browser proof boundary
 

@@ -11,7 +11,7 @@ uint32_t ff_controller_update(ff_controller_state *state, uint8_t connected, uin
                               const uint8_t analog[FF_CONTROLLER_ANALOG_COUNT],
                               int16_t lx, int16_t ly, int16_t rx, int16_t ry)
 {
-    if (!state || (!analog && FF_CONTROLLER_ANALOG_COUNT)) return FF_BOOT_INVALID;
+    if (!state || !analog) return FF_BOOT_INVALID;
     uint8_t next[FF_CONTROLLER_ANALOG_COUNT] = {0};
     if (analog) memcpy(next, analog, sizeof next);
     int changed = state->connected != connected || state->buttons != buttons ||

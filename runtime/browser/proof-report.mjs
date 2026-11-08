@@ -9,6 +9,18 @@
  * value or upgrades a run's meaning.
  */
 import { validateSuppliedDeviceProfile } from './device-report.mjs';
+import { validateKernelCapture } from './kernel-capture.mjs';
+import { encodeConsoleOsSettings } from './console-os-settings.mjs';
+import { parseSystemClockProfile, parseClockPauseProfile, parseDeterministicClockProfile } from './browser-clock.mjs';
+import { parsePerformanceClockProfile, validatePerformanceClockState } from './performance-clock.mjs';
+import { parsePerformanceCounterProfile, validatePerformanceCounterState } from './performance-counter.mjs';
+import { parseMutantProfile, validateMutantState } from './unnamed-mutants.mjs';
+import { parseLocalMutantProfile, validateLocalMutantState } from './local-mutants.mjs';
+import { parseEventProfile, validateEventState } from './named-events.mjs';
+import { parseTraceCaptureStart, validateTraceCapture } from './trace-capture.mjs';
+import { parseDebugServiceStart, validateDebugServiceWindow } from './debug-service-window.mjs';
+import { parseMutantWaitProfile, validateMutantWaitReport } from './local-mutant-wait.mjs';
+import { parseMutantReleaseProfile, validateMutantReleaseReport } from './local-mutant-release.mjs';
 
 export const TRACE_LIMIT = 8192;
 export const DEVICE_EVENT_LIMIT = 32768;
@@ -28,7 +40,244 @@ export function validateProofReport(report) {
   if (report.kind === 'error') return report; /* worker-level failure, no evidence */
   if (report.kind === 'startup-boundary') return validateStartupBoundary(report);
   if (report.kind !== 'thread-startup-boundary') throw new Error('Unknown proof report kind');
+  const selectedMutants=report.consoleSettings?.mutants?.kind==='synthetic-win32-mutants'
+    ?parseLocalMutantProfile(report.consoleSettings.mutants):parseMutantProfile(report.consoleSettings?.mutants);
+  const localMutantProfile=selectedMutants?.kind==='synthetic-win32-mutants';
+  const selectedMutantWait=parseMutantWaitProfile(report.consoleSettings?.mutantWait);
+  const selectedMutantRelease=parseMutantReleaseProfile(report.consoleSettings?.mutantRelease);
+  if(selectedMutantRelease&&!selectedMutantWait)throw new Error('Local mutant release requires explicit acquisition');
+  if(selectedMutantWait&&!localMutantProfile)throw new Error('Local mutant acquisition requires its explicit creation model');
+  if(localMutantProfile) {
+    if(report.localMutantState===undefined||Object.hasOwn(report,'mutantState'))
+      throw new Error('Local mutant evidence requires only its explicit profile and localMutantState');
+  } else if(selectedMutants) {
+    if(report.mutantState===undefined||Object.hasOwn(report,'localMutantState'))
+      throw new Error('Legacy mutant evidence requires its explicit synthetic profile and state in mutantState only');
+  } else if(report.mutantState!==undefined||report.localMutantState!==undefined) {
+    throw new Error('Mutant evidence requires its explicit synthetic profile and state');
+  }
+  const mutantState=selectedMutants?.kind==='synthetic-win32-mutants'
+    ?validateLocalMutantState(report.localMutantState,selectedMutants,!!selectedMutantWait):selectedMutants?validateMutantState(report.mutantState,selectedMutants):undefined;
+  const selectedEvents=parseEventProfile(report.consoleSettings?.events);
+  if((selectedEvents===undefined)!==(report.eventState===undefined))throw new Error('Named event evidence requires its explicit profile and state');
+  const eventState=selectedEvents?validateEventState(report.eventState,selectedEvents):undefined;
+  if(eventState?.status===0xc0000024 && (selectedMutants?.kind!=='synthetic-win32-mutants'||
+      !mutantState||![0,0x40000000].includes(mutantState.status)||!mutantState.objects.some(object=>object.named)))
+    throw new Error('Named event type mismatch requires an unchanged named local mutant namespace');
+  if(mutantState) {
+    if(selectedMutants.kind==='synthetic-win32-mutants') {
+      if(!selectedEvents)throw new Error('Synthetic Win32 mutants require explicit named-event namespace evidence');
+      if(!Array.isArray(report.calls)||report.calls.length>512||report.calls.some(call=>!call||typeof call!=='object'||!integer(call.ordinal)||!integer(call.status)||!Array.isArray(call.arguments)))
+        throw new Error('Local mutant evidence requires bounded, well-shaped captured calls');
+      const successes=report.calls.filter(call=>call.ordinal===192&&call.status===0);
+      const refusals=report.calls.filter(call=>call.ordinal===192&&call.status!==0);
+      if(refusals.length>1||refusals.length&&refusals[0]!==report.calls.at(-1))throw new Error('Mutant refusal must be the sole final captured call');
+      const start=report.kernelCapture?.capturedStart??0, complete=!report.kernelCapture||report.kernelCapture.complete;
+      let priorHandles=start&&successes.length?successes[0].output.handleCount-1:0;
+      let priorObjects=start&&successes.length?successes[0].output.objectCount-(successes[0].output.openedExisting?0:1):0;
+      for(const call of successes) {
+        const o=call.output,row=mutantState.handles.find(h=>h.handle===o?.handle),obj=row&&mutantState.objects.find(x=>x.object===row.object);
+        if(call.arguments.length!==3||!call.arguments.every(dword)||!o||!row||!obj||row.object!==o.object||obj.named!==!!call.arguments[1]||
+           o.handleCount!==priorHandles+1||o.objectCount>mutantState.objectCount||o.handleCount>mutantState.handleCount||
+           (o.openedExisting?(o.objectCount!==priorObjects||(!start&&!mutantState.handles.slice(0,mutantState.handleCount-1).some(h=>h.object===o.object))):
+             (o.objectCount!==priorObjects+1||o.object!==priorObjects+1))||
+           (o.openedExisting&&o.nameBytes!==obj.nameBytes)||(!o.openedExisting&&o.nameBytes!==obj.nameBytes))
+          throw new Error('Named mutant creation order must match retained object and handle state');
+        priorHandles=o.handleCount;priorObjects=o.objectCount;
+      }
+      if(complete&&successes.length!==mutantState.handleCount)throw new Error('Mutant handle count must match captured calls');
+      if(mutantState.status && mutantState.status!==0x40000000) {
+        const stopStatus=mutantState.status===0xc000009a?4:9;
+        if(report.stop?.ordinal!==192||report.stop.target!==mutantState.status||report.stop.status!==stopStatus||
+           report.calls.at(-1)?.ordinal!==192||report.calls.at(-1)?.status!==1||!refusals.length||report.calls.at(-1).output!==undefined)
+          throw new Error('Mutant error state requires a matching guarded service stop');
+        if(mutantState.status===0xc0000024 && (!eventState.objectCount||report.calls.at(-1).arguments[1]===0||report.calls.at(-1).arguments[2]!==0))
+          throw new Error('Mutant type mismatch requires a named peer object and named zero-owner request');
+      } else if(refusals.length) throw new Error('Fresh mutant state cannot end in a refused call');
+      if(successes.length) {
+        const o=successes.at(-1).output;
+        if(o.objectCount!==mutantState.objectCount||o.handleCount!==mutantState.handleCount||(!refusals.length&&o.eaxAfter!==mutantState.status))
+          throw new Error('Final mutant counters and status must match the last successful call');
+      } else if(complete&&!refusals.length&&(mutantState.handleCount||mutantState.objectCount||mutantState.status))
+        throw new Error('Mutant state has no captured successful call');
+    } else {
+    if(!Array.isArray(report.calls) || report.calls.length>512)throw new Error('Mutant evidence requires bounded captured calls');
+    const successes=report.calls.filter(call=>call.ordinal===192 && call.status===0);
+    const refusals=report.calls.filter(call=>call.ordinal===192 && call.status!==0);
+    if(refusals.length>1 || refusals.length && refusals[0]!==report.calls.at(-1))
+      throw new Error('A mutant refusal is terminal and must be the last captured call');
+    if(successes.length>mutantState.count || (!report.kernelCapture || report.kernelCapture.complete) && successes.length!==mutantState.count)
+      throw new Error('Mutant count must match captured creation evidence');
+    for(let i=0;i<successes.length;i++) {
+      if(successes[i].output?.created!==mutantState.count-successes.length+i+1)
+        throw new Error('Mutant creation order must match its retained handle table');
+    }
+    if(mutantState.status && (report.stop?.ordinal!==192 || report.stop.target!==mutantState.status ||
+       report.stop.status!==(mutantState.status===0xc000009a?4:9) ||
+       mutantState.status===0xc000009a && mutantState.count!==4 ||
+       report.calls.at(-1)?.ordinal!==192 || report.calls.at(-1)?.status!==1))
+      throw new Error('Mutant refusal requires a matching guarded service stop');
+    }
+  }
+  if(eventState) {
+    if(!Array.isArray(report.calls)||report.calls.length>512)throw new Error('Named event evidence requires bounded captured calls');
+    const successes=report.calls.filter(c=>c.ordinal===189&&c.status===0);
+    const refusals=report.calls.filter(c=>c.ordinal===189&&c.status!==0);
+    if(refusals.length>1||refusals.length&&refusals[0]!==report.calls.at(-1))throw new Error('Named event refusal must be the sole final captured call');
+    const windowStart=report.kernelCapture?.capturedStart??0;
+    let priorHandles=windowStart&&successes.length?successes[0].output.handleCount-1:0;
+    let priorObjects=windowStart&&successes.length?successes[0].output.objectCount-(successes[0].output.openedExisting?0:1):0;
+    const seen=new Set();
+    for(const call of successes) {
+      const o=call.output,row=eventState.handles.find(h=>h.handle===o?.handle),obj=row&&eventState.objects.find(x=>x.object===row.object);
+      if(call.arguments.length!==4||!call.arguments.every(dword)||call.arguments[0]===0||call.arguments[0]%4||call.arguments[0]>0x4000000-4||
+         call.arguments[1]===0||call.arguments[1]%4||call.arguments[1]>0x4000000-12||call.arguments[2]!==1||call.arguments[3]!==0||
+         !o||!row||!obj||row.object!==o.object||obj.nameBytes!==o.nameBytes||o.handleCount!==priorHandles+1||
+         o.object>o.objectCount||
+         (o.openedExisting?(o.objectCount!==priorObjects||(!seen.has(o.object)&&windowStart===0)):(o.objectCount!==priorObjects+1||o.object!==priorObjects+1))||
+         o.objectCount>eventState.objectCount||o.handleCount>eventState.handleCount)
+        throw new Error('Named event creation order must match retained object and handle state');
+      priorHandles=o.handleCount;priorObjects=o.objectCount;seen.add(o.object);
+    }
+    const complete=!report.kernelCapture||report.kernelCapture.complete;
+    if(complete&&successes.length!==eventState.handleCount)throw new Error('Named event handle count must match successful captured calls');
+    if(eventState.status&&eventState.status!==0x40000000) {
+      if(report.stop?.ordinal!==189||report.stop.target!==eventState.status||report.stop.status!==(eventState.status===0xc000009a?4:9)||
+         report.calls.at(-1)?.ordinal!==189||report.calls.at(-1)?.status!==1||eventState.status===0xc000009a&&eventState.handleCount!==4)
+        throw new Error('Named event refusal requires a matching guarded service stop');
+    } else if(refusals.length) throw new Error('Named event error state cannot be reported as successful');
+    if(complete&&successes.length&&(priorHandles!==eventState.handleCount||priorObjects!==eventState.objectCount))
+      throw new Error('Named event final counters differ from successful calls');
+    if(!complete && successes.length && (priorHandles>eventState.handleCount||priorObjects>eventState.objectCount))
+      throw new Error('Named event window counters exceed retained state');
+    if(successes.length) {
+      const last=successes.at(-1).output;
+      if(last.objectCount!==eventState.objectCount||last.handleCount!==eventState.handleCount||
+         !refusals.length&&eventState.status!==last.eaxAfter)
+        throw new Error('Named event final status and counters differ from the last successful call');
+    } else if(complete&&(eventState.handleCount||eventState.objectCount||!refusals.length&&eventState.status!==0))
+      throw new Error('Named event state has no captured successful creation');
+  }
+  const selectedClock=parseSystemClockProfile(report.consoleSettings?.systemClock);
+  const declaredClock=parseSystemClockProfile(report.clock?.fixedSystemProfile);
+  const selectedDeterministic=parseDeterministicClockProfile(report.consoleSettings?.deterministicClock);
+  const declaredDeterministic=parseDeterministicClockProfile(report.clock?.deterministicProfile);
+  const liveClock=report.clock?.kind==='browser-clock' && report.clock.monotonic==='performance.now';
+  if((selectedDeterministic===undefined)!==(declaredDeterministic===undefined) ||
+     !selectedDeterministic && (report.clock?.deterministicState!==undefined || report.clock?.kind==='synthetic-clock'))
+    throw new Error('Deterministic clock evidence requires its explicitly selected profile');
+  let deterministicTick;
+  if(selectedDeterministic) {
+    const p=selectedDeterministic, clock=report.clock, state=clock?.deterministicState;
+    if(!selectedClock || report.consoleSettings?.clockPause!==undefined || clock?.pauseProfile!==undefined || clock?.pauseState!==undefined ||
+       Object.keys(p).some(key=>p[key]!==declaredDeterministic[key]) ||
+       clock.kind!=='synthetic-clock' || clock.monotonic!=='configured deterministic 100ns ticks' ||
+       !bounded(clock.samples,16384) || !state || Object.keys(state).length!==2 ||
+       !Object.hasOwn(state,'capacity') || !Object.hasOwn(state,'lastInterruptTicks') || state.capacity!==16384)
+      throw new Error('Malformed or inconsistent deterministic clock evidence');
+    const tick=n=>BigInt(n)*BigInt(p.stepTicks)+(n>=p.jumpBeforeSample?BigInt(p.jumpTicks):0n);
+    if(state.lastInterruptTicks!==(clock.samples?tick(clock.samples).toString():null) ||
+       clock.minimumObservedPositiveTicks!==(clock.samples?(clock.samples===1&&p.jumpBeforeSample===1?tick(1):BigInt(p.stepTicks)).toString():null))
+      throw new Error('Deterministic clock sample state does not match its exact arithmetic');
+    deterministicTick=value=>{
+      if(typeof value!=='string' || value.length>20 || !/^(0|[1-9][0-9]*)$/.test(value))return false;
+      const t=BigInt(value),step=BigInt(p.stepTicks),jump=BigInt(p.jumpTicks);
+      const before=t%step===0n?t/step:0n,after=t>=jump&&(t-jump)%step===0n?(t-jump)/step:0n;
+      return before>=1n&&before<BigInt(p.jumpBeforeSample)&&before<=BigInt(clock.samples) ||
+        after>=BigInt(p.jumpBeforeSample)&&after<=BigInt(clock.samples);
+    };
+  }
+  const acceptedClock=selectedDeterministic ? true : liveClock;
+  const selectedPause=parseClockPauseProfile(report.consoleSettings?.clockPause);
+  const declaredPause=parseClockPauseProfile(report.clock?.pauseProfile);
+  if((selectedPause===undefined)!==(declaredPause===undefined) ||
+     selectedPause===undefined && report.clock?.pauseState!==undefined)
+    throw new Error('Clock pause evidence requires its explicitly selected profile');
+  if(selectedPause) {
+    const p=report.clock?.pauseState;
+    if(!p || Object.keys(p).length!==5 || Object.keys(p).some(key=>!['performed','beforeSample','milliseconds','beforeTicks','afterTicks'].includes(key)) ||
+       selectedPause.beforeSample!==declaredPause.beforeSample || selectedPause.milliseconds!==declaredPause.milliseconds ||
+       p.beforeSample!==selectedPause.beforeSample || p.milliseconds!==selectedPause.milliseconds ||
+       typeof p.performed!=='boolean' || report.clock.kind!=='browser-clock' || report.clock.monotonic!=='performance.now' ||
+       !bounded(report.clock.samples,16384) ||
+       (!p.performed && (report.clock.samples>=p.beforeSample || p.beforeTicks!==null || p.afterTicks!==null)))
+      throw new Error('Malformed or inconsistent clock pause evidence');
+    if(p.performed) {
+      const ticks=value=>typeof value==='string' && value.length<=16 && /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value)<=BigInt(Number.MAX_SAFE_INTEGER);
+      if(report.clock.samples<p.beforeSample || !ticks(p.beforeTicks) || !ticks(p.afterTicks) ||
+         BigInt(p.afterTicks)-BigInt(p.beforeTicks)<BigInt(p.milliseconds)*10000n)
+        throw new Error('Clock pause requires a measured successful wait at its declared sample');
+    }
+  }
+  const selectedPerformance=parsePerformanceClockProfile(report.consoleSettings?.performanceClock);
+  if(selectedPerformance && selectedPerformance.source!==(selectedDeterministic?'synthetic-deterministic-100ns':'browser-monotonic-100ns'))
+    throw new Error('Performance clock source must match its explicitly selected clock');
+  const selectedCounter=parsePerformanceCounterProfile(report.consoleSettings?.performanceCounter);
+  if((selectedCounter===undefined)!==(report.performanceCounterState===undefined))
+    throw new Error('Performance counter evidence requires its explicit profile and state');
+  const counterState=selectedCounter?validatePerformanceCounterState(report.performanceCounterState,selectedCounter,selectedPerformance):undefined;
+  if(counterState) {
+    if(deterministicTick && counterState.count && !deterministicTick(counterState.lastTicks))
+      throw new Error('Counter state is outside the deterministic sample sequence');
+    if(!Array.isArray(report.calls) || counterState.status===4 && counterState.count!==64)
+      throw new Error('Performance counter requires bounded captured calls');
+    const accepted=report.calls.filter(call=>call.ordinal===126 && call.status===0);
+    if(counterState.count<accepted.length || (!report.kernelCapture || report.kernelCapture.complete) && counterState.count!==accepted.length ||
+       accepted.length && (counterState.lastTicks!==accepted.at(-1).output?.interruptTicks || counterState.lastCounter!==accepted.at(-1).output?.counter))
+      throw new Error('Performance counter state must match captured query evidence');
+    if(counterState.status && (report.stop?.ordinal!==126 || report.stop.target!==counterState.status ||
+       report.stop.status!==(counterState.status===4?4:9)))
+      throw new Error('Performance counter refusal requires a matching guarded service stop');
+  }
+  if((selectedPerformance===undefined)!==(report.performanceClockState===undefined))
+    throw new Error('Performance clock evidence requires its explicitly selected profile and state');
+  if(selectedPerformance) {
+    const state=validatePerformanceClockState(report.performanceClockState,selectedPerformance);
+    if(!Array.isArray(report.calls) || !acceptedClock ||
+       report.timestampBoundary!==undefined || state.frequencyQueries>1024 ||
+       state.status===0 && state.lastSite!==(state.samples.at(-1)?.site??0) ||
+       state.status===4 && state.samples.length!==64)
+      throw new Error('Performance clock evidence must retain its bounded clock and sample observations');
+    if(deterministicTick && state.samples.some(sample=>!deterministicTick(sample.interruptTicks)))
+      throw new Error('Performance clock sample is outside the deterministic sequence');
+    const queries=report.calls.filter(call=>call.ordinal===127 && call.status===0).length;
+    if(state.frequencyQueries<queries || (!report.kernelCapture || report.kernelCapture.complete) && state.frequencyQueries!==queries)
+      throw new Error('Performance clock frequency-query count does not match captured evidence');
+    if(state.status && (!state.lastSite || report.stop?.ordinal!==0 || report.stop.target!==state.lastSite ||
+       report.stop.status!==(state.status===4?4:9)))
+      throw new Error('Performance clock refusal requires its matching guarded stop');
+  }
+  if((selectedClock===undefined)!==(declaredClock===undefined) ||
+     report.clock?.system==='configured synthetic fixed Unix time; UTC epoch 1601' && declaredClock===undefined ||
+     selectedClock && (selectedClock.unixMillis!==declaredClock.unixMillis ||
+       !Array.isArray(report.calls) || !acceptedClock ||
+       report.clock.system!=='configured synthetic fixed Unix time; UTC epoch 1601' ||
+       selectedDeterministic===undefined && report.clock.monotonic!=='performance.now'))
+    throw new Error('Fixed system clock evidence must match the explicitly selected synthetic profile');
+  if(report.consoleSettings?.osSettings!==undefined) {
+    encodeConsoleOsSettings(report.consoleSettings.osSettings);
+    if(!Array.isArray(report.calls) || report.consoleSettings.osSettings.miscFlags!==report.consoleSettings.miscFlags ||
+       report.consoleSettings.osSettings.parentalControlGames!==report.consoleSettings.parentalControlGames)
+      throw new Error('Console OS settings require captured calls and consistent declared DWORDs');
+  }
+  if (report.consoleSettings?.kernelCaptureStart !== undefined && report.kernelCapture === undefined)
+    throw new Error('Selected kernel capture profile requires capture metadata');
+  if (report.kernelCapture !== undefined &&
+      (!Array.isArray(report.calls) ||
+       report.kernelCapture.requestedStart !== (report.consoleSettings?.kernelCaptureStart ?? 0)))
+    throw new Error('Kernel capture requires calls and its declared profile');
   if (report.verified !== false) throw new Error('A startup report must not claim verification');
+  const selectedTraceStart=parseTraceCaptureStart(report.consoleSettings?.traceCaptureStart);
+  if((selectedTraceStart===undefined)!==(report.traceCapture===undefined))
+    throw new Error('Trace capture metadata must match an explicitly selected capture profile');
+  if(report.traceCapture!==undefined) {
+    validateTraceCapture(report.traceCapture,report.trace);
+    if(report.traceCapture.requestedStart!==selectedTraceStart || report.traceCapacity!==8192 || report.phase!=='original-initializer-bringup')
+      throw new Error('Trace capture report does not match its selected profile and startup phase');
+    if(!Array.isArray(report.originalFunctionsReached) || JSON.stringify(report.originalFunctionsReached)!==
+       JSON.stringify(report.trace.filter(row=>row.kind==='enter').map(row=>row.address)))
+      throw new Error('Selected trace capture requires the exact captured entry sequence');
+  }
   if (typeof report.phase !== 'string' || !report.phase) throw new Error('Proof report phase is required');
   if (!Array.isArray(report.trace) || report.trace.length > TRACE_LIMIT)
     throw new Error('Proof report trace exceeds the bounded trace capacity');
@@ -65,6 +314,39 @@ export function validateProofReport(report) {
       if (stop.service.resultBits !== undefined || stop.service.option !== undefined ||
           stop.service.output !== undefined)
         throw new Error('Observed option/result facts must not be stored in the static service descriptor');
+    } else if(stop.service.name==='KeQueryPerformanceFrequency' || stop.service.name==='KeQueryPerformanceCounter') {
+      if(stop.ordinal!==(stop.service.name==='KeQueryPerformanceFrequency'?127:126) || stop.service.callingConvention!=='stdcall' || stop.service.argumentBytes!==0 ||
+         stop.service.returns!=='uint64' || Object.keys(stop.service).length!==6 ||
+         Object.keys(stop.service).some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key)))
+        throw new Error('The performance-clock descriptor must retain its zero-argument 64-bit ABI');
+    } else if(stop.ordinal===189 || stop.service.name==='NtCreateEvent') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===189 && stop.service.name===null) {
+        if(keys.length!==3 || keys.some(key=>!['ordinal','name','modeled'].includes(key)))
+          throw new Error('The legacy unidentified ordinal-189 descriptor must contain only its identity');
+      } else if(stop.ordinal!==189 || stop.service.name!=='NtCreateEvent' || stop.service.callingConvention!=='stdcall' ||
+                stop.service.argumentBytes!==16 || stop.service.returns!=='ntstatus' || keys.length!==6 ||
+                keys.some(key=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(key))) {
+        throw new Error('The NtCreateEvent descriptor must retain its evidenced stdcall/16-byte/NTSTATUS ABI');
+      }
+    } else if(stop.ordinal===221||stop.service.name==='NtReleaseMutant') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===221&&stop.service.name===null) {
+        if(keys.length!==3||keys.some(k=>!['ordinal','name','modeled'].includes(k)))
+          throw new Error('Legacy unidentified ordinal-221 descriptor must contain only its identity');
+      } else if(stop.ordinal!==221||stop.service.name!=='NtReleaseMutant'||stop.service.callingConvention!=='stdcall'||
+          stop.service.argumentBytes!==8||stop.service.returns!=='ntstatus'||keys.length!==6||
+          keys.some(k=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(k)))
+        throw new Error('NtReleaseMutant requires its two-argument NTSTATUS ABI');
+    } else if(stop.ordinal===234||stop.service.name==='NtWaitForSingleObjectEx') {
+      const keys=Object.keys(stop.service);
+      if(stop.ordinal===234&&stop.service.name===null) {
+        if(keys.length!==3||keys.some(k=>!['ordinal','name','modeled'].includes(k)))
+          throw new Error('Legacy unidentified ordinal-234 descriptor must contain only its identity');
+      } else if(stop.ordinal!==234||stop.service.name!=='NtWaitForSingleObjectEx'||stop.service.callingConvention!=='stdcall'||
+          stop.service.argumentBytes!==16||stop.service.returns!=='ntstatus'||keys.length!==6||
+          keys.some(k=>!['ordinal','name','modeled','callingConvention','argumentBytes','returns'].includes(k)))
+        throw new Error('NtWaitForSingleObjectEx requires its four-argument NTSTATUS ABI');
     } else if (stop.service.callingConvention !== undefined || stop.service.argumentBytes !== undefined ||
                stop.service.returns !== undefined || stop.service.resultBits !== undefined ||
                stop.service.option !== undefined || stop.service.output !== undefined) {
@@ -73,13 +355,25 @@ export function validateProofReport(report) {
   } else if (stop.service !== undefined) {
     throw new Error('Only an unsupported-service stop may carry a service descriptor');
   }
+  if(report.timestampBoundary!==undefined) {
+    const boundary=report.timestampBoundary;
+    if(!boundary || boundary.kind!=='unmodeled-timestamp-counter' || Object.keys(boundary).length!==3 ||
+       !dword(boundary.site) || !boundary.site || boundary.attempts!==1 ||
+       stop.status!==9 || stop.target!==boundary.site || stop.ordinal!==0)
+      throw new Error('Timestamp-counter boundary requires a matching stop and no supplied value');
+  }
   const startup = report.originalStartup;
+  const prefixOmitted=report.traceCapture && !report.traceCapture.complete;
   if (!startup || !bounded(startup.totalInitializers, 4096) ||
-      !bounded(startup.completedInitializers, startup.totalInitializers) ||
+      !(prefixOmitted ? startup.completedInitializers===null : bounded(startup.completedInitializers, startup.totalInitializers)) ||
       !bounded(startup.distinctOriginalFunctions, 512) ||
       !bounded(startup.completedKernelOperations, 8192))
     throw new Error('Proof report startup counters are out of range');
-  if (startup.completedInitializers !== startup.totalInitializers) {
+  if(prefixOmitted) {
+    if(startup.initializerCoverage!=='prefix-omitted' || Object.hasOwn(startup,'nextInitializer'))
+      throw new Error('A suffix-only trace must declare omitted initializer coverage without a next initializer claim');
+  } else if(startup.initializerCoverage!==undefined) throw new Error('Initializer coverage metadata requires an omitted trace prefix');
+  if (!prefixOmitted && startup.completedInitializers !== startup.totalInitializers) {
     /* Partial progress is allowed but must be described, never presented as done. */
     if (typeof startup.stopReason !== 'string' || !startup.stopReason)
       throw new Error('An incomplete initializer run must state its stop reason');
@@ -87,13 +381,17 @@ export function validateProofReport(report) {
   /* The producer derives the distinct count from the reached-entry sequence.
    * When both are present they must agree; otherwise a report could inflate the
    * progress metric the comparison relies on without the corresponding list. */
-  if (report.originalFunctionsReached !== undefined &&
+  if ((!report.traceCapture || report.traceCapture.complete) && report.originalFunctionsReached !== undefined &&
       new Set(report.originalFunctionsReached).size !== startup.distinctOriginalFunctions)
     throw new Error('The reached original-routine list does not match the distinct function count');
+  if(report.traceCapture && (report.traceCapture.routines.length!==startup.distinctOriginalFunctions ||
+      report.traceCapture.totalEntries!==report.traceCapture.prefixEntries+report.trace.filter(row=>row.kind==='enter').length ||
+      report.traceCapture.totalEntries<report.traceCapture.routines.length))
+    throw new Error('Trace capture totals do not match original startup counters');
   if (report.experiments !== undefined && !Array.isArray(report.experiments))
     throw new Error('Proof report experiments must be a list');
   for (const name of report.experiments ?? []) {
-    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery)$/.test(name))
+    if (typeof name !== 'string' || !/^(writeClearing|pmcZero|pcrtcVblanks:\d{1,2}|engineWait|pfifoReset|pfifoConsumer|displayMode|avUnknownOption|avSavedData|avNullResult|mmFreeContiguous|guestWatch|siteWatch|keDisconnectInterrupt|avQuery|debugServiceWindow:[08]|localMutantAcquire|localMutantRelease)$/.test(name))
       throw new Error('Unknown experimental input in report');
   }
   const device = report.deviceRegisters;
@@ -129,6 +427,8 @@ export function validateProofReport(report) {
    * show the proof without declaring the input, or claim the input without the
    * proof. */
   const experiments = report.experiments ?? [];
+  validateMutantReleaseReport(report,selectedMutantRelease,mutantState);
+  if(!selectedMutantRelease)validateMutantWaitReport(report,selectedMutantWait,mutantState);
   const claimsReset = experiments.includes('pfifoReset');
   if (report.pfifoResetState !== undefined && !claimsReset)
     throw new Error('PFIFO reset state requires the pfifoReset experiment');
@@ -217,7 +517,7 @@ export function validateProofReport(report) {
         !integer(d.window) || !integer(d.decision) || d.decision > 3)
       throw new Error('Malformed display-mode state');
     if (d.accepted === 1 &&
-        (d.addr !== 0x3C10CFC || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0 ||
+        (d.addr !== 0xFD000000 || d.step !== 0 || d.mode !== 0x60030307 || d.format !== 0x1E ||
          d.pitch !== 0xA00 || d.fb !== 0x03920000 || d.window !== 0x83920000 || d.decision !== 0))
       throw new Error('A display-mode acceptance must match the pinned declaration');
   }  /* Unknown-AV-option experiment and state pairing; acceptance requires the
@@ -234,7 +534,9 @@ export function validateProofReport(report) {
         !integer(u.written) || !integer(u.eaxBefore) || !integer(u.espBefore) ||
         !integer(u.eaxAfter) || !integer(u.espAfter))
       throw new Error('Malformed unknown-AV-option state');
-    if (u.decision === 0 &&
+    if (u.calls === 0 && Object.entries(u).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled unknown-AV-option state must contain only zero observations');
+    if (u.calls > 0 && u.decision === 0 &&
         (u.handle !== 0xFD000000 || u.option !== 0x0F || u.param !== 0 || u.written !== 0 ||
          u.eaxAfter !== u.eaxBefore || u.espAfter !== ((u.espBefore + 20) >>> 0)))
       throw new Error('An accepted unknown AV option must match the pinned default');
@@ -251,7 +553,9 @@ export function validateProofReport(report) {
         !integer(s.eaxBefore) || !integer(s.espBefore) || !integer(s.eaxAfter) ||
         !integer(s.espAfter) || !integer(s.priorSetter))
       throw new Error('Malformed saved-data state');
-    if (s.decision === 0 &&
+    if (s.calls === 0 && Object.entries(s).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled saved-data state must contain only zero observations');
+    if (s.calls > 0 && s.decision === 0 &&
         (s.value !== 0 || s.eaxAfter !== 0 || s.espAfter !== ((s.espBefore + 4) >>> 0) || s.priorSetter !== 0))
       throw new Error('An accepted saved-data call must return the pinned 0 with no prior setter and a 4-byte stdcall pop');
   }
@@ -261,7 +565,7 @@ export function validateProofReport(report) {
    * nonzero Result reaches the unmodeled option switch. The state keeps the last
    * accepted tuple; the two observed pairs stay pinned pair evidence. */
   const claimsAvNull = experiments.includes('avNullResult');
-  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1], [0x206080, 9, 0]];
+  const observedNullShapes = [[0x03920000, 9, 0], [0xFD000000, 9, 1], [0x206080, 9, 0], [0xFD000000, 9, 0]];
   const isObservedNullShape = (handle, option, param) =>
     observedNullShapes.some(([h, o, p]) => handle === h && option === o && param === p);
   if (report.avNullResultState !== undefined && !claimsAvNull)
@@ -276,7 +580,9 @@ export function validateProofReport(report) {
         !integer(n.checksumAfter) || !integer(n.eaxBefore) || !integer(n.espBefore) ||
         !integer(n.eaxAfter) || !integer(n.espAfter))
       throw new Error('Malformed null-result state');
-    if (n.decision === 0 &&
+    if (n.calls === 0 && Object.entries(n).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled null-result state must contain only zero observations');
+    if (n.calls > 0 && n.decision === 0 &&
         (n.result !== 0 || !isObservedNullShape(n.handle, n.option, n.param) ||
          n.writeAfter !== n.writeBefore || n.checksumAfter !== n.checksumBefore ||
          n.eaxAfter !== n.eaxBefore || n.espAfter !== ((n.espBefore + 20) >>> 0)))
@@ -297,7 +603,9 @@ export function validateProofReport(report) {
         !integer(f.eaxBefore) || !integer(f.espBefore) || !integer(f.eaxAfter) ||
         !integer(f.espAfter) || !integer(f.writeBefore) || !integer(f.writeAfter))
       throw new Error('Malformed contiguous-free state');
-    if (f.decision === 0 &&
+    if (f.calls === 0 && Object.entries(f).some(([key, value]) => key !== 'calls' && value !== 0))
+      throw new Error('An uncalled contiguous-free state must contain only zero observations');
+    if (f.calls > 0 && f.decision === 0 &&
         (!f.address || (f.address & 3) !== 0 || f.eaxAfter !== 0 ||
          f.espAfter !== ((f.espBefore + 8) >>> 0) || f.writeAfter !== f.writeBefore))
       throw new Error('An accepted contiguous-free call must match the pinned declaration-level effect');
@@ -347,6 +655,22 @@ export function validateProofReport(report) {
     if (!a || !integer(a.count) || !integer(a.first) || !integer(a.last) || !integer(a.esiCount) || !integer(a.esiFirst) || !integer(a.esiLast) || !integer(a.espCount) || !integer(a.espFirst) || !integer(a.espLast))
       throw new Error('Malformed ABI-violation state');
   }
+  const debugStart=parseDebugServiceStart(report.consoleSettings?.debugServiceStart);
+  const debugMarkers=experiments.filter(name=>name.startsWith('debugServiceWindow:'));
+  if (debugStart === undefined ? report.debugServiceWindow !== undefined || debugMarkers.length !== 0
+    : !report.debugServiceState || report.phase !== 'original-initializer-bringup' ||
+      debugMarkers.length !== 1 || debugMarkers[0] !== `debugServiceWindow:${debugStart}`)
+    throw new Error('Debug service window differs from selected settings and experiment');
+  if(debugStart !== undefined)validateDebugServiceWindow(report.debugServiceWindow,debugStart,report.debugServiceState.completed);
+  if (report.debugServiceState !== undefined) {
+    const d = report.debugServiceState;
+    if (!d || Object.keys(d).length !== 4 || !integer(d.completed) || d.completed > (debugStart ?? 0) + 8 || !integer(d.service) ||
+        !integer(d.bytes) || d.bytes > 1024 || ![0, 0xc0000005, 0xc000000d, 0xc00000bb].includes(d.status))
+      throw new Error('Malformed bounded debug-service state');
+    if (d.status ? (stop.status !== 9 || stop.ordinal !== 0 || stop.target !== d.status || d.bytes !== 0)
+      : (d.completed ? d.service !== 1 : d.service !== 0 || d.bytes !== 0))
+      throw new Error('Debug-service state differs from the guarded result');
+  }
   /* Diagnostic site watch: records the FUN_001FC010 entry pointer/ECX/return and
    * the +0x47C field address. Diagnostic only, never a service model. */
   const claimsSiteWatch = experiments.includes('siteWatch');
@@ -366,14 +690,158 @@ export function validateProofReport(report) {
    * the adapter complete the call, and the report must show that exact raw word. */
   let avQueryDenied = false;
   let sawFirstNullShape = false, sawSecondNullShape = false, sawThirdNullShape = false;
+  let previousCounterTicks=-1n;
   if (report.calls !== undefined) {
     if (!Array.isArray(report.calls) || report.calls.length > 8192)
       throw new Error('Kernel call records must be a bounded list');
+    if (report.kernelCapture !== undefined) {
+      validateKernelCapture(report.kernelCapture, report.calls);
+      if (report.originalStartup.completedKernelOperations !== report.kernelCapture.completedOperations ||
+          report.kernelCapacity !== 512)
+        throw new Error('Kernel capture evidence does not match startup counters');
+    }
     for (const call of report.calls) {
       if (!call || typeof call !== 'object' || !integer(call.ordinal) || !integer(call.status) ||
           !Array.isArray(call.arguments) || call.arguments.length > 16 ||
           call.arguments.some(argument => !integer(argument)))
         throw new Error('Malformed kernel call record');
+      if(call.ordinal===192) {
+        if(!mutantState && call.status===0)throw new Error('Mutant success requires its explicit synthetic model');
+        if(mutantState) {
+          if(call.arguments.length!==3)throw new Error('Selected mutant creation requires three arguments');
+          if(call.status!==0) {
+            if(call.status!==1 || call.output!==undefined || !mutantState.status)
+              throw new Error('Mutant refusal supplies no successful output');
+            if(selectedMutants.kind==='synthetic-win32-mutants' &&
+               (call.arguments.length!==3||!call.arguments.every(dword)))
+              throw new Error('Local mutant refusal requires exactly three DWORD arguments');
+          } else if(selectedMutants.kind==='synthetic-win32-mutants') {
+            const out=call.output,keys=['backend','handle','object','openedExisting','objectCount','handleCount','eaxBefore','espBefore','eaxAfter','espAfter','root','attributes','nameBytes','nameDescriptor','nameBuffer'];
+            const outputKeys=out&&typeof out==='object'?Reflect.ownKeys(out):[];
+            if(!out||outputKeys.length!==keys.length||outputKeys.some(k=>!keys.includes(k))||out.backend!==selectedMutants.kind||
+               !dword(out.handle)||!dword(out.object)||typeof out.openedExisting!=='boolean'||!dword(out.objectCount)||!dword(out.handleCount)||
+               !dword(out.nameDescriptor)||!dword(out.nameBuffer)||
+               out.handle!==0x80000+4*out.handleCount||out.object<1||out.object>out.objectCount||
+               !dword(out.eaxBefore)||!dword(out.espBefore)||out.espBefore%4||out.espBefore>0x4000000-16||
+               out.eaxAfter!==(out.openedExisting?0x40000000:0)||out.espAfter!==out.espBefore+16||
+               !call.arguments[0]||call.arguments[0]%4||call.arguments[0]>0x4000000-4||call.arguments[2]!==0||
+               (call.arguments[1]===0?(out.root!==0||out.attributes!==0||out.nameBytes!==0||out.nameDescriptor!==0||out.nameBuffer!==0||out.openedExisting):
+                 (call.arguments[1]%4||call.arguments[1]>0x4000000-12||out.root!==0xfffffffc||out.attributes!==0x80||
+                  !Number.isInteger(out.nameBytes)||out.nameBytes<1||out.nameBytes>63||!out.nameDescriptor||out.nameDescriptor%4||out.nameDescriptor>0x4000000-8||
+                  !out.nameBuffer||out.nameBuffer>0x4000000-out.nameBytes)))
+              throw new Error('Named mutant success lacks checked Win32 namespace and NTSTATUS evidence');
+            const row=mutantState.handles.find(h=>h.handle===out.handle),obj=row&&mutantState.objects.find(x=>x.object===row.object);
+            if(!row||row.object!==out.object||!obj||obj.named!==!!call.arguments[1]||obj.nameBytes!==out.nameBytes)
+              throw new Error('Named mutant output does not match retained object identity');
+          } else {
+            const out=call.output, keys=['backend','handle','created','eaxBefore','espBefore','eaxAfter','espAfter'];
+            if(!out || Object.keys(out).length!==keys.length || Object.keys(out).some(key=>!keys.includes(key)) ||
+               out.backend!==selectedMutants.kind || !integer(out.created) || out.created<1 || out.created>mutantState.count ||
+               out.handle!==mutantState.handles[out.created-1].handle ||
+               /* Guest RAM is 64 MiB; the 128 MiB Wasm memory also holds host state. */
+               !call.arguments[0] || call.arguments[0]%4 || call.arguments[0]>0x4000000-4 || call.arguments[1]!==0 || call.arguments[2]!==0 ||
+               !dword(out.eaxBefore) || !dword(out.espBefore) || out.espBefore%4 || out.espBefore>0x4000000-16 ||
+               out.eaxAfter!==0 || out.espAfter!==out.espBefore+16)
+              throw new Error('Mutant success requires checked output, unowned state and NTSTATUS/stack evidence');
+          }
+        }
+      }
+      if(call.ordinal===189) {
+        if(eventState && call.status===0) {
+          if(call.arguments.length!==4)throw new Error('Selected NtCreateEvent requires four arguments');
+          const o=call.output,keys=['backend','handle','object','openedExisting','objectCount','handleCount','eaxBefore','espBefore','eaxAfter','espAfter','root','attributes','nameBytes','nameDescriptor','nameBuffer'];
+          if(!o||Object.keys(o).length!==keys.length||Object.keys(o).some(k=>!keys.includes(k))||o.backend!==selectedEvents.kind||
+             !dword(o.handle)||!dword(o.object)||typeof o.openedExisting!=='boolean'||!dword(o.objectCount)||!dword(o.handleCount)||
+             !dword(o.nameBytes)||!dword(o.nameDescriptor)||!dword(o.nameBuffer)||o.handle!==0x90000+4*o.handleCount||
+             !dword(o.eaxBefore)||!dword(o.espBefore)||o.espBefore%4||o.espBefore>0x4000000-20||o.eaxAfter!==(o.openedExisting?0x40000000:0)||o.espAfter!==o.espBefore+20||
+             o.root!==0xfffffffc||o.attributes!==0x80||o.nameBytes<1||o.nameBytes>63||!o.nameDescriptor||o.nameDescriptor%4||o.nameDescriptor>0x4000000-8||!o.nameBuffer||o.nameBuffer>0x4000000-o.nameBytes||
+             call.arguments[0]===0||call.arguments[0]%4||call.arguments[0]>0x4000000-4||call.arguments[1]===0||call.arguments[1]%4||call.arguments[1]>0x4000000-12||call.arguments[2]!==1||call.arguments[3]!==0)
+            throw new Error('Named event success lacks checked Win32 named-object evidence');
+          const object=eventState.objects.find(x=>x.object===o.object),handle=eventState.handles.find(x=>x.handle===o.handle);
+          if(!object||!handle||handle.object!==o.object||object.nameBytes!==o.nameBytes||o.objectCount>eventState.objectCount||o.handleCount>eventState.handleCount)
+            throw new Error('Named event success does not match retained object state');
+          continue;
+        }
+        if(!eventState && call.status===0)throw new Error('NtCreateEvent remains unsupported without its explicit synthetic model');
+        if(eventState && call.status!==0 && call.status!==1)throw new Error('Selected named event has an invalid refusal status');
+        if(!call.arguments.every(dword))
+          throw new Error('NtCreateEvent arguments must be unsigned 32-bit words');
+        if(eventState && call.status===1) {
+          if(call.output!==undefined||!eventState.status||eventState.status===0x40000000||
+             report.calls.at(-1)!==call||report.stop?.ordinal!==189||report.stop.status!== (eventState.status===0xc000009a?4:9)||report.stop.target!==eventState.status)
+            throw new Error('Named event refusal requires a matching guarded service stop');
+          continue;
+        }
+        if(call.status===0 || call.output!==undefined)
+          throw new Error('NtCreateEvent remains unsupported and supplies no modeled result');
+        const legacyUnidentified=stop.status===1 && stop.ordinal===189 && stop.service?.ordinal===189 &&
+          stop.service.name===null && stop.service.modeled===false && Object.keys(stop.service).length===3 &&
+          ['ordinal','name','modeled'].every(key=>Object.hasOwn(stop.service,key));
+        if(call.status!==1 || stop.status!==1 || stop.ordinal!==189 || report.calls.at(-1)!==call ||
+           report.calls.filter(row=>row.ordinal===189).length!==1)
+          throw new Error('The NtCreateEvent refusal must be the sole final call at its matching unsupported stop');
+        if(legacyUnidentified ? ![1,4].includes(call.arguments.length) : call.arguments.length!==4) {
+          throw new Error('NtCreateEvent evidence must retain four arguments and no modeled result');
+        }
+        if(Array.isArray(stop.stackArguments) && call.arguments.some((argument,index)=>argument!==stop.stackArguments[index]))
+          throw new Error('The NtCreateEvent refusal arguments must match the captured stop stack arguments');
+      }
+      if((call.ordinal===126 || call.ordinal===127) && call.arguments.length!==0)
+        throw new Error('The performance-clock call has no arguments');
+      if(call.ordinal===126) {
+        if(call.status!==0) {
+          if(call.status!==1 || call.output!==undefined || counterState && counterState.status===0)
+            throw new Error('The unsupported performance-counter call supplies no value');
+        } else {
+          const out=call.output;
+          if(!counterState || !out || Object.keys(out).length!==13 ||
+             Object.keys(out).some(key=>!['backend','frequencyHz','interruptTicks','polledInterruptTicks','counter','low','high','eaxBefore','edxBefore','espBefore','eaxAfter','edxAfter','espAfter'].includes(key)) ||
+             out.backend!=='synthetic-performance-counter' || out.frequencyHz!==selectedPerformance.frequencyHz ||
+             !dword(out.low) || !dword(out.high) || out.eaxAfter!==out.low || out.edxAfter!==out.high ||
+             !dword(out.eaxBefore) || !dword(out.edxBefore) || !dword(out.espBefore) || out.espBefore%4 ||
+             !dword(out.espAfter) || out.espAfter!==out.espBefore+4)
+            throw new Error('Performance counter success requires the paired model and EDX:EAX/stack evidence');
+          validatePerformanceCounterState({...selectedCounter,frequencyHz:out.frequencyHz,count:1,capacity:64,status:0,
+            lastTicks:out.interruptTicks,lastCounter:out.counter},selectedCounter,selectedPerformance);
+          const ticks=BigInt(out.interruptTicks);
+          if(deterministicTick && (!deterministicTick(out.interruptTicks) || !deterministicTick(out.polledInterruptTicks)))
+            throw new Error('Counter call is outside the deterministic clock sample sequence');
+          if(typeof out.polledInterruptTicks!=='string' || out.polledInterruptTicks.length>20 || !/^(0|[1-9][0-9]*)$/.test(out.polledInterruptTicks) ||
+             BigInt(out.polledInterruptTicks)>ticks || ticks<previousCounterTicks || BigInt(out.counter)!==((BigInt(out.high)<<32n)|BigInt(out.low)))
+            throw new Error('Performance counter samples require ordered ticks and exact return words');
+          previousCounterTicks=ticks;
+        }
+      }
+      if(call.ordinal===127 && call.status===0) {
+        const out=call.output;
+        if(!selectedPerformance || !out || Object.keys(out).length!==10 ||
+           Object.keys(out).some(key=>!['backend','frequencyHz','low','high','eaxBefore','edxBefore','espBefore','eaxAfter','edxAfter','espAfter'].includes(key)) ||
+           out.backend!=='synthetic-performance-clock' || out.frequencyHz!==selectedPerformance.frequencyHz ||
+           out.low!==out.frequencyHz || out.high!==0 || out.eaxAfter!==out.low || out.edxAfter!==0 ||
+           !dword(out.eaxBefore) || !dword(out.edxBefore) || !dword(out.espBefore) || out.espBefore%4 ||
+           !dword(out.espAfter) || out.espAfter!==out.espBefore+4)
+          throw new Error('Performance-frequency success requires the explicit model and EDX:EAX/stack evidence');
+      }
+      if(selectedClock && call.ordinal===128 && call.status===0 &&
+         (call.arguments.length!==1 || !call.arguments[0] || call.arguments[0]%4 ||
+          call.output?.systemTicks!==((BigInt(selectedClock.unixMillis)+11644473600000n)*10000n).toString()))
+        throw new Error('System-time query must match the selected fixed clock');
+      if(call.ordinal===24 && call.arguments[0]===255 && call.status===0) {
+        const out=call.output;
+        if(!report.consoleSettings?.osSettings || call.arguments.length!==5 ||
+           !call.arguments[1] || call.arguments[1]%4 || !call.arguments[2] || call.arguments[2]%4 ||
+           (call.arguments[1]<call.arguments[2]+256 && call.arguments[2]<call.arguments[1]+4) ||
+           call.arguments[3]!==256 || call.arguments[4]!==0 ||
+           !out || out.backend!=='synthetic-console-os-settings' || out.type!==3 ||
+           Object.keys(out).length!==9 || Object.keys(out).some(key=>![
+             'backend','type','returnedBytes','capacity','providerSnapshotMatches',
+             'eaxBefore','espBefore','eaxAfter','espAfter',
+           ].includes(key)) ||
+           out.returnedBytes!==96 || out.capacity!==256 || out.providerSnapshotMatches!==true ||
+           !integer(out.eaxBefore) || !integer(out.espBefore) || out.eaxAfter!==0 ||
+           out.espAfter!==out.espBefore+24)
+          throw new Error('Accepted console OS settings call requires the explicit bounded model and return evidence');
+      }
       if (call.ordinal !== 2) continue;
       if (call.arguments.length !== 4)
         throw new Error('An ordinal-2 call must carry four observed arguments');
@@ -440,7 +908,11 @@ export function validateProofReport(report) {
       }
     }
   }
-  if (claimsAvNull && report.calls !== undefined &&
+  if (claimsAvNull && report.avNullResultState.calls === 0 && report.calls?.some(call =>
+      call.ordinal === 2 && call.arguments[3] === 0 &&
+      !(call.arguments[0] === 0 && call.arguments[1] === 6)))
+    throw new Error('An uncalled avNullResult state conflicts with a captured null-result call');
+  if (claimsAvNull && report.avNullResultState.calls > 0 && report.calls !== undefined && report.kernelCapture?.complete !== false &&
       !(sawFirstNullShape || sawSecondNullShape || sawThirdNullShape))
     throw new Error('The avNullResult pair must reproduce at least one observed null-result shape');
   /* An avQuery declaration may describe a prequery run in which ordinal 2 was

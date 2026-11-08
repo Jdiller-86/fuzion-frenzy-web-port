@@ -18,12 +18,25 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const suites = [
+  'tests/recomp_batch_test.py',
+  'tests/sdk_title_prepare_test.py',
   'tests/recomp_memory_access_test.py',
   'tests/recomp_memory_access_codegen_test.py',
   'tests/title_seed_test.py',
   'tests/verify_seeds_test.py',
   'tests/bounded_layout_test.py',
   'tests/mixed_dispatch_fixture_test.py',
+  'tests/timestamp_counter_guard_test.py',
+  'tests/performance_clock_bridge_test.py',
+  'tests/performance_counter_bridge_test.py',
+  'tests/boundary_stack_snapshot_test.py',
+  'tests/unnamed_mutants_bridge_test.py',
+  'tests/local_mutants_bridge_test.py',
+  'tests/named_events_bridge_test.py',
+  'tests/thread_callback_guard_test.py',
+  'tests/returning_trap_guard_test.py',
+  'tests/trace_capture_bridge_test.py',
+  'tests/reached_display_wait_bridge_test.py',
 ];
 
 function probe(command, prefix) {

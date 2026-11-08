@@ -15,6 +15,20 @@ await assert.rejects(fs.find('../a.bin'));
 assert.throws(()=>fs.file({offset:NaN,size:1,directory:false}));
 assert.throws(()=>fs.file({offset:0,size:Infinity,directory:false}));
 await assert.rejects(fs.list({offset:-1,size:0,directory:true}));
+const empty = fixture(), emptyView = new DataView(empty.buffer);
+emptyView.setUint32(32*2048+24, 2048, true);
+empty.fill(0xff, 33*2048, 34*2048);
+const emptyFs = await openXiso(new Blob([empty]));
+assert.deepEqual(await emptyFs.list(emptyFs.root), []);
+await assert.rejects(emptyFs.find('missing.bin'), /path not found/);
+await assert.rejects(emptyFs.list({offset:empty.length-1024,size:2048,directory:true}));
+const mixed = empty.slice(); mixed[33*2048+14] = 0;
+const mixedFs = await openXiso(new Blob([mixed]));
+await assert.rejects(mixedFs.list(mixedFs.root));
+const truncated = empty.slice();
+new DataView(truncated.buffer).setUint32(32*2048+24, 2, true);
+const truncatedFs = await openXiso(new Blob([truncated]));
+await assert.rejects(truncatedFs.list(truncatedFs.root));
 for (const mutate of [
  b => {b[32*2048] = 0;},
  b => {new DataView(b.buffer).setUint32(32*2048+20, 99999, true);},

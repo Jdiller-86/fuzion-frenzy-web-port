@@ -6,8 +6,60 @@
 #define FF_RETURN_FRAME(address, frame) ff_probe_return_frame(address, frame)
 static void ff_probe_return_frame(uint32_t address, uint32_t frame);
 #include "title-profile.h"
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+#if !defined(FF_TIMESTAMP_COUNTER_GUARDS) || !defined(FF_TIMER_PROOF)
+#error Performance clock requires checked timestamp sites and the admitted browser clock
+#endif
+#include "../../runtime/core/performance_clock.h"
+static ff_performance_clock performance_clock;
+static uint32_t performance_status, performance_last_site, performance_frequency_queries;
+#endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+#ifndef FF_PERFORMANCE_CLOCK_PROOF
+#error Performance counter requires the explicit paired performance clock
+#endif
+static uint32_t performance_counter_enabled,performance_counter_status,performance_counter_count;
+static uint64_t performance_counter_ticks,performance_counter_value;
+#endif
 #include "../../runtime/core/thread_bootstrap.h"
 #include "../../runtime/core/kernel_objects.h"
+#ifdef FF_MUTANT_PROOF
+#ifndef FF_VM_PROOF
+#error Mutant creation requires checked guest memory
+#endif
+#include "../../runtime/core/unnamed_mutants.h"
+static ff_unnamed_mutants unnamed_mutants;
+static uint32_t mutant_ready,mutant_status;
+#endif
+#ifdef FF_NAMED_EVENT_PROOF
+#ifndef FF_VM_PROOF
+#error Named event creation requires checked guest memory
+#endif
+#include "../../runtime/core/named_events.h"
+static ff_named_events named_events;
+static uint32_t event_ready,event_status;
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+#if !defined(FF_MUTANT_PROOF) || !defined(FF_NAMED_EVENT_PROOF)
+#error Local mutant creation retains explicit legacy and named-event capabilities
+#endif
+#include "../../runtime/core/local_mutants.h"
+static ff_local_mutants local_mutants;
+static uint32_t local_mutant_ready,local_mutant_status;
+static uint32_t local_mutant_wait_enabled,local_mutant_wait_sealed;
+static uint32_t local_mutant_wait_attempts,local_mutant_wait_completed,local_mutant_wait_status;
+static uint32_t local_mutant_wait_last_handle,local_mutant_wait_last_thread,local_mutant_wait_last_object;
+static uint32_t local_mutant_wait_mode,local_mutant_wait_alertable,local_mutant_wait_timeout;
+static uint32_t local_mutant_wait_owner_before,local_mutant_wait_owner_after;
+static uint32_t local_mutant_wait_eax_before,local_mutant_wait_esp_before;
+static uint32_t local_mutant_wait_eax_after,local_mutant_wait_esp_after;
+static uint32_t local_mutant_release_enabled,local_mutant_release_sealed;
+static uint32_t local_mutant_release_attempts,local_mutant_release_completed,local_mutant_release_status;
+static uint32_t local_mutant_release_handle,local_mutant_release_thread,local_mutant_release_object;
+static uint32_t local_mutant_release_previous_count,local_mutant_release_owner_before,local_mutant_release_owner_after;
+static uint32_t local_mutant_release_eax_before,local_mutant_release_esp_before;
+static uint32_t local_mutant_release_eax_after,local_mutant_release_esp_after;
+#endif
 #include "../../runtime/core/local_settings.h"
 #include "../../runtime/core/port_io.h"
 #ifdef FF_PFIFO_PROOF
@@ -148,6 +200,26 @@ static uint8_t guest_ram[FF_GUEST_BYTES] __attribute__((aligned(16)));
 static uint32_t probe_state[16], probe_trace[FF_TRACE_CAPACITY * 3], probe_trace_count;
 static uint32_t probe_cpu_trace[FF_TRACE_CAPACITY * 3];
 static uint32_t kernel_calls[FF_KERNEL_CAPACITY][20], kernel_call_count, parent_returned;
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+static uint32_t timestamp_boundary[2];
+#endif
+#ifdef FF_KERNEL_CAPTURE_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF)
+#error Kernel capture windows require the fixed initializer observation capacities
+#endif
+#include "../../runtime/core/kernel_capture.h"
+static ff_kernel_capture kernel_capture;
+static uint32_t kernel_prior_setter;
+#endif
+#ifdef FF_TRACE_CAPTURE_PROOF
+#if !defined(FF_INITIALIZER_BATCH_PROOF) || !defined(FF_KERNEL_CAPTURE_PROOF)
+#error Trace windows retain the fixed initializer rows and kernel-capture contract
+#endif
+#include "../../runtime/core/trace_capture.h"
+_Static_assert(FF_TRACE_CAPACITY == FF_TRACE_CAPTURE_ROWS, "Trace window rows must retain the existing capacity");
+static ff_trace_capture trace_capture;
+static uint32_t trace_capture_ready;
+#endif
 static ff_port_io port_io;
 static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal);
 /* PCRTC interrupt state, enabled only when the profile supplies events. The
@@ -519,12 +591,19 @@ static uint32_t disk_control_information[FF_KERNEL_CAPACITY][8];
 #endif
 static ff_boot_runtime boot;
 static uint32_t misc_flags, misc_flags_ready;
+#if defined(FF_OS_SETTINGS_PROOF) && !defined(FF_NV_QUERY_PROOF)
+#error Console OS settings retain the explicit expanded settings ABI
+#endif
 #ifdef FF_NV_QUERY_PROOF
 #ifndef FF_SECTION_PROOF
 #error Expanded settings retain checked image and guest memory ownership
 #endif
 #include "../../runtime/core/console_settings.h"
 static uint32_t parental_games,parental_games_ready;
+#ifdef FF_OS_SETTINGS_PROOF
+static uint8_t console_os_settings[FF_CONSOLE_OS_SETTINGS_BYTES];
+static uint32_t console_os_ready;
+#endif
 #endif
 #ifdef FF_VOLUME_PROOF
 static ff_local_volume local_volume;
@@ -560,6 +639,13 @@ static ff_guest_mirror guest_mirror;
 static ff_guest_write_map guest_write_map;
 static uint32_t vm_ready, vm_access_count, vm_fault[6];
 void *ff_probe_guest_memory(uint32_t address, uint64_t bytes, uint32_t access, uint32_t site);
+#endif
+#ifdef FF_DEBUG_SERVICE_PROOF
+#if !defined(FF_VM_PROOF) || !defined(FF_DIRECTORY_PROOF)
+#error Debug service requires checked guest memory and counted strings
+#endif
+#include "../../runtime/core/debug_service.h"
+static ff_debug_service debug_service_state;
 #endif
 #ifdef FF_SECTION_PROOF
 #if !defined(FF_VM_PROOF) || !defined(FF_FILE_WRITE_PROOF)
@@ -646,6 +732,134 @@ static _Noreturn void stop(uint32_t status, uint32_t target, uint32_t ordinal)
     __builtin_trap();
 }
 static _Noreturn void ff_probe_stop_direct(uint32_t target) { stop(2, target, 0); }
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+static uint64_t ff_probe_read_tsc(uint32_t site)
+{
+    static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
+    for(uint32_t i=0;i<FF_TIMESTAMP_COUNTER_GUARD_COUNT;++i)if(site==sites[i]) {
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+        if(performance_clock.ready) {
+            uint64_t counter=0;
+            performance_last_site=site;
+            /* Sample the same zero-origin host clock directly. Advancing the
+             * kernel timer queue here would add unrelated CPU side effects. */
+            ff_host_clock((uint32_t)(uintptr_t)clock_words);
+            uint64_t ticks=clock_words[0]|(uint64_t)clock_words[1]<<32;
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+            performance_status=performance_counter_enabled && ticks<performance_counter_ticks
+                ?FF_PERFORMANCE_CLOCK_ORDER:ff_performance_clock_read(&performance_clock,ticks,site,&counter);
+#else
+            performance_status=ff_performance_clock_read(&performance_clock,ticks,site,&counter);
+#endif
+            if(performance_status==FF_PERFORMANCE_CLOCK_OK)return counter;
+            stop(performance_status==FF_PERFORMANCE_CLOCK_CAPACITY_REACHED?4:9,site,0);
+        }
+#endif
+        timestamp_boundary[0]=site;timestamp_boundary[1]=1;
+        stop(9,site,0);
+    }
+    stop(9,site,0);
+}
+uint32_t ff_probe_timestamp_boundary_word(uint32_t field)
+{
+    return field==0?timestamp_boundary[1]:field==1?timestamp_boundary[0]:field==2?timestamp_boundary[1]:0;
+}
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+uint32_t ff_probe_performance_profile(uint32_t frequency)
+{
+    if(probe_trace_count || kernel_call_count)return FF_PERFORMANCE_CLOCK_INVALID;
+    memset(&performance_clock,0,sizeof performance_clock);
+    performance_status=performance_last_site=performance_frequency_queries=0;
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
+#endif
+    return ff_performance_clock_init(&performance_clock,frequency);
+}
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+uint32_t ff_probe_performance_counter_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count)return FF_PERFORMANCE_CLOCK_INVALID;
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
+    if(enable>1u || (enable && !performance_clock.ready))return FF_PERFORMANCE_CLOCK_INVALID;
+    performance_counter_enabled=enable;
+    return FF_PERFORMANCE_CLOCK_OK;
+}
+uint32_t ff_probe_performance_counter_word(uint32_t field)
+{
+    switch(field) {
+    case 0:return performance_counter_enabled;
+    case 1:return performance_clock.frequency_hz;
+    case 2:return performance_counter_count;
+    case 3:return FF_PERFORMANCE_CLOCK_CAPACITY;
+    case 4:return performance_counter_status;
+    case 5:return (uint32_t)performance_counter_ticks;
+    case 6:return (uint32_t)(performance_counter_ticks>>32);
+    case 7:return (uint32_t)performance_counter_value;
+    case 8:return (uint32_t)(performance_counter_value>>32);
+    default:return 0;
+    }
+}
+#endif
+uint32_t ff_probe_performance_word(uint32_t index,uint32_t field)
+{
+    static const uint32_t sites[FF_TIMESTAMP_COUNTER_GUARD_COUNT]=FF_TIMESTAMP_COUNTER_SITES;
+    if(index==UINT32_MAX) {
+        switch(field) {
+        case 0:return performance_clock.ready;
+        case 1:return performance_clock.frequency_hz;
+        case 2:return performance_clock.count;
+        case 3:return FF_PERFORMANCE_CLOCK_CAPACITY;
+        case 4:return performance_status;
+        case 5:return performance_last_site;
+        case 6:return performance_frequency_queries;
+        case 7:return FF_TIMESTAMP_COUNTER_GUARD_COUNT;
+        default:return 0;
+        }
+    }
+    if(field==5)return index<FF_TIMESTAMP_COUNTER_GUARD_COUNT?sites[index]:0;
+    if(index>=performance_clock.count)return 0;
+    const ff_performance_clock_sample *sample=&performance_clock.samples[index];
+    switch(field) {
+    case 0:return sample->site;
+    case 1:return (uint32_t)sample->interrupt_ticks;
+    case 2:return (uint32_t)(sample->interrupt_ticks>>32);
+    case 3:return (uint32_t)sample->counter;
+    case 4:return (uint32_t)(sample->counter>>32);
+    default:return 0;
+    }
+}
+#endif
+#endif
+#ifdef FF_DEBUG_SERVICE_PROOF
+void recomp_debug_service(uint32_t service, uint32_t argument)
+{
+    const uint32_t status = vm_ready
+        ? ff_debug_service_call(&debug_service_state, service, &virtual_memory, argument)
+        : ff_debug_service_call(&debug_service_state, service, NULL, argument);
+    if (status) stop(9, status, 0);
+}
+uint32_t ff_probe_debug_service_word(uint32_t field)
+{
+    switch (field) {
+    case 0: return debug_service_state.total_completed;
+    case 1: return debug_service_state.last_service;
+    case 2: return debug_service_state.last_bytes;
+    case 3: return debug_service_state.last_status;
+    default: return 0;
+    }
+}
+uint32_t ff_probe_debug_service_profile(uint32_t requested_start)
+{
+    return ff_debug_service_profile(&debug_service_state, requested_start);
+}
+uint32_t ff_probe_debug_service_window_word(uint32_t field)
+{
+    return field < FF_DEBUG_SERVICE_WORDS
+        ? ff_debug_service_window_word(&debug_service_state, field) : 0;
+}
+#endif
 #ifdef FF_PFIFO_PROOF
 static ff_pfifo_channel pfifo_profile_channel;
 static uint32_t pfifo_profile_ready;
@@ -1109,6 +1323,80 @@ uint32_t ff_probe_metadata_format_byte(uint32_t which,uint32_t index)
     return 0;
 }
 #endif
+/* FF_TRACE_WINDOW_HELPERS_BEGIN */
+static uint32_t retained_trace_count(void)
+{
+#ifdef FF_TRACE_CAPTURE_PROOF
+    if(trace_capture_ready)return trace_capture.total-trace_capture.captured_start;
+#endif
+    return probe_trace_count;
+}
+#ifdef FF_TRACE_CAPTURE_PROOF
+uint32_t ff_probe_trace_capture_profile(uint32_t start)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_TRACE_CAPTURE_INVALID;
+    if(start!=0u && start!=FF_TRACE_CAPTURE_MAX_START)return FF_TRACE_CAPTURE_INVALID;
+    uint32_t result=ff_trace_capture_init(&trace_capture,start);
+    if(result)return result;
+    trace_capture_ready=1;
+    return 0;
+}
+uint32_t ff_probe_trace_capture_word(uint32_t field)
+{
+    if(field==0u)return trace_capture_ready;
+    if(!trace_capture_ready)return 0;
+    return field==1u?1u:field==2u?trace_capture.requested_start:field==3u?trace_capture.captured_start:
+        field==4u?trace_capture.total:field==5u?retained_trace_count():field==6u?trace_capture.entries:
+        field==7u?trace_capture.prefix_entries:field==8u?trace_capture.routine_count:
+        field==9u?trace_capture.prefix_routines:field==10u?FF_TRACE_CAPTURE_ROWS:
+        field==11u?trace_capture.requested_start+FF_TRACE_CAPTURE_ROWS:0u;
+}
+uint32_t ff_probe_trace_capture_routine(uint32_t index)
+{
+    return trace_capture_ready && index<FF_TRACE_CAPTURE_ROUTINES && index<trace_capture.routine_count
+        ?trace_capture.routines[index]:0u;
+}
+uint32_t ff_probe_trace_capture_digest_word(uint32_t which,uint32_t index)
+{
+    if(!trace_capture_ready || which>1u || index>=8u)return 0;
+    uint8_t bytes[32];
+    if(which)memcpy(bytes,trace_capture.prefix_digest,sizeof bytes);
+    else ff_sha256_final(&trace_capture.digest,bytes);
+    uint32_t at=index*4u;
+    return (uint32_t)bytes[at]|((uint32_t)bytes[at+1u]<<8)|
+        ((uint32_t)bytes[at+2u]<<16)|((uint32_t)bytes[at+3u]<<24);
+}
+static void capture_trace_row(uint32_t kind,uint32_t address)
+{
+    /* Polling and format observers run before this call, as in the legacy path.
+     * Begun-row count stays monotonic for existing pre-start configuration guards. */
+    if(trace_capture.total!=probe_trace_count)stop(9,FF_BOOT_INVALID,0);
+    if(probe_trace_count>=trace_capture.requested_start+FF_TRACE_CAPTURE_ROWS)stop(5,address,0);
+    /* Legacy phase locks count begun rows, including a failed sample. The
+     * selected capture metadata counts only fully sampled/committed events. */
+    probe_trace_count++;
+    const uint32_t trace_stack=g_esp,trace_eax=g_eax,trace_fs=g_fs_base;
+    uint32_t head=UINT32_MAX;
+    if(trace_fs) {
+        if((trace_fs&3u) || trace_fs>FF_GUEST_BYTES-4u)stop(9,trace_fs,0);
+#ifdef FF_VM_PROOF
+        head=FF_MEMORY_U32(trace_fs,FF_VM_READ);
+#else
+        head=MEM32(trace_fs);
+#endif
+    }
+    /* Only a fully sampled row may rotate/hash/commit. A sampling fault leaves
+     * the first-window witness and all capture counters untouched. */
+    uint32_t result=ff_trace_capture_add(&trace_capture,kind,address,trace_stack,trace_eax,trace_fs,head);
+    if(result==FF_TRACE_CAPTURE_FULL)stop(5,address,0);
+    if(result!=FF_TRACE_CAPTURE_OK && result!=FF_TRACE_CAPTURE_ROTATE)stop(9,FF_BOOT_INVALID,0);
+    uint32_t index=(retained_trace_count()-1u)*3u;
+    probe_trace[index]=kind;probe_trace[index+1u]=address;probe_trace[index+2u]=trace_stack;
+    probe_cpu_trace[index]=trace_eax;probe_cpu_trace[index+1u]=trace_fs;probe_cpu_trace[index+2u]=head;
+    probe_trace_count=trace_capture.total;
+}
+#endif
+/* FF_TRACE_WINDOW_HELPERS_END */
 static void trace(uint32_t kind, uint32_t address)
 {
 #ifdef FF_COPY_PROOF
@@ -1119,6 +1407,9 @@ static void trace(uint32_t kind, uint32_t address)
 #endif
 #ifdef FF_METADATA_FORMAT_PROOF
     observe_metadata_format(kind,address);
+#endif
+#ifdef FF_TRACE_CAPTURE_PROOF
+    if(trace_capture_ready) { capture_trace_row(kind,address);return; }
 #endif
     if (probe_trace_count == FF_TRACE_CAPACITY) stop(5, address, 0);
     uint32_t i = probe_trace_count++ * 3;
@@ -1142,6 +1433,9 @@ void recomp_trace_enter(const char *name, uint32_t address) {
     ff_probe_poll();
 #endif
     trace(1, address);
+#ifdef FF_PROBE_C_TRACE_EVENT
+    FF_PROBE_C_TRACE_EVENT(1u, address);
+#endif
 }
 void recomp_trace_exit(const char *name, uint32_t address) {
     (void)name;
@@ -1149,8 +1443,16 @@ void recomp_trace_exit(const char *name, uint32_t address) {
     (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ, 0u);
 #endif
     trace(2, address);
+#ifdef FF_PROBE_C_TRACE_EVENT
+    FF_PROBE_C_TRACE_EVENT(2u, address);
+#endif
 }
-void recomp_trace_esp(const char *name, const char *tag) { (void)name; (void)tag; }
+void recomp_trace_esp(const char *name, const char *tag) {
+    (void)name; (void)tag;
+#ifdef FF_PROBE_C_ESP_EVENT
+    FF_PROBE_C_ESP_EVENT(name, tag);
+#endif
+}
 void recomp_icall_fail_log(uint32_t address) { stop(3, address, 0); }
 void recomp_icall_not_code_log(uint32_t address) { stop(3, address, 0); }
 void recomp_unimpl(const char *text, uint32_t address) { (void)text; stop(7, address, 0); }
@@ -1239,6 +1541,9 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
         bytes > 4096u || bytes > count - destination || bytes > count - source) return 0x80000000u;
     ff_capture_cpu(&copy_saved);
     uint32_t old_calls = kernel_call_count, result = 0;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    old_calls=kernel_capture.total;
+#endif
     for (uint32_t i = 0; i < count; ++i) guest_ram[base + i] = copy_pattern(i, tag);
     memset(guest_ram + base - 32, 0xb7, 32); memset(guest_ram + base + count, 0xb7, 32);
     MEM32(frame) = 0xfffffff8u; MEM32(frame + 4) = base + destination;
@@ -1258,24 +1563,353 @@ uint32_t ff_probe_copy_case(uint32_t target, uint32_t destination, uint32_t sour
     if (g_ebx != 0x11223344u || g_esi != 0x55667788u || g_edi != 0x99aabbccu ||
         copy_return_seen != 1 || copy_return_frame != 0x13579bdfu) result |= 16;
     if (g_df) result |= 32;
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    if(kernel_capture.total!=old_calls)result|=64;
+#else
     if (kernel_call_count != old_calls) result |= 64;
+#endif
     ff_probe_copy_recover(); return result;
 }
 #endif
 
 static uint32_t *kernel_record(uint32_t ordinal, unsigned argc)
 {
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    /* The preceding record-owning handler has returned before a guest callback
+     * can enter here. Polling below precedes allocation of this handler's row. */
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+#endif
 #ifdef FF_VM_PROOF
     (void)ff_probe_guest_memory(g_esp, 4u * (argc + 1u), FF_VM_READ, 0u);
 #endif
 #ifdef FF_TIMER_PROOF
     ff_probe_poll();
 #endif
-    if (kernel_call_count == FF_KERNEL_CAPACITY || (g_esp & 3u) || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+    if ((g_esp & 3u) || argc>10u || g_esp > FF_GUEST_BYTES - 4u * (argc + 1u)) stop(4, 0, ordinal);
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    /* A callback delivered by the poll may have completed the previous row. */
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+    uint32_t arguments[10];
+    for(unsigned i=0;i<argc;++i)arguments[i]=MEM32(g_esp+4u+i*4u);
+    const uint32_t capture_status=ff_kernel_capture_begin(&kernel_capture,ordinal,arguments,argc);
+    if(capture_status==FF_CAPTURE_FULL || capture_status==FF_CAPTURE_INVALID)stop(4,0,ordinal);
+    if(capture_status==FF_CAPTURE_ROTATE) {
+        memset(kernel_calls,0,sizeof kernel_calls);
+#ifdef FF_REGULAR_FILE_PROOF
+        memset(file_information,0,sizeof file_information);
+        memset(create_request_words,0,sizeof create_request_words);
+        memset(create_request_names,0,sizeof create_request_names);
+#endif
+#ifdef FF_DISK_GEOMETRY_PROOF
+        memset(disk_control_information,0,sizeof disk_control_information);
+#endif
+        kernel_call_count=0;
+    }
+    if(ordinal==4u)kernel_prior_setter=1;
+#endif
+    if (kernel_call_count == FF_KERNEL_CAPACITY) stop(4, 0, ordinal);
     uint32_t *row = kernel_calls[kernel_call_count++]; row[0] = ordinal;
     for (unsigned i = 0; i < argc; ++i) row[i + 2] = MEM32(g_esp + 4 + i * 4);
     return row;
 }
+#ifdef FF_MUTANT_PROOF
+/* Optional creation model only. It owns opaque handles until the whole proof
+ * resets; no wait, acquisition, release or close path is selected here. */
+uint32_t ff_probe_mutant_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready)return FF_BOOT_INVALID;
+#endif
+    mutant_ready=0;mutant_status=0;memset(&unnamed_mutants,0,sizeof unnamed_mutants);
+    if(enable>1u)return FF_BOOT_INVALID;
+    if(!enable)return 0;
+    if(!vm_ready)return FF_BOOT_INVALID;
+    uint32_t status=ff_unnamed_mutants_init(&unnamed_mutants,&virtual_memory);
+    if(status)return status;
+    mutant_ready=1;return 0;
+}
+uint32_t ff_probe_mutant_word(uint32_t index,uint32_t field)
+{
+    if(index==0xffffffffu)return field==0u?mutant_ready:field==1u?unnamed_mutants.count:
+        field==2u?FF_MUTANT_CAPACITY:field==3u?mutant_status:0u;
+    return index<unnamed_mutants.count && index<FF_MUTANT_CAPACITY && field==0u?unnamed_mutants.handles[index]:0u;
+}
+static void create_unnamed_mutant(void)
+{
+    uint32_t *row=kernel_record(192,3);
+    row[5]=g_eax;row[6]=g_esp;
+    mutant_status=ff_unnamed_mutants_create(&unnamed_mutants,row[2],row[3],row[4]);
+    if(mutant_status) {
+        row[1]=1;
+        stop(mutant_status==FF_MUTANT_NO_SLOTS?4:9,mutant_status,192);
+    }
+    row[7]=MEM32(row[2]);row[10]=unnamed_mutants.count;
+    g_eax=0;g_esp+=16u;
+    row[1]=0;row[8]=g_eax;row[9]=g_esp;
+}
+#endif
+#ifdef FF_NAMED_EVENT_PROOF
+/* Optional ASCII named-event creation/open-if only. Records survive until the
+ * whole proof resets; no signal, wait, close or native event is supplied. */
+uint32_t ff_probe_event_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready)return FF_BOOT_INVALID;
+#endif
+    event_ready=0;event_status=0;memset(&named_events,0,sizeof named_events);
+    if(enable>1u)return FF_BOOT_INVALID;
+    if(!enable)return 0;
+    if(!vm_ready)return FF_BOOT_INVALID;
+    uint32_t status=ff_named_events_init(&named_events,&virtual_memory);
+    if(status)return status;
+    event_ready=1;return 0;
+}
+uint32_t ff_probe_event_word(uint32_t index,uint32_t field)
+{
+    if(index==0xffffffffu)return field==0u?event_ready:field==1u?named_events.object_count:
+        field==2u?named_events.handle_count:field==3u?FF_EVENT_CAPACITY:field==4u?event_status:0u;
+    if(index<FF_EVENT_CAPACITY && index<named_events.object_count) {
+        if(field==0u)return index+1u;
+        if(field==1u)return named_events.objects[index].name_bytes;
+        if(field==2u)return 1u;
+        if(field==3u)return 0u;
+    }
+    if(index<FF_EVENT_CAPACITY && index<named_events.handle_count) {
+        if(field==4u)return named_events.handles[index].handle;
+        if(field==5u)return named_events.handles[index].object;
+    }
+    return 0;
+}
+static void create_named_event(void)
+{
+    uint32_t *row=kernel_record(189,4);
+    row[6]=g_eax;row[7]=g_esp;
+    event_status=0;
+#ifdef FF_LOCAL_MUTANT_PROOF
+    if(local_mutant_ready && row[4]==1u && row[5]==0u)
+        event_status=ff_local_mutants_guard_event(&local_mutants,row[2],row[3]);
+#endif
+    if(!event_status)event_status=ff_named_events_create(&named_events,row[2],row[3],row[4],row[5]);
+    if(event_status && event_status!=FF_EVENT_NAME_EXISTS) {
+        row[1]=1;
+        stop(event_status==FF_EVENT_NO_SLOTS?4:9,event_status,189);
+    }
+    /* Component success proves these full ranges and forbids output aliases. */
+    const uint32_t descriptor=MEM32(row[3]+4u);
+    const uint32_t object=named_events.handles[named_events.handle_count-1u].object;
+    row[8]=MEM32(row[2]);row[9]=object;row[10]=event_status==FF_EVENT_NAME_EXISTS;
+    row[11]=named_events.object_count;row[12]=named_events.handle_count;
+    row[15]=MEM32(row[3]);row[16]=MEM32(row[3]+8u);
+    row[17]=named_events.objects[object-1u].name_bytes;
+    row[18]=descriptor;row[19]=MEM32(descriptor+4u);
+    g_eax=event_status;g_esp+=20u;
+    row[1]=0;row[13]=g_eax;row[14]=g_esp;
+}
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+/* Alternative four-handle mutant pool, not an extension of the legacy profile.
+ * The event peer is locked while active; both creation paths guard typed names. */
+uint32_t ff_probe_local_mutant_profile(uint32_t enable)
+{
+    if(probe_trace_count || kernel_call_count || parent_returned)return FF_BOOT_INVALID;
+    if(local_mutant_wait_enabled||local_mutant_wait_sealed)return FF_BOOT_INVALID;
+    if(enable>1u || (enable && (!vm_ready || !event_ready || mutant_ready)))return FF_BOOT_INVALID;
+    if(!enable) {
+        memset(&local_mutants,0,sizeof local_mutants);local_mutant_ready=local_mutant_status=0;
+        return 0;
+    }
+    uint32_t status=ff_local_mutants_init(&local_mutants,&virtual_memory,&named_events);
+    if(status)return status;
+    local_mutant_ready=1;local_mutant_status=0;return 0;
+}
+uint32_t ff_probe_local_mutant_wait_profile(uint32_t enable)
+{
+    if(local_mutant_wait_sealed||probe_trace_count||kernel_call_count||parent_returned)return FF_BOOT_INVALID;
+    if(enable>1u || (enable && !local_mutant_ready))return FF_BOOT_INVALID;
+    if(!enable&&local_mutant_release_enabled)return FF_BOOT_INVALID;
+    local_mutant_wait_enabled=enable;
+    local_mutant_wait_attempts=local_mutant_wait_completed=local_mutant_wait_status=0;
+    local_mutant_wait_last_handle=local_mutant_wait_last_thread=local_mutant_wait_last_object=0;
+    local_mutant_wait_mode=local_mutant_wait_alertable=local_mutant_wait_timeout=0;
+    local_mutant_wait_owner_before=local_mutant_wait_owner_after=0;
+    local_mutant_wait_eax_before=local_mutant_wait_esp_before=0;
+    local_mutant_wait_eax_after=local_mutant_wait_esp_after=0;
+    return 0;
+}
+uint32_t ff_probe_local_mutant_wait_word(uint32_t index,uint32_t field)
+{
+    if(index!=0xffffffffu) {
+        if(index>=local_mutants.object_count||index>=FF_LOCAL_MUTANT_CAPACITY)return 0;
+        if(field==0u)return index+1u;
+        if(field==1u)return local_mutants.objects[index].owner_thread;
+        return 0;
+    }
+    switch(field) {
+        case 0:return local_mutant_wait_enabled; case 1:return local_mutant_wait_attempts;
+        case 2:return local_mutant_wait_completed; case 3:return local_mutant_wait_status;
+        case 4:return FF_LOCAL_MUTANT_CAPACITY; case 5:return local_mutant_wait_last_handle;
+        case 6:return local_mutant_wait_last_thread; case 7:return local_mutant_wait_last_object;
+        case 8:return local_mutant_wait_mode; case 9:return local_mutant_wait_alertable;
+        case 10:return local_mutant_wait_timeout; case 11:return local_mutant_wait_owner_before;
+        case 12:return local_mutant_wait_owner_after; case 13:return local_mutant_wait_eax_before;
+        case 14:return local_mutant_wait_esp_before; case 15:return local_mutant_wait_eax_after;
+        case 16:return local_mutant_wait_esp_after; default:return 0;
+    }
+}
+uint32_t ff_probe_local_mutant_release_profile(uint32_t enable)
+{
+    if(local_mutant_release_sealed||probe_trace_count||kernel_call_count||parent_returned)return FF_BOOT_INVALID;
+    if(enable>1u || (enable && (!local_mutant_ready||!local_mutant_wait_enabled)))return FF_BOOT_INVALID;
+    local_mutant_release_enabled=enable;
+    local_mutant_release_attempts=local_mutant_release_completed=local_mutant_release_status=0;
+    local_mutant_release_handle=local_mutant_release_thread=local_mutant_release_object=0;
+    local_mutant_release_previous_count=0;
+    local_mutant_release_owner_before=local_mutant_release_owner_after=0;
+    local_mutant_release_eax_before=local_mutant_release_esp_before=0;
+    local_mutant_release_eax_after=local_mutant_release_esp_after=0;
+    return 0;
+}
+uint32_t ff_probe_local_mutant_release_word(uint32_t index,uint32_t field)
+{
+    if(index!=0xffffffffu) {
+        if(index>=local_mutants.object_count||index>=FF_LOCAL_MUTANT_CAPACITY)return 0;
+        if(field==0u)return index+1u;
+        if(field==1u)return local_mutants.objects[index].owner_thread;
+        return 0;
+    }
+    switch(field) {
+        case 0:return local_mutant_release_enabled; case 1:return local_mutant_release_attempts;
+        case 2:return local_mutant_release_completed; case 3:return local_mutant_release_status;
+        case 4:return FF_LOCAL_MUTANT_CAPACITY; case 5:return local_mutant_release_handle;
+        case 6:return local_mutant_release_thread; case 7:return local_mutant_release_object;
+        case 8:return local_mutant_release_previous_count; case 9:return local_mutant_release_owner_before;
+        case 10:return local_mutant_release_owner_after; case 11:return local_mutant_release_eax_before;
+        case 12:return local_mutant_release_esp_before; case 13:return local_mutant_release_eax_after;
+        case 14:return local_mutant_release_esp_after; default:return 0;
+    }
+}
+uint32_t ff_probe_local_mutant_word(uint32_t index,uint32_t field)
+{
+    if(index==0xffffffffu)return field==0u?local_mutant_ready:field==1u?local_mutants.object_count:
+        field==2u?local_mutants.handle_count:field==3u?FF_LOCAL_MUTANT_CAPACITY:field==4u?local_mutant_status:0u;
+    if(index<FF_LOCAL_MUTANT_CAPACITY && index<local_mutants.object_count) {
+        if(field==0u)return index+1u;
+        if(field==1u)return local_mutants.objects[index].name_bytes;
+        if(field==2u)return local_mutants.objects[index].name_bytes!=0u;
+        if(field==3u)return local_mutants.objects[index].owner_thread!=0u;
+    }
+    if(index<FF_LOCAL_MUTANT_CAPACITY && index<local_mutants.handle_count) {
+        if(field==4u)return local_mutants.handles[index].handle;
+        if(field==5u)return local_mutants.handles[index].object;
+    }
+    return 0;
+}
+static void create_local_mutant(void)
+{
+    uint32_t *row=kernel_record(192,3);
+    row[5]=g_eax;row[6]=g_esp;
+    local_mutant_status=ff_local_mutants_create(&local_mutants,row[2],row[3],row[4]);
+    if(local_mutant_status && local_mutant_status!=FF_LOCAL_MUTANT_NAME_EXISTS) {
+        row[1]=1;stop(local_mutant_status==FF_LOCAL_MUTANT_NO_SLOTS?4:9,local_mutant_status,192);
+    }
+    const uint32_t object=local_mutants.handles[local_mutants.handle_count-1u].object;
+    row[7]=MEM32(row[2]);row[8]=object;row[9]=local_mutant_status==FF_LOCAL_MUTANT_NAME_EXISTS;
+    row[10]=local_mutants.object_count;row[11]=local_mutants.handle_count;
+    row[14]=row[15]=row[16]=row[17]=row[18]=row[19]=0;
+    if(row[3]) {
+        /* Component success preflights these inputs and forbids output alias. */
+        const uint32_t descriptor=MEM32(row[3]+4u);
+        row[14]=MEM32(row[3]);row[15]=MEM32(row[3]+8u);
+        row[16]=local_mutants.objects[object-1u].name_bytes;
+        row[17]=descriptor;row[18]=MEM32(descriptor+4u);
+    }
+    g_eax=local_mutant_status;g_esp+=16u;
+    row[1]=0;row[12]=g_eax;row[13]=g_esp;
+}
+static void wait_local_mutant(void)
+{
+    uint32_t *row=kernel_record(234u,4u);
+    if(local_mutant_wait_attempts==UINT32_MAX) {
+        local_mutant_wait_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,234u);
+    }
+    ++local_mutant_wait_attempts;
+    if(local_mutant_wait_completed==UINT32_MAX) {
+        local_mutant_wait_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,234u);
+    }
+    local_mutant_wait_last_handle=row[2];local_mutant_wait_mode=row[3];
+    local_mutant_wait_alertable=row[4];local_mutant_wait_timeout=row[5];
+    local_mutant_wait_eax_before=g_eax;local_mutant_wait_esp_before=g_esp;
+    uint32_t status=FF_BOOT_INVALID,object_id=0,owner_before=0,thread_id=0;
+    if(boot.current<boot.count&&boot.current<FF_BOOT_MAX_THREADS) {
+        const ff_boot_thread *thread=&boot.threads[boot.current];
+        if(thread->state==FF_BOOT_RUNNING&&thread->id==boot.current+1u&&thread->id<=FF_BOOT_MAX_THREADS)
+            thread_id=thread->id;
+    }
+    if(thread_id&&local_mutants.handle_count<=FF_LOCAL_MUTANT_CAPACITY&&local_mutants.object_count<=FF_LOCAL_MUTANT_CAPACITY)
+      for(uint32_t i=0;i<local_mutants.handle_count;i++)if(local_mutants.handles[i].handle==row[2]) {
+        object_id=local_mutants.handles[i].object;
+        if(object_id&&object_id<=local_mutants.object_count)owner_before=local_mutants.objects[object_id-1u].owner_thread;
+        break;
+    }
+    local_mutant_wait_last_thread=thread_id;local_mutant_wait_last_object=object_id;
+    local_mutant_wait_owner_before=owner_before;local_mutant_wait_owner_after=owner_before;
+    row[6]=row[2];row[7]=thread_id;row[8]=object_id;row[9]=row[3];row[10]=row[4];row[11]=row[5];row[12]=owner_before;
+    if(thread_id)status=ff_local_mutants_acquire(&local_mutants,row[2],row[3],row[4],row[5],thread_id);
+    if(status) {
+        local_mutant_wait_status=status;local_mutant_wait_eax_after=g_eax;local_mutant_wait_esp_after=g_esp;
+        row[13]=owner_before;row[14]=g_eax;row[15]=g_esp;row[16]=g_eax;row[17]=g_esp;row[1]=1;
+        stop(9,status,234u);
+    }
+    ++local_mutant_wait_completed;local_mutant_wait_status=0;
+    local_mutant_wait_owner_after=local_mutants.objects[object_id-1u].owner_thread;
+    g_eax=0;g_esp+=20u;
+    local_mutant_wait_eax_after=g_eax;local_mutant_wait_esp_after=g_esp;
+    row[13]=local_mutant_wait_owner_after;row[14]=local_mutant_wait_eax_before;row[15]=local_mutant_wait_esp_before;
+    row[16]=g_eax;row[17]=g_esp;row[1]=0;
+}
+static void release_local_mutant(void)
+{
+    uint32_t *row=kernel_record(221u,2u);
+    if(local_mutant_release_attempts==UINT32_MAX) {
+        local_mutant_release_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,221u);
+    }
+    ++local_mutant_release_attempts;
+    if(local_mutant_release_completed==UINT32_MAX) {
+        local_mutant_release_status=FF_BOOT_INVALID;row[1]=1;stop(9,FF_BOOT_INVALID,221u);
+    }
+    local_mutant_release_handle=row[2];local_mutant_release_previous_count=row[3];
+    local_mutant_release_eax_before=g_eax;local_mutant_release_esp_before=g_esp;
+    uint32_t status=FF_BOOT_INVALID,object_id=0,owner_before=0,thread_id=0;
+    if(boot.current<boot.count&&boot.current<FF_BOOT_MAX_THREADS) {
+        const ff_boot_thread *thread=&boot.threads[boot.current];
+        if(thread->state==FF_BOOT_RUNNING&&thread->id==boot.current+1u&&thread->id<=FF_BOOT_MAX_THREADS)
+            thread_id=thread->id;
+    }
+    if(thread_id&&local_mutants.handle_count<=FF_LOCAL_MUTANT_CAPACITY&&local_mutants.object_count<=FF_LOCAL_MUTANT_CAPACITY)
+      for(uint32_t i=0;i<local_mutants.handle_count;i++)if(local_mutants.handles[i].handle==row[2]) {
+        object_id=local_mutants.handles[i].object;
+        if(object_id&&object_id<=local_mutants.object_count)owner_before=local_mutants.objects[object_id-1u].owner_thread;
+        break;
+    }
+    local_mutant_release_thread=thread_id;local_mutant_release_object=object_id;
+    local_mutant_release_owner_before=owner_before;local_mutant_release_owner_after=owner_before;
+    row[6]=row[2];row[7]=thread_id;row[8]=object_id;row[9]=row[3];row[10]=owner_before;
+    status=thread_id?ff_local_mutants_release(&local_mutants,row[2],row[3],thread_id):FF_BOOT_INVALID;
+    if(status) {
+        local_mutant_release_status=status;local_mutant_release_eax_after=g_eax;local_mutant_release_esp_after=g_esp;
+        row[11]=owner_before;row[12]=g_eax;row[13]=g_esp;row[14]=g_eax;row[15]=g_esp;row[1]=1;
+        stop(9,status,221u);
+    }
+    ++local_mutant_release_completed;local_mutant_release_status=0;
+    local_mutant_release_owner_after=local_mutants.objects[object_id-1u].owner_thread;
+    g_eax=0;g_esp+=12u;
+    local_mutant_release_eax_after=g_eax;local_mutant_release_esp_after=g_esp;
+    row[11]=local_mutant_release_owner_after;row[12]=local_mutant_release_eax_before;
+    row[13]=local_mutant_release_esp_before;row[14]=g_eax;row[15]=g_esp;row[1]=0;
+}
+#endif
 #ifdef FF_MEMORY_STATISTICS_PROOF
 uint32_t ff_probe_memory_profile(uint32_t physical_pages,uint32_t baseline_pool_pages)
 {
@@ -1606,7 +2240,10 @@ static void unload_image_section(void) { section_operation(328); }
 static void create_thread(void)
 {
     uint32_t *row = kernel_record(255, 10);
-    if (!recomp_lookup(row[7]) || !recomp_lookup(row[11])) stop(9, row[11], 255);
+    /* An unavailable callback refuses before thread allocation or a service
+     * return. Record the missing callback itself, not the other argument. */
+    if (!recomp_lookup(row[7])) { row[1]=1; stop(9,row[7],255); }
+    if (!recomp_lookup(row[11])) { row[1]=1; stop(9,row[11],255); }
     row[1] = ff_boot_create(&boot, row + 2);
     if (row[1] != FF_BOOT_OK) stop(9, row[1], 255);
 #ifdef FF_MEMORY_STATISTICS_PROOF
@@ -1798,10 +2435,23 @@ static void create_directory(void)
     if(fatx_parent_handle(row[4])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],190);}
 #endif
     if (!volume_ready) stop(9, 0, 190);
+#ifdef FF_PROBE_CREATE_FILE_PROVIDER
+    if (!FF_PROBE_CREATE_FILE_PROVIDER(row + 2, row + 1)) {
+#endif
 #ifdef FF_REGULAR_FILE_PROOF
+#ifdef FF_FATX_PROOF
+    if (!(row[10]&1u) && row[4] && !(row[4]&3u) &&
+        !ff_vm_check(&virtual_memory,row[4],12,FF_VM_READ) &&
+        MEM32(row[4])==FF_FATX_DOS_DEVICE_ROOT)
+        row[1] = fatx_ready?ff_fatx_create_file_guest(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
+#endif
     row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
 #else
     row[1] = ff_volume_create_directory(&local_volume, row + 2);
+#endif
+#ifdef FF_PROBE_CREATE_FILE_PROVIDER
+    }
 #endif
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
     if (!row[1]) { row[11] = MEM32(row[2]); row[12] = MEM32(row[5]); row[13] = MEM32(row[5] + 4); }
@@ -1819,13 +2469,17 @@ static void create_directory(void)
     }
 #endif
     g_eax = row[1]; g_esp += 40;
+#ifdef FF_PROBE_CREATE_FILE_RETURN
+    FF_PROBE_CREATE_FILE_RETURN(row);
+#endif
 }
 #ifdef FF_REGULAR_FILE_PROOF
 static void query_file_information(void)
 {
     uint32_t *row=kernel_record(211,5);
 #ifdef FF_FATX_PROOF
-    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],211);}
+    if(ff_fatx_owns_handle(row[2])) row[1]=fatx_ready?ff_fatx_query_file(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    else
 #endif
     row[1]=ff_volume_query_file(&local_volume,row+2);
     if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID) stop(9,row[1],211);
@@ -1835,13 +2489,65 @@ static void query_file_information(void)
     }
     g_eax=row[1]; g_esp+=24;
 }
+#ifdef FF_FATX_PROOF
+static void set_file_position(void)
+{
+    uint32_t *row=kernel_record(226,5);
+    row[1]=fatx_ready && ff_fatx_owns_handle(row[2])?
+        ff_fatx_set_position(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],226);
+    if(!row[1]) {
+        row[7]=MEM32(row[3]);row[8]=MEM32(row[3]+4);
+        row[9]=MEM32(row[4]);row[10]=MEM32(row[4]+4);
+        row[11]=g_esp;
+    }
+    g_eax=row[1];g_esp+=24;
+    if(!row[1])row[12]=g_esp;
+}
+#endif
 #endif
 #ifdef FF_FILE_WRITE_PROOF
+#ifdef FF_FATX_PROOF
+static void write_fatx_file(uint32_t *row)
+{
+    for(unsigned i=0;i<FF_FATX_FILES;++i)
+        if(fatx_volume.files[i].handle==row[2])row[19]=(uint32_t)fatx_volume.files[i].position;
+    row[1]=fatx_ready?ff_fatx_write_file_guest(&fatx_volume,row+2):FF_BOOT_UNSUPPORTED;
+    if(row[1]==FF_BOOT_UNSUPPORTED || row[1]==FF_VM_ACCESS_VIOLATION || row[1]==FF_BOOT_INVALID)stop(9,row[1],236);
+    if(row[1]!=FF_BOOT_BAD_HANDLE){row[10]=MEM32(row[6]);row[11]=MEM32(row[6]+4);}
+    if(row[1])return;
+    for(unsigned i=0;i<FF_FATX_FILES;++i) {
+        const ff_fatx_file *file=&fatx_volume.files[i];
+        if(file->handle!=row[2])continue;
+        const ff_fatx_mount *mount=&fatx_volume.mounts[file->mount-1u];
+        uint32_t cluster=0,bytes=0;
+        for(unsigned n=0;n<4;++n) {
+            cluster|=(uint32_t)ff_disk_byte(&local_disk,file->entry_address+44u+n)<<(8u*n);
+            bytes|=(uint32_t)ff_disk_byte(&local_disk,file->entry_address+48u+n)<<(8u*n);
+        }
+        row[12]=file->id;row[13]=(uint32_t)file->position;row[14]=bytes;
+        row[15]=mount->cluster_bytes;row[17]=cluster;
+        if(cluster<2u || cluster>mount->cluster_count || bytes!=row[19]+row[8] || bytes>mount->cluster_bytes)return;
+        const uint64_t fat_address=mount->offset+4096+(uint64_t)cluster*mount->entry_bytes;
+        for(unsigned n=0;n<mount->entry_bytes;++n)
+            if(ff_disk_byte(&local_disk,fat_address+n)!=0xffu)return;
+        const uint64_t data_address=mount->offset+mount->data_offset+(uint64_t)(cluster-1u)*mount->cluster_bytes;
+        for(uint32_t n=0;n<row[8];++n)
+            if(ff_disk_byte(&local_disk,data_address+row[19]+n)!=guest_ram[row[7]+n])return;
+        row[18]=1u;
+        return;
+    }
+}
+#endif
 static void write_regular_file(void)
 {
     uint32_t *row=kernel_record(236,8);
 #ifdef FF_FATX_PROOF
-    if(ff_fatx_owns_handle(row[2])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],236);}
+    if(ff_fatx_owns_handle(row[2])) {
+        write_fatx_file(row);
+        g_eax=row[1];g_esp+=36;
+        return;
+    }
 #endif
     ff_volume_handle *handle=NULL;
     for(unsigned i=0;i<FF_VOLUME_HANDLES;++i) if(local_volume.handles[i].handle==row[2]) handle=&local_volume.handles[i];
@@ -2119,6 +2825,18 @@ static void query_nonvolatile(void)
 {
     uint32_t *row = kernel_record(24, 5);
 #ifdef FF_NV_QUERY_PROOF
+#ifdef FF_OS_SETTINGS_PROOF
+    if(row[2]==255u && console_os_ready) {
+        row[11]=g_eax;row[12]=g_esp;
+        row[1]=ff_query_console_os(&virtual_memory,row+2,console_os_settings);
+        if(row[1])stop(9,row[1],24);
+        row[7]=3;row[9]=FF_CONSOLE_OS_SETTINGS_BYTES;
+        row[10]=!memcmp(guest_ram+row[4],console_os_settings,FF_CONSOLE_OS_SETTINGS_BYTES);
+        g_eax=0;g_esp+=24;
+        row[13]=g_eax;row[14]=g_esp;
+        return;
+    }
+#endif
     if(!misc_flags_ready || (row[2]!=17 && row[2]!=10) || (row[2]==10 && !parental_games_ready)) {
         row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[2],24);
     }
@@ -2136,10 +2854,20 @@ static void query_nonvolatile(void)
 static void status_to_dos_error(void)
 {
     uint32_t *row = kernel_record(301, 1);
+    uint32_t mapped = 0;
     /* The observed STATUS_SUCCESS -> ERROR_SUCCESS conversion is exact.
-     * Other statuses remain unsupported, never silently mapped to success. */
-    if (row[2] != 0) stop(9, row[2], 301);
-    row[1] = 0; g_eax = 0; g_esp += 8;
+     * A separately checked provider may supply another reached mapping. */
+    if (row[2] != 0) {
+#ifdef FF_PROBE_STATUS_ERROR_PROVIDER
+        if (!FF_PROBE_STATUS_ERROR_PROVIDER(row, &mapped)) stop(9, row[2], 301);
+#else
+        stop(9, row[2], 301);
+#endif
+    }
+    row[1] = mapped; g_eax = mapped; g_esp += 8;
+#ifdef FF_PROBE_STATUS_ERROR_RETURN
+    FF_PROBE_STATUS_ERROR_RETURN(row);
+#endif
 }
 #ifdef FF_VM_PROOF
 static void initialize_critical(void)
@@ -2368,20 +3096,25 @@ static void wait_vblank(void)
     if ((type & 0xFFu) == 1u) MEM32(object + 4u) = 0u;
     row[1] = 0u;
     g_eax = 0u;
+    g_esp += 24u; /* stdcall: return address and five DWORD arguments */
 }
 static void set_display_mode(void)
 {
     uint32_t *row = kernel_record(3u, 6u);
     uint32_t addr = MEM32(g_esp + 4u), step = MEM32(g_esp + 8u), mode = MEM32(g_esp + 12u);
     uint32_t format = MEM32(g_esp + 16u), pitch = MEM32(g_esp + 20u), fb = MEM32(g_esp + 24u);
-    uint32_t mapped = addr && !(addr & 3u) && addr <= FF_GUEST_BYTES - 4u;
+    uint32_t register_base_declared = 0u;
+#ifdef FF_MMIO_PROOF
+    register_base_declared = device_registers.base == FF_DISPLAY_TUPLE_ADDR &&
+        ff_device_registers_contains(&device_registers, addr, 4u) == 0u;
+#endif
     display_mode_addr = addr;
     display_mode_step = step;
     display_mode_mode = mode;
     display_mode_format = format;
     display_mode_pitch = pitch;
     display_mode_fb = fb;
-    display_mode_decision = ff_display_mode_accept(mapped, addr, step, mode, format, pitch, fb);
+    display_mode_decision = ff_display_mode_accept(register_base_declared, addr, step, mode, format, pitch, fb);
     if (display_mode_decision != FF_DISPLAY_OK) {
         row[1] = 1u;
         stop(1, kernel_binding_address(3u), 3u);
@@ -2390,13 +3123,18 @@ static void set_display_mode(void)
     display_mode_ready = 1;
     row[1] = 0u;
     g_eax = 0u;
+    g_esp += 28u; /* stdcall: return address and six DWORD arguments */
 }
 static uint32_t av_saved_prior_setter(void)
 {
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    return kernel_prior_setter;
+#else
     uint32_t count = kernel_call_count;
     if (count > FF_KERNEL_CAPACITY) count = FF_KERNEL_CAPACITY;
     for (uint32_t i = 0; i < count; ++i) av_saved_journal[i] = kernel_calls[i][0];
     return ff_av_saved_data_prior_setter(av_saved_journal, count);
+#endif
 }
 static void av_get_saved_data(void)
 {
@@ -2474,9 +3212,64 @@ static void ke_disconnect_interrupt(void)
     row[1] = 0u;
     row[2] = object;
 }
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+static void query_performance_frequency(void)
+{
+    uint32_t *row=kernel_record(127,0);
+    row[4]=g_eax;row[5]=g_edx;row[6]=g_esp;
+    g_eax=performance_clock.frequency_hz;g_edx=0;g_esp+=4u;
+    ++performance_frequency_queries;
+    row[1]=0;row[2]=g_eax;row[3]=g_edx;
+    row[7]=g_eax;row[8]=g_edx;row[9]=g_esp;
+}
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+static void query_performance_counter(void)
+{
+    uint32_t *row=kernel_record(126,0);
+    uint64_t counter=0,ticks=0;
+    row[4]=g_eax;row[5]=g_edx;row[6]=g_esp;
+    performance_counter_status=FF_PERFORMANCE_CLOCK_CAPACITY_REACHED;
+    if(performance_counter_count<FF_PERFORMANCE_CLOCK_CAPACITY) {
+        ff_host_clock((uint32_t)(uintptr_t)clock_words);
+        ticks=clock_words[0]|(uint64_t)clock_words[1]<<32;
+        performance_counter_status=ticks<performance_counter_ticks || ticks<performance_clock.last_ticks
+            ?FF_PERFORMANCE_CLOCK_ORDER
+            :ff_performance_clock_scale(performance_clock.frequency_hz,ticks,&counter);
+    }
+    if(performance_counter_status) {
+        row[1]=1;
+        stop(performance_counter_status==FF_PERFORMANCE_CLOCK_CAPACITY_REACHED?4:9,performance_counter_status,126);
+    }
+    performance_counter_ticks=ticks;performance_counter_value=counter;++performance_counter_count;
+    g_eax=(uint32_t)counter;g_edx=(uint32_t)(counter>>32);g_esp+=4u;
+    row[1]=0;row[2]=g_eax;row[3]=g_edx;row[7]=g_eax;row[8]=g_edx;row[9]=g_esp;
+    row[10]=(uint32_t)ticks;row[11]=(uint32_t)(ticks>>32);row[12]=performance_clock.frequency_hz;
+    /* Distinguish the normal kernel poll's last sample from the subsequent
+     * raw counter sample, including when an explicit browser wait occurs. */
+    row[13]=(uint32_t)timers.interrupt_time;row[14]=(uint32_t)(timers.interrupt_time>>32);
+}
+#endif
+#endif
 recomp_func_t recomp_lookup_kernel(uint32_t address){
     uint32_t offset = address - FF_KERNEL_BASE;    if (!(offset & 3u) && offset / 4u < FF_KERNEL_BINDING_COUNT) {
         uint32_t ordinal = bindings[offset / 4u].ordinal;
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+        if(ordinal==127u && performance_clock.ready)return query_performance_frequency;
+#endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+        if(ordinal==126u && performance_clock.ready && performance_counter_enabled)return query_performance_counter;
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+        if(ordinal==192u && local_mutant_ready)return create_local_mutant;
+        if(ordinal==234u && local_mutant_wait_enabled)return wait_local_mutant;
+        if(ordinal==221u && local_mutant_release_enabled)return release_local_mutant;
+#endif
+#ifdef FF_MUTANT_PROOF
+        if(ordinal==192u && mutant_ready)return create_unnamed_mutant;
+#endif
+#ifdef FF_NAMED_EVENT_PROOF
+        if(ordinal==189u && event_ready)return create_named_event;
+#endif
         if (ordinal == 255) return create_thread;
         if (ordinal == 187) return close_handle;
         if (ordinal == 277) return enter_critical;
@@ -2515,6 +3308,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
         if (ordinal == 289) return initialize_ansi_string;
 #ifdef FF_REGULAR_FILE_PROOF
         if (ordinal == 211) return query_file_information;
+#ifdef FF_FATX_PROOF
+        if (ordinal == 226) return set_file_position;
+#endif
 #endif
 #ifdef FF_FILE_WRITE_PROOF
 #ifdef FF_DISK_PROOF
@@ -2554,6 +3350,13 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
         /* Record the attempted unsupported service with its observed call-frame
          * arguments, then stop. No return value is supplied and nothing is
          * modeled; the row makes the boundary inspectable in the report. */
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+        if(ordinal==126u || ordinal==127u) {
+            uint32_t *row=kernel_record(ordinal,0);
+            row[1]=1;
+            stop(1,address,ordinal);
+        }
+#endif
         {
             uint32_t *row = kernel_record(ordinal, 4);
             row[1] = 1;
@@ -2565,7 +3368,9 @@ recomp_func_t recomp_lookup_kernel(uint32_t address){
 }
 
 uint32_t ff_probe_abi(void) {
-#ifdef FF_MMIO_PROOF
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    return 25;
+#elif defined(FF_MMIO_PROOF)
     return 24;
 #elif defined(FF_MEMORY_STATISTICS_PROOF)
     return 23;
@@ -2614,6 +3419,26 @@ uint32_t ff_probe_abi(void) {
 void ff_probe_misc_flags(uint32_t value) { misc_flags = value; misc_flags_ready = 1; }
 #ifdef FF_NV_QUERY_PROOF
 void ff_probe_parental_games(uint32_t value) { parental_games=value;parental_games_ready=1; }
+#ifdef FF_OS_SETTINGS_PROOF
+uint32_t ff_probe_console_os_source(void) { return (uint32_t)(uintptr_t)console_os_settings; }
+uint32_t ff_probe_console_os_bytes(void) { return FF_CONSOLE_OS_SETTINGS_BYTES; }
+uint32_t ff_probe_console_os_profile(uint32_t bytes)
+{
+    if(probe_trace_count || kernel_call_count)return FF_BOOT_INVALID;
+    console_os_ready=0;
+    if(bytes!=FF_CONSOLE_OS_SETTINGS_BYTES || !misc_flags_ready || !parental_games_ready)return FF_BOOT_INVALID;
+    uint32_t misc=0,parental=0;
+    for(uint32_t i=0;i<4;++i) {
+        misc|=(uint32_t)console_os_settings[88+i]<<(8u*i);
+        parental|=(uint32_t)console_os_settings[60+i]<<(8u*i);
+    }
+    if(misc!=misc_flags || parental!=parental_games)return FF_BOOT_INVALID;
+    for(uint32_t i=4;i<FF_CONSOLE_OS_SETTINGS_BYTES;++i)
+        if(!(i>=60u && i<64u) && !(i>=88u && i<92u) && console_os_settings[i])return FF_BOOT_UNSUPPORTED;
+    console_os_ready=1;
+    return 0;
+}
+#endif
 #endif
 uint32_t ff_probe_ram(void) { return (uint32_t)(uintptr_t)guest_ram; }
 uint32_t ff_probe_ram_bytes(void) { return FF_GUEST_BYTES; }
@@ -2622,7 +3447,7 @@ uint32_t ff_probe_source_digest(void) { return (uint32_t)(uintptr_t)source_diges
 uint32_t ff_probe_entry(void) { return FF_ENTRY_ADDRESS; }
 uint32_t ff_probe_state(void) { return (uint32_t)(uintptr_t)probe_state; }
 uint32_t ff_probe_trace(void) { return (uint32_t)(uintptr_t)probe_trace; }
-uint32_t ff_probe_trace_count(void) { return probe_trace_count; }
+uint32_t ff_probe_trace_count(void) { return retained_trace_count(); }
 uint32_t ff_probe_trace_capacity(void) { return FF_TRACE_CAPACITY; }
 uint32_t ff_probe_timer_check(void) { return timer_check; }
 uint32_t ff_probe_dpc_head(void) { return timers.dpc_head; }
@@ -2636,7 +3461,14 @@ uint32_t ff_probe_guest_word(uint32_t address)
            (uint32_t)guest_ram[address + 2] << 16 | (uint32_t)guest_ram[address + 3] << 24;
 }
 uint32_t ff_probe_trace_cpu(uint32_t index, uint32_t field) {
-    return index < probe_trace_count && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
+    return index < FF_TRACE_CAPACITY && index < retained_trace_count() && field < 3 ? probe_cpu_trace[index * 3 + field] : 0;
+}
+/* Read-only diagnostic globals. Consumers must bind these to a published call
+ * boundary; arbitrary translated points may retain a local frame value. This
+ * is not a full CPU or pre-instruction snapshot. */
+uint32_t ff_probe_boundary_stack_word(uint32_t field)
+{
+    return field==0u?g_esp:field==1u?g_ebp:0u;
 }
 uint32_t ff_probe_binding_count(void) { return FF_KERNEL_BINDING_COUNT; }
 uint32_t ff_probe_binding_slot(uint32_t i) { return i < FF_KERNEL_BINDING_COUNT ? bindings[i].slot : 0; }
@@ -2645,6 +3477,35 @@ uint32_t ff_probe_thread_count(void) { return boot.count; }
 uint32_t ff_probe_parent_returned(void) { return parent_returned; }
 uint32_t ff_probe_kernel_count(void) { return kernel_call_count; }
 uint32_t ff_probe_kernel_capacity(void) { return FF_KERNEL_CAPACITY; }
+#ifdef FF_KERNEL_CAPTURE_PROOF
+uint32_t ff_probe_kernel_capture_profile(uint32_t start)
+{
+    if(kernel_capture.total || kernel_call_count || probe_trace_count)return FF_CAPTURE_INVALID;
+    return ff_kernel_capture_init(&kernel_capture,start);
+}
+uint32_t ff_probe_kernel_capture_word(uint32_t field)
+{
+    if(kernel_call_count)ff_kernel_capture_finish(&kernel_capture,kernel_calls[kernel_call_count-1][1]);
+    uint8_t digest[32];
+    ff_sha256_final(&kernel_capture.digest,digest);
+    switch(field) {
+    case 0:return 1;
+    case 1:return kernel_capture.requested_start;
+    case 2:return kernel_capture.captured_start;
+    case 3:return kernel_capture.total;
+    case 4:return kernel_capture.completed;
+    case 5:return kernel_capture.prefix_completed;
+    default:
+        if(field>=8u && field<24u) {
+            const uint8_t *bytes=field<16u?digest:kernel_capture.prefix_digest;
+            const uint32_t offset=(field&7u)*4u;
+            return (uint32_t)bytes[offset]<<24 | (uint32_t)bytes[offset+1]<<16 |
+                   (uint32_t)bytes[offset+2]<<8 | bytes[offset+3];
+        }
+        return 0;
+    }
+}
+#endif
 #ifdef FF_STARTUP_EXPANSION_PROOF
 uint32_t ff_probe_fp_word(uint32_t field)
 {
@@ -2683,9 +3544,33 @@ void ff_probe_reset(void)
     memset(create_request_words,0,sizeof create_request_words); memset(create_request_names,0,sizeof create_request_names);
 #endif
     probe_trace_count = kernel_call_count = parent_returned = 0;
+#ifdef FF_TRACE_CAPTURE_PROOF
+    memset(&trace_capture,0,sizeof trace_capture);trace_capture_ready=0;
+#endif
+#ifdef FF_KERNEL_CAPTURE_PROOF
+    (void)ff_kernel_capture_init(&kernel_capture,0);
+    kernel_prior_setter=0;
+#endif
+#ifdef FF_DEBUG_SERVICE_PROOF
+    ff_debug_service_init(&debug_service_state);
+#endif
     misc_flags = misc_flags_ready = 0;
+#ifdef FF_TIMESTAMP_COUNTER_GUARDS
+    memset(timestamp_boundary,0,sizeof timestamp_boundary);
+#endif
+#ifdef FF_PERFORMANCE_CLOCK_PROOF
+    memset(&performance_clock,0,sizeof performance_clock);
+    performance_status=performance_last_site=performance_frequency_queries=0;
+#endif
+#ifdef FF_PERFORMANCE_COUNTER_PROOF
+    performance_counter_enabled=performance_counter_status=performance_counter_count=0;
+    performance_counter_ticks=performance_counter_value=0;
+#endif
 #ifdef FF_NV_QUERY_PROOF
     parental_games=parental_games_ready=0;
+#ifdef FF_OS_SETTINGS_PROOF
+    console_os_ready=0;memset(console_os_settings,0,sizeof console_os_settings);
+#endif
 #endif
 #ifdef FF_SECTION_PROOF
     memset(&image_sections,0,sizeof image_sections);
@@ -2726,6 +3611,29 @@ void ff_probe_reset(void)
 #endif
     for (unsigned i = 0; i < ICALL_TRACE_SIZE; ++i) g_icall_trace[i] = 0;
     g_icall_trace_idx = 0; g_icall_count = 0; g_force_return = 0;
+#ifdef FF_MUTANT_PROOF
+    memset(&unnamed_mutants,0,sizeof unnamed_mutants);mutant_ready=mutant_status=0;
+#endif
+#ifdef FF_NAMED_EVENT_PROOF
+    memset(&named_events,0,sizeof named_events);event_ready=event_status=0;
+#endif
+#ifdef FF_LOCAL_MUTANT_PROOF
+    memset(&local_mutants,0,sizeof local_mutants);local_mutant_ready=local_mutant_status=0;
+    local_mutant_wait_enabled=local_mutant_wait_sealed=0;
+    local_mutant_wait_attempts=local_mutant_wait_completed=local_mutant_wait_status=0;
+    local_mutant_wait_last_handle=local_mutant_wait_last_thread=local_mutant_wait_last_object=0;
+    local_mutant_wait_mode=local_mutant_wait_alertable=local_mutant_wait_timeout=0;
+    local_mutant_wait_owner_before=local_mutant_wait_owner_after=0;
+    local_mutant_wait_eax_before=local_mutant_wait_esp_before=0;
+    local_mutant_wait_eax_after=local_mutant_wait_esp_after=0;
+    local_mutant_release_enabled=local_mutant_release_sealed=0;
+    local_mutant_release_attempts=local_mutant_release_completed=local_mutant_release_status=0;
+    local_mutant_release_handle=local_mutant_release_thread=local_mutant_release_object=0;
+    local_mutant_release_previous_count=0;
+    local_mutant_release_owner_before=local_mutant_release_owner_after=0;
+    local_mutant_release_eax_before=local_mutant_release_esp_before=0;
+    local_mutant_release_eax_after=local_mutant_release_esp_after=0;
+#endif
     g_xbox_mem_offset = (ptrdiff_t)(uintptr_t)guest_ram;
     g_xbox_code_lo = FF_CODE_LOW; g_xbox_code_hi = FF_CODE_HIGH;
     g_eax = g_ecx = g_edx = g_esp = g_ebx = g_esi = g_edi = g_ebp = 0;
@@ -2748,6 +3656,13 @@ void ff_probe_bind_kernels(void)
 }
 void ff_probe_run(void)
 {
+#ifdef FF_LOCAL_MUTANT_PROOF
+    local_mutant_wait_sealed=1;
+    local_mutant_release_sealed=1;
+#endif
+#ifdef FF_DEBUG_SERVICE_PROOF
+    ff_debug_service_begin(&debug_service_state);
+#endif
     g_esp = FF_STACK_TOP; MEM32(g_esp) = 0;
     FF_ENTRY_FUNCTION(); parent_returned = 1;
     ff_boot_thread *thread = ff_boot_next(&boot);

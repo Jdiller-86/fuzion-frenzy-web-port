@@ -1,19 +1,17 @@
-# Startup batch blocked: [main-branch status](status.md)
+# Continue the reached TLS getter boundary
 
-The user-directed batch centered on `FUN_001e93e4` stopped at private-input preflight on November 6, 2026. The matching executable, retained analysis project and verification directory are absent from this cloud workspace. [Status](status.md) records the checked paths and evidence limits. `main` remains the development baseline; implementation is paused at this prerequisite. [Local agent defaults](agents.md) support a Sol High coordinator and bounded Luna workers; no persistent development scheduler is configured.
+Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active and incomplete; original/generated content stays local.
 
-## What is retained
+## Current boundary
 
-The [five project milestones](milestones.md) and [management workflow](management.md) define planned work and acceptance. Native tracking metadata does not assign or start implementation.
+Profile37 reuses the existing C301 handler for actual input C0000022 and returns DOS value5 with the original one-argument frame: SP03C10D0C→03C10D14, EAX5. The full represented CPU comparison allows only those EAX/SP changes. Original C31127 stores5 at full current-thread TLS offset8 (the reported 12-byte record changes at offset4); actual RET4 from31127 is observed at the31155 after-call callback, and actual RET4 from31155 at the1E93E4 after-call callback. The next stop is untranslated310FF, status2, SP03C10D64, RA001E778C. Stdio normal-return0/active1 retains the enclosing original frames/locks; 1E01AD and4F5E0 remain pending. No original menu, audible gameplay, recorded player round or M1 acceptance exists.
 
-The complete product goal remains the original Fuzion Frenzy executing entirely in a browser through static recompilation to WebAssembly, with original fidelity and the planned online/social/control features. See [the roadmap](../plans.md).
+Counts:465 distinct routines /885 kernel records /880 zero-valued status records. Five replaces the old pending zero; it is a DOS result, not NTSTATUS success or a completed-operation count. M37 module is1,369,861 bytes, SHA-256 `74cb4e3c19df43be06849a50212884f7d775d29120698e20c7a8d227e119f568`;79/88 objects reused,9 compiled. Caps stay507/23247/32/last30/26 SDK maps/64 imports;186 exports match M36. Default36 and completed banks remain exact; VM+97/PFIFO+83/clock+1 are source-composed aggregates, not per-access trace proof.
 
-The recorded main-branch research frontier remains status 2 at `0x001E93E4`, 363 routines / 441 kernel operations, from commit `ab5b3f7`. The previous stack/return-address defect is repaired. This preflight produced no fresh runtime result or gameplay acceptance; [current status](status.md) records the exact limits.
+Chrome156.0.8078.80 independent source/build-harness/browser reviews pass. Recorded metadata identifies Sol High lead/review and Luna Low preparation/harness work; overlap and entitlement are unverified. Evidence lives under `research/verification/sdk-status-denied-20261108/`; the first harness used live TLS getter address22 instead of its own bank address4133; that address was corrected before runtime. This is not a failed M37 run. Preserve original identity and correction. Forecast remains29/about30/rough20–50/low confidence; no allowance or M1 gate closes.
 
-## Resuming development
+## Next bounded task
 
-Resume only where the existing private baseline is available locally. First verify the executable, retained seeds/profiles, prepared module, pinned compiler setup and named browser reports/audit; reproduce the historical control, inert and experiment boundaries. Then take the authorized single batch centered on `FUN_001e93e4`, restricted to directly required reached callees and the existing admission guards. Stop again on missing inputs, a failed guard or a new subsystem requirement. The next bounded dependency here is restoration and verification of that baseline, not a speculative runtime patch.
+**SCOPE-30:** assess then admit only the matching SDK-generated `0x310FF` getter using the existing checked SDK/C adapter and an already admitted group within current ceilings. Preserve the conditional FS read, signed TLS-index addressing, actual memory accesses and plain RET; require actual current-thread ownership, actual caller continuation, independent CPU/memory review and focused browser comparison. Static body/decode findings in `research/verification/sdk-status-denied-20261108/next-310ff-assessment.md` and `next-310ff-contract.json` are preparation, not runtime identity. Stop at the next unsupported behavior or failed limit; do not infer outer unwind/return.
 
-A public clone has no original media, private generated title module, or optional compiler/analysis checkout. Missing private inputs do not authorize a fresh runtime claim. [Development](development.md), [research notes](research.md), and [analysis setup](analysis.md) describe the available public checks and private prerequisites.
-
-Earlier branch work was not promoted as part of the baseline reset. Historical source and documentation remain recoverable through Git history; a local recovery bundle also preserves the retired branch tips. New runtime evidence must update this pointer and status together.
+Keep M1 acceptance unchecked until three original menu/minigame/results/menu sequences establish original graphics, audible audio, recorded input and reviewed reproducibility.

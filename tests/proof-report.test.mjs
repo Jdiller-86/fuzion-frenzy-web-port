@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateProofReport, TRACE_LIMIT, DEVICE_EVENT_LIMIT } from '../runtime/browser/proof-report.mjs';
+import { createProofClock } from '../runtime/browser/browser-clock.mjs';
 
 const report = (edit = {}) => ({
   kind: 'thread-startup-boundary',
@@ -41,6 +42,167 @@ test('a well-formed startup report validates and is returned unchanged', () => {
   assert.equal(validateProofReport(device), device);
 });
 
+const performanceProfile=()=>({kind:'synthetic-performance-clock',synthetic:true,frequencyHz:733333333,
+  source:'browser-monotonic-100ns',origin:'proof-clock-zero'});
+const performanceReport=()=>report({
+  consoleSettings:{performanceClock:performanceProfile()},
+  clock:{kind:'browser-clock',monotonic:'performance.now'},
+  performanceClockState:{...performanceProfile(),capacity:64,status:0,lastSite:0x4c526,frequencyQueries:1,
+    admittedSites:[0x4c526,0x4c58b],samples:[{site:0x4c526,interruptTicks:'1234567',counter:'90534913'}]},
+  calls:[{ordinal:127,status:0,arguments:[],output:{backend:'synthetic-performance-clock',frequencyHz:733333333,
+    low:733333333,high:0,eaxBefore:3,edxBefore:4,espBefore:0x3c10000,
+    eaxAfter:733333333,edxAfter:0,espAfter:0x3c10004}}],
+});
+
+test('paired performance clock requires profile, exact scaling and frequency ABI evidence',()=>{
+  const good=performanceReport();
+  assert.equal(validateProofReport(good),good);
+  for(const edit of [{performanceClockState:undefined},{consoleSettings:{}},{clock:{kind:'browser-clock',monotonic:'Date.now'}}])
+    assert.throws(()=>validateProofReport({...good,...edit}),/Performance clock/);
+  for(const edit of [{low:1},{high:1},{edxAfter:1},{eaxAfter:1},{espAfter:0x3c10008},{extra:true}]) {
+    const bad=performanceReport();Object.assign(bad.calls[0].output,edit);
+    assert.throws(()=>validateProofReport(bad),/Performance-frequency success/);
+  }
+  const absent=performanceReport();delete absent.consoleSettings.performanceClock;delete absent.performanceClockState;
+  assert.throws(()=>validateProofReport(absent),/Performance-frequency success/);
+  const altered=performanceReport();altered.performanceClockState.samples[0].counter='90534914';
+  assert.throws(()=>validateProofReport(altered),/performance clock sample/);
+});
+
+test('performance clock refusals bind status, site and bounded sample count',()=>{
+  const good=performanceReport();
+  good.performanceClockState.status=3;good.stop={status:9,target:0x4c526,ordinal:0};
+  assert.equal(validateProofReport(good),good);
+  for(const stop of [{status:4,target:0x4c526,ordinal:0},{status:9,target:0x4c58b,ordinal:0},
+    {status:9,target:0x4c526,ordinal:1}])
+    assert.throws(()=>validateProofReport({...good,stop}),/Performance clock refusal/);
+  for(const state of [{...good.performanceClockState,status:4},{...good.performanceClockState,frequencyQueries:0},
+    {...good.performanceClockState,status:0,lastSite:0}])
+    assert.throws(()=>validateProofReport({...good,performanceClockState:state}),/Performance clock/);
+});
+
+test('timestamp-counter boundary remains a stop-only one-attempt declaration', () => {
+  const site = 0x00123456;
+  const valid = report({ stop: { status: 9, target: site, ordinal: 0 },
+    timestampBoundary: { kind: 'unmodeled-timestamp-counter', site, attempts: 1 } });
+  assert.equal(validateProofReport(valid), valid);
+  for (const boundary of [
+    { kind: 'other', site, attempts: 1 }, { kind: 'unmodeled-timestamp-counter', site, attempts: 1, value: 123 },
+    { kind: 'unmodeled-timestamp-counter', site, attempts: 0 }, { kind: 'unmodeled-timestamp-counter', site, attempts: 2 },
+  ]) assert.throws(() => validateProofReport({ ...valid, timestampBoundary: boundary }), /Timestamp-counter boundary/);
+  for (const stop of [{ status: 9, target: site + 4, ordinal: 0 }, { status: 9, target: site, ordinal: 1 },
+    { status: 10, target: site, ordinal: 0 }])
+    assert.throws(() => validateProofReport({ ...valid, stop }), /Timestamp-counter boundary/);
+});
+
+test('kernel capture reports bind calls, selected profile and captured suffix evidence', () => {
+  const suffix = {
+    kind: 'kernel-capture-window', version: 1, requestedStart: 512, capturedStart: 512,
+    capturedCount: 1, totalCount: 513, completedOperations: 512, prefixCompletedOperations: 511,
+    complete: false, sha256: 'a'.repeat(64), prefixSha256: 'b'.repeat(64),
+  };
+  const valid = report({
+    consoleSettings: { kernelCaptureStart: 512 }, kernelCapture: suffix, kernelCapacity: 512,
+    calls: [{ ordinal: 277, status: 0, arguments: [123] }],
+    originalStartup: { totalInitializers: 83, completedInitializers: 83,
+      distinctOriginalFunctions: 276, completedKernelOperations: 512 },
+  });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport({ ...valid, calls: undefined }), /requires calls/);
+  assert.throws(() => validateProofReport({ ...valid, consoleSettings: { kernelCaptureStart: 0 } }), /declared profile/);
+  for (const kernelCaptureStart of [0, 512])
+    assert.throws(() => validateProofReport(report({ consoleSettings: { kernelCaptureStart } })),
+      /Selected kernel capture profile requires capture metadata/);
+  /* A suffix intentionally omits ordinal 2, so its captured rows are checked
+   * while historical pair claims cannot be inferred from absent prefix rows. */
+  const avNull = { ...valid, experiments: ['avNullResult'], avNullResultState: {
+    calls: 1, handle: 0x03920000, option: 9, param: 0, result: 0, decision: 1,
+    writeBefore: 0, writeAfter: 0, checksumBefore: 0, checksumAfter: 0,
+    eaxBefore: 0, espBefore: 100, eaxAfter: 0, espAfter: 120,
+  }, calls: [{ ordinal: 277, status: 0, arguments: [123] }] };
+  assert.equal(validateProofReport(avNull), avNull);
+  const badCapturedRow = { ...avNull, calls: [{ ordinal: 277, status: 0 }] };
+  assert.throws(() => validateProofReport(badCapturedRow), /Malformed kernel call record/);
+});
+
+test('console OS settings profile requires coherent captured ordinal-24 evidence', () => {
+  const osSettings = { kind: 'synthetic-console-os-settings', synthetic: true,
+    layout: 'cxbx-user-settings-96-v1', timeZone: 'utc-no-dst', zeroOtherFields: true,
+    checksum: 0x1234, miscFlags: 7, parentalControlGames: 9 };
+  const call = (output = { backend: 'synthetic-console-os-settings', type: 3,
+    returnedBytes: 96, capacity: 256, providerSnapshotMatches: true,
+    eaxBefore: 0xdeadbeef, eaxAfter: 0, espBefore: 100, espAfter: 124 }, args = [255, 0x1000, 0x2000, 256, 0]) =>
+    ({ ordinal: 24, status: 0, arguments: args, output });
+  const accepted = report({
+    consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings },
+    calls: [call()],
+  });
+  assert.equal(validateProofReport(accepted), accepted);
+  const adjacent = { ...accepted, calls: [call(undefined, [255, 0x2100, 0x2000, 256, 0])] };
+  assert.equal(validateProofReport(adjacent), adjacent);
+  assert.throws(() => validateProofReport(report({ consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings } })), /captured calls/);
+  assert.throws(() => validateProofReport(report({ consoleSettings: { miscFlags: 7, parentalControlGames: 10, osSettings }, calls: [call()] })), /consistent declared DWORDs/);
+  for (const output of [
+    { ...call().output, type: 2 }, { ...call().output, returnedBytes: 95 },
+    { ...call().output, capacity: 255 }, { ...call().output, providerSnapshotMatches: false },
+    { ...call().output, eaxAfter: 1 }, { ...call().output, espAfter: 123 },
+    { ...call().output, rawPayload: 'unbounded' },
+  ]) assert.throws(() => validateProofReport(report({
+    consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings }, calls: [call(output)],
+  })), /Accepted console OS settings call/);
+  for (const args of [[255, 0, 0x2000, 256, 0], [255, 0x1000, 0, 256, 0],
+    [255, 0x1000, 0x2000, 255, 0], [255, 0x1000, 0x2000, 256, 1],
+    [255, 0x2000, 0x1f10, 256, 0]])
+    assert.throws(() => validateProofReport(report({
+      consoleSettings: { miscFlags: 7, parentalControlGames: 9, osSettings }, calls: [call(undefined, args)],
+    })), /Accepted console OS settings call/);
+  /* Legacy profiles without this opt-in still retain the old unsupported-service stop. */
+  const refused = report({ stop: { status: 9, target: 255, ordinal: 24 },
+    calls: [{ ordinal: 24, status: 0xc00000bb, arguments: [255, 0x1000, 0x2000, 256, 0] }] });
+  assert.equal(validateProofReport(refused), refused);
+});
+
+test('fixed system clock reports bind selected profile, declaration and captured query', () => {
+  const fixed = { kind: 'fixed-system-clock', synthetic: true, unixMillis: 1234 };
+  const clock = createProofClock({ monotonic: () => 0, fixedSystemProfile: fixed }).describe();
+  const make = (settings = fixed, description = clock, calls) => report({
+    consoleSettings: { systemClock: settings }, clock: description, calls,
+  });
+  const ticks = ((1234n + 11644473600000n) * 10000n).toString();
+  const accepted = make(fixed, clock, [{ ordinal: 128, status: 0, arguments: [0x1000], output: { systemTicks: ticks } }]);
+  assert.equal(validateProofReport(accepted), accepted);
+  assert.throws(() => validateProofReport(make(fixed, clock)));
+  for (const bad of [null, { ...clock, fixedSystemProfile: undefined },
+    { ...clock, fixedSystemProfile: { ...fixed, extra: true } },
+    { ...clock, fixedSystemProfile: { ...fixed, synthetic: false } },
+    { ...clock, kind: 'other' }, { ...clock, system: 'Date.now; UTC epoch 1601' },
+    { ...clock, monotonic: 'Date.now' }])
+    assert.throws(() => validateProofReport(make(fixed, bad, accepted.calls)));
+  assert.throws(() => validateProofReport(make({ ...fixed, unixMillis: 1235 }, clock, accepted.calls)), /match the explicitly selected/);
+  assert.throws(() => validateProofReport(make(fixed, clock, [{ ordinal: 128, status: 0, arguments: [0x1000], output: { systemTicks: '1' } }])), /match the selected fixed clock/);
+  assert.throws(() => validateProofReport(make(fixed, clock, [{ ...accepted.calls[0], arguments: [] }])), /match the selected fixed clock/);
+  assert.throws(() => validateProofReport(report({clock:{...clock,fixedSystemProfile:undefined},calls:[]})), /match the explicitly selected/);
+  const liveLegacy = report();
+  assert.equal(validateProofReport(liveLegacy), liveLegacy);
+});
+
+test('bounded debug service accepts print metadata and binds refusal to the exact stop', () => {
+  const printed = report({ debugServiceState: { completed: 1, service: 1, bytes: 24, status: 0 } });
+  assert.equal(validateProofReport(printed), printed);
+  const refused = report({
+    stop: { status: 9, ordinal: 0, target: 0xc00000bb },
+    debugServiceState: { completed: 0, service: 2, bytes: 0, status: 0xc00000bb },
+  });
+  assert.equal(validateProofReport(refused), refused);
+  assert.throws(() => validateProofReport({ ...refused, stop: printed.stop }), /guarded result/);
+  assert.throws(() => validateProofReport({
+    ...printed, debugServiceState: { ...printed.debugServiceState, bytes: 1025 },
+  }), /Malformed bounded debug-service state/);
+  assert.throws(() => validateProofReport({
+    ...printed, debugServiceState: { ...printed.debugServiceState, payload: 'synthetic' },
+  }), /Malformed bounded debug-service state/);
+});
+
 test('PFIFO reset state requires one initialization, zero consumer updates and LOW_MARK', () => {
   const valid = report({
     experiments: ['pfifoReset'],
@@ -74,7 +236,7 @@ test('PFIFO reset state requires one initialization, zero consumer updates and L
 });
 
 test('display-mode state requires the experiment and the pinned declaration', () => {
-  const state = { accepted: 1, addr: 0x3C10CFC, step: 0, mode: 0x60030307, format: 0,
+  const state = { accepted: 1, addr: 0xFD000000, step: 0, mode: 0x60030307, format: 0x1E,
     pitch: 0xA00, fb: 0x03920000, window: 0x83920000, decision: 0 };
   const valid = report({ experiments: ['displayMode'], displayModeState: state });
   assert.equal(validateProofReport(valid), valid);
@@ -85,6 +247,110 @@ test('display-mode state requires the experiment and the pinned declaration', ()
   assert.throws(() => validateProofReport(report({
     experiments: ['displayMode'], displayModeState: { ...state, fb: 0x04000000 },
   })), /pinned declaration/);
+  const oldFrameTuple = { ...state, addr: 0x3C10CFC, format: 0 };
+  assert.throws(() => validateProofReport(report({
+    experiments: ['displayMode'], displayModeState: oldFrameTuple,
+  })), /pinned declaration/);
+});
+
+test('display refusal reports use decision codes rather than tuple values', () => {
+  const refused = { accepted: 0, addr: 0, step: 0, mode: 0, format: 0,
+    pitch: 0, fb: 0, window: 0, decision: 1 };
+  for (const decision of [1, 2, 3]) {
+    const valid = report({ experiments: ['displayMode'], displayModeState: { ...refused, decision } });
+    assert.equal(validateProofReport(valid), valid);
+  }
+  for (const decision of [0x3C10CFC, 0x03920000]) {
+    assert.throws(() => validateProofReport(report({ experiments: ['displayMode'],
+      displayModeState: { ...refused, decision } })), /Malformed display-mode state/);
+  }
+});
+
+test('enabled but unreached AV and free probes require canonical zero observations', () => {
+  const cases = [
+    ['avUnknownOption', 'avUnknownOptionState', {
+      calls: 0, handle: 0, option: 0, param: 0, result: 0, decision: 0, written: 0,
+      eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+    }, { handle: 0xFD000000 }],
+    ['avSavedData', 'avSavedDataState', {
+      calls: 0, value: 0, decision: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0, priorSetter: 0,
+    }, { value: 1 }],
+    ['avNullResult', 'avNullResultState', {
+      calls: 0, handle: 0, option: 0, param: 0, result: 0, decision: 0, writeBefore: 0, writeAfter: 0,
+      checksumBefore: 0, checksumAfter: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+    }, { result: 0, handle: 0x03920000 }],
+    ['mmFreeContiguous', 'mmFreeContiguousState', {
+      calls: 0, address: 0, decision: 0, eaxBefore: 0, espBefore: 0, eaxAfter: 0, espAfter: 0,
+      writeBefore: 0, writeAfter: 0,
+    }, { address: 0x1000 }],
+  ];
+  for (const [experiment, field, state, fabricated] of cases) {
+    const valid = report({ experiments: [experiment], [field]: state });
+    assert.equal(validateProofReport(valid), valid, `${field} canonical uncalled state`);
+    const noCapturedCalls = report({ experiments: [experiment], [field]: state, calls: [] });
+    assert.equal(validateProofReport(noCapturedCalls), noCapturedCalls, `${field} empty captured call list`);
+    assert.throws(() => validateProofReport(report({
+      experiments: [experiment], [field]: { ...state, ...fabricated },
+    })), /uncalled .* state must contain only zero observations/);
+  }
+  const wrongContracts = [
+    ['avUnknownOption', 'avUnknownOptionState', {
+      calls: 1, handle: 0xFD000004, option: 0x0F, param: 0, result: 0, decision: 0, written: 0,
+      eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1014,
+    }],
+    ['avSavedData', 'avSavedDataState', {
+      calls: 1, value: 1, decision: 0, eaxBefore: 1, espBefore: 0x1000, eaxAfter: 1, espAfter: 0x1004, priorSetter: 0,
+    }],
+    ['avNullResult', 'avNullResultState', {
+      calls: 1, handle: 0x03920000, option: 9, param: 0, result: 0, decision: 0, writeBefore: 0, writeAfter: 0,
+      checksumBefore: 1, checksumAfter: 2, eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1014,
+    }],
+    ['mmFreeContiguous', 'mmFreeContiguousState', {
+      calls: 1, address: 0x1000, decision: 0, eaxBefore: 3, espBefore: 0x1000, eaxAfter: 3, espAfter: 0x1008,
+      writeBefore: 0, writeAfter: 0,
+    }],
+  ];
+  for (const [experiment, field, state] of wrongContracts)
+    assert.throws(() => validateProofReport(report({ experiments: [experiment], [field]: state })),
+      /pinned default|pinned 0|pinned no-op contract|pinned declaration-level effect/);
+  const nullUnreached = {
+    experiments: ['avNullResult'], avNullResultState: cases[2][2],
+    consoleSettings: { kernelCaptureStart: 0 }, kernelCapacity: 512, calls: [],
+    kernelCapture: {
+      kind: 'kernel-capture-window', version: 1, requestedStart: 0, capturedStart: 0,
+      capturedCount: 0, totalCount: 0, completedOperations: 0, prefixCompletedOperations: 0,
+      complete: true, sha256: 'a'.repeat(64),
+    },
+    originalStartup: { totalInitializers: 83, completedInitializers: 83,
+      distinctOriginalFunctions: 276, completedKernelOperations: 0 },
+  };
+  assert.equal(validateProofReport(report(nullUnreached)).kernelCapture.complete, true);
+  assert.throws(() => validateProofReport(report({
+    ...nullUnreached,
+    calls: [{ ordinal: 2, status: 0, arguments: [0x03920000, 9, 0, 0] }],
+    kernelCapture: { ...nullUnreached.kernelCapture, capturedCount: 1, totalCount: 1,
+      completedOperations: 1 },
+    originalStartup: { ...nullUnreached.originalStartup, completedKernelOperations: 1 },
+  })), /uncalled avNullResult state conflicts with a captured null-result call/);
+  const deniedStartupQuery = report({
+    stop: unsupportedOrdinal2(), experiments: ['avNullResult'], avNullResultState: cases[2][2],
+    calls: [{ ordinal: 2, status: 1, arguments: [0, 6, 0, 0] }],
+  });
+  assert.equal(validateProofReport(deniedStartupQuery), deniedStartupQuery);
+});
+
+test('the newly observed null-result tuple correlates state and captured call', () => {
+  const valid = report({
+    experiments: ['avNullResult'],
+    avNullResultState: {
+      calls: 1, handle: 0xFD000000, option: 9, param: 0, result: 0, decision: 0,
+      writeBefore: 7, writeAfter: 7, checksumBefore: 0x12345678, checksumAfter: 0x12345678,
+      eaxBefore: 0xDEADBEEF, espBefore: 0x3C10C40,
+      eaxAfter: 0xDEADBEEF, espAfter: 0x3C10C54,
+    },
+    calls: [{ ordinal: 2, status: 0, arguments: [0xFD000000, 9, 0, 0] }],
+  });
+  assert.equal(validateProofReport(valid), valid);
 });
 
 test('PFIFO reset state allows consumer updates when the consumer is declared', () => {
@@ -398,6 +664,151 @@ test('an unsupported-service stop must carry a non-modeled service descriptor', 
       service: { ordinal: 1, name: null, modeled: false },
     },
   })), /Only an unsupported-service/);
+});
+
+test('ordinal 127 stop carries only its known zero-argument frequency ABI', () => {
+  const service = { ordinal: 127, name: 'KeQueryPerformanceFrequency', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64' };
+  const valid = report({ stop: { status: 1, target: 0xFE000000, ordinal: 127, service },
+    calls: [{ ordinal: 127, status: 1, arguments: [] }] });
+  assert.equal(validateProofReport(valid), valid);
+  assert.throws(() => validateProofReport(report({ stop: { ...valid.stop,
+    service: { ...service, argumentBytes: 4 } }, calls: valid.calls })), /zero-argument 64-bit ABI/);
+  assert.throws(() => validateProofReport(report({ stop: valid.stop,
+    calls: [{ ordinal: 127, status: 1, arguments: [1] }] })), /has no arguments/);
+});
+
+test('ordinal 126 unsupported stop carries no counter value or extra ABI claims', () => {
+  const service = { ordinal: 126, name: 'KeQueryPerformanceCounter', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 0, returns: 'uint64' };
+  const valid = report({ stop: { status: 1, target: 0xFE000000, ordinal: 126, service },
+    calls: [{ ordinal: 126, status: 1, arguments: [] }] });
+  assert.equal(validateProofReport(valid), valid);
+  for (const change of [
+    { callingConvention: 'cdecl' }, { argumentBytes: 4 }, { returns: 'void' },
+    { output: 0x12345678 }, { counter: 0x12345678 }, { ticks: '12345678' },
+  ]) assert.throws(() => validateProofReport({ ...valid,
+    stop: { ...valid.stop, service: { ...service, ...change } },
+  }));
+  assert.throws(() => validateProofReport({ ...valid,
+    calls: [{ ordinal: 126, status: 1, arguments: [0] }],
+  }));
+  for(const call of [{ordinal:126,status:0,arguments:[]},
+    {ordinal:126,status:1,arguments:[],output:{counter:'123'}}])
+    assert.throws(()=>validateProofReport({...valid,calls:[call]}),/supplies no value|requires the paired model/);
+});
+
+test('ordinal 189 accepts legacy unidentified and exact NtCreateEvent ABI metadata only', () => {
+  const args = [0x1000, 0x1010, 1, 0];
+  const call = { ordinal: 189, status: 1, arguments: args };
+  const legacy = report({ stop: { status: 1, target: 0xFE000000, ordinal: 189,
+    stackArguments: args, service: { ordinal: 189, name: null, modeled: false } }, calls: [call] });
+  assert.equal(validateProofReport(legacy), legacy);
+  const legacyDiagnostic = { ...legacy, calls: [{ ordinal: 189, status: 1, arguments: [args[0]] }] };
+  assert.equal(validateProofReport(legacyDiagnostic), legacyDiagnostic);
+  const legacyWithoutStackArguments = { ...legacyDiagnostic, stop: { ...legacy.stop } };
+  delete legacyWithoutStackArguments.stop.stackArguments;
+  assert.equal(validateProofReport(legacyWithoutStackArguments), legacyWithoutStackArguments);
+  assert.throws(() => validateProofReport({ ...legacyDiagnostic,
+    calls: [{ ordinal: 189, status: 1, arguments: [args[0] + 1] }],
+  }), /match the captured stop stack arguments/);
+  assert.throws(() => validateProofReport({ ...legacy,
+    stop: { ...legacy.stop, service: { ...legacy.stop.service, extra: true } },
+  }));
+
+  const service = { ordinal: 189, name: 'NtCreateEvent', modeled: false,
+    callingConvention: 'stdcall', argumentBytes: 16, returns: 'ntstatus' };
+  const known = report({ stop: { status: 1, target: 0xFE000000, ordinal: 189,
+    stackArguments: args, service }, calls: [call] });
+  assert.equal(validateProofReport(known), known);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ordinal: 189, status: 1, arguments: [args[0]] }],
+  }), /four arguments/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ordinal: 189, status: 0, arguments: args }],
+  }), /remains unsupported/);
+  assert.throws(() => validateProofReport({ ...legacy,
+    calls: [{ ordinal: 189, status: 0, arguments: [args[0]] }],
+  }), /remains unsupported/);
+  for (const change of [
+    { ordinal: 188 }, { callingConvention: 'cdecl' }, { argumentBytes: 12 },
+    { returns: 'void' }, { output: 'event-handle' }, { result: 'signaled' },
+    { nameSemantics: 'unnamed-event' }, { eventType: 'notification' },
+  ]) assert.throws(() => validateProofReport({ ...known,
+    stop: { ...known.stop, service: { ...service, ...change } },
+  }));
+  for (const length of [0, 1, 3, 5]) {
+    const malformed = report({ stop: known.stop, calls: [{ ...call,
+      arguments: Array.from({ length }, (_, index) => args[index] ?? 0) }] });
+    assert.throws(() => validateProofReport(malformed), /four arguments/);
+  }
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [call, { ordinal: 189, status: 1, arguments: args }],
+  }), /sole final call/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [call, { ordinal: 3, status: 1, arguments: [] }],
+  }), /sole final call/);
+  assert.throws(() => validateProofReport({ ...known, stop: { ...known.stop, ordinal: 190,
+    service: { ordinal: 190, name: null, modeled: false } } }), /sole final call/);
+  const oversized = 0x1_0000_0000;
+  assert.throws(() => validateProofReport({ ...known,
+    stop: { ...known.stop, stackArguments: [oversized, ...args.slice(1)] },
+    calls: [{ ...call, arguments: [oversized, ...args.slice(1)] }],
+  }), /unsigned 32-bit/);
+  assert.throws(() => validateProofReport({ ...known,
+    calls: [{ ...call, output: { status: 0, handle: 0x80004 } }],
+  }), /no modeled result/);
+});
+
+const counterReport=()=>{
+  const r=performanceReport();
+  const profile={kind:'synthetic-performance-counter',synthetic:true,source:'paired-performance-clock'};
+  r.consoleSettings.performanceCounter=profile;
+  r.performanceCounterState={...profile,frequencyHz:733333333,count:1,capacity:64,status:0,
+    lastTicks:'1234567',lastCounter:'90534913'};
+  r.calls.push({ordinal:126,status:0,arguments:[],output:{backend:profile.kind,frequencyHz:733333333,
+    interruptTicks:'1234567',polledInterruptTicks:'1234566',counter:'90534913',low:90534913,high:0,
+    eaxBefore:8,edxBefore:9,espBefore:0x3c10000,eaxAfter:90534913,edxAfter:0,espAfter:0x3c10004}});
+  return r;
+};
+
+test('counter success binds the selected pair, arithmetic, count and actual return words',()=>{
+  const r=counterReport();assert.equal(validateProofReport(r),r);
+  for(const edit of [{performanceCounterState:undefined},{consoleSettings:{performanceClock:performanceProfile()}},
+    {performanceCounterState:{...r.performanceCounterState,count:0}}])
+    assert.throws(()=>validateProofReport({...r,...edit}),/counter/i);
+  for(const edit of [{high:1},{eaxAfter:1},{edxAfter:1},{espAfter:0x3c10008},{extra:true}]) {
+    const bad=counterReport();Object.assign(bad.calls[1].output,edit);
+    assert.throws(()=>validateProofReport(bad),/counter/i);
+  }
+  const scaled=counterReport();scaled.performanceCounterState.lastCounter='90534914';scaled.calls[1].output.counter='90534914';
+  assert.throws(()=>validateProofReport(scaled),/counter scaling/);
+  const refused=counterReport();refused.calls[1]={ordinal:126,status:1,arguments:[]};
+  Object.assign(refused.performanceCounterState,{count:0,lastTicks:'0',lastCounter:'0'});
+  assert.throws(()=>validateProofReport(refused),/supplies no value/);
+});
+
+test('counter model refusal binds exact service and diagnostic status without a return value',()=>{
+  const r=counterReport();r.performanceCounterState.status=3;r.stop={status:9,target:3,ordinal:126};
+  r.calls.push({ordinal:126,status:1,arguments:[]});assert.equal(validateProofReport(r),r);
+  for(const stop of [{status:9,target:2,ordinal:126},{status:4,target:3,ordinal:126},{status:9,target:3,ordinal:0}])
+    assert.throws(()=>validateProofReport({...r,stop}),/counter refusal/);
+  assert.throws(()=>validateProofReport({...r,performanceCounterState:{...r.performanceCounterState,status:4}}),/bounded captured calls/);
+});
+
+test('clock pause evidence binds the selected experiment and measured actual wait',()=>{
+  const r=performanceReport();
+  const p={kind:'one-shot-browser-clock-pause',synthetic:true,beforeSample:2,milliseconds:500};
+  r.consoleSettings.clockPause=p;
+  Object.assign(r.clock,{samples:3,pauseProfile:{...p},pauseState:{performed:true,beforeSample:2,milliseconds:500,
+    beforeTicks:'123',afterTicks:'5000123'}});
+  assert.equal(validateProofReport(r),r);
+  for(const edit of [{beforeTicks:'0123'},{afterTicks:'5000122'},{beforeSample:3},{extra:true}])
+    assert.throws(()=>validateProofReport({...r,clock:{...r.clock,pauseState:{...r.clock.pauseState,...edit}}}),/clock pause|Clock pause/);
+  assert.throws(()=>validateProofReport({...r,consoleSettings:{...r.consoleSettings,clockPause:undefined}}),/Clock pause/);
+  const unreached={...r,clock:{...r.clock,samples:1,pauseState:{performed:false,beforeSample:2,milliseconds:500,beforeTicks:null,afterTicks:null}}};
+  assert.equal(validateProofReport(unreached),unreached);
+  assert.throws(()=>validateProofReport({...unreached,clock:{...unreached.clock,samples:2}}),/clock pause/);
 });
 
 test('a worker-level error report is accepted without evidence fields', () => {

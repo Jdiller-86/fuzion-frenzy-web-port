@@ -1,5 +1,6 @@
 /* Owned FATX structures only; no original executable, files or disk image. */
 #include "../runtime/core/fatx_volume.h"
+#include "../runtime/core/fatx_directory_cursor.h"
 #include "../runtime/core/file_namespace.h"
 #include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
@@ -14,7 +15,8 @@ static ff_object_namespace space,saved_space;
 static ff_fatx_volume fs,saved_fs;
 static ff_local_volume primary;
 enum {OUT=0x10100,IOSB=0x10120,ATTR=0x10140,NAME=0x10180,TEXT=0x10200,OFFSET=0x10300,
-      LINK=0x10400,TARGET=0x10420,LINK_TEXT=0x10500,TARGET_TEXT=0x10600,DATA=0x11000};
+      LINK=0x10400,TARGET=0x10420,LINK_TEXT=0x10500,TARGET_TEXT=0x10600,DATA=0x11000,
+      D207_OUT=0x18000,D207_IOSB=0x19000,D207_DESC=0x1a000,D207_MASK=0x1b000};
 static uint32_t args[6];
 static const uint64_t part_base=0x180000000ull;
 static void put(uint32_t p,uint64_t value,unsigned bytes){for(unsigned i=0;i<bytes;++i)ram[p+i]=(uint8_t)(value>>(8*i));}
@@ -67,6 +69,69 @@ static void format_owned(uint32_t width,uint32_t root_offset)
     name("\\Device\\Harddisk0\\Partition5\\");args[1]=0x100001;args[4]=3;args[5]=0x800021;
 }
 static uint32_t open_root(void){assert(!ff_fatx_open_root(&fs,args));assert(get(IOSB+4,4)==1);return (uint32_t)get(OUT,4);}
+static void link_fatx_drive(void)
+{
+    string(LINK,LINK_TEXT,"\\??\\Z:");string(TARGET,TARGET_TEXT,"\\Device\\Harddisk0\\Partition5");
+    uint32_t id;assert(!ff_namespace_create_link(&space,LINK,TARGET,&id));
+}
+static void fatx_dos_root_open_is_exact_and_owned(void)
+{
+    reset(0x40000000);format_owned(4,270336);uint32_t existing=open_root();assert(!ff_fatx_close(&fs,existing));
+    string(NAME,TEXT,"Z:\\");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    args[0]=OUT;args[1]=0x100001;args[2]=ATTR;args[3]=IOSB;args[4]=3;args[5]=0x4021;
+    const uint32_t device=fs.mounts[0].device;
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged(); /* alias absent */
+    link_fatx_drive();
+    const uint32_t namespace_count=space.count;
+    uint32_t handle=open_root();assert(fs.mount_count==1 && space.count==namespace_count && fs.mounts[0].device==device);
+    assert(fs.active==1 && fs.file_count==1 && fs.mounts[0].file_objects==1);
+    assert(!ff_fatx_close(&fs,handle) && !fs.active && !fs.file_count && !fs.mounts[0].file_objects);
+
+    string(NAME,TEXT,"Z:\\leaf");save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    string(NAME,TEXT,"Z:");save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    string(NAME,TEXT,"Z:\\");
+    args[5]=0x8021;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[5]=0x4021;
+    args[1]=0x100003;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[1]=0x100001;
+    args[4]=1;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();args[4]=3;
+    const uint32_t bad_buffer=0x40000;put(NAME+4,bad_buffer,4);save();
+    assert(ff_fatx_open_root(&fs,args)==FF_VM_ACCESS_VIOLATION);unchanged();put(NAME+4,TEXT,4);
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)if(space.objects[i].id==device)space.objects[i].media_ready=0;
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i)if(space.objects[i].id==device)space.objects[i].media_ready=1;
+    uint32_t wrong_device;assert(!ff_namespace_add_device(&space,"\\Device\\Wrong",13,FF_NS_LOCAL_DISC,&wrong_device));
+    assert(!ff_namespace_delete_link(&space,"\\??\\Z:",6));
+    string(LINK,LINK_TEXT,"\\??\\Z:");string(TARGET,TARGET_TEXT,"\\Device\\Wrong");uint32_t wrong_link;
+    assert(!ff_namespace_create_link(&space,LINK,TARGET,&wrong_link));save();
+    assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_namespace_delete_link(&space,"\\??\\Z:",6));link_fatx_drive();
+    name("\\Device\\Harddisk0\\Partition5");put(ATTR,0,4);args[1]=0x100001;args[4]=0;args[5]=0x21;
+    uint32_t exclusive=open_root();name("Z:\\");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);args[1]=0x100001;args[4]=3;args[5]=0x4021;
+    saved_fs=fs;const uint32_t old_output=(uint32_t)get(OUT,4);
+    assert(ff_fatx_open_root(&fs,args)==FF_DISK_SHARING && !memcmp(&fs,&saved_fs,sizeof fs) &&
+           (uint32_t)get(OUT,4)==old_output && get(IOSB,4)==FF_DISK_SHARING && get(IOSB+4,4)==0);
+    assert(!ff_fatx_close(&fs,exclusive));
+    uint32_t roots[FF_FATX_FILES];
+    for(unsigned i=0;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_NO_MEMORY);
+    assert(!memcmp(&fs,&saved_fs,sizeof fs) && !memcmp(&disk,&saved_disk,sizeof disk) &&
+           !memcmp(&space,&saved_space,sizeof space));
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+    args[5]=0x4021;args[1]=0x100001;args[4]=3;
+    ++disk.revision;save();assert(ff_fatx_open_root(&fs,args)==FF_BOOT_UNSUPPORTED);unchanged();--disk.revision;
+}
+static uint32_t create_guest_file(const char *path,uint32_t output)
+{
+    string(NAME,TEXT,path);put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    const uint32_t request[9]={output,0x40100080,ATTR,IOSB,0,0x80,3,5,0x60};
+    return ff_fatx_create_file_guest(&fs,request);
+}
+static uint32_t open_if_guest_file(const char *path)
+{
+    string(NAME,TEXT,path);put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    const uint32_t request[9]={OUT,0x40100080,ATTR,IOSB,0,0x80,3,3,0x60};
+    save();
+    return ff_fatx_create_file_guest(&fs,request);
+}
 static void rewrite_fat(uint32_t first,uint32_t second)
 {
     name("\\Device\\Harddisk0\\Partition0");uint32_t raw[6]={OUT,0x100003,ATTR,IOSB,3,0x18};
@@ -118,6 +183,202 @@ static void setup_two_cluster_root(void)
         write_raw_page(part_base+270336+page*4096);
     }
     memset(ram+DATA,0xff,4096);dirent(DATA,"SECOND.TXT",0x20,4,0);write_raw_page(part_base+286720);
+}
+static uint32_t setup_query207_root(uint32_t entries)
+{
+    reset(0x40000000);format_owned(4,270336);
+    memset(ram+DATA,0,4096);put(DATA,0xfffffff8u,4);put(DATA+4,UINT32_MAX,4);
+    put(DATA+8,UINT32_MAX,4);write_raw_page(part_base+4096);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"QUERY207.DAT",0x20,2,586);
+    if(entries>1)dirent(DATA+64,"SECOND.TXT",0x20,3,1);
+    write_raw_page(part_base+270336);
+    for(uint32_t page=0;page<4;++page) {
+        memset(ram+DATA,0,4096);
+        write_raw_page(part_base+286720+(uint64_t)page*4096u);
+    }
+    return open_root();
+}
+static void query207_args(uint32_t handle,uint32_t args[10])
+{
+    put(D207_DESC,0,2);put(D207_DESC+2,3,2);put(D207_DESC+4,D207_MASK,4);
+    memcpy(ram+D207_MASK,"*.*",3);
+    memset(ram+D207_OUT,0xa5,0x148);put(D207_IOSB,0,4);put(D207_IOSB+4,1,4);
+    const uint32_t request[10]={handle,0,0,0,D207_IOSB,D207_OUT,0x148,1,D207_DESC,0};
+    memcpy(args,request,sizeof request);
+}
+static void query207_reject_without_writes(const uint32_t args[10],uint32_t expected)
+{
+    save();assert(ff_fatx_query_directory_first(&fs,args)==expected);unchanged();
+}
+static void query207_first_actual_wildcard_entry(void)
+{
+    const uint32_t handle=setup_query207_root(1);uint32_t args[10];query207_args(handle,args);
+    uint8_t before[sizeof ram];memcpy(before,ram,sizeof before);
+    saved_fs=fs;saved_disk=disk;saved_space=space;
+    assert(!ff_fatx_query_directory_first(&fs,args));
+    assert(!memcmp(&fs,&saved_fs,sizeof fs) && !memcmp(&disk,&saved_disk,sizeof disk) &&
+           !memcmp(&space,&saved_space,sizeof space));
+    assert(get(D207_IOSB,4)==0 && get(D207_IOSB+4,4)==76);
+    assert(get(D207_OUT,4)==0 && get(D207_OUT+4,4)==0);
+    for(uint32_t i=8;i<0x28;++i)assert(ram[D207_OUT+i]==0);
+    assert(get(D207_OUT+0x28,8)==586 && get(D207_OUT+0x30,8)==16384);
+    assert(get(D207_OUT+0x38,4)==0x20 && get(D207_OUT+0x3c,4)==12);
+    assert(!memcmp(ram+D207_OUT+0x40,"QUERY207.DAT",12));
+    for(uint32_t i=76;i<0x148;++i)assert(ram[D207_OUT+i]==before[D207_OUT+i]);
+    for(uint32_t i=0;i<sizeof ram;++i)
+        if((i<D207_OUT || i>=D207_OUT+76u) && (i<D207_IOSB || i>=D207_IOSB+8u))
+            assert(ram[i]==before[i]);
+    assert(!ff_fatx_close(&fs,handle));
+}
+static void query207_single_cursor_continuation(void)
+{
+    uint32_t handle=setup_query207_root(1),args[10];query207_args(handle,args);
+    assert(!ff_fatx_query_directory_first(&fs,args));
+    ff_fatx_single_cursor cursor={0};
+    uint8_t saved_record[76];memcpy(saved_record,ram+D207_OUT,sizeof saved_record);
+    ram[D207_OUT+0x28]^=1u;
+    assert(ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!cursor.owner && !cursor.handle && !cursor.name[0]);
+    memcpy(ram+D207_OUT,saved_record,sizeof saved_record);
+    cursor.index=1;
+    assert(ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(cursor.index==1 && !cursor.owner);cursor.index=0;
+    assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    const ff_fatx_mount *mount=&fs.mounts[0];
+    const uint64_t entry=mount->offset+mount->data_offset;
+    const uint8_t size[4]={0x7f,0x02,0,0}; /* 639, written by the owned logger. */
+    assert(!ff_disk_store(&disk,entry+48u,size,sizeof size));
+    fs.mounts[0].revision=disk.revision;
+    uint32_t next[10]={handle,0,0,0,D207_IOSB,D207_OUT,0x148,1,0,0};
+    memset(ram+D207_OUT,0x5a,0x148);put(D207_IOSB,0x11111111,4);put(D207_IOSB+4,0x22222222,4);
+    uint8_t saved_output[0x148],saved_iosb[8];memcpy(saved_output,ram+D207_OUT,sizeof saved_output);
+    memcpy(saved_iosb,ram+D207_IOSB,sizeof saved_iosb);
+    ff_fatx_single_cursor saved=cursor;uint32_t wrong[10];memcpy(wrong,next,sizeof wrong);wrong[0]++;
+    assert(ff_fatx_query_directory_next_single(&fs,wrong,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    memcpy(wrong,next,sizeof wrong);wrong[4]=D207_OUT;
+    assert(ff_fatx_query_directory_next_single(&fs,wrong,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    const uint32_t old_file_id=fs.files[0].id;fs.files[0].id++;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    fs.files[0].id=old_file_id;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    uint32_t root_page=UINT32_MAX;
+    for(uint32_t i=0;i<FF_DISK_PAGES;++i)
+        if(disk.pages[i].used && disk.pages[i].index==entry/FF_DISK_PAGE_BYTES)root_page=i;
+    assert(root_page!=UINT32_MAX);disk.pages[root_page].used=0;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    disk.pages[root_page].used=1;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    const uint32_t iosb_page=D207_IOSB/FF_VM_PAGE;
+    const uint8_t iosb_permission=memory.permission[iosb_page];memory.permission[iosb_page]&=(uint8_t)~FF_VM_WRITE;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_VM_ACCESS_VIOLATION);
+    memory.permission[iosb_page]=iosb_permission;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==0x80000006u);
+    assert(get(D207_IOSB,4)==0x80000006u && get(D207_IOSB+4,4)==0);
+    for(uint32_t i=0;i<0x148;++i)assert(ram[D207_OUT+i]==0x5a);
+    saved=cursor;memcpy(saved_iosb,ram+D207_IOSB,8);
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_iosb,ram+D207_IOSB,8));
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);assert(!ff_fatx_query_directory_first(&fs,args));
+    next[0]=handle;
+    memset(&cursor,0,sizeof cursor);assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    const ff_fatx_mount *current_mount=&fs.mounts[0];
+    const uint64_t changed_root=current_mount->offset+current_mount->data_offset;
+    uint8_t second[64]={0};memcpy(second+2,"SECOND.TXT",10);second[0]=10;second[1]=0x20;
+    assert(!ff_disk_store(&disk,changed_root+64u,second,sizeof second));fs.mounts[0].revision=disk.revision;
+    memset(ram+D207_OUT,0x6b,0x148);put(D207_IOSB,0x33333333,4);put(D207_IOSB+4,0x44444444,4);
+    memcpy(saved_output,ram+D207_OUT,sizeof saved_output);memcpy(saved_iosb,ram+D207_IOSB,8);saved=cursor;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);assert(!ff_fatx_query_directory_first(&fs,args));
+    next[0]=handle;
+    memset(&cursor,0,sizeof cursor);assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    current_mount=&fs.mounts[0];const uint64_t renamed_root=current_mount->offset+current_mount->data_offset;
+    const uint8_t changed_name='X';assert(!ff_disk_store(&disk,renamed_root+2u,&changed_name,1));
+    fs.mounts[0].revision=disk.revision;
+    memset(ram+D207_OUT,0x7c,0x148);put(D207_IOSB,0x55555555,4);put(D207_IOSB+4,0x66666666,4);
+    memcpy(saved_output,ram+D207_OUT,sizeof saved_output);memcpy(saved_iosb,ram+D207_IOSB,8);saved=cursor;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    assert(!ff_fatx_close(&fs,handle));
+}
+static void query207_profile_and_span_guards(void)
+{
+    uint32_t handle=setup_query207_root(1),args[10];query207_args(handle,args);
+#define REJECT207(field,value,status) do { const uint32_t old=args[field];args[field]=(value); \
+    query207_reject_without_writes(args,(status));args[field]=old; } while(0)
+    REJECT207(1,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(2,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(3,1,FF_BOOT_UNSUPPORTED);
+    REJECT207(6,0x147,FF_BOOT_UNSUPPORTED);
+    REJECT207(7,2,FF_BOOT_UNSUPPORTED);
+    REJECT207(9,1,FF_BOOT_UNSUPPORTED);
+    put(D207_DESC,1,2);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC,0,2);
+    put(D207_DESC+2,4,2);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC+2,3,2);
+    ram[D207_MASK]='?';query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);ram[D207_MASK]='*';
+    REJECT207(5,D207_DESC,FF_BOOT_UNSUPPORTED);
+    REJECT207(4,D207_DESC,FF_BOOT_UNSUPPORTED);
+    put(D207_DESC+4,D207_DESC,4);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);put(D207_DESC+4,D207_MASK,4);
+    put(D207_DESC+4,0x3fffe,4);query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);put(D207_DESC+4,D207_MASK,4);
+    REJECT207(4,0x3fffc,FF_VM_ACCESS_VIOLATION);
+    REJECT207(5,0x3ff00,FF_VM_ACCESS_VIOLATION);
+    const unsigned out_page=D207_OUT/FF_VM_PAGE,iosb_page=D207_IOSB/FF_VM_PAGE;
+    const unsigned desc_page=D207_DESC/FF_VM_PAGE,mask_page=D207_MASK/FF_VM_PAGE;
+    uint8_t old_permission=memory.permission[out_page];memory.permission[out_page]=FF_VM_READ;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[out_page]==FF_VM_READ);
+    memory.permission[out_page]=old_permission;
+    old_permission=memory.permission[iosb_page];memory.permission[iosb_page]=FF_VM_READ;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[iosb_page]==FF_VM_READ);
+    memory.permission[iosb_page]=old_permission;
+    old_permission=memory.permission[desc_page];memory.permission[desc_page]=FF_VM_WRITE;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[desc_page]==FF_VM_WRITE);
+    memory.permission[desc_page]=old_permission;
+    old_permission=memory.permission[mask_page];memory.permission[mask_page]=FF_VM_WRITE;
+    query207_reject_without_writes(args,FF_VM_ACCESS_VIOLATION);assert(memory.permission[mask_page]==FF_VM_WRITE);
+    memory.permission[mask_page]=old_permission;
+    uint32_t token;assert(!ff_fatx_reference_handle(&fs,handle,&token));
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);assert(!ff_fatx_release_file(&fs,token));
+    const uint32_t old_access=fs.files[0].access;fs.files[0].access=0;
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);fs.files[0].access=old_access;
+    ++disk.revision;query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);--disk.revision;
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(2);query207_args(handle,args);
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    drop_page(part_base+270336+12288);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    drop_page(part_base+4096);query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);
+    const uint64_t root_page=(part_base+270336)/FF_DISK_PAGE_BYTES;
+    int found_root_page=0;
+    for(unsigned i=0;i<FF_DISK_PAGES;++i)
+        if(disk.pages[i].used && disk.pages[i].index==root_page) {
+            disk.pages[i].data[52]=0;found_root_page=1;
+        }
+    assert(found_root_page);
+    query207_reject_without_writes(args,FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,handle));
+#undef REJECT207
 }
 static void setup_fat16_file(void)
 {
@@ -263,6 +524,325 @@ static void fatx_create_empty_file(void)
     save();assert(ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"EXTRA.TXT",9,&created)==FF_BOOT_NO_MEMORY);
     unchanged();
     assert(!ff_fatx_close(&fs,handle));
+}
+static void guest_create_file_is_narrow_and_owned(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\sample-log.txt",OUT));
+    const uint32_t file=(uint32_t)get(OUT,4);
+    assert(file>=FF_FATX_HANDLE_BASE && file<FF_FATX_HANDLE_LIMIT && get(IOSB,4)==0 && get(IOSB+4,4)==2);
+    assert(fs.files[1].handle==file && fs.files[1].kind==1 && fs.files[1].access==0x40100080 && fs.files[1].share==3);
+    ff_fatx_directory_entry entry;assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"sample-log.txt",14,0x40,&entry));
+    assert(!entry.size && !entry.first_cluster && entry.attributes==0x20);
+    assert(!ff_fatx_close(&fs,root));
+    name("\\Device\\Harddisk0\\Partition5\\");put(ATTR,0,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    args[4]=0;uint32_t reopened=open_root();assert(!ff_fatx_close(&fs,reopened));
+    assert(ff_fatx_query_size(&fs,(uint32_t[5]){file,IOSB,DATA,24,3})==FF_BOOT_UNSUPPORTED);
+    assert(!ff_fatx_close(&fs,file) && fs.files[1].id==0);
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    ff_fatx_directory_entry existing;assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"HELLO.TXT",9,0,&existing));
+    const uint64_t revision=disk.revision;const uint32_t pages=disk.allocated_pages;
+    const uint8_t first=disk.pages[0].data[0];
+    uint8_t io_before[8];memcpy(io_before,ram+IOSB,sizeof io_before);
+    assert(create_guest_file("Z:\\HELLO.TXT",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(disk.revision==revision && disk.allocated_pages==pages && disk.pages[0].data[0]==first && fs.file_count==1 &&
+           !memcmp(io_before,ram+IOSB,sizeof io_before));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(create_guest_file("z:\\SUBDIR\\nested.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("w:\\missing.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("z:/bad.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(create_guest_file("z:\\../escape.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(fs.file_count==1 && disk.revision==fs.mounts[0].revision);
+    string(NAME,TEXT,"z:\\overlap.txt");put(ATTR,FF_FATX_DOS_DEVICE_ROOT,4);put(ATTR+4,NAME,4);put(ATTR+8,0x40,4);
+    save();assert(ff_fatx_create_file_guest(&fs,(uint32_t[9]){IOSB,0x40100080,ATTR,IOSB,0,0x80,3,5,0x60})==FF_BOOT_UNSUPPORTED);
+    unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    uint32_t roots[FF_FATX_FILES];roots[0]=root;
+    for(unsigned i=1;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    const uint64_t full_revision=disk.revision;
+    assert(create_guest_file("z:\\capacity.txt",OUT)==FF_BOOT_NO_MEMORY);
+    assert(get(IOSB,4)==FF_BOOT_NO_MEMORY && disk.revision==full_revision && fs.file_count==FF_FATX_FILES);
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    const uint32_t invalid_output=0x40000;
+    const uint64_t before=disk.revision;
+    uint8_t io_before_fail[8];memcpy(io_before_fail,ram+IOSB,sizeof io_before_fail);
+    assert(create_guest_file("z:\\memory.txt",invalid_output)==FF_VM_ACCESS_VIOLATION);
+    assert(disk.revision==before && fs.file_count==1 && !memcmp(io_before_fail,ram+IOSB,sizeof io_before_fail));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    memset(ram+DATA,0xff,4096);dirent(DATA+64,"STALE.TXT",0x20,0,0);
+    write_raw_page(part_base+270336);fs.mounts[0].revision=disk.revision;
+    const uint64_t stale_revision=disk.revision;uint8_t stale_entry[64];
+    for(unsigned i=0;i<64;++i)stale_entry[i]=ff_disk_byte(&disk,part_base+270336+i);
+    assert(create_guest_file("z:\\unsafe.txt",OUT)==FF_BOOT_UNSUPPORTED);
+    assert(disk.revision==stale_revision && fs.file_count==1);
+    for(unsigned i=0;i<64;++i)assert(ff_disk_byte(&disk,part_base+270336+i)==stale_entry[i]);
+    assert(!ff_fatx_close(&fs,root));
+}
+static void guest_open_if_existing_file_is_narrow_and_read_only(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    const ff_local_disk before_disk=disk;
+    const uint32_t free_clusters=fs.mounts[0].free_clusters,files_before=fs.file_count;
+    ff_fatx_directory_entry before_entry,after_entry;
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"EMPTY.BIN",9,0x40,&before_entry));
+    assert(!open_if_guest_file("Z:\\empty.bin"));
+    const uint32_t handle=(uint32_t)get(OUT,4);
+    assert(handle>=FF_FATX_HANDLE_BASE && handle<FF_FATX_HANDLE_LIMIT && get(IOSB,4)==0 && get(IOSB+4,4)==1);
+    assert(fs.file_count==files_before+1 && fs.files[1].handle==handle && fs.files[1].kind==1 &&
+           fs.files[1].access==0x40100080 && fs.files[1].share==3);
+    assert(disk.revision==before_disk.revision && disk.allocated_pages==before_disk.allocated_pages &&
+           !memcmp(disk.pages,before_disk.pages,sizeof disk.pages) && fs.mounts[0].free_clusters==free_clusters &&
+           fs.mounts[0].revision==before_disk.revision);
+    assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"empty.bin",9,0x40,&after_entry));
+    assert(!strcmp(before_entry.name,after_entry.name) && before_entry.attributes==after_entry.attributes &&
+           before_entry.first_cluster==after_entry.first_cluster && before_entry.size==after_entry.size);
+
+    /* File handles do not retain names, so a second open on this mount is an
+     * ambiguous sharing case and must be rejected transactionally. */
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    uint32_t token;
+    assert(!ff_fatx_reference_handle(&fs,handle,&token));
+    assert(!ff_fatx_close(&fs,handle));
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_release_file(&fs,token));
+    assert(!open_if_guest_file("z:\\EMPTY.BIN"));
+    assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
+    assert(open_if_guest_file("z:\\MISSING.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(open_if_guest_file("z:\\SUBDIR")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!open_if_guest_file("z:\\HELLO.TXT"));
+    assert(get(IOSB+4,4)==1 && !memcmp(&disk,&saved_disk,sizeof disk));
+    assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(3,5,2);root=open_root();link_fatx_drive();
+    assert(open_if_guest_file("z:\\HELLO.TXT")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);
+    memset(ram+DATA,0xff,4096);dirent(DATA,"EMPTY.BIN",0x20,0,0);
+    dirent(DATA+64,"empty.bin",0x20,0,0);write_raw_page(part_base+270336);
+    root=open_root();link_fatx_drive();
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);uint32_t roots[FF_FATX_FILES];
+    roots[0]=open_root();link_fatx_drive();
+    for(unsigned i=1;i<FF_FATX_FILES;++i)roots[i]=open_root();
+    const uint64_t full_revision=disk.revision;const uint32_t full_pages=disk.allocated_pages;
+    assert(open_if_guest_file("z:\\EMPTY.BIN")==FF_BOOT_NO_MEMORY);
+    assert(get(IOSB,4)==FF_BOOT_NO_MEMORY && fs.file_count==FF_FATX_FILES &&
+           disk.revision==full_revision && disk.allocated_pages==full_pages);
+    for(unsigned i=0;i<FF_FATX_FILES;++i)assert(!ff_fatx_close(&fs,roots[i]));
+}
+static void guest_query_file_network_open_information(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\query.txt",OUT));
+    uint32_t handle=(uint32_t)get(OUT,4);
+    assert(!ff_fatx_close(&fs,handle));
+    assert(!open_if_guest_file("Z:\\QUERY.TXT"));
+    handle=(uint32_t)get(OUT,4);
+    assert(get(IOSB+4,4)==1);
+
+    const uint32_t output=DATA+4; /* The reached guest buffer is four-byte aligned. */
+    uint32_t query[5]={handle,IOSB,output,56,34};
+    memset(ram+output,0xa5,56);
+    assert(!ff_fatx_query_file(&fs,query));
+    for(unsigned i=0;i<32;++i)assert(ram[output+i]==0); /* four unset synthetic timestamps */
+    assert(get(output+32,8)==0 && get(output+40,8)==0); /* allocation size and EOF */
+    assert(get(output+48,4)==0x20 && get(output+52,4)==0 && get(IOSB+4,4)==56);
+
+    memset(ram+DATA,0xa5,56);query[2]=0x3fff0;save();
+    assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[2]=DATA;
+    query[1]=0x3fffc;save();assert(ff_fatx_query_file(&fs,query)==FF_VM_ACCESS_VIOLATION);unchanged();query[1]=IOSB;
+    query[2]=DATA+2;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[2]=DATA;
+    query[1]=IOSB+2;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_INVALID);unchanged();query[1]=IOSB;
+    query[2]=IOSB;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[2]=DATA;
+    query[4]=5;save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();query[4]=34;
+    const uint32_t root_query[5]={root,IOSB,DATA,56,34};save();
+    assert(ff_fatx_query_file(&fs,root_query)==FF_BOOT_UNSUPPORTED);unchanged();
+
+    query[3]=55;memset(ram+DATA,0xa5,56);
+    assert(ff_fatx_query_file(&fs,query)==0xc0000023u);
+    assert(get(IOSB,4)==0xc0000023u && get(IOSB+4,4)==0);
+    for(unsigned i=0;i<56;++i)assert(ram[DATA+i]==0xa5);
+    query[3]=56;
+    assert(!ff_fatx_close(&fs,handle));save();
+    assert(ff_fatx_query_file(&fs,query)==FF_BOOT_BAD_HANDLE);unchanged();
+
+    /* The mutation advances the mount revision without making it stale; the
+     * file handle retains its opening revision and therefore cannot query. */
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\stale.txt",OUT));handle=(uint32_t)get(OUT,4);
+    assert(!ff_fatx_close(&fs,handle));assert(!open_if_guest_file("z:\\stale.txt"));
+    handle=(uint32_t)get(OUT,4);query[0]=handle;
+    assert(!ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"OTHER.TXT",9,&(ff_fatx_directory_entry){0}));
+    assert(fs.mounts[0].revision==disk.revision);
+    save();assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+
+    /* A real backed empty entry with a set timestamp is outside the synthetic
+     * all-ones timestamp profile, even when opened at the current revision. */
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    for(unsigned i=0;i<4096;++i)ram[DATA+i]=ff_disk_byte(&disk,part_base+270336+i);
+    put(DATA+192+52,0x12345678u,4);write_raw_page(part_base+270336);
+    fs.mounts[0].revision=disk.revision;
+    assert(!open_if_guest_file("z:\\EMPTY.BIN"));handle=(uint32_t)get(OUT,4);query[0]=handle;
+    memset(ram+DATA,0xa5,56);save();
+    assert(ff_fatx_query_file(&fs,query)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+}
+static void guest_set_file_position_is_bounded(void)
+{
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\position.bin",OUT));
+    uint32_t handle=(uint32_t)get(OUT,4);
+    assert(!ff_fatx_close(&fs,handle));assert(!open_if_guest_file("z:\\position.bin"));
+    handle=(uint32_t)get(OUT,4);
+    uint32_t request[5]={handle,IOSB,DATA,8,14};
+    put(DATA,0,8);
+    fs.files[1].position=37;
+    const ff_local_disk before_disk=disk;
+    const uint64_t before_revision=fs.mounts[0].revision;
+    assert(!ff_fatx_set_position(&fs,request));
+    assert(get(IOSB,4)==0 && get(IOSB+4,4)==0 && fs.files[1].position==0);
+    assert(disk.revision==before_disk.revision && disk.allocated_pages==before_disk.allocated_pages &&
+           !memcmp(disk.pages,before_disk.pages,sizeof disk.pages) && fs.mounts[0].revision==before_revision);
+    request[2]=DATA+4;put(DATA+4,0,8);fs.files[1].position=37;
+    assert(!ff_fatx_set_position(&fs,request) && fs.files[1].position==0);
+    request[2]=DATA;
+
+    request[4]=13;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[4]=14;
+    request[3]=7;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[3]=8;
+    put(DATA,1,8);save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+    put(DATA,0x100000000ull,8);save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+    put(DATA,UINT64_MAX,8);save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+    put(DATA,0,8);
+    const uint32_t data_page=DATA/FF_VM_PAGE,iosb_page=IOSB/FF_VM_PAGE;
+    const uint8_t data_permission=memory.permission[data_page],iosb_permission=memory.permission[iosb_page];
+    memory.permission[data_page]=FF_VM_WRITE;save();
+    assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();
+    memory.permission[data_page]=data_permission;
+    memory.permission[iosb_page]=FF_VM_READ;save();
+    assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();
+    memory.permission[iosb_page]=iosb_permission;
+    request[2]=IOSB;put(IOSB,0,8);save();
+    assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[2]=DATA;
+    request[2]=0x40000;save();assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[2]=DATA;
+    request[1]=0x3fffc;save();assert(ff_fatx_set_position(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[1]=IOSB;
+    request[2]=DATA+2;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_INVALID);unchanged();request[2]=DATA;
+    request[1]=IOSB+2;save();assert(ff_fatx_set_position(&fs,request)==FF_BOOT_INVALID);unchanged();request[1]=IOSB;
+
+    /* Root handles cannot carry a file cursor. */
+    put(DATA,0,8);const uint32_t root_request[5]={root,IOSB,DATA,8,14};save();
+    assert(ff_fatx_set_position(&fs,root_request)==FF_BOOT_UNSUPPORTED);unchanged();
+
+    /* A metadata mutation leaves the mount current but invalidates this
+     * handle's opening revision. */
+    assert(!ff_fatx_create_empty(&fs,1,NULL,0,0,(const uint8_t*)"OTHER.TXT",9,&(ff_fatx_directory_entry){0}));
+    assert(fs.mounts[0].revision==disk.revision);put(DATA,0,8);save();
+    assert(ff_fatx_set_position(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));save();
+    assert(ff_fatx_set_position(&fs,request)==FF_BOOT_BAD_HANDLE);unchanged();
+    assert(!ff_fatx_close(&fs,root));
+}
+static void guest_first_write_is_transactional(void)
+{
+    const uint32_t lengths[]={1,45,16384,45};
+    for(unsigned test=0;test<4;++test) {
+        setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+        assert(!create_guest_file("z:\\WRITE.BIN",OUT));
+        assert(!ff_fatx_close(&fs,(uint32_t)get(OUT,4)));
+        assert(!open_if_guest_file("z:\\write.bin"));
+        const uint32_t handle=(uint32_t)get(OUT,4),bytes=lengths[test];
+        const uint64_t address=fs.files[1].entry_address,revision=disk.revision;
+        const uint32_t free_clusters=fs.mounts[0].free_clusters;
+        uint8_t before[64],output[16384];
+        for(unsigned i=0;i<64;++i)before[i]=ff_disk_byte(&disk,address+i);
+        for(uint32_t i=0;i<bytes;++i)ram[DATA+i]=test==3?0:(uint8_t)(i%251u+1u);
+        const uint32_t request[8]={handle,0,0,0,IOSB,DATA,bytes,0};
+        assert(!ff_fatx_write_file_guest(&fs,request));
+        assert(get(IOSB,4)==0 && get(IOSB+4,4)==bytes && fs.files[1].position==bytes);
+        assert(disk.revision==revision+3 && fs.mounts[0].revision==disk.revision &&
+               fs.files[1].open_revision==disk.revision && fs.mounts[0].free_clusters==free_clusters-1u);
+        for(unsigned i=0;i<64;++i)if(i<44u || i>=52u)assert(ff_disk_byte(&disk,address+i)==before[i]);
+        ff_fatx_directory_entry entry;uint32_t read=0;
+        assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"WRITE.BIN",9,0,&entry) && entry.size==bytes);
+        assert(disk_value(part_base+4096+(uint64_t)entry.first_cluster*4u,4)==UINT32_MAX);
+        assert(!ff_fatx_read_entry(&fs,1,&entry,0,output,bytes,&read) && read==bytes &&
+               !memcmp(output,ram+DATA,bytes));
+        fs.files[1].position=0;
+        save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+        fs.files[1].position=bytes;
+        assert(!ff_fatx_close(&fs,handle));
+        assert(!open_if_guest_file("z:\\WRITE.BIN"));
+        const uint32_t reopened=(uint32_t)get(OUT,4);
+        assert(!memcmp(&disk,&saved_disk,sizeof disk));
+        const uint32_t query[5]={reopened,IOSB,DATA,56,34};
+        assert(!ff_fatx_query_file(&fs,query));
+        assert(get(DATA+32,8)==16384 && get(DATA+40,8)==bytes && get(DATA+48,4)==0x20);
+        const uint32_t seek[5]={reopened,IOSB,OFFSET,8,14};
+        put(OFFSET,bytes,8);
+        assert(!ff_fatx_set_position(&fs,seek) && fs.files[1].position==bytes);
+        put(OFFSET,bytes+1u,8);save();
+        assert(ff_fatx_set_position(&fs,seek)==FF_BOOT_UNSUPPORTED);unchanged();
+        if(bytes<16384u) {
+            const uint64_t append_revision=disk.revision;
+            const uint32_t append_free=fs.mounts[0].free_clusters;
+            const uint32_t append[8]={reopened,0,0,0,IOSB,DATA,3,0};
+            ram[DATA]=17;ram[DATA+1]=18;ram[DATA+2]=19;
+            assert(!ff_fatx_write_file_guest(&fs,append));
+            assert(get(IOSB+4,4)==3 && fs.files[1].position==bytes+3u &&
+                   disk.revision==append_revision+2u && fs.mounts[0].free_clusters==append_free);
+            ff_fatx_directory_entry extended;
+            assert(!ff_fatx_lookup(&fs,1,(const uint8_t*)"WRITE.BIN",9,0,&extended) &&
+                   extended.first_cluster==entry.first_cluster && extended.size==bytes+3u);
+            assert(!ff_fatx_read_entry(&fs,1,&extended,0,output,bytes+3u,&read) && read==bytes+3u);
+            for(uint32_t i=0;i<bytes;++i)assert(output[i]==(test==3?0:(uint8_t)(i%251u+1u)));
+            assert(output[bytes]==17 && output[bytes+1]==18 && output[bytes+2]==19);
+            disk.revision=UINT64_MAX-1u;fs.mounts[0].revision=disk.revision;fs.files[1].open_revision=disk.revision;
+            save();assert(ff_fatx_write_file_guest(&fs,append)==FF_BOOT_UNSUPPORTED);unchanged();
+        }
+        assert(!ff_fatx_close(&fs,reopened));assert(!ff_fatx_close(&fs,root));
+    }
+
+    setup_files(UINT32_MAX,5,2);uint32_t root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\GUARD.BIN",OUT));uint32_t handle=(uint32_t)get(OUT,4);
+    uint32_t request[8]={handle,0,0,0,IOSB,DATA,45,0};
+    memset(ram+DATA,0x5a,45);
+    request[1]=1;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[1]=0;
+    request[7]=OFFSET;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[7]=0;
+    request[5]=IOSB;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[5]=DATA;
+    request[5]=0x3fff0;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[5]=DATA;
+    request[4]=0x3fffc;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_VM_ACCESS_VIOLATION);unchanged();request[4]=IOSB;
+    request[6]=fs.mounts[0].cluster_bytes+1u;save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();request[6]=45;
+    disk.revision=UINT64_MAX-2u;fs.mounts[0].revision=disk.revision;fs.files[1].open_revision=disk.revision;
+    save();assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+    assert(!ff_fatx_close(&fs,handle));assert(!ff_fatx_close(&fs,root));
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\SPARSE.BIN",OUT));request[0]=(uint32_t)get(OUT,4);
+    drop_page(part_base+4096);save();
+    assert(ff_fatx_write_file_guest(&fs,request)==FF_BOOT_UNSUPPORTED);unchanged();
+
+    setup_files(UINT32_MAX,5,2);root=open_root();link_fatx_drive();
+    assert(!create_guest_file("z:\\FULL.BIN",OUT));request[0]=(uint32_t)get(OUT,4);
+    memset(ram+DATA,0x5a,45);
+    for(unsigned i=0;i<FF_DISK_PAGES;++i)if(!disk.pages[i].used) {
+        disk.pages[i].used=1;disk.pages[i].index=disk.profile.bytes/FF_DISK_PAGE_BYTES-1u-i;
+        ++disk.allocated_pages;
+    }
+    put(IOSB,FF_DISK_FULL,4);put(IOSB+4,0,4);save();
+    assert(ff_fatx_write_file_guest(&fs,request)==FF_DISK_FULL);unchanged();
 }
 static void fatx_create_file_with_data(void)
 {
@@ -495,7 +1075,7 @@ static void capacity_failures_do_not_partially_mount(void)
 }
 int main(void)
 {
-    fat32_root_query_namespace_and_references();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();fatx_overwrite_existing_file();fatx_create_empty_file();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, bounded overwrite, empty-file create/delete, single-cluster create, sparse-backing failure, bounds and mutation checks passed");return 0;
+    fat32_root_query_namespace_and_references();fatx_dos_root_open_is_exact_and_owned();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();query207_first_actual_wildcard_entry();query207_single_cursor_continuation();query207_profile_and_span_guards();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, first wildcard directory record, single-cursor EOF continuation, query profile/span/backing guards, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

@@ -37,6 +37,21 @@
     "digestSource": "https://pypi.org/project/capstone/5.0.6/#files",
     "storage": "Ignored recomp-venv only; no global dependency changes"
   },
+  "sdkRecompilation": {
+    "sdkRepository": "https://github.com/abilliontokens/XboxXBERecomp",
+    "sdkCommit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3",
+    "gameRepository": "https://github.com/abilliontokens/fuzionfrenzy-recomp",
+    "gameCommit": "071dbd97bdc098c4647cc24c99f9eae693fde1eb",
+    "gameConfigSha256": "c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f",
+    "zydisCommit": "a2278f1d254e492f6a6b39f6cb5d1f5d515659dc",
+    "tomlplusplusCommit": "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",
+    "scope": "Private offline configured-XBE C++ generation; browser adapters and execution admission remain separate. No native game execution.",
+    "browserReference": {
+      "repository": "https://github.com/OpenCommunityEdition/OpenCE",
+      "commit": "fc9deb0b10eaae1d62caedb0710968b4e77e6e16",
+      "scope": "Browser platform reference; preserve current toolchain/memory guards and review component provenance before reuse."
+    }
+  },
   "cxbx": {
     "repository": "https://github.com/Cxbx-Reloaded/Cxbx-Reloaded",
     "commit": "585c49a50af1255ab155099e06f24505f9c5a800",

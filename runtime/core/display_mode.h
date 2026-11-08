@@ -3,12 +3,13 @@
 #include <stdint.h>
 
 /* Bounded declaration model for the observed ordinal-3 AvSetDisplayMode call.
- * It accepts only the exact pinned tuple, never decodes the descriptor, never
- * writes display state, and returns success as a declaration acceptance. */
-#define FF_DISPLAY_TUPLE_ADDR   0x3C10CFCu
+ * It pins the corrected MMIO base/step/mode/format/pitch and retains the bounded
+ * framebuffer window. It never reads registers or renders; acceptance is a
+ * declaration only. Reports separately pin the observed framebuffer value. */
+#define FF_DISPLAY_TUPLE_ADDR   0xFD000000u
 #define FF_DISPLAY_TUPLE_STEP   0u
 #define FF_DISPLAY_TUPLE_MODE   0x60030307u
-#define FF_DISPLAY_TUPLE_FORMAT 0u
+#define FF_DISPLAY_TUPLE_FORMAT 0x1Eu
 #define FF_DISPLAY_TUPLE_PITCH  0xA00u
 #define FF_DISPLAY_TUPLE_FB     0x03920000u
 #define FF_DISPLAY_CONTIG_BASE 0x80000000u
@@ -21,9 +22,9 @@ enum {
     FF_DISPLAY_BAD_FB = 3
 };
 
-/* addr_mapped_aligned: non-zero only for a mapped, 4-byte-aligned guest pointer.
- * The descriptor contents are never interpreted. */
-uint32_t ff_display_mode_accept(uint32_t addr_mapped_aligned, uint32_t addr, uint32_t step,
+/* register_base_declared: the ready device aperture contains this DWORD at its
+ * exact declared base. This is not a RAM pointer and is never dereferenced. */
+uint32_t ff_display_mode_accept(uint32_t register_base_declared, uint32_t addr, uint32_t step,
                                 uint32_t mode, uint32_t format, uint32_t pitch, uint32_t fb);
 /* Documented contiguous rule: a framebuffer below the window size is visible at
  * XBOX_CONTIG_BASE + fb. Returns 0 for a fb outside that rule. */
