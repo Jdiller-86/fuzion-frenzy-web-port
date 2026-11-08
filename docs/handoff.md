@@ -1,17 +1,17 @@
-# Continue from the reached helper's new caller
+# Continue from the reached `0x4D620` caller
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active and incomplete; original/generated content stays local.
 
 ## Current boundary
 
-M41 enters selected original `0x4D4F0` from `0x4F634` with ESP `0x03C10E5C`, return `0x4F639`, and argument `0x0025C4D0`. The actual `0x4DC30` child returns to `0x4D4FC`; its plain RET leaves ESP `0x03C10E50` with EAX `0xAC09EC44`. The parent and enclosing `0x4F5E0` remain active. Existing linked nodes are backed by retained allocation-origin records, not VM permissions alone. Optional allocation-attempt count one stops before `0x4BF10` body entry at ESP `0x03C10E38`, return `0x4D539`, args `0x50, 0x0025BFA8, 0x5B, 0x2001, 0x0025BFCC, 0`.
+M42 reuses original `0x4BF10` and its supported subtree for the selected `0x4D4F0` caller. Actual allocator RET returns payload `0x006F4130` at ESP `0x03C10E3C`; its selected header is `0x006F4100`, extent `0x80`. Provenance/extent/non-overlap checks precede fresh stores. Full payload/list checks and 24 ordered stores pass. Actual parent `0x4D4F0` returns EAX 1 at ESP `0x03C10E60` to `0x4F639`; the prior hash-child proof remains retained.
 
-The four-case browser comparison passes after tightening page readiness. Default40 is raw-exact except case/module identity; profile11 control/inert retain their prior stops. Build02 reused 79/88 objects and compiled 9, with fixed 128 MiB, sole clock import, 186 exports, no start. M41 module is 1,399,613 bytes (SHA `e3323aa2867a52da78b4e17347ec6711642b041345c24085c88bb14d1beb817c`). Independent source and actual build/harness/browser reviews pass at this bounded prefix; [status](status.md) owns exact audit identities and limits.
+Next actual stop: status2 at `0x4D620`, ESP `0x03C10E50`, return `0x4F647`, args `0x0025C4D0, 4, 0`. Its original body has not executed for this invocation, and enclosing `0x4F5E0` remains pending. The four-case comparison and independent source/build/harness/browser reviews pass. Default41 is full-record exact except case/module identity. All prior 3,066 CPU and 375 kernel rows remain exact prefixes; latest capture is 3,080 CPU / 377 kernel rows, with 468 distinct routines and 889/884 kernel record/raw-zero counts.
 
-CPU capture adds two entries and one actual post-RET exit to the preserved 3,063-row prefix: 3,066 rows / 11,258 total / 5,649 entries, SHA `4db1f91d8a8dd4f9ab784166a2ba1dbba3fd3a56aa0f6fd87069a314394970e5`. Kernel capture (375 rows), 468/887/882 counters, fixed 510/23,332/32/31/29/64 caps, and the original `0x4D4F0`/`0x4DC30` bytes remain unchanged. No parent return, allocator admission, original screen, audio, round, cluster closure or forecast reduction is claimed. Private evidence: `research/verification/sdk-4d4f0-reuse-20261108/`.
+Build01 reused 79/88 objects and compiled 9. Module: 1,409,522 bytes, SHA `a31a453f889cd84c2d768652dac93dcf44fe02199a32ec2ffd5fa804d2c6ed4d`; same fixed128MiB/clock-only/186-export/no-start and 510/23332/32/last31/29maps/64bindings limits. Launcher01 stopped at missing opt-in before browser/game cases; launcher02 succeeds. [Status](status.md) owns the exact audit identities and evidence limits; private records are in `research/verification/sdk-allocator-scope-20261108/`.
 
-Forecast16/28/49, about15 completed packages and21 smaller checkpoints since E1 remain low confidence. This advances the still-open startup package. Preserve the earlier selected stdio return and all recorded scope/evidence limits.
+Forecast16/28/49, about15 completed packages and22 smaller checkpoints since E1 remain low confidence. The selected call completes within open startup work; no new package, original screen/audio/round or M1 acceptance is claimed. Preserve synthetic-service, partial-capture, general flags/scheduling/allocator and physical-input limits.
 
 ## Next bounded task
 
-**SCOPE-34:** assess reuse of existing `0x4BF10`, its subtree, and provider through distinct caller-scoped records and the shared adapter. Preserve prior profiles/caps and stop at unsupported behavior. No allocator admission is implied.
+**SCOPE-35:** assess the reached `0x4D620` and the remaining `0x4F5E0` caller family. Reuse matching generated bodies and supported helper/provider paths as a coherent batch, preserving separate invocation records, actual call/return state, full default42 comparison and all caps. Stop at unsupported behavior; static source availability is not runtime admission.
