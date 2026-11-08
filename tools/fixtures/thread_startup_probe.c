@@ -1433,6 +1433,9 @@ void recomp_trace_enter(const char *name, uint32_t address) {
     ff_probe_poll();
 #endif
     trace(1, address);
+#ifdef FF_PROBE_C_TRACE_EVENT
+    FF_PROBE_C_TRACE_EVENT(1u, address);
+#endif
 }
 void recomp_trace_exit(const char *name, uint32_t address) {
     (void)name;
@@ -1440,8 +1443,16 @@ void recomp_trace_exit(const char *name, uint32_t address) {
     (void)ff_probe_guest_memory(g_esp, 4, FF_VM_READ, 0u);
 #endif
     trace(2, address);
+#ifdef FF_PROBE_C_TRACE_EVENT
+    FF_PROBE_C_TRACE_EVENT(2u, address);
+#endif
 }
-void recomp_trace_esp(const char *name, const char *tag) { (void)name; (void)tag; }
+void recomp_trace_esp(const char *name, const char *tag) {
+    (void)name; (void)tag;
+#ifdef FF_PROBE_C_ESP_EVENT
+    FF_PROBE_C_ESP_EVENT(name, tag);
+#endif
+}
 void recomp_icall_fail_log(uint32_t address) { stop(3, address, 0); }
 void recomp_icall_not_code_log(uint32_t address) { stop(3, address, 0); }
 void recomp_unimpl(const char *text, uint32_t address) { (void)text; stop(7, address, 0); }
@@ -2843,10 +2854,20 @@ static void query_nonvolatile(void)
 static void status_to_dos_error(void)
 {
     uint32_t *row = kernel_record(301, 1);
+    uint32_t mapped = 0;
     /* The observed STATUS_SUCCESS -> ERROR_SUCCESS conversion is exact.
-     * Other statuses remain unsupported, never silently mapped to success. */
-    if (row[2] != 0) stop(9, row[2], 301);
-    row[1] = 0; g_eax = 0; g_esp += 8;
+     * A separately checked provider may supply another reached mapping. */
+    if (row[2] != 0) {
+#ifdef FF_PROBE_STATUS_ERROR_PROVIDER
+        if (!FF_PROBE_STATUS_ERROR_PROVIDER(row, &mapped)) stop(9, row[2], 301);
+#else
+        stop(9, row[2], 301);
+#endif
+    }
+    row[1] = mapped; g_eax = mapped; g_esp += 8;
+#ifdef FF_PROBE_STATUS_ERROR_RETURN
+    FF_PROBE_STATUS_ERROR_RETURN(row);
+#endif
 }
 #ifdef FF_VM_PROOF
 static void initialize_critical(void)
