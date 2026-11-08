@@ -1,5 +1,6 @@
 /* Owned FATX structures only; no original executable, files or disk image. */
 #include "../runtime/core/fatx_volume.h"
+#include "../runtime/core/fatx_directory_cursor.h"
 #include "../runtime/core/file_namespace.h"
 #include "../runtime/core/thread_bootstrap.h"
 #include <assert.h>
@@ -227,6 +228,91 @@ static void query207_first_actual_wildcard_entry(void)
     for(uint32_t i=0;i<sizeof ram;++i)
         if((i<D207_OUT || i>=D207_OUT+76u) && (i<D207_IOSB || i>=D207_IOSB+8u))
             assert(ram[i]==before[i]);
+    assert(!ff_fatx_close(&fs,handle));
+}
+static void query207_single_cursor_continuation(void)
+{
+    uint32_t handle=setup_query207_root(1),args[10];query207_args(handle,args);
+    assert(!ff_fatx_query_directory_first(&fs,args));
+    ff_fatx_single_cursor cursor={0};
+    uint8_t saved_record[76];memcpy(saved_record,ram+D207_OUT,sizeof saved_record);
+    ram[D207_OUT+0x28]^=1u;
+    assert(ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!cursor.owner && !cursor.handle && !cursor.name[0]);
+    memcpy(ram+D207_OUT,saved_record,sizeof saved_record);
+    cursor.index=1;
+    assert(ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(cursor.index==1 && !cursor.owner);cursor.index=0;
+    assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    const ff_fatx_mount *mount=&fs.mounts[0];
+    const uint64_t entry=mount->offset+mount->data_offset;
+    const uint8_t size[4]={0x7f,0x02,0,0}; /* 639, written by the owned logger. */
+    assert(!ff_disk_store(&disk,entry+48u,size,sizeof size));
+    fs.mounts[0].revision=disk.revision;
+    uint32_t next[10]={handle,0,0,0,D207_IOSB,D207_OUT,0x148,1,0,0};
+    memset(ram+D207_OUT,0x5a,0x148);put(D207_IOSB,0x11111111,4);put(D207_IOSB+4,0x22222222,4);
+    uint8_t saved_output[0x148],saved_iosb[8];memcpy(saved_output,ram+D207_OUT,sizeof saved_output);
+    memcpy(saved_iosb,ram+D207_IOSB,sizeof saved_iosb);
+    ff_fatx_single_cursor saved=cursor;uint32_t wrong[10];memcpy(wrong,next,sizeof wrong);wrong[0]++;
+    assert(ff_fatx_query_directory_next_single(&fs,wrong,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    memcpy(wrong,next,sizeof wrong);wrong[4]=D207_OUT;
+    assert(ff_fatx_query_directory_next_single(&fs,wrong,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    const uint32_t old_file_id=fs.files[0].id;fs.files[0].id++;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    fs.files[0].id=old_file_id;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    uint32_t root_page=UINT32_MAX;
+    for(uint32_t i=0;i<FF_DISK_PAGES;++i)
+        if(disk.pages[i].used && disk.pages[i].index==entry/FF_DISK_PAGE_BYTES)root_page=i;
+    assert(root_page!=UINT32_MAX);disk.pages[root_page].used=0;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    disk.pages[root_page].used=1;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    const uint32_t iosb_page=D207_IOSB/FF_VM_PAGE;
+    const uint8_t iosb_permission=memory.permission[iosb_page];memory.permission[iosb_page]&=(uint8_t)~FF_VM_WRITE;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_VM_ACCESS_VIOLATION);
+    memory.permission[iosb_page]=iosb_permission;
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==0x80000006u);
+    assert(get(D207_IOSB,4)==0x80000006u && get(D207_IOSB+4,4)==0);
+    for(uint32_t i=0;i<0x148;++i)assert(ram[D207_OUT+i]==0x5a);
+    saved=cursor;memcpy(saved_iosb,ram+D207_IOSB,8);
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_iosb,ram+D207_IOSB,8));
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);assert(!ff_fatx_query_directory_first(&fs,args));
+    next[0]=handle;
+    memset(&cursor,0,sizeof cursor);assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    const ff_fatx_mount *current_mount=&fs.mounts[0];
+    const uint64_t changed_root=current_mount->offset+current_mount->data_offset;
+    uint8_t second[64]={0};memcpy(second+2,"SECOND.TXT",10);second[0]=10;second[1]=0x20;
+    assert(!ff_disk_store(&disk,changed_root+64u,second,sizeof second));fs.mounts[0].revision=disk.revision;
+    memset(ram+D207_OUT,0x6b,0x148);put(D207_IOSB,0x33333333,4);put(D207_IOSB+4,0x44444444,4);
+    memcpy(saved_output,ram+D207_OUT,sizeof saved_output);memcpy(saved_iosb,ram+D207_IOSB,8);saved=cursor;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
+    assert(!ff_fatx_close(&fs,handle));
+
+    handle=setup_query207_root(1);query207_args(handle,args);assert(!ff_fatx_query_directory_first(&fs,args));
+    next[0]=handle;
+    memset(&cursor,0,sizeof cursor);assert(!ff_fatx_single_cursor_begin(&fs,handle,ram+D207_OUT,76,&cursor));
+    current_mount=&fs.mounts[0];const uint64_t renamed_root=current_mount->offset+current_mount->data_offset;
+    const uint8_t changed_name='X';assert(!ff_disk_store(&disk,renamed_root+2u,&changed_name,1));
+    fs.mounts[0].revision=disk.revision;
+    memset(ram+D207_OUT,0x7c,0x148);put(D207_IOSB,0x55555555,4);put(D207_IOSB+4,0x66666666,4);
+    memcpy(saved_output,ram+D207_OUT,sizeof saved_output);memcpy(saved_iosb,ram+D207_IOSB,8);saved=cursor;
+    assert(ff_fatx_query_directory_next_single(&fs,next,&cursor)==FF_BOOT_UNSUPPORTED);
+    assert(!memcmp(&cursor,&saved,sizeof cursor) && !memcmp(saved_output,ram+D207_OUT,sizeof saved_output) &&
+           !memcmp(saved_iosb,ram+D207_IOSB,sizeof saved_iosb));
     assert(!ff_fatx_close(&fs,handle));
 }
 static void query207_profile_and_span_guards(void)
@@ -990,6 +1076,6 @@ static void capacity_failures_do_not_partially_mount(void)
 int main(void)
 {
     fat32_root_query_namespace_and_references();fatx_dos_root_open_is_exact_and_owned();fat16_bounds_chain_and_mutation();capacity_failures_do_not_partially_mount();
-    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();query207_first_actual_wildcard_entry();query207_profile_and_span_guards();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
-    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, first wildcard directory record, query profile/span/backing guards, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
+    read_only_root_entries_and_files();malformed_entries_and_chains_fail_closed();multi_cluster_root_and_fat16_reads();subdirectory_lookup_and_reads();directory_enumeration_by_path();query207_first_actual_wildcard_entry();query207_single_cursor_continuation();query207_profile_and_span_guards();fatx_overwrite_existing_file();fatx_create_empty_file();guest_create_file_is_narrow_and_owned();guest_open_if_existing_file_is_narrow_and_read_only();guest_query_file_network_open_information();guest_set_file_position_is_bounded();guest_first_write_is_transactional();fatx_create_file_with_data();fatx_create_file_sparse_backing_fails_closed();fatx_delete_empty_file();
+    puts("owned FATX mount, allocation query, namespace identity, references, directory entries, file reads, first wildcard directory record, single-cursor EOF continuation, query profile/span/backing guards, bounded overwrite, empty-file create/delete, single-cluster create, FILE_OPEN_IF reopen, bounded guest query and file position, sparse-backing failure, bounds and mutation checks passed");return 0;
 }

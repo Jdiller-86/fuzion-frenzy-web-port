@@ -1,4 +1,5 @@
 #include "fatx_volume.h"
+#include "fatx_directory_cursor.h"
 #include "thread_bootstrap.h"
 #include <string.h>
 
@@ -1010,4 +1011,132 @@ uint32_t ff_fatx_delete_empty(ff_fatx_volume *fs,uint32_t id,
     /* A metadata-only deletion leaves the mount geometry valid. */
     mount->revision=fs->disk->revision;
     return 0;
+}
+
+static int cursor_device_valid(const ff_fatx_volume *fs,const ff_fatx_mount *mount)
+{
+    for(unsigned i=0;i<FF_NS_OBJECTS;++i) {
+        const ff_namespace_object *device=&fs->space->objects[i];
+        if(device->id==mount->device)
+            return device->kind==FF_NS_DEVICE && device->device_kind==FF_NS_LOCAL_FATX &&
+                device->media_ready && device->provider_object==mount->id;
+    }
+    return 0;
+}
+static int cursor_live_entry(ff_fatx_volume *fs,ff_fatx_single_cursor *cursor,
+                             ff_fatx_file **file_out,ff_fatx_mount **mount_out)
+{
+    if(!fs || !fs->disk || !fs->space || fs->space->memory!=fs->disk->memory ||
+       cursor->owner!=fs || cursor->backing!=fs->disk || cursor->namespace_owner!=fs->space ||
+       !cursor->consumed || cursor->finished || cursor->index!=1u || cursor->name_bytes!=12u ||
+       cursor->name[12])return 0;
+    ff_fatx_file *file=file_handle(fs,cursor->handle);
+    if(!file || !ff_fatx_owns_handle(cursor->handle) || file->kind!=FF_FATX_HANDLE_ROOT ||
+       file->handle!=cursor->handle || file->id!=cursor->file_id || file->references!=1u ||
+       file->access!=0x00100001u ||
+       file->mount!=cursor->mount)return 0;
+    ff_fatx_mount *mount=mount_id(fs,file->mount);
+    if(!mount || mount->id!=cursor->mount || !current(fs,mount) || !cursor_device_valid(fs,mount) ||
+       mount->device!=cursor->device || mount->serial!=cursor->serial || mount->offset!=cursor->mount_offset ||
+       mount->bytes!=cursor->mount_bytes || mount->data_offset!=cursor->mount_data_offset ||
+       mount->root_cluster!=cursor->root_cluster || mount->root_clusters!=cursor->root_clusters ||
+       mount->cluster_bytes!=cursor->cluster_bytes || mount->entry_bytes!=cursor->entry_bytes ||
+       mount->root_cluster!=1u || mount->root_clusters!=1u || mount->cluster_bytes!=16384u ||
+       mount->entry_bytes!=4u)return 0;
+    if(mount->offset>UINT64_MAX-mount->data_offset)return 0;
+    const uint64_t root=mount->offset+mount->data_offset;
+    const uint64_t fat_rel=4096u+(uint64_t)mount->root_cluster*mount->entry_bytes;
+    if(root<mount->offset || root-mount->offset>mount->bytes ||
+       mount->cluster_bytes>mount->bytes-(root-mount->offset) || fat_rel>mount->bytes ||
+       mount->entry_bytes>mount->bytes-fat_rel || fat_rel>UINT64_MAX-mount->offset ||
+       !ff_disk_has(fs->disk,root,mount->cluster_bytes) ||
+       !ff_disk_has(fs->disk,mount->offset+fat_rel,mount->entry_bytes) ||
+       disk_word(fs,mount->offset+fat_rel,mount->entry_bytes)!=UINT32_MAX)return 0;
+    uint32_t count=0;ff_fatx_directory_entry entry;
+    if(ff_fatx_directory_count(fs,mount->id,NULL,0,0,&count) || count!=1u ||
+       ff_fatx_directory_at(fs,mount->id,NULL,0,0,0,&entry) ||
+       entry.attributes!=cursor->attributes || entry.first_cluster!=cursor->first_cluster ||
+       strlen(entry.name)!=cursor->name_bytes || memcmp(entry.name,cursor->name,cursor->name_bytes) ||
+       !single_cluster_file(fs,mount,&entry))return 0;
+    ff_fatx_directory_entry at_root;
+    if(parse_entry(fs,mount,root,&at_root)!=FF_FATX_PARSE_OK ||
+       strcmp(at_root.name,entry.name) || at_root.attributes!=entry.attributes ||
+       at_root.first_cluster!=entry.first_cluster || at_root.size!=entry.size ||
+       ff_disk_byte(fs->disk,root+64u)!=0xffu)return 0;
+    if(file_out)*file_out=file;
+    if(mount_out)*mount_out=mount;
+    return 1;
+}
+uint32_t ff_fatx_single_cursor_begin(ff_fatx_volume *fs,uint32_t handle,const uint8_t *record,
+                                     uint32_t record_bytes,ff_fatx_single_cursor *cursor)
+{
+    if(!fs || !fs->disk || !fs->space || !fs->disk->memory ||
+       fs->space->memory!=fs->disk->memory || !record || !cursor)return FF_BOOT_INVALID;
+    if(cursor->owner || cursor->backing || cursor->namespace_owner || cursor->handle ||
+       cursor->file_id || cursor->mount || cursor->device || cursor->serial || cursor->index || cursor->mount_offset ||
+       cursor->mount_bytes || cursor->mount_data_offset || cursor->mount_revision ||
+       cursor->root_cluster || cursor->root_clusters || cursor->cluster_bytes || cursor->entry_bytes ||
+       cursor->attributes || cursor->first_cluster || cursor->initial_size || cursor->name_bytes ||
+       cursor->consumed || cursor->finished)return FF_BOOT_UNSUPPORTED;
+    for(size_t i=0;i<sizeof cursor->name;++i)if(cursor->name[i])return FF_BOOT_UNSUPPORTED;
+    if(record_bytes!=76u)return FF_BOOT_UNSUPPORTED;
+    ff_fatx_file *file=file_handle(fs,handle);
+    if(!file || !ff_fatx_owns_handle(handle))return FF_BOOT_BAD_HANDLE;
+    ff_fatx_mount *mount=mount_id(fs,file->mount);
+    if(!mount || file->kind!=FF_FATX_HANDLE_ROOT || file->handle!=handle ||
+       file->references!=1u || file->access!=0x00100001u || !current(fs,mount) ||
+       !cursor_device_valid(fs,mount) || mount->root_cluster!=1u || mount->root_clusters!=1u ||
+       mount->cluster_bytes!=16384u || mount->entry_bytes!=4u)return FF_BOOT_UNSUPPORTED;
+    uint32_t count=0;ff_fatx_directory_entry entry;
+    if(ff_fatx_directory_count(fs,mount->id,NULL,0,0,&count) || count!=1u ||
+       ff_fatx_directory_at(fs,mount->id,NULL,0,0,0,&entry) ||
+       !single_cluster_file(fs,mount,&entry))return FF_BOOT_UNSUPPORTED;
+    const uint32_t name_bytes=(uint32_t)strlen(entry.name);
+    if(name_bytes!=12u)return FF_BOOT_UNSUPPORTED;
+    uint8_t expected[76]={0};
+    record_put(expected,0x28u,entry.size,8);record_put(expected,0x30u,mount->cluster_bytes,8);
+    record_put(expected,0x38u,entry.attributes,4);record_put(expected,0x3cu,name_bytes,4);
+    memcpy(expected+0x40u,entry.name,name_bytes);
+    if(memcmp(record,expected,sizeof expected))return FF_BOOT_UNSUPPORTED;
+    if(mount->offset>UINT64_MAX-mount->data_offset)return FF_BOOT_UNSUPPORTED;
+    const uint64_t root=mount->offset+mount->data_offset;
+    const uint64_t fat_rel=4096u+(uint64_t)mount->root_cluster*mount->entry_bytes;
+    if(root<mount->offset || root-mount->offset>mount->bytes ||
+       mount->cluster_bytes>mount->bytes-(root-mount->offset) || fat_rel>mount->bytes ||
+       mount->entry_bytes>mount->bytes-fat_rel || fat_rel>UINT64_MAX-mount->offset ||
+       !ff_disk_has(fs->disk,root,mount->cluster_bytes) ||
+       !ff_disk_has(fs->disk,mount->offset+fat_rel,mount->entry_bytes) ||
+       disk_word(fs,mount->offset+fat_rel,mount->entry_bytes)!=UINT32_MAX ||
+       ff_disk_byte(fs->disk,root+64u)!=0xffu)return FF_BOOT_UNSUPPORTED;
+    ff_fatx_directory_entry on_disk;
+    if(parse_entry(fs,mount,root,&on_disk)!=FF_FATX_PARSE_OK ||
+       strcmp(on_disk.name,entry.name) || on_disk.attributes!=entry.attributes ||
+       on_disk.first_cluster!=entry.first_cluster || on_disk.size!=entry.size)return FF_BOOT_UNSUPPORTED;
+    for(uint32_t i=52u;i<64u;i+=4u)if(disk_word(fs,root+i,4)!=UINT32_MAX)
+        return FF_BOOT_UNSUPPORTED;
+    ff_fatx_single_cursor next;memset(&next,0,sizeof next);
+    next.owner=fs;next.backing=fs->disk;next.namespace_owner=fs->space;
+    next.handle=handle;next.file_id=file->id;next.mount=mount->id;next.device=mount->device;next.serial=mount->serial;next.index=1;
+    next.mount_offset=mount->offset;next.mount_bytes=mount->bytes;next.mount_data_offset=mount->data_offset;
+    next.mount_revision=mount->revision;next.root_cluster=mount->root_cluster;
+    next.root_clusters=mount->root_clusters;next.cluster_bytes=mount->cluster_bytes;
+    next.entry_bytes=mount->entry_bytes;next.attributes=entry.attributes;
+    next.first_cluster=entry.first_cluster;next.initial_size=entry.size;next.name_bytes=name_bytes;
+    memcpy(next.name,entry.name,name_bytes+1u);next.consumed=1;
+    *cursor=next;return 0;
+}
+uint32_t ff_fatx_query_directory_next_single(ff_fatx_volume *fs,const uint32_t args[10],
+                                             ff_fatx_single_cursor *cursor)
+{
+    if(!fs || !fs->disk || !fs->space || !args || !cursor || !fs->disk->memory ||
+       fs->space->memory!=fs->disk->memory)return FF_BOOT_INVALID;
+    if(cursor->finished || !cursor_live_entry(fs,cursor,NULL,NULL))return FF_BOOT_UNSUPPORTED;
+    if(args[0]!=cursor->handle || args[1] || args[2] || args[3] || args[6]!=0x148u ||
+       args[7]!=1u || args[8] || args[9])return FF_BOOT_UNSUPPORTED;
+    const uint32_t iosb=args[4],output=args[5];
+    if((iosb|output)&3u)return FF_BOOT_INVALID;
+    if(!admitted(fs,iosb,8,FF_VM_WRITE) || !admitted(fs,output,0x148u,FF_VM_WRITE))
+        return FF_VM_ACCESS_VIOLATION;
+    if(overlap(iosb,8,output,0x148u))return FF_BOOT_UNSUPPORTED;
+    result(fs,iosb,0x80000006u,0);cursor->finished=1;return 0x80000006u;
 }
