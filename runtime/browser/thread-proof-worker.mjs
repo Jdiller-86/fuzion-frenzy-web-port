@@ -16,6 +16,7 @@ import { readTraceCapture, readTraceCpuWord, selectTraceCapture, traceCaptureExp
 import { selectDebugServiceWindow, readDebugServiceWindow } from './debug-service-window.mjs';
 import { requireMutantWaitCapability, selectMutantWait, readMutantWaitState } from './local-mutant-wait.mjs';
 import { requireMutantReleaseCapability, selectMutantRelease, readMutantSynchronizationStates } from './local-mutant-release.mjs';
+import { DiscSessionCore } from './disc-session-core.mjs';
 
 /* A boundary report is evidence for a human reader, so it is validated before it
  * is posted: a malformed or out-of-range report becomes an error message instead
@@ -34,8 +35,27 @@ import { createSubmissionProbe } from './submission-probe.mjs';
 
 const fields = ['id','handle','handleOpen','state','object','fs','stackLow','stackTop','tls','tlsBytes',
   'routine','context','system','initialSp'];
+const imageBytesLow = bytes => Number(BigInt(bytes) & 0xffffffffn);
+const imageBytesHigh = bytes => Number(BigInt(bytes) >> 32n);
 self.onmessage = async event => {
+  let discSession;
+  let discApi;
+  let discPrepared=false;
+  let discReleaseAttempted=false;
   try {
+    const hasDiscImage=Object.hasOwn(event.data,'discImage');
+    const hasDiscOptIn=Object.hasOwn(event.data,'discOptIn');
+    const discOptedIn=event.data.discOptIn===true;
+    if(hasDiscImage!==hasDiscOptIn || (hasDiscImage && (!discOptedIn || !(event.data.discImage instanceof Blob))))
+      throw new Error('Local disc provider requires both an explicit opt-in and a Blob image');
+    if(discOptedIn && !hasDiscImage)throw new Error('Local disc provider opt-in requires a Blob image');
+    if(discOptedIn) {
+      const image=event.data.discImage;
+      if(!Number.isSafeInteger(image.size) || image.size<1 || image.size%2048!==0)
+        throw new Error('Local disc image size must be a safe sector-aligned integer');
+      discSession=new DiscSessionCore();
+      await discSession.open(image,{size:2834432,sha256:'45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9'});
+    }
     const selectedClockSettings=event.data.settingsBytes?parseLocalConsoleSettings(event.data.settingsBytes):undefined;
     const selectedClock=selectedClockSettings?.systemClock;
     const clock = createProofClock({fixedSystemProfile:selectedClock,pauseProfile:selectedClockSettings?.clockPause,
@@ -287,6 +307,16 @@ self.onmessage = async event => {
       if (['namespace_init','namespace_count','namespace_word','namespace_name','namespace_target_name','namespace_resolution'].some(name =>
         typeof api['ff_probe_' + name] !== 'function')) throw new Error('Missing object namespace ABI');
       if (api.ff_probe_namespace_init()) throw new Error('Cannot admit guest device namespace');
+    }
+    if(discOptedIn) {
+      if(typeof api.ff_probe_sdk_disc_prepare!=='function' || typeof api.ff_probe_sdk_disc_word!=='function' ||
+         typeof api.ff_probe_sdk_disc_release!=='function')
+        throw new Error('Missing explicit SDK local-disc provider ABI');
+      if(!namespaceAbi) throw new Error('Local-disc provider requires the initialized object namespace');
+      discApi=api;
+      if(api.ff_probe_sdk_disc_prepare(1,imageBytesLow(discSession.image.size),imageBytesHigh(discSession.image.size)))
+        throw new Error('Cannot stage the validated read-only local-disc capability');
+      discPrepared=true;
     }
     if (profile.sections.some(s => s.address + s.virtualBytes > 0x03c00000)) throw new Error('Image overlaps boot-thread arena');
     const fileClockWindow=regularAbi?{beforeSystemTicks:clock.sample().system.toString()}:undefined;
@@ -644,8 +674,18 @@ self.onmessage = async event => {
         created?.output?.link===link.id && created.output.target===disc.id && created.output.targetReferences===disc.references;
       checks.caseInsensitiveDriveResolution = !!disc && objectNamespace.driveResolution.status===0 && objectNamespace.driveResolution.object===disc.id &&
         objectNamespace.driveResolution.remainingOffset===7 && objectNamespace.driveResolution.remainingBytes===0;
-      checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 && disc.mediaReady===0 && created?.output?.mediaReady===0 &&
-        objectNamespace.objects.filter(row=>row.kind===2 && row.deviceKind===1).every(row=>row.mediaReady===0);
+      const discCapability=discOptedIn?Array.from({length:32},(_,i)=>api.ff_probe_sdk_disc_word(i)>>>0):undefined;
+      checks.noImplicitDiscContentMounted = !!disc && disc.deviceKind===1 &&
+        (discOptedIn || disc.mediaReady===0) && created?.output?.mediaReady===0 &&
+        objectNamespace.objects.filter(row=>row.kind===2 && row.deviceKind===1).every(row=>row.id===disc.id || row.mediaReady===0);
+      if(discOptedIn) {
+        if(discCapability[0]!==1 || discCapability[1]!==1 || discCapability[2]!==imageBytesLow(discSession.image.size) ||
+           discCapability[3]!==imageBytesHigh(discSession.image.size) || discCapability[4]>1)
+          throw new Error('Invalid staged local-disc capability observation');
+        checks.localDiscNamespaceMatchesCapability = discCapability[4]===0
+          ? disc.mediaReady===0 && (disc.providerObject??0)===0
+          : disc.deviceKind===1 && disc.mediaReady===1 && disc.providerObject===1 && discCapability[5]===disc.id;
+      }
       checks.originalNextHelperEntered = reachedNamespaceDependency || reachedFormatDependency || reachedDirectoryLink || reachedRegularFileRequest;
     }
     const admittedGuestRange = (address, bytes, access) => {
@@ -1241,7 +1281,7 @@ self.onmessage = async event => {
         originalStartup.initializerCoverage='prefix-omitted';
       }
     }
-    postBoundary({ kind: 'thread-startup-boundary', phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
+    const boundaryReport={ kind: 'thread-startup-boundary', ...(discOptedIn?{discSession:{validated:true,readOnly:true,providerId:1,imageBytes:discSession.image.size,fileDataReads:discSession.dataBytesRead,capabilityWords:Array.from({length:32},(_,i)=>api.ff_probe_sdk_disc_word(i)>>>0)}}:{}), phase: initializerAbi ? 'original-initializer-bringup' : reachedPostImageSetting ? 'original-image-written-settings-stop' : completedImageFlow ? 'original-image-written-initializer-returned' : reachedImageSectionRequest ? 'original-title-image-section-stop' : reachedWrittenFileHelper ? 'original-metadata-write-next-stop' : reachedMetadataWrite ? 'original-metadata-format-write-stop' : reachedFileMetadataHelper ? 'original-file-create-query-next-stop' : reachedRegularFileRequest ? 'original-file-link-regular-file-stop' : reachedDirectoryLink ? 'original-title-directory-link-stop' : reachedFormatDependency ? 'original-format-next-stop' : reachedNamespaceDependency ? 'original-drive-helper-stop' : reachedVolumeLifecycle ? 'original-volume-drive-stop' : reachedFileRequest ? 'original-heap-file-stop' : reachedHeapDependency ? 'heap-first-page-next-stop' : reachedAllocation ? 'original-copy-allocation-stop' : reachedTimerArmed ? 'timer-armed-next-stop' : reachedTimerRequest ? 'crt-timer-request' : reachedThreadEntry ? 'original-thread-entry' : 'original-child-tls',
       verified: !initializerAbi && Object.values(checks).every(Boolean), checks:initializerAbi?undefined:checks,originalStartup,debugServiceState,timestampBoundary,performanceClockState,performanceCounterState,
       ...(consoleSettings?.mutants?.kind==='synthetic-win32-mutants'?{localMutantState:mutantState}:mutantState?{mutantState}:{}),...(mutantWaitState?{mutantWaitState}:{}),...(mutantReleaseState?{mutantReleaseState}:{}),eventState,
       contextWords: typeof api.ff_probe_context_word === 'function'
@@ -1251,6 +1291,32 @@ self.onmessage = async event => {
       threads, threadLocalStorage, objectInitialization, timerQueue, allocationRequest, copyProof, virtualMemory, heapProof, openFileRequest, createFileRequest, createFileStopRequest, symbolicLinkRequest, tlsSelfReference: view.getUint32(thread.tls, true),
       metadataFormat,metadataWriteRequest,imageFileRequest,sectionLoadRequest,imageInitialState,imageSectionLifecycle,stop: { status: state[0], target: state[1], ordinal: state[2], stack: state[3], returnAddress: state[5], stackArguments: state.slice(6, 16), service: state[0] === 1 ? describeKernelService(state[2]) : undefined },
       gameBooted: false, memoryBytes: memory.byteLength,
-      limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' });
+      limitation: 'Boot-thread dispatch only; no preemption, waits, complete kernel, renderer or playable game. Unsupported original calls stop.' };
+    if(discOptedIn) {
+      discReleaseAttempted=true;
+      if(discApi.ff_probe_sdk_disc_release(1)!==0)throw new Error('Cannot release the staged local-disc capability');
+      const postReleaseWords=Array.from({length:32},(_,i)=>discApi.ff_probe_sdk_disc_word(i)>>>0);
+      if(postReleaseWords[0]!==0 || postReleaseWords[4]!==0 || postReleaseWords[26]!==1)
+        throw new Error('Local-disc release did not clear its binding and mark release');
+      const discId=boundaryReport.discSession.capabilityWords[5];
+      const discIndex=Array.from({length:discApi.ff_probe_namespace_count()},(_,i)=>i)
+        .find(i=>discApi.ff_probe_namespace_word(i,0)===discId);
+      if(discIndex===undefined || discApi.ff_probe_namespace_word(discIndex,2)!==2 ||
+         discApi.ff_probe_namespace_word(discIndex,5)!==1 || discApi.ff_probe_namespace_word(discIndex,6)!==0 ||
+         discApi.ff_probe_namespace_word(discIndex,7)!==0)
+        throw new Error('Local-disc release did not unbind the guest namespace device');
+      discSession.close();
+      if(!discSession.closed || discSession.image!==null)throw new Error('Local-disc session did not close');
+      boundaryReport.discSession.released=true;
+      boundaryReport.discSession.postReleaseWords=postReleaseWords;
+    }
+    postBoundary(boundaryReport);
   } catch (error) { self.postMessage({ kind: 'error', message: String(error) }); }
+  finally {
+    if(discPrepared && !discReleaseAttempted) {
+      discReleaseAttempted=true;
+      try { discApi.ff_probe_sdk_disc_release(1); } catch { /* Worker teardown discards the module on failed cleanup. */ }
+    }
+    discSession?.close();
+  }
 };

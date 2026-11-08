@@ -2424,6 +2424,9 @@ static void create_directory(void)
     if(fatx_parent_handle(row[4])){row[1]=FF_BOOT_UNSUPPORTED;stop(9,row[1],190);}
 #endif
     if (!volume_ready) stop(9, 0, 190);
+#ifdef FF_PROBE_CREATE_FILE_PROVIDER
+    if (!FF_PROBE_CREATE_FILE_PROVIDER(row + 2, row + 1)) {
+#endif
 #ifdef FF_REGULAR_FILE_PROOF
 #ifdef FF_FATX_PROOF
     if (!(row[10]&1u) && row[4] && !(row[4]&3u) &&
@@ -2435,6 +2438,9 @@ static void create_directory(void)
     row[1] = (row[10]&1u)?ff_volume_create_directory(&local_volume,row+2):ff_volume_create_file(&local_volume,row+2,timers.system_time);
 #else
     row[1] = ff_volume_create_directory(&local_volume, row + 2);
+#endif
+#ifdef FF_PROBE_CREATE_FILE_PROVIDER
+    }
 #endif
     if (row[1] == FF_BOOT_UNSUPPORTED || row[1] == FF_VM_ACCESS_VIOLATION || row[1] == FF_BOOT_INVALID) stop(9, row[1], 190);
     if (!row[1]) { row[11] = MEM32(row[2]); row[12] = MEM32(row[5]); row[13] = MEM32(row[5] + 4); }
@@ -2452,6 +2458,9 @@ static void create_directory(void)
     }
 #endif
     g_eax = row[1]; g_esp += 40;
+#ifdef FF_PROBE_CREATE_FILE_RETURN
+    FF_PROBE_CREATE_FILE_RETURN(row);
+#endif
 }
 #ifdef FF_REGULAR_FILE_PROOF
 static void query_file_information(void)

@@ -29,6 +29,9 @@ const files = new Map([
   ['/runtime/browser/kernel-capture.mjs', ['runtime/browser/kernel-capture.mjs', 'text/javascript']],
   ['/runtime/browser/console-os-settings.mjs', ['runtime/browser/console-os-settings.mjs', 'text/javascript']],
   ['/runtime/browser/thread-proof-worker.mjs', ['runtime/browser/thread-proof-worker.mjs', 'text/javascript']],
+  ['/runtime/browser/disc-session-core.mjs', ['runtime/browser/disc-session-core.mjs', 'text/javascript']],
+  ['/host/xdvdfs.mjs', ['host/xdvdfs.mjs', 'text/javascript']],
+  ['/host/identity.mjs', ['host/identity.mjs', 'text/javascript']],
   ['/runtime/browser/wasm-proof.mjs', ['runtime/browser/wasm-proof.mjs', 'text/javascript']],
   ['/runtime/browser/startup-proof-worker.mjs', ['runtime/browser/startup-proof-worker.mjs', 'text/javascript']]
 ]);
