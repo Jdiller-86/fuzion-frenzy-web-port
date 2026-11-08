@@ -1,21 +1,17 @@
-# Continue from the reached `0x4D620` caller
+# Continue from the reached `0x4C480` provider seam
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active and incomplete; original/generated content stays local.
 
 ## Current boundary
 
-M42 reuses original `0x4BF10` and its supported subtree for the selected `0x4D4F0` caller. Actual allocator RET returns payload `0x006F4130` at ESP `0x03C10E3C`; its selected header is `0x006F4100`, extent `0x80`. Provenance/extent/non-overlap checks precede fresh stores. Full payload/list checks and 24 ordered stores pass. Actual parent `0x4D4F0` returns EAX 1 at ESP `0x03C10E60` to `0x4F639`; the prior hash-child proof remains retained.
+M43 completes three original startup calls with separate records and actual RETs:4D620→6F41B0 atESP03C10E54/RA4F647,4D4F0→EAX1 atESP03C10E50/RA4F656,4D620→6F4680 atESP03C10E44/RA4F664. All three use the existing allocator/wait/node/release subtree; actual selected headers/extents and in-module full-image/list witnesses precede and verify11/25/11 original stores. Prior M42 and historical banks remain preserved.
 
-Next actual stop: status2 at `0x4D620`, ESP `0x03C10E50`, return `0x4F647`, args `0x0025C4D0, 4, 0`. Its original body has not executed for this invocation, and enclosing `0x4F5E0` remains pending. The four-case comparison and independent source/build/harness/browser reviews pass. Default41 is full-record exact except case/module identity. All prior 3,066 CPU and 375 kernel rows remain exact prefixes; latest capture is 3,080 CPU / 377 kernel rows, with 468 distinct routines and 889/884 kernel record/raw-zero counts.
+Next actual stop:status2 at4C480, ESP03C10E50/RA4F68E. Its caller supplies four arguments40000/25C558/162/2006; extra captured words are ambient. The retained C wrapper is present, but its SDK provider remains unbound. Its body and enclosing4F5E0 return remain unexecuted/unaccepted. Assess live table-derived allocator state and distinct2006 flags before reusing prior2001 behavior.
 
-Build01 reused 79/88 objects and compiled 9. Module: 1,409,522 bytes, SHA `a31a453f889cd84c2d768652dac93dcf44fe02199a32ec2ffd5fa804d2c6ed4d`; same fixed128MiB/clock-only/186-export/no-start and 510/23332/32/last31/29maps/64bindings limits. Launcher01 stopped at missing opt-in before browser/game cases; launcher02 succeeds. [Status](status.md) owns the exact audit identities and evidence limits; private records are in `research/verification/sdk-allocator-scope-20261108/`.
+The four-case comparison and independent source/build/harness/browser audit pass (`da08247cc53a3f185c5af0e2f0a3a96d0872fed474495e6fe69319769b7c7121`). Full default42 is exact except case/module identity; previous3080CPU/377kernel rows are exact prefixes. Latest3137CPU/383kernel capture rows,469distinct routines and895/890kernel record/raw-zero counts. Wait/release4→7. Module1,491,992B SHA770fe560df01a4f225704b24960b777cc49704f93b2c3dd4f8af556183059bf8;79reused9compiled. Same128MiB/clock-only/186exports/no-start; totals511/23388/32/last32/30maps/64bindings fit unchanged caps. [Status](status.md) owns exact identities and limits; private evidence is in `research/verification/sdk-4d620-family-20261108/`.
 
-Forecast16/28/49, about15 completed packages and22 smaller checkpoints since E1 remain low confidence. The selected call completes within open startup work; no new package, original screen/audio/round or M1 acceptance is claimed. Preserve synthetic-service, partial-capture, general flags/scheduling/allocator and physical-input limits.
-
-## In-progress preparation
-
-SCOPE-35 has a frozen private profile43 source candidate for `0x4D620` and its related caller family. Separate original-byte/layout/decoder evidence passes static review; the completed candidate integration review rejects a count/register expectation error and missing direct-child context/mapping/execute-admission checks. Correct and re-review the source before compilation. The comparison harness has syntax verification only; no M43 build or execution exists. [Status](status.md#current-preparation-and-review) records candidate/review identities and provider/evidence limits. M42 remains the last browser-verified boundary; no package or milestone acceptance changes.
+Forecast16/28/49, about15 completed packages and23 smaller checkpoints sinceE1 remain low confidence. Startup is still open; no new whole package, original screen/audio/round or M1 acceptance follows. Preserve synthetic-service, partial-capture, general flags/scheduling/allocator, raw-image witness and physical-input limits.
 
 ## Next bounded task
 
-**SCOPE-35:** assess the reached `0x4D620` and the remaining `0x4F5E0` caller family. Reuse matching generated bodies and supported helper/provider paths as a coherent batch, preserving separate invocation records, actual call/return state, full default42 comparison and all caps. Stop at unsupported behavior; static source availability is not runtime admission.
+**SCOPE-36:** reuse the retained4C480 C wrapper through a checked SDK/C-provider bridge, assessing its distinct2006 allocation branch and live derived argument. Preserve actual context, separate call/return evidence, complete allocation checks, full default43 comparison and all caps. Stop at unsupported services/branches/resources or failed checks; static source availability is not runtime admission.
