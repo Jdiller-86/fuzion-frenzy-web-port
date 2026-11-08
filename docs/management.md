@@ -41,6 +41,10 @@ Workflow dispatch supports snapshot or sync, with preview unless Apply is select
 
 The run's `project-tracking-*` artifact contains repository/board JSON receipts and `progress/index.html`, a standalone offline view. It separates accepted gates from completed tasks, provides status filtering and links to native issues. Arbitrary Project notes and Waiting resource text are excluded from the exported receipt.
 
+## User-directed progress checkpoint policy
+
+For ongoing M1 work, keep verified coherent progress visible on main through a reviewed source-only pull request with passing CI, then update native issue notes with the actual checkpoint, evidence identities, review state and remaining limits. Keep all milestone acceptance boxes and parent gates unchecked until their stated criteria are met. This is a user-directed publication workflow, not a persistent scheduler, automatic release, or permission to publish original or derived game content.
+
 ## README graph and public report
 
 The [public graph](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/) follows CTR-2-WUP's presentation: a dark SVG summary in the README opens an interactive milestone/task dependency graph. Select a node to inspect source-reviewed scope and acceptance criteria, then follow its native issue for current evidence. Status and milestone filters narrow the graph. Completed work never accepts a gate automatically.
