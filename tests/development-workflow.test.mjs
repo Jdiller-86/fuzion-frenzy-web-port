@@ -6,7 +6,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {ROOT, loadState, validateState, stateBlock, replaceStateBlock, syncDocuments, DOCUMENTS} from '../tools/development-state.mjs';
-import {REQUIRED, baselineTemplate, validateBaseline, inspectBaseline} from '../tools/development-preflight.mjs';
+import {REQUIRED, REPLAY_REQUIRED, baselineTemplate, validateBaseline, inspectBaseline} from '../tools/development-preflight.mjs';
 import {appendRecord, summarize, runScripts, validateRecord} from '../tools/development-task.mjs';
 
 function temporary(t) {
@@ -29,15 +29,32 @@ function baseline(t) {
   return {root,state,manifest,file};
 }
 
+function replayBaseline(t) {
+  const f=baseline(t), run=`browser-${f.state.checkpoint.profile}-run-02`;
+  const toolchain=fs.readFileSync(path.join(ROOT,'tools/original-execution-toolchain.json'));
+  fs.writeFileSync(path.join(f.root,'toolchainManifest'),toolchain);
+  Object.assign(f.manifest.files.find(x=>x.id==='toolchainManifest'),{bytes:toolchain.length,sha256:digest(toolchain)});
+  const roles={controlReport:'control',inertReport:'inert',previousReport:'default',experimentReport:'selected'};
+  const audit={moduleSha256:f.state.checkpoint.moduleSha256,harness:{run},artifacts:Object.fromEntries(
+    Object.entries(roles).map(([id,role])=>[`${run}/browser-${role}.json`,f.manifest.files.find(x=>x.id===id).sha256]))};
+  const bytes=Buffer.from(JSON.stringify(audit));fs.writeFileSync(path.join(f.root,'audit'),bytes);
+  Object.assign(f.manifest.files.find(x=>x.id==='audit'),{bytes:bytes.length,sha256:digest(bytes)});
+  f.state.checkpoint.auditSha256=digest(bytes);
+  const manifest={schemaVersion:2,purpose:'replay',checkpointSourceCommit:f.state.checkpoint.sourceCommit,
+    profile:f.state.checkpoint.profile,files:REPLAY_REQUIRED.map(id=>({...f.manifest.files.find(x=>x.id===id)}))};
+  fs.writeFileSync(f.file,JSON.stringify(manifest));
+  return {...f,analysisManifest:f.manifest,manifest,audit};
+}
+
 test('current pointers are synchronized; stale or duplicated pointers fail closed', t => {
-  const root=temporary(t), state=loadState();
+  const root=temporary(t), state={...loadState(),status:'in-progress'};
   fs.mkdirSync(path.join(root,'profiles')); fs.mkdirSync(path.join(root,'docs'));
   fs.writeFileSync(path.join(root,'profiles/development-state.json'),JSON.stringify(state));
   for (const name of DOCUMENTS) fs.writeFileSync(path.join(root,name),'# Owned document\n\nExisting evidence stays intact.\n');
   assert.equal(syncDocuments(root).length,DOCUMENTS.length);
   assert.deepEqual(syncDocuments(root,{check:true}),[]);
   assert.match(fs.readFileSync(path.join(root,'docs/status.md'),'utf8'),/Existing evidence stays intact/);
-  const file=path.join(root,'AGENTS.md');fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('SCOPE-37','SCOPE-999'));
+  const file=path.join(root,'AGENTS.md');fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace(state.nextTask.id,'SCOPE-999'));
   assert.throws(()=>syncDocuments(root,{check:true}),/Development state drift/);
   assert.throws(()=>replaceStateBlock('# T\n<!-- development-state:start -->\n',stateBlock(state,'AGENTS.md')),/Malformed/);
   assert.throws(()=>replaceStateBlock('# T\n<!-- development-state:end --><!-- development-state:start -->',stateBlock(state,'AGENTS.md')),/Reversed/);
@@ -73,6 +90,54 @@ test('a self-consistent but wrong module or stale profile cannot pass preflight'
   const duplicate=structuredClone(f.manifest);duplicate.files[1]=duplicate.files[0];
   assert.throws(()=>validateBaseline(duplicate,f.state),/duplicate/);
   assert.throws(()=>validateBaseline(baselineTemplate(f.state),f.state),/SHA-256|byte count/,'An unfilled template is never a passing baseline');
+});
+
+test('explicit replay checks retained inputs without claiming a Ghidra project or new code facts', async t => {
+  const f=replayBaseline(t);
+  for(const id of ['analysisProject','seedIndex','preparedProfile'])fs.unlinkSync(path.join(f.root,id));
+  assert.ok((await inspectBaseline(f.file,f.state,{purpose:'replay'})).every(x=>x.status==='verified'));
+  const legacy=path.join(f.root,'analysis.json');fs.writeFileSync(legacy,JSON.stringify(f.analysisManifest));
+  assert.equal((await inspectBaseline(legacy,f.state)).find(x=>x.id==='analysisProject').status,'missing');
+  assert.throws(()=>validateBaseline(f.manifest,f.state),/schema/,'Replay purpose is never selected implicitly');
+  assert.throws(()=>validateBaseline(f.analysisManifest,f.state,{purpose:'replay'}),/schema/);
+  const template=baselineTemplate(f.state,{purpose:'replay'});
+  assert.equal(template.schemaVersion,2);assert.equal(template.purpose,'replay');assert.equal(template.files.length,8);
+  assert.throws(()=>validateBaseline(template,f.state,{purpose:'replay'}),/SHA-256|byte count/);
+});
+
+test('replay provenance refuses freshly chosen report and toolchain hashes', async t => {
+  const f=replayBaseline(t);
+  for(const id of ['controlReport','toolchainManifest']) {
+    const bytes=Buffer.from('owned replacement with a newly calculated hash');
+    fs.writeFileSync(path.join(f.root,id),bytes);
+    Object.assign(f.manifest.files.find(x=>x.id===id),{bytes:bytes.length,sha256:digest(bytes)});
+  }
+  fs.writeFileSync(f.file,JSON.stringify(f.manifest));
+  const result=await inspectBaseline(f.file,f.state,{purpose:'replay'});
+  assert.equal(result.find(x=>x.id==='controlReport').status,'provenance-mismatch');
+  assert.equal(result.find(x=>x.id==='toolchainManifest').status,'provenance-mismatch');
+});
+
+test('replay roles derive from the pinned audit; swapped roles and unverified audit fail closed', async t => {
+  const f=replayBaseline(t), control=f.manifest.files.find(x=>x.id==='controlReport');
+  Object.assign(control,{...f.manifest.files.find(x=>x.id==='experimentReport'),id:'controlReport'});
+  fs.writeFileSync(f.file,JSON.stringify(f.manifest));
+  assert.equal((await inspectBaseline(f.file,f.state,{purpose:'replay'})).find(x=>x.id==='controlReport').status,'provenance-mismatch');
+  f.audit.harness.run='../../untrusted';const bytes=Buffer.from(JSON.stringify(f.audit));
+  fs.writeFileSync(path.join(f.root,'audit'),bytes);
+  const changed=await inspectBaseline(f.file,f.state,{purpose:'replay'});
+  assert.notEqual(changed.find(x=>x.id==='audit').status,'verified');
+  Object.assign(f.manifest.files.find(x=>x.id==='audit'),{bytes:bytes.length,sha256:digest(bytes)});
+  assert.throws(()=>validateBaseline(f.manifest,f.state,{purpose:'replay'}),/audit identity/);
+});
+
+test('replay template and invalid purpose never execute private artifacts', () => {
+  const command=path.join(ROOT,'tools/development-preflight.mjs');
+  const template=spawnSync(process.execPath,[command,'--purpose','replay','--template'],{encoding:'utf8'});
+  assert.equal(template.status,0);const parsed=JSON.parse(template.stdout);
+  assert.equal(parsed.purpose,'replay');assert.equal(parsed.files.length,8);
+  const invalid=spawnSync(process.execPath,[command,'--purpose','skip-checks'],{encoding:'utf8'});
+  assert.equal(invalid.status,1);assert.match(invalid.stderr,/Unknown private preflight purpose/);
 });
 
 test('invalid private manifest diagnostics never print JSON fragments or local paths', t => {

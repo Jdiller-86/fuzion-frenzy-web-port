@@ -1,7 +1,7 @@
 # Documentation
 
 <!-- development-state:start -->
-Recorded development state: **M1 / in-progress**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 

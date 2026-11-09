@@ -22,25 +22,45 @@ Review the generated changes. Update module/audit/input identities only from the
 
 ## Verify the private baseline locally
 
-The default preflight succeeds in a source-only checkout while reporting `baselineIntegrityVerified: false`. This means public work can proceed; it is not a skipped runtime pass. For a task that requires original execution, require explicit private verification:
+The default preflight succeeds in a source-only checkout while reporting `baselineIntegrityVerified: false`. This means public work can proceed; it is not a skipped runtime pass. Select the inputs needed for the assigned activity explicitly:
+
+| Activity | Required evidence |
+| --- | --- |
+| Replay the unchanged accepted module | `--purpose replay`: the eight named replay inputs below, followed by a separately reviewed harness dependency closure and actual browser comparison. No analysis project is consumed. |
+| Reuse retained original bodies in a candidate | Replay inputs plus a separate claim-by-claim provenance review, retained body/byte/layout evidence, exact source/build/admission checks and independent correctness review. A passing replay preflight does not establish new code facts. |
+| Establish original-code facts through new analysis | Default `analysis` purpose: the original eleven named baseline files, plus the read-only analysis procedure and project/database verification required by [analysis setup](analysis.md). An individual project-file hash does not verify the complete database. |
+
+For an unchanged retained replay, use:
+
+```sh
+npm run dev:preflight -- --purpose replay --manifest research/verification/development-replay-baseline.json --require-private
+```
+
+Replay manifests use schema version2 and `purpose: "replay"`. Required identities are `xbe`, `module`, `controlReport`, `inertReport`, `previousReport`, `experimentReport`, `audit`, and `toolchainManifest`. Input/module/audit hashes and checkpoint identity must match the structured state. Report hashes must match fixed control/inert/default/selected artifact keys from that already verified audit's recorded run. The toolchain hash must match the fixed versioned toolchain manifest at the recorded source commit. Manifest commands and arbitrary provenance queries are never executed.
+
+The result is named-file verification only: it reports `verificationScope: "retained-module-replay-inputs"`, with complete-database, harness-closure and new-code-fact verification still false. Separately verify every consumed harness input, settings projection and served/imported source against retained authority before replay. A compatible local disc identity check is not a full-disc digest. Preserve the actual runtime and local-content guards.
+
+For new analysis, the original strict command remains:
 
 ```sh
 npm run dev:preflight -- --manifest research/verification/development-baseline.json --require-private
 ```
 
-Exit 0 means the named files match the manifest. Exit 2 means required inputs are missing or mismatched. Exit 1 means invalid arguments/manifest or a tool error. No compiler, analysis tool, target code or manifest-supplied command is executed. Complete database state, tool versions and actual retained browser replay still need verification before implementation.
+Exit 0 means the named files and applicable provenance match. Exit 2 means required named inputs are missing, mismatched or lack the required provenance. Exit 1 means a missing/invalid manifest, invalid arguments or a tool error. No compiler, analysis tool, target code or manifest-supplied command is executed. Analysis/schema1 behavior remains the default; schema2 replay cannot be selected implicitly or used to claim analysis integrity. Tool versions, consumed-input closure and actual retained browser replay need their own verification.
 
 Create a starting template **locally**, under ignored research, using direct Node so npm's banner does not enter the JSON:
 
 ```sh
 node tools/development-preflight.mjs --template > research/verification/development-baseline.json
+# Or, for a new replay manifest:
+node tools/development-preflight.mjs --purpose replay --template > research/verification/development-replay-baseline.json
 ```
 
 Use this redirection only for a new manifest; preserve an existing retained manifest instead of overwriting it. Create the ignored directory first if needed; the template command does not create it. Replace placeholders with actual retained file paths, byte counts and SHA-256 values. Paths resolve relative to the manifest's directory; absolute local paths are supported. The three known XBE/module/audit digests and profile/source identity must match the recorded checkpoint. Remaining digests must come from retained evidence, not values freshly chosen to make an unknown candidate pass. Keep the manifest private and do not attach it to issues or PRs.
 
-Required file identities are `xbe`, `analysisProject`, `seedIndex`, `preparedProfile`, `module`, `controlReport`, `inertReport`, `previousReport`, `experimentReport`, `audit`, and `toolchainManifest`. The analysis-project hash covers that named file only, not the full Ghidra database. The toolchain manifest must identify the actual retained compiler and preparation setup; its presence does not prove those tools execute. Never generate missing reports or invent expected hashes. The preflight streams file hashes and reports identity/status only, without paths or contents.
+The default analysis identities remain `xbe`, `analysisProject`, `seedIndex`, `preparedProfile`, `module`, `controlReport`, `inertReport`, `previousReport`, `experimentReport`, `audit`, and `toolchainManifest`. The analysis-project hash covers that named file only, not the full Ghidra database. The toolchain manifest identifies the retained compiler/preparation setup; its presence does not prove those tools execute. Never generate missing reports or invent expected hashes. Retained identity-verified exports may support a particular fact without the mutable project; assess their coverage before reconstructing analysis. The preflight streams file hashes and reports identity/status only, without paths or contents.
 
-The conventional default manifest is `research/verification/development-baseline.json`. Do not repeatedly download tools, reacquire game files or reconstruct a known baseline when retained artifacts exist elsewhere. Use the [local-agent handoff](local-agent-handoff.md) on that workstation.
+The conventional manifests are `research/verification/development-baseline.json` for default analysis and `research/verification/development-replay-baseline.json` for explicit replay. Preserve existing manifests when recording a new purpose or revision. Do not repeatedly download tools, reacquire game files or reconstruct analysis when sufficient retained evidence exists elsewhere. Use the [local-agent handoff](local-agent-handoff.md) on that workstation.
 
 ## Run one selected source check
 

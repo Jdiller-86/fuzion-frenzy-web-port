@@ -16,9 +16,13 @@ relevant parts of docs/architecture.md, docs/content.md,
 docs/compatibility.md, and docs/risks.md. Read docs/development-workflow.md
 for the exact usage of npm run dev:status, npm run dev:preflight,
 npm run dev:task, and npm run test:workflow; do not invent flags or usage.
-Before original-runtime work, use the documented private manifest with
-dev:preflight -- --require-private, then reproduce retained browser cases.
-The default source-only preflight's successful exit does not clear that gate.
+Before original-runtime work, identify the needed evidence by claim and use
+the documented purpose-specific private manifest with --require-private.
+Unchanged replay uses --purpose replay plus a separately reviewed consumed-input
+closure; retained-code candidates also need original-fact provenance and source/
+build review. New analysis keeps the default analysis gate and read-only procedure.
+Reproduce retained browser cases before candidate execution. A source-only
+preflight exit or replay-input pass does not establish new original-code facts.
 
 Detect the latest checkout, structured state, task ownership, and evidence
 before acting. The values in older handoff prose (including profile M44's

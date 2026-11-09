@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "milestone": "M1",
-  "status": "in-progress",
+  "status": "awaiting-evidence",
   "checkpoint": {
     "profile": 44,
     "sourceCommit": "d12c05cc80e0f23442cff4d2c9e844679f541557",
@@ -14,9 +14,9 @@
   },
   "nextTask": {
     "id": "SCOPE-37",
-    "goal": "Reuse the retained logger for its reached caller and assess supported startup continuation as one coherent batch.",
+    "goal": "Assess the unadmitted 4EA30 continuation from reviewed local logger evidence; retain the accepted M44 baseline.",
     "requiresPrivateBaseline": true,
-    "stopCondition": "Stop at unsupported format, provider, resource, branch, or failed guard; preserve default44 and all admission limits."
+    "stopCondition": "Do not infer 4EA30 admission from static body availability. Require purpose-specific private checks, caller/resource provenance and independent review; stop at unsupported behavior or failed guards. Preserve default44 and all admission limits."
   },
   "admission": {
     "functions": { "used": 511, "limit": 512 },
