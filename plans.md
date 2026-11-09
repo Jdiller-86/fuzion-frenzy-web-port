@@ -16,6 +16,8 @@ M1 startup integration is in progress. Use the generated development-state point
 
 The next implementation work should advance **M1: Original browser execution** through a bounded reached dependency. Existing startup, device-policy and stack-repair evidence supports that work. It does not complete any of the five project milestones.
 
+The [M1 browser work map](docs/m1-browser-work.md) names the execution-loop, resource, graphics, audio, input and original-round connections still to integrate, with evidence, rough structural sizes and completion checks. Use it with the scope ledger to report remaining work at the capability level.
+
 ## Milestones
 
 Following [CTR-2-WUP’s planning model](https://github.com/Jdiller-86/CTR-2-WUP/blob/9b2245595f7900d84a111ac7030bcba0bcb0a66a/plans.md#milestones), each milestone distinguishes its foundation from the remaining observable result. Full pass/fail criteria and work packages are in [project milestones](docs/milestones.md). Native [GitHub milestones](https://github.com/Jdiller-86/fuzion-frenzy-web-port/milestones) and their linked tracking issues own live status.

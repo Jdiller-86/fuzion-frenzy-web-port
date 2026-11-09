@@ -29,6 +29,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Optional private toolchain and analysis prerequisites | [Analysis](analysis.md) |
 | Resource reuse, automated preparation and fast M1 iteration | [Development workflow](resource-reuse.md) |
 | Measured M1 scope, existing providers, grouped gaps and next-task ledger | [M1 work scope](m1-work-scope.md) |
+| Named remaining browser connections, rough sizes, dependencies and observable completion checks | [M1 browser work map](m1-browser-work.md) |
 | Consequential choices | [Decisions](decisions.md) |
 | Contributions and repository instructions | [Contributing](../CONTRIBUTING.md) and [AGENTS](../AGENTS.md) |
 

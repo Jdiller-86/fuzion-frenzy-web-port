@@ -11,6 +11,8 @@ npm run dev:preflight
 
 [profiles/development-state.json](../profiles/development-state.json) owns the recorded checkpoint identity, current task and admission counts. Its source commit identifies the accepted evidence checkpoint, not necessarily the checkout HEAD. [Status](status.md) owns detailed observations, qualifications and private evidence identities. The generated pointer in the entry documents is checked by `npm run check`; it does not start a task or accept a milestone.
 
+The `dev:status` result links the [M1 browser work map](m1-browser-work.md). Use its MB work items to describe concrete remaining browser connections and their completion checks. Each M1 task report should identify its MB row, existing evidence, delivered connection, remaining features and next measurement. Keep S/M/L structural size distinct from a calibrated duration estimate.
+
 When a new runtime checkpoint is accepted, update the structured state and detailed status/handoff together, then run:
 
 ```sh

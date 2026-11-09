@@ -2,11 +2,13 @@
 
 Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
+For the concrete remaining **browser execution connections**, use the [M1 browser work map](m1-browser-work.md). It lists 24 named scope/integration/acceptance items, existing evidence, observable exits, dependencies and structural S/M/L sizes. Those rows decompose the capabilities below; they are not additional forecast packages. M1 reports should identify the affected MB row and its specific remaining connection instead of describing all browser work as unknown.
+
 ## Current planning refresh: profile forty-four
 
 M44 completes the retained original C4C480 allocation wrapper and its existing SDK allocator subtree on the same live context. Actual256KiB payload/header/extent and both original returns pass checks, with complete in-module payload/image witnesses and unchanged earlier six allocations. Full default43 and prior3137CPU/383kernel rows remain retained; independent source/build/harness/browser review passes. No original body/map/import/cap is added.
 
-SCOPE-36 is verified. **SCOPE-37** assesses the reached one-argument4F6BD→4B230 logger caller: actualstatus2 target=ESP03C10E5C/RA4F6C2/arg25C89C, not a function-address stop. The existing C provider is caller-guarded; later4EA30 and enclosing4F5E0 remain pending. Forecast16/28/49/about15 completed packages remains unchanged because startup stays open;24 smaller checkpoints sinceE1. [Status](status.md) owns exact evidence identities and limits.
+SCOPE-36 is verified at the accepted M44 boundary. Its one-argument4F6BD→4B230 logger caller stops at actualstatus2 target=ESP03C10E5C/RA4F6C2/arg25C89C, not a function-address stop. The separate reviewed local R3 candidate subsequently returns through that logger and reaches the unadmitted4EA30 caller; its body and enclosing4F5E0 remain pending. **SCOPE-37 continuation** assesses that caller/resource/provider contract, corresponding first to MB02 in the browser work map. M44 remains the accepted checkpoint. Forecast16/28/49/about15 completed packages remains unchanged because startup stays open;24 accepted smaller checkpoints sinceE1. [Status](status.md) owns exact evidence identities and limits.
 
 ## Remaining M1 planning estimate (E1)
 

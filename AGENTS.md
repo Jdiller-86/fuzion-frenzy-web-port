@@ -25,6 +25,7 @@ Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md),
 ## Work method
 
 1. Select one unowned task with a functional objective, current milestone, exact stop/evidence, files in scope, acceptance checks, and a stop condition.
+   For M1, identify the affected [browser work item](docs/m1-browser-work.md) (MB01–MB24) alongside the current SCOPE task. Report its concrete remaining connection/features, evidence level and next measurement; do not label the entire browser runtime unknown.
 2. Inspect retained source and findings before repeating setup. State established facts, proposals, and unknowns; invent no original rules, timings, formats, instruction behavior, or runtime observations.
 3. Implement the smallest coherent result. Preserve existing bounded batch and pipeline admission limits. Stop at unsupported services/registers/resources or failed checks.
 4. Run targeted checks. CPU, memory, ABI, or GPU changes need independent correctness review. Broad repeat audits require a related change, regression, or unresolved risk.

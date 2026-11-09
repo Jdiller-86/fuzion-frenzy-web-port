@@ -23,6 +23,10 @@ closure; retained-code candidates also need original-fact provenance and source/
 build review. New analysis keeps the default analysis gate and read-only procedure.
 Reproduce retained browser cases before candidate execution. A source-only
 preflight exit or replay-input pass does not establish new original-code facts.
+For M1, also read docs/m1-browser-work.md. Name the affected MB work item
+alongside the SCOPE task and use its observable exit check. Report the exact
+remaining connection/features and next measurement, with a structural size
+revision where supported. Do not answer that all browser execution is unknown.
 
 Detect the latest checkout, structured state, task ownership, and evidence
 before acting. The values in older handoff prose (including profile M44's
