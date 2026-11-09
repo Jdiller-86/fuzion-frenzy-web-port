@@ -13,6 +13,8 @@ npm run dev:preflight
 
 The `dev:status` result links the [M1 browser work map](m1-browser-work.md). Use its MB work items to describe concrete remaining browser connections and their completion checks. Each M1 task report should identify its MB row, existing evidence, delivered connection, remaining features and next measurement. Keep S/M/L structural size distinct from a calibrated duration estimate.
 
+Select work using its [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order): runtime/admission bottlenecks, graphics with an early original frame, audio, then remaining path integration and acceptance. Pull forward the specific startup/read/input prerequisite needed for the next large proof; do not make every startup helper a gate on independent browser work.
+
 When a new runtime checkpoint is accepted, update the structured state and detailed status/handoff together, then run:
 
 ```sh
@@ -93,4 +95,4 @@ Records contain only source commit, a dirty-working-tree indicator, scope, phase
 
 Give each task a functional output, owned files, evidence prerequisites, focused checks and a stop condition. Prefer an existing provider/shared-interface repair over a new implementation per address. Preserve runtime invariance and independent review for changed CPU, memory, ABI or GPU behavior. Generate a compact review packet from retained manifests/reports; do not copy private content into public summaries.
 
-The [local handoff](local-agent-handoff.md) provides the next startup task and separate graphics, resource-read, scaling, browser-conversion and authority goals. Work on one assigned goal at a time, with independent source assessment or review in the second worker slot. The [authority assessment](online-authority-assessment.md) resolves what can be decided from public contracts and names the experiment still required before online implementation.
+The [local handoff](local-agent-handoff.md) provides bounded startup, graphics, resource-read, scaling, sustained-execution and audio goals, plus later-milestone browser-conversion and authority goals. Its letters are goal identifiers; the work map owns M1 priority. Work on one assigned goal at a time, with independent source assessment or review in the second worker slot. The [authority assessment](online-authority-assessment.md) resolves what can be decided from public contracts and names the experiment still required before online implementation.

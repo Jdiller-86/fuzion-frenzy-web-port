@@ -27,6 +27,10 @@ For M1, also read docs/m1-browser-work.md. Name the affected MB work item
 alongside the SCOPE task and use its observable exit check. Report the exact
 remaining connection/features and next measurement, with a structural size
 revision where supported. Do not answer that all browser execution is unknown.
+Use that map's largest-first implementation order. Pull a small prerequisite
+forward only to enable the next large proof, naming both in the report.
+The recorded SCOPE startup stop is a resume boundary; it does not block
+independent browser integration work. Goal letters are identifiers, not order.
 
 Detect the latest checkout, structured state, task ownership, and evidence
 before acting. The values in older handoff prose (including profile M44's
@@ -61,23 +65,25 @@ workers return their scoped work. Do not start another goal or schedule an
 unattended coding loop from this prompt.
 ```
 
-## Ordered, bounded goals
+## Bounded goals and selection
 
-Select SCOPE-37 first. The remaining goals are separately scoped follow-ups; they may proceed only when their stated prerequisite is satisfied and the coordinator assigns them. The graphics, resource-read, and admission-scaling tasks are independent investigations after the startup continuation is brought to a coherent stop. M2 and M3 are separate later planning/implementation slices and do not close M1.
+Use the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). After the bounded scenario/capacity/ownership decisions, assign **G (sustained execution)**, then **B (graphics, front-loading shader/combiner compatibility)**, then **H (original audio)**. Each is a sequence of separately assigned bounded slices, not approval to implement a whole subsystem in one session. Pull A/C/D forward only for the continuation, original read or admission work needed by the next large proof. Attempt MB17's original frame as soon as its prerequisites work. Do not finish every startup family before independent browser work. E and F belong to later milestones and do not close M1.
 
 ### A. Current M1 continuation: SCOPE-37 logger and startup caller
 
-**Prerequisite:** Re-read current status and inspect the latest structured task/evidence state. Confirm the actual stop and that this caller remains unowned. The current docs describe a one-argument logger caller whose existing C-provider guard reports a stack address; these details must be revalidated against current evidence.
+**Prerequisite:** Re-read current status and inspect the latest structured task/evidence state. Confirm the actual stop, ownership and which higher-priority proof needs this continuation. M44 remains accepted; the separately reviewed local R3 logger return reaches the unadmitted `0x4EA30` caller. Revalidate these details against retained evidence before acting; do not repeat a completed logger task merely because the accepted pointer still names its earlier stop.
 
-**Owned output:** The smallest source/build/harness changes needed to admit the exact reached logger caller, reuse retained formatter/file providers only where caller and format evidence support it, and assess the following supported startup continuation. Keep changes to the assigned runtime/evidence files and required synchronized status/handoff/research records.
+**Owned output:** Assess the exact reached `0x4EA30` caller's byte/layout, argument, resource and provider contract (MB02), then implement only an explicitly assigned supported continuation (MB03). Reuse the covered R3 logger evidence and existing providers where their contracts apply. Keep changes to assigned runtime/evidence files and required synchronized status/handoff/research records; list any uncovered fact instead of inventing callee semantics.
 
-**Acceptance:** Exact caller, argument, literal/format classification, and live provider state are source-supported; actual provider execution and return are observed through the existing guarded context; original cleanup and relevant ABI/FP/SEH/ownership checks pass. Preserve the full default comparison and prior CPU/kernel prefixes, all current function/binding/group/resource limits, and focused independent build/harness/browser review. A static body or available provider alone is not admission. Update the timing record with the measured run and evidence identity.
+**Acceptance:** For the assessment slice, retain source-supported caller/layout/argument/resource/provider findings and the exact direct-dependency list, explicitly identifying any missing authority. Assessment alone does not admit or execute the callee. For an assigned implementation slice, observe actual provider execution and return through the guarded context, with original cleanup and relevant ABI/FP/SEH/ownership checks passing. Preserve the full default comparison and prior CPU/kernel prefixes, all current function/binding/group/resource limits, and focused independent build/harness/browser review. A static body or available provider alone is not admission. Record measured work and evidence identity.
 
-**Stop:** Stop at any unsupported logger format, provider, resource, branch, or failed guard. Do not assume later `0x4EA30` or outer `0x4F5E0` return is covered; use the latest state to identify the actual addresses. Do not create a broader logger or general-formatting contract from this one caller.
+**Stop:** Stop at any unsupported format, provider, resource, branch, absent original-fact authority or failed guard. Do not assume `0x4EA30` or outer `0x4F5E0` return is covered; use the latest state to identify the actual addresses. Do not create a broader service contract from one invocation.
 
 ### B. Integrated browser graphics beyond the owned-triangle proof
 
 **Prerequisite:** Inspect current graphics work and the existing owned-triangle vertex-assembler proof. Confirm its precise coverage, current GPU/device stop, and whether a new integration task is unowned. Existing geometry prepasses and preview are component evidence, not integrated original command execution.
+
+**Priority within this goal:** Establish MB11's one backend/context seam and the minimum surface/submission path, then test the highest-impact required MB15 shader/combiner translation family early. Fill only the selected frame's necessary MB12–16 features before MB17 title hookup. Do not repeat the triangle proof or complete easy preview features while translation compatibility remains untested.
 
 **Owned output:** One narrowly selected integration seam from original guest graphics command/state handling into the existing browser renderer, with source-owned fixtures or harness support as needed. Name the exact command/state path before editing; do not undertake a renderer rewrite.
 
@@ -104,6 +110,26 @@ Select SCOPE-37 first. The remaining goals are separately scoped follow-ups; the
 **Acceptance:** The plan identifies exact inventories, recoverable slots and tradeoffs from retained evidence. Any implemented compaction reproduces the retained browser cases and all required body/provider/dispatch comparisons under unchanged caps. One-over-boundary candidates fail clearly before unsafe/partial admission, with no hidden truncation or silent cap increase. Focused boundary checks pass and the status/task record identifies exact counts, behavior, timing, and evidence provenance. A proposal without a browser replay remains a proposal.
 
 **Stop:** Stop if safe admission requires expanding a cap, remapping, new exports/imports, or a changed module contract. Submit that as a separate coordinator decision; do not silently raise limits or recompile a broader title.
+
+### G. Sustained browser execution and host delivery (MB05)
+
+**Prerequisite:** Record MB01's selected scenario and provisional requirements. Inspect the current generated execution boundaries, admitted module contract and MB04 capacity inventory. Resolve MB11's main-thread/worker context ownership with the graphics task before choosing a delivery scheme; a bounded interface decision is sufficient. Confirm task ownership and required local evidence. The existing synchronous proof run and pure `host-step` accumulator do not establish a continuing guest loop.
+
+**Owned output:** One reviewed execution/delivery slice connecting a supported guest execution boundary to the chosen browser host arrangement. Preserve guest state and existing unsupported stops while allowing the required browser delivery to progress. Compare alternatives only until one is selected, then implement that slice in explicitly assigned generator/runtime/browser files. Scope MB06/07 work to the contexts, waits and timing required by this slice. If no existing safe boundary is available, return the exact generator/ABI change proposal and its first executable experiment for a separate assignment.
+
+**Acceptance:** The browser experiment demonstrates continuing guest progress, preserved context/state and responsive selected host delivery, with timing/order and teardown checks. State which traffic is source-owned fixture evidence and which is actual original execution; a simulated accumulator or repeated fresh guest starts cannot establish MB05. Preserve the required retained browser comparisons when original execution changes, arrange independent CPU/memory/ABI review, and identify remaining title audio/input integration checks. Record the selected interface, evidence identity, measured effort and next dependent graphics slice.
+
+**Stop:** Stop at an unsupported resume/context/ownership contract, unsafe shared-memory access, unrecoverable host stall, failed comparison or a required unassigned module/admission change. Keep the stop and name the concrete blocker; independent source-owned backend compatibility work may continue under a separate assignment. Do not build a general Xbox scheduler or infer original cadence from a nominal 60 Hz host loop.
+
+### H. Original sound processing and audible browser delivery (MB18/19)
+
+**Prerequisite:** Inspect the selected scenario's required sound requests/formats and retained SDK/SDL/decoder reuse candidates. Confirm the chosen MB05/07 delivery/timing policy and the specific original resource path needed for the first sound. Use purpose-specific local evidence for original claims; an ADPCM preview or silent SDL callback is only component evidence.
+
+**Owned output:** One selected original sound-buffer/voice/format feature through a checked processing boundary (MB18), followed by one separately scoped audible-output slice (MB19). Choose one browser output route, reuse compatible implementations and identify exact raw-pointer/thread/file assumptions requiring adaptation. Version source-owned fixtures and curated findings only. Leave unused formats, mixer effects and streaming behaviors outside the assignment.
+
+**Acceptance:** The first slice verifies expected bounded PCM/buffer state and required start/stop/loop/lifetime behavior. The output slice demonstrates that original sound audibly reaches the selected browser route after user activation, with sample/timing/underrun/cleanup evidence. Record remaining scenario-required sound features and dependencies; a component result alone does not close original audio. Preserve focused existing checks and arrange independent review when CPU, memory or ABI behavior changes.
+
+**Stop:** Stop at unknown original format/voice semantics, unsupported resource ownership, absent local content authority, timing mismatch or a required unassigned interface change. Return the exact feature and next experiment; do not substitute a new soundtrack, silently emit zeros or claim a preview as title output.
 
 ### E. M2 browser-local title preparation and compile slice
 

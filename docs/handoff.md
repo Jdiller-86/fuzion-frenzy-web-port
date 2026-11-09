@@ -10,6 +10,8 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active/incomplete; original/generated content stays local.
 
+The [largest-first M1 order](m1-browser-work.md#largest-first-implementation-order) owns implementation priority. The SCOPE-37 task below records where original startup can resume; it does not require finishing every startup family before independent runtime/backend/audio work. Use the [local handoff goals](local-agent-handoff.md) for one bounded assignment, pulling forward the exact continuation/resource prerequisite needed for its next large proof.
+
 ## Current boundary
 
 Local Goal A continuation (2026-11-09): PR #46 at `b2c4d1e` is loaded with all five pre-existing worker-cap edits preserved. The newer November8 bundle is preparation only. M44 below remains the accepted checkpoint; forecast16/28/49 is unchanged. The mutable Ghidra database has no trusted pre-incident identity, but neither unchanged replay nor the covered retained-code candidate consumes that database. Pinned original bytes, retained seeds/listings and audited source/build evidence support the exact caller and literal. Do not invent a historical database checksum or infer new facts from it.
