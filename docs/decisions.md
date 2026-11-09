@@ -96,3 +96,7 @@ This record keeps decisions that define the baseline. Older investigation transc
 See [the roadmap](../plans.md), [scope](compatibility.md), [content policy](content.md), and [project milestones](milestones.md). No runtime implementation or pending branch feature was accepted by the cleanup decision.
 
 Record future consequential decisions with a unique ID, the concrete behavior/choice, evidence or user direction, and remaining limits. Superseded decisions belong in Git history rather than an active task log.
+
+## November 9 development workflow
+
+D522: Implement the user-requested process improvements with a structured checkpoint/task pointer, checked generated entry-document summaries, local private-baseline integrity preflight, selected source-check timing and one native-fixture manifest shared with CI. This changes no original runtime behavior or admission limits. Detailed observations remain in status; timing samples and file digests do not accept gameplay or milestones. The [iteration workflow](development-workflow.md), [local implementation goals](local-agent-handoff.md) and unresolved [authority assessment](online-authority-assessment.md) separate source-owned work from tasks requiring retained private evidence.

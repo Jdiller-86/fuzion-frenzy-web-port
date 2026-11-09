@@ -10,7 +10,7 @@
     "npm": ">=11 <12"
   },
   "scripts": {
-    "check": "node tools/check-preparation.mjs && node tools/project.mjs check && node tools/check-docs.mjs",
+    "check": "node tools/check-preparation.mjs && node tools/project.mjs check && node tools/development-state.mjs check && node tools/check-docs.mjs",
     "check:environment": "node tools/check-environment.mjs",
     "test:formats": "node tests/xdvdfs.test.mjs && node tests/xbp.test.mjs && node tests/audio.test.mjs && node tests/obe.test.mjs && node tests/character.test.mjs && node tests/clips.test.mjs && node tests/animation.test.mjs && node tests/texture.test.mjs && node tests/identity.test.mjs && node --test tests/xbe.test.mjs",
     "dev:research": "node tools/serve-proof.mjs",
@@ -27,6 +27,11 @@
     "project:snapshot": "node tools/project.mjs snapshot",
     "project:render": "node tools/project.mjs render",
     "project:site": "node tools/publish-progress.mjs",
-    "project:site:verify": "node tools/publish-progress.mjs --verify"
+    "project:site:verify": "node tools/publish-progress.mjs --verify",
+    "dev:status": "node tools/development-state.mjs status",
+    "dev:state:docs": "node tools/development-state.mjs docs",
+    "dev:preflight": "node tools/development-preflight.mjs",
+    "dev:task": "node tools/development-task.mjs",
+    "test:workflow": "node --test tests/development-workflow.test.mjs"
   }
 }

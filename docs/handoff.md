@@ -1,5 +1,13 @@
 # Continue from the reached startup logger caller
 
+<!-- development-state:start -->
+Recorded development state: **M1 / in-progress**, profile **44**. Next local runtime task: **SCOPE-37**.
+
+The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
+
+[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+<!-- development-state:end -->
+
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active/incomplete; original/generated content stays local.
 
 ## Current boundary

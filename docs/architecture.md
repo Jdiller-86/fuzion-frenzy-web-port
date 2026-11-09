@@ -45,3 +45,5 @@ TypeScript/Vite/Babylon.js, React menus, shared simulation, Node/Colyseus and Po
 The durable contracts are authoritative server outcomes; simulation independent of rendering/transport/persistence; distinct account, connection, profile and seat identities; four seats; atomic checkpoints/results; and separate lobby ownership, reconnect and process recovery.
 
 Original execution in each browser does not automatically provide a shared authoritative simulation. Resolve that contract while keeping proprietary code/assets/RAM/save states local. [Milestones](milestones.md), [risks](risks.md) and [content policy](content.md) retain those gates.
+
+The [online authority assessment](online-authority-assessment.md) compares the candidate routes, defines a bounded protocol envelope and separates input sequencing, outcome authority and recovery. Its feasibility decision remains unresolved; it adds no server and does not block unrelated M1 work.

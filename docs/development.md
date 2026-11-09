@@ -14,9 +14,11 @@ npm run check
 npm run check:environment
 ```
 
-The current workspace has no application dependencies. Installation does not download media, optional analysis tools, or compiler/source bundles. The environment check reports readiness and installs nothing.
+The current workspace has no application dependencies. Installation does not download media, optional analysis tools, or compiler/source bundles. The environment check reports conventional path existence and installs nothing.
 
-Git is required by the publication check. The Node-based format, runtime-policy, prototype, and build checks use public source only. `test:native` additionally requires gcc (or the runner's WSL gcc path on Windows); `test:evidence` requires Python 3. The code-generation evidence suite clearly skips its compiler-dependent cases if no C compiler is available; a missing interpreter/native compiler is not a passing native run.
+Use `npm run dev:status` to read the recorded checkpoint and next task, and `npm run dev:preflight` to distinguish a source-only checkout from a hash-verified private baseline. The [iteration workflow](development-workflow.md) documents manifest creation, selected check tasks and local timing records. The [local agent handoff](local-agent-handoff.md) contains separately bounded goals for the workstation with retained game/research inputs.
+
+Git is required by the publication check. The Node-based format, runtime-policy, prototype, and build checks use public source only. `test:native` additionally requires gcc (or the runner's WSL gcc path on Windows) and Python 3 for the generated owned-memory fixture; `test:evidence` requires Python 3. The code-generation evidence suite clearly skips its compiler-dependent cases if no C compiler is available; a missing interpreter/native compiler is not a passing native run.
 
 For local Codex sessions, [agent setup](agents.md) covers the saved Sol High coordinator and two-worker Luna defaults, client/model availability, project trust and a read-only execution check. These defaults do not supply the private inputs needed for original-startup work.
 

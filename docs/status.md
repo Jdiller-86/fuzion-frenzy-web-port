@@ -1,5 +1,13 @@
 # Project status: SDK browser integration in progress
 
+<!-- development-state:start -->
+Recorded development state: **M1 / in-progress**, profile **44**. Next local runtime task: **SCOPE-37**.
+
+The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
+
+[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+<!-- development-state:end -->
+
 M1 remains active and incomplete. Follow the user's [resource reuse and fast M1 workflow](resource-reuse.md) and the [measured scope ledger](m1-work-scope.md): use matching generated code, shared checked runtime adapters and applicable OpenCE/browser components, with focused checks before M1. [Handoff](handoff.md) · [Milestones](milestones.md)
 
 ## Current original-program frontier

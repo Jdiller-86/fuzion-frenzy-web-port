@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "milestone": "M1",
+  "status": "in-progress",
+  "checkpoint": {
+    "profile": 44,
+    "sourceCommit": "d12c05cc80e0f23442cff4d2c9e844679f541557",
+    "inputSha256": "45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9",
+    "inputBytes": 2834432,
+    "moduleSha256": "49d9882661789b1ce92d8eaf0d0bd39f59d8fc2971beb197bc6e2ea4bd2df895",
+    "auditSha256": "725146787b3679d4ebec1e15529086bb6ff525375962e1623791898568492bdf",
+    "summary": "The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.",
+    "evidenceGuide": "docs/status.md"
+  },
+  "nextTask": {
+    "id": "SCOPE-37",
+    "goal": "Reuse the retained logger for its reached caller and assess supported startup continuation as one coherent batch.",
+    "requiresPrivateBaseline": true,
+    "stopCondition": "Stop at unsupported format, provider, resource, branch, or failed guard; preserve default44 and all admission limits."
+  },
+  "admission": {
+    "functions": { "used": 511, "limit": 512 },
+    "instructions": { "used": 23388, "limit": 32768 },
+    "bindings": { "used": 64, "limit": 64 }
+  }
+}
