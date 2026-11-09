@@ -29,13 +29,19 @@ export function validateRecord(r) {
 
 function recordPath(root) {
   const dir = path.join(root, 'artifacts/development');
+  const localStat = location => {
+    try { return fs.lstatSync(location); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  };
   for (const relative of ['artifacts','artifacts/development']) {
     const location = path.join(root, relative);
-    if (fs.existsSync(location)) assert.ok(fs.lstatSync(location).isDirectory() && !fs.lstatSync(location).isSymbolicLink(), 'Timing directory must not be a symlink');
+    const stat = localStat(location);
+    if (stat) assert.ok(stat.isDirectory() && !stat.isSymbolicLink(), 'Timing directory must not be a symlink');
     else fs.mkdirSync(location);
   }
   const file = path.join(dir, 'iterations.jsonl');
-  if (fs.existsSync(file)) assert.ok(fs.lstatSync(file).isFile() && !fs.lstatSync(file).isSymbolicLink(), 'Timing log must be a regular file');
+  const stat = localStat(file);
+  if (stat) assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Timing log must be a regular file');
   return file;
 }
 

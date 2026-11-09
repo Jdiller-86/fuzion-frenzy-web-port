@@ -85,5 +85,10 @@ export async function main(args = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  try { await main(); } catch (error) { console.error(error.code === 'ENOENT' ? 'Private baseline manifest is missing.' : error.message); process.exitCode = 1; }
+  try { await main(); } catch (error) {
+    const message = error instanceof SyntaxError ? 'Invalid private baseline JSON.' :
+      error.code === 'ENOENT' ? 'Private baseline manifest is missing.' :
+      typeof error.code === 'string' ? 'Cannot inspect the private baseline manifest.' : error.message.split('\n')[0];
+    console.error(message); process.exitCode = 1;
+  }
 }

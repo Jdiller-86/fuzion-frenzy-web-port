@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {loadState, validateState, stateBlock, replaceStateBlock, syncDocuments, DOCUMENTS} from '../tools/development-state.mjs';
+import {spawnSync} from 'node:child_process';
+import {ROOT, loadState, validateState, stateBlock, replaceStateBlock, syncDocuments, DOCUMENTS} from '../tools/development-state.mjs';
 import {REQUIRED, baselineTemplate, validateBaseline, inspectBaseline} from '../tools/development-preflight.mjs';
 import {appendRecord, summarize, runScripts, validateRecord} from '../tools/development-task.mjs';
 
@@ -74,6 +75,14 @@ test('a self-consistent but wrong module or stale profile cannot pass preflight'
   assert.throws(()=>validateBaseline(baselineTemplate(f.state),f.state),/SHA-256|byte count/,'An unfilled template is never a passing baseline');
 });
 
+test('invalid private manifest diagnostics never print JSON fragments or local paths', t => {
+  const root=temporary(t), file=path.join(root,'PRIVATE_PATH.json');
+  fs.writeFileSync(file,'NOT_JSON_WITH_PRIVATE_CONTENT');
+  const result=spawnSync(process.execPath,[path.join(ROOT,'tools/development-preflight.mjs'),'--manifest',file],{encoding:'utf8'});
+  assert.equal(result.status,1);assert.equal(result.stderr.trim(),'Invalid private baseline JSON.');
+  assert.ok(!result.stderr.includes(root) && !result.stderr.includes('PRIVATE_CONTENT'));
+});
+
 function sample(overrides={}) {
   return {schemaVersion:1,kind:'reported-local-work',scope:'SCOPE-37',phase:'browser',outcome:'passed',failureClass:'none',durationMs:1000,
     sourceCommit:'1'.repeat(40),workingTreeDirty:true,timestamp:'2026-11-09T12:00:00.000Z',acceptance:false,...overrides};
@@ -106,4 +115,12 @@ test('timing writer refuses a symlinked artifact directory', t => {
   const root=temporary(t), elsewhere=temporary(t);fs.symlinkSync(elsewhere,path.join(root,'artifacts'));
   assert.throws(()=>appendRecord(root,sample()),/symlink/);
   assert.deepEqual(fs.readdirSync(elsewhere),[]);
+});
+
+test('timing writer refuses a dangling log symlink instead of creating its target', t => {
+  if(process.platform==='win32')return t.skip('Windows symlink creation requires account privileges');
+  const root=temporary(t), elsewhere=temporary(t), target=path.join(elsewhere,'must-not-create');
+  fs.mkdirSync(path.join(root,'artifacts/development'),{recursive:true});
+  fs.symlinkSync(target,path.join(root,'artifacts/development/iterations.jsonl'));
+  assert.throws(()=>appendRecord(root,sample()),/regular file/);assert.ok(!fs.existsSync(target));
 });
