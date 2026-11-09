@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {ROOT, loadState, validateState, stateBlock, replaceStateBlock, syncDocuments, DOCUMENTS} from '../tools/development-state.mjs';
+import {ROOT, loadState, sourceCommit, validateState, stateBlock, replaceStateBlock, syncDocuments, DOCUMENTS} from '../tools/development-state.mjs';
 import {REQUIRED, REPLAY_REQUIRED, baselineTemplate, validateBaseline, inspectBaseline} from '../tools/development-preflight.mjs';
 import {appendRecord, summarize, runScripts, validateRecord} from '../tools/development-task.mjs';
 
@@ -31,6 +31,10 @@ function baseline(t) {
 
 function replayBaseline(t) {
   const f=baseline(t), run=`browser-${f.state.checkpoint.profile}-run-02`;
+  // Owned fixture provenance must exist even in CI's depth-one checkout.
+  // Real checkpoint state and its historical provenance requirement stay intact.
+  f.state.checkpoint.sourceCommit=sourceCommit();
+  f.manifest.checkpointSourceCommit=f.state.checkpoint.sourceCommit;
   const toolchain=fs.readFileSync(path.join(ROOT,'tools/original-execution-toolchain.json'));
   fs.writeFileSync(path.join(f.root,'toolchainManifest'),toolchain);
   Object.assign(f.manifest.files.find(x=>x.id==='toolchainManifest'),{bytes:toolchain.length,sha256:digest(toolchain)});
@@ -116,6 +120,16 @@ test('replay provenance refuses freshly chosen report and toolchain hashes', asy
   const result=await inspectBaseline(f.file,f.state,{purpose:'replay'});
   assert.equal(result.find(x=>x.id==='controlReport').status,'provenance-mismatch');
   assert.equal(result.find(x=>x.id==='toolchainManifest').status,'provenance-mismatch');
+});
+
+test('replay refuses unavailable checkpoint Git provenance', async t => {
+  const f=replayBaseline(t);
+  f.state.checkpoint.sourceCommit='f'.repeat(40);
+  f.manifest.checkpointSourceCommit=f.state.checkpoint.sourceCommit;
+  fs.writeFileSync(f.file,JSON.stringify(f.manifest));
+  const result=await inspectBaseline(f.file,f.state,{purpose:'replay'});
+  assert.equal(result.find(x=>x.id==='toolchainManifest').status,'provenance-unavailable');
+  assert.ok(!result.every(x=>x.status==='verified'));
 });
 
 test('replay roles derive from the pinned audit; swapped roles and unverified audit fail closed', async t => {

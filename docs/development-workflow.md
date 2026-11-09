@@ -38,6 +38,8 @@ npm run dev:preflight -- --purpose replay --manifest research/verification/devel
 
 Replay manifests use schema version2 and `purpose: "replay"`. Required identities are `xbe`, `module`, `controlReport`, `inertReport`, `previousReport`, `experimentReport`, `audit`, and `toolchainManifest`. Input/module/audit hashes and checkpoint identity must match the structured state. Report hashes must match fixed control/inert/default/selected artifact keys from that already verified audit's recorded run. The toolchain hash must match the fixed versioned toolchain manifest at the recorded source commit. Manifest commands and arbitrary provenance queries are never executed.
 
+A shallow checkout can omit the recorded checkpoint commit. Retain or fetch that exact commit before private replay; unavailable Git provenance fails closed rather than falling back to current files or newly chosen hashes.
+
 The result is named-file verification only: it reports `verificationScope: "retained-module-replay-inputs"`, with complete-database, harness-closure and new-code-fact verification still false. Separately verify every consumed harness input, settings projection and served/imported source against retained authority before replay. A compatible local disc identity check is not a full-disc digest. Preserve the actual runtime and local-content guards.
 
 For new analysis, the original strict command remains:
