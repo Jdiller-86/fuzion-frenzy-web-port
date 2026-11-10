@@ -92,16 +92,23 @@ test('progress view renders real issue/commit links, dependency navigation and c
     replaceChildren(...children){this.children=[];this.append(...children);}addEventListener(name,fn){this.handlers[name]=fn;}
     get childElementCount(){return this.children.filter(c=>c.tag!=='#text').length;}focus(){this.focused=true;}
   }
-  const staticNodes=new Map(['project-data','message','content','meta','count','filter','milestones','task-count'].map(id=>[id,Object.assign(new Element('div'),{id})]));
+  const staticNodes=new Map(['project-data','message','content','meta','count','filter','milestones','task-count','browser-scope','browser-order','browser-rows'].map(id=>[id,Object.assign(new Element('div'),{id})]));
   staticNodes.get('project-data').textContent=JSON.stringify(snapshot);
   const walk=node=>[node,...node.children.flatMap(walk)];
   const document={createElement:tag=>new Element(tag),createTextNode:text=>Object.assign(new Element('#text'),{ownText:String(text)}),getElementById:id=>staticNodes.get(id)??[...staticNodes.values()].flatMap(walk).find(e=>e.id===id)};
   const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];vm.runInNewContext(script,{document,URL},{timeout:1000});
   assert.match(document.getElementById('count').textContent,/0 of 5 milestones accepted/);
   assert.equal(document.getElementById('task-count').textContent,'1 of 10 work packages completed');
+  assert.equal(document.getElementById('browser-rows').childElementCount,24);assert.equal(document.getElementById('browser-order').childElementCount,7);assert.equal(document.getElementById('browser-scope').hidden,false);
   const nodes=[...staticNodes.values()].flatMap(walk);assert.equal(nodes.filter(n=>n.href?.startsWith(`https://github.com/${REPOSITORY}/issues/`)).length,15);
   assert.ok(nodes.some(n=>n.href===`https://github.com/${REPOSITORY}/commit/${SHA}`));
   assert.ok(nodes.some(n=>n.href==='#m1'));assert.equal(document.getElementById('milestones').childElementCount,5);
+  const unavailable={...snapshot,available:false};delete unavailable.milestones;
+  const fallback=renderDashboard(unavailable,fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8'));
+  for(const id of staticNodes.keys())staticNodes.set(id,Object.assign(new Element('div'),{id}));
+  document.getElementById('project-data').textContent=fallback.match(/<script type="application\/json" id="project-data">([\s\S]*?)<\/script>/)[1];document.getElementById('content').hidden=true;
+  vm.runInNewContext(script,{document,URL},{timeout:1000});
+  assert.equal(document.getElementById('browser-rows').childElementCount,24);assert.equal(document.getElementById('browser-scope').hidden,false);assert.equal(document.getElementById('content').hidden,true);assert.equal(document.getElementById('count').textContent,'');
 });
 test('snapshot rendering strips unapproved fields and rejects forged status counts and foreign links',async()=>{
   const {client,plan}=await provision();const template=fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8');

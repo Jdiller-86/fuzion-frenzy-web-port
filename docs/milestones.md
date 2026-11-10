@@ -32,6 +32,8 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Work packages:** [Integrate the original browser round path](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/23); [Verify original browser gameplay and evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/24).
 
+**Detailed browser work:** [Named connections, structural sizes and evidence](m1-browser-work.md), with the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). These scope rows decompose the work packages; they are not extra forecast packages.
+
 ## M2 — Complete local game and conversion
 
 **Pass when:**

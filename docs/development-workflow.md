@@ -24,6 +24,8 @@ npm run check
 
 Review the generated changes. Update module/audit/input identities only from the newly reviewed evidence; a documentation or source-only change does not advance the runtime checkpoint. Keep the task forecast's named near-term work distinct from unresolved allowances and accepted capabilities. Update the scope ledger when a package closes, splits, merges, or new evidence changes its allowance; do not subtract routine/checkpoint counts from the forecast.
 
+`dev:state:docs` also refreshes the README/docs goal summaries and browser-map checkpoint pointer. For changes to milestone scope, M1 connections or priority groups, edit `profiles/project.json` or `profiles/m1-browser-work.json` and run `npm run project:docs`. `npm run check` rejects stale generated views. In the same PR, update the affected row's remaining features, state/evidence and next check, or explain why unchanged; [management](management.md) defines live issue status and automatic Project/report refresh.
+
 ## Verify the private baseline locally
 
 The default preflight succeeds in a source-only checkout while reporting `baselineIntegrityVerified: false`. This means public work can proceed; it is not a skipped runtime pass. Select the inputs needed for the assigned activity explicitly:

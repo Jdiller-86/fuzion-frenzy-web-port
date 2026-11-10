@@ -6,9 +6,11 @@ Help advance the original Fuzion Frenzy toward complete browser execution and th
 
 Source-owned parser/runtime fixes, reproducible fixtures, input/delivery improvements, reference-backed curated findings, and documentation are useful. Before work, read [AGENTS.md](AGENTS.md), the relevant checkpoint, and [architecture](docs/architecture.md). Check existing issues/PRs and ownership so another contributor is not editing the same slice.
 
-Use the native milestone/work issue and [management workflow](docs/management.md) to identify the parent and acceptance dependencies. Keep status, implementation and evidence current there.
+Use stable milestone/work-package IDs from [`profiles/project.json`](profiles/project.json), and for M1 use MB01–MB24 from [`profiles/m1-browser-work.json`](profiles/m1-browser-work.json) and its largest-first order. Check current-main scope, issue/PR activity, and file/lane ownership before starting; coordinate overlapping work. The five milestones and ten native work packages remain the tracking hierarchy. The 24 MB items are a detailed M1 map, not 24 new issues or forecast tasks.
 
-Use an issue or PR to state one observable result, target milestone, files/components in scope, acceptance checks, and limits. For runtime work cite the current exact stop and required report/audit evidence. Do not claim compatibility or original behavior from a plausible model, prototype, or source fixture.
+Keep status and acceptance in native milestone/work issues. In the same PR, update affected canonical scope, remaining-feature and evidence records, or state why they remain unchanged. Preserve existing human evidence and issue status. For runtime-boundary changes, update `profiles/development-state.json`, status and handoff together. A merge, closed task, component fixture or generated summary does not infer milestone acceptance; only the native acceptance process does. See [management](docs/management.md) for source ownership and refresh behavior.
+
+Use an issue or PR to state one observable result, stable milestone/work-package and MB IDs where applicable, files/components in scope, acceptance checks, and limits. For runtime work cite the current exact stop and required report/audit evidence. Do not claim compatibility or original behavior from a plausible model, prototype, or source fixture.
 
 ## Set up and verify
 
@@ -37,7 +39,7 @@ The guard checks tracked and unignored files, but it cannot establish provenance
 
 ## Submit a reviewable result
 
-Use a functional title explaining the resulting behavior. Include the problem, changes, checks/results, evidence, and remaining limits using [the PR template](.github/PULL_REQUEST_TEMPLATE.md). Update current status/handoff together if execution changes; record consequential decisions and index new evidence.
+Use a functional title explaining the resulting behavior. Include the problem, changes, checks/results, evidence, and remaining limits using [the PR template](.github/PULL_REQUEST_TEMPLATE.md). Update current status/handoff together if execution changes; record consequential decisions and index new evidence. When changing structured project scope or its rendered summaries, run `npm run project:docs` followed by `npm run check`, and include the generated documentation changes in the same PR.
 
 Keep the existing code style and add dependencies only when justified. Do not change global tools, credentials, model settings, production services, or distribution as a contribution side effect.
 

@@ -11,6 +11,7 @@ function headings(file){
   if(anchors.has(file))return anchors.get(file);
   const ids=new Set(),seen=new Map();
   for(const line of fs.readFileSync(file,'utf8').split('\n')){
+    for(const anchor of line.matchAll(/<a\s+(?:id|name)=["']([a-zA-Z0-9_-]+)["']\s*><\/a>/g))ids.add(anchor[1]);
     const match=line.match(/^ {0,3}#{1,6}\s+(.+?)\s*#*$/);if(!match)continue;
     const plain=match[1].replace(/\[([^\]]+)\]\([^)]*\)/g,'$1').replace(/<[^>]+>/g,'');
     const slug=plain.toLowerCase().replace(/[^\p{L}\p{N}_\- ]/gu,'').replaceAll(' ','-');

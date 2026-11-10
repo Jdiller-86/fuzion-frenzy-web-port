@@ -6,6 +6,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {GitHub,ROOT,REPOSITORY,STATUSES,loadPlan,definitions,indexIssues,buildSnapshot} from './project.mjs';
+import {renderProjectOverview} from './project-goals.mjs';
 
 export const OWNER='Jdiller-86';
 export const TITLE='Fuzion Frenzy Web Port';
@@ -34,10 +35,8 @@ function identity(board,number){
   assert.equal(board.owner?.login?.toLowerCase(),OWNER.toLowerCase(),'Project has another owner');
   assert.equal(board.url,projectUrl(board.number),'Project URL does not match its owner');assert.equal(board.closed,false,'Project is closed');return board;
 }
-function managedReadme(current,created){
-  const body=MARKER+'\n# Fuzion Frenzy Web Port\n\nFive project milestones, implementation work and acceptance evidence for the original Xbox game running entirely in a browser.\n\n'+
-    `[Development plan](${BASE}/blob/main/plans.md) · [Milestone acceptance](${BASE}/blob/main/docs/milestones.md) · [Management](${BASE}/blob/main/docs/management.md)\n\n`+
-    'Issue status labels and reviewed acceptance records own status. This board mirrors those records. All five milestones are unaccepted at the planning baseline; implementation remains paused until the next user-directed task. Keep original content and private evidence local.\n'+END;
+function managedReadme(current,created,plan,sourceCommit){
+  const body=MARKER+'\n'+renderProjectOverview(plan)+`\nReviewed scope source: [${sourceCommit.slice(0,12)}](${BASE}/commit/${sourceCommit}). Native issue records own live status.\n`+END;
   if(created)return body;
   assert.ok(current?.startsWith(MARKER)&&current.includes(END),'Project lacks the managed ownership markers');
   return body+current.slice(current.indexOf(END)+END.length);
@@ -136,7 +135,7 @@ export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onC
   if(created){const viewShape=views=>views.map(({name,layout,filter})=>({name,layout,filter})).sort((a,b)=>a.name.localeCompare(b.name));assert.deepEqual(viewShape(board.views),viewShape(template.views),'Copied views differ from the template');}
   assert.ok(board.repositories.every(r=>r.nameWithOwner===REPOSITORY&&!r.isPrivate),'Project links another repository');
   const fields=trackingFields(board.fields),rows=members(board.items);for(const issue of wanted){const row=rows.get(issue.number);if(row){assert.equal(row.content.id,issue.contentId,'Project issue identity changed');assert.equal(row.isArchived,false,'Managed issue is archived; review before synchronizing');}}
-  const readme=managedReadme(board.readme,created);const shortDescription='Five milestones, implementation work and verifiable acceptance for the original Fuzion Frenzy in a browser.';
+  const readme=managedReadme(board.readme,created,plan,sourceCommit);const shortDescription='All product goals, largest-first M1 browser work and evidence-based progress for the original Fuzion Frenzy.';
   if(board.title!==TITLE||board.readme!==readme||board.shortDescription!==shortDescription||!board.public){
     operations.push({kind:'project-description'});if(apply)await client.mutate('updateProjectV2','UpdateProjectV2Input',{projectId:board.id,title:TITLE,readme,shortDescription,public:true});
   }
