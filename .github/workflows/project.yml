@@ -2,15 +2,10 @@ name: Project tracking
 on:
   push:
     branches: [main]
-    paths:
-      - profiles/project.json
-      - profiles/project-board.json
-      - tools/project.mjs
-      - tools/project-board.mjs
-      - tools/project-dashboard.html
-      - .github/workflows/project.yml
+  schedule:
+    - cron: '11 * * * *'
   issues:
-    types: [opened, edited, closed, reopened, labeled, unlabeled]
+    types: [opened, edited, closed, reopened, labeled, unlabeled, deleted, transferred]
   workflow_dispatch:
     inputs:
       operation:
@@ -34,27 +29,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Resolve immutable trusted main
+        id: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FUZION_TRACKING_SHA="$(gh api repos/Jdiller-86/fuzion-frenzy-web-port/commits/main --jq .sha)"
+          [[ "$FUZION_TRACKING_SHA" =~ ^[0-9a-f]{40}$ ]]
+          printf 'sha=%s\n' "$FUZION_TRACKING_SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ steps.trusted.outputs.sha }}
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .node-version
       - name: Verify tracking scope and acceptance rules
         run: |
-          node tools/project.mjs check
-          node --test tests/project.test.mjs
-          node --test tests/project-board.test.mjs
+          npm run check
+          npm run test:project
       - name: Preview or apply reviewed metadata
-        if: github.event_name == 'push' || inputs.operation == 'sync'
+        if: github.event_name != 'workflow_dispatch' || inputs.operation == 'sync'
         env:
           GH_TOKEN: ${{ github.token }}
           TRACKING_EVENT: ${{ github.event_name }}
           TRACKING_APPLY: ${{ inputs.apply }}
-          TRACKING_SOURCE_SHA: ${{ github.sha }}
+          TRACKING_SOURCE_SHA: ${{ steps.trusted.outputs.sha }}
         run: |
-          if [ "$TRACKING_EVENT" = push ] || [ "$TRACKING_APPLY" = true ]; then
+          if [ "$TRACKING_EVENT" != workflow_dispatch ] || [ "$TRACKING_APPLY" = true ]; then
             node tools/project.mjs sync --apply --source-commit "$TRACKING_SOURCE_SHA"
           else
             node tools/project.mjs sync --source-commit "$TRACKING_SOURCE_SHA"
@@ -63,7 +66,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          TRACKING_SOURCE_SHA: ${{ github.sha }}
+          TRACKING_SOURCE_SHA: ${{ steps.trusted.outputs.sha }}
         run: node tools/project.mjs snapshot --source-commit "$TRACKING_SOURCE_SHA"
       - name: Build read-only offline progress view
         if: always()
@@ -73,9 +76,9 @@ jobs:
           GH_TOKEN: ${{ secrets.FUZION_GITHUB_MANAGEMENT_TOKEN }}
           TRACKING_EVENT: ${{ github.event_name }}
           TRACKING_APPLY: ${{ inputs.apply }}
-          TRACKING_SOURCE_SHA: ${{ github.sha }}
+          TRACKING_SOURCE_SHA: ${{ steps.trusted.outputs.sha }}
         run: |
-          if [ "$TRACKING_EVENT" = push ] || [ "$TRACKING_EVENT" = issues ] || [ "$TRACKING_APPLY" = true ]; then
+          if [ "$TRACKING_EVENT" != workflow_dispatch ] || [ "$TRACKING_APPLY" = true ]; then
             node tools/project-board.mjs --apply
           else
             node tools/project-board.mjs

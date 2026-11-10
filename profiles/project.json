@@ -44,7 +44,77 @@
             }
           ],
           "dependsOn": [],
-          "issueNumber": 23
+          "issueNumber": 23,
+          "brief": {
+            "context": "Guarded original startup and separate graphics, resource, audio and input components exist. A controllable original menu, sustained playable host loop and complete original round are not accepted. Reuse those foundations while keeping each MB connection and its evidence level explicit.",
+            "firstStep": "Record the MB01 scenario, inspect actual admission demand and choose the MB05 execution/delivery boundary with MB11 context ownership. Assign the first safe sustained-execution slice using local handoff Goal G, pulling forward a reached startup/read prerequisite only when that proof needs it.",
+            "prerequisites": [
+              "Inspect current status, structured state and lane ownership; keep the accepted checkpoint separate from a local candidate.",
+              "Original-code claims and title execution require the purpose-specific local baseline, retained provenance and focused independent review. Source-owned interface work can proceed without those private inputs.",
+              "Preserve admission, memory, module and original-content guards. An unsupported contract remains an explicit stop."
+            ],
+            "deliverables": [
+              {
+                "id": "m1-build-execution",
+                "title": "Sustained execution and a viable admission route (MB04\u201307)",
+                "size": "L",
+                "doneWhen": "Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented."
+              },
+              {
+                "id": "m1-build-graphics",
+                "title": "Original graphics and the first title frame (MB11\u201317)",
+                "size": "L",
+                "doneWhen": "The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work."
+              },
+              {
+                "id": "m1-build-audio",
+                "title": "Original sound processing and audible output (MB18\u201319)",
+                "size": "L",
+                "doneWhen": "Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence."
+              },
+              {
+                "id": "m1-build-resources",
+                "title": "Selected startup and original resource lifecycle (MB02\u201303, MB08\u201310)",
+                "size": "M\u2013L",
+                "doneWhen": "The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof."
+              },
+              {
+                "id": "m1-build-round-path",
+                "title": "Owned input, original menu and one complete round (MB20\u201323)",
+                "size": "M\u2013L",
+                "doneWhen": "One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes."
+              }
+            ],
+            "validation": [
+              "Run the focused component and browser checks for the changed connection, preserving required prior title comparisons.",
+              "Use independent CPU, memory, ABI or GPU correctness review for affected contracts.",
+              "Record the MB ID, exact delivered connection, observed original or fixture evidence, remaining required features and next measurement."
+            ],
+            "outOfScope": [
+              "Full catalog/parity and end-user browser-local conversion belong to M2.",
+              "Online play, accounts/social, broad device matrices and optional polish belong to later milestones.",
+              "A fixture, preview, compiler success or counter increase does not close an original browser connection or accept M1."
+            ],
+            "stopCondition": "Stop at an unsupported original service, program/state/format, unsafe execution boundary, resource or ownership mismatch, failed comparison, missing source authority or unassigned module/capacity change. Return the precise blocker and a useful independent ready slice.",
+            "references": [
+              {
+                "path": "docs/m1-browser-work.md",
+                "purpose": "Detailed MB connections, sizes, required features and largest-first order."
+              },
+              {
+                "path": "docs/local-agent-handoff.md",
+                "purpose": "Bounded execution, graphics, resource, capacity and audio assignments."
+              },
+              {
+                "path": "docs/status.md",
+                "purpose": "Accepted evidence, separately identified local candidates and current runtime boundary."
+              },
+              {
+                "path": "docs/development-workflow.md",
+                "purpose": "Private preflight purpose, targeted checks and measured work records."
+              }
+            ]
+          }
         },
         {
           "id": "m1-verify",
@@ -64,7 +134,71 @@
           "dependsOn": [
             "m1-build"
           ],
-          "issueNumber": 24
+          "issueNumber": 24,
+          "brief": {
+            "context": "The three-cycle gate and comparison/audit tools exist, but no accepted original menu/game/results/menu cycle is recorded. Evidence preparation can proceed before the playable candidate; execution and acceptance require that candidate.",
+            "firstStep": "With the runtime owner, freeze one compatible original build, desktop browser/device, selected minigame, input method and seat recipe. Draft the exact input/capture procedure and identity checklist before scheduling the first end-to-end run.",
+            "prerequisites": [
+              "Use the original playable candidate delivered by m1-build for cycle execution; component fixtures and the independent prototype do not substitute.",
+              "Confirm matching local source/module/input identities and purpose-specific replay checks; keep all original-containing captures and raw evidence local.",
+              "Agree the control comparison, capture boundaries and independent reviewer before the acceptance run."
+            ],
+            "deliverables": [
+              {
+                "id": "m1-verify-recipe",
+                "title": "Repeatable selected scenario and capture recipe (MB01, MB24)",
+                "size": "S\u2013M",
+                "doneWhen": "The exact build, browser/device, minigame, seat/input configuration and menu/round/results/return input recipe are recorded and reproducible."
+              },
+              {
+                "id": "m1-verify-provenance",
+                "title": "Bound candidate identities and retained comparisons",
+                "size": "M",
+                "doneWhen": "Source/build/module/input identities, required retained cases and audit/report bindings agree for the tested candidate; rejected attempts and scope limits remain identified."
+              },
+              {
+                "id": "m1-verify-cycles",
+                "title": "Three consecutive original audiovisual/input cycles",
+                "size": "M",
+                "doneWhen": "Actual original menu/game/results/menu runs complete three times in succession with visible original output, audible original sound, recorded input response and no unsupported stop or fault."
+              },
+              {
+                "id": "m1-verify-review",
+                "title": "Independent acceptance review and remaining-limit record",
+                "size": "S\u2013M",
+                "doneWhen": "The reviewer can reproduce the scenario and assess controls, evidence provenance and required checks. Publish curated outcomes and keep unresolved required capabilities open; an explicit parent acceptance record is still required."
+              }
+            ],
+            "validation": [
+              "Verify original-program graphics/audio/input through the full scenario rather than combining unrelated component successes.",
+              "Retain source/module/browser/device identities, control/experiment comparison and independent audit for the same candidate.",
+              "Reproduce any failure with exact conditions and return the gap to its owning MB row before another acceptance attempt."
+            ],
+            "outOfScope": [
+              "Completing this child issue does not automatically close or accept its M1 parent.",
+              "The gate covers one original minigame on one desktop configuration; complete catalog, end-user conversion and broader devices remain later work.",
+              "Do not upload original media, generated title code, original-containing memory/save states or raw private reports."
+            ],
+            "stopCondition": "Stop acceptance on any missing identity, failed invariant, approximate scene/rule substitution, unsupported stop, audiovisual/input mismatch or incomplete cycle. Preserve evidence and report the concrete owning MB gap.",
+            "references": [
+              {
+                "path": "docs/milestones.md",
+                "purpose": "Exact M1 criteria and independent acceptance requirements."
+              },
+              {
+                "path": "docs/m1-browser-work.md",
+                "purpose": "MB01 scenario and MB24 acceptance, with owning connections for failures."
+              },
+              {
+                "path": "tools/compare-proof-profiles.mjs",
+                "purpose": "Existing bounded report comparison infrastructure; it does not itself prove a full round."
+              },
+              {
+                "path": "docs/development-workflow.md",
+                "purpose": "Purpose-specific retained-input gates and evidence/timing handoff."
+              }
+            ]
+          }
         }
       ],
       "issueNumber": 22
@@ -108,7 +242,77 @@
             }
           ],
           "dependsOn": [],
-          "issueNumber": 26
+          "issueNumber": 26,
+          "brief": {
+            "context": "Extend the existing browser-local XISO readers, bounded package conversion, and local research UI into the M2 fresh-browser path. Existing disc-session and asset-preview components are limited research surfaces; they do not establish a complete original runtime, catalog, or save lifecycle. Keep original content and derived proprietary assets on the player's device.",
+            "firstStep": "Trace web/proof/disc-session.html, runtime/browser/disc-session.mjs, and the current app import flow; map each existing boundary and missing transition before changing code. Confirm the supported image/build identity and current storage behavior from retained public source and evidence.",
+            "prerequisites": [
+              "M1 original browser execution is accepted for the compatible build and runtime route.",
+              "Supported image/build identity and conversion limits are documented from retained evidence.",
+              "The browser-local content policy and safe unsupported-input behavior remain in force."
+            ],
+            "deliverables": [
+              {
+                "id": "m2-build-fresh-import",
+                "title": "Connect local image selection through validation and conversion",
+                "size": "L",
+                "doneWhen": "A fresh browser can select a supported player-provided image, validate the declared build, run the bounded local conversion path, and launch the accepted original browser runtime without a developer toolchain or a content upload; unsupported and corrupt inputs fail with a visible, recoverable outcome."
+              },
+              {
+                "id": "m2-build-cancel-reset",
+                "title": "Make cancellation, clear, and reimport lifecycle explicit",
+                "size": "M",
+                "doneWhen": "Cancel, clear local content, and reimport have observed outcomes; cancellation releases active workers/resources, clear removes the selected local data under the documented policy, and a subsequent import starts from a clean session."
+              },
+              {
+                "id": "m2-build-storage",
+                "title": "Persist and recover browser-local prepared content safely",
+                "size": "L",
+                "doneWhen": "The chosen browser-local storage path handles denied, quota-failed, and evicted data with actionable status and reimport; it avoids whole-disc buffering beyond the documented limits and never sends original content or derived assets to a server or peer."
+              },
+              {
+                "id": "m2-build-saves",
+                "title": "Connect original save persistence and fresh-session reload",
+                "size": "L",
+                "doneWhen": "The accepted original save format and lifecycle are exercised through save, close/reopen, reload, and recovery cases; saved original-containing state remains local and malformed or unavailable saves produce a safe observable result."
+              },
+              {
+                "id": "m2-build-failure-record",
+                "title": "Record conversion and storage boundaries in the UI and docs",
+                "size": "S\u2013M",
+                "doneWhen": "Supported image/build limits, conversion progress, cancellation, storage failure, clear/reimport, and save recovery behavior are described consistently with observed implementation and evidence, with unknown format details left explicit."
+              }
+            ],
+            "validation": [
+              "Use the accepted original browser build and compatible player-local input for an end-to-end fresh-browser import-to-launch scenario.",
+              "Observe unsupported/corrupt image, cancellation, clear/reimport, storage denial or eviction, and close/reopen save-reload outcomes.",
+              "Inspect the complete content path and network requests to confirm original files, converted assets, RAM, and saves remain local."
+            ],
+            "outOfScope": [
+              "Declaring the complete minigame catalog or original offline behavior accepted; that evidence belongs to m2-verify.",
+              "Adding native helpers, remote conversion, uploads, peer transfer, telemetry attachments, or cloud synchronization of original content/state.",
+              "Inventing save formats, conversion support, browser budgets, or original gameplay behavior without evidence."
+            ],
+            "stopCondition": "Stop at unsupported image/build formats, unbounded memory or storage behavior, missing original-runtime capability, or any path that would transfer original content or state off-device; record the limit and do not substitute prototype rules or scenes.",
+            "references": [
+              {
+                "path": "web/proof/disc-session.mjs",
+                "purpose": "Existing browser-local disc-session fixture and lifecycle calls."
+              },
+              {
+                "path": "runtime/browser/disc-session.mjs",
+                "purpose": "Bounded local disc reader API and current session constraints."
+              },
+              {
+                "path": "web/app/asset-worker.mjs",
+                "purpose": "Existing local asset conversion worker and no-return-of-original-file boundary."
+              },
+              {
+                "path": "docs/content.md",
+                "purpose": "Player-local content, storage, clear, and reimport constraints."
+              }
+            ]
+          }
         },
         {
           "id": "m2-verify",
@@ -129,7 +333,83 @@
             "m1",
             "m2-build"
           ],
-          "issueNumber": 27
+          "issueNumber": 27,
+          "brief": {
+            "context": "Produce evidence for the unchanged M2 complete-offline-game criteria against a verified original build. The public catalog leads and independent Twisted System prototype do not establish original inventory or parity; every required scope must have an evidence-backed disposition.",
+            "firstStep": "Bind the exact original build and matching browser/runtime identities, then derive a catalog and scenario matrix only from retained original-reference evidence, marking unresolved entries as blockers before execution.",
+            "prerequisites": [
+              "M1 original browser execution is accepted.",
+              "m2-build fresh-browser conversion and local save/reload path is implemented for the declared supported build.",
+              "Matching-build original-reference scenarios and evidence access are available; gaps remain explicit."
+            ],
+            "deliverables": [
+              {
+                "id": "m2-verify-inventory",
+                "title": "Build the evidence-backed catalog and variant inventory",
+                "size": "M\u2013L",
+                "doneWhen": "Every shipped selectable minigame and variant, character, arena, mode, and progression scope has an identified source/build and an explicit tested, unsupported, or unresolved disposition; no unresolved entry is counted as complete."
+              },
+              {
+                "id": "m2-verify-seats",
+                "title": "Cover local seat counts and original CPU behavior",
+                "size": "M",
+                "doneWhen": "Matching-build scenarios exercise one through four local seats and each required original CPU/difficulty case; the scenario record captures setup, inputs, outcomes, and any unavailable case."
+              },
+              {
+                "id": "m2-verify-modes",
+                "title": "Exercise practice, Minigame Frenzy, and Tournament progression",
+                "size": "L",
+                "doneWhen": "Original-reference scenarios cover practice, Minigame Frenzy, and full Tournament progression including round transitions and results for every required catalog entry, with unknown or untested paths listed as blockers."
+              },
+              {
+                "id": "m2-verify-parity",
+                "title": "Complete the rules and presentation parity matrix",
+                "size": "L",
+                "doneWhen": "Evidence-backed comparisons cover scoring and ties, rules, timing, movement and collisions, AI, camera, animation, audio, and progression for each required scenario; each discrepancy is recorded with severity, reproduction conditions, and disposition."
+              },
+              {
+                "id": "m2-verify-save-recovery",
+                "title": "Verify original save and tournament recovery cases",
+                "size": "M\u2013L",
+                "doneWhen": "Matching-build scenarios verify save/reload after browser close and reopen plus complete tournament checkpoint/recovery behavior; state and results match the recorded reference, while original-containing saves remain local."
+              },
+              {
+                "id": "m2-verify-report",
+                "title": "Publish the curated parity evidence and limits record",
+                "size": "S\u2013M",
+                "doneWhen": "A reviewable matrix links each required catalog/mode scenario to source/build identity, browser/device, observed outcome, evidence identity, discrepancy, and remaining limit; private media, raw reports, and proprietary data remain local."
+              }
+            ],
+            "validation": [
+              "Compare each required scenario against the same identified original build and retain the recorded input/capture conditions.",
+              "Check every inventory row and parity dimension for explicit evidence-backed status; unknown, not reached, or approximate is a blocker.",
+              "Repeat the full save/reload and tournament scenarios after browser close/reopen and reconcile results against the reference record."
+            ],
+            "outOfScope": [
+              "Treating static analysis, public footage, synthetic fixtures, standalone components, or Twisted System behavior as proof of original parity.",
+              "Filling catalog, mechanics, timing, asset, or save-format gaps with inferred behavior.",
+              "Adding online multiplayer, social services, mobile claims, or release acceptance."
+            ],
+            "stopCondition": "Do not accept or mark a required catalog entry or criterion complete while matching-build reference evidence is missing, the original behavior is unknown, or a discrepancy remains unresolved; preserve the explicit blocker and evidence boundary.",
+            "references": [
+              {
+                "path": "profiles/project.json",
+                "purpose": "Authoritative M2 acceptance criteria, stable task identities, and dependencies."
+              },
+              {
+                "path": "docs/compatibility.md",
+                "purpose": "Required original inventory, fidelity, and evidence standard."
+              },
+              {
+                "path": "docs/content.md",
+                "purpose": "Local content and save-state restrictions for verification."
+              },
+              {
+                "path": "web/app/main.mjs",
+                "purpose": "Current prototype flow boundary; its rules and UI are not original-game proof."
+              }
+            ]
+          }
         }
       ],
       "issueNumber": 25
@@ -173,7 +453,77 @@
             }
           ],
           "dependsOn": [],
-          "issueNumber": 29
+          "issueNumber": 29,
+          "brief": {
+            "context": "Online authority remains unresolved and online services are unimplemented. The requirements must hold together: server-owned outcomes, original code/assets/RAM/saves local, and four total seats with explicit ownership. The current evidence does not prove a feasible authority route; the first work is a bounded source-only feasibility experiment and decision record. Match implementation is conditional on that decision.",
+            "firstStep": "Run the bounded authority feasibility spike before any match-service implementation: choose one narrowly named original scenario, inventory evidenced inputs/rules/outcomes and unknowns, define pass/fail independently for authority, locality, and recovery, and record whether the current contract is feasible, infeasible, or unresolved.",
+            "prerequisites": [
+              "M2 is accepted, including the compatible original build and the verified offline scenarios needed to ground any online experiment.",
+              "The source-only feasibility spike has a reviewed decision; no accounts, lobbies, or netcode begin while authority is unresolved.",
+              "Any approved proposal preserves original code, assets, RAM, and original-containing saves locally and models four total seats."
+            ],
+            "deliverables": [
+              {
+                "id": "m3-build-authority-spike",
+                "title": "Determine whether server-owned outcomes can satisfy the local-content contract",
+                "size": "M\u2013L",
+                "doneWhen": "A bounded scenario record inventories only evidence-backed rules, inputs, timing, randomness, and outcomes, marks unknowns, specifies independent authority/locality/recovery pass-fail results, and records a reviewed feasible, infeasible, or unresolved decision without adding a server or sending original content/state."
+              },
+              {
+                "id": "m3-build-protocol",
+                "title": "Specify a reviewed privacy-safe protocol envelope if feasible",
+                "size": "M",
+                "doneWhen": "Only after a feasible authority decision, a reviewed protocol defines distinct account, connection, local profile, and seat identities; compatibility/version claims; bounded input ordering and stale/duplicate behavior; and explicit exclusion of assets, generated code, RAM, original-containing saves, and title-state blobs."
+              },
+              {
+                "id": "m3-build-seats",
+                "title": "Define ownership for four total local and remote seats",
+                "size": "M",
+                "doneWhen": "The approved design documents and enforces exactly four total seats across local and remote owners, including mixed parties, and keeps account, connection, profile, and seat transfer rules distinct and reviewable."
+              },
+              {
+                "id": "m3-build-authority-runtime",
+                "title": "Implement only the authority route proven by the decision",
+                "size": "L",
+                "doneWhen": "If and only if the feasibility decision supports implementation, server decisions for the declared supported scenarios are derived from the reviewed evidence-backed authority model and independently agree with original-reference outcomes; client-declared winners and relay-only sequencing cannot determine accepted results."
+              },
+              {
+                "id": "m3-build-recovery",
+                "title": "Implement atomic tournament results and distinct recovery boundaries",
+                "size": "L",
+                "doneWhen": "For the approved authority model, tournament checkpoints/results persist atomically and idempotently, and reconnect, lobby-owner transfer, and match-process recovery each have separate policies and observed outcomes without storing original-containing state remotely."
+              }
+            ],
+            "validation": [
+              "Review the feasibility record for fixed scenarios, evidenced inputs/outcomes, explicit unknowns, and separate authority, locality, and recovery decisions before implementation work proceeds.",
+              "Demonstrate protocol and service messages contain no original assets/code, RAM, original-containing save states, or title-state blobs; a digest or signature is not treated as authority or access rights.",
+              "Exercise four-seat ownership, result idempotency, reconnect, lobby ownership transfer, and match-process recovery as separate cases against the reviewed decision."
+            ],
+            "outOfScope": [
+              "Starting accounts, lobbies, or netcode while feasibility remains unresolved or fails under the current contract.",
+              "Running original title code, assets, RAM, or original-containing saves on a server or transferring them between peers.",
+              "Treating input sequencing, signatures, shared code, fixed ticks, client consensus, or relay as proof of server-owned outcomes."
+            ],
+            "stopCondition": "If authority cannot be demonstrated from evidence-backed outcomes while all original content/state stays local, stop before match implementation; record infeasible or unresolved status and required new evidence/options. Do not relax locality, claim relay authority, or invent rules to unblock implementation.",
+            "references": [
+              {
+                "path": "docs/online-authority-assessment.md",
+                "purpose": "Unresolved decision, candidate routes, required bounded spike, privacy envelope, and separate recovery definitions."
+              },
+              {
+                "path": "docs/architecture.md",
+                "purpose": "Implemented source boundaries and product architecture contracts."
+              },
+              {
+                "path": "docs/content.md",
+                "purpose": "Original code/assets/RAM/save locality contract."
+              },
+              {
+                "path": "profiles/project.json",
+                "purpose": "M3 acceptance criteria, stable task identities, and dependency order."
+              }
+            ]
+          }
         },
         {
           "id": "m3-verify",
@@ -194,7 +544,83 @@
             "m3-build",
             "m2"
           ],
-          "issueNumber": 30
+          "issueNumber": 30,
+          "brief": {
+            "context": "M3 verification is conditional on an implemented authority route that has already passed its feasibility gate. It must evaluate the unchanged remote/mixed-seat, required-catalog network, fairness, and recovery criteria. If the route remains unresolved or fails, verification records the blocker without implying online capability.",
+            "firstStep": "Bind the reviewed authority decision, protocol/rules version, original build, runtime/converter identity, and candidate service build; translate the unchanged M3 criteria into a scenario matrix before running trials.",
+            "prerequisites": [
+              "M2 offline game and original-reference scenario inventory are accepted.",
+              "m3-build authority feasibility decision is feasible and reviewed; unresolved or failed routes block match trials.",
+              "m3-build service, explicit four-seat ownership, and atomic results/recovery behavior are implemented for the declared scope."
+            ],
+            "deliverables": [
+              {
+                "id": "m3-verify-party-matrix",
+                "title": "Verify remote and mixed four-seat party outcomes",
+                "size": "M\u2013L",
+                "doneWhen": "Four-browser remote and two-local-plus-two-remote scenarios run across the required online catalog; seat ownership and each accepted outcome are recorded against the server decision and the corresponding original-reference scenario."
+              },
+              {
+                "id": "m3-verify-network",
+                "title": "Exercise specified network impairment and repeated rounds",
+                "size": "L",
+                "doneWhen": "Each required timing, contact, steering, and orb family completes ten consecutive rounds at 150 ms RTT, 30 ms jitter, and 1% loss with recorded conditions and outcomes; music/pattern activities also pass the explicit audio/input fairness case."
+              },
+              {
+                "id": "m3-verify-input-failures",
+                "title": "Verify stale, late, duplicate, and disconnected input handling",
+                "size": "M",
+                "doneWhen": "Defined stale-input, gap, duplicate, disconnect, refresh, and reconnect cases produce the reviewed protocol outcomes with no stuck inputs or unauthorized seat ownership, and no client-declared result is accepted."
+              },
+              {
+                "id": "m3-verify-recovery",
+                "title": "Verify lobby transfer and match-process recovery separately",
+                "size": "M\u2013L",
+                "doneWhen": "Lobby-owner transfer and interrupted match-process recovery are independently exercised; atomic checkpoint/result restoration preserves committed state and prevents duplicate awards, while reconnect alone is not counted as process recovery."
+              },
+              {
+                "id": "m3-verify-locality",
+                "title": "Audit online traffic and durable storage for content locality",
+                "size": "M",
+                "doneWhen": "Observed network payloads, service logs/diagnostics, checkpoints, and persisted results contain only reviewed protocol data and no original assets/code, RAM, original-containing saves, or derived proprietary content."
+              },
+              {
+                "id": "m3-verify-report",
+                "title": "Record matching-build online authority and recovery evidence",
+                "size": "S\u2013M",
+                "doneWhen": "A curated report binds source/service/protocol/rules identities, party and impairment scenarios, evidence identities, discrepancies, authority decision, and remaining limits; no scenario with missing or approximate outcomes is accepted."
+              }
+            ],
+            "validation": [
+              "Run the exact four-browser and two-local-plus-two-remote cases over the required catalog and preserve the network profile for each run.",
+              "Check ten-round consecutive results per required family at the specified impairment values and record the audio/input fairness outcome.",
+              "Inspect recovery and locality evidence independently: reconnect, owner transfer, process restoration, atomic result writes, and excluded content payloads each receive their own disposition."
+            ],
+            "outOfScope": [
+              "Verifying or advertising online multiplayer before a reviewed feasible authority decision and an implemented service exist.",
+              "Using client consensus or relayed inputs as a substitute for server-owned outcome evidence.",
+              "Changing the four-seat limit, required impairment profile, original-locality contract, or M3 acceptance criteria."
+            ],
+            "stopCondition": "Stop and record a failed or blocked scenario when the authority route is unresolved, original-reference agreement is missing, excluded content leaves the device, seat ownership exceeds four, or recovery duplicates/loses committed results; do not infer acceptance from protocol connectivity alone.",
+            "references": [
+              {
+                "path": "profiles/project.json",
+                "purpose": "Unchanged M3 verification criteria and dependency on M2 and implementation."
+              },
+              {
+                "path": "docs/online-authority-assessment.md",
+                "purpose": "Authority standard, locality exclusions, protocol boundaries, and separate recovery meanings."
+              },
+              {
+                "path": "docs/compatibility.md",
+                "purpose": "Original behavior evidence and fidelity criteria for outcome comparison."
+              },
+              {
+                "path": "docs/architecture.md",
+                "purpose": "Four-seat, ownership, persistence, and server-authority contracts."
+              }
+            ]
+          }
         }
       ],
       "issueNumber": 28
@@ -239,7 +665,77 @@
             }
           ],
           "dependsOn": [],
-          "issueNumber": 32
+          "issueNumber": 32,
+          "brief": {
+            "context": "The research shell has locally owned keyboard/gamepad seats, but there is no production account, friend, lobby, or online match service. M4 journey acceptance depends on accepted M2 local-game/content behavior and M3 authority, seat-ownership, and recovery behavior; those services must not be represented as already implemented.",
+            "firstStep": "Confirm the accepted M2/M3 evidence and the reviewed authority/content and identity boundaries before selecting service interfaces. Record any unresolved feasibility or policy decision as a blocker instead of inventing a client-authoritative match flow.",
+            "prerequisites": [
+              "Full original content/journey integration requires accepted M2 conversion, compatible-content readiness and local-content behavior. Bounded UX and authorization design may proceed earlier when assigned.",
+              "Full online journey acceptance requires accepted M3 authority, four-seat ownership and recovery behavior. Source-owned interface work may proceed earlier without claiming working services.",
+              "An approved account/recovery, privacy, friend/invitation, and lobby authorization design with no proprietary content or original-containing state sent to services."
+            ],
+            "deliverables": [
+              {
+                "id": "m4-build-account-recovery",
+                "title": "Implement account creation, sign-in, and recovery journey",
+                "size": "M",
+                "doneWhen": "A fresh browser can create or access an account, complete the approved recovery flow, and receive clear success, cancellation, and rejected-credential outcomes; tests show account identity remains distinct from connection, local profile, and seat identity."
+              },
+              {
+                "id": "m4-build-friend-permissions",
+                "title": "Implement friend requests and social privacy controls",
+                "size": "M",
+                "doneWhen": "Two test accounts can request, accept, decline, and remove a friend relationship; privacy, block, and report actions have explicit authorized outcomes, and unauthorized API operations are rejected and covered by tests."
+              },
+              {
+                "id": "m4-build-lobby-readiness",
+                "title": "Implement public/private lobby and invite readiness flows",
+                "size": "L",
+                "doneWhen": "Authorized test players can create/join a public or private lobby or use a join code/invitation, and the service rejects incompatible content/runtime/rules readiness before start without transferring game files or derived title data."
+              },
+              {
+                "id": "m4-build-four-seat-ownership",
+                "title": "Enforce lobby seat ownership and four-seat limit",
+                "size": "M",
+                "doneWhen": "Service checks demonstrate that a browser may own multiple local seats, remote seats have explicit owners, the combined lobby never exceeds four seats, and duplicate or unauthorized seat claims fail without changing the committed roster."
+              },
+              {
+                "id": "m4-build-match-rematch-flow",
+                "title": "Connect ready, start, match return, and rematch flows",
+                "size": "M\u2013L",
+                "doneWhen": "The supported interface completes content readiness \u2192 ready/start \u2192 the accepted match service \u2192 return/rematch for compatible test accounts, while refusal, disconnect, and failed-start states provide a recoverable user-visible result."
+              }
+            ],
+            "validation": [
+              "Exercise a fresh-account/recovery-to-friend/invite-to-compatible-lobby-to-match/rematch scenario with at least two browser accounts and retain build and environment identity.",
+              "Test privacy/block/report, incompatible content or versions, forged or unauthorized API requests, duplicate seat claims, and the four-total-seat boundary.",
+              "Inspect protocol and diagnostics fixtures to confirm they carry only reviewed identifiers and gameplay protocol data, never original files, assets, generated title code, RAM, saves, or content-bearing attachments."
+            ],
+            "outOfScope": [
+              "Changing original-game rules, claiming client relays are authoritative, or weakening the M3 content-locality or four-seat contract.",
+              "Xbox Live integration, voice/free-form chat, spectators, larger parties, ranked play, and mobile/touch support.",
+              "Selecting a production vendor, granting legal/licensing rights, authorizing service spend, or publishing/deploying a service."
+            ],
+            "stopCondition": "Stop before implementation if M2/M3 are not accepted or the authority/content, identity, privacy, or authorization contract is unresolved; during work stop at any path that requires proprietary content/state transfer or an unreviewed authority assumption.",
+            "references": [
+              {
+                "path": "docs/online-authority-assessment.md",
+                "purpose": "Unresolved authority/content feasibility boundary and candidate protocol envelope."
+              },
+              {
+                "path": "docs/architecture.md",
+                "purpose": "Current absence of production online services and required identity, seat, and recovery distinctions."
+              },
+              {
+                "path": "docs/content.md",
+                "purpose": "Player-local content and data-transfer constraints for accounts, compatibility, and online flows."
+              },
+              {
+                "path": "profiles/project.json",
+                "purpose": "Canonical M4/M3 criteria and unchanged milestone/work-package dependency identities."
+              }
+            ]
+          }
         },
         {
           "id": "m4-verify",
@@ -259,7 +755,77 @@
           "dependsOn": [
             "m4-build"
           ],
-          "issueNumber": 33
+          "issueNumber": 33,
+          "brief": {
+            "context": "The existing research app provides configurable local keyboard/gamepad ownership and focus/disconnect clearing for a prototype. That is not evidence for physical-device behavior in the supported product or for production accounts/lobbies; M4 verification must bind observations to the tested build, browser, and devices.",
+            "firstStep": "Freeze the candidate build and write a device/browser scenario matrix naming each physical keyboard/gamepad, seat assignment, remap, lifecycle event, accessibility path, and expected result before collecting acceptance evidence.",
+            "prerequisites": [
+              "M4 build flows are available on a candidate that has passed the issue's targeted checks; preserve the M4 build dependency.",
+              "M2 and M3 accepted build/evidence identities are available for content readiness, online ownership, and recovery behavior.",
+              "Named physical test devices and desktop browsers are available; report unavailable hardware/cases as unverified rather than inferred."
+            ],
+            "deliverables": [
+              {
+                "id": "m4-verify-seat-ownership",
+                "title": "Verify local seat and physical-device ownership",
+                "size": "M",
+                "doneWhen": "For one through four total seats, the retained matrix records which physical keyboard/gamepad owns each seat, proves each action reaches only its assigned seat, and distinguishes multiple local seats from remote seats and account/connection/profile identities."
+              },
+              {
+                "id": "m4-verify-remap-conflicts",
+                "title": "Verify remapping, conflicts, calibration, and prompts",
+                "size": "M",
+                "doneWhen": "Named-device runs cover keyboard/gamepad remapping, duplicate/conflicting assignments, calibration and player prompts; each accepted or rejected change has an observed result and no input is routed to another seat."
+              },
+              {
+                "id": "m4-verify-focus-device-recovery",
+                "title": "Verify focus loss and controller lifecycle recovery",
+                "size": "M",
+                "doneWhen": "On each declared physical gamepad/browser combination, focus loss, tab hiding, disconnect, reconnect, reassignment, stale input, and resume are exercised with no stuck action; the observed offline/online behavior matches the reviewed contract."
+              },
+              {
+                "id": "m4-verify-keyboard-access",
+                "title": "Verify keyboard navigation and visible focus",
+                "size": "S\u2013M",
+                "doneWhen": "A keyboard-only run reaches and operates account/setup, lobby, match, settings, error, and recovery controls in a meaningful order, with visible focus and no keyboard trap; deviations are recorded against the candidate build."
+              },
+              {
+                "id": "m4-verify-av-settings",
+                "title": "Verify audio/fullscreen failures and user settings",
+                "size": "S\u2013M",
+                "doneWhen": "Named desktop browser runs exercise denied/unavailable audio and fullscreen behavior plus quality/accessibility preferences, recording clear failure handling and whether preferences survive the supported session lifecycle."
+              }
+            ],
+            "validation": [
+              "Retain a reproducible matrix with source/build identity, browser/OS version, physical device identifiers, seat ownership, steps, expected/observed outcome, and evidence links for every declared case.",
+              "Tie the end-to-end fresh-account/recovery \u2192 content readiness \u2192 friend/invite \u2192 lobby \u2192 ready/start \u2192 match \u2192 rematch evidence to the same supported build and accepted M2/M3 boundaries.",
+              "Classify absent devices, unsupported browsers, touch/mobile, and unrun scenarios as limits; do not infer physical-device support from mocks or component fixtures."
+            ],
+            "outOfScope": [
+              "Changing acceptance criteria or creating extra native issues for each device, browser, or matrix row.",
+              "Claiming mobile/touch support without its own observed input flows and M5 device-matrix evidence.",
+              "Treating synthetic gamepad/controller fixtures or the independent prototype as original-game or production-service acceptance."
+            ],
+            "stopCondition": "Stop and leave the affected case open when a named physical-device outcome, account/lobby flow, or expected offline/online failure behavior cannot be observed or is inconsistent; do not substitute synthetic evidence or broaden the advertised support matrix.",
+            "references": [
+              {
+                "path": "runtime/browser/input/local-input.mjs",
+                "purpose": "Existing local seat ownership, assignment conflict, and input-clearing behavior to target with real-device checks."
+              },
+              {
+                "path": "runtime/browser/input/browser-safety.mjs",
+                "purpose": "Existing focus, visibility, and disconnect event handling under verification."
+              },
+              {
+                "path": "docs/development.md",
+                "purpose": "Current research-app keyboard/gamepad behavior and limits of public checks."
+              },
+              {
+                "path": "profiles/project.json",
+                "purpose": "Canonical M4 acceptance requirements, including physical-device and browser usability cases."
+              }
+            ]
+          }
         }
       ],
       "issueNumber": 31
@@ -306,7 +872,77 @@
             }
           ],
           "dependsOn": [],
-          "issueNumber": 35
+          "issueNumber": 35,
+          "brief": {
+            "context": "Pinned Node/npm inputs, source-only build guards, and Windows/Linux CI exist, but the candidate is not yet a reproducible accepted release and production operations are not authorized by the backlog. The release package must remain clean and source-only; licensing, service cost, and deployment require separate explicit decisions.",
+            "firstStep": "Inventory the pinned toolchain, required CI/publication checks, existing clean-build steps, and release decision owners; define a candidate manifest and artifact allowlist before preparing release procedures.",
+            "prerequisites": [
+              "M1 through M4 acceptance records and matching source/build identities are available before release readiness is claimed.",
+              "Pinned source/tool inputs and required CI/publication checks are recorded, with a clean checkout available for reproduction.",
+              "Named owners and decision records exist for licensing/content release, privacy/data handling, deployment, and any service costs; unresolved authorization remains a release blocker."
+            ],
+            "deliverables": [
+              {
+                "id": "m5-build-clean-reproduction",
+                "title": "Reproduce the candidate from a clean pinned checkout",
+                "size": "M",
+                "doneWhen": "A documented clean-checkout procedure uses the pinned Node/npm and declared source/tool inputs to reproduce the candidate and records commit, commands, tool versions, output identities, and any nondeterminism."
+              },
+              {
+                "id": "m5-build-source-only-artifacts",
+                "title": "Verify source-only artifact and diagnostic allowlists",
+                "size": "M",
+                "doneWhen": "Candidate source/build/diagnostic paths are checked against an explicit allowlist and scan evidence shows no original media, generated title code, original-containing state, credentials, or unapproved private artifacts are distributed or attached."
+              },
+              {
+                "id": "m5-build-version-compatibility",
+                "title": "Document protocol and content compatibility versioning",
+                "size": "M",
+                "doneWhen": "A reviewed compatibility table identifies protocol, rules, converter/runtime, and content-build identifiers, supported combinations, and explicit mismatch rejection behavior without implying that an identifier proves possession or authority."
+              },
+              {
+                "id": "m5-build-operations-procedures",
+                "title": "Prepare rollback, backup, recovery, and capacity procedures",
+                "size": "M\u2013L",
+                "doneWhen": "Reviewable runbooks define candidate rollback, backup/restore checks, admission/capacity limits, privacy/data handling, and operational evidence owners, while clearly marking any unimplemented or unapproved production service step."
+              },
+              {
+                "id": "m5-build-release-decisions",
+                "title": "Record licensing, deployment, and cost decisions for review",
+                "size": "M",
+                "doneWhen": "A decision register names the licensing/content-release questions, deployment target, estimated service costs, approver, and authorization state; unresolved or unauthorized items remain explicit blockers and no publication or spend is triggered by this issue."
+              }
+            ],
+            "validation": [
+              "Run the declared clean-checkout reproduction and required CI/publication checks, retaining commit, tool versions, logs/receipts, and artifact hashes without private or credential-bearing data.",
+              "Inspect exact candidate and diagnostic paths against source-only policy; report excluded private inputs separately from public-check results.",
+              "Review version mismatch, rollback, restore, capacity/admission, and privacy procedures through source-owned fixtures or documented dry runs; label dry-run evidence accurately."
+            ],
+            "outOfScope": [
+              "Publishing a release/site, deploying production services, purchasing capacity, or authorizing service spend.",
+              "Selecting or asserting a repository/content license or legal permission without the responsible explicit decision.",
+              "Automatically adding mobile/touch, expanded browser support, or new feature scope to the release candidate."
+            ],
+            "stopCondition": "Stop release promotion if any M1\u2013M4 gate is unaccepted, clean reproduction or source-only checks fail, operational recovery/privacy controls are unverified, or required licensing/deployment/cost authorization is unresolved; keep the reviewable candidate and blocker record without publishing or spending.",
+            "references": [
+              {
+                "path": "package.json",
+                "purpose": "Pinned Node/npm requirements and source-owned check/build command inventory."
+              },
+              {
+                "path": ".github/workflows/ci.yml",
+                "purpose": "Required Windows/Linux continuous-integration checks and runner coverage."
+              },
+              {
+                "path": "docs/content.md",
+                "purpose": "Source-only publication, local-content, diagnostics, and privacy boundaries."
+              },
+              {
+                "path": "docs/management.md",
+                "purpose": "Milestone acceptance evidence and distinction between reviewed scope, native tracking, and publication."
+              }
+            ]
+          }
         },
         {
           "id": "m5-verify",
@@ -330,7 +966,77 @@
             "m4",
             "m5-build"
           ],
-          "issueNumber": 36
+          "issueNumber": 36,
+          "brief": {
+            "context": "M5 requires actual browser/device and full-product evidence against budgets fixed before the runs. Existing source checks and prototype fixtures do not establish title performance, complete browser support, or release readiness; the candidate must inherit accepted M1\u2013M4 evidence and preserve its limits.",
+            "firstStep": "Freeze the candidate source/build identities, declare required desktop browser versions and named hardware, then set frame-time, memory, import-time, and recovery budgets with rationale before any acceptance run starts.",
+            "prerequisites": [
+              "M1, M2, M3, and M4 acceptance records are reviewed for the same declared product candidate and supported scope.",
+              "M5 build candidate has a reproducible clean-checkout record and required source/CI/publication checks pass.",
+              "Browser/device matrix, measurable budgets, scenario procedures, and evidence-retention plan are frozen before testing; no target is selected after observing results."
+            ],
+            "deliverables": [
+              {
+                "id": "m5-verify-frozen-matrix",
+                "title": "Execute the declared desktop browser and hardware matrix",
+                "size": "M\u2013L",
+                "doneWhen": "Each required Chrome, Edge, Firefox, and Safari version and named hardware configuration has a candidate-bound result for the declared launch, content, input, and recovery scenarios; unsupported or unavailable combinations are listed as limits."
+              },
+              {
+                "id": "m5-verify-performance-budgets",
+                "title": "Measure frame time, memory, and import budgets",
+                "size": "M",
+                "doneWhen": "Every matrix run reports measured frame-time distribution against the predeclared 60 fps target and usable documented 30 fps mode, peak memory, import time, and failure behavior against the budgets frozen before runs."
+              },
+              {
+                "id": "m5-verify-tournament-soak",
+                "title": "Verify full-tournament soak and relaunch recovery",
+                "size": "L",
+                "doneWhen": "The declared long-session scenarios complete a full tournament and exercise relaunch, save/reload, recovery, and failure injection on named devices, with captured outcomes and all discrepancies linked to the candidate identity."
+              },
+              {
+                "id": "m5-verify-release-record-review",
+                "title": "Review release evidence, procedures, and supported-scope claims",
+                "size": "M",
+                "doneWhen": "A reviewer can trace every M1\u2013M5 acceptance record, compatibility/version procedure, rollback/restore/privacy evidence, and authorized release decision; release documentation lists only observed supported browsers/devices and unresolved limits."
+              },
+              {
+                "id": "m5-verify-release-readiness-decision",
+                "title": "Record pass, fail, or blocked disposition",
+                "size": "S\u2013M",
+                "doneWhen": "The evidence record gives a criterion-by-criterion pass/fail/blocked disposition tied to one source commit, candidate, browser/device matrix, and reviewer; no missing result is silently treated as a pass."
+              }
+            ],
+            "validation": [
+              "Confirm budget values and matrix identifiers were committed/frozen before each run and preserve raw measurements locally with curated non-content result identities.",
+              "Repeat required soak/recovery cases on the declared supported matrix and bind logs, build hashes, device/browser details, and failures to the same candidate.",
+              "Audit every advertised browser/device and release claim against completed observations; later mobile/touch remains outside the declared release unless it passes applicable input and release gates."
+            ],
+            "outOfScope": [
+              "Inventing performance budgets after runs, treating 128 MiB/120-second importer proposals as measured guarantees, or inferring title performance from fixtures.",
+              "Adding later mobile/touch support automatically or accepting untested browser/hardware combinations by similarity.",
+              "Approving licensing, deployment, or costs on behalf of the owner, publishing a site, or releasing proprietary/derived game material."
+            ],
+            "stopCondition": "Stop acceptance and mark the affected criterion failed or blocked when frozen budgets, browser/device cases, soak/recovery evidence, milestone records, or required owner authorizations are missing or fail; do not advertise or publish an unsupported release.",
+            "references": [
+              {
+                "path": "docs/milestones.md",
+                "purpose": "M5 acceptance gates, inherited M1\u2013M4 evidence requirement, and later-device release boundary."
+              },
+              {
+                "path": "docs/compatibility.md",
+                "purpose": "Browser/device performance evidence and requirement to freeze budgets before acceptance runs."
+              },
+              {
+                "path": "docs/risks.md",
+                "purpose": "Current gaps in browser performance, reproducibility, privacy, licensing, and operating cost evidence."
+              },
+              {
+                "path": "profiles/project.json",
+                "purpose": "Canonical M5 criteria and unchanged work-package acceptance dependencies."
+              }
+            ]
+          }
         }
       ],
       "issueNumber": 34

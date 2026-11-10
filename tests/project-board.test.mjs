@@ -34,6 +34,7 @@ test('preview is read-only; creation copies views without drafts and populates e
   const client=new MemoryBoard();const preview=await syncBoard(client,loadPlan(),config(),{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(preview.operations.length,48);assert.equal(client.writes.length,0);
   const result=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(result.project.url,URL);assert.equal(result.readbackVerified,true);assert.equal(client.created,1);assert.equal(client.target.items.length,15);assert.ok(client.target.public);assert.deepEqual(client.target.views,views());
   assert.equal(client.target.items.filter(i=>i.workType.name==='Milestone').length,5);assert.ok(client.target.items.every(i=>i.status.name==='Planned'));assert.ok(!JSON.stringify(result).includes('Private reviewer'));assert.ok(!JSON.stringify(result).includes(client.token));
+  assert.ok(client.target.readme.includes('Original audio'));assert.ok(client.target.readme.includes('MB24'));assert.ok(client.target.readme.includes('M5: Release readiness'));assert.ok(!client.target.readme.includes('implementation remains paused'));
   client.writes=[];await syncBoard(client,loadPlan(),{...config(),number:3,id:'PVT_target'},{apply:true,sourceCommit:SHA});assert.equal(client.created,1);assert.equal(client.writes.length,0);
 });
 test('identity conflicts, unmarked same-name projects and stale main prevent mutations',async()=>{

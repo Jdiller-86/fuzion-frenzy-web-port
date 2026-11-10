@@ -35,6 +35,12 @@ These paths are absent from a normal clone. Reuse them if supplied locally; othe
 
 ## Read-only XBE work
 
+Choose analysis prerequisites from the claim being established. Replaying an already accepted module consumes its executable/module, settings, reports and reviewed harness/source closure; it does not consume a live Ghidra database. Use the explicit replay-purpose gate in [the workflow](development-workflow.md). Its success verifies named replay inputs, not the complete harness or a new original-code fact.
+
+For a candidate that reuses retained bodies, first match the relevant exports, seeds, listings and audits to the accepted input and source identities. A hash-verified original image can also support bounded byte/data checks against an existing witness and independent decoder. Record which authority supports each caller, frame, layout or literal claim. Do not treat a later unanchored assessment or a freshly calculated candidate checksum as historical authority. Live guest memory, provider selection, side effects and actual returns still require runtime guards and observation.
+
+New analysis is necessary only when these retained sources do not cover a required fact. Then retain the default analysis preflight and the read-only procedure below. A matching project-marker or properties-file hash does not prove companion database integrity; an unverified mutable project remains unverified even when it is unnecessary for a particular replay. Preserve existing projects and evidence rather than rebuilding them to satisfy an unrelated gate.
+
 Use the [PowerShell wrapper](../tools/Invoke-ProjectGhidra.ps1) on a workstation with the pinned tools and retained project. From the repository root, this processes the existing project without saving analysis changes:
 
 ```powershell

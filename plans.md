@@ -1,12 +1,22 @@
 # Development plan
 
+<!-- development-state:start -->
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+
+The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
+
+[Current runtime evidence](docs/status.md) owns detailed observations and limits. [Structured state](profiles/development-state.json) owns this generated pointer; [workflow](docs/development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+<!-- development-state:end -->
+
 Run the original Xbox Fuzion Frenzy entirely in a browser through static recompilation to WebAssembly, then deliver the complete planned online, social and control experience. Original behavior and presentation are the baseline; all player content and derived title code stay local.
 
 ## Current work
 
-This revision reorganizes source and tracking. Runtime implementation remains paused pending the next user-directed task. The recorded main-branch frontier is bounded startup, with no controllable original screen or complete product accepted; see [status](docs/status.md).
+M1 startup integration is in progress. Use the generated development-state pointer above and [status](docs/status.md) for the current boundary. No controllable original screen or complete product is accepted. The [iteration workflow](docs/development-workflow.md) and [local handoff goals](docs/local-agent-handoff.md) define concrete next steps without starting the entire roadmap.
 
-The next implementation work should advance **M1: Original browser execution** through a bounded reached dependency. Existing startup, device-policy and stack-repair evidence supports that work. It does not complete any of the five project milestones.
+The next implementation work should advance **M1: Original browser execution** using the [largest-first browser work order](docs/m1-browser-work.md#largest-first-implementation-order), generated from [reviewed scope data](profiles/m1-browser-work.json). Pull in the exact reached startup/resource dependencies needed for the next large proof. Existing startup, device-policy and stack-repair evidence supports that work; the recorded startup stop is not a prerequisite for independent browser interface work. None of these foundations completes a project milestone by itself.
+
+The [M1 browser work map](docs/m1-browser-work.md) names the execution-loop, resource, graphics, audio, input and original-round connections still to integrate, with evidence, rough structural sizes and completion checks. Use it with the scope ledger to report remaining work at the capability level.
 
 ## Milestones
 
