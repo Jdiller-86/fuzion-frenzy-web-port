@@ -1,5 +1,19 @@
 .tools/
-research/
+research/**
+# Publish only the existing recompiled source; other research and assets stay ignored.
+!research/verification/
+!research/verification/sdk-title-bulk-command-20261107/
+!research/verification/sdk-title-bulk-command-20261107/generated/
+!research/verification/sdk-title-bulk-command-20261107/generated/*.cpp
+!research/verification/sdk-title-bulk-command-20261107/generated/*.h
+!research/verification/sdk-4f6bd-log-20261109/
+!research/verification/sdk-4f6bd-log-20261109/source45-03/
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/*.c
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/*.cpp
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/*.h
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/*.hpp
+!research/verification/sdk-4f6bd-log-20261109/source45-03/**/*.inc
 /.worktrees/
 /Fuzion Frenzy (USA)/
 *.7z
