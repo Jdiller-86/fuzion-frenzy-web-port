@@ -80,7 +80,7 @@ Simulation and online authority remain unproved for the recompilation route. Pre
 
 Use the selected primary model as coordinator; the project default for new trusted sessions is `gpt-6.1-sol` with high reasoning. The coordinator owns decomposition, integration, acceptance review, staging and publication. Follow explicit current-user model preferences without changing global providers, credentials or an active session's model.
 
-Automatically delegate independently useful, bounded tasks to `gpt-6-luna`, with low reasoning by default and medium for tasks that warrant it. Keep at most two spawned workers active at once, including any independent reviewer. Keep serial or tightly coupled work with the coordinator when delegation would duplicate context or add rework.
+Automatically delegate independently useful, bounded tasks to `gpt-6-luna`, with low reasoning by default and medium for tasks that warrant it. Keep at most four spawned workers active at once, including any independent reviewer, within the active session's limit. Keep serial or tightly coupled work with the coordinator when delegation would duplicate context or add rework.
 
 Give each worker an observable result, exact file ownership, relevant evidence, checks and a stop condition. Prefer fresh task-specific context; when the tool exposes `fork_turns`, use `none` when selecting a different worker model. Workers return findings or scoped edits to the coordinator and do not spawn further workers or publish changes independently.
 

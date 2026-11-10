@@ -20,7 +20,7 @@ assert.match(model, /^model = "gpt-6\.1-sol"$/m);
 assert.match(model, /^model_reasoning_effort = "high"$/m);
 assert.match(model, /^\[agents\]$/m);
 assert.match(model, /^enabled = true$/m);
-assert.match(model, /^max_concurrent_threads_per_session = 2$/m);
+assert.match(model, /^max_concurrent_threads_per_session = 4$/m);
 assert.match(model, /^max_depth = 1$/m);
 assert.match(model, /^default_subagent_model = "gpt-6-luna"$/m);
 assert.match(model, /^default_subagent_reasoning_effort = "low"$/m);

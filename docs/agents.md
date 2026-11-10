@@ -14,9 +14,9 @@ The checked-in [Codex configuration](../.codex/config.toml) and [repository inst
 | --- | --- | --- |
 | Coordinator | `gpt-6.1-sol`, high reasoning | Scope, delegation, integration, review and publication |
 | Workers | `gpt-6-luna`, low reasoning | Bounded, independently useful work with explicit ownership and checks |
-| Independent correctness reviewer | Sol High when needed | CPU/memory/ABI/GPU review, within the same two-worker cap |
+| Independent correctness reviewer | Sol High when needed | CPU/memory/ABI/GPU review, within the same four-worker cap |
 
-At most two spawned workers run concurrently. The coordinator can request medium reasoning for a bounded Luna task. It keeps serial work together and uses task-specific context for workers. Workers report back; the coordinator owns commits and pushes. No persistent scheduler or unattended development service is installed.
+The project allows up to four concurrent spawned workers in a fresh trusted session, subject to the client's effective limit. The coordinator can request medium reasoning for a bounded Luna task. It keeps serial work together and uses task-specific context for workers. Workers report back to the coordinator, who owns commits and pushes. No persistent scheduler or unattended development service is installed.
 
 ## Apply locally
 
@@ -34,14 +34,15 @@ Use this first-session prompt:
 
 ```text
 Read AGENTS.md and .codex/config.toml. Verify the intended Sol High lead
-and two-worker Luna Low setup with two fresh-context, read-only workers:
-one summarizes docs/status.md and docs/handoff.md; the other lists the
-package.json scripts. Do not edit files, run tests, or begin runtime work.
+and four-worker Luna Low setup. Spawn four fresh-context, read-only workers
+concurrently: one summarizes docs/status.md, one summarizes docs/handoff.md,
+one lists the package.json scripts, and one lists the milestone acceptance
+criteria in docs/milestones.md. Do not edit files, run tests, or begin runtime work.
 Report each worker's actual model/reasoning and the concurrency limit
 from execution metadata if available. State any unavailable capability.
 ```
 
-Check the primary model selection and the model/reasoning shown for each worker in the agent details or spawn records. Expected: Sol High leads, two Luna Low workers handle the checks, and only the coordinator integrates their findings. A worker's prose self-description is insufficient evidence of model selection. If the client does not expose execution metadata, record that verification limit.
+Check the primary model selection and the model and reasoning shown for each worker in the agent details or session records. Verify that all four Luna Low worker turns overlap while Sol High leads. Only the coordinator integrates their findings. Use execution records to confirm model selection and concurrency. If the client does not expose those records, report the verification limit.
 
 `npm run check` validates the repository's saved defaults and publication guards. It does not validate account entitlements, runtime configuration precedence or actual worker execution on another machine.
 
