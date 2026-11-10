@@ -1,5 +1,7 @@
 # Project status: SDK browser integration in progress
 
+The [full-title SDK browser candidate](sdk-browser.md) adds Wasm compilation of the retained 64-shard title source, checked guest-memory access, a callable worker bridge, local XBE mapping, bounded temporary filesystem mounting and initial real RTL/crypto providers. This is implementation/build progress for MB04–MB07. The managed workspace has no matching XBE/assets, so no original execution, frame or new accepted checkpoint is claimed. Boot/thread/TLS, high-address translation, kernel filesystem services and renderer presentation remain the next connections. Smoke and regression runs are deferred until the working baseline by user direction.
+
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 

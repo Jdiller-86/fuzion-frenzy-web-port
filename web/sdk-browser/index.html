@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local SDK browser run</title>
+  <style>
+    :root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0a101b;color:#eaf2ff}body{max-width:920px;margin:0 auto;padding:24px}section{background:#121d2d;border:1px solid #34445c;border-radius:12px;padding:20px;margin:18px 0}h1{font-size:clamp(2rem,5vw,3rem);line-height:1.1}label{display:block;margin:14px 0;font-weight:650}input{display:block;margin-top:6px;max-width:100%}button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid #66c8b3;background:#126b5b;color:white;cursor:pointer}button:disabled{opacity:.45;cursor:default}#status{white-space:pre-wrap;overflow-wrap:anywhere;min-height:4em;padding:12px;background:#080d15;border-radius:8px}#error{color:#ffaaa3}.muted{color:#afbed2;font-size:.92rem}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}code{background:#080d15;padding:2px 5px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <p class="muted">LOCAL SDK BROWSER CANDIDATE</p>
+  <h1>Run the compiled SDK entry locally</h1>
+  <p>Select the matching original XBE and its local data folder. The browser sends no selected files to a server. This candidate maps the XBE, copies the selected data into a temporary worker-local filesystem, and invokes the actual generated entry. Kernel filesystem imports and other missing services remain explicit stops.</p>
+  <section>
+    <label>Original XBE (pinned identity)
+      <input id="xbe" type="file" accept=".xbe,application/octet-stream">
+    </label>
+    <label>Local game data folder
+      <input id="data" type="file" webkitdirectory multiple>
+    </label>
+    <p id="data-summary" class="muted">No data folder selected.</p>
+    <p class="muted">The XBE and game data together are limited to 16,384 mounted files and 8 GiB. Files remain local and mount read-only on demand in a temporary worker filesystem. The SDK kernel filesystem provider is still pending.</p>
+    <div class="row"><button id="run">Load and run generated entry</button><button id="stop" disabled>Stop worker</button></div>
+  </section>
+  <section>
+    <h2>Run status</h2>
+    <pre id="status" role="status" aria-live="polite">Choose the matching local XBE and start a run.</pre>
+    <p id="error" role="alert"></p>
+  </section>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
