@@ -38,7 +38,11 @@ The default preflight succeeds in a source-only checkout while reporting `baseli
 | --- | --- |
 | Replay the unchanged accepted module | `--purpose replay`: the eight named replay inputs below, followed by a separately reviewed harness dependency closure and actual browser comparison. No analysis project is consumed. |
 | Reuse retained original bodies in a candidate | Replay inputs plus a separate claim-by-claim provenance review, retained body/byte/layout evidence, exact source/build/admission checks and independent correctness review. A passing replay preflight does not establish new code facts. |
+| Build/run the upstream SDK native reference | Verify the pinned SDK/game/configuration, matching local input, actual compiler/build identities and executable provenance; record the observed native result. This is a new reference, not an unchanged M44 replay or proof of original-code facts. |
+| Build/run a separate SDK browser candidate | Bind the SDK source/configuration/input/compiler/generated-output identities to its new module and reviewed resource/ABI manifest. Validate that candidate before execution, retain explicit refusals, and record actual browser evidence. SDK generation alone is not admission. |
 | Establish original-code facts through new analysis | Default `analysis` purpose: the original eleven named baseline files, plus the read-only analysis procedure and project/database verification required by [analysis setup](analysis.md). An individual project-file hash does not verify the complete database. |
+
+The legacy replay CLI is not an SDK-candidate admission command: do not force a new executable/module to match M44's module/audit hashes or invent a replay pass. Compiling already reviewed SDK source does not by itself consume the mutable Ghidra project. Use the SDK's actual validated source/build records and candidate contract; implement and review a missing candidate check within Goal G before dependent execution. New original-code analysis still follows the strict analysis procedure. Existing M44 replay checks remain intact.
 
 For an unchanged retained replay, use:
 

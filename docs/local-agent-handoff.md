@@ -17,6 +17,8 @@ flags, evidence, SDK paths or runtime observations.
 Before original execution, follow docs/development-workflow.md for the
 purpose-specific private baseline and consumed-input/source authority.
 Retained replay does not establish new original-code facts or database integrity.
+New SDK reference/candidate builds use their own verified source/build/input
+records and reviewed admission contract, not invented M44 replay identities.
 
 For M1, name the affected MB item and SCOPE task, use its observable exit,
 and report exact remaining connections/features and the next measurement.
