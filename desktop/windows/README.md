@@ -1,5 +1,11 @@
 # Fuzion Frenzy Windows builder
 
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.0-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.0-preview.1)
+
+The launcher and NSIS installer compiled successfully on Windows Actions. The
+installer is approximately 45 MiB; it contains the builder, not game content.
+
 Target: Windows 10/11 x64 with a D3D12-capable GPU. The launcher includes its
 .NET runtime; the separate C++ game compiler is installed on demand.
 
