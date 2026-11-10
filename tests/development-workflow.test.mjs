@@ -35,7 +35,10 @@ function replayBaseline(t) {
   // Real checkpoint state and its historical provenance requirement stay intact.
   f.state.checkpoint.sourceCommit=sourceCommit();
   f.manifest.checkpointSourceCommit=f.state.checkpoint.sourceCommit;
-  const toolchain=fs.readFileSync(path.join(ROOT,'tools/original-execution-toolchain.json'));
+  // Match the committed provenance even while a local toolchain-policy edit is uncommitted.
+  const retained=spawnSync('git',['show',`${f.state.checkpoint.sourceCommit}:tools/original-execution-toolchain.json`],{cwd:ROOT});
+  assert.equal(retained.status,0,'Owned replay fixture needs its declared committed toolchain');
+  const toolchain=retained.stdout;
   fs.writeFileSync(path.join(f.root,'toolchainManifest'),toolchain);
   Object.assign(f.manifest.files.find(x=>x.id==='toolchainManifest'),{bytes:toolchain.length,sha256:digest(toolchain)});
   const roles={controlReport:'control',inertReport:'inert',previousReport:'default',experimentReport:'selected'};
@@ -55,6 +58,7 @@ test('current pointers are synchronized; stale or duplicated pointers fail close
   fs.mkdirSync(path.join(root,'profiles')); fs.mkdirSync(path.join(root,'docs'));
   fs.writeFileSync(path.join(root,'profiles/development-state.json'),JSON.stringify(state));
   for (const name of DOCUMENTS) fs.writeFileSync(path.join(root,name),'# Owned document\n\nExisting evidence stays intact.\n');
+  assert.doesNotMatch(stateBlock({...state,milestone:'M2'},'README.md'),/Goal G|Retained startup resume/);
   assert.equal(syncDocuments(root).length,DOCUMENTS.length);
   assert.deepEqual(syncDocuments(root,{check:true}),[]);
   assert.match(fs.readFileSync(path.join(root,'docs/status.md'),'utf8'),/Existing evidence stays intact/);

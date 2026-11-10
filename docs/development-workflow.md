@@ -9,11 +9,15 @@ npm run dev:status
 npm run dev:preflight
 ```
 
-[profiles/development-state.json](../profiles/development-state.json) owns the recorded checkpoint identity, current task and admission counts. Its source commit identifies the accepted evidence checkpoint, not necessarily the checkout HEAD. [Status](status.md) owns detailed observations, qualifications and private evidence identities. The generated pointer in the entry documents is checked by `npm run check`; it does not start a task or accept a milestone.
+[profiles/development-state.json](../profiles/development-state.json) owns the accepted checkpoint identity, retained startup resume task and legacy admission counts. Its source commit identifies the evidence checkpoint, not necessarily the checkout HEAD. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05), reflected in the source-owned #49 delivery brief, owns the current SDK integration assignment. [Status](status.md) owns detailed observations and private evidence identities. Generated pointers do not start a task or accept a milestone.
 
 The `dev:status` result links the [M1 browser work map](m1-browser-work.md). Use its MB work items to describe concrete remaining browser connections and their completion checks. Each M1 task report should identify its MB row, existing evidence, delivered connection, remaining features and next measurement. Keep S/M/L structural size distinct from a calibrated duration estimate.
 
-Select work using its [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order): runtime/admission bottlenecks, graphics with an early original frame, audio, then remaining path integration and acceptance. Pull forward the specific startup/read/input prerequisite needed for the next large proof; do not make every startup helper a gate on independent browser work.
+Start the SDK-to-browser attempt using its [largest-first order](m1-browser-work.md#largest-first-implementation-order). Reproduce/reuse a matching native reference for at most 30 minutes of the initial 150-minute local session, then compile/run toward the first original frame. If desktop setup blocks, retain the actual failure and continue useful browser work. Choose existing worker/thread patterns and batch supported shared-interface fixes. The retained SCOPE startup stop is a conditional prerequisite, not the main implementation queue.
+
+Keep experiment and promotion separate. Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. Before the working baseline, compile and run the actual affected path, inspect its output/failure and use only quick diagnostic checks. Batch shared-interface fixes and reuse passing evidence. Detailed testing, broad matrices and repeated per-caller/historical audits come later. After the baseline works, complete correctness/fidelity/regression testing and independent CPU/memory/ABI/GPU review before promoting accepted evidence or closing the applicable acceptance criteria. Preserve required existing CI when publishing.
+
+At 150 minutes give a brief progress update and continue productive implementation. Keep actual commands, identities, observed output/failure and the next concrete fix in a compact local record; expand formal evidence and timing analysis after the baseline. A first frame or failure report does not close #49 or accept M1.
 
 When a new runtime checkpoint is accepted, update the structured state and detailed status/handoff together, then run:
 
@@ -34,7 +38,11 @@ The default preflight succeeds in a source-only checkout while reporting `baseli
 | --- | --- |
 | Replay the unchanged accepted module | `--purpose replay`: the eight named replay inputs below, followed by a separately reviewed harness dependency closure and actual browser comparison. No analysis project is consumed. |
 | Reuse retained original bodies in a candidate | Replay inputs plus a separate claim-by-claim provenance review, retained body/byte/layout evidence, exact source/build/admission checks and independent correctness review. A passing replay preflight does not establish new code facts. |
+| Build/run the upstream SDK native reference | Verify the pinned SDK/game/configuration, matching local input, actual compiler/build identities and executable provenance; record the observed native result. This is a new reference, not an unchanged M44 replay or proof of original-code facts. |
+| Build/run a separate SDK browser candidate | Bind the SDK source/configuration/input/compiler/generated-output identities to its new module and explicit resource/dispatch limits. Keep quick identity/budget/bounds checks and record actual execution; detailed contract review follows the working baseline before promotion. SDK generation alone is not admission. |
 | Establish original-code facts through new analysis | Default `analysis` purpose: the original eleven named baseline files, plus the read-only analysis procedure and project/database verification required by [analysis setup](analysis.md). An individual project-file hash does not verify the complete database. |
+
+The legacy replay CLI is not an SDK-candidate admission command: do not force a new executable/module to match M44's module/audit hashes or invent a replay pass. Compiling already reviewed SDK source does not by itself consume the mutable Ghidra project. Use the SDK's actual source/build records and explicit candidate limits. Add only a missing basic check needed to run the current path; detailed review follows the working baseline. New original-code analysis still follows the strict analysis procedure. Existing M44 replay checks remain intact.
 
 For an unchanged retained replay, use:
 

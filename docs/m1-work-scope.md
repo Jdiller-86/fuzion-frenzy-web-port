@@ -12,6 +12,8 @@ SCOPE-36 is verified at the accepted M44 boundary. Its one-argument4F6BD→4B230
 
 ## Remaining M1 planning estimate (E1)
 
+The SDK-first implementation owns near-term priority; use [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05). Build-run-fix toward original browser output and a controllable baseline, using a short desktop reference where useful. Defer detailed testing and timing analysis until it works. Give a brief progress update at 150 minutes and continue productive work. Historical task allowances below are not calendar forecasts; a frame or failure report does not close a package.
+
 **Plan around 30 remaining engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** E1 was established at source checkpoint `05380a2` / profile twenty. Profile twenty-two closed one grouped continuation/parent-re-entry package. Profile thirty-four closed the distinct selected directory-call cluster; profile forty closes the later selected stdio call cluster. The worksheet reflects three one-package reductions; overall startup and other areas remain open. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
 
 One task means a task-sized functional capability or reached-path integration batch, including its targeted verification. Examples are providing original controller polling, translating the needed shader/state path, or finishing an original startup call cluster. Several functions/imports can share one task; one shared adapter fix may remove many stops. Tasks have unequal effort. Do not convert this count into hours or a milestone percentage.

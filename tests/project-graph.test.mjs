@@ -27,6 +27,7 @@ test('interactive status filter retains source-plan tasks using snapshot statuse
  const task=els.graph.children.find(n=>n.attrs?.role==='button');let prevented=false;task.events.keydown({key:'Enter',preventDefault(){prevented=true}});assert.ok(prevented);assert.ok(els.graph.children.find(n=>n.attrs?.['data-node-id']===task.attrs['data-node-id']).focused);
  const text=n=>n.textContent+n.children.map(text).join('');assert.match(text(els.detail),/Acceptance criteria/);assert.match(text(els.detail),/Open native issue/);assert.match(text(els.detail),/Open project board/);
  assert.match(text(els.detail),/First bounded assignment/);assert.match(text(els.detail),/Delivery slices/);
+ els.level.value='delivery';els.level.events.change();const leaf=els.graph.children.find(n=>n.attrs?.['data-node-id']==='m1-build-execution');leaf.events.click();assert.ok(text(els.detail).includes(plan.milestones[0].tasks[0].brief.deliverables[0].firstStep));
  els.level.value='milestone';els.level.events.change();assert.equal(els.graph.children.filter(n=>n.attrs?.role==='button').length,5);els.milestone.value='m2';els.milestone.events.change();assert.equal(els.graph.children.filter(n=>n.attrs?.role==='button').length,1);
  const unavailable={...snap(),available:false};delete unavailable.milestones;
  const absent=renderProgressPage(unavailable,plan,template),absentPayload=absent.match(/<script type="application\/json" id="project-data">([\s\S]*?)<\/script>/)[1];

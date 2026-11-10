@@ -1,11 +1,11 @@
 # Local agent execution
 
 <!-- development-state:start -->
-Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 
-[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
 The checked-in [Codex configuration](../.codex/config.toml) and [repository instructions](../AGENTS.md) carry the agreed session structure to a local checkout:
@@ -47,4 +47,4 @@ Check the primary model selection and the model/reasoning shown for each worker 
 
 ## Development gates still apply
 
-Agent availability does not restore the private game/research baseline. Run `npm run dev:status` and `npm run dev:preflight` before selecting runtime work; the current task is defined by the structured state, not an older address in a transcript. Follow [status](status.md), [handoff](handoff.md), [iteration workflow](development-workflow.md) and [analysis setup](analysis.md). Private prerequisites stay local, and source-only checks cannot accept an original-runtime milestone. The [local handoff](local-agent-handoff.md) provides separate implementation goals for a workstation with the retained baseline.
+Use one local lead with source, private inputs and toolchain to keep the SDK build-run-fix loop moving. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) prioritizes original browser execution; detailed testing and independent correctness review follow the working baseline. Preserve ownership, M44 and private inputs. The 150-minute point is a short progress checkpoint, not a handoff or stop while productive work remains. [Status](status.md) records accepted evidence separately from the prototype.

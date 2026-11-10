@@ -40,6 +40,11 @@ test('scope edits invalidate generated map and summaries while generation preser
     assert.throws(() => syncGoalDocuments(plan, {root, check:true}), /README.md/);
     syncGoalDocuments(plan, {root});
     assert.match(fs.readFileSync(readme, 'utf8'), /Changed execution priority/);
+    plan.milestones[0].tasks[0].brief.firstStep='Changed SDK integration assignment.';
+    assert.throws(()=>syncGoalDocuments(plan,{root,check:true}),/README.md/);
+    syncGoalDocuments(plan,{root});
+    assert.match(fs.readFileSync(readme,'utf8'),/Changed SDK integration assignment/);
+    assert.match(renderProjectOverview(plan),/Changed SDK integration assignment/);
   } finally { fs.rmSync(root, {recursive:true, force:true}); }
 });
 

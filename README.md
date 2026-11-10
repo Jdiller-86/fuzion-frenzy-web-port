@@ -31,11 +31,13 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 
 **Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](docs/status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
 
+**Current implementation assignment:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
+
 **M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
 
 | Order | M1 work / structural size |
 | --- | --- |
-| **1 — Runtime and admission bottlenecks** | [MB04](docs/m1-browser-work.md#mb04), [MB05](docs/m1-browser-work.md#mb05), [MB06](docs/m1-browser-work.md#mb06), [MB07](docs/m1-browser-work.md#mb07) · **M–L / L** |
+| **1 — SDK integration and execution bottlenecks** | [MB04](docs/m1-browser-work.md#mb04), [MB05](docs/m1-browser-work.md#mb05), [MB06](docs/m1-browser-work.md#mb06), [MB07](docs/m1-browser-work.md#mb07) · **M–L / L** |
 | **2 — Original graphics, including an early title frame** | [MB11](docs/m1-browser-work.md#mb11), [MB12](docs/m1-browser-work.md#mb12), [MB13](docs/m1-browser-work.md#mb13), [MB14](docs/m1-browser-work.md#mb14), [MB15](docs/m1-browser-work.md#mb15), [MB16](docs/m1-browser-work.md#mb16), [MB17](docs/m1-browser-work.md#mb17) · **M / M–L / L** |
 | **3 — Original audio** | [MB18](docs/m1-browser-work.md#mb18), [MB19](docs/m1-browser-work.md#mb19) · **L / M** |
 | **4 — Finish the selected startup and resource path** | [MB02](docs/m1-browser-work.md#mb02), [MB03](docs/m1-browser-work.md#mb03), [MB08](docs/m1-browser-work.md#mb08), [MB09](docs/m1-browser-work.md#mb09), [MB10](docs/m1-browser-work.md#mb10) · **S / M–L / M** |

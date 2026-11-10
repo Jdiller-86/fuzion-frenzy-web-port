@@ -1,11 +1,11 @@
 # Documentation
 
 <!-- development-state:start -->
-Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 
-[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
 Start with [the project overview](../README.md) and [development plan](../plans.md). The source and tracking follow CTR-2-WUP's domain layout and evidence-based planning, adapted to browser execution. Follow the assigned user objective and [current status](status.md); later roadmap work is not implicitly assigned.
@@ -23,11 +23,13 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 
 **Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
 
+**Current implementation assignment:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
+
 **M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
 
 | Order | M1 work / structural size |
 | --- | --- |
-| **1 — Runtime and admission bottlenecks** | [MB04](m1-browser-work.md#mb04), [MB05](m1-browser-work.md#mb05), [MB06](m1-browser-work.md#mb06), [MB07](m1-browser-work.md#mb07) · **M–L / L** |
+| **1 — SDK integration and execution bottlenecks** | [MB04](m1-browser-work.md#mb04), [MB05](m1-browser-work.md#mb05), [MB06](m1-browser-work.md#mb06), [MB07](m1-browser-work.md#mb07) · **M–L / L** |
 | **2 — Original graphics, including an early title frame** | [MB11](m1-browser-work.md#mb11), [MB12](m1-browser-work.md#mb12), [MB13](m1-browser-work.md#mb13), [MB14](m1-browser-work.md#mb14), [MB15](m1-browser-work.md#mb15), [MB16](m1-browser-work.md#mb16), [MB17](m1-browser-work.md#mb17) · **M / M–L / L** |
 | **3 — Original audio** | [MB18](m1-browser-work.md#mb18), [MB19](m1-browser-work.md#mb19) · **L / M** |
 | **4 — Finish the selected startup and resource path** | [MB02](m1-browser-work.md#mb02), [MB03](m1-browser-work.md#mb03), [MB08](m1-browser-work.md#mb08), [MB09](m1-browser-work.md#mb09), [MB10](m1-browser-work.md#mb10) · **S / M–L / M** |

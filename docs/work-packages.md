@@ -18,17 +18,17 @@ Connect the reached CPU, kernel, graphics, audio and controller requirements thr
 
 #### Current foundation and gap
 
-Guarded original startup and separate graphics, resource, audio and input components exist. A controllable original menu, sustained playable host loop and complete original round are not accepted. Reuse those foundations while keeping each MB connection and its evidence level explicit.
+Guarded original startup and separate browser components exist. The pinned upstream Fuzion SDK reports native Linux gameplay; a matching local desktop reference and an integrated original browser frame remain unverified here. Use that SDK as the primary integration candidate and retain M44 as the regression reference.
 
 #### First bounded assignment
 
-Record the MB01 scenario, inspect actual admission demand and choose the MB05 execution/delivery boundary with MB11 context ownership. Assign the first safe sustained-execution slice using local handoff Goal G, pulling forward a reached startup/read prerequisite only when that proof needs it.
+Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
 
 #### Inputs and prerequisites
 
-- Inspect current status, structured state and lane ownership; keep the accepted checkpoint separate from a local candidate.
+- Inspect current status, task ownership, matching input/source/toolchain identities and any retained native/browser runs. Keep upstream-reported results, local desktop observations, experimental browser results and accepted M44 evidence distinct.
 - Original-code claims and title execution require the purpose-specific local baseline, retained provenance and focused independent review. Source-owned interface work can proceed without those private inputs.
-- Preserve admission, memory, module and original-content guards. An unsupported contract remains an explicit stop.
+- Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion.
 
 #### Tracked delivery issues
 
@@ -42,11 +42,13 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 | **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
 | **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
+**Next assignment for m1-build-execution:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. Preserve M44 and basic bounds/private-content checks. See Goal G in docs/local-agent-handoff.md.
+
 #### Validation and evidence
 
-- Run the focused component and browser checks for the changed connection, preserving required prior title comparisons.
-- Use independent CPU, memory, ABI or GPU correctness review for affected contracts.
-- Record the MB ID, exact delivered connection, observed original or fixture evidence, remaining required features and next measurement.
+- Before the working baseline, compile and run the actual affected path, inspect its output/failure and use only quick diagnostic checks. Batch shared-interface fixes and reuse passing evidence. Detailed testing, broad matrices and repeated per-caller/historical audits come later.
+- After the baseline works, complete correctness/fidelity/regression testing and independent CPU/memory/ABI/GPU review before promoting accepted evidence or closing the applicable acceptance criteria.
+- Keep a brief record of what ran, observed output/failure, source/module/input identities, next fix and elapsed effort. Preserve raw private logs locally; expand formal evidence after the baseline.
 
 #### Boundaries
 
@@ -54,7 +56,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 - Online play, accounts/social, broad device matrices and optional polish belong to later milestones.
 - A fixture, preview, compiler success or counter increase does not close an original browser connection or accept M1.
 
-**Stop and report:** Stop at an unsupported original service, program/state/format, unsafe execution boundary, resource or ownership mismatch, failed comparison, missing source authority or unassigned module/capacity change. Return the precise blocker and a useful independent ready slice.
+**Stop and report:** Fix supported build/runtime failures and keep working toward the original baseline. Pause only affected execution for missing private inputs, an unresolvable external dependency, unsafe resource/content behavior or missing source authority; continue useful independent work. The 150-minute checkpoint is not a stop while productive work remains. A partial frame or failure report does not close #49 or accept M1.
 
 #### Entry points
 
@@ -62,6 +64,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 - [docs/local-agent-handoff.md](local-agent-handoff.md) — Bounded execution, graphics, resource, capacity and audio assignments.
 - [docs/status.md](status.md) — Accepted evidence, separately identified local candidates and current runtime boundary.
 - [docs/development-workflow.md](development-workflow.md) — Private preflight purpose, targeted checks and measured work records.
+- [docs/resource-reuse.md](resource-reuse.md) — SDK-first implementation policy, bounded desktop reference and baseline-first build-run-fix workflow.
 
 **Full work-package acceptance:**
 

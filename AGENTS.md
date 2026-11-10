@@ -1,35 +1,37 @@
 # Repository instructions
 
 <!-- development-state:start -->
-Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 
-[Current runtime evidence](docs/status.md) owns detailed observations and limits. [Structured state](profiles/development-state.json) owns this generated pointer; [workflow](docs/development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+[Current runtime evidence](docs/status.md) owns detailed observations and limits. [Structured state](profiles/development-state.json) owns this generated pointer; [workflow](docs/development-workflow.md) explains preflight and updates. [Goal G](docs/local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md), and the relevant part of [the roadmap](plans.md) before working. Use the recorded main-branch observation as the task boundary. Earlier checkpoints remain in Git history. [Local agent setup](docs/agents.md) defines session defaults; no persistent development scheduler is configured.
+Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md), and the relevant part of [the roadmap](plans.md) before working. Use the recorded observation as the regression reference; the current SDK assignment below owns implementation priority. Earlier checkpoints remain in Git history. [Local agent setup](docs/agents.md) defines session defaults; no persistent development scheduler is configured.
 
 ## Baseline state
 
-M1 startup integration is in progress. Follow the current user objective and the generated development-state pointer above. The roadmap is planned scope; it does not start every implementation task. Repository tracking workflows maintain metadata only.
+M1 SDK/browser integration is the primary path. The user directs baseline-first implementation: build, run, fix the actual failure and keep moving toward original browser execution. Start Goal G under #49 with the pinned SDK; use a matching native desktop reference for at most the first 30 minutes, then attempt the browser path. The first original frame is a checkpoint; continue toward a controllable original menu or selected minigame. At 150 minutes give a brief progress update and continue productive implementation rather than ending with another plan. A blocked desktop environment does not block independent browser work.
+
+Keep the accepted M44 proof and its resume task separate from this candidate. Use the existing Fuzion SDK and applicable OpenCE browser patterns before new compatibility code. Desktop execution is a local developer reference; browser execution remains the product goal. The roadmap does not start every implementation task, and tracking workflows run no game or coding agent.
 
 ## Goal and current stage
 
 The product is the original Xbox Fuzion Frenzy executing entirely in the browser through static recompilation to WebAssembly, with the complete planned online/social/control features. A replica would have to be identical in every minute detail. Approximate reconstruction, native helpers, and streaming do not meet that goal. Preserve the Twisted System prototype as research.
 
-The current stage is bounded original-startup feasibility. The former stack/return-address fault is repaired; do not restart its obsolete repair hunt. Exact current stop, profile, counters, and next work belong in `docs/status.md`, linked from the handoff. A controllable original screen and product completion remain unaccepted.
+The current implementation objective is an original frame through the SDK browser candidate. The retained startup proof remains supporting evidence; its former stack/return-address fault is repaired. Exact accepted stops and local-candidate observations belong in `docs/status.md`. A controllable original screen and product completion remain unaccepted.
 
 Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md), and [concerns](docs/risks.md) before affected gameplay/import/network work. Keep static, synthetic, component, and actual browser evidence distinct.
 
 ## Work method
 
-1. Select one unowned task with a functional objective, current milestone, exact stop/evidence, files in scope, acceptance checks, and a stop condition.
+1. Select one unowned functional batch with a concrete execution objective, exact evidence, owned files/interfaces, focused checks and a stop condition. Group already supported callers behind their shared provider contract; a new address alone does not require another complete task/review cycle.
    Use stable IDs from [the project scope](profiles/project.json), the [M1 browser work map](profiles/m1-browser-work.json) (MB01–MB24), and the native milestone/work-package issues. For M1, report the affected MB item alongside the current SCOPE task, concrete remaining connection/features, evidence level and next measurement; do not label the entire browser runtime unknown.
    Use the map's largest-first order. Pull small prerequisites forward only to enable the next large proof; the recorded startup stop does not block independent browser integration work.
 2. Inspect retained source and findings before repeating setup. State established facts, proposals, and unknowns; invent no original rules, timings, formats, instruction behavior, or runtime observations.
-3. Implement the smallest coherent result. Preserve existing bounded batch and pipeline admission limits. Stop at unsupported services/registers/resources or failed checks.
-4. Run targeted checks. CPU, memory, ABI, or GPU changes need independent correctness review. Broad repeat audits require a related change, regression, or unresolved risk.
+3. Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. Use existing SDK/platform code and supported worker/thread patterns, in functional batches.
+4. Before the working baseline, compile and run the actual affected path, inspect its output/failure and use only quick diagnostic checks. Batch shared-interface fixes and reuse passing evidence. Detailed testing, broad matrices and repeated per-caller/historical audits come later. After the baseline works, complete correctness/fidelity/regression testing and independent CPU/memory/ABI/GPU review before promoting accepted evidence or closing the applicable acceptance criteria. Preserve required existing CI when publishing; do not add test infrastructure for its own sake.
 5. When the runtime boundary changes, update `profiles/development-state.json`, current status and handoff together, then run `npm run dev:state:docs`. Update affected canonical scope, remaining-feature and evidence records in the same PR; preserve human evidence and native status. For generated project-goal summaries and the M1 map, edit their structured sources and run `npm run project:docs`, then `npm run check`. Replace superseded summaries, consolidate useful facts in the research/reference guides, and record consequential decisions. Git history preserves older versions; execution counts do not establish acceptance.
 6. Review the diff and explicit source-only paths. Report behavior, validation, remaining limits, and the next concrete task.
 
