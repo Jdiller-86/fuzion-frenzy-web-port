@@ -1,7 +1,12 @@
 # Fuzion Frenzy Windows builder
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.0-preview.1/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.0-preview.1)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.1-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.1-preview.1)
+
+Version 0.1.1 fixes PowerShell 5.1 file replacement, removes an unsupported
+Visual Studio installer argument, adds standalone LLVM discovery/installation,
+and displays prerequisite installer output with a persistent local log. Close
+the old launcher before installing the update; game files and saves are retained.
 
 The launcher and NSIS installer compiled successfully on Windows Actions. The
 installer is approximately 45 MiB; it contains the builder, not game content.
