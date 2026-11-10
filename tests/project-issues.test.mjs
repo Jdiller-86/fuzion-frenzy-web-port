@@ -19,7 +19,7 @@ test('every existing child issue has a bounded, source-backed brief without incr
 
 test('missing, ambiguous and unsafe delivery instructions fail before issue synchronization',()=>{
   const task=loadPlan().milestones[0].tasks[0];
-  for(const change of [b=>b.deliverables.push(b.deliverables[0]),b=>b.deliverables[0].id='m2-build-other',b=>b.deliverables[0].size='2 days',b=>b.firstStep='',b=>b.references[0].path='docs/../../private',b=>b.references[0].path='docs/missing-file.md',b=>b.privateNote='exclude',b=>b.validation=[]]){
+  for(const change of [b=>b.deliverables.push(b.deliverables[0]),b=>b.deliverables[0].id='m2-build-other',b=>b.deliverables[0].size='2 days',b=>b.deliverables[0].firstStep='',b=>b.deliverables[0].firstStep='<script>',b=>b.firstStep='',b=>b.references[0].path='docs/../../private',b=>b.references[0].path='docs/missing-file.md',b=>b.privateNote='exclude',b=>b.validation=[]]){
     const brief=structuredClone(task.brief);change(brief);assert.throws(()=>validateBrief(brief,task.id));
   }
   const plan=structuredClone(loadPlan());delete plan.milestones[0].tasks[0].brief;assert.throws(()=>validatePlan(plan));
@@ -53,6 +53,9 @@ test('each delivery is rendered as its own native issue with exact exit criterio
   let body=renderIssue(def,null,new Map());assert.ok(body.includes(`- [ ] ${item.doneWhen}`));assert.ok(body.includes('<!-- fuzion:tracking:'+item.id+' -->'));
   body=body.replace(`- [ ] ${item.doneWhen}`,`- [x] ${item.doneWhen}`)+'\nHuman delivery evidence remains.\n';
   const refreshed=renderIssue(def,{body},new Map());assert.ok(refreshed.includes(`- [x] ${item.doneWhen}`));assert.ok(refreshed.endsWith('Human delivery evidence remains.\n'));
+  assert.equal(def.firstStep,item.firstStep);assert.ok(refreshed.includes(item.firstStep));
+  const changed=renderIssue({...def,firstStep:'A revised executable integration assignment.'},{body},new Map());
+  assert.ok(changed.includes('A revised executable integration assignment.'));assert.ok(changed.includes(`- [x] ${item.doneWhen}`));assert.ok(changed.endsWith('Human delivery evidence remains.\n'));
 });
 
 test('milestone issues expose child deliverables and first assignments without accepting them',()=>{

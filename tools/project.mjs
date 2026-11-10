@@ -26,7 +26,7 @@ const issueUrl=number=>`https://github.com/${REPOSITORY}/issues/${number}`;
 export function deliveryDefinition(item,task,milestone,index){
   return {id:item.id,title:item.title,type:'delivery',area:AREAS[index],kind:task.kind,parent:task.id,milestone:milestone.id,
     scope:item.doneWhen,size:item.size,criteria:[{id:item.id+'-exit',text:item.doneWhen}],
-    dependsOn:[...new Set([...task.dependsOn,...(item.dependsOn??[])])],...(item.issueNumber?{issueNumber:item.issueNumber}:{}),parentBrief:task.brief};
+    dependsOn:[...new Set([...task.dependsOn,...(item.dependsOn??[])])],...(item.issueNumber?{issueNumber:item.issueNumber}:{}),...(item.firstStep?{firstStep:item.firstStep}:{}),parentBrief:task.brief};
 }
 const issueTitle=def=>def.type==='milestone'?def.id.toUpperCase()+': '+def.title:def.type==='delivery'?'['+def.id+'] '+def.title:def.title;
 

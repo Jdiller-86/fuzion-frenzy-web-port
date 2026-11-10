@@ -1,16 +1,18 @@
-# Continue from the reached startup logger caller
+# SDK browser integration: native reference to first original frame
 
 <!-- development-state:start -->
-Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 
-[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+[Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). M1 remains active/incomplete; original/generated content stays local.
+Start [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) under #49. Use the pinned Fuzion SDK as the primary integration candidate. Reuse or reproduce a matching native desktop run within the first 30 minutes, then build/run the browser candidate toward an original frame during an initial 150-minute local session. Include setup, compilation, browser checks and review in the record; this budget is a decision point, not a delivery promise. Desktop failure can still leave useful browser compilation/interface work ready.
 
-The [largest-first M1 order](m1-browser-work.md#largest-first-implementation-order) owns implementation priority. The SCOPE-37 task below records where original startup can resume; it does not require finishing every startup family before independent runtime/backend/audio work. Use the [local handoff goals](local-agent-handoff.md) for one bounded assignment, pulling forward the exact continuation/resource prerequisite needed for its next large proof.
+Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [fast M1 workflow](resource-reuse.md). Preserve M44 as a separate regression reference. The experimental candidate declares its own reviewed resource/ABI contract; the legacy proof is unchanged. M1 remains incomplete; original/generated content stays local.
+
+The [largest-first M1 order](m1-browser-work.md#largest-first-implementation-order) begins with SDK integration and the minimum graphics connection for the first frame. SCOPE-37 below records the retained startup resume boundary and is conditional on the SDK experiment needing that exact capability. Batch supported shared-interface fixes and report a runnable result or actual compiler/browser failure plus named missing adapters; routine counts and general plans do not satisfy this assignment.
 
 ## Current boundary
 
@@ -28,6 +30,6 @@ First candidate/run stopped at a missing new-bank prefix marker before wait/rele
 
 Forecast16/28/49, about15 completed packages and24 smaller checkpoints sinceE1 remain low confidence. Startup remains open; no extra whole package or original menu/audio/input round/M1 gate closes.
 
-## Next bounded task
+## Retained startup continuation when required
 
 **SCOPE-37 continuation:** the exact logger caller is locally verified in R3. The candidate now stops at status2/0x4EA30, caller0x4F6C7/return0x4F6CC/ESP03C10E5C, with one explicit argument1. Assess that caller's retained byte/layout, register/format/resource and provider contract before any new admission. Its body and enclosing4F5E0 return remain unexecuted; preserve the guard, full default44 and all caps. Static availability does not admit it. Keep the accepted M44 identities and forecast unchanged unless separately promoted. For any required fact absent from retained evidence, use the recovery boundary in research; do not invent a Ghidra before-state or start another goal.

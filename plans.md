@@ -1,18 +1,20 @@
 # Development plan
 
 <!-- development-state:start -->
-Recorded development state: **M1 / awaiting-evidence**, profile **44**. Next local runtime task: **SCOPE-37**.
+Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
 The selected C allocation wrapper and SDK allocator return; startup reaches the existing logger provider's new-caller guard.
 
-[Current runtime evidence](docs/status.md) owns detailed observations and limits. [Structured state](profiles/development-state.json) owns this generated pointer; [workflow](docs/development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
+[Current runtime evidence](docs/status.md) owns detailed observations and limits. [Structured state](profiles/development-state.json) owns this generated pointer; [workflow](docs/development-workflow.md) explains preflight and updates. [Goal G](docs/local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
 Run the original Xbox Fuzion Frenzy entirely in a browser through static recompilation to WebAssembly, then deliver the complete planned online, social and control experience. Original behavior and presentation are the baseline; all player content and derived title code stay local.
 
 ## Current work
 
-M1 startup integration is in progress. Use the generated development-state pointer above and [status](docs/status.md) for the current boundary. No controllable original screen or complete product is accepted. The [iteration workflow](docs/development-workflow.md) and [local handoff goals](docs/local-agent-handoff.md) define concrete next steps without starting the entire roadmap.
+M1's primary assignment is [Goal G](docs/local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05): use the existing Fuzion SDK, reproduce or reuse a bounded native desktop reference, then attempt the first original browser frame within an initial 150-minute local session. Desktop reference work gets at most 30 minutes; record a blocked environment and continue independent browser compilation/interface work. The session must return executable evidence or an actual compiler/browser failure and exact adapter gaps. This is a decision budget, not a completion estimate.
+
+The generated pointer and [status](docs/status.md) retain the accepted M44 boundary separately from this experimental SDK candidate. Desktop execution helps isolate upstream/game behavior from browser adaptation; its executable is not converted to Wasm, and it does not satisfy the browser milestone. Build the same source for the browser with reviewed memory/dispatch/thread/file/GPU/audio adaptations. No controllable original browser screen or complete product is accepted.
 
 The next implementation work should advance **M1: Original browser execution** using the [largest-first browser work order](docs/m1-browser-work.md#largest-first-implementation-order), generated from [reviewed scope data](profiles/m1-browser-work.json). Pull in the exact reached startup/resource dependencies needed for the next large proof. Existing startup, device-policy and stack-repair evidence supports that work; the recorded startup stop is not a prerequisite for independent browser interface work. None of these foundations completes a project milestone by itself.
 

@@ -35,7 +35,10 @@ function replayBaseline(t) {
   // Real checkpoint state and its historical provenance requirement stay intact.
   f.state.checkpoint.sourceCommit=sourceCommit();
   f.manifest.checkpointSourceCommit=f.state.checkpoint.sourceCommit;
-  const toolchain=fs.readFileSync(path.join(ROOT,'tools/original-execution-toolchain.json'));
+  // Match the committed provenance even while a local toolchain-policy edit is uncommitted.
+  const retained=spawnSync('git',['show',`${f.state.checkpoint.sourceCommit}:tools/original-execution-toolchain.json`],{cwd:ROOT});
+  assert.equal(retained.status,0,'Owned replay fixture needs its declared committed toolchain');
+  const toolchain=retained.stdout;
   fs.writeFileSync(path.join(f.root,'toolchainManifest'),toolchain);
   Object.assign(f.manifest.files.find(x=>x.id==='toolchainManifest'),{bytes:toolchain.length,sha256:digest(toolchain)});
   const roles={controlReport:'control',inertReport:'inert',previousReport:'default',experimentReport:'selected'};

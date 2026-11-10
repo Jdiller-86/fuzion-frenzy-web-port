@@ -18,17 +18,17 @@ Connect the reached CPU, kernel, graphics, audio and controller requirements thr
 
 #### Current foundation and gap
 
-Guarded original startup and separate graphics, resource, audio and input components exist. A controllable original menu, sustained playable host loop and complete original round are not accepted. Reuse those foundations while keeping each MB connection and its evidence level explicit.
+Guarded original startup and separate browser components exist. The pinned upstream Fuzion SDK reports native Linux gameplay; a matching local desktop reference and an integrated original browser frame remain unverified here. Use that SDK as the primary integration candidate and retain M44 as the regression reference.
 
 #### First bounded assignment
 
-Record the MB01 scenario, inspect actual admission demand and choose the MB05 execution/delivery boundary with MB11 context ownership. Assign the first safe sustained-execution slice using local handoff Goal G, pulling forward a reached startup/read prerequisite only when that proof needs it.
+Run Goal G under #49: reproduce or reuse the pinned native desktop reference within the first 30 minutes, then build/run the SDK browser candidate toward its first original frame within an initial 150-minute local session. Adapt shared interfaces; record an actual compiler/browser failure and exact adapter gaps if the frame is blocked. This is a decision budget, not a delivery estimate.
 
 #### Inputs and prerequisites
 
-- Inspect current status, structured state and lane ownership; keep the accepted checkpoint separate from a local candidate.
+- Inspect current status, task ownership, matching input/source/toolchain identities and any retained native/browser runs. Keep upstream-reported results, local desktop observations, experimental browser results and accepted M44 evidence distinct.
 - Original-code claims and title execution require the purpose-specific local baseline, retained provenance and focused independent review. Source-owned interface work can proceed without those private inputs.
-- Preserve admission, memory, module and original-content guards. An unsupported contract remains an explicit stop.
+- Preserve M44 and its admission contract. Declare the separate SDK candidate memory, imports/exports, function/binding budgets, checked dispatch and local-content policy; independently review changed CPU/memory/ABI/GPU contracts and validate the manifest before execution.
 
 #### Tracked delivery issues
 
@@ -42,11 +42,13 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 | **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
 | **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
+**Next assignment for m1-build-execution:** Use the pinned native Fuzion SDK as the primary integration candidate. Reuse or reproduce its desktop run for at most 30 minutes of the initial 150-minute local session, then attempt the original browser frame through shared memory/dispatch/thread/file/GPU adapters. Reuse a supported worker/pthread scheme without requiring custom cooperative yield. Preserve M44 separately and report the actual build/run boundary, exact missing adapters and measured effort. See Goal G in docs/local-agent-handoff.md.
+
 #### Validation and evidence
 
-- Run the focused component and browser checks for the changed connection, preserving required prior title comparisons.
+- Batch supported provider/shared-interface fixes and run focused checks plus one meaningful browser comparison at coherent integration points. Reuse unchanged baseline evidence; investigate actual regressions instead of restarting a full audit per caller.
 - Use independent CPU, memory, ABI or GPU correctness review for affected contracts.
-- Record the MB ID, exact delivered connection, observed original or fixture evidence, remaining required features and next measurement.
+- Report MB IDs, executable source/module/input/device identities, observed frame or reproduced failure, exact remaining adapter features, active effort and wall time including setup/build/browser/review/rework. Use measurements before making calendar forecasts.
 
 #### Boundaries
 
@@ -54,7 +56,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 - Online play, accounts/social, broad device matrices and optional polish belong to later milestones.
 - A fixture, preview, compiler success or counter increase does not close an original browser connection or accept M1.
 
-**Stop and report:** Stop at an unsupported original service, program/state/format, unsafe execution boundary, resource or ownership mismatch, failed comparison, missing source authority or unassigned module/capacity change. Return the precise blocker and a useful independent ready slice.
+**Stop and report:** Stop the affected execution at missing source authority, unsafe memory/context/ownership, unsupported behavior, failed checks or an undeclared candidate contract. Keep explicit refusals and continue independent source-owned compilation/interface work. At the 150-minute decision point return the runnable result or reproduced build/browser failure with the next bounded fix.
 
 #### Entry points
 
@@ -62,6 +64,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 - [docs/local-agent-handoff.md](local-agent-handoff.md) — Bounded execution, graphics, resource, capacity and audio assignments.
 - [docs/status.md](status.md) — Accepted evidence, separately identified local candidates and current runtime boundary.
 - [docs/development-workflow.md](development-workflow.md) — Private preflight purpose, targeted checks and measured work records.
+- [docs/resource-reuse.md](resource-reuse.md) — SDK-first implementation policy, bounded desktop reference and browser integration decision budget.
 
 **Full work-package acceptance:**
 

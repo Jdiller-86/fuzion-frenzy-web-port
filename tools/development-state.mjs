@@ -39,7 +39,7 @@ export function stateBlock(state, filename) {
   validateState(state);
   const prefix = filename.startsWith('docs/') ? '' : 'docs/';
   const manifest = filename.startsWith('docs/') ? '../profiles/' : 'profiles/';
-  return `${START}\nRecorded development state: **${state.milestone} / ${state.status}**, profile **${state.checkpoint.profile}**. Next local runtime task: **${state.nextTask.id}**.\n\n${state.checkpoint.summary}\n\n[Current runtime evidence](${prefix}status.md) owns detailed observations and limits. [Structured state](${manifest}development-state.json) owns this generated pointer; [workflow](${prefix}development-workflow.md) explains preflight and updates. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.\n${END}`;
+  return `${START}\nRecorded development state: **${state.milestone} / ${state.status}**, profile **${state.checkpoint.profile}**. Retained startup resume task: **${state.nextTask.id}**.\n\n${state.checkpoint.summary}\n\n[Current runtime evidence](${prefix}status.md) owns detailed observations and limits. [Structured state](${manifest}development-state.json) owns this generated pointer; [workflow](${prefix}development-workflow.md) explains preflight and updates. [Goal G](${prefix}local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.\n${END}`;
 }
 
 export function replaceStateBlock(body, block) {
@@ -84,6 +84,8 @@ export function main(args = process.argv.slice(2)) {
     const s = loadState();
     console.log(JSON.stringify({checkoutCommit: sourceCommit(), workingTreeDirty: workingTreeDirty(), ...s,
       browserExecutionWorkMap: 'docs/m1-browser-work.md',
+      recordedTaskRole: 'retained-startup-resume',
+      implementationGuide: 'docs/local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05',
       headroom: Object.fromEntries(Object.entries(s.admission).map(([k,v]) => [k, v.limit - v.used])),
       runtimeExecutedByCommand: false, milestoneAcceptanceChangedByCommand: false}, null, 2));
   } else if (command === 'check' || command === 'docs') {

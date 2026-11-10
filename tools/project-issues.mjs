@@ -25,10 +25,11 @@ export function validateBrief(brief, ownerId) {
   assert.ok(Array.isArray(brief.deliverables) && brief.deliverables.length > 0 && brief.deliverables.length <= 12);
   const ids = new Set();
   for (const item of brief.deliverables) {
-    keys(item, ['id', 'title', 'size', 'doneWhen', 'issueNumber', 'dependsOn']);
+    keys(item, ['id', 'title', 'size', 'doneWhen', 'issueNumber', 'dependsOn', 'firstStep']);
     assert.match(item.id, /^[a-z0-9-]+$/); assert.ok(item.id.startsWith(ownerId + '-'), 'Delivery slice belongs to another work package');
     assert.ok(!ids.has(item.id), 'Duplicate delivery slice'); ids.add(item.id);
     text(item.title, 200); text(item.doneWhen); assert.ok(SIZES.includes(item.size), 'Invalid delivery size');
+    if(item.firstStep!==undefined)text(item.firstStep);
     if(item.issueNumber!==undefined)assert.ok(Number.isSafeInteger(item.issueNumber)&&item.issueNumber>0,'Invalid delivery issue number');
     if(item.dependsOn!==undefined){assert.ok(Array.isArray(item.dependsOn)&&item.dependsOn.length<=20);for(const dependency of item.dependsOn)assert.match(dependency,/^m[1-5](?:-[a-z0-9-]+)?$/);}
   }
@@ -56,6 +57,7 @@ export function renderBrief(task, {ref = 'main', localLinks = false,lookup} = {}
   body += '\n\n### Tracked delivery issues\n\nChoose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.\n\n';
   body += '| Stable slice / deliverable | Size | Observable exit |\n| --- | --- | --- |\n';
   for (const item of brief.deliverables) body += `| **${item.id}** — ${issueLink(item,lookup)} | ${item.size} | ${item.doneWhen} |\n`;
+  for (const item of brief.deliverables.filter(item=>item.firstStep)) body += `\n**Next assignment for ${item.id}:** ${item.firstStep}\n`;
   body += '\n### Validation and evidence\n\n' + bullets(brief.validation);
   body += '\n\n### Boundaries\n\n' + bullets(brief.outOfScope) + '\n\n**Stop and report:** ' + brief.stopCondition;
   body += '\n\n### Entry points\n\n';
@@ -81,7 +83,7 @@ export function renderDeliveryPlan(def, lookup, {ref = 'main'} = {}) {
     const brief=def.parentBrief;validateBrief(brief,def.parent);
     body+='**Owning package:** '+(lookup?.get(def.parent)?'#'+lookup.get(def.parent).number:def.parent)+'. **Structural size:** '+def.size+'.\n\n';
     body+='### Current foundation and gap\n\n'+brief.context+'\n\n### This issue\n\n'+def.scope+'\n\n';
-    body+='### First bounded assignment\n\nReview this issue\'s native blockers and the owning package context. Identify the first required feature in the observable exit, record the exact inputs and files, then implement or verify that bounded connection. Report the delivered result and concrete remaining features; do not reopen unrelated startup or setup work.\n\n';
+    body+='### First bounded assignment\n\n'+(def.firstStep??'Review this issue\'s native blockers and the owning package context. Identify the first required feature in the observable exit, record the exact inputs and files, then implement or verify that bounded connection. Report the delivered result and concrete remaining features; do not reopen unrelated startup or setup work.')+'\n\n';
     body+='### Inputs and prerequisites\n\n'+bullets(brief.prerequisites)+'\n\n### Validation and evidence\n\n'+bullets(brief.validation)+'\n\n### Boundaries\n\n'+bullets(brief.outOfScope)+'\n\n**Stop and report:** '+brief.stopCondition+'\n\n### Entry points\n\n';
     for(const entry of brief.references)body+=`- [${entry.path}](${base}${entry.path}) — ${entry.purpose}\n`;
   } else body += renderBrief(def, {ref,lookup}) + '\n';

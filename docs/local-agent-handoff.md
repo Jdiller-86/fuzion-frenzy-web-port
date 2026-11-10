@@ -7,67 +7,51 @@ Use this file to turn the prior process analysis into one bounded implementation
 Copy this prompt into a fresh local coding-agent session, then append exactly one goal from below:
 
 ```text
-Act as coordinator to implement one appended bounded goal in this repository.
-Routine reversible work inside that goal is authorized; continue useful
-independent work if a prerequisite is missing. Read AGENTS.md,
-docs/handoff.md, docs/status.md, docs/agents.md, plans.md,
-docs/m1-work-scope.md, docs/resource-reuse.md, docs/research.md, and the
-relevant parts of docs/architecture.md, docs/content.md,
-docs/compatibility.md, and docs/risks.md. Read docs/development-workflow.md
-for the exact usage of npm run dev:status, npm run dev:preflight,
-npm run dev:task, and npm run test:workflow; do not invent flags or usage.
-Before original-runtime work, identify the needed evidence by claim and use
-the documented purpose-specific private manifest with --require-private.
-Unchanged replay uses --purpose replay plus a separately reviewed consumed-input
-closure; retained-code candidates also need original-fact provenance and source/
-build review. New analysis keeps the default analysis gate and read-only procedure.
-Reproduce retained browser cases before candidate execution. A source-only
-preflight exit or replay-input pass does not establish new original-code facts.
-For M1, also read docs/m1-browser-work.md. Name the affected MB work item
-alongside the SCOPE task and use its observable exit check. Report the exact
-remaining connection/features and next measurement, with a structural size
-revision where supported. Do not answer that all browser execution is unknown.
-Use that map's largest-first implementation order. Pull a small prerequisite
-forward only to enable the next large proof, naming both in the report.
-The recorded SCOPE startup stop is a resume boundary; it does not block
-independent browser integration work. Goal letters are identifiers, not order.
+Act as coordinator for the appended bounded goal. Read AGENTS.md,
+docs/status.md, docs/handoff.md, the relevant roadmap section, and only the
+guides needed for this goal. Inspect latest structured state, ownership,
+checkout and evidence; older prose (including M44 addresses) is historical
+until confirmed. Follow documented workflow commands exactly; do not invent
+flags, evidence, SDK paths or runtime observations.
 
-Detect the latest checkout, structured state, task ownership, and evidence
-before acting. The values in older handoff prose (including profile M44's
-addresses) are historical until confirmed against current state. Never
-blindly apply them after newer work. Preserve in-flight edits, private-input
-boundaries, module/admission caps, raw evidence, and focused checks. Do not
-claim behavior from static availability, synthetic fixtures, counters, or
-component tests alone. Do not invent SDK paths or runtime evidence.
+Before original execution, follow docs/development-workflow.md for the
+purpose-specific private baseline and consumed-input/source authority.
+Retained replay does not establish new original-code facts or database integrity.
 
-Implement only the appended goal and its explicit owned files. Use existing
-source and providers where evidence supports reuse. Keep original game inputs,
-generated title code, derived proprietary content, and raw/private analysis
-local and ignored. End-user execution and conversion remain browser-local:
-do not add a native product helper, content upload, remote conversion, or
-distributed generated title code. Existing native developer analysis/compiler
-tools may prepare private M1 artifacts; they do not satisfy M2. Stop at the
-goal's stop condition or any
-unsupported dependency. Run only the task's focused checks and applicable
-workflow checks documented by the repository. Obtain the required independent
-review for CPU, memory, ABI, or GPU correctness.
+For M1, name the affected MB item and SCOPE task, use its observable exit,
+and report exact remaining connections/features and the next measurement.
+Use the largest-first order in docs/m1-browser-work.md. Pull a prerequisite
+forward only to unlock the next large proof. The recorded startup stop does
+not block independent browser work. Continue independent work if a prerequisite
+is missing, but stop any dependent execution at the documented boundary.
 
-Before handoff, update the current structured task/status state and timing
-records using the documented workflow. Record what ran, evidence identity and
-provenance, measured timing, exact limits, and next stop; distinguish a
-checkpoint from a completed functional package. Keep docs/status.md and
-docs/handoff.md synchronized when the runtime boundary changes, and update
-docs/m1-work-scope.md only if package forecast or package closure changes.
-Review the exact source diff and report files changed, behavior, focused
-checks, evidence, limits, and the next concrete task. The coordinator owns
-staging, commits and PR preparation under the repository's publication guards;
-workers return their scoped work. Do not start another goal or schedule an
-unattended coding loop from this prompt.
+Implement only this goal and its owned files. Reuse retained source/providers
+where evidence supports it; preserve in-flight work, private-input boundaries,
+the legacy M44 comparison, admission caps, memory guards, raw evidence and
+focused checks. Keep original inputs, title code, derived proprietary content
+and raw analysis local/ignored. End-user execution and conversion stay in the
+browser: no native product helper, upload, remote conversion or distributed
+generated title code. Static availability, fixtures and component tests are
+not original-execution evidence. Get independent review for changed CPU,
+memory, ABI or GPU behavior.
+
+For the SDK-first Goal G, use docs/resource-reuse.md: bounded native desktop
+reference for at most its first 30 minutes, then the same-source/config/input
+browser attempt, all within the 150-minute initial decision budget. If native
+setup/build is blocked, record the exact failure and proceed with independent
+browser work. Stop at the decision point and report wall time separately from
+active effort; do not present a forecast as a deadline.
+
+Update workflow-owned state/timing as documented. Synchronize docs/status.md
+and docs/handoff.md only if the runtime boundary changes; update the scope
+ledger only when package forecast/closure changes. Report exact files,
+behavior, checks, evidence, limits and next task. The coordinator owns staging
+and publication. Do not launch another goal or unattended coding loop.
 ```
 
 ## Bounded goals and selection
 
-Use the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). After the bounded scenario/capacity/ownership decisions, assign **G (sustained execution)**, then **B (graphics, front-loading shader/combiner compatibility)**, then **H (original audio)**. Each is a sequence of separately assigned bounded slices, not approval to implement a whole subsystem in one session. Pull A/C/D forward only for the continuation, original read or admission work needed by the next large proof. Attempt MB17's original frame as soon as its prerequisites work. Do not finish every startup family before independent browser work. E and F belong to later milestones and do not close M1.
+Use the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). **G is the active primary assignment**: attempt the first original browser frame, then move to B (graphics, front-loading shader/combiner compatibility) and H (original audio) as each has an unowned ready slice. A (startup continuation) and D (legacy capacity) are conditional prerequisites only; C (positive original read) is conditional on the selected path. Keep the startup boundary as a resume point and continue independent browser work. Goal letters are identifiers, not a requirement to finish every startup family first. E and F belong to later milestones and do not close M1.
 
 ### A. Current M1 continuation: SCOPE-37 logger and startup caller
 
@@ -113,13 +97,13 @@ Use the [largest-first implementation order](m1-browser-work.md#largest-first-im
 
 ### G. Sustained browser execution and host delivery (MB05)
 
-**Prerequisite:** Record MB01's selected scenario and provisional requirements. Inspect the current generated execution boundaries, admitted module contract and MB04 capacity inventory. Resolve MB11's main-thread/worker context ownership with the graphics task before choosing a delivery scheme; a bounded interface decision is sufficient. Confirm task ownership and required local evidence. The existing synchronous proof run and pure `host-step` accumulator do not establish a continuing guest loop.
+**Prerequisite:** Confirm current task ownership, local evidence and the active generated-code/runtime boundary. Use the matching SDK and game config pins in [resource reuse](resource-reuse.md). The native desktop executable is a bounded diagnostic reference only. Respect the existing legacy caps and guards; an experimental module can use a separate explicit budget if independently reviewed. The synchronous fixture and pure `host-step` accumulator do not prove continuing title execution.
 
-**Owned output:** One reviewed execution/delivery slice connecting a supported guest execution boundary to the chosen browser host arrangement. Preserve guest state and existing unsupported stops while allowing the required browser delivery to progress. Compare alternatives only until one is selected, then implement that slice in explicitly assigned generator/runtime/browser files. Scope MB06/07 work to the contexts, waits and timing required by this slice. If no existing safe boundary is available, return the exact generator/ABI change proposal and its first executable experiment for a separate assignment.
+**Owned output:** Execute the SDK-first path toward MB17's first original browser frame: use a matching retained native executable or spend at most 30 minutes of the 150-minute initial local-work decision budget verifying/building/running a native reference, then try the same generated C++ source, config and local game input in the browser with pinned Emscripten. Native blockage is not a reason to stop independent browser compilation or interface work. Batch supported shared provider/interface fixes and focused checks. Pick the simplest supported worker/pthread/main-thread ownership model; do not require novel cooperative pause/resume. Keep the title execution browser-local and generated code private.
 
-**Acceptance:** The browser experiment demonstrates continuing guest progress, preserved context/state and responsive selected host delivery, with timing/order and teardown checks. State which traffic is source-owned fixture evidence and which is actual original execution; a simulated accumulator or repeated fresh guest starts cannot establish MB05. Preserve the required retained browser comparisons when original execution changes, arrange independent CPU/memory/ABI review, and identify remaining title audio/input integration checks. Record the selected interface, evidence identity, measured effort and next dependent graphics slice.
+**Decision-point report:** Capture the first original browser frame, or produce a runnable actual browser build/execution failure with its exact adapter gaps and next implementation. This experiment report does not close #49: its sustained-execution acceptance remains unchanged, and M1 still requires the full reviewed browser scenario. Record the actual command, source/config/toolchain identities, whether each stage ran, evidence provenance, timing, and limits. Separate wall time from active effort and include setup, build, browser execution, review and rework at the 150-minute decision point. Retain the legacy M44 baseline and all existing caps/guards. The desktop reference is not a product route or M1 acceptance; a native binary is not convertible to Wasm. Detailed title fidelity and milestone promotion still need direct evidence.
 
-**Stop:** Stop at an unsupported resume/context/ownership contract, unsafe shared-memory access, unrecoverable host stall, failed comparison or a required unassigned module/admission change. Keep the stop and name the concrete blocker; independent source-owned backend compatibility work may continue under a separate assignment. Do not build a general Xbox scheduler or infer original cadence from a nominal 60 Hz host loop.
+**Stop:** Stop at the 150-minute initial decision point with the concrete result and next implementation; this budget is not a guaranteed execution deadline or validated calendar forecast. If a native prerequisite is absent or blocked, record the exact failure and continue independent browser work. Stop dependent execution at unsupported source/build facts, unsafe memory, unowned contract changes, or an actual failed guard; do not relax limits silently, invent cadence, or claim a desktop result as browser evidence. Preserve Goal A and Goal D as conditional prerequisites, and identify ready Goal B graphics / Goal H audio work for follow-on.
 
 ### H. Original sound processing and audible browser delivery (MB18/19)
 
@@ -153,4 +137,4 @@ Use the [largest-first implementation order](m1-browser-work.md#largest-first-im
 
 ## State and timing handoff
 
-The coordinator is adding the `dev:status`, `dev:preflight`, `dev:task`, and `test:workflow` npm workflows. Use their exact documented commands and fields from `docs/development-workflow.md`; this handoff intentionally does not invent flags or schemas. Before work, detect and preserve the newest state rather than treating prose here or in an older profile as current. After work, update the workflow-owned task state and timing record, then synchronize narrative status/handoff if the accepted runtime frontier changed. Keep evidence local when it contains original or derived content, and report the distinction between a completed bounded task, an execution checkpoint, and milestone acceptance.
+Use the existing `dev:status`, `dev:preflight`, `dev:task`, and `test:workflow` commands and fields from `docs/development-workflow.md`. Detect current state and preserve other lanes before work. Record the SDK candidate result and measured timing in its existing #49/MB handoff; update accepted-checkpoint state only from reviewed runtime evidence. Synchronize status/handoff at coherent checkpoints, keeping private evidence local and distinguishing the experiment, a completed functional capability and milestone acceptance.

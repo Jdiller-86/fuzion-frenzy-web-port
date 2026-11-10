@@ -31,11 +31,13 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 
 **Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](docs/status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
 
+**Current implementation assignment:** Run Goal G under #49: reproduce or reuse the pinned native desktop reference within the first 30 minutes, then build/run the SDK browser candidate toward its first original frame within an initial 150-minute local session. Adapt shared interfaces; record an actual compiler/browser failure and exact adapter gaps if the frame is blocked. This is a decision budget, not a delivery estimate.
+
 **M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
 
 | Order | M1 work / structural size |
 | --- | --- |
-| **1 — Runtime and admission bottlenecks** | [MB04](docs/m1-browser-work.md#mb04), [MB05](docs/m1-browser-work.md#mb05), [MB06](docs/m1-browser-work.md#mb06), [MB07](docs/m1-browser-work.md#mb07) · **M–L / L** |
+| **1 — SDK integration and execution bottlenecks** | [MB04](docs/m1-browser-work.md#mb04), [MB05](docs/m1-browser-work.md#mb05), [MB06](docs/m1-browser-work.md#mb06), [MB07](docs/m1-browser-work.md#mb07) · **M–L / L** |
 | **2 — Original graphics, including an early title frame** | [MB11](docs/m1-browser-work.md#mb11), [MB12](docs/m1-browser-work.md#mb12), [MB13](docs/m1-browser-work.md#mb13), [MB14](docs/m1-browser-work.md#mb14), [MB15](docs/m1-browser-work.md#mb15), [MB16](docs/m1-browser-work.md#mb16), [MB17](docs/m1-browser-work.md#mb17) · **M / M–L / L** |
 | **3 — Original audio** | [MB18](docs/m1-browser-work.md#mb18), [MB19](docs/m1-browser-work.md#mb19) · **L / M** |
 | **4 — Finish the selected startup and resource path** | [MB02](docs/m1-browser-work.md#mb02), [MB03](docs/m1-browser-work.md#mb03), [MB08](docs/m1-browser-work.md#mb08), [MB09](docs/m1-browser-work.md#mb09), [MB10](docs/m1-browser-work.md#mb10) · **S / M–L / M** |
