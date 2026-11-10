@@ -20,7 +20,7 @@ Use `npm run dev:status` to read the recorded checkpoint and next task, and `npm
 
 Git is required by the publication check. The Node-based format, runtime-policy, prototype, and build checks use public source only. `test:native` additionally requires gcc (or the runner's WSL gcc path on Windows) and Python 3 for the generated owned-memory fixture; `test:evidence` requires Python 3. The code-generation evidence suite clearly skips its compiler-dependent cases if no C compiler is available; a missing interpreter/native compiler is not a passing native run.
 
-For local Codex sessions, [agent setup](agents.md) covers the saved Sol High coordinator and two-worker Luna defaults, client/model availability, project trust and a read-only execution check. These defaults do not supply the private inputs needed for original-startup work.
+For local Codex sessions, [agent setup](agents.md) covers the saved Sol High coordinator and four-worker Luna defaults, client/model availability, project trust and a read-only execution check. These defaults do not supply the private inputs needed for original-startup work.
 
 ## Run the offline research app
 

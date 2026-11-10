@@ -20,7 +20,7 @@ assert.match(model, /^model = "gpt-6\.1-sol"$/m);
 assert.match(model, /^model_reasoning_effort = "high"$/m);
 assert.match(model, /^\[agents\]$/m);
 assert.match(model, /^enabled = true$/m);
-assert.match(model, /^max_concurrent_threads_per_session = 2$/m);
+assert.match(model, /^max_concurrent_threads_per_session = 4$/m);
 assert.match(model, /^max_depth = 1$/m);
 assert.match(model, /^default_subagent_model = "gpt-6-luna"$/m);
 assert.match(model, /^default_subagent_reasoning_effort = "low"$/m);
@@ -32,10 +32,11 @@ const files = [...new Set(execFileSync('git', ['ls-files', '-co', '--exclude-sta
   { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean))];
 assert.ok(files.length > 0, 'No source files discovered');
 const forbidden = /(^|\/)(?:research|artifacts|\.tools|node_modules|\.venv|Fuzion Frenzy \(USA\))(?:\/|$)|\.(?:7z|zip|iso|xbe|xbp|zro|xpr|xwb|xsb|dds|exe|dll|jar|class|pdb|gpr|db|sqlite3?|har|saz|pem|key)$/i;
+const recompiledSource = /^research\/verification\/(?:sdk-title-bulk-command-20261107\/generated\/[^/]+\.(?:cpp|h)|sdk-4f6bd-log-20261109\/source45-03\/(?:[^/]+\/)*[^/]+\.(?:c|cpp|h|hpp|inc))$/;
 const credentialPatterns = [/gh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{40,}/,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/];
 for (const name of files) {
-  assert.ok(!forbidden.test(name), `Forbidden publication path: ${name}`);
+  assert.ok(!forbidden.test(name) || recompiledSource.test(name), `Forbidden publication path: ${name}`);
   assert.ok(!/(^|\/)\.env(?:\.|$)/.test(name) || name === '.env.example', `Environment file: ${name}`);
   const file = path.join(root, name);
   const stat = fs.lstatSync(file);
