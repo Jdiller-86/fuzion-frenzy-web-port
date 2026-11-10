@@ -53,3 +53,5 @@ test-results/
 .DS_Store
 Thumbs.db
 artifacts/
+desktop/windows/Launcher/bin/
+desktop/windows/Launcher/obj/

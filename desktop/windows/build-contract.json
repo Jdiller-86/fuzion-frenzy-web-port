@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "builder": {
+    "script": "scripts/Build-Game.ps1",
+    "powershell": "Windows PowerShell 5.1",
+    "arguments": {
+      "InputPath": "Required path to a player-supplied ISO/XISO disc image or fully extracted game folder.",
+      "Workspace": "Per-user LocalAppData root for the pinned source checkouts and build status.",
+      "GameDirectory": "Per-user game install directory. Existing settings and save data are retained.",
+      "Jobs": "Optional positive parallel build-job limit; defaults to the processor count clamped to 1..8.",
+      "StatusPath": "Optional JSON status path; defaults to <Workspace>/build-status.json."
+    },
+    "workspaceLayout": {
+      "nativeRepository": ".tools/fuzion-native",
+      "sdkRepository": ".tools/XboxXBERecomp",
+      "statusFile": "build-status.json"
+    },
+    "status": {
+      "encoding": "UTF-8 JSON, atomically replaced after each state change",
+      "fields": {
+        "schemaVersion": 1,
+        "status": ["running", "completed", "failed"],
+        "phase": ["validation", "prerequisites", "checkout", "extract", "configure", "compile", "install", "complete", "error"],
+        "progress": "Integer 0..100, or null while the current operation has no measurable fraction",
+        "message": "Short user-visible progress text",
+        "error": "Failure details, or null",
+        "outputExe": "Absolute path to installed FuzionFrenzy.exe, or null",
+        "updatedAtUtc": "ISO-8601 UTC timestamp"
+      }
+    }
+  },
+  "pinnedSources": {
+    "native": {
+      "repository": "https://github.com/abilliontokens/fuzionfrenzy-recomp.git",
+      "commit": "071dbd97bdc098c4647cc24c99f9eae693fde1eb"
+    },
+    "sdk": {
+      "repository": "https://github.com/abilliontokens/XboxXBERecomp.git",
+      "commit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3"
+    }
+  },
+  "gameInput": {
+    "xbe": {
+      "path": "default.xbe at image root or extracted-folder root",
+      "sizeBytes": 2834432,
+      "sha256": "45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9"
+    },
+    "imageRuntimeName": "assets/game.iso",
+    "sourceLocalOnly": true
+  },
+  "build": {
+    "configure": "cmake --preset release",
+    "build": "cmake --build out/build/release --parallel <Jobs>",
+    "executable": "out/build/release/FuzionFrenzy.exe",
+    "configuration": "Pinned committed game.toml; no symbol discovery or private input upload"
+  },
+  "installation": {
+    "executable": "FuzionFrenzy.exe",
+    "assetsDirectory": "assets",
+    "preservedUserData": ["hdd", "settings.toml", "logs"],
+    "gameContentTransfer": "Local machine only"
+  }
+}

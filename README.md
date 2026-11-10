@@ -54,6 +54,13 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 
 ## Use or build
 
+New development outputs: the [full-title SDK browser candidate](docs/sdk-browser.md)
+builds the uploaded title source into a local Wasm entry runner. The separate
+[Windows installer and launcher](desktop/windows/README.md) builds the native
+port from a player-supplied ISO/XISO or extracted folder and exposes display
+settings, build progress and local saves/logs. These candidates do not advance
+the accepted browser checkpoint; original browser playability remains unproved.
+
 Use **Node.js 24.14.0** and **npm 11.x** (pin 11.9.0):
 
 ```sh

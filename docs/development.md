@@ -1,6 +1,6 @@
 # Development guide
 
-The public clone contains an offline research app, format readers, runtime components, and source-owned fixtures. It does not contain original game files, generated title modules, private toolchains, or a playable original game. See [current status](status.md) before interpreting a check as runtime progress.
+The public clone contains an offline research app, format readers, runtime components, source-owned fixtures, and the retained SDK-generated title source uploaded for development. It does not contain original game files, compiled title modules, private toolchains, or a playable original game. See [current status](status.md) before interpreting a check as runtime progress. The [SDK browser candidate](sdk-browser.md) documents the full-title compilation and local browser entry path.
 
 ## Requirements and setup
 
@@ -23,6 +23,10 @@ Git is required by the publication check. The Node-based format, runtime-policy,
 For local Codex sessions, [agent setup](agents.md) covers the saved Sol High coordinator and four-worker Luna defaults, client/model availability, project trust and a read-only execution check. These defaults do not supply the private inputs needed for original-startup work.
 
 ## Run the offline research app
+
+The additional [Windows builder and installer](../desktop/windows/README.md)
+accepts local game files and builds the existing native port separately from
+the browser product. Its packaging workflow contains no game files.
 
 ```sh
 npm run dev
