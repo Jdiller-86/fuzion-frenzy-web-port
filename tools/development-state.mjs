@@ -83,6 +83,7 @@ export function main(args = process.argv.slice(2)) {
   if (command === 'status') {
     const s = loadState();
     console.log(JSON.stringify({checkoutCommit: sourceCommit(), workingTreeDirty: workingTreeDirty(), ...s,
+      browserExecutionWorkMap: 'docs/m1-browser-work.md',
       headroom: Object.fromEntries(Object.entries(s.admission).map(([k,v]) => [k, v.limit - v.used])),
       runtimeExecutedByCommand: false, milestoneAcceptanceChangedByCommand: false}, null, 2));
   } else if (command === 'check' || command === 'docs') {

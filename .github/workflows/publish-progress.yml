@@ -7,6 +7,17 @@ on:
     branches: [main]
     paths:
       - README.md
+      - docs/README.md
+      - docs/m1-browser-work.md
+      - docs/milestones.md
+      - docs/work-packages.md
+      - profiles/project.json
+      - profiles/m1-browser-work.json
+      - profiles/development-state.json
+      - tools/project.mjs
+      - tools/project-goals.mjs
+      - tools/project-issues.mjs
+      - tools/development-state.mjs
       - tools/project-graph.mjs
       - tools/project-graph.html
       - tools/publish-progress.mjs
@@ -61,7 +72,7 @@ jobs:
       - name: Check graph and publication contracts
         run: |
           npm run check
-          node --test tests/project-graph.test.mjs tests/progress-publication.test.mjs
+          npm run test:project
       - name: Read current public issue tracking
         continue-on-error: true
         env:

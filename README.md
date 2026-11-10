@@ -14,9 +14,37 @@ Each browser will use compatible game files supplied by its player and converted
 
 Refreshed after tracking updates and hourly from [native issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Amilestone). Open the graph for interactive task scope, acceptance criteria and dependencies. Task completion and full milestone acceptance are shown separately.
 
-Five milestones cover original browser execution, the complete local game and converter, online multiplayer/recovery, player experience and release readiness. Each has a foundation, explicit acceptance criteria and a small work breakdown. **0/5 were accepted at the replanning baseline.**
+The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes five milestone parents and ten work packages. Its overview and M1 implementation card expose the detailed browser connections and priority order. The graph keeps live issue status separate from the reviewed scope map and milestone acceptance.
 
-[Native tracking issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Amilestone) own current acceptance state. The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes the five milestone parents and ten initial child tasks using CTR-2-WUP's field/view configuration. The [tracking workflow](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/workflows/project.yml) synchronizes the board and exports progress; [graph publication](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/workflows/publish-progress.yml) updates the public report. Runtime implementation is paused pending the next user-directed task.
+Reviewed source changes and issue events refresh tracking; hourly reconciliation and graph publication recover missed events. Each report shows its source revision and snapshot time. [Management](docs/management.md#synchronization-and-progress) explains which record to update, how generated views stay consistent, and how unavailable tracking is shown.
+
+<!-- project-goals:start -->
+## Goals and next work
+
+| Milestone | Remaining product outcome | Acceptance and live status |
+| --- | --- | --- |
+| **M1: Original browser execution** | Play one original minigame through its original menus, round and results entirely in a desktop browser. | [Criteria](docs/milestones.md#m1--original-browser-execution) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/22) |
+| **M2: Complete local game and conversion** | A fresh browser converts the supported player-supplied image and runs the complete original offline game. | [Criteria](docs/milestones.md#m2--complete-local-game-and-conversion) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/25) |
+| **M3: Online multiplayer and recovery** | The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results. | [Criteria](docs/milestones.md#m3--online-multiplayer-and-recovery) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/28) |
+| **M4: Player experience** | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. | [Criteria](docs/milestones.md#m4--player-experience) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) |
+| **M5: Release readiness** | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. | [Criteria](docs/milestones.md#m5--release-readiness) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) |
+
+**Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](docs/status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
+
+**M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
+
+| Order | M1 work / structural size |
+| --- | --- |
+| **1 — Runtime and admission bottlenecks** | [MB04](docs/m1-browser-work.md#mb04), [MB05](docs/m1-browser-work.md#mb05), [MB06](docs/m1-browser-work.md#mb06), [MB07](docs/m1-browser-work.md#mb07) · **M–L / L** |
+| **2 — Original graphics, including an early title frame** | [MB11](docs/m1-browser-work.md#mb11), [MB12](docs/m1-browser-work.md#mb12), [MB13](docs/m1-browser-work.md#mb13), [MB14](docs/m1-browser-work.md#mb14), [MB15](docs/m1-browser-work.md#mb15), [MB16](docs/m1-browser-work.md#mb16), [MB17](docs/m1-browser-work.md#mb17) · **M / M–L / L** |
+| **3 — Original audio** | [MB18](docs/m1-browser-work.md#mb18), [MB19](docs/m1-browser-work.md#mb19) · **L / M** |
+| **4 — Finish the selected startup and resource path** | [MB02](docs/m1-browser-work.md#mb02), [MB03](docs/m1-browser-work.md#mb03), [MB08](docs/m1-browser-work.md#mb08), [MB09](docs/m1-browser-work.md#mb09), [MB10](docs/m1-browser-work.md#mb10) · **S / M–L / M** |
+| **5 — Original input and controllable menu** | [MB20](docs/m1-browser-work.md#mb20), [MB21](docs/m1-browser-work.md#mb21), [MB22](docs/m1-browser-work.md#mb22) · **M / S–M** |
+| **6 — Complete the original round/results/return** | [MB23](docs/m1-browser-work.md#mb23) · **M–L** |
+| **7 — Bounded corrections and M1 acceptance** | [MB24](docs/m1-browser-work.md#mb24) · **S–M** |
+
+[All 24 browser connections, evidence and exit checks](docs/m1-browser-work.md) · [Largest-first details](docs/m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](docs/work-packages.md) · [Next local-agent assignment](docs/local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
+<!-- project-goals:end -->
 
 ## Use or build
 

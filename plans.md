@@ -14,7 +14,9 @@ Run the original Xbox Fuzion Frenzy entirely in a browser through static recompi
 
 M1 startup integration is in progress. Use the generated development-state pointer above and [status](docs/status.md) for the current boundary. No controllable original screen or complete product is accepted. The [iteration workflow](docs/development-workflow.md) and [local handoff goals](docs/local-agent-handoff.md) define concrete next steps without starting the entire roadmap.
 
-The next implementation work should advance **M1: Original browser execution** through a bounded reached dependency. Existing startup, device-policy and stack-repair evidence supports that work. It does not complete any of the five project milestones.
+The next implementation work should advance **M1: Original browser execution** using the [largest-first browser work order](docs/m1-browser-work.md#largest-first-implementation-order), generated from [reviewed scope data](profiles/m1-browser-work.json). Pull in the exact reached startup/resource dependencies needed for the next large proof. Existing startup, device-policy and stack-repair evidence supports that work; the recorded startup stop is not a prerequisite for independent browser interface work. None of these foundations completes a project milestone by itself.
+
+The [M1 browser work map](docs/m1-browser-work.md) names the execution-loop, resource, graphics, audio, input and original-round connections still to integrate, with evidence, rough structural sizes and completion checks. Use it with the scope ledger to report remaining work at the capability level.
 
 ## Milestones
 

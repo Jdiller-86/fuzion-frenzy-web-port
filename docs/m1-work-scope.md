@@ -2,11 +2,13 @@
 
 Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
+For the concrete remaining **browser execution connections**, use the [M1 browser work map](m1-browser-work.md). It lists 24 named scope/integration/acceptance items, existing evidence, observable exits, dependencies and structural S/M/L sizes. Those rows decompose the capabilities below; they are not additional forecast packages. M1 reports should identify the affected MB row and its specific remaining connection instead of describing all browser work as unknown.
+
 ## Current planning refresh: profile forty-four
 
 M44 completes the retained original C4C480 allocation wrapper and its existing SDK allocator subtree on the same live context. Actual256KiB payload/header/extent and both original returns pass checks, with complete in-module payload/image witnesses and unchanged earlier six allocations. Full default43 and prior3137CPU/383kernel rows remain retained; independent source/build/harness/browser review passes. No original body/map/import/cap is added.
 
-SCOPE-36 is verified. **SCOPE-37** assesses the reached one-argument4F6BD→4B230 logger caller: actualstatus2 target=ESP03C10E5C/RA4F6C2/arg25C89C, not a function-address stop. The existing C provider is caller-guarded; later4EA30 and enclosing4F5E0 remain pending. Forecast16/28/49/about15 completed packages remains unchanged because startup stays open;24 smaller checkpoints sinceE1. [Status](status.md) owns exact evidence identities and limits.
+SCOPE-36 is verified at the accepted M44 boundary. Its one-argument4F6BD→4B230 logger caller stops at actualstatus2 target=ESP03C10E5C/RA4F6C2/arg25C89C, not a function-address stop. The separate reviewed local R3 candidate subsequently returns through that logger and reaches the unadmitted4EA30 caller; its body and enclosing4F5E0 remain pending. **SCOPE-37 continuation** assesses that caller/resource/provider contract, corresponding first to MB02 in the browser work map. M44 remains the accepted checkpoint. Forecast16/28/49/about15 completed packages remains unchanged because startup stays open;24 accepted smaller checkpoints sinceE1. [Status](status.md) owns exact evidence identities and limits.
 
 ## Remaining M1 planning estimate (E1)
 
@@ -56,10 +58,10 @@ At E1, a retrospective grouping gave **about twelve completed M1-enabling founda
 
 ### Use the forecast to guide work
 
-1. Assess the reached one-argument4F6BD logger caller for SCOPE-37. Reuse the existing C formatter/file providers and supported following startup code with separate records, checked format/frame/context/ownership and caps; stop at unsupported behavior.
-2. Resolve the browser graphics integration seam early while continuing reached startup work; it carries more uncertainty than another small translated helper. Reuse the native game-specific/XDK state and applicable browser platform components, with the existing resource/content guards.
+1. Follow the [largest-first browser order](m1-browser-work.md#largest-first-implementation-order). Resolve runtime/admission architecture, graphics with an early original frame, and original audio before spending effort on smaller finishing tasks. Pull forward only the selected-path prerequisites needed for those proofs.
+2. SCOPE-37 records the startup continuation, not a global implementation gate. The separately reviewed local R3 logger return reaches the unadmitted4EA30 caller; assess its exact caller/resource/provider contract when that continuation is needed. Preserve the accepted M44 baseline, full default comparison and caps. Independent backend/translator/interface work can proceed without admitting unsupported original code.
 3. Convert allowances into named reached tasks, record completion/split/merge changes, and update the remaining range when a major shared capability changes. A new guard is not automatically a new task.
-4. Re-estimate at the first controllable original menu and first complete original cycle. Keep required checks focused; do not invent broad test/refinement packages before M1.
+4. Refine the affected feature inventories and effort ranges at the first original frame and first audible original sound; re-estimate at the first controllable original menu and first complete original cycle. Keep required checks focused; do not invent broad test/refinement packages before M1.
 
 Private source assessments and the independent estimate review remain in `research/verification/m1-remaining-estimate-20261108/`; the one-package profile-twenty-two refresh is bound in `sdk-0488b9-reentry-20261108/forecast-refresh.json`, and the distinct directory-cluster reduction in `sdk-close-20261108/forecast-refresh.json`. No new game execution was performed to create E1, and no M1 gate closes from this forecast.
 

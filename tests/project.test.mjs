@@ -41,6 +41,7 @@ test('scope is five milestones with unique acyclic work identities and exact mai
 test('preview makes no writes; apply verifies native parents/dependencies and is idempotent',async()=>{
   const client=new MemoryGitHub(),plan=fresh();const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(client.writes.length,0);
   const result=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(client.issues.length,15);assert.equal(client.milestones.length,5);assert.equal(result.snapshot.milestones.filter(m=>m.accepted).length,0);
+  assert.ok(client.issues.every(issue=>issue.body.includes('/blob/'+SHA+'/docs/work-packages.md')),'Delivery plans must retain the validated synchronization source');
   assert.equal(client.issues.filter(i=>i.labels.includes('work-item')).length,10,'CTR Implementation work view must include all ten tasks');assert.ok(client.issues.filter(i=>i.labels.includes('milestone')).every(i=>!i.labels.includes('work-item')));
   for(const def of definitions(plan)){const issue=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${def.id} -->`));const rel=await client.relations(issue);assert.equal(Boolean(rel.parent),def.type==='task');assert.equal(rel.blockedBy.length,def.dependsOn.length);}
   client.writes=[];const again=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(again.operations.length,0);assert.equal(client.writes.length,0);
@@ -92,16 +93,23 @@ test('progress view renders real issue/commit links, dependency navigation and c
     replaceChildren(...children){this.children=[];this.append(...children);}addEventListener(name,fn){this.handlers[name]=fn;}
     get childElementCount(){return this.children.filter(c=>c.tag!=='#text').length;}focus(){this.focused=true;}
   }
-  const staticNodes=new Map(['project-data','message','content','meta','count','filter','milestones','task-count'].map(id=>[id,Object.assign(new Element('div'),{id})]));
+  const staticNodes=new Map(['project-data','message','content','meta','count','filter','milestones','task-count','browser-scope','browser-order','browser-rows'].map(id=>[id,Object.assign(new Element('div'),{id})]));
   staticNodes.get('project-data').textContent=JSON.stringify(snapshot);
   const walk=node=>[node,...node.children.flatMap(walk)];
   const document={createElement:tag=>new Element(tag),createTextNode:text=>Object.assign(new Element('#text'),{ownText:String(text)}),getElementById:id=>staticNodes.get(id)??[...staticNodes.values()].flatMap(walk).find(e=>e.id===id)};
   const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];vm.runInNewContext(script,{document,URL},{timeout:1000});
   assert.match(document.getElementById('count').textContent,/0 of 5 milestones accepted/);
   assert.equal(document.getElementById('task-count').textContent,'1 of 10 work packages completed');
+  assert.equal(document.getElementById('browser-rows').childElementCount,24);assert.equal(document.getElementById('browser-order').childElementCount,7);assert.equal(document.getElementById('browser-scope').hidden,false);
   const nodes=[...staticNodes.values()].flatMap(walk);assert.equal(nodes.filter(n=>n.href?.startsWith(`https://github.com/${REPOSITORY}/issues/`)).length,15);
   assert.ok(nodes.some(n=>n.href===`https://github.com/${REPOSITORY}/commit/${SHA}`));
   assert.ok(nodes.some(n=>n.href==='#m1'));assert.equal(document.getElementById('milestones').childElementCount,5);
+  const unavailable={...snapshot,available:false};delete unavailable.milestones;
+  const fallback=renderDashboard(unavailable,fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8'));
+  for(const id of staticNodes.keys())staticNodes.set(id,Object.assign(new Element('div'),{id}));
+  document.getElementById('project-data').textContent=fallback.match(/<script type="application\/json" id="project-data">([\s\S]*?)<\/script>/)[1];document.getElementById('content').hidden=true;
+  vm.runInNewContext(script,{document,URL},{timeout:1000});
+  assert.equal(document.getElementById('browser-rows').childElementCount,24);assert.equal(document.getElementById('browser-scope').hidden,false);assert.equal(document.getElementById('content').hidden,true);assert.equal(document.getElementById('count').textContent,'');
 });
 test('snapshot rendering strips unapproved fields and rejects forged status counts and foreign links',async()=>{
   const {client,plan}=await provision();const template=fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8');
