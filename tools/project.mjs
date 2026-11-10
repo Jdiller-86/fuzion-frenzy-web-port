@@ -15,11 +15,20 @@ export const STATUSES=new Map([
   ['awaiting-evidence','Awaiting evidence'],['review','Ready for review'],['accepted','Accepted']
 ]);
 const COLORS={'milestone':'5319e7','work-item':'0052cc','work:implementation':'0052cc','work:evidence':'0e8a16',
+  'work:package':'0052cc','work:delivery':'0366d6',
+  'size:S':'c2e0c6','size:M':'bfd4f2','size:L':'d4c5f9','size:S-M':'c2e0c6','size:M-L':'d4c5f9',
   'area:runtime':'1d76db','area:content':'0366d6','area:online':'006b75','area:experience':'c5def5','area:release':'f9d0c4'};
 const AREAS=['runtime','content','online','experience','release'];
 const START='<!-- fuzion:managed:start -->',END='<!-- fuzion:managed:end -->';
 const marker=id=>`<!-- fuzion:tracking:${id} -->`;
 const issueUrl=number=>`https://github.com/${REPOSITORY}/issues/${number}`;
+
+export function deliveryDefinition(item,task,milestone,index){
+  return {id:item.id,title:item.title,type:'delivery',area:AREAS[index],kind:task.kind,parent:task.id,milestone:milestone.id,
+    scope:item.doneWhen,size:item.size,criteria:[{id:item.id+'-exit',text:item.doneWhen}],
+    dependsOn:[...new Set([...task.dependsOn,...(item.dependsOn??[])])],...(item.issueNumber?{issueNumber:item.issueNumber}:{}),parentBrief:task.brief};
+}
+const issueTitle=def=>def.type==='milestone'?def.id.toUpperCase()+': '+def.title:def.type==='delivery'?'['+def.id+'] '+def.title:def.title;
 
 export function validatePlan(plan){
   assert.equal(plan.schemaVersion,1,'Unsupported project schema');
@@ -43,9 +52,9 @@ export function validatePlan(plan){
   plan.milestones.forEach((m,index)=>{
     assert.equal(m.id,`m${index+1}`);assert.ok(typeof m.foundation==='string'&&typeof m.goal==='string');add(m);
     assert.ok(Array.isArray(m.tasks)&&m.tasks.length>0&&m.tasks.length<=20,'Invalid work breakdown');
-    m.tasks.forEach(t=>{assert.ok(['implementation','evidence'].includes(t.kind));assert.ok(typeof t.scope==='string');assert.ok(t.id.startsWith(m.id+'-'),'Task is outside its milestone');add(t);validateBrief(t.brief,t.id);});
+    m.tasks.forEach(t=>{assert.ok(['implementation','evidence'].includes(t.kind));assert.ok(typeof t.scope==='string');assert.ok(t.id.startsWith(m.id+'-'),'Task is outside its milestone');add(t);validateBrief(t.brief,t.id);for(const item of t.brief.deliverables)add(deliveryDefinition(item,t,m,index));});
   });
-  for(const item of plan.browserWork?.items??[])assert.ok(plan.milestones[0].tasks.some(task=>task.id===item.workPackage),'Browser work package is missing from M1');
+  for(const item of plan.browserWork?.items??[]){assert.ok(plan.milestones[0].tasks.some(task=>task.id===item.workPackage),'Browser work package is missing from M1');assert.equal(nodes.get(item.deliveryIssue)?.parent,item.workPackage,'Browser connection points to a missing or foreign delivery issue');}
   const usedNumbers=new Set();
   for(const item of nodes.values()){
     assert.equal(new Set(item.dependsOn).size,item.dependsOn.length,'Duplicate dependency');
@@ -58,7 +67,7 @@ export function validatePlan(plan){
   return plan;
 }
 export function loadPlan(){return validatePlan({...JSON.parse(fs.readFileSync(path.join(ROOT,'profiles/project.json'),'utf8')),browserWork:loadBrowserWork()});}
-export function definitions(plan){return plan.milestones.flatMap((m,index)=>[{...m,type:'milestone',area:AREAS[index]},...m.tasks.map(t=>({...t,type:'task',area:AREAS[index],parent:m.id,...(t.id==='m1-build'&&plan.browserWork?{browserWork:plan.browserWork}:{})}))]);}
+export function definitions(plan){return plan.milestones.flatMap((m,index)=>[{...m,type:'milestone',area:AREAS[index],milestone:m.id},...m.tasks.flatMap(t=>[{...t,type:'task',area:AREAS[index],parent:m.id,milestone:m.id,...(t.id==='m1-build'&&plan.browserWork?{browserWork:plan.browserWork}:{})},...t.brief.deliverables.map(item=>deliveryDefinition(item,t,m,index))])]);}
 export function renderMilestones(plan){
   validatePlan(plan);
   const ref=plan.reference;
@@ -73,6 +82,7 @@ export function renderMilestones(plan){
     for(const c of m.criteria)text+='- '+c.text+'\n';
     text+='\n**Acceptance depends on:** '+(m.dependsOn.length?m.dependsOn.map(x=>x.toUpperCase()).join(', '):'no earlier milestone')+'.\n';
     text+='\n**Work packages:** '+m.tasks.map(t=>(t.issueNumber?`[${t.title}](${issueUrl(t.issueNumber)})`:t.title)+` ([delivery brief](work-packages.md#${t.id}))`).join('; ')+'.\n';
+    text+='\n**Tracked delivery issues:** '+m.tasks.reduce((total,task)=>total+task.brief.deliverables.length,0)+' child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.\n';
     if(m.id==='m1')text+='\n**Detailed browser work:** [Named connections, structural sizes and evidence](m1-browser-work.md), with the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). These scope rows decompose the work packages; they are not extra forecast packages.\n';
   }
   text+='\n[Management workflow](management.md) describes status, native parent/dependency links and the evidence required before acceptance. Scope is maintained in [profiles/project.json](../profiles/project.json); current runtime facts remain in [status](status.md).\n';
@@ -80,9 +90,11 @@ export function renderMilestones(plan){
 }
 
 export class GitHub{
-  constructor({token=process.env.GH_TOKEN??process.env.GITHUB_TOKEN,fetchImpl=fetch}={}){this.token=token;this.fetch=fetchImpl;}
+  constructor({token=process.env.GH_TOKEN??process.env.GITHUB_TOKEN,fetchImpl=fetch,now=()=>Date.now(),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){this.token=token;this.fetch=fetchImpl;this.requestNow=now;this.requestPause=pause;this.nextWriteAt=0;this.writeQueue=Promise.resolve();}
   async request(method,endpoint,payload){
     assert.ok(endpoint===`/repos/${REPOSITORY}`||endpoint.startsWith(`/repos/${REPOSITORY}/`)||endpoint==='/graphql','GitHub request is outside this repository');
+    const mutation=method!=='GET'&&!(endpoint==='/graphql'&&/^\s*query\b/.test(payload?.query??''));
+    if(mutation){const slot=this.writeQueue.then(async()=>{const delay=Math.max(0,this.nextWriteAt-this.requestNow());if(delay)await this.requestPause(delay);this.nextWriteAt=this.requestNow()+1000;});this.writeQueue=slot.catch(()=>{});await slot;}
     const headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'};
     if(this.token)headers.Authorization=`Bearer ${this.token}`;
     const response=await this.fetch('https://api.github.com'+endpoint,{method,headers,body:payload===undefined?undefined:JSON.stringify(payload),signal:AbortSignal.timeout(30000)});
@@ -109,14 +121,15 @@ export class GitHub{
 }
 const endpoint=tail=>`/repos/${REPOSITORY}/${tail}`;
 const labels=issue=>(issue.labels??[]).map(x=>typeof x==='string'?x:x.name);
-const requiredLabels=(def,issue={})=>[...(def.type==='milestone'?['milestone']:['work-item','work:'+def.kind]),'area:'+def.area,...(labels(issue).some(l=>l.startsWith('status:'))?[]:['status:planned'])];
+const requiredLabels=(def,issue={})=>[...(def.type==='milestone'?['milestone']:['work-item','work:'+def.kind,def.type==='delivery'?'work:delivery':'work:package']),...(def.type==='delivery'?['size:'+def.size.replace('–','-')]:[]),'area:'+def.area,...(labels(issue).some(l=>l.startsWith('status:'))?[]:['status:planned'])];
 export function indexIssues(plan,issues){
-  const found=new Map(),allowed=new Set(definitions(plan).map(d=>d.id));
+  const found=new Map(),numbers=new Set(),allowed=new Set(definitions(plan).map(d=>d.id));
   for(const issue of issues){
     if(issue.pull_request)continue;
     const match=(issue.body??'').match(/^<!-- fuzion:tracking:([a-z0-9-]+) -->/);
     if(!match)continue;
     const key=match[1];assert.ok(allowed.has(key),'Unknown managed issue ID');assert.ok(!found.has(key),'Duplicate managed issue ID');
+    assert.ok(!numbers.has(issue.number),'A native issue is assigned to multiple tracking IDs');numbers.add(issue.number);
     assert.equal(issue.html_url,issueUrl(issue.number),'Issue belongs to another repository');
     assert.ok(['Jdiller-86','github-actions[bot]'].includes(issue.user?.login),'Managed issue has an unexpected author');
     found.set(key,issue);
@@ -131,7 +144,9 @@ export function renderIssue(def,current,lookup,{sourceRef='main'}={}){
   if(def.foundation)managed+='\n## Existing foundation\n\n'+def.foundation+'\n';
   managed+='\n## Full '+(def.type==='milestone'?'milestone ':'')+'acceptance\n\n'+def.criteria.map(c=>`- [${checked.has(c.id)?'x':' '}] ${c.text} <!-- acceptance:${c.id} -->`).join('\n')+'\n';
   if(def.tasks)managed+='\n## Work breakdown\n\n'+def.tasks.map(t=>`- [ ] ${lookup.get(t.id)?'#'+lookup.get(t.id).number:t.title}`).join('\n')+'\n';
-  if(def.parent)managed+='\nMilestone overview: '+(lookup.get(def.parent)?'#'+lookup.get(def.parent).number:def.parent.toUpperCase())+'.\n';
+  if(def.type==='task')managed+='\n## Tracked delivery issues\n\n'+def.brief.deliverables.map(item=>`- ${lookup.get(item.id)?'#'+lookup.get(item.id).number:item.id} — ${item.title} (${item.size})`).join('\n')+'\n';
+  if(def.parent)managed+='\n'+(def.type==='delivery'?'Owning work package: ':'Milestone overview: ')+(lookup.get(def.parent)?'#'+lookup.get(def.parent).number:def.parent.toUpperCase())+'.\n';
+  if(def.type==='delivery')managed+='\nMilestone overview: '+(lookup.get(def.milestone)?'#'+lookup.get(def.milestone).number:def.milestone.toUpperCase())+'. Structural size: **'+def.size+'** (breadth, not hours).\n';
   if(def.browserWork)managed+='\n'+renderNativeBrowserWork(def.browserWork);
   managed+='\nAcceptance dependencies: '+(def.dependsOn.length?def.dependsOn.map(id=>lookup.get(id)?'#'+lookup.get(id).number:id.toUpperCase()).join(', '):'none')+'.\n'+END;
   const outside=current?.body?.match(/<!-- fuzion:managed:end -->([\s\S]*)$/)?.[1]??'\n\n## Implementation and evidence\n\nPlanned; no full acceptance is recorded. Keep private original content out of issues.\n\n## Acceptance record\n\nSource commit: Pending\nEvidence: Pending\nReview: Pending\n';
@@ -149,7 +164,7 @@ export function issueStatus(issue,def){
     assert.match(issue.body,new RegExp('^Review: https://github\\.com/'+REPOSITORY+'/(?:issues|pull)/[0-9]+(?:#[^\\s]+)?$','m'),'Acceptance lacks a review reference');
     return 'Accepted';
   }
-  if(issue.state==='closed')return def.type==='task'&&issue.state_reason==='completed'?'Done':'Closed';
+  if(issue.state==='closed')return def.type!=='milestone'&&issue.state_reason==='completed'?'Done':'Closed';
   assert.ok(key!=='accepted','Only milestones may be accepted');return STATUSES.get(key);
 }
 export function buildSnapshot(plan,issues,sourceCommit,now=new Date()){
@@ -158,7 +173,7 @@ export function buildSnapshot(plan,issues,sourceCommit,now=new Date()){
   const rows=new Map();
   for(const [id,def] of defs){const issue=lookup.get(id);assert.ok(issue,'A managed issue is missing');const status=issueStatus(issue,def);rows.set(id,{id,title:def.title,status,url:issueUrl(issue.number)});}
   for(const m of plan.milestones)if(rows.get(m.id).status==='Accepted')for(const dep of m.dependsOn)assert.equal(rows.get(dep).status,'Accepted','A prerequisite milestone is not accepted');
-  return {schemaVersion:1,repository:REPOSITORY,sourceCommit,generatedAt:now.toISOString(),available:true,...(plan.browserWork?{browserWork:validateBrowserWork(plan.browserWork)}:{}),milestones:plan.milestones.map(m=>({...rows.get(m.id),issueUrl:rows.get(m.id).url,foundation:m.foundation,goal:m.goal,accepted:rows.get(m.id).status==='Accepted',dependsOn:m.dependsOn,tasks:m.tasks.map(t=>rows.get(t.id))}))};
+  return {schemaVersion:1,repository:REPOSITORY,sourceCommit,generatedAt:now.toISOString(),available:true,...(plan.browserWork?{browserWork:validateBrowserWork(plan.browserWork)}:{}),milestones:plan.milestones.map(m=>({...rows.get(m.id),issueUrl:rows.get(m.id).url,foundation:m.foundation,goal:m.goal,accepted:rows.get(m.id).status==='Accepted',dependsOn:m.dependsOn,tasks:m.tasks.map(t=>({...rows.get(t.id),deliverables:t.brief.deliverables.map(item=>({...rows.get(item.id),size:item.size,dependsOn:defs.get(item.id).dependsOn}))}))}))};
 }
 async function currentRepository(client,sourceCommit,apply){
   const repo=await client.request('GET',`/repos/${REPOSITORY}`);assert.equal(repo.full_name,REPOSITORY);assert.equal(repo.private,false);assert.equal(repo.default_branch,'main');
@@ -188,8 +203,8 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
     groups.set(m.id,group);
   }
   for(const def of definitions(plan)){
-    const current=lookup.get(def.id);const group=groups.get(def.parent??def.id);
-    const desired={title:(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title,body:renderIssue(def,current,lookup,{sourceRef:sourceCommit})};
+    const current=lookup.get(def.id);const group=groups.get(def.milestone);
+    const desired={title:issueTitle(def),body:renderIssue(def,current,lookup,{sourceRef:sourceCommit})};
     if(group)desired.milestone=group.number;
     if(!current){
       operations.push({kind:'issue',id:def.id});
@@ -198,9 +213,9 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
   }
   if(!apply){
     for(const def of definitions(plan)){
-      const issue=lookup.get(def.id),group=groups.get(def.parent??def.id);
+      const issue=lookup.get(def.id),group=groups.get(def.milestone);
       if(issue){
-        const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
+        const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=issueTitle(def);
         if(issue.body!==body||issue.title!==title||issue.milestone?.number!==group?.number)operations.push({kind:'metadata',id:def.id});
         if(requiredLabels(def,issue).some(l=>!labels(issue).includes(l)))operations.push({kind:'issue-labels',id:def.id});
         const links=await client.relations(issue);
@@ -219,8 +234,8 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
       const issue=await client.request('GET',endpoint('issues/'+known.number));
       assert.ok(issue.body?.startsWith(marker(def.id))&&issue.html_url===issueUrl(known.number),'Issue identity changed before update');
       lookup.set(def.id,issue);
-      const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
-      const group=groups.get(def.parent??def.id);
+      const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=issueTitle(def);
+      const group=groups.get(def.milestone);
       if(issue.body!==body||issue.title!==title||issue.milestone?.number!==group.number){
         operations.push({kind:'metadata',id:def.id});const updated=await client.request('PATCH',endpoint('issues/'+issue.number),{title,body,milestone:group.number});lookup.set(def.id,updated);
       }
@@ -235,6 +250,8 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
     const latest=await client.list(endpoint('issues?state=all'));const verified=indexIssues(plan,latest);
     for(const def of definitions(plan)){
       const issue=verified.get(def.id);assert.ok(issue,'Created issue could not be read back');for(const label of requiredLabels(def,issue))assert.ok(labels(issue).includes(label),'Managed issue label readback differs');const relations=await client.relations(issue);
+      assert.equal(issue.title,issueTitle(def),'Issue title readback differs');assert.equal(issue.milestone?.number,groups.get(def.milestone).number,'Issue milestone readback differs');
+      assert.equal(issue.body,renderIssue(def,issue,verified,{sourceRef:sourceCommit}),'Issue scope/delivery readback differs');
       if(def.parent)assert.equal(relations.parent,verified.get(def.parent).node_id,'Native parent verification failed');
       for(const id of def.dependsOn)assert.ok(relations.blockedBy.includes(verified.get(id).node_id),'Native dependency verification failed');
     }
@@ -252,7 +269,8 @@ export function validateSnapshot(snapshot){
   if(snapshot.browserWork)result.browserWork=validateBrowserWork(snapshot.browserWork);
   if(!snapshot.available)return {...result,reason:'Tracking data unavailable; inspect the workflow result.'};
   assert.equal(snapshot.milestones?.length,5,'Snapshot must contain five milestones');
-  const publicUrl=url=>{assert.match(url,new RegExp('^https://github\\.com/'+REPOSITORY+'/issues/[0-9]+$'));return url;};
+  const urls=new Set();
+  const publicUrl=url=>{assert.match(url,new RegExp('^https://github\\.com/'+REPOSITORY+'/issues/[0-9]+$'));assert.ok(!urls.has(url),'A native issue URL is counted more than once');urls.add(url);return url;};
   const text=value=>{assert.ok(typeof value==='string'&&value.length<=10000,'Invalid snapshot text');return value;};
   const ids=new Set();
   result.milestones=snapshot.milestones.map((m,index)=>{
@@ -261,7 +279,15 @@ export function validateSnapshot(snapshot){
     assert.ok(Array.isArray(m.tasks)&&m.tasks.length<=100,'Invalid tasks');
     return {id:m.id,title:text(m.title),foundation:text(m.foundation),goal:text(m.goal),status:m.status,accepted:m.accepted,issueUrl:publicUrl(m.issueUrl),dependsOn:m.dependsOn,tasks:m.tasks.map(t=>{
       assert.ok(t.id.startsWith(m.id+'-')&&!ids.has(t.id),'Duplicate or misplaced task');ids.add(t.id);assert.ok([...STATUSES.values()].filter(x=>x!=='Accepted').concat(['Done','Closed']).includes(t.status),'Invalid task status');
-      return {id:t.id,title:text(t.title),status:t.status,url:publicUrl(t.url)};
+      assert.ok(Array.isArray(t.deliverables)&&t.deliverables.length>0&&t.deliverables.length<=100,'Delivery issue rows are required');
+      return {id:t.id,title:text(t.title),status:t.status,url:publicUrl(t.url),deliverables:t.deliverables.map(item=>{
+        assert.ok(typeof item.id==='string'&&item.id.startsWith(t.id+'-')&&!ids.has(item.id),'Duplicate or misplaced delivery issue');ids.add(item.id);
+        assert.ok([...STATUSES.values()].filter(value=>value!=='Accepted').concat(['Done','Closed']).includes(item.status),'Invalid delivery status');
+        assert.ok(['S','M','L','S–M','M–L'].includes(item.size),'Invalid delivery size');
+        assert.ok(Array.isArray(item.dependsOn??[])&&new Set(item.dependsOn??[]).size===(item.dependsOn??[]).length,'Invalid delivery dependencies');
+        for(const dependency of item.dependsOn??[])assert.match(dependency,/^m[1-5](?:-[a-z0-9-]+)?$/);
+        return {id:item.id,title:text(item.title),size:item.size,status:item.status,url:publicUrl(item.url),dependsOn:item.dependsOn??[]};
+      })};
     })};
   });return result;
 }

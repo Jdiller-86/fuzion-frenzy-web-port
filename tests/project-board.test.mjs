@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {loadPlan,definitions,renderIssue,REPOSITORY} from '../tools/project.mjs';
 import {BoardGitHub,OWNER,TITLE,MARKER,loadConfig,validateConfig,selectBoard,syncBoard} from '../tools/project-board.mjs';
-const SHA='1'.repeat(40),URL='https://github.com/users/Jdiller-86/projects/3';
+const SHA='1'.repeat(40),ISSUE_COUNT=5+10+51,URL='https://github.com/users/Jdiller-86/projects/3';
 const clone=value=>structuredClone(value);
 const config=()=>({...loadConfig(),number:null,id:null,templateId:null});
 const field=(name,names)=>({id:'F_'+name,name,dataType:'SINGLE_SELECT',options:names.map((name,i)=>({id:`${name}_${i}`,name}))});
@@ -10,7 +10,7 @@ const fields=()=>[field('Status',['Planned','In progress','Awaiting evidence','B
 const views=()=>[{id:'V_board',name:'Board',layout:'BOARD_LAYOUT',filter:''},{id:'V_gates',name:'Milestones',layout:'TABLE_LAYOUT',filter:'work-type:Milestone'}];
 class MemoryBoard extends BoardGitHub{
   constructor(){super({token:'owned-fixture-token'});this.ownerId='U_owner';this.repositoryId='R_repo';this.templateId='PVT_template';this.boards=[];this.writes=[];this.created=0;this.sha=SHA;this.templateFields=fields();this.templateViews=views();
-    this.issues=definitions(loadPlan()).map(d=>({number:d.issueNumber,node_id:'I_'+d.issueNumber,html_url:`https://github.com/${REPOSITORY}/issues/${d.issueNumber}`,body:renderIssue(d,null,new Map()),user:{login:'github-actions[bot]'},state:'open',state_reason:null,labels:['status:planned']}));
+    this.issues=definitions(loadPlan()).map((d,index)=>{const number=d.issueNumber??400+index;return {number,node_id:'I_'+number,html_url:`https://github.com/${REPOSITORY}/issues/${number}`,body:renderIssue(d,null,new Map()),user:{login:'github-actions[bot]'},state:'open',state_reason:null,labels:['status:planned']};});
   }
   async context(){return {ownerId:this.ownerId,sourceCommit:this.sha,boards:clone(this.boards),template:{id:this.templateId}};}
   async list(){return clone(this.issues);}
@@ -30,10 +30,10 @@ class MemoryBoard extends BoardGitHub{
   }
 }
 async function provision(){const client=new MemoryBoard();const result=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});return {client,result};}
-test('preview is read-only; creation copies views without drafts and populates exactly the 15 existing issues',async()=>{
-  const client=new MemoryBoard();const preview=await syncBoard(client,loadPlan(),config(),{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(preview.operations.length,48);assert.equal(client.writes.length,0);
-  const result=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(result.project.url,URL);assert.equal(result.readbackVerified,true);assert.equal(client.created,1);assert.equal(client.target.items.length,15);assert.ok(client.target.public);assert.deepEqual(client.target.views,views());
-  assert.equal(client.target.items.filter(i=>i.workType.name==='Milestone').length,5);assert.ok(client.target.items.every(i=>i.status.name==='Planned'));assert.ok(!JSON.stringify(result).includes('Private reviewer'));assert.ok(!JSON.stringify(result).includes(client.token));
+test('preview is read-only; creation copies views without drafts and populates all 66 managed issues',async()=>{
+  const client=new MemoryBoard();const preview=await syncBoard(client,loadPlan(),config(),{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(preview.operations.length,ISSUE_COUNT*3+3);assert.equal(client.writes.length,0);
+  const result=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(result.project.url,URL);assert.equal(result.readbackVerified,true);assert.equal(client.created,1);assert.equal(client.target.items.length,ISSUE_COUNT);assert.ok(client.target.public);assert.deepEqual(client.target.views,views());
+  assert.equal(client.target.items.filter(i=>i.workType.name==='Milestone').length,5);assert.equal(client.target.items.filter(i=>i.workType.name==='Task').length,ISSUE_COUNT-5);assert.ok(client.target.items.every(i=>i.status.name==='Planned'));assert.ok(!JSON.stringify(result).includes('Private reviewer'));assert.ok(!JSON.stringify(result).includes(client.token));
   assert.ok(client.target.readme.includes('Original audio'));assert.ok(client.target.readme.includes('MB24'));assert.ok(client.target.readme.includes('M5: Release readiness'));assert.ok(!client.target.readme.includes('implementation remains paused'));
   client.writes=[];await syncBoard(client,loadPlan(),{...config(),number:3,id:'PVT_target'},{apply:true,sourceCommit:SHA});assert.equal(client.created,1);assert.equal(client.writes.length,0);
 });
@@ -58,7 +58,7 @@ test('status follows reviewed issue records, waiting notes and outside project n
 });
 test('public pull requests from this repository remain available to the copied Pull requests view',async()=>{
   const {client}=await provision();const row={id:'PVTI_pr',isArchived:false,content:{__typename:'PullRequest',id:'PR_37',number:37,url:`https://github.com/${REPOSITORY}/pull/37`,repository:{nameWithOwner:REPOSITORY,isPrivate:false}}};client.target.items.push(row);client.writes=[];
-  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.managedIssues.length,15);assert.equal(client.writes.length,0);assert.deepEqual(client.target.items.at(-1),row);
+  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.managedIssues.length,ISSUE_COUNT);assert.equal(client.writes.length,0);assert.deepEqual(client.target.items.at(-1),row);
   client.target.items.at(-1).content.repository.isPrivate=true;await assert.rejects(syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA}),/Private/);
 });
 test('unsupported template filters/options fail before copying and source drift fails readback',async()=>{
@@ -69,7 +69,7 @@ test('unsupported template filters/options fail before copying and source drift 
 test('native add receipts avoid stale item listings and final readback tolerates bounded indexing delay',async()=>{
   const client=new MemoryBoard();let reads=0;const board=client.board.bind(client);client.connection=async()=>assert.fail('New items must be verified from mutation receipts');
   client.board=async id=>{const result=await board(id);if(++reads===2)result.items.pop();return result;};
-  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.readbackVerified,true);assert.equal(client.pauses,1);assert.equal(client.target.items.length,15);assert.equal(client.created,1);
+  const receipt=await syncBoard(client,loadPlan(),config(),{apply:true,sourceCommit:SHA});assert.equal(receipt.readbackVerified,true);assert.equal(client.pauses,1);assert.equal(client.target.items.length,ISSUE_COUNT);assert.equal(client.created,1);
 });
 test('real transport copies configuration only, rejects foreign mutations, and redacts GraphQL credentials',async()=>{
   const client=new BoardGitHub({token:'fixture-secret-value'});client.templateId='PVT_template';client.ownerId='U_owner';let input;client.request=async(method,endpoint,payload)=>{input=payload.variables.input;return {data:{copyProjectV2:{projectV2:{id:'PVT_target',number:3,url:URL,closed:false,owner:{login:OWNER}}}}};};

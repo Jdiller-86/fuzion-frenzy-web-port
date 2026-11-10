@@ -1,6 +1,6 @@
 # Work-package delivery briefs
 
-Generated from [the reviewed project scope](../profiles/project.json). Edit that source and run `npm run project:docs`; CI checks this view. These are delivery slices inside the ten existing native work packages, not new issue counts or calibrated effort estimates. The [README chart](../README.md#project-progress) remains the overview of five milestone gates and native task status.
+Generated from [the reviewed project scope](../profiles/project.json). Edit that source and run `npm run project:docs`; CI checks this view. 51 tracked delivery issues sit under 10 work packages and five milestone gates. Counts describe tracked scope, not calibrated effort or extra forecast packages. The [README chart](../README.md#project-progress) counts delivery issues separately from package status and milestone acceptance.
 
 Live status, ownership and implementation evidence remain in the native issues. Use one bounded assignment at a time, preserve accepted criteria and human notes, and update affected scope/evidence in the same PR. For M1, the [24-connection map](m1-browser-work.md) and its largest-first order refine the implementation package.
 
@@ -30,17 +30,17 @@ Record the MB01 scenario, inspect actual admission demand and choose the MB05 ex
 - Original-code claims and title execution require the purpose-specific local baseline, retained provenance and focused independent review. Source-owned interface work can proceed without those private inputs.
 - Preserve admission, memory, module and original-content guards. An unsupported contract remains an explicit stop.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m1-build-execution** — Sustained execution and a viable admission route (MB04–07) | L | Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented. |
-| **m1-build-graphics** — Original graphics and the first title frame (MB11–17) | L | The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work. |
-| **m1-build-audio** — Original sound processing and audible output (MB18–19) | L | Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence. |
-| **m1-build-resources** — Selected startup and original resource lifecycle (MB02–03, MB08–10) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
-| **m1-build-round-path** — Owned input, original menu and one complete round (MB20–23) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
+| **m1-build-execution** — [Sustained execution and a viable admission route (MB04–07)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-execution%22) | L | Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented. |
+| **m1-build-graphics** — [Original graphics and the first title frame (MB11–17)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-graphics%22) | L | The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work. |
+| **m1-build-audio** — [Original sound processing and audible output (MB18–19)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-audio%22) | L | Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence. |
+| **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
+| **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
 #### Validation and evidence
 
@@ -90,16 +90,16 @@ With the runtime owner, freeze one compatible original build, desktop browser/de
 - Confirm matching local source/module/input identities and purpose-specific replay checks; keep all original-containing captures and raw evidence local.
 - Agree the control comparison, capture boundaries and independent reviewer before the acceptance run.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m1-verify-recipe** — Repeatable selected scenario and capture recipe (MB01, MB24) | S–M | The exact build, browser/device, minigame, seat/input configuration and menu/round/results/return input recipe are recorded and reproducible. |
-| **m1-verify-provenance** — Bound candidate identities and retained comparisons | M | Source/build/module/input identities, required retained cases and audit/report bindings agree for the tested candidate; rejected attempts and scope limits remain identified. |
-| **m1-verify-cycles** — Three consecutive original audiovisual/input cycles | M | Actual original menu/game/results/menu runs complete three times in succession with visible original output, audible original sound, recorded input response and no unsupported stop or fault. |
-| **m1-verify-review** — Independent acceptance review and remaining-limit record | S–M | The reviewer can reproduce the scenario and assess controls, evidence provenance and required checks. Publish curated outcomes and keep unresolved required capabilities open; an explicit parent acceptance record is still required. |
+| **m1-verify-recipe** — [Repeatable selected scenario and capture recipe (MB01, MB24)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-verify-recipe%22) | S–M | The exact build, browser/device, minigame, seat/input configuration and menu/round/results/return input recipe are recorded and reproducible. |
+| **m1-verify-provenance** — [Bound candidate identities and retained comparisons](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-verify-provenance%22) | M | Source/build/module/input identities, required retained cases and audit/report bindings agree for the tested candidate; rejected attempts and scope limits remain identified. |
+| **m1-verify-cycles** — [Three consecutive original audiovisual/input cycles](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-verify-cycles%22) | M | Actual original menu/game/results/menu runs complete three times in succession with visible original output, audible original sound, recorded input response and no unsupported stop or fault. |
+| **m1-verify-review** — [Independent acceptance review and remaining-limit record](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-verify-review%22) | S–M | The reviewer can reproduce the scenario and assess controls, evidence provenance and required checks. Publish curated outcomes and keep unresolved required capabilities open; an explicit parent acceptance record is still required. |
 
 #### Validation and evidence
 
@@ -154,17 +154,17 @@ Trace web/proof/disc-session.html, runtime/browser/disc-session.mjs, and the cur
 - Supported image/build identity and conversion limits are documented from retained evidence.
 - The browser-local content policy and safe unsupported-input behavior remain in force.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m2-build-fresh-import** — Connect local image selection through validation and conversion | L | A fresh browser can select a supported player-provided image, validate the declared build, run the bounded local conversion path, and launch the accepted original browser runtime without a developer toolchain or a content upload; unsupported and corrupt inputs fail with a visible, recoverable outcome. |
-| **m2-build-cancel-reset** — Make cancellation, clear, and reimport lifecycle explicit | M | Cancel, clear local content, and reimport have observed outcomes; cancellation releases active workers/resources, clear removes the selected local data under the documented policy, and a subsequent import starts from a clean session. |
-| **m2-build-storage** — Persist and recover browser-local prepared content safely | L | The chosen browser-local storage path handles denied, quota-failed, and evicted data with actionable status and reimport; it avoids whole-disc buffering beyond the documented limits and never sends original content or derived assets to a server or peer. |
-| **m2-build-saves** — Connect original save persistence and fresh-session reload | L | The accepted original save format and lifecycle are exercised through save, close/reopen, reload, and recovery cases; saved original-containing state remains local and malformed or unavailable saves produce a safe observable result. |
-| **m2-build-failure-record** — Record conversion and storage boundaries in the UI and docs | S–M | Supported image/build limits, conversion progress, cancellation, storage failure, clear/reimport, and save recovery behavior are described consistently with observed implementation and evidence, with unknown format details left explicit. |
+| **m2-build-fresh-import** — [Connect local image selection through validation and conversion](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-build-fresh-import%22) | L | A fresh browser can select a supported player-provided image, validate the declared build, run the bounded local conversion path, and launch the accepted original browser runtime without a developer toolchain or a content upload; unsupported and corrupt inputs fail with a visible, recoverable outcome. |
+| **m2-build-cancel-reset** — [Make cancellation, clear, and reimport lifecycle explicit](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-build-cancel-reset%22) | M | Cancel, clear local content, and reimport have observed outcomes; cancellation releases active workers/resources, clear removes the selected local data under the documented policy, and a subsequent import starts from a clean session. |
+| **m2-build-storage** — [Persist and recover browser-local prepared content safely](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-build-storage%22) | L | The chosen browser-local storage path handles denied, quota-failed, and evicted data with actionable status and reimport; it avoids whole-disc buffering beyond the documented limits and never sends original content or derived assets to a server or peer. |
+| **m2-build-saves** — [Connect original save persistence and fresh-session reload](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-build-saves%22) | L | The accepted original save format and lifecycle are exercised through save, close/reopen, reload, and recovery cases; saved original-containing state remains local and malformed or unavailable saves produce a safe observable result. |
+| **m2-build-failure-record** — [Record conversion and storage boundaries in the UI and docs](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-build-failure-record%22) | S–M | Supported image/build limits, conversion progress, cancellation, storage failure, clear/reimport, and save recovery behavior are described consistently with observed implementation and evidence, with unknown format details left explicit. |
 
 #### Validation and evidence
 
@@ -214,18 +214,18 @@ Bind the exact original build and matching browser/runtime identities, then deri
 - m2-build fresh-browser conversion and local save/reload path is implemented for the declared supported build.
 - Matching-build original-reference scenarios and evidence access are available; gaps remain explicit.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m2-verify-inventory** — Build the evidence-backed catalog and variant inventory | M–L | Every shipped selectable minigame and variant, character, arena, mode, and progression scope has an identified source/build and an explicit tested, unsupported, or unresolved disposition; no unresolved entry is counted as complete. |
-| **m2-verify-seats** — Cover local seat counts and original CPU behavior | M | Matching-build scenarios exercise one through four local seats and each required original CPU/difficulty case; the scenario record captures setup, inputs, outcomes, and any unavailable case. |
-| **m2-verify-modes** — Exercise practice, Minigame Frenzy, and Tournament progression | L | Original-reference scenarios cover practice, Minigame Frenzy, and full Tournament progression including round transitions and results for every required catalog entry, with unknown or untested paths listed as blockers. |
-| **m2-verify-parity** — Complete the rules and presentation parity matrix | L | Evidence-backed comparisons cover scoring and ties, rules, timing, movement and collisions, AI, camera, animation, audio, and progression for each required scenario; each discrepancy is recorded with severity, reproduction conditions, and disposition. |
-| **m2-verify-save-recovery** — Verify original save and tournament recovery cases | M–L | Matching-build scenarios verify save/reload after browser close and reopen plus complete tournament checkpoint/recovery behavior; state and results match the recorded reference, while original-containing saves remain local. |
-| **m2-verify-report** — Publish the curated parity evidence and limits record | S–M | A reviewable matrix links each required catalog/mode scenario to source/build identity, browser/device, observed outcome, evidence identity, discrepancy, and remaining limit; private media, raw reports, and proprietary data remain local. |
+| **m2-verify-inventory** — [Build the evidence-backed catalog and variant inventory](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-inventory%22) | M–L | Every shipped selectable minigame and variant, character, arena, mode, and progression scope has an identified source/build and an explicit tested, unsupported, or unresolved disposition; no unresolved entry is counted as complete. |
+| **m2-verify-seats** — [Cover local seat counts and original CPU behavior](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-seats%22) | M | Matching-build scenarios exercise one through four local seats and each required original CPU/difficulty case; the scenario record captures setup, inputs, outcomes, and any unavailable case. |
+| **m2-verify-modes** — [Exercise practice, Minigame Frenzy, and Tournament progression](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-modes%22) | L | Original-reference scenarios cover practice, Minigame Frenzy, and full Tournament progression including round transitions and results for every required catalog entry, with unknown or untested paths listed as blockers. |
+| **m2-verify-parity** — [Complete the rules and presentation parity matrix](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-parity%22) | L | Evidence-backed comparisons cover scoring and ties, rules, timing, movement and collisions, AI, camera, animation, audio, and progression for each required scenario; each discrepancy is recorded with severity, reproduction conditions, and disposition. |
+| **m2-verify-save-recovery** — [Verify original save and tournament recovery cases](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-save-recovery%22) | M–L | Matching-build scenarios verify save/reload after browser close and reopen plus complete tournament checkpoint/recovery behavior; state and results match the recorded reference, while original-containing saves remain local. |
+| **m2-verify-report** — [Publish the curated parity evidence and limits record](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m2-verify-report%22) | S–M | A reviewable matrix links each required catalog/mode scenario to source/build identity, browser/device, observed outcome, evidence identity, discrepancy, and remaining limit; private media, raw reports, and proprietary data remain local. |
 
 #### Validation and evidence
 
@@ -280,17 +280,17 @@ Run the bounded authority feasibility spike before any match-service implementat
 - The source-only feasibility spike has a reviewed decision; no accounts, lobbies, or netcode begin while authority is unresolved.
 - Any approved proposal preserves original code, assets, RAM, and original-containing saves locally and models four total seats.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m3-build-authority-spike** — Determine whether server-owned outcomes can satisfy the local-content contract | M–L | A bounded scenario record inventories only evidence-backed rules, inputs, timing, randomness, and outcomes, marks unknowns, specifies independent authority/locality/recovery pass-fail results, and records a reviewed feasible, infeasible, or unresolved decision without adding a server or sending original content/state. |
-| **m3-build-protocol** — Specify a reviewed privacy-safe protocol envelope if feasible | M | Only after a feasible authority decision, a reviewed protocol defines distinct account, connection, local profile, and seat identities; compatibility/version claims; bounded input ordering and stale/duplicate behavior; and explicit exclusion of assets, generated code, RAM, original-containing saves, and title-state blobs. |
-| **m3-build-seats** — Define ownership for four total local and remote seats | M | The approved design documents and enforces exactly four total seats across local and remote owners, including mixed parties, and keeps account, connection, profile, and seat transfer rules distinct and reviewable. |
-| **m3-build-authority-runtime** — Implement only the authority route proven by the decision | L | If and only if the feasibility decision supports implementation, server decisions for the declared supported scenarios are derived from the reviewed evidence-backed authority model and independently agree with original-reference outcomes; client-declared winners and relay-only sequencing cannot determine accepted results. |
-| **m3-build-recovery** — Implement atomic tournament results and distinct recovery boundaries | L | For the approved authority model, tournament checkpoints/results persist atomically and idempotently, and reconnect, lobby-owner transfer, and match-process recovery each have separate policies and observed outcomes without storing original-containing state remotely. |
+| **m3-build-authority-spike** — [Determine whether server-owned outcomes can satisfy the local-content contract](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-build-authority-spike%22) | M–L | A bounded scenario record inventories only evidence-backed rules, inputs, timing, randomness, and outcomes, marks unknowns, specifies independent authority/locality/recovery pass-fail results, and records a reviewed feasible, infeasible, or unresolved decision without adding a server or sending original content/state. |
+| **m3-build-protocol** — [Specify a reviewed privacy-safe protocol envelope if feasible](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-build-protocol%22) | M | Only after a feasible authority decision, a reviewed protocol defines distinct account, connection, local profile, and seat identities; compatibility/version claims; bounded input ordering and stale/duplicate behavior; and explicit exclusion of assets, generated code, RAM, original-containing saves, and title-state blobs. |
+| **m3-build-seats** — [Define ownership for four total local and remote seats](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-build-seats%22) | M | The approved design documents and enforces exactly four total seats across local and remote owners, including mixed parties, and keeps account, connection, profile, and seat transfer rules distinct and reviewable. |
+| **m3-build-authority-runtime** — [Implement only the authority route proven by the decision](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-build-authority-runtime%22) | L | If and only if the feasibility decision supports implementation, server decisions for the declared supported scenarios are derived from the reviewed evidence-backed authority model and independently agree with original-reference outcomes; client-declared winners and relay-only sequencing cannot determine accepted results. |
+| **m3-build-recovery** — [Implement atomic tournament results and distinct recovery boundaries](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-build-recovery%22) | L | For the approved authority model, tournament checkpoints/results persist atomically and idempotently, and reconnect, lobby-owner transfer, and match-process recovery each have separate policies and observed outcomes without storing original-containing state remotely. |
 
 #### Validation and evidence
 
@@ -340,18 +340,18 @@ Bind the reviewed authority decision, protocol/rules version, original build, ru
 - m3-build authority feasibility decision is feasible and reviewed; unresolved or failed routes block match trials.
 - m3-build service, explicit four-seat ownership, and atomic results/recovery behavior are implemented for the declared scope.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m3-verify-party-matrix** — Verify remote and mixed four-seat party outcomes | M–L | Four-browser remote and two-local-plus-two-remote scenarios run across the required online catalog; seat ownership and each accepted outcome are recorded against the server decision and the corresponding original-reference scenario. |
-| **m3-verify-network** — Exercise specified network impairment and repeated rounds | L | Each required timing, contact, steering, and orb family completes ten consecutive rounds at 150 ms RTT, 30 ms jitter, and 1% loss with recorded conditions and outcomes; music/pattern activities also pass the explicit audio/input fairness case. |
-| **m3-verify-input-failures** — Verify stale, late, duplicate, and disconnected input handling | M | Defined stale-input, gap, duplicate, disconnect, refresh, and reconnect cases produce the reviewed protocol outcomes with no stuck inputs or unauthorized seat ownership, and no client-declared result is accepted. |
-| **m3-verify-recovery** — Verify lobby transfer and match-process recovery separately | M–L | Lobby-owner transfer and interrupted match-process recovery are independently exercised; atomic checkpoint/result restoration preserves committed state and prevents duplicate awards, while reconnect alone is not counted as process recovery. |
-| **m3-verify-locality** — Audit online traffic and durable storage for content locality | M | Observed network payloads, service logs/diagnostics, checkpoints, and persisted results contain only reviewed protocol data and no original assets/code, RAM, original-containing saves, or derived proprietary content. |
-| **m3-verify-report** — Record matching-build online authority and recovery evidence | S–M | A curated report binds source/service/protocol/rules identities, party and impairment scenarios, evidence identities, discrepancies, authority decision, and remaining limits; no scenario with missing or approximate outcomes is accepted. |
+| **m3-verify-party-matrix** — [Verify remote and mixed four-seat party outcomes](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-party-matrix%22) | M–L | Four-browser remote and two-local-plus-two-remote scenarios run across the required online catalog; seat ownership and each accepted outcome are recorded against the server decision and the corresponding original-reference scenario. |
+| **m3-verify-network** — [Exercise specified network impairment and repeated rounds](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-network%22) | L | Each required timing, contact, steering, and orb family completes ten consecutive rounds at 150 ms RTT, 30 ms jitter, and 1% loss with recorded conditions and outcomes; music/pattern activities also pass the explicit audio/input fairness case. |
+| **m3-verify-input-failures** — [Verify stale, late, duplicate, and disconnected input handling](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-input-failures%22) | M | Defined stale-input, gap, duplicate, disconnect, refresh, and reconnect cases produce the reviewed protocol outcomes with no stuck inputs or unauthorized seat ownership, and no client-declared result is accepted. |
+| **m3-verify-recovery** — [Verify lobby transfer and match-process recovery separately](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-recovery%22) | M–L | Lobby-owner transfer and interrupted match-process recovery are independently exercised; atomic checkpoint/result restoration preserves committed state and prevents duplicate awards, while reconnect alone is not counted as process recovery. |
+| **m3-verify-locality** — [Audit online traffic and durable storage for content locality](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-locality%22) | M | Observed network payloads, service logs/diagnostics, checkpoints, and persisted results contain only reviewed protocol data and no original assets/code, RAM, original-containing saves, or derived proprietary content. |
+| **m3-verify-report** — [Record matching-build online authority and recovery evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m3-verify-report%22) | S–M | A curated report binds source/service/protocol/rules identities, party and impairment scenarios, evidence identities, discrepancies, authority decision, and remaining limits; no scenario with missing or approximate outcomes is accepted. |
 
 #### Validation and evidence
 
@@ -406,17 +406,17 @@ Confirm the accepted M2/M3 evidence and the reviewed authority/content and ident
 - Full online journey acceptance requires accepted M3 authority, four-seat ownership and recovery behavior. Source-owned interface work may proceed earlier without claiming working services.
 - An approved account/recovery, privacy, friend/invitation, and lobby authorization design with no proprietary content or original-containing state sent to services.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m4-build-account-recovery** — Implement account creation, sign-in, and recovery journey | M | A fresh browser can create or access an account, complete the approved recovery flow, and receive clear success, cancellation, and rejected-credential outcomes; tests show account identity remains distinct from connection, local profile, and seat identity. |
-| **m4-build-friend-permissions** — Implement friend requests and social privacy controls | M | Two test accounts can request, accept, decline, and remove a friend relationship; privacy, block, and report actions have explicit authorized outcomes, and unauthorized API operations are rejected and covered by tests. |
-| **m4-build-lobby-readiness** — Implement public/private lobby and invite readiness flows | L | Authorized test players can create/join a public or private lobby or use a join code/invitation, and the service rejects incompatible content/runtime/rules readiness before start without transferring game files or derived title data. |
-| **m4-build-four-seat-ownership** — Enforce lobby seat ownership and four-seat limit | M | Service checks demonstrate that a browser may own multiple local seats, remote seats have explicit owners, the combined lobby never exceeds four seats, and duplicate or unauthorized seat claims fail without changing the committed roster. |
-| **m4-build-match-rematch-flow** — Connect ready, start, match return, and rematch flows | M–L | The supported interface completes content readiness → ready/start → the accepted match service → return/rematch for compatible test accounts, while refusal, disconnect, and failed-start states provide a recoverable user-visible result. |
+| **m4-build-account-recovery** — [Implement account creation, sign-in, and recovery journey](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-build-account-recovery%22) | M | A fresh browser can create or access an account, complete the approved recovery flow, and receive clear success, cancellation, and rejected-credential outcomes; tests show account identity remains distinct from connection, local profile, and seat identity. |
+| **m4-build-friend-permissions** — [Implement friend requests and social privacy controls](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-build-friend-permissions%22) | M | Two test accounts can request, accept, decline, and remove a friend relationship; privacy, block, and report actions have explicit authorized outcomes, and unauthorized API operations are rejected and covered by tests. |
+| **m4-build-lobby-readiness** — [Implement public/private lobby and invite readiness flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-build-lobby-readiness%22) | L | Authorized test players can create/join a public or private lobby or use a join code/invitation, and the service rejects incompatible content/runtime/rules readiness before start without transferring game files or derived title data. |
+| **m4-build-four-seat-ownership** — [Enforce lobby seat ownership and four-seat limit](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-build-four-seat-ownership%22) | M | Service checks demonstrate that a browser may own multiple local seats, remote seats have explicit owners, the combined lobby never exceeds four seats, and duplicate or unauthorized seat claims fail without changing the committed roster. |
+| **m4-build-match-rematch-flow** — [Connect ready, start, match return, and rematch flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-build-match-rematch-flow%22) | M–L | The supported interface completes content readiness → ready/start → the accepted match service → return/rematch for compatible test accounts, while refusal, disconnect, and failed-start states provide a recoverable user-visible result. |
 
 #### Validation and evidence
 
@@ -466,17 +466,17 @@ Freeze the candidate build and write a device/browser scenario matrix naming eac
 - M2 and M3 accepted build/evidence identities are available for content readiness, online ownership, and recovery behavior.
 - Named physical test devices and desktop browsers are available; report unavailable hardware/cases as unverified rather than inferred.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m4-verify-seat-ownership** — Verify local seat and physical-device ownership | M | For one through four total seats, the retained matrix records which physical keyboard/gamepad owns each seat, proves each action reaches only its assigned seat, and distinguishes multiple local seats from remote seats and account/connection/profile identities. |
-| **m4-verify-remap-conflicts** — Verify remapping, conflicts, calibration, and prompts | M | Named-device runs cover keyboard/gamepad remapping, duplicate/conflicting assignments, calibration and player prompts; each accepted or rejected change has an observed result and no input is routed to another seat. |
-| **m4-verify-focus-device-recovery** — Verify focus loss and controller lifecycle recovery | M | On each declared physical gamepad/browser combination, focus loss, tab hiding, disconnect, reconnect, reassignment, stale input, and resume are exercised with no stuck action; the observed offline/online behavior matches the reviewed contract. |
-| **m4-verify-keyboard-access** — Verify keyboard navigation and visible focus | S–M | A keyboard-only run reaches and operates account/setup, lobby, match, settings, error, and recovery controls in a meaningful order, with visible focus and no keyboard trap; deviations are recorded against the candidate build. |
-| **m4-verify-av-settings** — Verify audio/fullscreen failures and user settings | S–M | Named desktop browser runs exercise denied/unavailable audio and fullscreen behavior plus quality/accessibility preferences, recording clear failure handling and whether preferences survive the supported session lifecycle. |
+| **m4-verify-seat-ownership** — [Verify local seat and physical-device ownership](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-verify-seat-ownership%22) | M | For one through four total seats, the retained matrix records which physical keyboard/gamepad owns each seat, proves each action reaches only its assigned seat, and distinguishes multiple local seats from remote seats and account/connection/profile identities. |
+| **m4-verify-remap-conflicts** — [Verify remapping, conflicts, calibration, and prompts](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-verify-remap-conflicts%22) | M | Named-device runs cover keyboard/gamepad remapping, duplicate/conflicting assignments, calibration and player prompts; each accepted or rejected change has an observed result and no input is routed to another seat. |
+| **m4-verify-focus-device-recovery** — [Verify focus loss and controller lifecycle recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-verify-focus-device-recovery%22) | M | On each declared physical gamepad/browser combination, focus loss, tab hiding, disconnect, reconnect, reassignment, stale input, and resume are exercised with no stuck action; the observed offline/online behavior matches the reviewed contract. |
+| **m4-verify-keyboard-access** — [Verify keyboard navigation and visible focus](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-verify-keyboard-access%22) | S–M | A keyboard-only run reaches and operates account/setup, lobby, match, settings, error, and recovery controls in a meaningful order, with visible focus and no keyboard trap; deviations are recorded against the candidate build. |
+| **m4-verify-av-settings** — [Verify audio/fullscreen failures and user settings](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m4-verify-av-settings%22) | S–M | Named desktop browser runs exercise denied/unavailable audio and fullscreen behavior plus quality/accessibility preferences, recording clear failure handling and whether preferences survive the supported session lifecycle. |
 
 #### Validation and evidence
 
@@ -531,17 +531,17 @@ Inventory the pinned toolchain, required CI/publication checks, existing clean-b
 - Pinned source/tool inputs and required CI/publication checks are recorded, with a clean checkout available for reproduction.
 - Named owners and decision records exist for licensing/content release, privacy/data handling, deployment, and any service costs; unresolved authorization remains a release blocker.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m5-build-clean-reproduction** — Reproduce the candidate from a clean pinned checkout | M | A documented clean-checkout procedure uses the pinned Node/npm and declared source/tool inputs to reproduce the candidate and records commit, commands, tool versions, output identities, and any nondeterminism. |
-| **m5-build-source-only-artifacts** — Verify source-only artifact and diagnostic allowlists | M | Candidate source/build/diagnostic paths are checked against an explicit allowlist and scan evidence shows no original media, generated title code, original-containing state, credentials, or unapproved private artifacts are distributed or attached. |
-| **m5-build-version-compatibility** — Document protocol and content compatibility versioning | M | A reviewed compatibility table identifies protocol, rules, converter/runtime, and content-build identifiers, supported combinations, and explicit mismatch rejection behavior without implying that an identifier proves possession or authority. |
-| **m5-build-operations-procedures** — Prepare rollback, backup, recovery, and capacity procedures | M–L | Reviewable runbooks define candidate rollback, backup/restore checks, admission/capacity limits, privacy/data handling, and operational evidence owners, while clearly marking any unimplemented or unapproved production service step. |
-| **m5-build-release-decisions** — Record licensing, deployment, and cost decisions for review | M | A decision register names the licensing/content-release questions, deployment target, estimated service costs, approver, and authorization state; unresolved or unauthorized items remain explicit blockers and no publication or spend is triggered by this issue. |
+| **m5-build-clean-reproduction** — [Reproduce the candidate from a clean pinned checkout](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-build-clean-reproduction%22) | M | A documented clean-checkout procedure uses the pinned Node/npm and declared source/tool inputs to reproduce the candidate and records commit, commands, tool versions, output identities, and any nondeterminism. |
+| **m5-build-source-only-artifacts** — [Verify source-only artifact and diagnostic allowlists](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-build-source-only-artifacts%22) | M | Candidate source/build/diagnostic paths are checked against an explicit allowlist and scan evidence shows no original media, generated title code, original-containing state, credentials, or unapproved private artifacts are distributed or attached. |
+| **m5-build-version-compatibility** — [Document protocol and content compatibility versioning](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-build-version-compatibility%22) | M | A reviewed compatibility table identifies protocol, rules, converter/runtime, and content-build identifiers, supported combinations, and explicit mismatch rejection behavior without implying that an identifier proves possession or authority. |
+| **m5-build-operations-procedures** — [Prepare rollback, backup, recovery, and capacity procedures](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-build-operations-procedures%22) | M–L | Reviewable runbooks define candidate rollback, backup/restore checks, admission/capacity limits, privacy/data handling, and operational evidence owners, while clearly marking any unimplemented or unapproved production service step. |
+| **m5-build-release-decisions** — [Record licensing, deployment, and cost decisions for review](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-build-release-decisions%22) | M | A decision register names the licensing/content-release questions, deployment target, estimated service costs, approver, and authorization state; unresolved or unauthorized items remain explicit blockers and no publication or spend is triggered by this issue. |
 
 #### Validation and evidence
 
@@ -591,17 +591,17 @@ Freeze the candidate source/build identities, declare required desktop browser v
 - M5 build candidate has a reproducible clean-checkout record and required source/CI/publication checks pass.
 - Browser/device matrix, measurable budgets, scenario procedures, and evidence-retention plan are frozen before testing; no target is selected after observing results.
 
-#### Delivery slices
+#### Tracked delivery issues
 
-Choose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.
+Choose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.
 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
-| **m5-verify-frozen-matrix** — Execute the declared desktop browser and hardware matrix | M–L | Each required Chrome, Edge, Firefox, and Safari version and named hardware configuration has a candidate-bound result for the declared launch, content, input, and recovery scenarios; unsupported or unavailable combinations are listed as limits. |
-| **m5-verify-performance-budgets** — Measure frame time, memory, and import budgets | M | Every matrix run reports measured frame-time distribution against the predeclared 60 fps target and usable documented 30 fps mode, peak memory, import time, and failure behavior against the budgets frozen before runs. |
-| **m5-verify-tournament-soak** — Verify full-tournament soak and relaunch recovery | L | The declared long-session scenarios complete a full tournament and exercise relaunch, save/reload, recovery, and failure injection on named devices, with captured outcomes and all discrepancies linked to the candidate identity. |
-| **m5-verify-release-record-review** — Review release evidence, procedures, and supported-scope claims | M | A reviewer can trace every M1–M5 acceptance record, compatibility/version procedure, rollback/restore/privacy evidence, and authorized release decision; release documentation lists only observed supported browsers/devices and unresolved limits. |
-| **m5-verify-release-readiness-decision** — Record pass, fail, or blocked disposition | S–M | The evidence record gives a criterion-by-criterion pass/fail/blocked disposition tied to one source commit, candidate, browser/device matrix, and reviewer; no missing result is silently treated as a pass. |
+| **m5-verify-frozen-matrix** — [Execute the declared desktop browser and hardware matrix](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-verify-frozen-matrix%22) | M–L | Each required Chrome, Edge, Firefox, and Safari version and named hardware configuration has a candidate-bound result for the declared launch, content, input, and recovery scenarios; unsupported or unavailable combinations are listed as limits. |
+| **m5-verify-performance-budgets** — [Measure frame time, memory, and import budgets](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-verify-performance-budgets%22) | M | Every matrix run reports measured frame-time distribution against the predeclared 60 fps target and usable documented 30 fps mode, peak memory, import time, and failure behavior against the budgets frozen before runs. |
+| **m5-verify-tournament-soak** — [Verify full-tournament soak and relaunch recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-verify-tournament-soak%22) | L | The declared long-session scenarios complete a full tournament and exercise relaunch, save/reload, recovery, and failure injection on named devices, with captured outcomes and all discrepancies linked to the candidate identity. |
+| **m5-verify-release-record-review** — [Review release evidence, procedures, and supported-scope claims](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-verify-release-record-review%22) | M | A reviewer can trace every M1–M5 acceptance record, compatibility/version procedure, rollback/restore/privacy evidence, and authorized release decision; release documentation lists only observed supported browsers/devices and unresolved limits. |
+| **m5-verify-release-readiness-decision** — [Record pass, fail, or blocked disposition](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m5-verify-release-readiness-decision%22) | S–M | The evidence record gives a criterion-by-criterion pass/fail/blocked disposition tied to one source commit, candidate, browser/device matrix, and reviewer; no missing result is silently treated as a pass. |
 
 #### Validation and evidence
 

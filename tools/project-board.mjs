@@ -118,7 +118,7 @@ export async function syncBoard(client,plan,config,{apply=false,sourceCommit,onC
   const context=await client.context();if(apply)assert.equal(context.sourceCommit,sourceCommit,'Apply must use current trusted main');
   if(config.templateId!==null)assert.equal(context.template.id,config.templateId,'Template project ID changed');
   const issues=await client.list(`/repos/${REPOSITORY}/issues?state=all`);const lookup=indexIssues(plan,issues);const snapshot=buildSnapshot(plan,issues,sourceCommit);
-  const statuses=new Map(snapshot.milestones.flatMap(m=>[[m.id,m.status],...m.tasks.map(t=>[t.id,t.status])]));
+  const statuses=new Map(snapshot.milestones.flatMap(m=>[[m.id,m.status],...m.tasks.flatMap(t=>[[t.id,t.status],...t.deliverables.map(item=>[item.id,item.status])])]));
   const wanted=definitions(plan).map(d=>({number:lookup.get(d.id).number,contentId:lookup.get(d.id).node_id,status:statuses.get(d.id),kind:d.type==='milestone'?'Milestone':'Task'}));client.issueIds=new Set(wanted.map(i=>i.contentId));
   let board=selectBoard(config,context.boards);const operations=[];let created=false,template=null;
   if(!board){

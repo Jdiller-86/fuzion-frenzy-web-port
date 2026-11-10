@@ -25,10 +25,12 @@ export function validateBrief(brief, ownerId) {
   assert.ok(Array.isArray(brief.deliverables) && brief.deliverables.length > 0 && brief.deliverables.length <= 12);
   const ids = new Set();
   for (const item of brief.deliverables) {
-    keys(item, ['id', 'title', 'size', 'doneWhen']);
+    keys(item, ['id', 'title', 'size', 'doneWhen', 'issueNumber', 'dependsOn']);
     assert.match(item.id, /^[a-z0-9-]+$/); assert.ok(item.id.startsWith(ownerId + '-'), 'Delivery slice belongs to another work package');
     assert.ok(!ids.has(item.id), 'Duplicate delivery slice'); ids.add(item.id);
     text(item.title, 200); text(item.doneWhen); assert.ok(SIZES.includes(item.size), 'Invalid delivery size');
+    if(item.issueNumber!==undefined)assert.ok(Number.isSafeInteger(item.issueNumber)&&item.issueNumber>0,'Invalid delivery issue number');
+    if(item.dependsOn!==undefined){assert.ok(Array.isArray(item.dependsOn)&&item.dependsOn.length<=20);for(const dependency of item.dependsOn)assert.match(dependency,/^m[1-5](?:-[a-z0-9-]+)?$/);}
   }
   assert.ok(Array.isArray(brief.references) && brief.references.length > 0 && brief.references.length <= 8);
   for (const reference of brief.references) {
@@ -44,16 +46,16 @@ const bullets = values => values.map(value => '- ' + value).join('\n');
 function sourceBase(ref) { assert.match(ref, /^(?:main|[a-f0-9]{40})$/); return `${BASE}/blob/${ref}/`; }
 function issueLink(task, lookup) {
   const number = lookup?.get(task.id)?.number ?? task.issueNumber;
-  return number ? `[${task.title} (#${number})](${BASE}/issues/${number})` : task.title;
+  return number ? `[${task.title} (#${number})](${BASE}/issues/${number})` : `[${task.title}](${BASE}/issues?q=${encodeURIComponent('is:issue label:work:delivery "'+task.id+'"')})`;
 }
 
-export function renderBrief(task, {ref = 'main', localLinks = false} = {}) {
+export function renderBrief(task, {ref = 'main', localLinks = false,lookup} = {}) {
   const brief = validateBrief(task.brief, task.id), base = sourceBase(ref);
   let body = '### Current foundation and gap\n\n' + brief.context + '\n\n### First bounded assignment\n\n' + brief.firstStep;
   body += '\n\n### Inputs and prerequisites\n\n' + bullets(brief.prerequisites);
-  body += '\n\n### Delivery slices\n\nChoose the largest ready bounded slice per assignment. Sizes describe engineering breadth, not hours or extra native issues/forecast packages. Required enabling work can move ahead of a larger slice.\n\n';
+  body += '\n\n### Tracked delivery issues\n\nChoose the largest ready bounded issue per assignment. These children decompose the existing package; their count is not an effort estimate or additional forecast packages. Required enabling work can move ahead of a larger item.\n\n';
   body += '| Stable slice / deliverable | Size | Observable exit |\n| --- | --- | --- |\n';
-  for (const item of brief.deliverables) body += `| **${item.id}** — ${item.title} | ${item.size} | ${item.doneWhen} |\n`;
+  for (const item of brief.deliverables) body += `| **${item.id}** — ${issueLink(item,lookup)} | ${item.size} | ${item.doneWhen} |\n`;
   body += '\n### Validation and evidence\n\n' + bullets(brief.validation);
   body += '\n\n### Boundaries\n\n' + bullets(brief.outOfScope) + '\n\n**Stop and report:** ' + brief.stopCondition;
   body += '\n\n### Entry points\n\n';
@@ -71,11 +73,18 @@ export function renderDeliveryPlan(def, lookup, {ref = 'main'} = {}) {
     body += '| Owning work package | Concrete delivery areas | First useful assignment |\n| --- | --- | --- |\n';
     for (const task of def.tasks) {
       validateBrief(task.brief, task.id);
-      body += `| ${issueLink(task, lookup)} | ${task.brief.deliverables.map(item => item.title + ' (' + item.size + ')').join('; ')} | ${task.brief.firstStep} |\n`;
+      body += `| ${issueLink(task, lookup)} | ${task.brief.deliverables.map(item => issueLink(item,lookup) + ' (' + item.size + ')').join('; ')} | ${task.brief.firstStep} |\n`;
     }
     body += '\n**Handoff:** choose one work-package slice, name its stable ID and owner, record inputs/files/checks and stop condition, and report delivered behavior plus concrete remaining features. Acceptance dependencies govern milestone closure; independently useful source-owned analysis may proceed earlier when assigned.\n\n';
     body += '**Milestone review:** reconcile every parent criterion with matching-build evidence and the prerequisite acceptance records, then obtain explicit independent review. Completed children or a merged PR do not accept this gate.\n';
-  } else body += renderBrief(def, {ref}) + '\n';
+  } else if(def.type==='delivery'){
+    const brief=def.parentBrief;validateBrief(brief,def.parent);
+    body+='**Owning package:** '+(lookup?.get(def.parent)?'#'+lookup.get(def.parent).number:def.parent)+'. **Structural size:** '+def.size+'.\n\n';
+    body+='### Current foundation and gap\n\n'+brief.context+'\n\n### This issue\n\n'+def.scope+'\n\n';
+    body+='### First bounded assignment\n\nReview this issue\'s native blockers and the owning package context. Identify the first required feature in the observable exit, record the exact inputs and files, then implement or verify that bounded connection. Report the delivered result and concrete remaining features; do not reopen unrelated startup or setup work.\n\n';
+    body+='### Inputs and prerequisites\n\n'+bullets(brief.prerequisites)+'\n\n### Validation and evidence\n\n'+bullets(brief.validation)+'\n\n### Boundaries\n\n'+bullets(brief.outOfScope)+'\n\n**Stop and report:** '+brief.stopCondition+'\n\n### Entry points\n\n';
+    for(const entry of brief.references)body+=`- [${entry.path}](${base}${entry.path}) — ${entry.purpose}\n`;
+  } else body += renderBrief(def, {ref,lookup}) + '\n';
   body += `\n[All work-package briefs](${base}docs/work-packages.md) · [Canonical scope](${base}profiles/project.json) · [Status and acceptance rules](${base}docs/management.md). Keep original content and raw private evidence local.\n`;
   return body.trimEnd() + '\n';
 }
@@ -96,7 +105,8 @@ export function upsertDeliveryPlan(body, content) {
 }
 
 export function renderWorkPackages(plan) {
-  let body = '# Work-package delivery briefs\n\nGenerated from [the reviewed project scope](../profiles/project.json). Edit that source and run `npm run project:docs`; CI checks this view. These are delivery slices inside the ten existing native work packages, not new issue counts or calibrated effort estimates. The [README chart](../README.md#project-progress) remains the overview of five milestone gates and native task status.\n\n';
+  const count=plan.milestones.flatMap(m=>m.tasks).reduce((total,task)=>total+task.brief.deliverables.length,0);
+  let body = '# Work-package delivery briefs\n\nGenerated from [the reviewed project scope](../profiles/project.json). Edit that source and run `npm run project:docs`; CI checks this view. '+count+' tracked delivery issues sit under '+plan.milestones.flatMap(m=>m.tasks).length+' work packages and five milestone gates. Counts describe tracked scope, not calibrated effort or extra forecast packages. The [README chart](../README.md#project-progress) counts delivery issues separately from package status and milestone acceptance.\n\n';
   body += 'Live status, ownership and implementation evidence remain in the native issues. Use one bounded assignment at a time, preserve accepted criteria and human notes, and update affected scope/evidence in the same PR. For M1, the [24-connection map](m1-browser-work.md) and its largest-first order refine the implementation package.\n';
   for (const milestone of plan.milestones) {
     body += `\n## ${milestone.id.toUpperCase()} — ${milestone.title}\n\n${milestone.goal}\n\n`;

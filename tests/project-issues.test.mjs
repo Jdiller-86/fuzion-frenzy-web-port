@@ -9,9 +9,11 @@ import {README_PROGRESS_CHART,syncGoalDocuments} from '../tools/project-goals.mj
 
 test('every existing child issue has a bounded, source-backed brief without increasing native task counts',()=>{
   const plan=loadPlan(),tasks=plan.milestones.flatMap(m=>m.tasks);
-  assert.equal(tasks.length,10);assert.equal(definitions(plan).length,15);
+  assert.equal(tasks.length,10);assert.equal(tasks.flatMap(t=>t.brief.deliverables).length,51);assert.equal(definitions(plan).length,5+10+51);
   const ids=new Set();
   for(const task of tasks){validateBrief(task.brief,task.id);assert.ok(task.brief.deliverables.length>=4);for(const slice of task.brief.deliverables){assert.ok(!ids.has(slice.id));ids.add(slice.id);}}
+  const defs=definitions(plan),deliveryDefs=defs.filter(def=>def.type==='delivery');assert.equal(deliveryDefs.length,51);
+  for(const milestone of plan.milestones)for(const task of milestone.tasks)for(const slice of task.brief.deliverables){const def=deliveryDefs.find(row=>row.id===slice.id);assert.ok(def);assert.equal(def.parent,task.id);assert.equal(def.milestone,milestone.id);assert.equal(def.kind,task.kind);assert.equal(def.scope,slice.doneWhen);assert.equal(def.size,slice.size);assert.deepEqual(def.criteria,[{id:slice.id+'-exit',text:slice.doneWhen}]);}
   assert.equal(fs.readFileSync(path.join(ROOT,'docs/work-packages.md'),'utf8'),renderWorkPackages(plan));
 });
 
@@ -44,6 +46,13 @@ test('normal synchronization owns delivery detail while preserving checked accep
   body=renderIssue(task,current,new Map());
   assert.ok(body.includes('- [x]'));assert.ok(body.endsWith('Human handoff survives.\n'));assert.ok(body.includes('Revised authority experiment.'));
   assert.equal(body.split('<!-- fuzion:delivery:start -->').length,2);
+});
+
+test('each delivery is rendered as its own native issue with exact exit criterion and retained evidence',()=>{
+  const plan=loadPlan(),def=definitions(plan).find(item=>item.type==='delivery');assert.ok(def);const item=plan.milestones.flatMap(m=>m.tasks).flatMap(t=>t.brief.deliverables).find(d=>d.id===def.id);
+  let body=renderIssue(def,null,new Map());assert.ok(body.includes(`- [ ] ${item.doneWhen}`));assert.ok(body.includes('<!-- fuzion:tracking:'+item.id+' -->'));
+  body=body.replace(`- [ ] ${item.doneWhen}`,`- [x] ${item.doneWhen}`)+'\nHuman delivery evidence remains.\n';
+  const refreshed=renderIssue(def,{body},new Map());assert.ok(refreshed.includes(`- [x] ${item.doneWhen}`));assert.ok(refreshed.endsWith('Human delivery evidence remains.\n'));
 });
 
 test('milestone issues expose child deliverables and first assignments without accepting them',()=>{

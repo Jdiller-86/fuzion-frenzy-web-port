@@ -7,7 +7,7 @@ import {loadState} from './development-state.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = 'https://github.com/Jdiller-86/fuzion-frenzy-web-port';
-export const README_PROGRESS_CHART = '[![Project progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/gates.svg)](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)';
+export const README_PROGRESS_CHART = '[![Project progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/gates.svg?v=delivery-issues-1)](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)';
 export const WORK_STATES = ['Open', 'In progress', 'Awaiting evidence', 'Verified connection', 'Not required'];
 export const EVIDENCE_LEVELS = ['source/plan only', 'component evidence', 'bounded title evidence', 'reported local candidate', 'reviewed title result'];
 const sizes = ['S', 'M', 'L', 'S–M', 'M–L'];
@@ -34,10 +34,11 @@ export function validateBrowserWork(work) {
   assert.ok(Array.isArray(work.items) && work.items.length > 0 && work.items.length <= 80);
   const ids = new Set();
   for (const item of work.items) {
-    keys(item, ['id', 'title', 'section', 'workPackage', 'priority', 'size', 'state', 'evidence', 'startingPoint', 'completion', 'evidenceRef', 'resolution']);
+    keys(item, ['id', 'title', 'section', 'workPackage', 'deliveryIssue', 'priority', 'size', 'state', 'evidence', 'startingPoint', 'completion', 'evidenceRef', 'resolution']);
     assert.match(item.id, /^MB[0-9]{2,3}$/); assert.ok(!ids.has(item.id), 'Duplicate browser work ID'); ids.add(item.id);
     text(item.title, 180); assert.ok(sections.has(item.section), 'Unknown browser scope section');
     assert.match(item.workPackage, /^m1-[a-z0-9-]+$/, 'Browser work must name its owning M1 package');
+    assert.match(item.deliveryIssue,/^m1-(?:build|verify)-[a-z0-9-]+$/,'Browser work must name its tracked delivery issue');
     assert.ok(Number.isInteger(item.priority) && item.priority >= 0 && item.priority <= 7);
     assert.ok(sizes.includes(item.size), 'Invalid structural size'); assert.ok(WORK_STATES.includes(item.state), 'Invalid browser work state');
     assert.ok(EVIDENCE_LEVELS.includes(item.evidence), 'Invalid browser evidence level');
@@ -81,7 +82,8 @@ export function renderBrowserSection(work, section) {
   let body = '| ID / work | Starting point and missing browser connection | Completion check and bounded question | Size / evidence |\n| --- | --- | --- | --- |\n';
   for (const item of work.items.filter(item => item.section === section.id)) {
     const resolution = item.resolution ? ` Resolution: ${item.resolution}` : '';
-    body += `| <a id="${item.id.toLowerCase()}"></a>**${item.id} — ${item.title}** | ${item.startingPoint}${resolution} | ${item.completion} | **${item.size}** · ${item.state}; [${item.evidence}](${path.posix.relative('docs', item.evidenceRef)}) |\n`;
+    const tracked=`${BASE}/issues?q=${encodeURIComponent('is:issue label:work:delivery "'+item.deliveryIssue+'"')}`;
+    body += `| <a id="${item.id.toLowerCase()}"></a>**${item.id} — ${item.title}** | ${item.startingPoint}${resolution} | ${item.completion} | **${item.size}** · ${item.state}; [${item.evidence}](${path.posix.relative('docs', item.evidenceRef)}) · [tracked delivery](${tracked}) |\n`;
   }
   return body.trimEnd();
 }
@@ -106,7 +108,8 @@ export function renderProjectOverview(plan) {
   body += '| Milestone | Product outcome |\n| --- | --- |\n';
   for (const milestone of plan.milestones) body += `| [${milestone.id.toUpperCase()}: ${milestone.title}](${BASE}/issues/${milestone.issueNumber}) | ${milestone.goal} |\n`;
   if (work) body += '\n## Current M1 priority\n\n' + renderPriorityTable(work, {compact: true, prefix: `${BASE}/blob/main/docs/`}) + '\n\nOpen the M1 implementation card for every browser connection, its evidence level, size and completion check. These rows do not add to the task forecast.\n';
-  body += '\nIssue status labels and reviewed acceptance records own live status. This board mirrors those records; merging code or completing component checks does not accept a milestone. Runtime evidence and checkpoint identity remain in [current status](' + BASE + '/blob/main/docs/status.md). Keep original content and private evidence local.\n';
+  const count=plan.milestones.flatMap(m=>m.tasks).reduce((total,task)=>total+task.brief.deliverables.length,0);
+  body += `\n${count} tracked delivery issues sit under ${plan.milestones.flatMap(m=>m.tasks).length} work packages and five acceptance gates. The chart counts delivery issues, with package status and gate acceptance separate; counts are not remaining-effort estimates.\n\nIssue status labels and reviewed acceptance records own live status. This board mirrors those records; merging code or completing component checks does not accept a milestone. Runtime evidence and checkpoint identity remain in [current status](${BASE}/blob/main/docs/status.md). Keep original content and private evidence local.\n`;
   return body;
 }
 
@@ -127,6 +130,8 @@ export function renderGoalSummary(plan, state, filename) {
   body += '**M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.\n\n';
   body += renderPriorityTable(plan.browserWork, {compact: true, prefix}) + '\n\n';
   body += `[All ${plan.browserWork.items.length} browser connections, evidence and exit checks](${prefix}m1-browser-work.md) · [Largest-first details](${prefix}m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](${prefix}work-packages.md) · [Next local-agent assignment](${prefix}local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.\n`;
+  body += `\n**Tracked scope:** ${plan.milestones.flatMap(m=>m.tasks).reduce((total,task)=>total+task.brief.deliverables.length,0)} delivery issues in ${plan.milestones.flatMap(m=>m.tasks).length} work packages under five milestone gates. Counts are not effort estimates.\n`;
+  body += `\n[Tracked delivery issues](${BASE}/issues?q=is%3Aissue+label%3Awork%3Adelivery) are native children of the work-package issues. The README chart and Project use their live status; package closure and milestone acceptance remain separate.\n`;
   return body;
 }
 

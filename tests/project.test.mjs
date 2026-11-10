@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {GitHub,REPOSITORY,ROOT,loadPlan,validatePlan,definitions,renderMilestones,indexIssues,renderIssue,issueStatus,buildSnapshot,syncProject,renderDashboard} from '../tools/project.mjs';
 const SHA='1'.repeat(40);
-const fresh=()=>{const plan=structuredClone(loadPlan());for(const m of plan.milestones){delete m.issueNumber;for(const t of m.tasks)delete t.issueNumber;}return plan;};
+const fresh=()=>{const plan=structuredClone(loadPlan());for(const m of plan.milestones){delete m.issueNumber;for(const t of m.tasks){delete t.issueNumber;for(const d of t.brief.deliverables)delete d.issueNumber;}}return plan;};
 class MemoryGitHub{
   constructor(){this.token='source-owned-test-only';this.labels=[];this.milestones=[];this.issues=[];this.links=new Map();this.writes=[];this.sha=SHA;}
   async list(endpoint){return structuredClone(endpoint.includes('/issues?')?this.issues:endpoint.includes('/milestones?')?this.milestones:this.labels);}
@@ -34,16 +34,16 @@ function accept(issue,definition){
 }
 
 test('scope is five milestones with unique acyclic work identities and exact maintained docs',()=>{
-  const plan=fresh();assert.equal(plan.milestones.length,5);assert.equal(definitions(plan).length,15);
+  const plan=fresh(),defs=definitions(plan),packages=plan.milestones.flatMap(m=>m.tasks),leaves=packages.flatMap(t=>t.brief.deliverables);assert.equal(plan.milestones.length,5);assert.equal(packages.length,10);assert.equal(leaves.length,51);assert.equal(defs.length,5+10+51);assert.equal(new Set(defs.map(d=>d.id)).size,defs.length);assert.equal(defs.filter(d=>d.type==='task').length,10);assert.equal(defs.filter(d=>d.type==='delivery').length,51);
   assert.equal(fs.readFileSync(ROOT+'/docs/milestones.md','utf8'),renderMilestones(loadPlan()));
   for(const mutate of [p=>p.repository='other/repo',p=>p.milestones[1].dependsOn=['missing'],p=>p.milestones[0].dependsOn=['m5'],p=>p.milestones[0].tasks[0].id='m1',p=>{p.milestones[0].issueNumber=1;p.milestones[1].issueNumber=1;}]){const broken=fresh();mutate(broken);assert.throws(()=>validatePlan(broken));}
 });
 test('preview makes no writes; apply verifies native parents/dependencies and is idempotent',async()=>{
-  const client=new MemoryGitHub(),plan=fresh();const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(client.writes.length,0);
-  const result=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(client.issues.length,15);assert.equal(client.milestones.length,5);assert.equal(result.snapshot.milestones.filter(m=>m.accepted).length,0);
+  const client=new MemoryGitHub(),plan=fresh(),defs=definitions(plan);const preview=await syncProject(client,plan,{sourceCommit:SHA});assert.equal(preview.applied,false);assert.equal(client.writes.length,0);
+  const result=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(client.issues.length,5+10+51);assert.equal(client.milestones.length,5);assert.equal(result.snapshot.milestones.filter(m=>m.accepted).length,0);
   assert.ok(client.issues.every(issue=>issue.body.includes('/blob/'+SHA+'/docs/work-packages.md')),'Delivery plans must retain the validated synchronization source');
-  assert.equal(client.issues.filter(i=>i.labels.includes('work-item')).length,10,'CTR Implementation work view must include all ten tasks');assert.ok(client.issues.filter(i=>i.labels.includes('milestone')).every(i=>!i.labels.includes('work-item')));
-  for(const def of definitions(plan)){const issue=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${def.id} -->`));const rel=await client.relations(issue);assert.equal(Boolean(rel.parent),def.type==='task');assert.equal(rel.blockedBy.length,def.dependsOn.length);}
+  assert.equal(client.issues.filter(i=>i.labels.includes('work-item')).length,61,'CTR Implementation work view must include ten packages and 51 delivery leaves');assert.ok(client.issues.filter(i=>i.labels.includes('milestone')).every(i=>!i.labels.includes('work-item')));
+  const packageIds=new Set(plan.milestones.flatMap(m=>m.tasks.map(p=>p.id)));for(const def of defs){const issue=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${def.id} -->`));const rel=await client.relations(issue);assert.equal(Boolean(rel.parent),def.type==='task'||def.type==='delivery');if(def.type==='delivery')assert.ok(packageIds.has(def.parent));assert.equal(rel.blockedBy.length,def.dependsOn.length);}
   client.writes=[];const again=await syncProject(client,plan,{apply:true,sourceCommit:SHA});assert.equal(again.operations.length,0);assert.equal(client.writes.length,0);
 });
 test('stale main and missing credentials prevent all mutations',async()=>{
@@ -58,7 +58,7 @@ test('sync preserves checked criteria and outside evidence; changed criteria reo
 });
 test('closed work does not accept a milestone; acceptance requires source/evidence/review and prerequisites',async()=>{
   const {client,plan}=await provision();for(const i of client.issues){if(!i.labels.includes('milestone')){i.state='closed';i.state_reason='completed';}}
-  let snapshot=buildSnapshot(plan,client.issues,SHA);assert.equal(snapshot.milestones.filter(m=>m.accepted).length,0);assert.equal(snapshot.milestones[0].tasks[0].status,'Done');
+  let snapshot=buildSnapshot(plan,client.issues,SHA);assert.equal(snapshot.milestones.filter(m=>m.accepted).length,0);assert.equal(snapshot.milestones[0].tasks[0].status,'Done');assert.equal(snapshot.milestones[0].tasks[0].deliverables.length,plan.milestones[0].tasks[0].brief.deliverables.length);const deliveryStatuses=snapshot.milestones.flatMap(m=>m.tasks).flatMap(p=>p.deliverables).map(d=>d.status);assert.equal(deliveryStatuses.length,51);assert.ok(deliveryStatuses.every(status=>status==='Done'));assert.ok(!deliveryStatuses.includes('Accepted'));
   const first=client.issues[0];first.labels.push('status:accepted');assert.throws(()=>buildSnapshot(plan,client.issues,SHA),/conflicting/);first.labels=['milestone','status:accepted'];assert.throws(()=>buildSnapshot(plan,client.issues,SHA));
   accept(first,plan.milestones[0]);snapshot=buildSnapshot(plan,client.issues,SHA);assert.equal(snapshot.milestones[0].accepted,true);
   const m3=client.issues.find(i=>i.body.startsWith('<!-- fuzion:tracking:m3 -->'));accept(m3,plan.milestones[2]);assert.throws(()=>buildSnapshot(plan,client.issues,SHA),/prerequisite/);
@@ -66,15 +66,27 @@ test('closed work does not accept a milestone; acceptance requires source/eviden
 test('foreign, duplicate, missing and changed-author tracking cannot be reported as complete',async()=>{
   const {client,plan}=await provision();
   for(const mutate of [rows=>rows.push(structuredClone(rows[0])),rows=>rows.pop(),rows=>rows[0].html_url='https://github.com/other/repo/issues/1',rows=>rows[0].user.login='unrelated-user']){const rows=structuredClone(client.issues);mutate(rows);assert.throws(()=>buildSnapshot(plan,rows,SHA));}
+  const leaves=plan.milestones.flatMap(m=>m.tasks).flatMap(t=>t.brief.deliverables);assert.equal(leaves.length,51);
+  const missingLeaf=client.issues.filter(i=>!i.body.startsWith(`<!-- fuzion:tracking:${leaves[0].id} -->`));assert.throws(()=>buildSnapshot(plan,missingLeaf,SHA),/missing|registered|issue/i);
   const numbered=fresh();numbered.milestones[0].issueNumber=1;assert.throws(()=>indexIssues(numbered,[]),/Registered/);
 });
 test('closed-not-planned work is Closed and snapshots exclude raw body/private notes',async()=>{
-  const {client,plan}=await provision();const task=client.issues.find(i=>!i.labels.includes('milestone'));task.state='closed';task.state_reason='not_planned';task.body+='\nprivate-original-bytes-should-not-export';
-  const snap=buildSnapshot(plan,client.issues,SHA);assert.equal(snap.milestones[0].tasks[0].status,'Closed');assert.ok(!JSON.stringify(snap).includes('private-original-bytes'));
+  const {client,plan}=await provision();const slice=plan.milestones[0].tasks[0].brief.deliverables[0],task=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${slice.id} -->`));task.state='closed';task.state_reason='not_planned';task.body+='\nprivate-original-bytes-should-not-export';
+  const snap=buildSnapshot(plan,client.issues,SHA);assert.equal(snap.milestones[0].tasks[0].deliverables[0].status,'Closed');assert.equal(snap.milestones[0].tasks[0].status,'Planned');assert.ok(!JSON.stringify(snap).includes('private-original-bytes'));
 });
 test('GitHub transport is repository-scoped and errors do not reveal credentials',async()=>{
   const token='owned-fixture-credential';const client=new GitHub({token,fetchImpl:async()=>({ok:false,status:403})});await assert.rejects(client.request('GET','/repos/other/repo'),/outside/);
   await assert.rejects(client.request('GET',`/repos/${REPOSITORY}`),error=>error.message.includes('403')&&!error.message.includes(token));
+});
+test('bulk issue propagation paces mutations while keeping read queries responsive',async()=>{
+  let clock=0;const writes=[],reads=[],delays=[];
+  const client=new GitHub({token:'fixture-only',now:()=>clock,pause:async milliseconds=>{delays.push(milliseconds);clock+=milliseconds;},fetchImpl:async(url,options)=>{(options.method==='GET'||JSON.parse(options.body??'{}').query?.startsWith('query')?reads:writes).push(clock);return {ok:true,status:200,json:async()=>({})};}});
+  await client.request('POST',`/repos/${REPOSITORY}/issues`,{title:'Bounded delivery'});
+  await client.request('POST','/graphql',{query:'query { node { id } }'});
+  await client.request('GET',`/repos/${REPOSITORY}`);
+  await client.request('PATCH',`/repos/${REPOSITORY}/issues/1`,{title:'Updated delivery'});
+  await client.request('POST','/graphql',{query:'mutation { addSubIssue { clientMutationId } }'});
+  assert.deepEqual(writes,[0,1000,2000]);assert.deepEqual(reads,[0,0]);assert.deepEqual(delays,[1000,1000]);
 });
 test('offline dashboard embeds safe JSON once and handles unavailable data without inventing progress',()=>{
   const template=fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8');
@@ -84,7 +96,7 @@ test('offline dashboard embeds safe JSON once and handles unavailable data witho
 });
 
 test('progress view renders real issue/commit links, dependency navigation and completed work',async()=>{
-  const {client,plan}=await provision();const task=client.issues.find(i=>!i.labels.includes('milestone'));task.state='closed';task.state_reason='completed';
+  const {client,plan}=await provision();const firstDelivery=plan.milestones[0].tasks[0].brief.deliverables[0],task=client.issues.find(i=>i.body.startsWith(`<!-- fuzion:tracking:${firstDelivery.id} -->`));task.state='closed';task.state_reason='completed';
   const snapshot=buildSnapshot(plan,client.issues,SHA);const html=renderDashboard(snapshot,fs.readFileSync(ROOT+'/tools/project-dashboard.html','utf8'));
   class Element{
     constructor(tag){this.tag=tag;this.children=[];this.handlers={};this.value='all';this.ownText='';}
@@ -99,9 +111,9 @@ test('progress view renders real issue/commit links, dependency navigation and c
   const document={createElement:tag=>new Element(tag),createTextNode:text=>Object.assign(new Element('#text'),{ownText:String(text)}),getElementById:id=>staticNodes.get(id)??[...staticNodes.values()].flatMap(walk).find(e=>e.id===id)};
   const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];vm.runInNewContext(script,{document,URL},{timeout:1000});
   assert.match(document.getElementById('count').textContent,/0 of 5 milestones accepted/);
-  assert.equal(document.getElementById('task-count').textContent,'1 of 10 work packages completed');
+  assert.equal(document.getElementById('task-count').textContent,'1 of 51 delivery issues done · 10 work packages');assert.equal(snapshot.milestones[0].tasks[0].status,'Planned');
   assert.equal(document.getElementById('browser-rows').childElementCount,24);assert.equal(document.getElementById('browser-order').childElementCount,7);assert.equal(document.getElementById('browser-scope').hidden,false);
-  const nodes=[...staticNodes.values()].flatMap(walk);assert.equal(nodes.filter(n=>n.href?.startsWith(`https://github.com/${REPOSITORY}/issues/`)).length,15);
+  const nodes=[...staticNodes.values()].flatMap(walk);assert.equal(nodes.filter(n=>n.href?.startsWith(`https://github.com/${REPOSITORY}/issues/`)).length,definitions(plan).length);
   assert.ok(nodes.some(n=>n.href===`https://github.com/${REPOSITORY}/commit/${SHA}`));
   assert.ok(nodes.some(n=>n.href==='#m1'));assert.equal(document.getElementById('milestones').childElementCount,5);
   const unavailable={...snapshot,available:false};delete unavailable.milestones;
