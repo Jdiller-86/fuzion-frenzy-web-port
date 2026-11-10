@@ -51,7 +51,7 @@ test('missing, duplicate and reversed generated markers cannot hide stale projec
 
 test('Project overview and native M1 card expose all scope without creating issues or altering acceptance', () => {
   const plan = loadPlan(), defs = definitions(plan), owner = defs.find(item => item.id === 'm1-build');
-  assert.equal(defs.length, 15); assert.equal(plan.milestones.flatMap(milestone => milestone.tasks).length, 10);
+  assert.equal(defs.length, 5+10+51); assert.equal(plan.milestones.flatMap(milestone => milestone.tasks).length, 10); assert.equal(plan.milestones.flatMap(milestone => milestone.tasks).flatMap(task => task.brief.deliverables).length, 51);
   const original = renderIssue(owner, null, new Map()) + '\nHuman evidence remains.\n';
   const current = {body:original.replace('- [ ]', '- [x]')};
   const updated = renderIssue(owner, current, new Map());

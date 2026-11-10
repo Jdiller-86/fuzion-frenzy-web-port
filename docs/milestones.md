@@ -32,6 +32,8 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Work packages:** [Integrate the original browser round path](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/23) ([delivery brief](work-packages.md#m1-build)); [Verify original browser gameplay and evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/24) ([delivery brief](work-packages.md#m1-verify)).
 
+**Tracked delivery issues:** 9 child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.
+
 **Detailed browser work:** [Named connections, structural sizes and evidence](m1-browser-work.md), with the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). These scope rows decompose the work packages; they are not extra forecast packages.
 
 ## M2 — Complete local game and conversion
@@ -46,6 +48,8 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Work packages:** [Finish browser-local conversion and save recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/26) ([delivery brief](work-packages.md#m2-build)); [Accept the complete original offline inventory](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/27) ([delivery brief](work-packages.md#m2-verify)).
 
+**Tracked delivery issues:** 11 child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.
+
 ## M3 — Online multiplayer and recovery
 
 **Pass when:**
@@ -57,6 +61,8 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 **Acceptance depends on:** M2.
 
 **Work packages:** [Implement authoritative mixed-seat match services](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/29) ([delivery brief](work-packages.md#m3-build)); [Verify online agreement, fairness and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/30) ([delivery brief](work-packages.md#m3-verify)).
+
+**Tracked delivery issues:** 11 child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.
 
 ## M4 — Player experience
 
@@ -70,6 +76,8 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Work packages:** [Complete accounts, friends and lobby flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/32) ([delivery brief](work-packages.md#m4-build)); [Accept owned controls and browser usability](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/33) ([delivery brief](work-packages.md#m4-verify)).
 
+**Tracked delivery issues:** 10 child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.
+
 ## M5 — Release readiness
 
 **Pass when:**
@@ -81,5 +89,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 **Acceptance depends on:** M1, M2, M3, M4.
 
 **Work packages:** [Verify reproducible source-only release operations](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/35) ([delivery brief](work-packages.md#m5-build)); [Accept browser/device performance and release evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/36) ([delivery brief](work-packages.md#m5-verify)).
+
+**Tracked delivery issues:** 10 child issues inside these packages. Native delivery status, package status and milestone acceptance are reported separately; counts are not remaining-effort estimates.
 
 [Management workflow](management.md) describes status, native parent/dependency links and the evidence required before acceptance. Scope is maintained in [profiles/project.json](../profiles/project.json); current runtime facts remain in [status](status.md).

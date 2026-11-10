@@ -58,31 +58,36 @@
                 "id": "m1-build-execution",
                 "title": "Sustained execution and a viable admission route (MB04\u201307)",
                 "size": "L",
-                "doneWhen": "Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented."
+                "doneWhen": "Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented.",
+                "dependsOn": []
               },
               {
                 "id": "m1-build-graphics",
                 "title": "Original graphics and the first title frame (MB11\u201317)",
                 "size": "L",
-                "doneWhen": "The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work."
+                "doneWhen": "The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work.",
+                "dependsOn": []
               },
               {
                 "id": "m1-build-audio",
                 "title": "Original sound processing and audible output (MB18\u201319)",
                 "size": "L",
-                "doneWhen": "Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence."
+                "doneWhen": "Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence.",
+                "dependsOn": []
               },
               {
                 "id": "m1-build-resources",
                 "title": "Selected startup and original resource lifecycle (MB02\u201303, MB08\u201310)",
                 "size": "M\u2013L",
-                "doneWhen": "The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof."
+                "doneWhen": "The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof.",
+                "dependsOn": []
               },
               {
                 "id": "m1-build-round-path",
                 "title": "Owned input, original menu and one complete round (MB20\u201323)",
                 "size": "M\u2013L",
-                "doneWhen": "One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes."
+                "doneWhen": "One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -148,25 +153,29 @@
                 "id": "m1-verify-recipe",
                 "title": "Repeatable selected scenario and capture recipe (MB01, MB24)",
                 "size": "S\u2013M",
-                "doneWhen": "The exact build, browser/device, minigame, seat/input configuration and menu/round/results/return input recipe are recorded and reproducible."
+                "doneWhen": "The exact build, browser/device, minigame, seat/input configuration and menu/round/results/return input recipe are recorded and reproducible.",
+                "dependsOn": []
               },
               {
                 "id": "m1-verify-provenance",
                 "title": "Bound candidate identities and retained comparisons",
                 "size": "M",
-                "doneWhen": "Source/build/module/input identities, required retained cases and audit/report bindings agree for the tested candidate; rejected attempts and scope limits remain identified."
+                "doneWhen": "Source/build/module/input identities, required retained cases and audit/report bindings agree for the tested candidate; rejected attempts and scope limits remain identified.",
+                "dependsOn": []
               },
               {
                 "id": "m1-verify-cycles",
                 "title": "Three consecutive original audiovisual/input cycles",
                 "size": "M",
-                "doneWhen": "Actual original menu/game/results/menu runs complete three times in succession with visible original output, audible original sound, recorded input response and no unsupported stop or fault."
+                "doneWhen": "Actual original menu/game/results/menu runs complete three times in succession with visible original output, audible original sound, recorded input response and no unsupported stop or fault.",
+                "dependsOn": []
               },
               {
                 "id": "m1-verify-review",
                 "title": "Independent acceptance review and remaining-limit record",
                 "size": "S\u2013M",
-                "doneWhen": "The reviewer can reproduce the scenario and assess controls, evidence provenance and required checks. Publish curated outcomes and keep unresolved required capabilities open; an explicit parent acceptance record is still required."
+                "doneWhen": "The reviewer can reproduce the scenario and assess controls, evidence provenance and required checks. Publish curated outcomes and keep unresolved required capabilities open; an explicit parent acceptance record is still required.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -256,31 +265,36 @@
                 "id": "m2-build-fresh-import",
                 "title": "Connect local image selection through validation and conversion",
                 "size": "L",
-                "doneWhen": "A fresh browser can select a supported player-provided image, validate the declared build, run the bounded local conversion path, and launch the accepted original browser runtime without a developer toolchain or a content upload; unsupported and corrupt inputs fail with a visible, recoverable outcome."
+                "doneWhen": "A fresh browser can select a supported player-provided image, validate the declared build, run the bounded local conversion path, and launch the accepted original browser runtime without a developer toolchain or a content upload; unsupported and corrupt inputs fail with a visible, recoverable outcome.",
+                "dependsOn": []
               },
               {
                 "id": "m2-build-cancel-reset",
                 "title": "Make cancellation, clear, and reimport lifecycle explicit",
                 "size": "M",
-                "doneWhen": "Cancel, clear local content, and reimport have observed outcomes; cancellation releases active workers/resources, clear removes the selected local data under the documented policy, and a subsequent import starts from a clean session."
+                "doneWhen": "Cancel, clear local content, and reimport have observed outcomes; cancellation releases active workers/resources, clear removes the selected local data under the documented policy, and a subsequent import starts from a clean session.",
+                "dependsOn": []
               },
               {
                 "id": "m2-build-storage",
                 "title": "Persist and recover browser-local prepared content safely",
                 "size": "L",
-                "doneWhen": "The chosen browser-local storage path handles denied, quota-failed, and evicted data with actionable status and reimport; it avoids whole-disc buffering beyond the documented limits and never sends original content or derived assets to a server or peer."
+                "doneWhen": "The chosen browser-local storage path handles denied, quota-failed, and evicted data with actionable status and reimport; it avoids whole-disc buffering beyond the documented limits and never sends original content or derived assets to a server or peer.",
+                "dependsOn": []
               },
               {
                 "id": "m2-build-saves",
                 "title": "Connect original save persistence and fresh-session reload",
                 "size": "L",
-                "doneWhen": "The accepted original save format and lifecycle are exercised through save, close/reopen, reload, and recovery cases; saved original-containing state remains local and malformed or unavailable saves produce a safe observable result."
+                "doneWhen": "The accepted original save format and lifecycle are exercised through save, close/reopen, reload, and recovery cases; saved original-containing state remains local and malformed or unavailable saves produce a safe observable result.",
+                "dependsOn": []
               },
               {
                 "id": "m2-build-failure-record",
                 "title": "Record conversion and storage boundaries in the UI and docs",
                 "size": "S\u2013M",
-                "doneWhen": "Supported image/build limits, conversion progress, cancellation, storage failure, clear/reimport, and save recovery behavior are described consistently with observed implementation and evidence, with unknown format details left explicit."
+                "doneWhen": "Supported image/build limits, conversion progress, cancellation, storage failure, clear/reimport, and save recovery behavior are described consistently with observed implementation and evidence, with unknown format details left explicit.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -347,37 +361,43 @@
                 "id": "m2-verify-inventory",
                 "title": "Build the evidence-backed catalog and variant inventory",
                 "size": "M\u2013L",
-                "doneWhen": "Every shipped selectable minigame and variant, character, arena, mode, and progression scope has an identified source/build and an explicit tested, unsupported, or unresolved disposition; no unresolved entry is counted as complete."
+                "doneWhen": "Every shipped selectable minigame and variant, character, arena, mode, and progression scope has an identified source/build and an explicit tested, unsupported, or unresolved disposition; no unresolved entry is counted as complete.",
+                "dependsOn": []
               },
               {
                 "id": "m2-verify-seats",
                 "title": "Cover local seat counts and original CPU behavior",
                 "size": "M",
-                "doneWhen": "Matching-build scenarios exercise one through four local seats and each required original CPU/difficulty case; the scenario record captures setup, inputs, outcomes, and any unavailable case."
+                "doneWhen": "Matching-build scenarios exercise one through four local seats and each required original CPU/difficulty case; the scenario record captures setup, inputs, outcomes, and any unavailable case.",
+                "dependsOn": []
               },
               {
                 "id": "m2-verify-modes",
                 "title": "Exercise practice, Minigame Frenzy, and Tournament progression",
                 "size": "L",
-                "doneWhen": "Original-reference scenarios cover practice, Minigame Frenzy, and full Tournament progression including round transitions and results for every required catalog entry, with unknown or untested paths listed as blockers."
+                "doneWhen": "Original-reference scenarios cover practice, Minigame Frenzy, and full Tournament progression including round transitions and results for every required catalog entry, with unknown or untested paths listed as blockers.",
+                "dependsOn": []
               },
               {
                 "id": "m2-verify-parity",
                 "title": "Complete the rules and presentation parity matrix",
                 "size": "L",
-                "doneWhen": "Evidence-backed comparisons cover scoring and ties, rules, timing, movement and collisions, AI, camera, animation, audio, and progression for each required scenario; each discrepancy is recorded with severity, reproduction conditions, and disposition."
+                "doneWhen": "Evidence-backed comparisons cover scoring and ties, rules, timing, movement and collisions, AI, camera, animation, audio, and progression for each required scenario; each discrepancy is recorded with severity, reproduction conditions, and disposition.",
+                "dependsOn": []
               },
               {
                 "id": "m2-verify-save-recovery",
                 "title": "Verify original save and tournament recovery cases",
                 "size": "M\u2013L",
-                "doneWhen": "Matching-build scenarios verify save/reload after browser close and reopen plus complete tournament checkpoint/recovery behavior; state and results match the recorded reference, while original-containing saves remain local."
+                "doneWhen": "Matching-build scenarios verify save/reload after browser close and reopen plus complete tournament checkpoint/recovery behavior; state and results match the recorded reference, while original-containing saves remain local.",
+                "dependsOn": []
               },
               {
                 "id": "m2-verify-report",
                 "title": "Publish the curated parity evidence and limits record",
                 "size": "S\u2013M",
-                "doneWhen": "A reviewable matrix links each required catalog/mode scenario to source/build identity, browser/device, observed outcome, evidence identity, discrepancy, and remaining limit; private media, raw reports, and proprietary data remain local."
+                "doneWhen": "A reviewable matrix links each required catalog/mode scenario to source/build identity, browser/device, observed outcome, evidence identity, discrepancy, and remaining limit; private media, raw reports, and proprietary data remain local.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -467,31 +487,45 @@
                 "id": "m3-build-authority-spike",
                 "title": "Determine whether server-owned outcomes can satisfy the local-content contract",
                 "size": "M\u2013L",
-                "doneWhen": "A bounded scenario record inventories only evidence-backed rules, inputs, timing, randomness, and outcomes, marks unknowns, specifies independent authority/locality/recovery pass-fail results, and records a reviewed feasible, infeasible, or unresolved decision without adding a server or sending original content/state."
+                "doneWhen": "A bounded scenario record inventories only evidence-backed rules, inputs, timing, randomness, and outcomes, marks unknowns, specifies independent authority/locality/recovery pass-fail results, and records a reviewed feasible, infeasible, or unresolved decision without adding a server or sending original content/state.",
+                "dependsOn": []
               },
               {
                 "id": "m3-build-protocol",
                 "title": "Specify a reviewed privacy-safe protocol envelope if feasible",
                 "size": "M",
-                "doneWhen": "Only after a feasible authority decision, a reviewed protocol defines distinct account, connection, local profile, and seat identities; compatibility/version claims; bounded input ordering and stale/duplicate behavior; and explicit exclusion of assets, generated code, RAM, original-containing saves, and title-state blobs."
+                "doneWhen": "Only after a feasible authority decision, a reviewed protocol defines distinct account, connection, local profile, and seat identities; compatibility/version claims; bounded input ordering and stale/duplicate behavior; and explicit exclusion of assets, generated code, RAM, original-containing saves, and title-state blobs.",
+                "dependsOn": [
+                  "m3-build-authority-spike"
+                ]
               },
               {
                 "id": "m3-build-seats",
                 "title": "Define ownership for four total local and remote seats",
                 "size": "M",
-                "doneWhen": "The approved design documents and enforces exactly four total seats across local and remote owners, including mixed parties, and keeps account, connection, profile, and seat transfer rules distinct and reviewable."
+                "doneWhen": "The approved design documents and enforces exactly four total seats across local and remote owners, including mixed parties, and keeps account, connection, profile, and seat transfer rules distinct and reviewable.",
+                "dependsOn": [
+                  "m3-build-authority-spike"
+                ]
               },
               {
                 "id": "m3-build-authority-runtime",
                 "title": "Implement only the authority route proven by the decision",
                 "size": "L",
-                "doneWhen": "If and only if the feasibility decision supports implementation, server decisions for the declared supported scenarios are derived from the reviewed evidence-backed authority model and independently agree with original-reference outcomes; client-declared winners and relay-only sequencing cannot determine accepted results."
+                "doneWhen": "If and only if the feasibility decision supports implementation, server decisions for the declared supported scenarios are derived from the reviewed evidence-backed authority model and independently agree with original-reference outcomes; client-declared winners and relay-only sequencing cannot determine accepted results.",
+                "dependsOn": [
+                  "m3-build-protocol",
+                  "m3-build-seats"
+                ]
               },
               {
                 "id": "m3-build-recovery",
                 "title": "Implement atomic tournament results and distinct recovery boundaries",
                 "size": "L",
-                "doneWhen": "For the approved authority model, tournament checkpoints/results persist atomically and idempotently, and reconnect, lobby-owner transfer, and match-process recovery each have separate policies and observed outcomes without storing original-containing state remotely."
+                "doneWhen": "For the approved authority model, tournament checkpoints/results persist atomically and idempotently, and reconnect, lobby-owner transfer, and match-process recovery each have separate policies and observed outcomes without storing original-containing state remotely.",
+                "dependsOn": [
+                  "m3-build-authority-runtime"
+                ]
               }
             ],
             "validation": [
@@ -558,37 +592,43 @@
                 "id": "m3-verify-party-matrix",
                 "title": "Verify remote and mixed four-seat party outcomes",
                 "size": "M\u2013L",
-                "doneWhen": "Four-browser remote and two-local-plus-two-remote scenarios run across the required online catalog; seat ownership and each accepted outcome are recorded against the server decision and the corresponding original-reference scenario."
+                "doneWhen": "Four-browser remote and two-local-plus-two-remote scenarios run across the required online catalog; seat ownership and each accepted outcome are recorded against the server decision and the corresponding original-reference scenario.",
+                "dependsOn": []
               },
               {
                 "id": "m3-verify-network",
                 "title": "Exercise specified network impairment and repeated rounds",
                 "size": "L",
-                "doneWhen": "Each required timing, contact, steering, and orb family completes ten consecutive rounds at 150 ms RTT, 30 ms jitter, and 1% loss with recorded conditions and outcomes; music/pattern activities also pass the explicit audio/input fairness case."
+                "doneWhen": "Each required timing, contact, steering, and orb family completes ten consecutive rounds at 150 ms RTT, 30 ms jitter, and 1% loss with recorded conditions and outcomes; music/pattern activities also pass the explicit audio/input fairness case.",
+                "dependsOn": []
               },
               {
                 "id": "m3-verify-input-failures",
                 "title": "Verify stale, late, duplicate, and disconnected input handling",
                 "size": "M",
-                "doneWhen": "Defined stale-input, gap, duplicate, disconnect, refresh, and reconnect cases produce the reviewed protocol outcomes with no stuck inputs or unauthorized seat ownership, and no client-declared result is accepted."
+                "doneWhen": "Defined stale-input, gap, duplicate, disconnect, refresh, and reconnect cases produce the reviewed protocol outcomes with no stuck inputs or unauthorized seat ownership, and no client-declared result is accepted.",
+                "dependsOn": []
               },
               {
                 "id": "m3-verify-recovery",
                 "title": "Verify lobby transfer and match-process recovery separately",
                 "size": "M\u2013L",
-                "doneWhen": "Lobby-owner transfer and interrupted match-process recovery are independently exercised; atomic checkpoint/result restoration preserves committed state and prevents duplicate awards, while reconnect alone is not counted as process recovery."
+                "doneWhen": "Lobby-owner transfer and interrupted match-process recovery are independently exercised; atomic checkpoint/result restoration preserves committed state and prevents duplicate awards, while reconnect alone is not counted as process recovery.",
+                "dependsOn": []
               },
               {
                 "id": "m3-verify-locality",
                 "title": "Audit online traffic and durable storage for content locality",
                 "size": "M",
-                "doneWhen": "Observed network payloads, service logs/diagnostics, checkpoints, and persisted results contain only reviewed protocol data and no original assets/code, RAM, original-containing saves, or derived proprietary content."
+                "doneWhen": "Observed network payloads, service logs/diagnostics, checkpoints, and persisted results contain only reviewed protocol data and no original assets/code, RAM, original-containing saves, or derived proprietary content.",
+                "dependsOn": []
               },
               {
                 "id": "m3-verify-report",
                 "title": "Record matching-build online authority and recovery evidence",
                 "size": "S\u2013M",
-                "doneWhen": "A curated report binds source/service/protocol/rules identities, party and impairment scenarios, evidence identities, discrepancies, authority decision, and remaining limits; no scenario with missing or approximate outcomes is accepted."
+                "doneWhen": "A curated report binds source/service/protocol/rules identities, party and impairment scenarios, evidence identities, discrepancies, authority decision, and remaining limits; no scenario with missing or approximate outcomes is accepted.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -679,31 +719,36 @@
                 "id": "m4-build-account-recovery",
                 "title": "Implement account creation, sign-in, and recovery journey",
                 "size": "M",
-                "doneWhen": "A fresh browser can create or access an account, complete the approved recovery flow, and receive clear success, cancellation, and rejected-credential outcomes; tests show account identity remains distinct from connection, local profile, and seat identity."
+                "doneWhen": "A fresh browser can create or access an account, complete the approved recovery flow, and receive clear success, cancellation, and rejected-credential outcomes; tests show account identity remains distinct from connection, local profile, and seat identity.",
+                "dependsOn": []
               },
               {
                 "id": "m4-build-friend-permissions",
                 "title": "Implement friend requests and social privacy controls",
                 "size": "M",
-                "doneWhen": "Two test accounts can request, accept, decline, and remove a friend relationship; privacy, block, and report actions have explicit authorized outcomes, and unauthorized API operations are rejected and covered by tests."
+                "doneWhen": "Two test accounts can request, accept, decline, and remove a friend relationship; privacy, block, and report actions have explicit authorized outcomes, and unauthorized API operations are rejected and covered by tests.",
+                "dependsOn": []
               },
               {
                 "id": "m4-build-lobby-readiness",
                 "title": "Implement public/private lobby and invite readiness flows",
                 "size": "L",
-                "doneWhen": "Authorized test players can create/join a public or private lobby or use a join code/invitation, and the service rejects incompatible content/runtime/rules readiness before start without transferring game files or derived title data."
+                "doneWhen": "Authorized test players can create/join a public or private lobby or use a join code/invitation, and the service rejects incompatible content/runtime/rules readiness before start without transferring game files or derived title data.",
+                "dependsOn": []
               },
               {
                 "id": "m4-build-four-seat-ownership",
                 "title": "Enforce lobby seat ownership and four-seat limit",
                 "size": "M",
-                "doneWhen": "Service checks demonstrate that a browser may own multiple local seats, remote seats have explicit owners, the combined lobby never exceeds four seats, and duplicate or unauthorized seat claims fail without changing the committed roster."
+                "doneWhen": "Service checks demonstrate that a browser may own multiple local seats, remote seats have explicit owners, the combined lobby never exceeds four seats, and duplicate or unauthorized seat claims fail without changing the committed roster.",
+                "dependsOn": []
               },
               {
                 "id": "m4-build-match-rematch-flow",
                 "title": "Connect ready, start, match return, and rematch flows",
                 "size": "M\u2013L",
-                "doneWhen": "The supported interface completes content readiness \u2192 ready/start \u2192 the accepted match service \u2192 return/rematch for compatible test accounts, while refusal, disconnect, and failed-start states provide a recoverable user-visible result."
+                "doneWhen": "The supported interface completes content readiness \u2192 ready/start \u2192 the accepted match service \u2192 return/rematch for compatible test accounts, while refusal, disconnect, and failed-start states provide a recoverable user-visible result.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -769,31 +814,36 @@
                 "id": "m4-verify-seat-ownership",
                 "title": "Verify local seat and physical-device ownership",
                 "size": "M",
-                "doneWhen": "For one through four total seats, the retained matrix records which physical keyboard/gamepad owns each seat, proves each action reaches only its assigned seat, and distinguishes multiple local seats from remote seats and account/connection/profile identities."
+                "doneWhen": "For one through four total seats, the retained matrix records which physical keyboard/gamepad owns each seat, proves each action reaches only its assigned seat, and distinguishes multiple local seats from remote seats and account/connection/profile identities.",
+                "dependsOn": []
               },
               {
                 "id": "m4-verify-remap-conflicts",
                 "title": "Verify remapping, conflicts, calibration, and prompts",
                 "size": "M",
-                "doneWhen": "Named-device runs cover keyboard/gamepad remapping, duplicate/conflicting assignments, calibration and player prompts; each accepted or rejected change has an observed result and no input is routed to another seat."
+                "doneWhen": "Named-device runs cover keyboard/gamepad remapping, duplicate/conflicting assignments, calibration and player prompts; each accepted or rejected change has an observed result and no input is routed to another seat.",
+                "dependsOn": []
               },
               {
                 "id": "m4-verify-focus-device-recovery",
                 "title": "Verify focus loss and controller lifecycle recovery",
                 "size": "M",
-                "doneWhen": "On each declared physical gamepad/browser combination, focus loss, tab hiding, disconnect, reconnect, reassignment, stale input, and resume are exercised with no stuck action; the observed offline/online behavior matches the reviewed contract."
+                "doneWhen": "On each declared physical gamepad/browser combination, focus loss, tab hiding, disconnect, reconnect, reassignment, stale input, and resume are exercised with no stuck action; the observed offline/online behavior matches the reviewed contract.",
+                "dependsOn": []
               },
               {
                 "id": "m4-verify-keyboard-access",
                 "title": "Verify keyboard navigation and visible focus",
                 "size": "S\u2013M",
-                "doneWhen": "A keyboard-only run reaches and operates account/setup, lobby, match, settings, error, and recovery controls in a meaningful order, with visible focus and no keyboard trap; deviations are recorded against the candidate build."
+                "doneWhen": "A keyboard-only run reaches and operates account/setup, lobby, match, settings, error, and recovery controls in a meaningful order, with visible focus and no keyboard trap; deviations are recorded against the candidate build.",
+                "dependsOn": []
               },
               {
                 "id": "m4-verify-av-settings",
                 "title": "Verify audio/fullscreen failures and user settings",
                 "size": "S\u2013M",
-                "doneWhen": "Named desktop browser runs exercise denied/unavailable audio and fullscreen behavior plus quality/accessibility preferences, recording clear failure handling and whether preferences survive the supported session lifecycle."
+                "doneWhen": "Named desktop browser runs exercise denied/unavailable audio and fullscreen behavior plus quality/accessibility preferences, recording clear failure handling and whether preferences survive the supported session lifecycle.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -886,31 +936,36 @@
                 "id": "m5-build-clean-reproduction",
                 "title": "Reproduce the candidate from a clean pinned checkout",
                 "size": "M",
-                "doneWhen": "A documented clean-checkout procedure uses the pinned Node/npm and declared source/tool inputs to reproduce the candidate and records commit, commands, tool versions, output identities, and any nondeterminism."
+                "doneWhen": "A documented clean-checkout procedure uses the pinned Node/npm and declared source/tool inputs to reproduce the candidate and records commit, commands, tool versions, output identities, and any nondeterminism.",
+                "dependsOn": []
               },
               {
                 "id": "m5-build-source-only-artifacts",
                 "title": "Verify source-only artifact and diagnostic allowlists",
                 "size": "M",
-                "doneWhen": "Candidate source/build/diagnostic paths are checked against an explicit allowlist and scan evidence shows no original media, generated title code, original-containing state, credentials, or unapproved private artifacts are distributed or attached."
+                "doneWhen": "Candidate source/build/diagnostic paths are checked against an explicit allowlist and scan evidence shows no original media, generated title code, original-containing state, credentials, or unapproved private artifacts are distributed or attached.",
+                "dependsOn": []
               },
               {
                 "id": "m5-build-version-compatibility",
                 "title": "Document protocol and content compatibility versioning",
                 "size": "M",
-                "doneWhen": "A reviewed compatibility table identifies protocol, rules, converter/runtime, and content-build identifiers, supported combinations, and explicit mismatch rejection behavior without implying that an identifier proves possession or authority."
+                "doneWhen": "A reviewed compatibility table identifies protocol, rules, converter/runtime, and content-build identifiers, supported combinations, and explicit mismatch rejection behavior without implying that an identifier proves possession or authority.",
+                "dependsOn": []
               },
               {
                 "id": "m5-build-operations-procedures",
                 "title": "Prepare rollback, backup, recovery, and capacity procedures",
                 "size": "M\u2013L",
-                "doneWhen": "Reviewable runbooks define candidate rollback, backup/restore checks, admission/capacity limits, privacy/data handling, and operational evidence owners, while clearly marking any unimplemented or unapproved production service step."
+                "doneWhen": "Reviewable runbooks define candidate rollback, backup/restore checks, admission/capacity limits, privacy/data handling, and operational evidence owners, while clearly marking any unimplemented or unapproved production service step.",
+                "dependsOn": []
               },
               {
                 "id": "m5-build-release-decisions",
                 "title": "Record licensing, deployment, and cost decisions for review",
                 "size": "M",
-                "doneWhen": "A decision register names the licensing/content-release questions, deployment target, estimated service costs, approver, and authorization state; unresolved or unauthorized items remain explicit blockers and no publication or spend is triggered by this issue."
+                "doneWhen": "A decision register names the licensing/content-release questions, deployment target, estimated service costs, approver, and authorization state; unresolved or unauthorized items remain explicit blockers and no publication or spend is triggered by this issue.",
+                "dependsOn": []
               }
             ],
             "validation": [
@@ -980,31 +1035,36 @@
                 "id": "m5-verify-frozen-matrix",
                 "title": "Execute the declared desktop browser and hardware matrix",
                 "size": "M\u2013L",
-                "doneWhen": "Each required Chrome, Edge, Firefox, and Safari version and named hardware configuration has a candidate-bound result for the declared launch, content, input, and recovery scenarios; unsupported or unavailable combinations are listed as limits."
+                "doneWhen": "Each required Chrome, Edge, Firefox, and Safari version and named hardware configuration has a candidate-bound result for the declared launch, content, input, and recovery scenarios; unsupported or unavailable combinations are listed as limits.",
+                "dependsOn": []
               },
               {
                 "id": "m5-verify-performance-budgets",
                 "title": "Measure frame time, memory, and import budgets",
                 "size": "M",
-                "doneWhen": "Every matrix run reports measured frame-time distribution against the predeclared 60 fps target and usable documented 30 fps mode, peak memory, import time, and failure behavior against the budgets frozen before runs."
+                "doneWhen": "Every matrix run reports measured frame-time distribution against the predeclared 60 fps target and usable documented 30 fps mode, peak memory, import time, and failure behavior against the budgets frozen before runs.",
+                "dependsOn": []
               },
               {
                 "id": "m5-verify-tournament-soak",
                 "title": "Verify full-tournament soak and relaunch recovery",
                 "size": "L",
-                "doneWhen": "The declared long-session scenarios complete a full tournament and exercise relaunch, save/reload, recovery, and failure injection on named devices, with captured outcomes and all discrepancies linked to the candidate identity."
+                "doneWhen": "The declared long-session scenarios complete a full tournament and exercise relaunch, save/reload, recovery, and failure injection on named devices, with captured outcomes and all discrepancies linked to the candidate identity.",
+                "dependsOn": []
               },
               {
                 "id": "m5-verify-release-record-review",
                 "title": "Review release evidence, procedures, and supported-scope claims",
                 "size": "M",
-                "doneWhen": "A reviewer can trace every M1\u2013M5 acceptance record, compatibility/version procedure, rollback/restore/privacy evidence, and authorized release decision; release documentation lists only observed supported browsers/devices and unresolved limits."
+                "doneWhen": "A reviewer can trace every M1\u2013M5 acceptance record, compatibility/version procedure, rollback/restore/privacy evidence, and authorized release decision; release documentation lists only observed supported browsers/devices and unresolved limits.",
+                "dependsOn": []
               },
               {
                 "id": "m5-verify-release-readiness-decision",
                 "title": "Record pass, fail, or blocked disposition",
                 "size": "S\u2013M",
-                "doneWhen": "The evidence record gives a criterion-by-criterion pass/fail/blocked disposition tied to one source commit, candidate, browser/device matrix, and reviewer; no missing result is silently treated as a pass."
+                "doneWhen": "The evidence record gives a criterion-by-criterion pass/fail/blocked disposition tied to one source commit, candidate, browser/device matrix, and reviewer; no missing result is silently treated as a pass.",
+                "dependsOn": []
               }
             ],
             "validation": [

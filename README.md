@@ -10,11 +10,11 @@ Each browser will use compatible game files supplied by its player and converted
 
 ## Project progress
 
-[![Project progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/gates.svg)](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)
+[![Project progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/gates.svg?v=delivery-issues-1)](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)
 
 Refreshed after tracking updates and hourly from [native issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Amilestone). Open the graph for interactive task scope, acceptance criteria and dependencies. Task completion and full milestone acceptance are shown separately.
 
-The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes five milestone parents and ten work packages. Its overview and M1 implementation card expose the detailed browser connections and priority order. The graph keeps live issue status separate from the reviewed scope map and milestone acceptance.
+The public [GitHub Project](https://github.com/users/Jdiller-86/projects/3) organizes milestone gates, work packages and tracked delivery issues. Open the linked chart for the full hierarchy, sizes, scope and native issue links. Its bars count delivery issues; package status and milestone acceptance remain separate. Counts describe tracked scope, not remaining effort or a completion percentage.
 
 Reviewed source changes and issue events refresh tracking; hourly reconciliation and graph publication recover missed events. Each report shows its source revision and snapshot time. [Management](docs/management.md#synchronization-and-progress) explains which record to update, how generated views stay consistent, and how unavailable tracking is shown.
 
@@ -44,6 +44,10 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 | **7 — Bounded corrections and M1 acceptance** | [MB24](docs/m1-browser-work.md#mb24) · **S–M** |
 
 [All 24 browser connections, evidence and exit checks](docs/m1-browser-work.md) · [Largest-first details](docs/m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](docs/work-packages.md) · [Next local-agent assignment](docs/local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
+
+**Tracked scope:** 51 delivery issues in 10 work packages under five milestone gates. Counts are not effort estimates.
+
+[Tracked delivery issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Awork%3Adelivery) are native children of the work-package issues. The README chart and Project use their live status; package closure and milestone acceptance remain separate.
 <!-- project-goals:end -->
 
 ## Use or build

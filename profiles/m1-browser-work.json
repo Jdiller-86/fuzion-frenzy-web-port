@@ -77,7 +77,8 @@
       "startingPoint": "M1's three-cycle gate is defined; a specific game/input/browser execution recipe must be recorded. Select one compatible build, minigame, desktop browser/device and input/seat configuration.",
       "completion": "A repeatable original menu-to-results input recipe and required feature list exist. Choose the target from evidence; the prototype's game is not automatically the least costly original path.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-execution"
     },
     {
       "id": "MB02",
@@ -90,7 +91,8 @@
       "startingPoint": "Reported local R3 returns through the logger and stops before this caller's body. Its name/behavior is not established by its address.",
       "completion": "Produce the retained byte/layout, caller/argument/resource/provider contract and direct-dependency list for this exact invocation. Mark any missing authority. This is a bounded assessment, not permission to admit the body.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-resources"
     },
     {
       "id": "MB03",
@@ -103,7 +105,8 @@
       "startingPoint": "Startup still has an active original enclosing function; existing C/SDK providers can be reused where their contracts apply.",
       "completion": "The assessed family returns to its actual original caller with required state preserved, or names the next unsupported family and its exact missing capability. Use MB02 first; assign child batches to this row instead of predicting a task per stop. Additional families before the menu remain conditional work.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-resources"
     },
     {
       "id": "MB04",
@@ -116,7 +119,8 @@
       "startingPoint": "The accepted profile uses 511/512 function charges and 64/64 bindings. Whole-image generation is separate from browser admission.",
       "completion": "A target-path inventory and retention/dispatch comparison show a viable capacity route. First inspect duplicate/unused representations; any change to ceilings/module contracts needs its own scoped review. Question: what capacity does MB01's path actually demand? Do not silently raise limits.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-execution"
     },
     {
       "id": "MB05",
@@ -129,7 +133,8 @@
       "startingPoint": "Worker startup works; no accepted playable execution/input/presentation loop exists. Select a safe stepping/yield or other reviewed delivery scheme instead of assuming the proof's one-shot run is sufficient.",
       "completion": "Guest execution continues while required input, frame and audio delivery remain responsive. Preserve actual guest context and unsupported stops. Question: which existing generated execution boundary can safely support the chosen scheme? Do not infer original timing from the accumulator's default 60 Hz.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-execution"
     },
     {
       "id": "MB06",
@@ -142,7 +147,8 @@
       "startingPoint": "Context creation, TLS/FS/frame components and selected immediate synchronization models exist; a READY context or admitted callback is not proof it ran.",
       "completion": "Each context/callback required by the scenario enters, returns or blocks/wakes with correct ownership and preserved state. Use only the scheduling behaviors actually required; prove the selected callback before building a general scheduler. Question: which callbacks/waits does MB01 exercise?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-execution"
     },
     {
       "id": "MB07",
@@ -155,7 +161,8 @@
       "startingPoint": "Clock values, timer queues and DPC components are tested separately. Their existence does not connect elapsed browser time to original callback delivery.",
       "completion": "Guest-observed time, required timer/DPC delivery and input/audio ordering agree for the selected foreground scenario and defined stalls. Question: which clock consumers and timer events are actually required? Share one reviewed policy with MB05/06; broad device timing calibration belongs beyond this gate.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-execution"
     },
     {
       "id": "MB08",
@@ -168,7 +175,8 @@
       "startingPoint": "The selected File/Blob can be inspected and read in bounded ranges; the title's supported read interface is not connected to that reader.",
       "completion": "A source-supported original request reaches the local reader and exact bytes reach the checked guest destination. Define worker/synchronous delivery, ownership and error/cleanup behavior; review any new host capability explicitly. Question: which reached request supplies the first unambiguous path/range/buffer contract?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-resources"
     },
     {
       "id": "MB09",
@@ -181,7 +189,8 @@
       "startingPoint": "Namespace, handles, FATX and selected negative disc-open behavior exist. Successful disc opens, reads, positions/queries and closes remain caller-specific.",
       "completion": "The selected original open/read/query/close sequence returns actual bytes/status/IOSB and releases ownership without affecting unrelated files. Implement only the target's requested operations; reuse MB08 transport.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-resources"
     },
     {
       "id": "MB10",
@@ -194,7 +203,8 @@
       "startingPoint": "Asset/package preview parsers and generated title code exist. Preview reads do not establish that the original loader can consume its resources.",
       "completion": "The original loader reaches its real continuation with the required on-device resources and lifetimes. Inventory its package/format needs and choose existing original/SDK providers. GPU texture/shader translation belongs to MB14/15 and audio decoding to MB18; do not count those implementations twice. Question: which extra non-GPU/non-audio provider gaps remain?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-resources"
     },
     {
       "id": "MB11",
@@ -207,7 +217,8 @@
       "startingPoint": "WebGL2 context creation exists in the preview; the title GPU interface has no integrated browser backend.",
       "completion": "One selected backend/context instance is called through a checked resource boundary and can be torn down. Decide worker versus main-thread ownership and synchronous versus marshalled calls. Produce a precise interface/build spike; avoid building both architectures.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB12",
@@ -220,7 +231,8 @@
       "startingPoint": "A preview canvas exists; title render targets, depth surfaces and presentation ownership are unconnected.",
       "completion": "The selected surface/target allocation, lifetime and final presentation path produces a frame on the intended canvas with correct dimensions. Reuse MB11 ownership; MB16 owns clear/viewport/state ordering. Question: which target/surface formats and transitions does the first original frame need?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB13",
@@ -233,7 +245,8 @@
       "startingPoint": "One checked raw-FVF triangle and geometry prepasses have component evidence. Full original submissions do not.",
       "completion": "The target's required vertex/index layouts, spans and primitive paths produce independently checked buffers/draws; unsupported layouts stop before unsafe access. Start from the first observed submission, then list additional required layouts.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB14",
@@ -246,7 +259,8 @@
       "startingPoint": "Host texture preparation and preview uploads exist; guest resource descriptors, levels/stride and title sampler transitions are not bound to the backend.",
       "completion": "The selected title texture formats/levels upload and sample correctly through checked ownership, with unsupported formats refused. Question: which actual format/stride/filter/addressing combinations does MB01 require?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB15",
@@ -259,7 +273,8 @@
       "startingPoint": "Native SDK/OpenCE translation components are reuse candidates; the preview shader is independently authored.",
       "completion": "Required original vertex-program/pixel-combiner paths execute through the selected backend with a checked reference comparison. Inventory actual instructions, constants and combiners, including skinning inputs only if the target uses them, then split feature families. Question: which title programs/features can existing translators cover?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB16",
@@ -272,7 +287,8 @@
       "startingPoint": "Preview depth/blend toggles and bounded device/FIFO components exist. They do not implement original state or hardware readiness.",
       "completion": "The target's observed viewport, clear, depth/stencil/blend/cull and draw ordering produce the expected sequence. Add a fence/synchronization feature only when the selected call path requires it. Use source/reference semantics, not synthetic read-back as GPU-ready evidence. Keep texture/shader implementation in MB14/15; this row owns state ordering.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB17",
@@ -285,7 +301,8 @@
       "startingPoint": "Graphics component proofs and original startup are currently separate.",
       "completion": "The locally selected original module reaches the implemented GPU path and presents an original frame with identified resources/state and a controlled comparison. Reuse only the MB11–16 feature slices required by the observed path; this row owns the title hookup and evidence, not another renderer. It requires the relevant startup/resource path, whose exact order must come from observation.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-graphics"
     },
     {
       "id": "MB18",
@@ -298,7 +315,8 @@
       "startingPoint": "A narrow preview decoder exists; original sound resource/API/buffer/voice processing is not integrated.",
       "completion": "A selected original sound request produces the correct bounded PCM/buffer state, with required start/stop/loop/voice behavior. Reuse native/SDL components where compatible. Question: which formats, mixer features and streaming behaviors are actually used by the target? Add only that subset first.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-audio"
     },
     {
       "id": "MB19",
@@ -311,7 +329,8 @@
       "startingPoint": "Preview WebAudio and a silent SDL callback are separate host proofs.",
       "completion": "MB18's original sound reaches the chosen browser output after permitted user activation, with sample/clock/lifecycle evidence and audible output. Measure underruns and teardown; use MB05/07's scheduling policy. Select one output route rather than requiring both WebAudio and SDL implementations.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-audio"
     },
     {
       "id": "MB20",
@@ -324,7 +343,8 @@
       "startingPoint": "Keyboard/gamepad prototype adapters and Xbox packet/device components exist, but no accepted original input-driven round exists.",
       "completion": "The chosen keyboard-to-virtual-pad or physical-gamepad path changes the original guest controller packet and the title consumes it. Match packet/device/mapping contracts to retained evidence. M1 does not require every input device; keyboard input does not imply adding an original Xbox keyboard device.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-round-path"
     },
     {
       "id": "MB21",
@@ -337,7 +357,8 @@
       "startingPoint": "Prototype focus/disconnect clearing exists; the original worker/poll path is not connected.",
       "completion": "Press/release and focus loss reach the selected guest controller without stale or reordered actions. If the chosen path uses Gamepad API, verify its main-thread/proxy requirement. Use MB05/07 and the selected input method; full remapping/all-device acceptance belongs to later milestones.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-round-path"
     },
     {
       "id": "MB22",
@@ -350,7 +371,8 @@
       "startingPoint": "No controllable original screen is accepted. The host, renderer and input pieces still need to meet in the title.",
       "completion": "Original menu output responds to recorded input and selects the target route. Compose MB03/05, required resources, MB17 and MB20/21; identify any newly reached capability against its owning row.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-round-path"
     },
     {
       "id": "MB23",
@@ -363,7 +385,8 @@
       "startingPoint": "The original game/round/results join is not observed. Its rules should execute through retained original code.",
       "completion": "The selected original round reaches results and returns to the original menu, with required audio and input. Reuse shared paths; add only the newly observed target-specific feature gaps. No approximate rules or replacement scenes. Question: what does this path exercise beyond the menu?",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-build"
+      "workPackage": "m1-build",
+      "deliveryIssue": "m1-build-round-path"
     },
     {
       "id": "MB24",
@@ -376,7 +399,8 @@
       "startingPoint": "The M1 criterion and report/audit infrastructure exist; its full scenario has not passed.",
       "completion": "Three consecutive original menu/game/results/menu cycles pass with visible output, audible audio, recorded input, source/module/device identities, control comparison and independent acceptance review. Targeted component results feed the gate; task closure alone cannot accept it.",
       "evidenceRef": "docs/status.md",
-      "workPackage": "m1-verify"
+      "workPackage": "m1-verify",
+      "deliveryIssue": "m1-verify-cycles"
     }
   ]
 }
