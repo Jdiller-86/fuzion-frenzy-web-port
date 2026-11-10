@@ -53,7 +53,7 @@ internal sealed class LauncherForm : Form
 
     public LauncherForm()
     {
-        Text = "Fuzion Frenzy · Windows Launcher";
+        Text = "Fuzion Frenzy · Windows Launcher v0.1.1";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(850, 700);
         Size = new Size(1040, 900);
@@ -262,23 +262,37 @@ internal sealed class LauncherForm : Form
 
     private async Task InstallTools()
     {
+        if (activeProcess is { HasExited: false }) { Log("Wait for the current operation to finish, or cancel it first."); return; }
         var script = Path.Combine(AppContext.BaseDirectory, "scripts", "Install-Prerequisites.ps1");
         if (!File.Exists(script)) { MessageBox.Show(this, "The bundled Install-Prerequisites.ps1 script is missing. Reinstall the launcher to restore it.", "Installer unavailable", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
         var answer = MessageBox.Show(this, "This step downloads and installs the Windows build toolchain. Downloads are large and Windows may ask for administrator approval. Continue?", "Install Windows Build Tools", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
         if (answer != DialogResult.OK) return;
         try
         {
-            var psi = PowerShellStart(script); psi.ArgumentList.Add("-Install"); psi.UseShellExecute = true; psi.Verb = "runas";
-            using var p = Process.Start(psi);
-            status.Text = "Build tools installer opened"; status.ForeColor = Accent; Log("Started the bundled prerequisite installer. Follow its Windows installer window.");
-            if (p is not null) await p.WaitForExitAsync();
-            status.Text = p is not null && p.ExitCode != 0 ? "Build tools installation failed" : "Build tools installer finished";
-            if (p is not null && p.ExitCode != 0) Log($"Prerequisite installer exited with code {p.ExitCode}.");
+            var logDirectory = Path.Combine(UserRoot, "logs");
+            Directory.CreateDirectory(logDirectory);
+            var logPath = Path.Combine(logDirectory, $"prerequisites-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            var psi = PowerShellStart(script); psi.ArgumentList.Add("-Install");
+            psi.ArgumentList.Add("-LogPath"); psi.ArgumentList.Add(logPath);
+            // Keep WinGet in the user's session. Individual installers request
+            // elevation; their parent must retain its output and user aliases.
+            psi.UseShellExecute = false; psi.CreateNoWindow = true;
+            psi.RedirectStandardOutput = true; psi.RedirectStandardError = true;
+            activeProcess = new Process { StartInfo = psi };
+            if (!activeProcess.Start()) throw new InvalidOperationException("PowerShell did not start.");
+            buildButton.Enabled = false; cancelButton.Enabled = true;
+            status.Text = "Installing build tools…"; status.ForeColor = Accent;
+            Log($"Installing prerequisites. Log: {logPath}");
+            var outputTask = Pump(activeProcess.StandardOutput); var errorTask = Pump(activeProcess.StandardError);
+            await activeProcess.WaitForExitAsync(); await Task.WhenAll(outputTask, errorTask);
+            status.Text = activeProcess.ExitCode != 0 ? "Build tools installation failed" : "Build tools installer finished";
+            if (activeProcess.ExitCode != 0) Log($"Prerequisite installer exited with code {activeProcess.ExitCode}. Full details: {logPath}");
             RefreshGameState();
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         { status.Text = "Administrator approval was cancelled"; Log("Windows administrator approval was cancelled."); }
         catch (Exception ex) { status.Text = "Could not start installer"; Log(ex.Message); MessageBox.Show(this, ex.Message, "Installer unavailable", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        finally { activeProcess?.Dispose(); activeProcess = null; buildButton.Enabled = true; cancelButton.Enabled = false; }
     }
 
     private static ProcessStartInfo PowerShellStart(string script)

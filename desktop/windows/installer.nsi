@@ -51,7 +51,7 @@ Section "Builder and launcher (required)" MainSection
   CreateShortcut "$SMPROGRAMS\Fuzion Frenzy\Uninstall Builder.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\FuzionFrenzyBuilder" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "DisplayName" "Fuzion Frenzy Builder"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "DisplayVersion" "0.1.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "DisplayVersion" "0.1.1"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "Publisher" "Fuzion Frenzy Web Port contributors"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "UninstallString" '$"$INSTDIR\Uninstall.exe$"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\FuzionFrenzyBuilder" "DisplayIcon" "$INSTDIR\FuzionFrenzyBuilder.exe"

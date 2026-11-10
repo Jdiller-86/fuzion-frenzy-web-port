@@ -20,6 +20,11 @@ tool downloads are large and the Microsoft installer can request elevation.
 The game build can take substantial time; its log remains visible and cached
 build files speed later builds.
 
+Build-tool installation output appears in the launcher and is saved under
+`%LOCALAPPDATA%\FuzionFrenzy\logs\prerequisites-*.log`. Individual installers
+request elevation as needed. The builder supports standalone LLVM in
+`%ProgramFiles%\LLVM` as well as Visual Studio's bundled Clang.
+
 The supported original `default.xbe` is 2,834,432 bytes, SHA-256
 `45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9`.
 The builder rejects other revisions before recompilation. Compressed archives

@@ -11,6 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>FuzionFrenzyBuilder</AssemblyName>
+    <Version>0.1.1</Version>
     <RootNamespace>FuzionFrenzyBuilder</RootNamespace>
   </PropertyGroup>
 </Project>

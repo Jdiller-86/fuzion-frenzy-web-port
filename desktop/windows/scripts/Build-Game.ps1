@@ -55,7 +55,9 @@ function Write-Status {
     $json = $script:Status | ConvertTo-Json -Depth 5
     [IO.File]::WriteAllText($temp, $json + [Environment]::NewLine, (New-Object Text.UTF8Encoding($false)))
     if ([IO.File]::Exists($script:StatusPathValue)) {
-        [IO.File]::Replace($temp, $script:StatusPathValue, $null, $true)
+        $backup = $temp + '.previous'
+        [IO.File]::Replace($temp, $script:StatusPathValue, $backup, $true)
+        [IO.File]::Delete($backup)
     } else {
         [IO.File]::Move($temp, $script:StatusPathValue)
     }
@@ -292,6 +294,7 @@ function Import-VsDeveloperEnvironment {
 
     $vsCmake = Join-Path $InstallPath 'Common7\IDE\CommonExtensions\Microsoft\CMake'
     $paths = @(
+        (Join-Path $env:ProgramFiles 'LLVM\bin'),
         (Join-Path $vsCmake 'CMake\bin'),
         (Join-Path $vsCmake 'Ninja'),
         (Join-Path $InstallPath 'VC\Tools\Llvm\x64\bin')
@@ -382,7 +385,11 @@ function Install-StagedOutput {
         Assert-NoReparsePointInPath -Root $DestinationDirectory -Path $destination
         $temp = $destination + '.' + [Guid]::NewGuid().ToString('N') + '.new'
         [IO.File]::Copy($file.FullName, $temp, $true)
-        if ([IO.File]::Exists($destination)) { [IO.File]::Replace($temp, $destination, $null, $true) }
+        if ([IO.File]::Exists($destination)) {
+            $backup = $temp + '.previous'
+            [IO.File]::Replace($temp, $destination, $backup, $true)
+            [IO.File]::Delete($backup)
+        }
         else { [IO.File]::Move($temp, $destination) }
     }
 
@@ -433,14 +440,21 @@ try {
     $script:GitExe = $gitCommand.Source
     $pythonLauncher = Get-Command py.exe -ErrorAction SilentlyContinue
     if ($pythonLauncher) {
+        $probePreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         & $pythonLauncher.Source -3.12 --version *> $null
         if ($LASTEXITCODE -eq 0) { $script:PythonExe = $pythonLauncher.Source; $script:PythonPrefix = @('-3.12') }
+        $ErrorActionPreference = $probePreference
     }
     if (-not $script:PythonExe) {
         $python = Get-Command python.exe -ErrorAction SilentlyContinue
         if ($python) {
+            $probePreference = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
             $version = & $python.Source --version 2>&1
-            if ($LASTEXITCODE -eq 0 -and [string]$version -match '^Python 3\.12(?:\.|$)') {
+            $pythonExit = $LASTEXITCODE
+            $ErrorActionPreference = $probePreference
+            if ($pythonExit -eq 0 -and [string]$version -match '^Python 3\.12(?:\.|$)') {
                 $script:PythonExe = $python.Source
                 $script:PythonPrefix = @()
             }
