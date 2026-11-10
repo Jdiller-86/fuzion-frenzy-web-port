@@ -58,6 +58,7 @@ test('current pointers are synchronized; stale or duplicated pointers fail close
   fs.mkdirSync(path.join(root,'profiles')); fs.mkdirSync(path.join(root,'docs'));
   fs.writeFileSync(path.join(root,'profiles/development-state.json'),JSON.stringify(state));
   for (const name of DOCUMENTS) fs.writeFileSync(path.join(root,name),'# Owned document\n\nExisting evidence stays intact.\n');
+  assert.doesNotMatch(stateBlock({...state,milestone:'M2'},'README.md'),/Goal G|Retained startup resume/);
   assert.equal(syncDocuments(root).length,DOCUMENTS.length);
   assert.deepEqual(syncDocuments(root,{check:true}),[]);
   assert.match(fs.readFileSync(path.join(root,'docs/status.md'),'utf8'),/Existing evidence stays intact/);
