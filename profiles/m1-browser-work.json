@@ -32,7 +32,7 @@
     {
       "rank": 1,
       "title": "SDK integration and execution bottlenecks",
-      "reason": "Use the existing Fuzion SDK as the primary candidate. Start Goal G with a bounded desktop reference, then attempt the first original browser frame within an initial 150-minute local session. Adapt shared interfaces and choose a supported worker/thread arrangement; declare and review a separate candidate contract while preserving M44. The session ends with executable evidence and exact remaining adapters, not a general scheduler or another routine count."
+      "reason": "Get the existing Fuzion SDK running in the browser. Use a short native reference check, then build-run-fix to the first original frame and a controllable original baseline. Reuse shared interfaces and supported worker/thread patterns. Defer detailed testing and per-caller audits until it works; preserve M44 and basic resource/content checks. Report progress at 150 minutes and continue productive work."
     },
     {
       "rank": 2,
@@ -117,7 +117,7 @@
       "state": "Open",
       "evidence": "bounded title evidence",
       "startingPoint": "The retained M44 proof uses 511/512 function charges and 64/64 bindings. These are its fixed proof limits. The bulk SDK output and its browser runtime candidate have not been admitted as a complete title path.",
-      "completion": "For the selected SDK path, declare and independently review actual memory/import/export/function/binding budgets and checked dispatch before execution; compare retained dependencies and refuse over-budget candidates. Preserve M44 unchanged. Use compaction only where useful; the SDK candidate need not inherit the legacy 512/64 proof ceilings.",
+      "completion": "Declare actual candidate resource/import/export/function/binding limits and checked dispatch; use quick identity/budget checks and refuse over-budget execution. Preserve M44. The SDK candidate need not inherit legacy 512/64 ceilings. Complete detailed contract certification and independent review after the working baseline, before accepting this connection.",
       "evidenceRef": "docs/status.md",
       "workPackage": "m1-build",
       "deliveryIssue": "m1-build-execution"

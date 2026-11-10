@@ -45,7 +45,7 @@
     "gameConfigSha256": "c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f",
     "zydisCommit": "a2278f1d254e492f6a6b39f6cb5d1f5d515659dc",
     "tomlplusplusCommit": "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",
-    "scope": "Primary SDK integration candidate. Local native developer reference execution is permitted with matching player-owned inputs; it does not accept M1. Browser candidates require their own reviewed manifest/admission and remain separate from the unchanged M44 proof. Original inputs and generated title artifacts stay local.",
+    "scope": "Primary SDK integration candidate. A matching local native reference may aid the browser build-run-fix loop. Declare candidate resource/dispatch limits and preserve basic bounds/content checks; detailed review and testing follow a working baseline before accepted promotion. Keep M44 unchanged. Original inputs and generated title artifacts stay local.",
     "browserReference": {
       "repository": "https://github.com/OpenCommunityEdition/OpenCE",
       "commit": "fc9deb0b10eaae1d62caedb0710968b4e77e6e16",

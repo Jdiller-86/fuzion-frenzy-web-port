@@ -18,7 +18,7 @@ Before original execution, follow docs/development-workflow.md for the
 purpose-specific private baseline and consumed-input/source authority.
 Retained replay does not establish new original-code facts or database integrity.
 New SDK reference/candidate builds use their own verified source/build/input
-records and reviewed admission contract, not invented M44 replay identities.
+records and explicit candidate limits, not invented M44 replay identities.
 
 For M1, name the affected MB item and SCOPE task, use its observable exit,
 and report exact remaining connections/features and the next measurement.
@@ -34,15 +34,18 @@ focused checks. Keep original inputs, title code, derived proprietary content
 and raw analysis local/ignored. End-user execution and conversion stay in the
 browser: no native product helper, upload, remote conversion or distributed
 generated title code. Static availability, fixtures and component tests are
-not original-execution evidence. Get independent review for changed CPU,
-memory, ABI or GPU behavior.
+not original-execution evidence. Get the original baseline running first;
+defer detailed testing and independent correctness review until it works,
+before promoting accepted evidence.
 
 For the SDK-first Goal G, use docs/resource-reuse.md: bounded native desktop
 reference for at most its first 30 minutes, then the same-source/config/input
-browser attempt, all within the 150-minute initial decision budget. If native
-setup/build is blocked, record the exact failure and proceed with independent
-browser work. Stop at the decision point and report wall time separately from
-active effort; do not present a forecast as a deadline.
+browser build-run-fix loop. If native setup/build is blocked, continue useful
+browser work. At 150 minutes give a short progress update and keep implementing
+while productive. The first frame is a checkpoint toward a controllable
+original baseline; detailed tests, broad matrices, per-caller audits and full
+historical comparisons come later. Keep basic bounds and private-content
+checks. Do not stop merely to write another plan.
 
 Update workflow-owned state/timing as documented. Synchronize docs/status.md
 and docs/handoff.md only if the runtime boundary changes; update the scope
@@ -99,13 +102,15 @@ Use the [largest-first implementation order](m1-browser-work.md#largest-first-im
 
 ### G. Sustained browser execution and host delivery (MB05)
 
-**Prerequisite:** Confirm current task ownership, local evidence and the active generated-code/runtime boundary. Use the matching SDK and game config pins in [resource reuse](resource-reuse.md). The native desktop executable is a bounded diagnostic reference only. Respect the existing legacy caps and guards; an experimental module can use a separate explicit budget if independently reviewed. The synchronous fixture and pure `host-step` accumulator do not prove continuing title execution.
+**Objective:** Get the existing original SDK path working in the browser. The first original frame (MB17) is the first checkpoint; continue the same implementation loop toward a controllable original menu or selected minigame. This is the active baseline-first assignment under #49, with enabling graphics/resource/input changes in scope when ownership permits. Detailed acceptance statements in the other goals govern later promotion, not mandatory per-step certification of this prototype.
 
-**Owned output:** Execute the SDK-first path toward MB17's first original browser frame: use a matching retained native executable or spend at most 30 minutes of the 150-minute initial local-work decision budget verifying/building/running a native reference, then try the same generated C++ source, config and local game input in the browser with pinned Emscripten. Native blockage is not a reason to stop independent browser compilation or interface work. Batch supported shared provider/interface fixes and focused checks. Pick the simplest supported worker/pthread/main-thread ownership model; do not require novel cooperative pause/resume. Keep the title execution browser-local and generated code private.
+**Build-run-fix:** Confirm current ownership and reuse the pinned SDK/configuration and retained output. Use a matching desktop reference for at most the first 30 minutes, then compile the same source for the browser. Native setup failure must not block independent browser work. Choose supported worker/thread patterns, adapt shared interfaces, run the actual path, inspect the failure and implement the next supported fix. A new caller alone does not require a separate task or full audit. Keep private inputs/artifacts local, preserve M44 and keep basic resource/identity/bounds checks. Declare candidate limits explicitly; detailed contract review follows the baseline.
 
-**Decision-point report:** Capture the first original browser frame, or produce a runnable actual browser build/execution failure with its exact adapter gaps and next implementation. This experiment report does not close #49: its sustained-execution acceptance remains unchanged, and M1 still requires the full reviewed browser scenario. Record the actual command, source/config/toolchain identities, whether each stage ran, evidence provenance, timing, and limits. Separate wall time from active effort and include setup, build, browser execution, review and rework at the 150-minute decision point. Retain the legacy M44 baseline and all existing caps/guards. The desktop reference is not a product route or M1 acceptance; a native binary is not convertible to Wasm. Detailed title fidelity and milestone promotion still need direct evidence.
+**Testing order:** Before the baseline, use quick compile/run/smoke checks and only diagnostics needed to fix observed failures. Defer detailed suites, broad device/browser matrices, per-caller audits, repeated historical comparisons and mandatory independent CPU/memory/ABI/GPU review until the baseline works. Reuse existing passing evidence; preserve required publication CI. Once execution works, iterate on correctness, fidelity, coverage and independent review before checkpoint or milestone acceptance.
 
-**Stop:** Stop at the 150-minute initial decision point with the concrete result and next implementation; this budget is not a guaranteed execution deadline or validated calendar forecast. If a native prerequisite is absent or blocked, record the exact failure and continue independent browser work. Stop dependent execution at unsupported source/build facts, unsafe memory, unowned contract changes, or an actual failed guard; do not relax limits silently, invent cadence, or claim a desktop result as browser evidence. Preserve Goal A and Goal D as conditional prerequisites, and identify ready Goal B graphics / Goal H audio work for follow-on.
+**Progress:** At 150 minutes give a concise update and continue productive implementation. Record the runnable result or actual build/run failure, identities, elapsed effort and next concrete fix. This is a progress checkpoint, not a hard stop or promised execution time. A first frame or blocked attempt does not close #49 or accept M1; its full acceptance stays unchanged.
+
+**Real blockers:** Pause only the affected execution for missing private inputs/source authority, an unresolvable external dependency or unsafe resource/content behavior. Fix supported implementation failures and continue independent ready work. Do not replace the original program with synthetic success or claim a desktop result as browser execution. A and D remain conditional legacy prerequisites; pull necessary B/C/H or input connections into this same baseline objective with explicit ownership.
 
 ### H. Original sound processing and audible browser delivery (MB18/19)
 

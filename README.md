@@ -31,7 +31,7 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 
 **Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](docs/status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
 
-**Current implementation assignment:** Run Goal G under #49: reproduce or reuse the pinned native desktop reference within the first 30 minutes, then build/run the SDK browser candidate toward its first original frame within an initial 150-minute local session. Adapt shared interfaces; record an actual compiler/browser failure and exact adapter gaps if the frame is blocked. This is a decision budget, not a delivery estimate.
+**Current implementation assignment:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
 
 **M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
 
