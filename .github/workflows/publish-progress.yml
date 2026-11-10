@@ -10,11 +10,13 @@ on:
       - docs/README.md
       - docs/m1-browser-work.md
       - docs/milestones.md
+      - docs/work-packages.md
       - profiles/project.json
       - profiles/m1-browser-work.json
       - profiles/development-state.json
       - tools/project.mjs
       - tools/project-goals.mjs
+      - tools/project-issues.mjs
       - tools/development-state.mjs
       - tools/project-graph.mjs
       - tools/project-graph.html

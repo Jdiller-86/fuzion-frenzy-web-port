@@ -6,6 +6,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {loadBrowserWork,validateBrowserWork,renderNativeBrowserWork,syncGoalDocuments} from './project-goals.mjs';
+import {validateBrief,renderDeliveryPlan,upsertDeliveryPlan,renderWorkPackages} from './project-issues.mjs';
 
 export const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const REPOSITORY='Jdiller-86/fuzion-frenzy-web-port';
@@ -42,7 +43,7 @@ export function validatePlan(plan){
   plan.milestones.forEach((m,index)=>{
     assert.equal(m.id,`m${index+1}`);assert.ok(typeof m.foundation==='string'&&typeof m.goal==='string');add(m);
     assert.ok(Array.isArray(m.tasks)&&m.tasks.length>0&&m.tasks.length<=20,'Invalid work breakdown');
-    m.tasks.forEach(t=>{assert.ok(['implementation','evidence'].includes(t.kind));assert.ok(typeof t.scope==='string');assert.ok(t.id.startsWith(m.id+'-'),'Task is outside its milestone');add(t);});
+    m.tasks.forEach(t=>{assert.ok(['implementation','evidence'].includes(t.kind));assert.ok(typeof t.scope==='string');assert.ok(t.id.startsWith(m.id+'-'),'Task is outside its milestone');add(t);validateBrief(t.brief,t.id);});
   });
   for(const item of plan.browserWork?.items??[])assert.ok(plan.milestones[0].tasks.some(task=>task.id===item.workPackage),'Browser work package is missing from M1');
   const usedNumbers=new Set();
@@ -71,7 +72,7 @@ export function renderMilestones(plan){
     text+=`\n## ${m.id.toUpperCase()} — ${m.title}\n\n**Pass when:**\n\n`;
     for(const c of m.criteria)text+='- '+c.text+'\n';
     text+='\n**Acceptance depends on:** '+(m.dependsOn.length?m.dependsOn.map(x=>x.toUpperCase()).join(', '):'no earlier milestone')+'.\n';
-    text+='\n**Work packages:** '+m.tasks.map(t=>t.issueNumber?`[${t.title}](${issueUrl(t.issueNumber)})`:t.title).join('; ')+'.\n';
+    text+='\n**Work packages:** '+m.tasks.map(t=>(t.issueNumber?`[${t.title}](${issueUrl(t.issueNumber)})`:t.title)+` ([delivery brief](work-packages.md#${t.id}))`).join('; ')+'.\n';
     if(m.id==='m1')text+='\n**Detailed browser work:** [Named connections, structural sizes and evidence](m1-browser-work.md), with the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). These scope rows decompose the work packages; they are not extra forecast packages.\n';
   }
   text+='\n[Management workflow](management.md) describes status, native parent/dependency links and the evidence required before acceptance. Scope is maintained in [profiles/project.json](../profiles/project.json); current runtime facts remain in [status](status.md).\n';
@@ -123,7 +124,7 @@ export function indexIssues(plan,issues){
   for(const d of definitions(plan))if(d.issueNumber){assert.ok(found.has(d.id),'Registered issue is missing its tracking marker');assert.equal(found.get(d.id).number,d.issueNumber,'Managed issue identity changed');}
   return found;
 }
-export function renderIssue(def,current,lookup){
+export function renderIssue(def,current,lookup,{sourceRef='main'}={}){
   const checked=new Set();
   for(const c of def.criteria){const line=`- [x] ${c.text} <!-- acceptance:${c.id} -->`;if((current?.body??'').toLowerCase().includes(line.toLowerCase()))checked.add(c.id);}
   let managed=START+'\n## Scope\n\n'+(def.goal??def.scope)+'\n';
@@ -134,7 +135,7 @@ export function renderIssue(def,current,lookup){
   if(def.browserWork)managed+='\n'+renderNativeBrowserWork(def.browserWork);
   managed+='\nAcceptance dependencies: '+(def.dependsOn.length?def.dependsOn.map(id=>lookup.get(id)?'#'+lookup.get(id).number:id.toUpperCase()).join(', '):'none')+'.\n'+END;
   const outside=current?.body?.match(/<!-- fuzion:managed:end -->([\s\S]*)$/)?.[1]??'\n\n## Implementation and evidence\n\nPlanned; no full acceptance is recorded. Keep private original content out of issues.\n\n## Acceptance record\n\nSource commit: Pending\nEvidence: Pending\nReview: Pending\n';
-  return marker(def.id)+'\n'+managed+outside;
+  return upsertDeliveryPlan(marker(def.id)+'\n'+managed+outside,renderDeliveryPlan(def,lookup,{ref:sourceRef}));
 }
 export function issueStatus(issue,def){
   const statuses=labels(issue).filter(x=>x.startsWith('status:'));
@@ -188,7 +189,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
   }
   for(const def of definitions(plan)){
     const current=lookup.get(def.id);const group=groups.get(def.parent??def.id);
-    const desired={title:(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title,body:renderIssue(def,current,lookup)};
+    const desired={title:(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title,body:renderIssue(def,current,lookup,{sourceRef:sourceCommit})};
     if(group)desired.milestone=group.number;
     if(!current){
       operations.push({kind:'issue',id:def.id});
@@ -199,7 +200,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
     for(const def of definitions(plan)){
       const issue=lookup.get(def.id),group=groups.get(def.parent??def.id);
       if(issue){
-        const body=renderIssue(def,issue,lookup),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
+        const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
         if(issue.body!==body||issue.title!==title||issue.milestone?.number!==group?.number)operations.push({kind:'metadata',id:def.id});
         if(requiredLabels(def,issue).some(l=>!labels(issue).includes(l)))operations.push({kind:'issue-labels',id:def.id});
         const links=await client.relations(issue);
@@ -218,7 +219,7 @@ export async function syncProject(client,plan,{apply=false,sourceCommit}={}){
       const issue=await client.request('GET',endpoint('issues/'+known.number));
       assert.ok(issue.body?.startsWith(marker(def.id))&&issue.html_url===issueUrl(known.number),'Issue identity changed before update');
       lookup.set(def.id,issue);
-      const body=renderIssue(def,issue,lookup),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
+      const body=renderIssue(def,issue,lookup,{sourceRef:sourceCommit}),title=(def.type==='milestone'?def.id.toUpperCase()+': ':'')+def.title;
       const group=groups.get(def.parent??def.id);
       if(issue.body!==body||issue.title!==title||issue.milestone?.number!==group.number){
         operations.push({kind:'metadata',id:def.id});const updated=await client.request('PATCH',endpoint('issues/'+issue.number),{title,body,milestone:group.number});lookup.set(def.id,updated);
@@ -269,8 +270,8 @@ async function main(args){
   const command=args.shift()??'check',options={apply:false};
   while(args.length){const flag=args.shift();if(flag==='--apply')options.apply=true;else if(['--output','--input','--source-commit'].includes(flag)){assert.ok(args.length,'Missing option value');options[flag.slice(2)]=args.shift();}else throw new Error('Unknown project option');}
   const plan=loadPlan();
-  if(command==='docs'){fs.writeFileSync(path.join(ROOT,'docs/milestones.md'),renderMilestones(plan));const changed=syncGoalDocuments(plan);console.log(`Updated five milestone definitions and ${changed.length} goal/map projections.`);return;}
-  if(command==='check'){assert.equal(fs.readFileSync(path.join(ROOT,'docs/milestones.md'),'utf8'),renderMilestones(plan),'Milestone docs differ; run npm run project:docs');syncGoalDocuments(plan,{check:true});console.log('Five-milestone scope, browser work, priorities and generated documentation passed.');return;}
+  if(command==='docs'){fs.writeFileSync(path.join(ROOT,'docs/milestones.md'),renderMilestones(plan));fs.writeFileSync(path.join(ROOT,'docs/work-packages.md'),renderWorkPackages(plan));const changed=syncGoalDocuments(plan);console.log(`Updated milestone/work-package definitions and ${changed.length} goal/map projections.`);return;}
+  if(command==='check'){assert.equal(fs.readFileSync(path.join(ROOT,'docs/milestones.md'),'utf8'),renderMilestones(plan),'Milestone docs differ; run npm run project:docs');assert.equal(fs.readFileSync(path.join(ROOT,'docs/work-packages.md'),'utf8'),renderWorkPackages(plan),'Work-package docs differ; run npm run project:docs');syncGoalDocuments(plan,{check:true});console.log('Milestone/work-package scope, browser work, priorities and generated documentation passed.');return;}
   if(command==='render'){
     const input=artifactPath(options.input??'artifacts/project.json');assert.ok(fs.statSync(input).size<=1024*1024,'Snapshot is too large');
     const snapshot=JSON.parse(fs.readFileSync(input,'utf8'));const target=artifactPath(options.output??'artifacts/progress/index.html');fs.mkdirSync(path.dirname(target),{recursive:true});

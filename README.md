@@ -43,7 +43,7 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 | **6 — Complete the original round/results/return** | [MB23](docs/m1-browser-work.md#mb23) · **M–L** |
 | **7 — Bounded corrections and M1 acceptance** | [MB24](docs/m1-browser-work.md#mb24) · **S–M** |
 
-[All 24 browser connections, evidence and exit checks](docs/m1-browser-work.md) · [Largest-first details](docs/m1-browser-work.md#largest-first-implementation-order) · [Next local-agent assignment](docs/local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
+[All 24 browser connections, evidence and exit checks](docs/m1-browser-work.md) · [Largest-first details](docs/m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](docs/work-packages.md) · [Next local-agent assignment](docs/local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
 <!-- project-goals:end -->
 
 ## Use or build

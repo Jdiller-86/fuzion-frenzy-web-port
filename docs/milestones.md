@@ -30,7 +30,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** no earlier milestone.
 
-**Work packages:** [Integrate the original browser round path](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/23); [Verify original browser gameplay and evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/24).
+**Work packages:** [Integrate the original browser round path](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/23) ([delivery brief](work-packages.md#m1-build)); [Verify original browser gameplay and evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/24) ([delivery brief](work-packages.md#m1-verify)).
 
 **Detailed browser work:** [Named connections, structural sizes and evidence](m1-browser-work.md), with the [largest-first implementation order](m1-browser-work.md#largest-first-implementation-order). These scope rows decompose the work packages; they are not extra forecast packages.
 
@@ -44,7 +44,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M1.
 
-**Work packages:** [Finish browser-local conversion and save recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/26); [Accept the complete original offline inventory](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/27).
+**Work packages:** [Finish browser-local conversion and save recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/26) ([delivery brief](work-packages.md#m2-build)); [Accept the complete original offline inventory](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/27) ([delivery brief](work-packages.md#m2-verify)).
 
 ## M3 — Online multiplayer and recovery
 
@@ -56,7 +56,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M2.
 
-**Work packages:** [Implement authoritative mixed-seat match services](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/29); [Verify online agreement, fairness and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/30).
+**Work packages:** [Implement authoritative mixed-seat match services](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/29) ([delivery brief](work-packages.md#m3-build)); [Verify online agreement, fairness and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/30) ([delivery brief](work-packages.md#m3-verify)).
 
 ## M4 — Player experience
 
@@ -68,7 +68,7 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M2, M3.
 
-**Work packages:** [Complete accounts, friends and lobby flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/32); [Accept owned controls and browser usability](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/33).
+**Work packages:** [Complete accounts, friends and lobby flows](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/32) ([delivery brief](work-packages.md#m4-build)); [Accept owned controls and browser usability](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/33) ([delivery brief](work-packages.md#m4-verify)).
 
 ## M5 — Release readiness
 
@@ -80,6 +80,6 @@ Work can overlap, but acceptance follows the dependencies below. The roadmap ret
 
 **Acceptance depends on:** M1, M2, M3, M4.
 
-**Work packages:** [Verify reproducible source-only release operations](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/35); [Accept browser/device performance and release evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/36).
+**Work packages:** [Verify reproducible source-only release operations](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/35) ([delivery brief](work-packages.md#m5-build)); [Accept browser/device performance and release evidence](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/36) ([delivery brief](work-packages.md#m5-verify)).
 
 [Management workflow](management.md) describes status, native parent/dependency links and the evidence required before acceptance. Scope is maintained in [profiles/project.json](../profiles/project.json); current runtime facts remain in [status](status.md).

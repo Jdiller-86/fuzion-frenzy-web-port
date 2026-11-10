@@ -35,12 +35,13 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | **6 — Complete the original round/results/return** | [MB23](m1-browser-work.md#mb23) · **M–L** |
 | **7 — Bounded corrections and M1 acceptance** | [MB24](m1-browser-work.md#mb24) · **S–M** |
 
-[All 24 browser connections, evidence and exit checks](m1-browser-work.md) · [Largest-first details](m1-browser-work.md#largest-first-implementation-order) · [Next local-agent assignment](local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
+[All 24 browser connections, evidence and exit checks](m1-browser-work.md) · [Largest-first details](m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](work-packages.md) · [Next local-agent assignment](local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
 <!-- project-goals:end -->
 
 | Purpose | Guide |
 | --- | --- |
 | Five overall-project outcomes and pass/fail criteria | [Milestones](milestones.md) |
+| Concrete child-issue deliverables, first assignments, prerequisites and evidence | [Work-package delivery briefs](work-packages.md) |
 | Native issues, dependencies, status and progress reports | [Project management](management.md) |
 | Current main-branch evidence and baseline handoff | [Status](status.md) and [handoff](handoff.md) |
 | Setup, commands, prototype controls and check limits | [Development](development.md) |

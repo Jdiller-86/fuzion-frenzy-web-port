@@ -39,6 +39,7 @@ Preserve in-flight edits and lane ownership. Do not discard work, force-push, re
 
 - [Documentation map](docs/README.md): canonical guides and reading order.
 - [Project milestones](docs/milestones.md): five overall-project gates and explicit acceptance.
+- [Work-package briefs](docs/work-packages.md): source-generated first assignments, delivery slices, structural sizes, prerequisites, checks and stops for every child issue. Keep the README progress chart as the overview; deeper detail supplements it.
 - [Project scope](profiles/project.json): five complete-product goals, criteria, dependencies and ten stable native work-package identities.
 - [M1 browser work](profiles/m1-browser-work.json): canonical 24-item map, seven largest-first priority groups, evidence boundaries and completion checks; rendered in the documentation and progress graph.
 - [Management](docs/management.md): source ownership, native issue hierarchy, dependencies, status and refreshed progress.

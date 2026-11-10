@@ -7,6 +7,7 @@ import {loadState} from './development-state.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = 'https://github.com/Jdiller-86/fuzion-frenzy-web-port';
+export const README_PROGRESS_CHART = '[![Project progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/gates.svg)](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)';
 export const WORK_STATES = ['Open', 'In progress', 'Awaiting evidence', 'Verified connection', 'Not required'];
 export const EVIDENCE_LEVELS = ['source/plan only', 'component evidence', 'bounded title evidence', 'reported local candidate', 'reviewed title result'];
 const sizes = ['S', 'M', 'L', 'S–M', 'M–L'];
@@ -101,7 +102,7 @@ export function renderNativeBrowserWork(work) {
 export function renderProjectOverview(plan) {
   const work = plan.browserWork;
   let body = '# Fuzion Frenzy Web Port\n\nOriginal Xbox Fuzion Frenzy running entirely in a browser, followed by the complete local game, online play and player experience.\n\n';
-  body += `[All goals and acceptance](${BASE}/blob/main/docs/milestones.md) · [Detailed M1 work](${BASE}/blob/main/docs/m1-browser-work.md) · [Interactive progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/) · [Agent handoff](${BASE}/blob/main/docs/local-agent-handoff.md)\n\n`;
+  body += `[All goals and acceptance](${BASE}/blob/main/docs/milestones.md) · [Work-package briefs](${BASE}/blob/main/docs/work-packages.md) · [Detailed M1 work](${BASE}/blob/main/docs/m1-browser-work.md) · [Interactive progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/) · [Agent handoff](${BASE}/blob/main/docs/local-agent-handoff.md)\n\n`;
   body += '| Milestone | Product outcome |\n| --- | --- |\n';
   for (const milestone of plan.milestones) body += `| [${milestone.id.toUpperCase()}: ${milestone.title}](${BASE}/issues/${milestone.issueNumber}) | ${milestone.goal} |\n`;
   if (work) body += '\n## Current M1 priority\n\n' + renderPriorityTable(work, {compact: true, prefix: `${BASE}/blob/main/docs/`}) + '\n\nOpen the M1 implementation card for every browser connection, its evidence level, size and completion check. These rows do not add to the task forecast.\n';
@@ -125,7 +126,7 @@ export function renderGoalSummary(plan, state, filename) {
   body += `\n**Recorded development:** ${state.milestone} / ${state.status}, runtime checkpoint **${state.checkpoint.profile}**. [Runtime evidence](${prefix}status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.\n\n`;
   body += '**M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.\n\n';
   body += renderPriorityTable(plan.browserWork, {compact: true, prefix}) + '\n\n';
-  body += `[All ${plan.browserWork.items.length} browser connections, evidence and exit checks](${prefix}m1-browser-work.md) · [Largest-first details](${prefix}m1-browser-work.md#largest-first-implementation-order) · [Next local-agent assignment](${prefix}local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.\n`;
+  body += `[All ${plan.browserWork.items.length} browser connections, evidence and exit checks](${prefix}m1-browser-work.md) · [Largest-first details](${prefix}m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](${prefix}work-packages.md) · [Next local-agent assignment](${prefix}local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.\n`;
   return body;
 }
 
@@ -134,6 +135,7 @@ export function syncGoalDocuments(plan, {root = ROOT, check = false} = {}) {
   const outputs = new Map();
   for (const filename of ['README.md', 'docs/README.md']) {
     const body = fs.readFileSync(path.join(root, filename), 'utf8');
+    if(filename==='README.md')assert.equal(body.split(README_PROGRESS_CHART).length,2,'Keep the README progress chart and its interactive-report link');
     outputs.set(filename, replaceGeneratedBlock(body, 'project-goals', renderGoalSummary(plan, state, filename)));
   }
   const filename = 'docs/m1-browser-work.md';
