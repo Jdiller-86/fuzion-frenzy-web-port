@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded-original-ui-component-specification",
+  "baseSourceRevision": "93ec83293921dfcf1ff4b8f0c759aa62189c330b",
+  "scope": "Observed native menu, Options, character selection, instructions, pause and post-round dialog; not complete original UI parity",
+  "evidencePolicy": "Runtime existence, static asset binding and proposed reuse are separate claims. Names below are analyst component labels. Private inventory resolves opaque IDs to original resource details.",
+  "privateEvidence": ["inventory.json", "overlay-evidence.json", "source-references.json", "font-evidence.json", "captures/observations.json", "run-identities.json"],
+  "vtableProfiles": [
+    {"label":"main-menu","virtualAddress":"0x00255400","slotCount":14},
+    {"label":"options","virtualAddress":"0x002554DC","slotCount":14}
+  ],
+  "layoutContract": {
+    "originalLogicalCanvas": null,
+    "observedOutputPixels": [2560, 1440],
+    "policy": "Do not derive original logical coordinates by dividing the native screenshot. Reuse original scene geometry when available; overlay layout rules below are proposed constraints.",
+    "unknown": ["original safe-area rectangle", "font advances and baselines", "global overlay transforms", "focus animation timing", "per-screen clipping rectangles"]
+  },
+  "screens": [
+    {"id":"main-menu","name":"Main menu","assetRoots":["303a698262c930f675cd1c91"],"loadSites":["0x0001CAD8"],"loader":"0x0004BB30","captures":["main-menu","main-options-focus"],"status":"confirmed-static-and-runtime"},
+    {"id":"options","name":"Original Options","assetRoots":["6b219ef7b8d47b2adf95e30a"],"loadSites":["0x0001D75C"],"loader":"0x0004BB30","captures":["options-list"],"status":"confirmed-static-and-runtime"},
+    {"id":"character-selection","name":"Character selection","assetRoots":[],"captures":["character-join","character-focus","character-changed","character-confirmed","cpu-difficulty"],"status":"confirmed-runtime; source registration unresolved"},
+    {"id":"minigame-list","name":"Select Game","assetRoots":[],"captures":["minigame-list"],"status":"confirmed-runtime"},
+    {"id":"instructions","name":"Instructions","assetRoots":[],"captures":["instructions"],"status":"confirmed-runtime"},
+    {"id":"pause","name":"Pause and in-game Options","assetRoots":[],"captures":["pause","pause-options"],"status":"confirmed-runtime; texture assembly binding unresolved"},
+    {"id":"post-round","name":"Play-again dialog","assetRoots":[],"captures":["post-round-dialog"],"status":"confirmed-runtime; intermediate winner/score animation not captured"}
+  ],
+  "components": [
+    {
+      "id":"chrome.gradient-divider","existence":"confirmed-runtime","assetBinding":"confirmed-static-geometry",
+      "assets":["b4a089816ad14c0d16965def"],"screens":["main-menu","options"],"region":"full-image UV [0,0,1,1]; exact pixel edges in private join",
+      "layout":{"original":"quad in original overlay leaf; global transform unresolved","reuse":"stretch horizontally between heading margin and emblem; preserve logical height"},
+      "states":["decorative"],"input":"none","render":"Original material/pass metadata is in overlay evidence; alpha and tint must be preserved, not baked from a screenshot.",
+      "functions":["0x0001CAB3","0x0001CD50","0x0004BB30"],"reuse":"Shared header for proposed PC settings overlay; keep original geometry path if extending guest screen.","treatment":"preserve gradient or deterministic analytic/vector reconstruction after edge comparison"
+    },
+    {
+      "id":"chrome.emblem","existence":"confirmed-runtime","assetBinding":"confirmed-static-geometry",
+      "assets":["dded0e74ad2bff44135c6a04"],"screens":["main-menu","options"],"region":"full-image; not a recovered atlas cell",
+      "layout":{"original":"original overlay leaf; parent transforms omitted by bounded parser","reuse":"anchor at header end, preserve aspect and clearance from title"},
+      "states":["decorative"],"input":"none","render":"Palette-derived alpha; native material tint may supply the observed yellow.","functions":["0x0001CAB3","0x0001CD50"],"reuse":"Decorative shared screen header.","treatment":"vector reconstruction candidate; retain original registration"
+    },
+    {
+      "id":"chrome.wordmark","existence":"confirmed-runtime","assetBinding":"confirmed-static-geometry",
+      "assets":["0393008381c77d88832749d1"],"screens":["main-menu"],"region":"full-image",
+      "layout":{"original":"original menu quad","reuse":"preserve aspect ratio and original logical box"},"states":["decorative"],"input":"none","render":"Binary-alpha source; enlargement must avoid halos and preserve cutout edges.","functions":["0x0001CAB3"],"reuse":"Optional menu chrome; a settings title should remain readable independently.","treatment":"image enlargement with manual cleanup or faithful redraw"
+    },
+    {
+      "id":"list.focused-label","existence":"confirmed-runtime","assetBinding":"unresolved-text-or-mesh-path","assets":[],"screens":["main-menu","options","post-round"],
+      "layout":{"original":"left-aligned vertical rows; exact spacing/metrics unresolved","reuse":"single focus index, stable row slots, content-width labels, explicit safe-area margins; proposed"},
+      "states":["focused bright white","inactive dim/blurred"],"input":"Observed left-stick up/down selection, A accept, B back; repeat timing unmeasured.","render":"Original font/mesh identity and blur animation parameters unresolved; host overlay approximation must be labeled until matched.","functions":["0x0001C2A0","0x0001CD50","0x0001CB20","0x0001D790"],"functionLimit":"Constructors plus vtable slot 13 state-handler candidates; physical controller-to-event mapping and child control meanings remain unassigned.","reuse":"Core settings category/value list.","treatment":"font-aware replacement after glyph metrics; preserve existing geometry where text is mesh-based"
+    },
+    {
+      "id":"list.scrolling-selection","existence":"confirmed-runtime","assetBinding":"unresolved","assets":["4147388a2ccd3d7451ae839a","50eb376d4fd90cc4050d5956"],"screens":["minigame-list"],
+      "layout":{"original":"Minigame list: focused middle row larger/brighter, neighbors smaller/dimmer, preview at right","reuse":"Use for long settings lists only after focus and clipping rules are measured."},
+      "states":["center focus","neighbor falloff"],"input":"Up/down selection with A accept and B back; list wrapping not established.","render":"Arrow assets are candidates; actual list draw/clip path unresolved.","functions":[],"reuse":"Optional long-list navigation.","treatment":"vector arrow reconstruction; font metrics preserved"
+    },
+    {
+      "id":"prompt.accept-back","existence":"confirmed-runtime","assetBinding":"probable; code-reference index supplies stronger individual bindings when available",
+      "assets":["bc37a549fd44a3b08f918b0c","aea05a164d56d3b59d698c9d"],"screens":["options","character-selection","instructions"],"region":"whole individual icon; no atlas membership established",
+      "layout":{"original":"icon followed by action label, grouped in footer or beside seat","reuse":"baseline-align icon and label; preserve icon aspect, measured gap and label advance pending"},
+      "states":["available action"],"input":"Green A accepts/selects/joins; red B returns in observed screens. Keyboard equivalents come from native host adapter, not original assets.",
+      "render":"ARGB1555 cutout icons; alpha classification is source format evidence, blend factors remain to be captured.","functions":[],"reuse":"Settings Apply/Back hints with platform-aware keyboard glyph extension.","treatment":"faithful vector redraw or alpha-aware enlargement"
+    },
+    {
+      "id":"selection.arrow-pair","existence":"confirmed-runtime","assetBinding":"probable","assets":["f96f837fb7e02867368966a7","3caf509069dd4c3da3b7283f"],"screens":["character-selection"],
+      "layout":{"original":"left/right arrows flank the active player's select prompt","reuse":"flank enumerated value; proposed spacing follows existing safe area"},"states":["visible during selection","hidden after confirmation"],"input":"Left/right stick changes selected character in observed sequence.","render":"Palette-derived alpha; exact blink timing unknown.","functions":[],"reuse":"Enumerated display/aspect/filter choice.","treatment":"vector reconstruction candidate"
+    },
+    {
+      "id":"selection.seat-marker","existence":"confirmed-runtime","assetBinding":"probable","assets":["e416c0c58fb683f58c2d8b63","f7bea4fe6bb4f8a959080435"],"screens":["character-selection"],
+      "layout":{"original":"portrait corner marker; yellow while selecting, green when confirmed","reuse":"retain player/seat identity; do not reuse color alone as keyboard focus"},"states":["joining","selecting","confirmed"],"input":"A joins then confirms; state transitions observed for one seat only.","render":"Source frames and transparency in inventory; animation period unknown.","functions":[],"reuse":"Per-seat binding confirmation extension.","treatment":"preserve registration and state pairing"
+    },
+    {
+      "id":"panel.pause","existence":"confirmed-runtime","assetBinding":"probable-corner-and-edge-family","assets":["b256326d3e6b4a80f540242f","2b7577b9a968babff4d7567b"],"screens":["pause"],
+      "layout":{"original":"rounded translucent player-tinted panel; title upper-right and left-aligned rows","reuse":"assemble border/corner primitives with stretchable center only after exact tile orientation/padding is verified"},
+      "states":["pause list","nested options"],"input":"Start opens pause; A enters highlighted Options; B returns to parent. Start acted as accept on highlighted Options in this run.","render":"Red panel observed for Samson/P1; six corner/edge families are name leads, not demonstrated player-color mapping. Exact opacity/blend factors unknown.","functions":[],"reuse":"In-game host settings panel while guest is deliberately paused; actual guest pause integration remains a dependency.","treatment":"vector border candidate; preserve translucency and original geometry if reused"
+    },
+    {
+      "id":"value.segmented-meter","existence":"confirmed-runtime","assetBinding":"dynamic-assembly-unresolved","assets":[],"screens":["options","pause"],
+      "layout":{"original":"ascending ten-segment meter right of volume label; smaller within pause panel","reuse":"fixed logical segment count, align label/value columns; steps and range need original value mapping"},
+      "states":["filled bright segments","unfilled dim segments"],"input":"Original screen advertises directional change; this investigation did not change persisted guest volumes.","render":"Do not assume a standalone slider texture; geometry/color assembly untraced.","functions":[],"reuse":"Render scale or volume using explicit host step mapping; extension semantics must be labeled.","treatment":"analytic/vector bars; not image upscaling"
+    },
+    {
+      "id":"value.text-toggle","existence":"confirmed-runtime","assetBinding":"text-path-unresolved","assets":[],"screens":["options","pause"],
+      "layout":{"original":"label plus colon and textual value, e.g. vibration state","reuse":"one focusable row, stable label width, explicit selected value"},"states":["on","off (state vocabulary; not toggled in this run)"],"input":"Directional adjustment advertised; keyboard/controller mapping proposed for host options.","render":"Preserve font metrics and focused/inactive treatment.","functions":[],"reuse":"Native vsync or supported browser boolean with independent capability gating.","treatment":"font-aware rendering"
+    },
+    {
+      "id":"transition.original-overlay","existence":"confirmed-runtime","assetBinding":"partial-original-scene-geometry","assets":["303a698262c930f675cd1c91","6b219ef7b8d47b2adf95e30a"],"screens":["main-menu","options"],
+      "layout":{"original":"nested OBE hierarchy; bounded tool reads individual leaves only","reuse":"reuse original loader/update/draw only after parent transforms, tracks and lifecycle are recovered"},"states":["screen transition","settled focus"],"input":"Suspend new overlay input while transitioning; proposed host behavior.","render":"Initial-key geometry and frames are available; key timing/global transforms unresolved. Do not invent a frame rate.","functions":["0x0004BB30","0x0001CAB3","0x0001CD50"],"reuse":"Future guest screen extension; host overlay must not masquerade as a fully recovered original transition.","treatment":"preserve original animation until registration/timing established"
+    }
+  ],
+  "missingOrUnprovedControls": [
+    {"id":"tabs","status":"not established in searched screens","proposal":"Use existing focused label list rather than invent an original tab widget."},
+    {"id":"continuous-slider-thumb","status":"not established; original segmented volume meter exists","proposal":"Prefer segmented meter or arrow value row; drag thumb is an explicitly new pointer-accessibility extension."},
+    {"id":"keyboard-prompt-glyphs","status":"not established in original console assets","proposal":"Add clearly new host keycap labels beside existing controller prompts."},
+    {"id":"arbitrary-settings-screen","status":"proposed","proposal":"Host overlay using confirmed chrome and observed list/value patterns; guest mode integration separately bounded."}
+  ]
+}
