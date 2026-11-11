@@ -1,0 +1,28 @@
+name: Windows launcher screenshots
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/sdk-baseline-execution]
+    paths:
+      - 'tools/launcher-preview/**'
+      - '.github/workflows/launcher-preview.yml'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Render actual Windows launcher views
+        shell: pwsh
+        run: dotnet run --project tools/launcher-preview/LauncherPreview.csproj --configuration Release -p:SelfContained=false -p:PublishSingleFile=false -- artifacts/launcher-preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-launcher-screenshots
+          path: artifacts/launcher-preview/*.png
+          if-no-files-found: error
+          retention-days: 30
