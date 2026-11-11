@@ -26,3 +26,9 @@ jobs:
           path: artifacts/launcher-preview/*.png
           if-no-files-found: error
           retention-days: 30
+      - name: Make asset-free previews available through capture logs
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/launcher-preview/*.png | ForEach-Object {
+            Write-Output ('PREVIEW_IMAGE ' + $_.Name + ' ' + [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName)))
+          }
