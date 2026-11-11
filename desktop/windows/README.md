@@ -105,3 +105,10 @@ The native integration reuses:
 Upstream reports native Linux playability and a Windows cross-build, while its
 Windows hardware execution and audio remain unverified. Those reports are
 upstream evidence, not validation of this installer or browser milestone.
+
+## Alternative launcher concepts
+
+Four separate [interactive design prototypes](design/concepts/README.md) explore
+graphite, silver equipment, colorful console and light desktop directions.
+They are visual proposals with simulated states; the released Windows launcher
+is unchanged by this design work.
