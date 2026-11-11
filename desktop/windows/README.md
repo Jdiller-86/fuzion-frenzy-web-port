@@ -1,18 +1,16 @@
 # Fuzion Frenzy Windows builder
 
-Version **0.1.3** refines the builder with a console-inspired interface: dark
-metallic surfaces, cyan accents, vector disc graphics, beveled buttons and a
-segmented progress meter. Separate Build + Play, Game Settings and Controls
-views keep the main workflow focused. ISO/folder selection is direct; build
-locations are tucked behind an optional control. All artwork is original vector
-drawing and uses Windows fonts; no web runtime or game art is required.
+Version **0.1.4** removes the large banner, decorative header graphic and
+promotional taglines. The application title stays in the Windows title bar;
+navigation and build controls now start at the top of the window. The dark
+surfaces, cyan accents, beveled controls and segmented progress remain.
 
 The builder includes the [native styled F1 settings panel](../../docs/native-ui.md),
 three local UI texture overrides, and the [Windows rendering repairs](patches/README.md)
 into the normal build flow.
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.3-preview.1/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.3-preview.1)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.4-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.4-preview.1)
 
 Close the old launcher and install the update. Existing game builds, saves and
 settings remain available. If you already rebuilt with 0.1.2, this visual update

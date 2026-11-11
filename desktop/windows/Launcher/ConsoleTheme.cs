@@ -21,48 +21,6 @@ internal static class ConsoleTheme
     }
 }
 
-internal sealed class ConsoleHeader : Control
-{
-    internal ConsoleHeader()
-    {
-        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        BackColor = Color.FromArgb(13, 25, 38);
-    }
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        float s = DeviceDpi / 96f;
-        using var background = new LinearGradientBrush(ClientRectangle, Color.FromArgb(22, 44, 62), Color.FromArgb(11, 22, 34), 15f);
-        g.FillRectangle(background, ClientRectangle);
-        using var grid = new Pen(Color.FromArgb(14, ConsoleTheme.Cyan));
-        for (float x = Width * .57f; x < Width; x += 24 * s) g.DrawLine(grid, x, 0, x - 80 * s, Height);
-        for (float y = 12 * s; y < Height; y += 24 * s) g.DrawLine(grid, Width * .58f, y, Width, y);
-        using var border = new Pen(ConsoleTheme.Edge);
-        g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-        using var accent = new SolidBrush(ConsoleTheme.Cyan);
-        g.FillRectangle(accent, 0, 0, 4 * s, Height);
-        using var eyebrow = new Font("Bahnschrift", 9, FontStyle.Regular);
-        using var title = new Font("Bahnschrift", 29, FontStyle.Bold);
-        using var body = new Font("Segoe UI", 10);
-        TextRenderer.DrawText(g, "FUZION FRENZY  /  WINDOWS", eyebrow, new Point((int)(24*s), (int)(17*s)), ConsoleTheme.Cyan);
-        TextRenderer.DrawText(g, "BUILD. LAUNCH. PLAY.", title, new Rectangle((int)(20*s), (int)(36*s), (int)(Width*.73), (int)(49*s)), ConsoleTheme.Ink, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
-        TextRenderer.DrawText(g, "Your original game. A new way to play.", body, new Point((int)(24*s), (int)(95*s)), Color.FromArgb(163, 190, 206));
-        // A small disc/orbit motif recalls console startup graphics without borrowed assets.
-        float diameter = 106 * s, cx = Width - 90*s, cy = Height*.5f;
-        using var orbit = new Pen(Color.FromArgb(68, 146, 168), 1.4f*s);
-        using var bright = new Pen(ConsoleTheme.Cyan, 3*s);
-        g.DrawEllipse(orbit, cx-diameter/2, cy-diameter/2, diameter, diameter);
-        g.DrawArc(bright, cx-diameter/2, cy-diameter/2, diameter, diameter, -60, 115);
-        g.DrawArc(bright, cx-diameter*.34f, cy-diameter*.34f, diameter*.68f, diameter*.68f, 115, 185);
-        g.DrawEllipse(orbit, cx-9*s, cy-9*s, 18*s, 18*s);
-        g.DrawLine(orbit, cx-66*s, cy, cx-48*s, cy);
-        g.DrawLine(orbit, cx+48*s, cy, cx+66*s, cy);
-        for (int n=0; n<5; n++) g.FillRectangle(accent, Width-(170+n*12)*s, Height-8*s, 7*s, 2*s);
-    }
-}
-
 internal sealed class ConsoleCard : TableLayoutPanel
 {
     internal ConsoleCard()

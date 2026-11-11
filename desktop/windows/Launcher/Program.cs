@@ -54,7 +54,7 @@ internal sealed class LauncherForm : Form
 
     public LauncherForm()
     {
-        Text = "Fuzion Frenzy · Windows Launcher v0.1.3";
+        Text = "Fuzion Frenzy · Windows Launcher v0.1.4";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 740);
         Size = new Size(1120, 940);
@@ -75,18 +75,16 @@ internal sealed class LauncherForm : Form
 
     private void BuildLayout()
     {
-        var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Bg, Padding = new Padding(24, 18, 24, 12) };
+        var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Bg, Padding = new Padding(24, 18, 24, 12) };
         shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 144));
         shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
         shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         Controls.Add(shell);
-        shell.Controls.Add(new ConsoleHeader { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 8), AccessibleName = "Fuzion Frenzy Windows builder" }, 0, 0);
         var navigation = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0), BackColor = Bg };
-        shell.Controls.Add(navigation, 0, 1);
+        shell.Controls.Add(navigation, 0, 0);
         var host = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = Bg };
-        shell.Controls.Add(host, 0, 2);
+        shell.Controls.Add(host, 0, 1);
         TableLayoutPanel MakePage() {
             var result = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 1, BackColor = Bg, Padding = new Padding(0, 0, 12, 8), Margin = new Padding(0) };
             result.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -110,8 +108,8 @@ internal sealed class LauncherForm : Form
             tabs.Add(tab); navigation.Controls.Add(tab);
         }
         ShowPage(0);
-        var footer = new Label { Text = "LOCAL FILES ONLY  /  NO GAME DATA UPLOADED                                      WINDOWS x64  ·  BUILDER 0.1.3", ForeColor = Muted, Font = new Font("Bahnschrift", 8.5f), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Margin = new Padding(0, 6, 0, 0) };
-        shell.Controls.Add(footer, 0, 3);
+        var footer = new Label { Text = "LOCAL FILES ONLY  /  NO GAME DATA UPLOADED                                      WINDOWS x64  ·  BUILDER 0.1.4", ForeColor = Muted, Font = new Font("Bahnschrift", 8.5f), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Margin = new Padding(0, 6, 0, 0) };
+        shell.Controls.Add(footer, 0, 2);
 
         var statusPanel = Card();
         var statusLine = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, BackColor = Panel, Margin = new Padding(0) };
@@ -137,7 +135,7 @@ internal sealed class LauncherForm : Form
         sourceCard.Controls.Add(sourceActions);
         page.Controls.Add(locationCard);
 
-        var buildCard = SectionCard("02 / BUILD + LAUNCH", "Build once from your disc, then launch whenever you like. Rebuilds keep your saves and settings.");
+        var buildCard = SectionCard("02 / BUILD + LAUNCH", "Compile the executable locally. Existing saves and settings are retained.");
         var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, BackColor = Panel, Margin = new Padding(0, 6, 0, 3) };
         var prerequisites = MakeButton("Install Build Tools", false); prerequisites.Width = 176; prerequisites.Click += async (_, _) => await InstallTools();
         buildButton.Text = "Build Game"; buildButton.Width = 145; buildButton.Height = 38; StyleButton(buildButton, true); buildButton.Click += async (_, _) => await RunBuild();
