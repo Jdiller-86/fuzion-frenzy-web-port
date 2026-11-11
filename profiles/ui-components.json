@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "kind": "bounded-original-ui-component-specification",
   "baseSourceRevision": "93ec83293921dfcf1ff4b8f0c759aa62189c330b",
+  "nativePrototype": {
+    "entry": "F1 host overlay; no guest menu injection or automatic pause",
+    "settings": ["fps_cap", "render_percent", "aspect_ratio", "vsync"],
+    "actions": ["Apply live", "Save applies and writes existing settings.toml", "Cancel discards unapplied draft"],
+    "focus": "one index across four values and three actions; keyboard and port-0 pad navigation",
+    "replacementSlots": ["chrome.emblem", "chrome.gradient-divider", "chrome.wordmark"],
+    "replacementMode": "FUZION_UI_REPLACE=off|identity|pilot; immutable until restart",
+    "typography": {
+      "identity": "ImGui embedded ProggyClean.ttf, 20px",
+      "role": "development fallback; unrelated to original guest font",
+      "basePixels": 20,
+      "measuredAscent": 15,
+      "measuredDescent": -6,
+      "lineHeightPixels": 20,
+      "scale": "viewport-height/1080 rounded to quarters, clamped 1..4; uniform panel shrink to fit",
+      "originalGlyphMapAndMetrics": "unresolved; see docs/ui-font-recovery.md"
+    },
+    "layout": {"logicalWidth":680,"logicalHeight":470,"rowHeight":40,"headerHeight":94,"firstRowY":134},
+    "renderScaleMeter": "proposed host control: 20 segments of 10 percent, range 10..200; not the guest volume scale"
+  },
   "scope": "Observed native menu, Options, character selection, instructions, pause and post-round dialog; not complete original UI parity",
   "evidencePolicy": "Runtime existence, static asset binding and proposed reuse are separate claims. Names below are analyst component labels. Private inventory resolves opaque IDs to original resource details.",
   "privateEvidence": ["inventory.json", "overlay-evidence.json", "source-references.json", "font-evidence.json", "captures/observations.json", "run-identities.json"],

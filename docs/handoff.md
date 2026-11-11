@@ -1,5 +1,10 @@
 # SDK browser integration: native reference to first original frame
 
+The separately scoped [native UI batch](native-ui.md) now provides a runnable
+F1 panel and three local texture overrides; its build/launch, runtime observations,
+font limits and browser adapter seam are recorded there. Preserve the compiled
+browser pipeline and accepted M44 state while continuing that native work.
+
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 

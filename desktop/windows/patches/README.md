@@ -1,5 +1,13 @@
 # Windows rendering fixes
 
+The optional [native UI prototype](../../../docs/native-ui.md) additionally uses
+`ui-replacements.patch` after these rendering fixes and `native-ui.patch` against
+the pinned native host. `ui-manifest.json` records their normalized identities.
+They contain source only; the three-image pack must be created locally from the
+player's private inventory. `tools/ui/Build-NativeUi.ps1 -ApplyPatches` owns this
+opt-in build lifecycle; the standard installer still applies only the rendering
+fixes below.
+
 `runtime-fixes.patch` modifies the public XboxXBERecomp SDK at commit
 `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`. It contains no original game code
 or assets. The SDK is MIT-licensed; retain its upstream license when building.

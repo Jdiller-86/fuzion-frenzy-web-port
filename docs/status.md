@@ -1,5 +1,12 @@
 # Project status: SDK browser integration in progress
 
+Native developer reference, 2026-11-11: the [F1 settings and three-texture
+replacement prototype](native-ui.md) runs with original-styled components,
+live SDK settings, persistence and input capture. Private captures include the
+original menu and an already paused Air Raid round. Original font metrics and
+physical-controller interaction remain unresolved. This supporting native work
+does not advance the accepted browser checkpoint or a project milestone.
+
 The [local-ISO SDK browser build](sdk-browser.md) now compiles/links 91 source objects: the full SDK kernel/HLE and boot/thread/TLS, mapped guest-memory windows, original disc reader, CPU reference renderer, browser input/audio and all 64 title shards plus mapping. The packaged app selects the ISO locally, verifies its XBE and mounts original files without upload. The published `93ec832` texture-cascade fix is applied and feeds the software renderer; its D3D12 descriptor correction is native-only. This advances MB04–MB07 implementation; no original browser frame or accepted checkpoint advanced because this workspace lacks the original image/assets. The user reports working Windows execution and a local agent's geometry-stability verification. First actual browser ISO execution, performance and accelerated graphics remain unverified. Smoke/regression suites remain deferred.
 
 <!-- development-state:start -->

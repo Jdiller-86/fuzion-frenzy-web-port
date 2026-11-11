@@ -1,5 +1,10 @@
 # Settings and host overlay integration
 
+The native F1 implementation, observed behavior and current browser adapter seam
+are recorded in [the native UI handoff](native-ui.md). The original-screen
+injection and contextual Y hint below remain proposed; the initial host panel,
+four controls, actions and input gate are now implemented.
+
 This note records settings and overlay interfaces from the retained XboxXBERecomp SDK pin `58757ab…` and Fuzion native integration pin `071db…`, used by the November 10 Windows rendering work. The original-executable UI evidence is indexed against publication commit `93ec83293921dfcf1ff4b8f0c759aa62189c330b`. The SDK facts below come from `runtime/app/app.h`, `runtime/app/settings.cpp`, `runtime/app/main.cpp`, `runtime/app/main_sdl.cpp`, `runtime/gpu/d3d12.cpp`, and retained Fuzion host integration in `fuzion-native/src/common/overlay.cpp` and `game_info.cpp`. Source trees and game inputs are private research; this note contains interface findings only.
 
 ## Existing SDK settings contract
@@ -33,17 +38,17 @@ This is evidence for those visible guest options and their displayed controls in
 
 ## Browser candidate boundary
 
-The current `web/sdk-browser/app.mjs` presents local XBE/data selection, Run/Stop, and textual progress/result. `worker.mjs` loads the generated module, maps the XBE, mounts local data and reports the guest stop. This candidate has no connected renderer, browser settings store, overlay, or original frame yet. Its present stop text explicitly distinguishes guest execution from a rendered frame. The existing research preview modules are not the SDK runtime renderer.
+The current development branch includes the compiled browser renderer/input/audio pipeline from `797e9ae`, local ISO intake, frame presentation in `web/sdk-browser/app.mjs`, and worker-side input/audio/runtime bridges. This supersedes the older inventory snapshot. This native batch does not add a browser settings store, host overlay, or replacement upload adapter; compiled browser capability is separate from observed native UI behavior.
 
 For a browser integration, retain the useful separation in the SDK:
 
 1. Keep persistent user preferences in a versioned, origin-local store (IndexedDB is a practical proposal where the settings object grows; localStorage can hold small scalar preferences). Do not send settings or content to a service.
 2. Load validated defaults before starting the worker. Pass an explicit settings snapshot in the worker's start message; do not assume the worker can access `window` storage.
 3. Keep display/render settings separate from per-seat input bindings and game state. Apply only settings the connected browser renderer actually supports; show unavailable platform options as unavailable rather than persisting inert toggles.
-4. Once a frame loop exists, expose an HTML host panel toggled by an explicit keyboard shortcut, with focus transfer and keyboard/gamepad capture rules. Browser fullscreen requires a user gesture; display mode/resolution switching and native HDR mode are not portable browser controls.
+4. In the existing frame presentation flow, expose an HTML host panel toggled by an explicit keyboard shortcut, with focus transfer and keyboard/gamepad capture rules. Browser fullscreen requires a user gesture; display mode/resolution switching and native HDR mode are not portable browser controls.
 5. Save after explicit apply or a debounced change, and version/migrate the schema. Do not claim the native TOML keys are already implemented in the browser.
 
-The original game UI and the host settings UI should remain separate layers. Original title screens, menus, and controls must come from the original guest execution. A browser host panel can provide accessibility, browser-specific settings, and local diagnostics around that execution, but must not replace or imitate title screens as a shortcut to original-game execution. The first integration target is an unobtrusive host overlay around an actual guest-rendered frame; until the renderer and its frame lifecycle are connected, only the host's existing file/run controls are observed.
+The original game UI and the host settings UI should remain separate layers. Original title screens, menus, and controls must come from the original guest execution. A browser host panel can provide accessibility, browser-specific settings, and local diagnostics around that execution, but must not replace or imitate title screens as a shortcut to original-game execution. The first integration target is an unobtrusive host overlay around an actual guest-rendered frame; browser behavior for this panel remains unimplemented and unobserved.
 
 ## Original screen versus integrated host overlay
 
@@ -98,9 +103,9 @@ Use the manifest's logical components and a shared value/focus model for native
 and browser presentation. Native persistence is the existing TOML; a browser
 adapter would validate capabilities and persist a versioned local snapshot.
 Native fullscreen/HDR/system-link behavior must not be offered as working browser
-options. The present browser candidate has no connected renderer to apply these
-preferences, so the browser adapter remains a dependency.
+options. The browser pipeline has no settings/replacement adapter from this batch;
+capability-specific application and persistence remain dependencies.
 
-When browser rendering exists, the likely public integration points are `web/sdk-browser/app.mjs` for panel lifecycle and validated settings messages, `web/sdk-browser/worker.mjs` for worker-side application, and the runtime renderer/host bridge for supported live settings. Add persistence in a small browser module rather than coupling it to title execution. Reuse existing SDK option/load/save semantics only if that application code is part of the browser build; the current browser candidate does not link the SDK desktop app layer. An eventual integration should be explicit about lifecycle: host panel open/close and focus ownership, settings validation/persistence, and effects in the renderer/guest bridge are separate responsibilities.
+For the current compiled browser pipeline, the public integration points are `web/sdk-browser/app.mjs` for panel lifecycle and validated settings messages, `web/sdk-browser/worker.mjs` for worker-side application, and the runtime renderer/host bridge for supported live settings. Add persistence in a small browser module rather than coupling it to title execution. Reuse existing SDK option/load/save semantics only if that application code is part of the browser build; the current browser candidate does not link the SDK desktop app layer. An eventual integration should be explicit about lifecycle: host panel open/close and focus ownership, settings validation/persistence, and effects in the renderer/guest bridge are separate responsibilities.
 
 Do not implement a direct clone of `settings.cpp`'s desktop-only controls. Start with browser-backed choices such as render scale, frame pacing preference (if the browser loop can honor it), and keyboard/gamepad bindings. Gate each choice on a real application path and preserve the SDK's notion that a setting may need a restart/rebuild rather than pretending every change applies immediately.

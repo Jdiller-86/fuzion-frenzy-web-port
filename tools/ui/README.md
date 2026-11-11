@@ -1,5 +1,10 @@
 # Original UI investigation tools
 
+The inventory is now also consumed by the working [native UI prototype](../../docs/native-ui.md).
+Use `native-pack.py` with the existing decoded images/pilot and the
+[incremental native builder](BUILD-NATIVE-UI.md); the feature batch does not need
+another full extraction. Original-font recovery remains bounded and separate.
+
 These source-only tools reuse the repository's XDVDFS, XBP, texture, XBE and
 bounded OBE readers. They never execute target-provided text or modify the
 supplied game files. Original inputs, resource names/details, images, captures,

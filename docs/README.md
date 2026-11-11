@@ -61,6 +61,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Current technical/release questions | [Risks](risks.md) |
 | Reference identities and conversion coverage | [Reference inventory](reference.md) |
 | Original UI resource/code investigation and private catalog workflow | [UI architecture](ui-architecture.md), [settings integration](ui-settings-integration.md), [upscaling](ui-upscaling.md), and [tools](../tools/ui/README.md) |
+| Runnable native F1 settings and bounded texture replacements | [Native UI](native-ui.md), [font recovery](ui-font-recovery.md), and [incremental build](../tools/ui/BUILD-NATIVE-UI.md) |
 | Curated facts, static/fixture/browser evidence distinctions | [Research](research.md) |
 | Optional private toolchain and analysis prerequisites | [Analysis](analysis.md) |
 | Resource reuse, automated preparation and fast M1 iteration | [Development workflow](resource-reuse.md) |
