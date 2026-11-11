@@ -1,17 +1,22 @@
 # Fuzion Frenzy Windows builder
 
-Version **0.1.4** removes the large banner, decorative header graphic and
-promotional taglines. Navigation tabs have plain labels without numbering. The application title stays in the Windows title bar;
-navigation and build controls now start at the top of the window. The footer
-shows only platform and version, aligned right. The dark
-surfaces, cyan accents, beveled controls and segmented progress remain.
+Version **0.2.0** implements the selected **Control Room** interface: olive-metal
+surfaces, amber dot-matrix status and a single Game / Source / Display equipment
+bank. There are no navigation tabs or duplicated settings/build destinations.
+The matrix contains only the current status/phase and progress, without secondary
+captions or repeated configuration values.
+
+Use **Settings** for launch preferences, **Build Options** for paths/jobs, and
+**Controls** for the input reference. **Install Build Tools** is directly available
+beside the source selector. Build errors open the log; platform/version remain at
+bottom right. [Layout and behavior](../../docs/control-room-launcher.md).
 
 The builder includes the [native styled F1 settings panel](../../docs/native-ui.md),
 three local UI texture overrides, and the [Windows rendering repairs](patches/README.md)
 into the normal build flow.
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.4-preview.3/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.4-preview.3)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.2.0-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.0-preview.1)
 
 Close the old launcher and install the update. Existing game builds, saves and
 settings remain available. If you already rebuilt with 0.1.2, this visual update
@@ -25,8 +30,7 @@ inventory, screenshots, Node, or developer commands. Python installs Pillow
 The pack and its provenance stay beside your locally compiled executable.
 
 **Play** uses the selected **UI artwork** mode: **4x preview** (default),
-**Original pixels**, or **Replacements off**. This choice is saved immediately
-and takes effect on the next launch. The 4x artwork is a resampling preview,
+**Original pixels**, or **Replacements off**. Choose the mode in **Settings**, then **Save**; it takes effect on the next launch. The 4x artwork is a resampling preview,
 not a finished HD art pack. Missing/invalid runtime packs retain original textures.
 
 **F1** opens frame cap, render scale, aspect ratio and VSync with Apply/Save/Cancel.
