@@ -116,3 +116,7 @@ is unchanged by this design work.
 The [Alloy studies](design/alloy-studies/README.md) add four hardware-oriented
 alternatives with animated dot-matrix progress displays, while retaining every
 original concept. These remain simulated visual prototypes.
+
+The [B3 Studio refinements](design/studio-refinements/README.md) add an amber
+version of the selected B3 design and four further directions. All earlier
+concepts remain selectable in that prototype gallery.

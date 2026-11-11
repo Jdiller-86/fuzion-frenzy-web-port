@@ -86,3 +86,7 @@ After capture, `python desktop/windows/design/alloy-studies/package.py` uses
 installed Pillow to assemble the matrix GIF and a ZIP. The ZIP includes both
 standalone HTML galleries, all eight selectable concepts and full-size previews.
 The standalone Alloy gallery includes the original four in its selector as well.
+
+A [third round focused on B3](../studio-refinements/README.md) adds an amber
+refinement and four further directions. Every earlier concept, including green
+B3, remains available; this round's source and previews are retained.
