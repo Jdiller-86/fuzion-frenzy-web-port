@@ -1,182 +1,146 @@
-import createFuzionSdkRuntime from '/artifacts/sdk-browser-objects/fuzion-sdk-title.mjs';
-import { loadXbeImage, resolveKernelImports } from './xbe-loader.mjs';
+import createFuzionSdkRuntime from '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs';
+import { openXiso } from '/host/xdvdfs.mjs';
 
-const GUEST_WINDOW_BYTES = 64 * 1024 * 1024;
-const STACK_TOP_VA = GUEST_WINDOW_BYTES - 16;
-const MAX_DATA_FILES = 16384;
-const MAX_DATA_BYTES = 8 * 1024 * 1024 * 1024;
-const EXPECTED = {
-  imageBase: 0x10000,
-  imageEnd: 0x326f20,
-  entryPoint: 0x30f7f,
-  kernelThunk: 0x253360,
-  guestCapacity: 64 * 1024 * 1024,
+const PINNED_XBE = {
+  bytes: 2_834_432,
+  sha256: '45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9',
 };
+// These are the bounded candidate partition bases used by the retained native
+// XISO extractor and the SDK's own disc reader. `openXiso` checks the volume
+// descriptor and both directory ranges after each slice, so this reads only a
+// few KiB per candidate and leaves the original full image mounted for the SDK.
+const XISO_PARTITION_BASES = [0, 0x0fd90000, 0x18300000, 0x02080000, 0x1fb20000];
+const BUTTON = { dpadUp: 1, dpadDown: 2, dpadLeft: 4, dpadRight: 8, start: 0x10, back: 0x20, leftThumb: 0x40, rightThumb: 0x80, a: 1 << 16, b: 1 << 17, x: 1 << 18, y: 1 << 19, black: 1 << 20, white: 1 << 21 };
+let moduleInstance;
+let lastInput = { buttons: 0, lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
+let cancelled = false;
+let saveTimer;
+let persistentSaves = false;
 
-function report(text) {
-  postMessage({ type: 'progress', text });
+async function flushSaves() {
+  if (persistentSaves && moduleInstance) await new Promise((resolve, reject) => moduleInstance.FS.syncfs(false, error => error ? reject(error) : resolve()));
 }
 
-function exported(module, name) {
-  const value = module[name];
-  if (typeof value === 'function') return value();
-  if (typeof value === 'number') return value;
-  throw new Error(`Compiled module is missing export ${name}`);
+function report(text) { postMessage({ type: 'progress', text }); }
+function digestHex(bytes) {
+  return crypto.subtle.digest('SHA-256', bytes).then(hash => [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join(''));
+}
+function boundedInt16(value) { return Math.max(-32768, Math.min(32767, Math.round(value * 32767))); }
+function stopThreads(module) {
+  try { module?._ff_browser_stop?.(); } catch {}
+  try { module?.PThread?.terminateAllThreads?.(); } catch {}
+}
+function onFrame(ptr, width, height, pitch, format) {
+  if (!moduleInstance || cancelled || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 4096 || height > 4096) return;
+  const rowBytes = width * 4;
+  pitch = Number(pitch) || rowBytes;
+  if (pitch < rowBytes || pitch > rowBytes + 65536) return;
+  const length = pitch * height;
+  const start = Number(ptr);
+  if (!Number.isSafeInteger(start) || start < 0 || start + length > moduleInstance.HEAPU8.byteLength) return;
+  const rgba = new Uint8Array(rowBytes * height);
+  for (let y = 0; y < height; y++) rgba.set(moduleInstance.HEAPU8.subarray(start + y * pitch, start + y * pitch + rowBytes), y * rowBytes);
+  const rgbaBuffer = rgba.buffer;
+  postMessage({ type: 'frame', width, height, rgbaBuffer }, [rgbaBuffer]);
+}
+function onAudio(ptr, frames, rate) {
+  if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
+  const start = Number(ptr) >>> 2;
+  const count = frames * 2;
+  if (!Number.isSafeInteger(start) || start + count > moduleInstance.HEAPF32.length) return;
+  const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
+  postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+}
+function pushInput() {
+  if (!moduleInstance || cancelled) return;
+  const setPad = moduleInstance._ff_browser_set_pad;
+  if (typeof setPad !== 'function') return;
+  const p = lastInput;
+  setPad(0, p.buttons, p.lx, p.ly, p.rx, p.ry, p.lt, p.rt);
+}
+function parseInput(message) {
+  const keySet = new Set(message.keys || []);
+  let buttons = 0;
+  const keyMap = { ArrowUp: BUTTON.dpadUp, ArrowDown: BUTTON.dpadDown, ArrowLeft: BUTTON.dpadLeft, ArrowRight: BUTTON.dpadRight, Enter: BUTTON.start, Tab: BUTTON.back, Space: BUTTON.a, Escape: BUTTON.b, Backspace: BUTTON.b, KeyX: BUTTON.x, KeyY: BUTTON.y, Digit1: BUTTON.black, Digit2: BUTTON.white };
+  for (const [key, bit] of Object.entries(keyMap)) if (keySet.has(key)) buttons |= bit;
+  const padButtons = message.buttons || [];
+  const mapping = [[0,BUTTON.a],[1,BUTTON.b],[2,BUTTON.x],[3,BUTTON.y],[4,BUTTON.black],[5,BUTTON.white],[8,BUTTON.back],[9,BUTTON.start],[10,BUTTON.leftThumb],[11,BUTTON.rightThumb],[12,BUTTON.dpadUp],[13,BUTTON.dpadDown],[14,BUTTON.dpadLeft],[15,BUTTON.dpadRight]];
+  for (const [index, bit] of mapping) if ((padButtons[index] || 0) > 0.2) buttons |= bit;
+  const axes = message.axes || [];
+  lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-function verifyRuntimeIdentity(module) {
-  const actual = {
-    imageBase: exported(module, '_ff_sdk_image_base'),
-    imageEnd: exported(module, '_ff_sdk_image_end'),
-    entryPoint: exported(module, '_ff_sdk_entrypoint'),
-    kernelThunk: exported(module, '_ff_sdk_kernel_thunk'),
-    guestCapacity: exported(module, '_ff_sdk_guest_capacity'),
-  };
-  for (const [key, value] of Object.entries(EXPECTED)) {
-    if (actual[key] !== value) throw new Error(`Built module ${key} 0x${Number(actual[key]).toString(16)} differs from this local candidate 0x${value.toString(16)}`);
+async function boot(iso) {
+  if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
+  report('Checking the local disc image and locating DEFAULT.XBE…');
+  // Partition probing reads only the descriptor and root-directory ranges for
+  // each known base; it never reads or hashes the full ISO.
+  let disc;
+  let partitionError;
+  for (const base of XISO_PARTITION_BASES) {
+    if (base >= iso.size) continue;
+    try {
+      disc = await openXiso(iso.slice(base));
+      break;
+    } catch (cause) { partitionError = cause; }
   }
-}
-
-function hex(value) {
-  return `0x${Number(value).toString(16).padStart(8, '0')}`;
-}
-
-function describeStop(module, status) {
-  const details = `stop ${status}; code=${exported(module, '_ff_sdk_last_stop_code')}, address=${hex(exported(module, '_ff_sdk_last_stop_address'))}, ordinal=${exported(module, '_ff_sdk_last_stop_ordinal')}`;
-  switch (status) {
-    case 0: return `Generated SDK entry returned (${details}). This records guest execution, not a rendered frame.`;
-    case 1: return `Guest execution stopped at a kernel/XDK service the current bridge does not implement (${details}). Implemented services ran through their real provider.`;
-    case 2: return `Guest execution reached an unsupported translated instruction or trap (${details}).`;
-    case 3: return `Guest execution reached an unknown indirect target (${details}).`;
-    case 4: return `Guest execution ended in an unhandled SDK resume continuation (${details}).`;
-    case 5: return `Guest execution hit the checked guest-memory bound (${details}).`;
-    case 6: return `Guest execution reached an unsupported debug service (${details}).`;
-    case 7: return `Guest execution stopped with an unexpected runtime exception (${details}).`;
-    default: return `Guest execution stopped with an unrecognized runtime status (${details}).`;
-  }
-}
-
-function validateRelativePath(input) {
-  if (typeof input !== 'string' || !input || input.length > 1024 || input.startsWith('/') || input.includes('\\')) {
-    throw new Error('Game data contains an invalid relative path.');
-  }
-  const parts = input.split('/');
-  if (parts.length > 32 || parts.some(part => !part || part === '.' || part === '..' || part.includes('\0'))) {
-    throw new Error(`Game data path is unsafe: ${input}`);
-  }
-  return input;
-}
-
-function checkedGamePath(input, pathIndex) {
-  validateRelativePath(input);
-  const parts = input.toLocaleLowerCase('en-US').split('/');
-  let prefix = '';
-  for (let index = 0; index < parts.length; index++) {
-    prefix = prefix ? `${prefix}/${parts[index]}` : parts[index];
-    const isFile = index === parts.length - 1;
-    if (pathIndex.files.has(prefix) || (isFile && pathIndex.directories.has(prefix))) {
-      throw new Error(`Game data contains duplicate or conflicting case-insensitive paths: ${input}`);
-    }
-    if (isFile) pathIndex.files.add(prefix);
-    else pathIndex.directories.add(prefix);
-  }
-  return input;
-}
-
-async function mountLocalFiles(module, xbeFile, xbeSha256, entries) {
-  const FS = module.FS;
-  if (!FS || typeof FS.mkdir !== 'function' || typeof FS.mount !== 'function' || !module.WORKERFS) {
-    throw new Error('Linked SDK module has no exported Emscripten WorkerFS; rebuild with the workerfs library and WORKERFS export.');
-  }
-  FS.mkdir('/game');
-  const blobs = [{ name: 'DEFAULT.XBE', data: xbeFile }];
-  const pathIndex = { files: new Set(['default.xbe']), directories: new Set() };
-  let total = xbeFile.size;
-  let count = 1;
-  let sawFolderXbe = false;
-  for (const entry of entries) {
-    if (!entry || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0 || !entry.file || typeof entry.file.arrayBuffer !== 'function') {
-      throw new Error('Selected local data file metadata is invalid.');
-    }
-    const relativePath = validateRelativePath(entry.path);
-    if (relativePath.toLocaleLowerCase('en-US') === 'default.xbe') {
-      if (sawFolderXbe) throw new Error('Game data contains duplicate DEFAULT.XBE paths.');
-      sawFolderXbe = true;
-      if (entry.bytes !== xbeFile.size) throw new Error('Game folder DEFAULT.XBE differs from the separately selected XBE.');
-      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await entry.file.arrayBuffer()));
-      const fileHash = [...digest].map(byte => byte.toString(16).padStart(2, '0')).join('');
-      if (fileHash !== xbeSha256) throw new Error('Game folder DEFAULT.XBE differs from the separately selected XBE.');
-      continue;
-    }
-    checkedGamePath(relativePath, pathIndex);
-    total += entry.bytes;
-    if (!Number.isSafeInteger(total) || total > MAX_DATA_BYTES || ++count > MAX_DATA_FILES) {
-      throw new Error('Selected game data exceeds the 8 GiB or 16,384 file limit.');
-    }
-    blobs.push({ name: relativePath, data: entry.file });
-  }
-  FS.mount(module.WORKERFS, { blobs }, '/game');
-  return { count, total };
-}
-
-async function run({ xbe, data, pinned }) {
-  if (!(xbe instanceof File)) throw new Error('The worker did not receive a local XBE file.');
-  if (xbe.size !== pinned.bytes) throw new Error(`XBE size must be ${pinned.bytes} bytes; selected ${xbe.size}.`);
-  if (!data || !Array.isArray(data.entries) || data.count !== data.entries.length || data.count > MAX_DATA_FILES || data.totalBytes > MAX_DATA_BYTES) {
-    throw new Error('Selected data inventory exceeds the local bound or is malformed.');
-  }
-
-  report('Reading and hashing the selected XBE locally…');
-  const xbeBytes = new Uint8Array(await xbe.arrayBuffer());
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', xbeBytes));
-  const sha256 = [...digest].map(byte => byte.toString(16).padStart(2, '0')).join('');
-  if (sha256 !== pinned.sha256) throw new Error(`XBE SHA-256 does not match the pinned original (${sha256}).`);
-
-  report('Loading the linked SDK WebAssembly module…');
-  const module = await createFuzionSdkRuntime({
+  if (!disc) throw new Error(`Could not locate a supported Xbox game partition in this ISO.${partitionError ? ` ${partitionError.message}` : ''}`);
+  const xbe = disc.file(await disc.find('default.xbe'));
+  if (xbe.size !== PINNED_XBE.bytes) throw new Error(`DEFAULT.XBE size does not match this local build (${xbe.size} bytes).`);
+  const xbeHash = await digestHex(await xbe.arrayBuffer());
+  if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
+  if (cancelled) return;
+  report('Starting the full SDK runtime from the local disc image…');
+  const gameXbe = new Blob([xbe], { type: 'application/octet-stream' });
+  const factory = createFuzionSdkRuntime;
+  const module = await factory({
+    locateFile: name => name.endsWith('.wasm') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm' : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
     print: line => report(`SDK: ${line}`),
-    printErr: line => report(`SDK diagnostic: ${line}`),
+    printErr: line => postMessage({ type: 'log', text: String(line) }),
+    onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason), done: true }),
+    onFuzionFrame: onFrame,
+    onFuzionAudio: onAudio,
+    preRun: [runtime => {
+      const FS = runtime.FS;
+      if (!FS || !runtime.WORKERFS) throw new Error('Full SDK build does not expose WorkerFS for local game files.');
+      FS.mkdir('/game');
+      FS.mount(runtime.WORKERFS, { blobs: [{ name: 'game.iso', data: iso }, { name: 'default.xbe', data: gameXbe }] }, '/game');
+      try { FS.mkdir('/hdd'); } catch {}
+    }],
   });
-  verifyRuntimeIdentity(module);
-
-  report('Allocating the bounded 64 MiB guest window…');
-  const guestBase = module._malloc(GUEST_WINDOW_BYTES);
-  if (!guestBase) throw new Error(`SDK module could not allocate the ${GUEST_WINDOW_BYTES} byte guest window.`);
-  try {
-    if (guestBase + GUEST_WINDOW_BYTES > module.HEAPU8.byteLength) {
-      throw new Error('SDK WebAssembly memory does not contain the complete guest allocation.');
-    }
-    const loaded = loadXbeImage(xbeBytes, module.HEAPU8, { guestBase, expected: EXPECTED });
-    const imports = resolveKernelImports(loaded.profile, module.HEAPU8, {
-      guestBase,
-      resolver: ordinal => 0xfe000000 + ordinal * 4,
-    });
-    const pendingText = imports.pendingData.length
-      ? ` Pending kernel data: ${imports.pendingData.map(item => `${item.name} (#${item.ordinal})`).join(', ')}.`
-      : '';
-    report(`Mapped XBE ${sha256}; ${loaded.loadedSections.length} preload sections, ${loaded.bytesCopied} bytes copied; resolved ${imports.resolvedFunctions.length} function imports.${pendingText} Mounting ${data.count} local data files…`);
-    const mounted = await mountLocalFiles(module, xbe, sha256, data.entries);
-
-    const status = module._ff_sdk_call_guest(guestBase, STACK_TOP_VA, EXPECTED.entryPoint);
-    const result = describeStop(module, status);
-    const dataImports = imports.pendingData.length
-      ? `\nKERNEL_DATA imports remain their original ordinal markers: ${imports.pendingData.map(item => `${item.name} (#${item.ordinal})`).join(', ')}.`
-      : '\nNo KERNEL_DATA imports were present.';
-    postMessage({ type: 'result', text: `${result}\nResolved ${imports.resolvedFunctions.length} function imports. Mounted ${mounted.count} local game files (${mounted.total} bytes) read-only on demand at /game in this worker; SDK kernel filesystem providers are not connected to the mount yet.${dataImports}` });
-  } finally {
-    module._free(guestBase);
+  moduleInstance = module;
+  if (cancelled) { stopThreads(module); return; }
+  if (module.IDBFS) {
+    try {
+      module.FS.mount(module.IDBFS, {}, '/hdd');
+      await new Promise((resolve, reject) => module.FS.syncfs(true, error => error ? reject(error) : resolve()));
+      persistentSaves = true;
+      saveTimer = setInterval(() => flushSaves().catch(error => postMessage({ type: 'log', text: `Save persistence: ${error.message}` })), 30000);
+    } catch (error) { report(`Browser save storage is unavailable: ${error.message}. Saves will last only for this run.`); }
   }
+  pushInput();
+  const bootFn = module._ff_browser_boot;
+  if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');
+  report('Booting the original game; waiting for the renderer’s first frame…');
+  const result = bootFn();
+  if (result !== 0) throw new Error(`Original game boot returned ${result} before completing startup.`);
+  postMessage({ type: 'result', text: 'The SDK boot loop returned after starting the game runtime.' });
 }
 
-onmessage = async event => {
-  if (event.data?.type !== 'run') return;
-  try {
-    await run(event.data);
-  } catch (cause) {
-    postMessage({
-      type: 'result',
-      text: 'SDK browser run did not reach the generated entry.',
-      error: cause instanceof Error ? cause.message : String(cause),
-    });
+onmessage = async ({ data }) => {
+  if (data?.type === 'input') { parseInput(data); pushInput(); return; }
+  if (data?.type === 'stop') {
+    cancelled = true;
+    clearInterval(saveTimer);
+    stopThreads(moduleInstance);
+    try { await flushSaves(); } catch (error) { postMessage({ type: 'log', text: `Save flush failed: ${error.message}` }); }
+    postMessage({ type: 'stopped' });
+    return;
+  }
+  if (data?.type !== 'run') return;
+  try { await boot(data.iso); }
+  catch (cause) {
+    stopThreads(moduleInstance);
+    postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });
   }
 };

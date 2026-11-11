@@ -9,10 +9,10 @@ const routes = new Map([
   ['/sdk-browser/index.html', ['web/sdk-browser/index.html', 'text/html; charset=utf-8']],
   ['/sdk-browser/app.mjs', ['web/sdk-browser/app.mjs', 'text/javascript; charset=utf-8']],
   ['/sdk-browser/worker.mjs', ['web/sdk-browser/worker.mjs', 'text/javascript; charset=utf-8']],
-  ['/sdk-browser/xbe-loader.mjs', ['web/sdk-browser/xbe-loader.mjs', 'text/javascript; charset=utf-8']],
-  ['/host/xbe.mjs', ['host/xbe.mjs', 'text/javascript; charset=utf-8']],
-  ['/artifacts/sdk-browser-objects/fuzion-sdk-title.mjs', ['.tools/artifacts/sdk-browser-objects/fuzion-sdk-title.mjs', 'text/javascript; charset=utf-8']],
-  ['/artifacts/sdk-browser-objects/fuzion-sdk-title.wasm', ['.tools/artifacts/sdk-browser-objects/fuzion-sdk-title.wasm', 'application/wasm']],
+  ['/host/xdvdfs.mjs', ['host/xdvdfs.mjs', 'text/javascript; charset=utf-8']],
+  ['/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', ['.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', 'text/javascript; charset=utf-8']],
+  ['/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', ['.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', 'application/wasm']],
+  ['/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js', ['.tools/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js', 'text/javascript; charset=utf-8']],
 ]);
 
 export function createSdkBrowserServer() {
@@ -42,7 +42,7 @@ export function createSdkBrowserServer() {
       });
       response.end(request.method === 'HEAD' ? undefined : bytes);
     } catch {
-      response.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Local SDK browser artifact is unavailable. Build it with tools/build-sdk-browser.py first.');
+      response.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Local SDK browser artifact is unavailable. Build it with tools/build-sdk-browser-full.py first.');
     }
   });
 }

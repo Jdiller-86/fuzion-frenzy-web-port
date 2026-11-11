@@ -86,12 +86,12 @@ def main() -> int:
               "-I", str(overlay), "-I", str(runtime), "-I", str(runtime / "cpu")]
     start = time.monotonic()
     source_identities = [{"path": p.name, "sha256": sha256(p)} for p in sources]
-    guest_memory_header = overlay / "ff_sdk_guest_memory.hpp"
+    guest_memory_header_path = overlay / "ff_sdk_guest_memory.hpp"
     overlay_identity = {
         "source": "pinned SDK x86_ops.h plus checked guest-memory lvalues/REP spans",
         "path": str(overlay_header.relative_to(ROOT)),
         "sha256": sha256(overlay_header),
-        "guestMemoryHeader": {"path": str(guest_memory_header.relative_to(ROOT)), "sha256": sha256(guest_memory_header)},
+        "guestMemoryHeader": {"path": str(guest_memory_header_path.relative_to(ROOT)), "sha256": sha256(guest_memory_header_path)},
     }
 
     if args.reuse_objects:

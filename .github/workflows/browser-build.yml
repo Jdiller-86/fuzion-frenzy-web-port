@@ -1,0 +1,70 @@
+name: Browser ISO build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['browser-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    timeout-minutes: 35
+    steps:
+      - name: Install browser compiler
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3 emscripten node-acorn
+      - uses: actions/checkout@v4
+      - name: Prepare pinned SDK and native configuration
+        run: |
+          mkdir -p .tools
+          git clone --branch fuzion-frenzy-port https://github.com/abilliontokens/XboxXBERecomp .tools/XboxXBERecomp
+          git -C .tools/XboxXBERecomp checkout 58757ab255c0a6b3929f405d7a5f1567fcd7fda3
+          git clone https://github.com/abilliontokens/fuzionfrenzy-recomp .tools/fuzion-native
+          git -C .tools/fuzion-native checkout 071dbd97bdc098c4647cc24c99f9eae693fde1eb
+      - name: Configure writable Emscripten cache
+        run: |
+          cat > /tmp/fuzion-emscripten.conf <<'EOF'
+          LLVM_ROOT = '/usr/bin'
+          LLVM_ADD_VERSION = '19'
+          CLANG_ADD_VERSION = '19'
+          BINARYEN_ROOT = '/usr'
+          NODE_JS = '/usr/bin/node'
+          CACHE = '/tmp/fuzion-emscripten-cache'
+          FROZEN_CACHE = False
+          EOF
+      - name: Compile full SDK browser runtime and title
+        env:
+          EM_CONFIG: /tmp/fuzion-emscripten.conf
+        run: python3 tools/build-sdk-browser-full.py --opt=-O1 --jobs 2
+      - name: Package local-ISO browser build
+        run: python3 tools/package-sdk-browser.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FuzionFrenzy-Browser
+          path: |
+            artifacts/browser/FuzionFrenzyBrowser.zip
+            artifacts/browser/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/browser-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FuzionFrenzy-Browser
+          path: browser
+      - name: Publish browser build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" browser/FuzionFrenzyBrowser.zip browser/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Fuzion Frenzy Browser $RELEASE_TAG" --notes "Experimental full-SDK WebAssembly build with player-local ISO intake, software reference rendering, keyboard/gamepad input and browser audio. Extract and run Start Browser.cmd on Windows (Python 3.12), or python3 tools/serve-sdk-browser.py --open. Select your compatible USA ISO locally; no ISO or assets are included or uploaded. Includes the published native texture-cascade correction; the D3D12 descriptor fix does not apply to this software renderer. Compilation is established; original browser gameplay and performance remain unverified without matching local inputs."

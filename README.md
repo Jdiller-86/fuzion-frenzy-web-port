@@ -55,7 +55,8 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 ## Use or build
 
 New development outputs: the [full-title SDK browser candidate](docs/sdk-browser.md)
-builds the uploaded title source into a local Wasm entry runner. The separate
+links the uploaded title source with the full SDK runtime and software renderer,
+with local ISO intake, keyboard/gamepad input and browser audio. The separate
 [Windows installer and launcher](desktop/windows/README.md) builds the native
 port from a player-supplied ISO/XISO or extracted folder and exposes display
 settings, build progress and local saves/logs. These candidates do not advance
