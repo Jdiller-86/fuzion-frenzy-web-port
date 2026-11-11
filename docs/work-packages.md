@@ -18,11 +18,11 @@ Connect the reached CPU, kernel, graphics, audio and controller requirements thr
 
 #### Current foundation and gap
 
-Guarded original startup and separate browser components exist. The pinned upstream Fuzion SDK reports native Linux gameplay; a matching local desktop reference and an integrated original browser frame remain unverified here. Use that SDK as the primary integration candidate and retain M44 as the regression reference.
+Published local-ISO browser build with the full SDK, software rendering, input, audio and save adapters; working Windows reference reported by the user. Browser gameplay remains unverified. Preserve M44 as the separate accepted startup reference; build on the merged SDK candidate from PR #102.
 
 #### First bounded assignment
 
-Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
+Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
 
 #### Inputs and prerequisites
 
@@ -37,12 +37,12 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
 | **m1-build-execution** — [Sustained execution and a viable admission route (MB04–07)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-execution%22) | L | Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented. |
-| **m1-build-graphics** — [Original graphics and the first title frame (MB11–17)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-graphics%22) | L | The chosen backend handles the required shader, texture, surface, submission and draw-state slices and presents an identified original frame. Test shader/combiner compatibility early and attempt the frame as soon as its actual prerequisites work. |
+| **m1-build-graphics** — [Original graphics and the first title frame (MB11–17)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-graphics%22) | L | The existing software-renderer path presents an identified original frame with correct required textures, shaders and draw state. Fix observed fidelity or performance gaps; add acceleration only when measurements justify it. |
 | **m1-build-audio** — [Original sound processing and audible output (MB18–19)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-audio%22) | L | Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence. |
 | **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
 | **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
-**Next assignment for m1-build-execution:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. Preserve M44 and basic bounds/private-content checks. See Goal G in docs/local-agent-handoff.md.
+**Next assignment for m1-build-execution:** Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
 
 #### Validation and evidence
 
@@ -56,7 +56,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 - Online play, accounts/social, broad device matrices and optional polish belong to later milestones.
 - A fixture, preview, compiler success or counter increase does not close an original browser connection or accept M1.
 
-**Stop and report:** Fix supported build/runtime failures and keep working toward the original baseline. Pause only affected execution for missing private inputs, an unresolvable external dependency, unsafe resource/content behavior or missing source authority; continue useful independent work. The 150-minute checkpoint is not a stop while productive work remains. A partial frame or failure report does not close #49 or accept M1.
+**Stop and report:** Continue building and fixing the actual browser path. Missing private game inputs block execution only; report the exact failure and continue independent source work. Preserve M44, content locality and bounds checks. A build or frame alone does not close the browser milestone.
 
 #### Entry points
 
@@ -145,11 +145,11 @@ Connect a compatible player-supplied image to browser-local preparation, origina
 
 #### Current foundation and gap
 
-Extend the existing browser-local XISO readers, bounded package conversion, and local research UI into the M2 fresh-browser path. Existing disc-session and asset-preview components are limited research surfaces; they do not establish a complete original runtime, catalog, or save lifecycle. Keep original content and derived proprietary assets on the player's device.
+Compatible-ISO validation, lazy local disc mounting and browser-save adapters are implemented. Complete browser conversion, catalog coverage and save recovery remain unverified. Extend the existing SDK browser path; do not replace it with the research preview. Keep all player content and saves local.
 
 #### First bounded assignment
 
-Trace web/proof/disc-session.html, runtime/browser/disc-session.mjs, and the current app import flow; map each existing boundary and missing transition before changing code. Confirm the supported image/build identity and current storage behavior from retained public source and evidence.
+Run the existing local-ISO intake in a fresh browser profile, identify the first missing import/storage behavior, and implement that gap. A local HTTP host serves application files only; no server conversion or game-content upload.
 
 #### Inputs and prerequisites
 
@@ -397,7 +397,7 @@ Deliver account recovery, social permissions, content readiness and complete lob
 
 #### Current foundation and gap
 
-The research shell has locally owned keyboard/gamepad seats, but there is no production account, friend, lobby, or online match service. M4 journey acceptance depends on accepted M2 local-game/content behavior and M3 authority, seat-ownership, and recovery behavior; those services must not be represented as already implemented.
+Control Room Windows launcher, native F1 settings and three local UI replacements are implemented. Browser settings, accounts, friends and lobbies remain unfinished. Native UI work supports reuse but does not implement the browser or online player journey.
 
 #### First bounded assignment
 

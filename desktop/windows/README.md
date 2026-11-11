@@ -45,7 +45,7 @@ It contains the builder, not game content.
 Target: Windows 10/11 x64 with a D3D12-capable GPU. The launcher includes its
 .NET runtime; the separate C++ game compiler is installed on demand.
 
-Install `FuzionFrenzySetup.exe`, open **Build and Play**, select your compatible
+Install `FuzionFrenzySetup.exe`, select your compatible
 USA Fuzion Frenzy ISO/XISO or extracted game folder, then choose **Build**. The
 first build downloads the pinned native SDK and game-port source and compiles
 your game locally. No game is included, downloaded, uploaded or compiled on CI.

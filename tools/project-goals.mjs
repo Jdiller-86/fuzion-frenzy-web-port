@@ -101,16 +101,19 @@ export function renderNativeBrowserWork(work) {
   return body;
 }
 
+function renderPrioritySummary(plan, prefix) {
+  return '<details><summary>M1 implementation order</summary>\n\n'+plan.browserWork.priorities.map(p=>`${p.rank}. [${p.title}](${prefix}m1-browser-work.md#largest-first-implementation-order)`).join('\n')+'\n\n</details>\n';
+}
+
 export function renderProjectOverview(plan) {
-  const work = plan.browserWork;
-  let body = '# Fuzion Frenzy Web Port\n\nOriginal Xbox Fuzion Frenzy running entirely in a browser, followed by the complete local game, online play and player experience.\n\n';
-  body += `[All goals and acceptance](${BASE}/blob/main/docs/milestones.md) · [Work-package briefs](${BASE}/blob/main/docs/work-packages.md) · [Detailed M1 work](${BASE}/blob/main/docs/m1-browser-work.md) · [Interactive progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/) · [Agent handoff](${BASE}/blob/main/docs/local-agent-handoff.md)\n\n`;
-  body += '| Milestone | Product outcome |\n| --- | --- |\n';
+  let body = '# Fuzion Frenzy Web Port\n\nGoal: run the original Xbox game entirely in the browser, then complete offline coverage, online play and the player experience.\n\n';
+  body += '**Current foundation:** '+plan.milestones[0].foundation+'\n\n';
+  body += '| Milestone | Remaining outcome |\n| --- | --- |\n';
   for (const milestone of plan.milestones) body += `| [${milestone.id.toUpperCase()}: ${milestone.title}](${BASE}/issues/${milestone.issueNumber}) | ${milestone.goal} |\n`;
-  body += '\n**Current implementation assignment:** '+plan.milestones[0].tasks.find(task=>task.id==='m1-build').brief.firstStep+'\n';
-  if (work) body += '\n## Current M1 priority\n\n' + renderPriorityTable(work, {compact: true, prefix: `${BASE}/blob/main/docs/`}) + '\n\nOpen the M1 implementation card for every browser connection, its evidence level, size and completion check. These rows do not add to the task forecast.\n';
-  const count=plan.milestones.flatMap(m=>m.tasks).reduce((total,task)=>total+task.brief.deliverables.length,0);
-  body += `\n${count} tracked delivery issues sit under ${plan.milestones.flatMap(m=>m.tasks).length} work packages and five acceptance gates. The chart counts delivery issues, with package status and gate acceptance separate; counts are not remaining-effort estimates.\n\nIssue status labels and reviewed acceptance records own live status. This board mirrors those records; merging code or completing component checks does not accept a milestone. Runtime evidence and checkpoint identity remain in [current status](${BASE}/blob/main/docs/status.md). Keep original content and private evidence local.\n`;
+  body += '\n**Next:** '+plan.milestones[0].tasks.find(task=>task.id==='m1-build').brief.firstStep+'\n\n';
+  body += `[Downloads and overview](${BASE}#readme) · [Current evidence](${BASE}/blob/main/docs/status.md) · [M1 work and sizes](${BASE}/blob/main/docs/m1-browser-work.md) · [Interactive progress](https://jdiller-86.github.io/fuzion-frenzy-web-port/progress/)\n\n`;
+  body += renderPrioritySummary(plan, `${BASE}/blob/main/docs/`);
+  body += 'Issue labels own live status; the board and chart mirror them. Delivery counts describe scope, not remaining hours or milestone acceptance. The accepted startup reference is recorded in current status. Keep game content and private evidence local.\n';
   return body;
 }
 
@@ -125,15 +128,12 @@ export function replaceGeneratedBlock(body, key, content) {
 
 export function renderGoalSummary(plan, state, filename) {
   const prefix = filename.startsWith('docs/') ? '' : 'docs/';
-  let body = '## Goals and next work\n\n| Milestone | Remaining product outcome | Acceptance and live status |\n| --- | --- | --- |\n';
-  for (const milestone of plan.milestones) body += `| **${milestone.id.toUpperCase()}: ${milestone.title}** | ${milestone.goal} | [Criteria](${prefix}milestones.md#${milestone.id}--${milestone.title.toLowerCase().replaceAll(' ', '-')}) · [Native issue](${BASE}/issues/${milestone.issueNumber}) |\n`;
-  body += `\n**Recorded development:** ${state.milestone} / ${state.status}, runtime checkpoint **${state.checkpoint.profile}**. [Runtime evidence](${prefix}status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.\n\n`;
-  body += '**Current implementation assignment:** '+plan.milestones[0].tasks.find(task=>task.id==='m1-build').brief.firstStep+'\n\n';
-  body += '**M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.\n\n';
-  body += renderPriorityTable(plan.browserWork, {compact: true, prefix}) + '\n\n';
-  body += `[All ${plan.browserWork.items.length} browser connections, evidence and exit checks](${prefix}m1-browser-work.md) · [Largest-first details](${prefix}m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](${prefix}work-packages.md) · [Next local-agent assignment](${prefix}local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.\n`;
-  body += `\n**Tracked scope:** ${plan.milestones.flatMap(m=>m.tasks).reduce((total,task)=>total+task.brief.deliverables.length,0)} delivery issues in ${plan.milestones.flatMap(m=>m.tasks).length} work packages under five milestone gates. Counts are not effort estimates.\n`;
-  body += `\n[Tracked delivery issues](${BASE}/issues?q=is%3Aissue+label%3Awork%3Adelivery) are native children of the work-package issues. The README chart and Project use their live status; package closure and milestone acceptance remain separate.\n`;
+  let body = '## Goals and next work\n\n| Milestone | Remaining outcome |\n| --- | --- |\n';
+  for (const milestone of plan.milestones) body += `| [${milestone.id.toUpperCase()}: ${milestone.title}](${BASE}/issues/${milestone.issueNumber}) | ${milestone.goal} |\n`;
+  body += '\n**Next:** '+plan.milestones[0].tasks.find(task=>task.id==='m1-build').brief.firstStep+'\n\n';
+  body += `[M1 tasks, sizes and remaining connections](${prefix}m1-browser-work.md) · [Acceptance criteria](${prefix}milestones.md) · [Agent handoff](${prefix}handoff.md)\n\n`;
+  body += renderPrioritySummary(plan, prefix);
+  body += `M1 remains open; accepted startup reference **M${state.checkpoint.profile}** is unchanged. The chart tracks ${plan.milestones.flatMap(m=>m.tasks).reduce((n,t)=>n+t.brief.deliverables.length,0)} delivery issues in ${plan.milestones.flatMap(m=>m.tasks).length} work packages; counts are not effort estimates or a completion percentage.\n`;
   return body;
 }
 

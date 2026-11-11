@@ -1,6 +1,6 @@
 # Architecture
 
-The public implementation uses JavaScript ES modules, HTML/CSS and C. It contains no production game server, database, account system or online-match service. [Status](status.md) records the retained execution frontier.
+The public implementation uses JavaScript ES modules, HTML/CSS, C/C++ and a C# Windows launcher. It contains no production game server, database, account system or online-match service. [Status](status.md) records the retained execution frontier.
 
 ## Source boundaries
 
@@ -11,6 +11,8 @@ The public implementation uses JavaScript ES modules, HTML/CSS and C. It contain
 | [renderer](../renderer/) | NV2A geometry prepasses and independent browser preview |
 | [runtime/core](../runtime/core/) | Portable checked memory, device/service models, filesystem and scheduling |
 | [runtime/browser](../runtime/browser/) | Wasm admission, browser clock/controller/input adapters, workers and report validation |
+| [SDK browser](sdk-browser.md) | Full SDK/title Wasm worker, local ISO intake, software frames, input, audio and saves |
+| [Windows builder](../desktop/windows/README.md) | Native local compiler/installer, Control Room launcher, settings and local UI packs |
 | [web/app](../web/app/) | Offline research shell and asset worker |
 | [web/proof](../web/proof/) | Local conversion/disc-session research surfaces |
 | [web/prototype](../web/prototype/) | Independently authored Twisted System rules |

@@ -1,5 +1,7 @@
 # Documentation
 
+Start with the [README downloads and status](../README.md), [current evidence](status.md) and [next assignment](handoff.md). The Windows builder is published; the browser build is published but still needs original gameplay verification.
+
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
@@ -13,35 +15,30 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 <!-- project-goals:start -->
 ## Goals and next work
 
-| Milestone | Remaining product outcome | Acceptance and live status |
-| --- | --- | --- |
-| **M1: Original browser execution** | Play one original minigame through its original menus, round and results entirely in a desktop browser. | [Criteria](milestones.md#m1--original-browser-execution) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/22) |
-| **M2: Complete local game and conversion** | A fresh browser converts the supported player-supplied image and runs the complete original offline game. | [Criteria](milestones.md#m2--complete-local-game-and-conversion) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/25) |
-| **M3: Online multiplayer and recovery** | The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results. | [Criteria](milestones.md#m3--online-multiplayer-and-recovery) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/28) |
-| **M4: Player experience** | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. | [Criteria](milestones.md#m4--player-experience) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) |
-| **M5: Release readiness** | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. | [Criteria](milestones.md#m5--release-readiness) · [Native issue](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) |
-
-**Recorded development:** M1 / awaiting-evidence, runtime checkpoint **44**. [Runtime evidence](status.md) distinguishes the accepted checkpoint from local candidates. Native issues own live milestone acceptance.
-
-**Current implementation assignment:** Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise. See Goal G under #49.
-
-**M1 order: largest ready item first.** Select one scenario (MB01), settle the required interfaces, and pull small prerequisites forward only to enable the next large proof.
-
-| Order | M1 work / structural size |
+| Milestone | Remaining outcome |
 | --- | --- |
-| **1 — SDK integration and execution bottlenecks** | [MB04](m1-browser-work.md#mb04), [MB05](m1-browser-work.md#mb05), [MB06](m1-browser-work.md#mb06), [MB07](m1-browser-work.md#mb07) · **M–L / L** |
-| **2 — Original graphics, including an early title frame** | [MB11](m1-browser-work.md#mb11), [MB12](m1-browser-work.md#mb12), [MB13](m1-browser-work.md#mb13), [MB14](m1-browser-work.md#mb14), [MB15](m1-browser-work.md#mb15), [MB16](m1-browser-work.md#mb16), [MB17](m1-browser-work.md#mb17) · **M / M–L / L** |
-| **3 — Original audio** | [MB18](m1-browser-work.md#mb18), [MB19](m1-browser-work.md#mb19) · **L / M** |
-| **4 — Finish the selected startup and resource path** | [MB02](m1-browser-work.md#mb02), [MB03](m1-browser-work.md#mb03), [MB08](m1-browser-work.md#mb08), [MB09](m1-browser-work.md#mb09), [MB10](m1-browser-work.md#mb10) · **S / M–L / M** |
-| **5 — Original input and controllable menu** | [MB20](m1-browser-work.md#mb20), [MB21](m1-browser-work.md#mb21), [MB22](m1-browser-work.md#mb22) · **M / S–M** |
-| **6 — Complete the original round/results/return** | [MB23](m1-browser-work.md#mb23) · **M–L** |
-| **7 — Bounded corrections and M1 acceptance** | [MB24](m1-browser-work.md#mb24) · **S–M** |
+| [M1: Original browser execution](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/22) | Play one original minigame through its original menus, round and results entirely in a desktop browser. |
+| [M2: Complete local game and conversion](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/25) | A fresh browser converts the supported player-supplied image and runs the complete original offline game. |
+| [M3: Online multiplayer and recovery](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/28) | The original game supports authoritative remote and mixed local/remote matches with recoverable tournament results. |
+| [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
+| [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
-[All 24 browser connections, evidence and exit checks](m1-browser-work.md) · [Largest-first details](m1-browser-work.md#largest-first-implementation-order) · [All work-package delivery briefs](work-packages.md) · [Next local-agent assignment](local-agent-handoff.md#bounded-goals-and-selection). These rows decompose existing scope; they are not an additional task estimate or a completion percentage.
+**Next:** Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
 
-**Tracked scope:** 51 delivery issues in 10 work packages under five milestone gates. Counts are not effort estimates.
+[M1 tasks, sizes and remaining connections](m1-browser-work.md) · [Acceptance criteria](milestones.md) · [Agent handoff](handoff.md)
 
-[Tracked delivery issues](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue+label%3Awork%3Adelivery) are native children of the work-package issues. The README chart and Project use their live status; package closure and milestone acceptance remain separate.
+<details><summary>M1 implementation order</summary>
+
+1. [SDK integration and execution bottlenecks](m1-browser-work.md#largest-first-implementation-order)
+2. [Original graphics, including an early title frame](m1-browser-work.md#largest-first-implementation-order)
+3. [Original audio](m1-browser-work.md#largest-first-implementation-order)
+4. [Finish the selected startup and resource path](m1-browser-work.md#largest-first-implementation-order)
+5. [Original input and controllable menu](m1-browser-work.md#largest-first-implementation-order)
+6. [Complete the original round/results/return](m1-browser-work.md#largest-first-implementation-order)
+7. [Bounded corrections and M1 acceptance](m1-browser-work.md#largest-first-implementation-order)
+
+</details>
+M1 remains open; accepted startup reference **M44** is unchanged. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
 <!-- project-goals:end -->
 
 | Purpose | Guide |

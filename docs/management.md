@@ -78,3 +78,9 @@ Delivery plans have their own `fuzion:delivery` block after the managed acceptan
 A reviewed deliverable in a work-package brief is one native child issue. The synchronizer derives its scope, structural size, exit criterion, parent package and milestone from that same source; it reads back every issue, native parent and dependency. It registers the same issues on the Project and exports nested delivery status. Missing or contradictory child data fails verification instead of reporting the old package totals as delivery progress.
 
 The README retains the SVG design and interactive link. Its bars count delivery issues only, with package totals and accepted milestone counts separate, so a package and its children are never counted twice. A versioned image URL refreshes GitHub’s cache when this representation changes. The publication receipt verifies deployed bytes; the report exposes its source SHA and snapshot time.
+
+## Keeping current summaries accurate
+
+Update `profiles/project.json` for foundations and the next assignment, and `profiles/m1-browser-work.json` for each browser connection. Run `npm run project:docs` in the same change. The generated README/docs goals, native issue plans, Project overview and progress graph reuse those records.
+
+Record observed behavior and limits in `docs/status.md`; keep `docs/handoff.md` aligned. Change issue status labels when work begins or awaits evidence, and close only against its exit criteria. Native success, compiled browser capability and observed browser gameplay are separate. Preserve M44 until a reviewed replacement is accepted. Tracking automation mirrors records; it cannot discover new execution evidence or accept milestones.

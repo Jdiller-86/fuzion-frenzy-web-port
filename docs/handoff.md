@@ -1,15 +1,13 @@
-# SDK browser integration: native reference to first original frame
+# Current development handoff
 
-Windows builder **0.2.0** implements the selected [Control Room launcher](control-room-launcher.md) with real build-status display and focused dialogs. Its UI/packaging changes do not alter game/browser execution evidence or accepted checkpoints. Earlier design prototypes remain available.
+## Current status
 
-Windows builder 0.1.2 now incorporates the native UI batch through the standard
-build path, including player-local pack generation and launcher replacement
-mode selection. Preserve that integration when updating the pinned patches.
+- **Windows:** builder 0.2.0 is published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
+- **Browser:** the local-ISO preview compiles and packages the full SDK/title with software rendering, keyboard/gamepad, audio and save adapters. Original browser gameplay and performance remain unverified.
+- **Next:** run that browser candidate with the compatible local ISO; fix the first actual blocker, then reach an original menu and complete minigame. Reuse existing work.
+- **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
-The separately scoped [native UI batch](native-ui.md) now provides a runnable
-F1 panel and three local texture overrides; its build/launch, runtime observations,
-font limits and browser adapter seam are recorded there. Preserve the compiled
-browser pipeline and accepted M44 state while continuing that native work.
+[Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
 
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
@@ -19,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-Start [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) under #49. Use the existing Fuzion SDK to get original execution working in the browser. Spend at most the first 30 minutes on a matching desktop reference, then build, run and fix actual browser blockers. Reach the first original frame and continue toward a controllable original menu or selected minigame. Defer detailed tests, broad matrices, per-caller audits and repeated historical comparisons until the baseline works. At 150 minutes give a brief progress update and continue productive implementation; this is not a stop or delivery promise.
+Start [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) under #49 using the existing published browser candidate. Run with the compatible local ISO; fix actual execution/performance failures and continue toward a controllable menu and complete minigame. Detailed suites follow the working browser baseline. The native reference and browser integration already exist; do not repeat their initial setup.
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

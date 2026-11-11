@@ -12,7 +12,7 @@ Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md)
 
 ## Baseline state
 
-M1 SDK/browser integration is the primary path. The user directs baseline-first implementation: build, run, fix the actual failure and keep moving toward original browser execution. Start Goal G under #49 with the pinned SDK; use a matching native desktop reference for at most the first 30 minutes, then attempt the browser path. The first original frame is a checkpoint; continue toward a controllable original menu or selected minigame. At 150 minutes give a brief progress update and continue productive implementation rather than ending with another plan. A blocked desktop environment does not block independent browser work.
+M1 SDK/browser integration is the primary path. PR #102 has merged the full SDK browser candidate and the Control Room Windows builder. Reuse the published browser package, existing source adapters and working native reference; do not restart the integration. Under Goal G / #49, run the compatible player-local ISO in the browser, fix actual failures and continue toward an original controllable menu and complete minigame. Keep commentary to major progress or blockers. Defer detailed tests until the browser baseline works.
 
 Keep the accepted M44 proof and its resume task separate from this candidate. Use the existing Fuzion SDK and applicable OpenCE browser patterns before new compatibility code. Desktop execution is a local developer reference; browser execution remains the product goal. The roadmap does not start every implementation task, and tracking workflows run no game or coding agent.
 

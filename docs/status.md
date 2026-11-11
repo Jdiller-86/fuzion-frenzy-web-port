@@ -1,19 +1,13 @@
-# Project status: SDK browser integration in progress
+# Project status
 
-Windows builder **0.1.2** integrates the native UI patches and local artwork-pack
-generation into the normal ISO/folder build flow. Rebuild the game after
-installing the updated builder; saves/settings remain intact. See the
-[Windows builder guide](../desktop/windows/README.md). This integration adds no
-new native runtime or browser execution observation.
+## Current status
 
-Native developer reference, 2026-11-11: the [F1 settings and three-texture
-replacement prototype](native-ui.md) runs with original-styled components,
-live SDK settings, persistence and input capture. Private captures include the
-original menu and an already paused Air Raid round. Original font metrics and
-physical-controller interaction remain unresolved. This supporting native work
-does not advance the accepted browser checkpoint or a project milestone.
+- **Windows:** builder 0.2.0 is published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
+- **Browser:** the local-ISO preview compiles and packages the full SDK/title with software rendering, keyboard/gamepad, audio and save adapters. Original browser gameplay and performance remain unverified.
+- **Next:** run that browser candidate with the compatible local ISO; fix the first actual blocker, then reach an original menu and complete minigame. Reuse existing work.
+- **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
-The [local-ISO SDK browser build](sdk-browser.md) now compiles/links 91 source objects: the full SDK kernel/HLE and boot/thread/TLS, mapped guest-memory windows, original disc reader, CPU reference renderer, browser input/audio and all 64 title shards plus mapping. The packaged app selects the ISO locally, verifies its XBE and mounts original files without upload. The published `93ec832` texture-cascade fix is applied and feeds the software renderer; its D3D12 descriptor correction is native-only. This advances MB04–MB07 implementation; no original browser frame or accepted checkpoint advanced because this workspace lacks the original image/assets. The user reports working Windows execution and a local agent's geometry-stability verification. First actual browser ISO execution, performance and accelerated graphics remain unverified. Smoke/regression suites remain deferred.
+[Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
 
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.

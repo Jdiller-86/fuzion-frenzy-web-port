@@ -61,3 +61,5 @@ setup, example-ready, example-progress and the three dialogs without ISO/assets.
 Ready/progress captures are presentation examples, not game/build execution
 proof. The normal installer workflow compiles the launcher and NSIS installer.
 Existing publication CI is retained; no new smoke/unit/regression suite is added.
+
+Builder 0.2.0 [installer publication](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43098718168) and [native control captures](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43097742369) completed successfully. Captures use sample UI states without game content; they do not verify interactive gameplay.

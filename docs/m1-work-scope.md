@@ -1,20 +1,23 @@
 # M1 measured work scope
 
+**Current:** PR #102 delivered the full SDK browser build and Windows builder. Use the updated [browser work map](m1-browser-work.md) for implemented connections and remaining runtime observations. The E1 numbers below describe the earlier incremental startup route; they are not a current estimate for the integrated SDK candidate. Re-estimate after its first actual ISO run identifies concrete defects and performance costs.
+
+
 Use this ledger to select bounded development tasks and reuse existing implementations. Keep measured coverage and source candidates separate from the provisional functional-task forecast below. Neither inventories nor task estimates establish M1 acceptance or a completion percentage. [Status](status.md) owns the current runtime frontier; [milestones](milestones.md#m1--original-browser-execution) owns acceptance.
 
 For the concrete remaining **browser execution connections**, use the [M1 browser work map](m1-browser-work.md). It lists 24 named scope/integration/acceptance items, existing evidence, observable exits, dependencies and structural S/M/L sizes. Those rows decompose the capabilities below; they are not additional forecast packages. M1 reports should identify the affected MB row and its specific remaining connection instead of describing all browser work as unknown.
 
-## Current planning refresh: profile forty-four
+## Historical planning refresh: profile forty-four
 
 M44 completes the retained original C4C480 allocation wrapper and its existing SDK allocator subtree on the same live context. Actual256KiB payload/header/extent and both original returns pass checks, with complete in-module payload/image witnesses and unchanged earlier six allocations. Full default43 and prior3137CPU/383kernel rows remain retained; independent source/build/harness/browser review passes. No original body/map/import/cap is added.
 
 SCOPE-36 is verified at the accepted M44 boundary. Its one-argument4F6BD→4B230 logger caller stops at actualstatus2 target=ESP03C10E5C/RA4F6C2/arg25C89C, not a function-address stop. The separate reviewed local R3 candidate subsequently returns through that logger and reaches the unadmitted4EA30 caller; its body and enclosing4F5E0 remain pending. **SCOPE-37 continuation** assesses that caller/resource/provider contract, corresponding first to MB02 in the browser work map. M44 remains the accepted checkpoint. Forecast16/28/49/about15 completed packages remains unchanged because startup stays open;24 accepted smaller checkpoints sinceE1. [Status](status.md) owns exact evidence identities and limits.
 
-## Remaining M1 planning estimate (E1)
+## Historical M1 planning estimate (E1)
 
-The SDK-first implementation owns near-term priority; use [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05). Build-run-fix toward original browser output and a controllable baseline, using a short desktop reference where useful. Defer detailed testing and timing analysis until it works. Give a brief progress update at 150 minutes and continue productive work. Historical task allowances below are not calendar forecasts; a frame or failure report does not close a package.
+The compiled SDK candidate now owns near-term priority; use [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05). Build-run-fix toward original browser output and a controllable baseline, using a short desktop reference where useful. Defer detailed testing and timing analysis until it works. Give a brief progress update at 150 minutes and continue productive work. Historical task allowances below are not calendar forecasts; a frame or failure report does not close a package.
 
-**Plan around 30 remaining engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** E1 was established at source checkpoint `05380a2` / profile twenty. Profile twenty-two closed one grouped continuation/parent-re-entry package. Profile thirty-four closed the distinct selected directory-call cluster; profile forty closes the later selected stdio call cluster. The worksheet reflects three one-package reductions; overall startup and other areas remain open. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
+**Historical allowance: around 30 engineering tasks, with a rough scenario range of about 20–50. Confidence is low.** E1 was established at source checkpoint `05380a2` / profile twenty. Profile twenty-two closed one grouped continuation/parent-re-entry package. Profile thirty-four closed the distinct selected directory-call cluster; profile forty closes the later selected stdio call cluster. The worksheet reflects three one-package reductions; overall startup and other areas remain open. It is an engineering forecast, not a counted total of future unsupported stops, a statistical confidence interval, a deadline or a guaranteed upper bound.
 
 One task means a task-sized functional capability or reached-path integration batch, including its targeted verification. Examples are providing original controller polling, translating the needed shader/state path, or finishing an original startup call cluster. Several functions/imports can share one task; one shared adapter fix may remove many stops. Tasks have unequal effort. Do not convert this count into hours or a milestone percentage.
 

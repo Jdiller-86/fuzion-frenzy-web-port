@@ -39,10 +39,9 @@ defer detailed testing and independent correctness review until it works,
 before promoting accepted evidence.
 
 For the SDK-first Goal G, use docs/resource-reuse.md: bounded native desktop
-reference for at most its first 30 minutes, then the same-source/config/input
-browser build-run-fix loop. If native setup/build is blocked, continue useful
-browser work. At 150 minutes give a short progress update and keep implementing
-while productive. The first frame is a checkpoint toward a controllable
+reference and the already compiled/published browser candidate. Run with the
+matching local ISO and fix actual browser blockers; do not restart integration.
+Report only major progress or blockers and continue productive implementation. The first frame is a checkpoint toward a controllable
 original baseline; detailed tests, broad matrices, per-caller audits and full
 historical comparisons come later. Keep basic bounds and private-content
 checks. Do not stop merely to write another plan.
@@ -104,11 +103,11 @@ Use the [largest-first implementation order](m1-browser-work.md#largest-first-im
 
 **Objective:** Get the existing original SDK path working in the browser. The first original frame (MB17) is the first checkpoint; continue the same implementation loop toward a controllable original menu or selected minigame. This is the active baseline-first assignment under #49, with enabling graphics/resource/input changes in scope when ownership permits. Detailed acceptance statements in the other goals govern later promotion, not mandatory per-step certification of this prototype.
 
-**Build-run-fix:** Confirm current ownership and reuse the pinned SDK/configuration and retained output. Use a matching desktop reference for at most the first 30 minutes, then compile the same source for the browser. Native setup failure must not block independent browser work. Choose supported worker/thread patterns, adapt shared interfaces, run the actual path, inspect the failure and implement the next supported fix. A new caller alone does not require a separate task or full audit. Keep private inputs/artifacts local, preserve M44 and keep basic resource/identity/bounds checks. Declare candidate limits explicitly; detailed contract review follows the baseline.
+**Build-run-fix:** Confirm current ownership and reuse the pinned SDK/configuration and retained output. Reuse the existing working native reference and the published browser candidate. Run with the matching local ISO, fix the first actual failure and continue toward a controllable menu and complete minigame. Do not repeat initial integration or native setup. Choose supported worker/thread patterns, adapt shared interfaces, run the actual path, inspect the failure and implement the next supported fix. A new caller alone does not require a separate task or full audit. Keep private inputs/artifacts local, preserve M44 and keep basic resource/identity/bounds checks. Declare candidate limits explicitly; detailed contract review follows the baseline.
 
-**Testing order:** Before the baseline, use quick compile/run/smoke checks and only diagnostics needed to fix observed failures. Defer detailed suites, broad device/browser matrices, per-caller audits, repeated historical comparisons and mandatory independent CPU/memory/ABI/GPU review until the baseline works. Reuse existing passing evidence; preserve required publication CI. Once execution works, iterate on correctness, fidelity, coverage and independent review before checkpoint or milestone acceptance.
+**Testing order:** Before the baseline, compile and run the actual application with only diagnostics needed to fix observed failures. Defer detailed suites, broad device/browser matrices, per-caller audits, repeated historical comparisons and mandatory independent CPU/memory/ABI/GPU review until the baseline works. Reuse existing passing evidence; preserve required publication CI. Once execution works, iterate on correctness, fidelity, coverage and independent review before checkpoint or milestone acceptance.
 
-**Progress:** At 150 minutes give a concise update and continue productive implementation. Record the runnable result or actual build/run failure, identities, elapsed effort and next concrete fix. This is a progress checkpoint, not a hard stop or promised execution time. A first frame or blocked attempt does not close #49 or accept M1; its full acceptance stays unchanged.
+**Progress:** Report major progress or blockers only. Record the runnable result or actual failure, identities and next fix; continue productive implementation. A first frame or blocked attempt does not close #49 or accept M1; its full acceptance stays unchanged.
 
 **Real blockers:** Pause only the affected execution for missing private inputs/source authority, an unresolvable external dependency or unsafe resource/content behavior. Fix supported implementation failures and continue independent ready work. Do not replace the original program with synthetic success or claim a desktop result as browser execution. A and D remain conditional legacy prerequisites; pull necessary B/C/H or input connections into this same baseline objective with explicit ownership.
 
