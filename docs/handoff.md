@@ -1,5 +1,9 @@
 # SDK browser integration: native reference to first original frame
 
+Windows builder 0.1.2 now incorporates the native UI batch through the standard
+build path, including player-local pack generation and launcher replacement
+mode selection. Preserve that integration when updating the pinned patches.
+
 The separately scoped [native UI batch](native-ui.md) now provides a runnable
 F1 panel and three local texture overrides; its build/launch, runtime observations,
 font limits and browser adapter seam are recorded there. Preserve the compiled

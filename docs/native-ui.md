@@ -20,7 +20,11 @@ release object cache. `-ApplyPatches` applies `runtime-fixes.patch`, then
 `ui-replacements.patch` to the SDK, and `native-ui.patch` to native source.
 The [UI patch manifest](../desktop/windows/patches/ui-manifest.json) records
 normalized before/after identities. Without that switch, supply the already
-patched retained source copies. The standard Windows installer is unchanged.
+patched retained source copies. The standard Windows builder **0.1.2** now applies these same patches during its
+normal CMake build, generates the three-image pack directly from the selected
+local ISO/folder and launches it with the chosen replacement mode. Installing
+the updated builder requires a subsequent game rebuild. The separate commands
+below remain the developer path.
 
 Build the local pack from the existing inventory and pilot, without rerunning
 extraction:

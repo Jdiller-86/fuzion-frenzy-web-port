@@ -1,12 +1,15 @@
 # Windows rendering fixes
 
-The optional [native UI prototype](../../../docs/native-ui.md) additionally uses
-`ui-replacements.patch` after these rendering fixes and `native-ui.patch` against
-the pinned native host. `ui-manifest.json` records their normalized identities.
-They contain source only; the three-image pack must be created locally from the
-player's private inventory. `tools/ui/Build-NativeUi.ps1 -ApplyPatches` owns this
-opt-in build lifecycle; the standard installer still applies only the rendering
-fixes below.
+The standard installer now applies `runtime-fixes.patch`, then
+`ui-replacements.patch` to the pinned SDK and `native-ui.patch` to the native
+host during compilation. `ui-manifest.json` records the UI source identities.
+All source changes are restored afterwards; interrupted exact known patches
+are recovered before checkout validation. Unknown edits are preserved.
+
+The three-image pack is created automatically from the player's selected local
+ISO/folder by `scripts/Build-UiPack.py`. The separate
+`tools/ui/Build-NativeUi.ps1` path remains available for developers.
+See [native UI behavior and limitations](../../../docs/native-ui.md).
 
 `runtime-fixes.patch` modifies the public XboxXBERecomp SDK at commit
 `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`. It contains no original game code

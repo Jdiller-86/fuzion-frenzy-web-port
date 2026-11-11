@@ -10,6 +10,7 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Runtime-Patches.ps1')
+. (Join-Path $PSScriptRoot 'Ui-Patches.ps1')
 
 $script:SdkCommit = '58757ab255c0a6b3929f405d7a5f1567fcd7fda3'
 $script:RuntimePatchRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'patches'
@@ -491,11 +492,13 @@ try {
     Import-VsDeveloperEnvironment -InstallPath $vsInstall
 
     Write-ProgressStatus -Phase 'checkout' -Message 'Preparing the pinned native project and SDK source.' -Progress 12
-    Ensure-PinnedCheckout -Path $script:NativeRoot -Url 'https://github.com/abilliontokens/fuzionfrenzy-recomp.git' -Commit '071dbd97bdc098c4647cc24c99f9eae693fde1eb' -Label 'native'
     # An interrupted build may have left our exact known patch in the SDK tree.
     # Recover it before checkout validation; unknown edits remain untouched.
+    Restore-KnownUiPatches -GitExe $script:GitExe -Root $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -Layer sdk
     Restore-KnownRuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit -SkipDifferentHead
     Ensure-PinnedCheckout -Path $script:SdkRoot -Url 'https://github.com/abilliontokens/XboxXBERecomp.git' -Commit $script:SdkCommit -Label 'XboxXBERecomp SDK'
+    Restore-KnownUiPatches -GitExe $script:GitExe -Root $script:NativeRoot -PatchRoot $script:RuntimePatchRoot -Layer native
+    Ensure-PinnedCheckout -Path $script:NativeRoot -Url 'https://github.com/abilliontokens/fuzionfrenzy-recomp.git' -Commit '071dbd97bdc098c4647cc24c99f9eae693fde1eb' -Label 'native'
 
     if ($script:InputKind -eq 'image') {
         Write-ProgressStatus -Phase 'extract' -Message 'Validating and reading default.xbe from the local image.' -Progress 28
@@ -515,6 +518,8 @@ try {
 
     try {
         Apply-RuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit
+        Apply-UiPatches -GitExe $script:GitExe -Root $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -Layer sdk
+        Apply-UiPatches -GitExe $script:GitExe -Root $script:NativeRoot -PatchRoot $script:RuntimePatchRoot -Layer native
         Write-ProgressStatus -Phase 'configure' -Message 'Configuring the pinned release build.' -Progress 48
         Invoke-Native -FilePath 'cmake.exe' -Arguments @('--preset', 'release') -WorkingDirectory $script:NativeRoot -Phase 'configure' -Message 'Configuring the release build.'
 
@@ -522,13 +527,23 @@ try {
         Invoke-Native -FilePath 'cmake.exe' -Arguments @('--build', 'out/build/release', '--parallel', [string]$Jobs) -WorkingDirectory $script:NativeRoot -Phase 'compile' -Message 'Compiling the game.'
     }
     finally {
-        Restore-KnownRuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit
+        try { Restore-KnownUiPatches -GitExe $script:GitExe -Root $script:NativeRoot -PatchRoot $script:RuntimePatchRoot -Layer native }
+        finally {
+          try { Restore-KnownUiPatches -GitExe $script:GitExe -Root $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -Layer sdk }
+          finally { Restore-KnownRuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit }
+        }
     }
+
+    Write-ProgressStatus -Phase 'ui-assets' -Message 'Preparing original UI artwork from your local game files.' -Progress 91
+    $uiPack = Join-Path $workspaceFull '.local-ui\ui.bgra'
+    Invoke-Native -FilePath $script:PythonExe -Arguments ($script:PythonPrefix + @((Join-Path $PSScriptRoot 'Build-UiPack.py'), '--source', $script:InputSource, '--native', $script:NativeRoot, '--output', $uiPack)) -Phase 'ui-assets' -Message 'Extracting the three original UI components locally.'
 
     $staging = Join-Path $gameDirectoryFull ('.install-staging-' + [Guid]::NewGuid().ToString('N'))
     try {
         Write-ProgressStatus -Phase 'install' -Message 'Staging the executable, runtime files, license notices, and local game data.' -Progress 92
         Copy-InstallFiles -BuildDirectory (Join-Path $script:NativeRoot 'out\build\release') -StagingDirectory $staging -InputKind $script:InputKind -SourcePath $script:InputSource
+        [IO.File]::Copy($uiPack, (Join-Path $staging 'ui.bgra'), $true)
+        [IO.File]::Copy(($uiPack + '.json'), (Join-Path $staging 'ui-pack.json'), $true)
         Install-StagedOutput -StagingDirectory $staging -DestinationDirectory $gameDirectoryFull
         $installedExe = Join-Path $gameDirectoryFull 'FuzionFrenzy.exe'
     }

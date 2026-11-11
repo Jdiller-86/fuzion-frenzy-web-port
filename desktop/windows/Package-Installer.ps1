@@ -2,6 +2,12 @@
 param([string]$OutputDirectory = (Join-Path $PSScriptRoot '..\..\artifacts\windows'))
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+# Reject syntax errors in shipped Windows PowerShell 5.1 scripts before packaging.
+foreach ($script in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'scripts') -Filter '*.ps1') {
+    $tokens = $null; $parseErrors = $null
+    $null = [Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw ("Bundled script syntax error in {0}: {1}" -f $script.Name, ($parseErrors -join '; ')) }
+}
 $out = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $publish = Join-Path $out 'launcher'

@@ -1,5 +1,11 @@
 # Project status: SDK browser integration in progress
 
+Windows builder **0.1.2** integrates the native UI patches and local artwork-pack
+generation into the normal ISO/folder build flow. Rebuild the game after
+installing the updated builder; saves/settings remain intact. See the
+[Windows builder guide](../desktop/windows/README.md). This integration adds no
+new native runtime or browser execution observation.
+
 Native developer reference, 2026-11-11: the [F1 settings and three-texture
 replacement prototype](native-ui.md) runs with original-styled components,
 live SDK settings, persistence and input capture. Private captures include the

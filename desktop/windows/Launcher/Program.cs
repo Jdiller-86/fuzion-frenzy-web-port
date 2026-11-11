@@ -47,13 +47,14 @@ internal sealed class LauncherForm : Form
     private readonly NumericUpDown frameCap = new();
     private readonly NumericUpDown anisotropic = new();
     private readonly ComboBox hdr = new();
+    private readonly ComboBox uiArtwork = new();
     private Process? activeProcess;
     private bool loading;
     private bool cancelRequested;
 
     public LauncherForm()
     {
-        Text = "Fuzion Frenzy · Windows Launcher v0.1.1";
+        Text = "Fuzion Frenzy · Windows Launcher v0.1.2";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(850, 700);
         Size = new Size(1040, 900);
@@ -62,6 +63,7 @@ internal sealed class LauncherForm : Form
         Font = new Font("Segoe UI", 9.5f);
         BuildLayout();
         LoadPreferences();
+        uiArtwork.SelectedIndexChanged += (_, _) => SavePreferences();
         sourcePath.TextChanged += (_, _) => SavePreferences();
         workspacePath.TextChanged += (_, _) => SavePreferences();
         gamePath.TextChanged += (_, _) => { SavePreferences(); RefreshGameState(); };
@@ -131,10 +133,11 @@ internal sealed class LauncherForm : Form
         AddField(grid, 4, 2, "HDR (Windows)", hdr, new[] { "off", "auto", "on" });
         ultrawide.Text = "Widen on wide displays"; ultrawide.Checked = true; ultrawide.AutoSize = true; ultrawide.BackColor = Panel; ultrawide.ForeColor = TextColor; ultrawide.Margin = new Padding(3, 7, 3, 3);
         AddField(grid, 5, 0, "Ultrawide", ultrawide);
+        AddField(grid, 5, 2, "UI artwork", uiArtwork, new[] { "4x preview", "Original pixels", "Replacements off" });
         settingsCard.Controls.Add(grid);
         var saveSettings = MakeButton("Save Game Settings", true); saveSettings.Click += (_, _) => SaveGameSettings();
         var settingsNote = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, BackColor = Panel, Margin = new Padding(0, 8, 0, 0) }; settingsNote.Controls.Add(saveSettings);
-        settingsNote.Controls.Add(new Label { Text = "The game also supports aspect ratio and ultrawide through its F1 panel.", ForeColor = Muted, AutoSize = true, Margin = new Padding(7, 11, 0, 0) });
+        settingsNote.Controls.Add(new Label { Text = "F1: display settings. Pause gameplay first. UI artwork takes effect on Play.", ForeColor = Muted, AutoSize = true, Margin = new Padding(7, 11, 0, 0) });
         settingsCard.Controls.Add(settingsNote); page.Controls.Add(settingsCard);
 
         var controlsCard = SectionCard("Controls", "Host keyboard and mouse input maps to one Xbox controller while the game window is focused. Controllers are detected in plug-in order.");
@@ -306,7 +309,16 @@ internal sealed class LauncherForm : Form
     {
         var exe = Path.Combine(gamePath.Text, "FuzionFrenzy.exe");
         if (!File.Exists(exe)) { MessageBox.Show(this, "Build the game first. The launcher will look for FuzionFrenzy.exe in the selected game folder.", "Game not built", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        try { Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = gamePath.Text, UseShellExecute = true }); Log("Started FuzionFrenzy.exe."); }
+        try {
+            var psi = new ProcessStartInfo(exe) { WorkingDirectory = gamePath.Text, UseShellExecute = false };
+            var pack = Path.Combine(Path.GetFullPath(gamePath.Text), "ui.bgra");
+            // Scope settings to this child; never change the user's environment.
+            psi.Environment.Remove("FUZION_UI_PACK");
+            psi.Environment["FUZION_UI_REPLACE"] = uiArtwork.SelectedIndex switch { 1 => "identity", 2 => "off", _ => "pilot" };
+            if (File.Exists(pack)) psi.Environment["FUZION_UI_PACK"] = pack;
+            else Log("No local UI artwork pack found. Rebuild with this launcher to add it.");
+            Process.Start(psi); Log("Started FuzionFrenzy.exe. F1 opens settings; pause gameplay first.");
+        }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not start game", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
     private void RefreshGameState()
@@ -383,6 +395,7 @@ internal sealed class LauncherForm : Form
         {
             var prefs = File.Exists(preferencesFile) ? JsonSerializer.Deserialize<LauncherPreferences>(File.ReadAllText(preferencesFile)) : null;
             sourcePath.Text = prefs?.InputPath ?? ""; workspacePath.Text = prefs?.Workspace ?? Path.Combine(UserRoot, "workspace"); gamePath.Text = prefs?.GameDirectory ?? Path.Combine(UserRoot, "game");
+            Select(uiArtwork, prefs?.UiArtwork ?? "4x preview");
             var settings = Path.Combine(gamePath.Text, "settings.toml");
             if (File.Exists(settings))
             {
@@ -418,12 +431,12 @@ internal sealed class LauncherForm : Form
     private void SavePreferences()
     {
         if (loading) return;
-        try { Directory.CreateDirectory(UserRoot); File.WriteAllText(preferencesFile, JsonSerializer.Serialize(new LauncherPreferences(sourcePath.Text, workspacePath.Text, gamePath.Text), new JsonSerializerOptions { WriteIndented = true })); } catch { }
+        try { Directory.CreateDirectory(UserRoot); File.WriteAllText(preferencesFile, JsonSerializer.Serialize(new LauncherPreferences(sourcePath.Text, workspacePath.Text, gamePath.Text, uiArtwork.Text), new JsonSerializerOptions { WriteIndented = true })); } catch { }
     }
     private void Log(string line)
     {
         if (buildLog.IsDisposed) return;
         buildLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {line}{Environment.NewLine}");
     }
-    private sealed record LauncherPreferences(string InputPath, string Workspace, string GameDirectory);
+    private sealed record LauncherPreferences(string InputPath, string Workspace, string GameDirectory, string UiArtwork = "4x preview");
 }

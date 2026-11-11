@@ -1,20 +1,35 @@
 # Fuzion Frenzy Windows builder
 
-Current source includes [two Windows rendering repairs](patches/README.md)
-for white geometry and descriptor-related flicker observed in Twisted System.
-The builder applies these SDK patches during compilation. The downloadable
-0.1.1 preview below predates these repairs; package current source to include them.
+Version **0.1.2** integrates the [native styled F1 settings panel](../../docs/native-ui.md),
+three local UI texture overrides, and the [Windows rendering repairs](patches/README.md)
+into the normal build flow.
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.1-preview.1/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.1-preview.1)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.2-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.2-preview.1)
 
-Version 0.1.1 fixes PowerShell 5.1 file replacement, removes an unsupported
-Visual Studio installer argument, adds standalone LLVM discovery/installation,
-and displays prerequisite installer output with a persistent local log. Close
-the old launcher before installing the update; game files and saves are retained.
+Close the old launcher, install the update, then **Build** again with your ISO or
+complete extracted folder. Installing the builder alone does not replace the
+previously compiled game. Saves and settings are retained.
 
-The launcher and NSIS installer compiled successfully on Windows Actions. The
-installer is approximately 45 MiB; it contains the builder, not game content.
+Build now extracts only the three confirmed UI resources from your local game
+packages and generates the artwork pack automatically. It does not require an
+inventory, screenshots, Node, or developer commands. Python installs Pillow
+12.2.0 into the private UI build cache on first use; this downloads software only.
+The pack and its provenance stay beside your locally compiled executable.
+
+**Play** uses the selected **UI artwork** mode: **4x preview** (default),
+**Original pixels**, or **Replacements off**. This choice is saved immediately
+and takes effect on the next launch. The 4x artwork is a resampling preview,
+not a finished HD art pack. Missing/invalid runtime packs retain original textures.
+
+**F1** opens frame cap, render scale, aspect ratio and VSync with Apply/Save/Cancel.
+**Pause gameplay through the original Start menu first**: F1 does not pause the
+simulation. Typography is a development font. Physical-controller interaction
+still needs hardware observation. The existing launcher retains the broader
+settings controls, and **F2** retains the performance panel.
+
+The release workflow compiles the launcher and NSIS installer on Windows Actions.
+It contains the builder, not game content.
 
 Target: Windows 10/11 x64 with a D3D12-capable GPU. The launcher includes its
 .NET runtime; the separate C++ game compiler is installed on demand.

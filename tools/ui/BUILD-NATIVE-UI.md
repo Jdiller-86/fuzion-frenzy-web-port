@@ -30,7 +30,7 @@ The settings override replaces the retained SDK cache object ending in
 applies the published rendering, UI replacement, and native UI patches during
 compilation, then reverses them in `finally`; known interrupted patches are
 recovered before application. Unknown or partial edits stop the operation.
-Keep all checkouts and output local. This script is an opt-in developer path;
-the minimum application integration is a separate advanced-build action that
-calls it with explicitly selected private paths and leaves the standard
-`Build-Game.ps1` install/update lifecycle unchanged.
+Keep all checkouts and output local. This remains an opt-in incremental developer path. The standard Windows
+builder 0.1.2 applies the same patches during its normal CMake build and creates
+the local pack directly from the selected ISO/folder; it does not call this
+object-substitution script.
