@@ -1,0 +1,167 @@
+diff --git a/runtime/gpu/d3d12.cpp b/runtime/gpu/d3d12.cpp
+index ab38b02..a5f943a 100644
+--- a/runtime/gpu/d3d12.cpp
++++ b/runtime/gpu/d3d12.cpp
+@@ -50,6 +50,7 @@ constexpr uint64_t kUploadSize = 64ull << 20;
+ // a draw starting with less than this left in the frame's ring waits for the GPU and starts the ring over
+ constexpr uint64_t kUploadReserve = 8ull << 20;
+ constexpr uint32_t kSrvCount = 3 * 32768;
++constexpr uint32_t kInvalidSrvSlot = UINT32_MAX;
+ constexpr uint32_t kSamplerCount = 2048;
+ constexpr uint32_t kRtvCount = 1024;
+ constexpr uint32_t kDsvCount = 256;
+@@ -569,6 +570,8 @@ private:
+         uint64_t fence = 0;
+         std::vector<ComPtr<ID3D12Resource>> garbage;
+         uint32_t srv = 0;
++        size_t srv_page = 0;
++        std::vector<ComPtr<ID3D12DescriptorHeap>> srv_overflow;
+     };
+     struct Alloc {
+         ID3D12Resource* res;
+@@ -649,7 +652,7 @@ private:
+     void CaptureInputs(const State& s, const Assembled& a, const DrawConstants& c);
+     void CaptureShaders(const State& s, const Assembled& a, const DrawShaders& sh, const PixelKey& pk);
+     void CaptureShader(const char* kind, uint64_t key, const std::string& src);
+-    void SetTextureViewsAndSamplers(const State& s, const Assembled& a, DrawTextures& stages);
++    bool SetTextureViewsAndSamplers(const State& s, const Assembled& a, DrawTextures& stages);
+     uint32_t EnsureStageSamplers(const State& s, const DrawTextures& stages, bool clamp);
+     // returns the scissor it set
+     D3D12_RECT SetViewportScissor(const State& s, GuestExtent size);
+@@ -785,6 +788,7 @@ private:
+     uint64_t frame_ = 0;
+     ComPtr<ID3D12GraphicsCommandList> cl_;
+     ComPtr<ID3D12DescriptorHeap> srv_heap_;
++    ComPtr<ID3D12DescriptorHeap> base_srv_heap_;
+     ComPtr<ID3D12DescriptorHeap> smp_heap_;
+     ComPtr<ID3D12DescriptorHeap> rtv_heap_;
+     ComPtr<ID3D12DescriptorHeap> dsv_heap_;
+@@ -985,6 +989,7 @@ void D3D12Backend::CreateBackBufferViews() {
+ 
+ void D3D12Backend::CreateHeaps() {
+     srv_inc_ = CreateHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kSrvCount, true, srv_heap_);
++    base_srv_heap_ = srv_heap_;
+     smp_inc_ = CreateHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, kSamplerCount, true, smp_heap_);
+     rtv_inc_ = CreateHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, kRtvCount + kFrames, false, rtv_heap_);
+     dsv_inc_ = CreateHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, kDsvCount, false, dsv_heap_);
+@@ -1073,6 +1078,8 @@ void D3D12Backend::Submit(bool wait) {
+         f.garbage.clear();
+         f.used = 0;
+         f.srv = 0;
++        f.srv_page = 0;
++        srv_heap_ = base_srv_heap_;
+         cl_->Reset(f.alloc.Get(), nullptr);
+         Begin();
+     }
+@@ -1137,10 +1144,31 @@ uint32_t D3D12Backend::AllocSrvSlots(uint32_t n) {
+     Frame& f = CurrentFrame();
+     const uint32_t per = kSrvCount / kFrames;
+     if (f.srv + n > per) {
+-        LOG_FIRST(4, "d3d12: descriptor ring wrapped within a frame");
++        // Earlier draws still reference this page. Reuse overflow pages only after this
++        // frame's fence has completed and ResetFrame/Submit(true) resets srv_page.
++        if (f.srv_page == f.srv_overflow.size()) {
++            D3D12_DESCRIPTOR_HEAP_DESC hd{};
++            hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
++            hd.NumDescriptors = per;
++            hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
++            ComPtr<ID3D12DescriptorHeap> page;
++            HRESULT hr = dev_->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&page));
++            if (FAILED(hr)) {
++                LOGE("d3d12: overflow SRV heap not made, hr %08lX, device removed reason %08lX",
++                     (unsigned long)hr, (unsigned long)dev_->GetDeviceRemovedReason());
++                return kInvalidSrvSlot;
++            }
++            f.srv_overflow.push_back(std::move(page));
++        }
++        srv_heap_ = f.srv_overflow[f.srv_page++];
+         f.srv = 0;
++        // Changing heaps invalidates descriptor tables. Every allocation caller binds
++        // both root tables before its draw, while target/pipeline/constant state survives.
++        ID3D12DescriptorHeap* heaps[] = {srv_heap_.Get(), smp_heap_.Get()};
++        cl_->SetDescriptorHeaps(2, heaps);
++        if (diag::Perf()) LOGR("d3d12: SRV overflow page %zu, frame %llu", f.srv_page, (unsigned long long)frame_);
+     }
+-    uint32_t i = uint32_t(frame_ % kFrames) * per + f.srv;
++    uint32_t i = (f.srv_page ? 0 : uint32_t(frame_ % kFrames) * per) + f.srv;
+     f.srv += n;
+     return i;
+ }
+@@ -1361,6 +1389,10 @@ void D3D12Backend::DrawDepthCopy(Target& src, Target& dst, ID3D12PipelineState*
+     cl_->OMSetRenderTargets(0, nullptr, FALSE, &dh);
+     SetFullViewport(dst.w, dst.h);
+     uint32_t slot = AllocSrvSlots(1);
++    if (slot == kInvalidSrvSlot) {
++        bound_rt_ = bound_ds_ = nullptr;
++        return;
++    }
+     D3D12_SHADER_RESOURCE_VIEW_DESC sv{};
+     sv.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+     sv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+@@ -1515,6 +1547,7 @@ void D3D12Backend::DrawFullScreen(ID3D12PipelineState* pso, D3D12_GPU_VIRTUAL_AD
+ 
+ void D3D12Backend::Blit(ID3D12Resource* src, DXGI_FORMAT fmt, const float uvrect[4], const BlitOptions& o) {
+     uint32_t slot = AllocSrvSlots(2);
++    if (slot == kInvalidSrvSlot) return;
+     D3D12_SHADER_RESOURCE_VIEW_DESC sv{};
+     sv.Format = fmt;
+     sv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+@@ -1623,6 +1656,7 @@ void D3D12Backend::Pass(const char* hlsl, const char* entry, DXGI_FORMAT rtv, D3
+     ID3D12PipelineState* pso = EnsurePassPipeline(hlsl, entry, rtv, blend);
+     if (!pso) return;
+     uint32_t slot = AllocSrvSlots(4);
++    if (slot == kInvalidSrvSlot) return;
+     for (int i = 0; i < 4; i++) {
+         D3D12_SHADER_RESOURCE_VIEW_DESC sv{};
+         sv.Format = i < 3 && src[i] ? fmt[i] : kBgra;
+@@ -2651,8 +2685,9 @@ void FillUvRectConstants(const State& s, uint32_t prim, uint32_t count, const As
+ }
+ 
+ // a stage without a texture gets a null view of its kind; the samplers read the views after
+-void D3D12Backend::SetTextureViewsAndSamplers(const State& s, const Assembled& a, DrawTextures& stages) {
++bool D3D12Backend::SetTextureViewsAndSamplers(const State& s, const Assembled& a, DrawTextures& stages) {
+     uint32_t slot = AllocSrvSlots(4);
++    if (slot == kInvalidSrvSlot) return false;
+     for (int i = 0; i < 4; i++) {
+         D3D12_SHADER_RESOURCE_VIEW_DESC& sv = stages.sv[i];
+         if (!stages.res[i]) {
+@@ -2664,6 +2699,7 @@ void D3D12Backend::SetTextureViewsAndSamplers(const State& s, const Assembled& a
+     cl_->SetGraphicsRootDescriptorTable(2, Gpu(srv_heap_.Get(), slot, srv_inc_));
+     uint32_t samplers = EnsureStageSamplers(s, stages, UnitTexcoords(a));
+     cl_->SetGraphicsRootDescriptorTable(3, Gpu(smp_heap_.Get(), samplers, smp_inc_));
++    return true;
+ }
+ 
+ // viewport covers the target, the guest viewport is in the shader; scissor clips to it
+@@ -2833,7 +2869,7 @@ void D3D12Backend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t
+     D3D12_RECT scissor;
+     {
+         PerfScope perf_views{g_perf.views};
+-        SetTextureViewsAndSamplers(s, a, stages);
++        if (!SetTextureViewsAndSamplers(s, a, stages)) return SkippedDraw(s, prim, count, "no SRV descriptors");
+         scissor = SetViewportScissor(s, size);
+         SetBlendFactorStencilRef(s);
+     }
+@@ -3625,6 +3661,8 @@ void D3D12Backend::ResetFrame() {
+     f.garbage.clear();
+     f.used = 0;
+     f.srv = 0;
++    f.srv_page = 0;
++    srv_heap_ = base_srv_heap_;
+     cl_->Reset(f.alloc.Get(), nullptr);
+     Begin();
+ }
+diff --git a/runtime/gpu/shaders.cpp b/runtime/gpu/shaders.cpp
+index 274ab60..3f4ea06 100644
+--- a/runtime/gpu/shaders.cpp
++++ b/runtime/gpu/shaders.cpp
+@@ -616,6 +616,9 @@ PixelKey MakePixelKey(const State& s, const TexInfo tex[4]) {
+     bool program = (s.vs_handle & 1) && s.vs && !s.vs->program.empty();
+     for (int i = 0; i < 4; i++) {
+         const auto& t = s.tss[size_t(i)];
++        // A NULL texture with COLORARG1 = TEXTURE terminates the fixed-function cascade.
++        // SELECTARG2 does not read COLORARG1, which may retain its default TEXTURE selector.
++        if (t[kTssColorOp] != 3 && !s.textures[size_t(i)] && (t[kTssColorArg1] & 0xF) == 2) break;
+         uint32_t v[9] = {t[kTssColorOp], t[kTssColorArg1], t[kTssColorArg2], t[kTssColorArg0], t[kTssAlphaOp],
+                          t[kTssAlphaArg1],  t[kTssAlphaArg2], t[kTssAlphaArg0], t[kTssResultArg]};
+         std::memcpy(k.ff[i], v, sizeof(v));

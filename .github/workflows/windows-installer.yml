@@ -1,0 +1,57 @@
+name: Windows local-game installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['windows-builder-v*']
+    paths:
+      - 'desktop/windows/**'
+      - 'runtime/browser/sdk/SDK-NOTICE.txt'
+      - '.github/workflows/windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install installer compiler
+        shell: pwsh
+        run: choco install nsis --version=3.11 --yes --no-progress
+      - name: Compile launcher and installer
+        shell: pwsh
+        run: ./desktop/windows/Package-Installer.ps1
+      - name: Upload downloadable installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: FuzionFrenzy-Windows-Installer
+          path: |
+            artifacts/windows/FuzionFrenzySetup.exe
+            artifacts/windows/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/windows-builder-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FuzionFrenzy-Windows-Installer
+          path: installer
+      - name: Publish tagged installer preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh release create "$RELEASE_TAG" installer/FuzionFrenzySetup.exe installer/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Fuzion Frenzy Windows Builder $RELEASE_TAG" --notes "Control Room launcher: one Game/Source/Display equipment bank, amber dot-matrix status tied to actual build progress, and no navigation tabs or redundant display captions. Settings, Build Options and Controls each have one entry point. Errors open the log; complete builder output is retained locally. Existing game builds, preferences and saves are preserved. Install this launcher update without rebuilding a game already built with 0.1.2 or later. Includes the existing native F1 settings, local UI artwork generation and rendering fixes. Supply your own compatible ISO/XISO or extracted game files; no game content is included or uploaded. Packaging compiles the launcher and installer, not the original game."

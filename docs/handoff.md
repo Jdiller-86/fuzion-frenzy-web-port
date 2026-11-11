@@ -1,5 +1,16 @@
 # SDK browser integration: native reference to first original frame
 
+Windows builder **0.2.0** implements the selected [Control Room launcher](control-room-launcher.md) with real build-status display and focused dialogs. Its UI/packaging changes do not alter game/browser execution evidence or accepted checkpoints. Earlier design prototypes remain available.
+
+Windows builder 0.1.2 now incorporates the native UI batch through the standard
+build path, including player-local pack generation and launcher replacement
+mode selection. Preserve that integration when updating the pinned patches.
+
+The separately scoped [native UI batch](native-ui.md) now provides a runnable
+F1 panel and three local texture overrides; its build/launch, runtime observations,
+font limits and browser adapter seam are recorded there. Preserve the compiled
+browser pipeline and accepted M44 state while continuing that native work.
+
 <!-- development-state:start -->
 Recorded development state: **M1 / awaiting-evidence**, profile **44**. Retained startup resume task: **SCOPE-37**.
 
@@ -15,6 +26,8 @@ Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workfl
 The [largest-first M1 order](m1-browser-work.md#largest-first-implementation-order) begins with SDK integration and the minimum graphics connection for the first frame. SCOPE-37 below records the retained startup resume boundary and is conditional on the SDK experiment needing that exact capability. Batch supported shared-interface fixes and report a runnable result or actual compiler/browser failure plus named missing adapters; routine counts and general plans do not satisfy this assignment.
 
 ## Current boundary
+
+The separate [SDK browser build](sdk-browser.md) now links the full SDK kernel/HLE, boot/thread/TLS, translated guest memory, local ISO disc mount, CPU reference rendering, input and audio. It packages a local-server browser app with ISO intake and browser-local saves. All 91 source objects link; no original browser execution was observed here because the matching ISO/assets are absent. The rendering patch from project commit `93ec832` is applied: its shared texture-cascade correction feeds the software renderer; D3D12 descriptor management is native-only. Continue MB04–MB07 with the first actual local-image run and fix the reached runtime boundary before accelerating graphics. Keep M44 unchanged; smoke/regression suites remain deferred.
 
 Local Goal A continuation (2026-11-09): PR #46 at `b2c4d1e` is loaded with all five pre-existing worker-cap edits preserved. The newer November8 bundle is preparation only. M44 below remains the accepted checkpoint; forecast16/28/49 is unchanged. The mutable Ghidra database has no trusted pre-incident identity, but neither unchanged replay nor the covered retained-code candidate consumes that database. Pinned original bytes, retained seeds/listings and audited source/build evidence support the exact caller and literal. Do not invent a historical database checksum or infer new facts from it.
 

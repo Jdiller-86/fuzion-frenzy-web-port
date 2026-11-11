@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "normalization": "UTF-8 without BOM; LF",
+  "requires": "Apply existing runtime-fixes.patch before SDK UI patch; native patch applies to pinned native source.",
+  "sdk": {
+    "commit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3",
+    "patch": "ui-replacements.patch",
+    "files": [
+      {
+        "path": "runtime/gpu/d3d12.cpp",
+        "beforeSha256": "0c50b5303232e6fe3a61d526393a95f960ef63537e273a901e350ded58497b6c",
+        "afterSha256": "8214a985320669903aaace02d5cf45d98ec7b86892518f1cb0117a8b263b373c"
+      },
+      {
+        "path": "runtime/gpu/ui_replacements.h",
+        "beforeSha256": null,
+        "afterSha256": "f47f95b9ff558ac4d93d2ef4e7b1a2ea74fdb727f4972fcb1886224710bc5e49"
+      },
+      {
+        "path": "runtime/gpu/ui_replacements.cpp",
+        "beforeSha256": null,
+        "afterSha256": "05a725bde7ca8fc25941e5055839293668873f6d6b01ba997e196ca857c73d34"
+      },
+      {
+        "path": "runtime/app/settings.cpp",
+        "beforeSha256": "e2b39901f68c440135ca7fd5c811c0f09d76dc81d86614718f931673a61fffed",
+        "afterSha256": "d34357dc9eca410dbd857400111f89e9affdc62ca6511bbec0e7b4ab8bbee8ad"
+      }
+    ]
+  },
+  "native": {
+    "commit": "071dbd97bdc098c4647cc24c99f9eae693fde1eb",
+    "patch": "native-ui.patch",
+    "files": [
+      {
+        "path": "src/common/overlay.cpp",
+        "beforeSha256": "d75b09753aba6618f9db3493eb5e704c9198607ad09e12436cb73883c26bcfaf",
+        "afterSha256": "5e9e3405ffc852f2247bc7657d02d8b782de84b8b5c72f8ef900c4a54dc15f7f"
+      },
+      {
+        "path": "src/common/overlay.h",
+        "beforeSha256": "5e13cfdca507a7780a9a061127b34611ab45c557c25b431d0214b7388a3ec1a4",
+        "afterSha256": "668c2d47e293f2a9a972b9aadde211402cc6d5333a951598b35ea69965f5e46a"
+      },
+      {
+        "path": "src/common/input_kbm.cpp",
+        "beforeSha256": "de8996d2ea7028736a889022bcddfac2d57f1743ac113d00dc8a0a580fddc9a4",
+        "afterSha256": "51c40b6d7ab747874a45da8c6aeb31b579f85330982e89607af7fd0dffe3e45a"
+      },
+      {
+        "path": "src/common/game_info.cpp",
+        "beforeSha256": "7d22911beef8063a2719ce1d93c0ee5f3b63afb97ae46c4d94afd0d51e419a33",
+        "afterSha256": "3ae4339027ea8b63aa6d52bf48539e9c06e9a9da46716daad794d7bcd4f90710"
+      }
+    ]
+  }
+}

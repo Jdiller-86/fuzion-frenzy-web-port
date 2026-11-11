@@ -54,6 +54,22 @@ Reviewed source changes and issue events refresh tracking; hourly reconciliation
 
 ## Use or build
 
+New development outputs: the [full-title SDK browser candidate](docs/sdk-browser.md)
+links the uploaded title source with the full SDK runtime and software renderer,
+with local ISO intake, keyboard/gamepad input and browser audio. The separate
+[Windows installer and launcher](desktop/windows/README.md) builds the native
+port from a player-supplied ISO/XISO or extracted folder and exposes display
+settings, build progress and local saves/logs. These candidates do not advance
+the accepted browser checkpoint; original browser playability remains unproved.
+
+[Download the Windows builder preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.0-preview.1).
+Supply your own compatible game files; the installer contains no game content.
+
+[Download the browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser).
+Extract the ZIP, run **Start Browser.cmd**, and select your local ISO in the
+browser. This software-renderer build has compiled successfully; original
+browser gameplay and performance remain unverified here.
+
 Use **Node.js 24.14.0** and **npm 11.x** (pin 11.9.0):
 
 ```sh
