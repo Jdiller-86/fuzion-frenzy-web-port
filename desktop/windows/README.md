@@ -1,15 +1,23 @@
 # Fuzion Frenzy Windows builder
 
-Version **0.1.2** integrates the [native styled F1 settings panel](../../docs/native-ui.md),
+Version **0.1.3** refines the builder with a console-inspired interface: dark
+metallic surfaces, cyan accents, vector disc graphics, beveled buttons and a
+segmented progress meter. Separate Build + Play, Game Settings and Controls
+views keep the main workflow focused. ISO/folder selection is direct; build
+locations are tucked behind an optional control. All artwork is original vector
+drawing and uses Windows fonts; no web runtime or game art is required.
+
+The builder includes the [native styled F1 settings panel](../../docs/native-ui.md),
 three local UI texture overrides, and the [Windows rendering repairs](patches/README.md)
 into the normal build flow.
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.2-preview.1/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.2-preview.1)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.3-preview.1/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.3-preview.1)
 
-Close the old launcher, install the update, then **Build** again with your ISO or
-complete extracted folder. Installing the builder alone does not replace the
-previously compiled game. Saves and settings are retained.
+Close the old launcher and install the update. Existing game builds, saves and
+settings remain available. If you already rebuilt with 0.1.2, this visual update
+does not require another game rebuild. To add the native UI features to an older
+game build, choose **Build** again with your ISO or complete extracted folder.
 
 Build now extracts only the three confirmed UI resources from your local game
 packages and generates the artwork pack automatically. It does not require an

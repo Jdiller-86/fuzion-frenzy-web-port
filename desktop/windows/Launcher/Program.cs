@@ -18,12 +18,12 @@ internal static class Program
 
 internal sealed class LauncherForm : Form
 {
-    private static readonly Color Bg = Color.FromArgb(16, 22, 34);
-    private static readonly Color Panel = Color.FromArgb(26, 35, 51);
-    private static readonly Color Panel2 = Color.FromArgb(33, 44, 63);
+    private static readonly Color Bg = Color.FromArgb(9, 15, 24);
+    private static readonly Color Panel = Color.FromArgb(17, 28, 41);
+    private static readonly Color Panel2 = Color.FromArgb(24, 40, 55);
     private static readonly Color TextColor = Color.FromArgb(238, 242, 249);
     private static readonly Color Muted = Color.FromArgb(164, 177, 198);
-    private static readonly Color Accent = Color.FromArgb(87, 180, 255);
+    private static readonly Color Accent = Color.FromArgb(74, 225, 235);
     private static readonly string UserRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FuzionFrenzy");
     private readonly string preferencesFile = Path.Combine(UserRoot, "launcher-settings.json");
     private readonly TextBox sourcePath = new();
@@ -32,10 +32,10 @@ internal sealed class LauncherForm : Form
     private readonly TextBox buildLog = new();
     private readonly Label status = new();
     private readonly Label gameState = new();
-    private readonly ProgressBar buildProgress = new();
+    private readonly SegmentProgress buildProgress = new();
     private readonly System.Windows.Forms.Timer statusTimer = new() { Interval = 500 };
-    private readonly Button buildButton = new();
-    private readonly Button cancelButton = new();
+    private readonly Button buildButton = new TechButton();
+    private readonly Button cancelButton = new TechButton();
     private readonly NumericUpDown jobs = new();
     private readonly ComboBox displayMode = new();
     private readonly NumericUpDown width = new();
@@ -54,10 +54,11 @@ internal sealed class LauncherForm : Form
 
     public LauncherForm()
     {
-        Text = "Fuzion Frenzy · Windows Launcher v0.1.2";
+        Text = "Fuzion Frenzy · Windows Launcher v0.1.3";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(850, 700);
-        Size = new Size(1040, 900);
+        MinimumSize = new Size(960, 740);
+        Size = new Size(1120, 940);
+        AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Bg;
         ForeColor = TextColor;
         Font = new Font("Segoe UI", 9.5f);
@@ -74,12 +75,43 @@ internal sealed class LauncherForm : Form
 
     private void BuildLayout()
     {
-        var page = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 1, Padding = new Padding(28, 20, 28, 24), BackColor = Bg };
-        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        Controls.Add(page);
-        var title = new Label { Text = "Fuzion Frenzy", Font = new Font("Segoe UI", 25, FontStyle.Bold), ForeColor = TextColor, AutoSize = true, Margin = new Padding(0, 0, 0, 1) };
-        page.Controls.Add(title);
-        page.Controls.Add(new Label { Text = "Build a local Windows game from your own disc image or extracted game files.", ForeColor = Muted, AutoSize = true, Margin = new Padding(2, 0, 0, 18) });
+        var shell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Bg, Padding = new Padding(24, 18, 24, 12) };
+        shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 144));
+        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        Controls.Add(shell);
+        shell.Controls.Add(new ConsoleHeader { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 8), AccessibleName = "Fuzion Frenzy Windows builder" }, 0, 0);
+        var navigation = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0), BackColor = Bg };
+        shell.Controls.Add(navigation, 0, 1);
+        var host = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, Margin = new Padding(0), BackColor = Bg };
+        shell.Controls.Add(host, 0, 2);
+        TableLayoutPanel MakePage() {
+            var result = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, ColumnCount = 1, BackColor = Bg, Padding = new Padding(0, 0, 12, 8), Margin = new Padding(0) };
+            result.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            host.Controls.Add(result);
+            return result;
+        }
+        var page = MakePage();
+        var settingsPage = MakePage();
+        var controlsPage = MakePage();
+        var pages = new[] { page, settingsPage, controlsPage };
+        var tabs = new List<TechButton>();
+        void ShowPage(int index) {
+            for (int n = 0; n < pages.Length; n++) { pages[n].Visible = n == index; tabs[n].Selected = n == index; }
+            pages[index].BringToFront();
+        }
+        string[] names = { "01   BUILD + PLAY", "02   GAME SETTINGS", "03   CONTROLS" };
+        for (int n = 0; n < names.Length; n++) {
+            int index = n;
+            var tab = new TechButton { Text = names[n], Width = 202, Height = 40, Margin = new Padding(0, 0, 10, 0), AccessibleName = names[n][5..] };
+            tab.Click += (_, _) => ShowPage(index);
+            tabs.Add(tab); navigation.Controls.Add(tab);
+        }
+        ShowPage(0);
+        var footer = new Label { Text = "LOCAL FILES ONLY  /  NO GAME DATA UPLOADED                                      WINDOWS x64  ·  BUILDER 0.1.3", ForeColor = Muted, Font = new Font("Bahnschrift", 8.5f), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Margin = new Padding(0, 6, 0, 0) };
+        shell.Controls.Add(footer, 0, 3);
 
         var statusPanel = Card();
         var statusLine = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, BackColor = Panel, Margin = new Padding(0) };
@@ -88,17 +120,24 @@ internal sealed class LauncherForm : Form
         statusLine.Controls.Add(status); statusLine.Controls.Add(gameState); statusPanel.Controls.Add(statusLine);
         page.Controls.Add(statusPanel);
 
-        var sourceCard = SectionCard("1  ·  Game files", "Choose an ISO/XISO image or a folder that already contains extracted game files.");
-        var sourceRow = PathRow(sourcePath, "Browse…", ChooseSource, "Select a disc image or extracted game folder");
+        var sourceCard = SectionCard("01 / YOUR GAME DISC", "Select your Fuzion Frenzy ISO or extracted game folder. Everything stays on your PC.");
+        var sourceRow = PathRow(sourcePath, "Choose ISO", ChooseSource, "Select a disc image or extracted game folder");
         sourceCard.Controls.Add(sourceRow);
         page.Controls.Add(sourceCard);
 
-        var locationCard = SectionCard("2  ·  Build locations", "Your working files and game install stay in your Windows user profile by default.");
+        var locationCard = SectionCard("BUILD LOCATIONS", "Defaults keep your game and working files in your Windows user profile.");
         locationCard.Controls.Add(PathRow(workspacePath, "Browse…", () => ChooseFolder(workspacePath, "Choose build workspace"), "Build workspace"));
         locationCard.Controls.Add(PathRow(gamePath, "Browse…", () => ChooseFolder(gamePath, "Choose game folder"), "Game folder"));
+        locationCard.Visible = false;
+        var locationToggle = MakeButton("Edit build locations", false, () => { locationCard.Visible = !locationCard.Visible; });
+        locationToggle.Width = 200;
+        var sourceActions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 8, 0, 0) };
+        sourceActions.Controls.Add(MakeButton("Use extracted folder", false, () => ChooseFolder(sourcePath, "Choose extracted game files")));
+        sourceActions.Controls.Add(locationToggle);
+        sourceCard.Controls.Add(sourceActions);
         page.Controls.Add(locationCard);
 
-        var buildCard = SectionCard("3  ·  Build and play", "The launcher runs the bundled build script and keeps its output here. Your local save data is kept with the game folder.");
+        var buildCard = SectionCard("02 / BUILD + LAUNCH", "Build once from your disc, then launch whenever you like. Rebuilds keep your saves and settings.");
         var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, BackColor = Panel, Margin = new Padding(0, 6, 0, 3) };
         var prerequisites = MakeButton("Install Build Tools", false); prerequisites.Width = 176; prerequisites.Click += async (_, _) => await InstallTools();
         buildButton.Text = "Build Game"; buildButton.Width = 145; buildButton.Height = 38; StyleButton(buildButton, true); buildButton.Click += async (_, _) => await RunBuild();
@@ -106,10 +145,11 @@ internal sealed class LauncherForm : Form
         var play = MakeButton("Play Game", false); play.Width = 125; play.Click += (_, _) => PlayGame();
         var jobsLabel = new Label { Text = "Parallel jobs", ForeColor = Muted, AutoSize = true, Margin = new Padding(12, 11, 2, 0) };
         jobs.Minimum = 1; jobs.Maximum = Math.Max(1, Environment.ProcessorCount); jobs.Value = Math.Max(1, Math.Min(Environment.ProcessorCount, 8)); jobs.Width = 60; jobs.Margin = new Padding(0, 4, 8, 0); jobs.BackColor = Panel2; jobs.ForeColor = TextColor;
-        actions.Controls.Add(prerequisites); actions.Controls.Add(buildButton); actions.Controls.Add(cancelButton); actions.Controls.Add(play); actions.Controls.Add(jobsLabel); actions.Controls.Add(jobs);
+        actions.Controls.Add(buildButton); actions.Controls.Add(play); actions.Controls.Add(cancelButton); actions.Controls.Add(prerequisites); actions.Controls.Add(jobsLabel); actions.Controls.Add(jobs);
         buildCard.Controls.Add(actions);
-        buildProgress.Dock = DockStyle.Top; buildProgress.Width = 860; buildProgress.Height = 9; buildProgress.Style = ProgressBarStyle.Continuous; buildProgress.Minimum = 0; buildProgress.Maximum = 100; buildProgress.Margin = new Padding(0, 4, 0, 0); buildCard.Controls.Add(buildProgress);
-        buildLog.Multiline = true; buildLog.ReadOnly = true; buildLog.ScrollBars = ScrollBars.Vertical; buildLog.WordWrap = false; buildLog.Dock = DockStyle.Top; buildLog.Width = 860; buildLog.Height = 170; buildLog.BackColor = Color.FromArgb(12, 17, 27); buildLog.ForeColor = Color.FromArgb(208, 221, 238); buildLog.BorderStyle = BorderStyle.FixedSingle; buildLog.Font = new Font("Consolas", 9); buildLog.Margin = new Padding(0, 8, 0, 2);
+        buildProgress.Dock = DockStyle.Top; buildProgress.Height = 12; buildProgress.Minimum = 0; buildProgress.Maximum = 100; buildProgress.Margin = new Padding(0, 4, 0, 0); buildCard.Controls.Add(buildProgress);
+        buildLog.Multiline = true; buildLog.ReadOnly = true; buildLog.ScrollBars = ScrollBars.Vertical; buildLog.WordWrap = false; buildLog.Dock = DockStyle.Top; buildLog.Height = 154; buildLog.BackColor = Color.FromArgb(8, 17, 25); buildLog.ForeColor = Color.FromArgb(157, 204, 216); buildLog.BorderStyle = BorderStyle.None; buildLog.Font = new Font("Consolas", 9); buildLog.Margin = new Padding(0, 8, 0, 2);
+        buildCard.Controls.Add(new Label { Text = "BUILD ACTIVITY", Font = new Font("Bahnschrift", 8.5f), ForeColor = Accent, AutoSize = true, Margin = new Padding(0, 12, 0, 2) });
         buildCard.Controls.Add(buildLog); page.Controls.Add(buildCard);
 
         var tools = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, BackColor = Panel, Margin = new Padding(0, 8, 0, 0) };
@@ -118,8 +158,8 @@ internal sealed class LauncherForm : Form
         tools.Controls.Add(MakeButton("Open Logs", false, () => OpenPath(Path.Combine(gamePath.Text, "logs"))));
         buildCard.Controls.Add(tools);
 
-        var settingsCard = SectionCard("Game settings", "These options write supported settings beside the game executable. F1 opens the in-game settings panel; F2 shows frame times.");
-        var grid = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4, RowCount = 6, BackColor = Panel, Margin = new Padding(0, 6, 0, 0), Width = 860 };
+        var settingsCard = SectionCard("DISPLAY + QUALITY", "Tune your next session. Save to apply these preferences to the game.");
+        var grid = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4, RowCount = 6, BackColor = Panel, Margin = new Padding(0, 6, 0, 0) };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         AddField(grid, 0, 0, "Display mode", displayMode, new[] { "borderless", "fullscreen", "windowed" });
         ConfigureNumber(width, 0, 16384, 0, 100); ConfigureNumber(height, 0, 16384, 0, 100);
@@ -138,12 +178,17 @@ internal sealed class LauncherForm : Form
         var saveSettings = MakeButton("Save Game Settings", true); saveSettings.Click += (_, _) => SaveGameSettings();
         var settingsNote = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, BackColor = Panel, Margin = new Padding(0, 8, 0, 0) }; settingsNote.Controls.Add(saveSettings);
         settingsNote.Controls.Add(new Label { Text = "F1: display settings. Pause gameplay first. UI artwork takes effect on Play.", ForeColor = Muted, AutoSize = true, Margin = new Padding(7, 11, 0, 0) });
-        settingsCard.Controls.Add(settingsNote); page.Controls.Add(settingsCard);
+        settingsCard.Controls.Add(settingsNote); settingsPage.Controls.Add(settingsCard);
+        var settingsHelp = SectionCard("IN-GAME ADJUSTMENTS", "F1 opens the styled display panel. Pause the game first; the panel itself does not pause gameplay.");
+        settingsHelp.Controls.Add(new Label { Text = "Apply changes live. Save keeps them for next time. Cancel discards unapplied edits.\nUI artwork mode is saved automatically here and takes effect on your next launch.", AutoSize = true, ForeColor = Muted, Margin = new Padding(0, 8, 0, 0) });
+        settingsPage.Controls.Add(settingsHelp);
 
-        var controlsCard = SectionCard("Controls", "Host keyboard and mouse input maps to one Xbox controller while the game window is focused. Controllers are detected in plug-in order.");
+        var controlsCard = SectionCard("KEYBOARD + CONTROLLER", "Use the keyboard and mouse as player one, or connect a controller. Input follows the focused game window.");
         controlsCard.Controls.Add(new Label { Text = "W A S D: left stick   ·   Arrow keys: D-pad   ·   Right mouse + mouse: right stick\nSpace: A   ·   Escape / Backspace: B   ·   X / Y: X / Y   ·   Z / C: triggers\n1 / 2: black / white   ·   Enter: Start   ·   Tab: Back   ·   Shift / Ctrl: stick clicks\nF1: in-game settings   ·   F2: frame-time graph", AutoSize = true, ForeColor = Muted, BackColor = Panel, Margin = new Padding(0, 5, 0, 0) });
-        page.Controls.Add(controlsCard);
-        page.Controls.Add(new Label { Text = "Requires Windows 10/11 x64. Build tools are large external downloads and may require administrator approval. Game files are read locally and are never uploaded.", ForeColor = Muted, AutoSize = true, MaximumSize = new Size(900, 0), Margin = new Padding(2, 13, 0, 0) });
+        controlsPage.Controls.Add(controlsCard);
+        var setupHelp = SectionCard("FIRST BUILD", "Install Build Tools if prompted, select your disc, then choose Build Game.");
+        setupHelp.Controls.Add(new Label { Text = "The first build downloads the compiler and source code and may take a while.\nLater builds reuse the local cache. Your game files are never uploaded.\nRequires Windows 10/11 x64 and a D3D12-capable graphics card.", AutoSize = true, ForeColor = Muted, Margin = new Padding(0, 8, 0, 0) });
+        controlsPage.Controls.Add(setupHelp);
     }
 
     private static void ConfigureNumber(NumericUpDown number, decimal min, decimal max, decimal value, decimal increment)
@@ -153,22 +198,24 @@ internal sealed class LauncherForm : Form
     {
         if (options is not null && control is ComboBox combo) { combo.DropDownStyle = ComboBoxStyle.DropDownList; combo.Width = 145; combo.BackColor = Panel2; combo.ForeColor = TextColor; combo.Items.AddRange(options); combo.SelectedIndex = 0; combo.Margin = new Padding(3, 3, 8, 4); }
         var label = new Label { Text = name, ForeColor = Muted, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 4, 4) };
+        control.Dock = DockStyle.Fill;
         grid.Controls.Add(label, col, row); grid.Controls.Add(control, col + 1, row);
     }
 
-    private static Panel Card() => new() { Dock = DockStyle.Top, AutoSize = true, BackColor = Panel, Padding = new Padding(14, 11, 14, 11), Margin = new Padding(0, 0, 0, 12) };
-    private static FlowLayoutPanel SectionCard(string heading, string description)
+    private static System.Windows.Forms.Panel Card() => new() { Dock = DockStyle.Top, AutoSize = true, BackColor = Panel, Padding = new Padding(18, 12, 18, 12), Margin = new Padding(0, 0, 0, 14) };
+    private static TableLayoutPanel SectionCard(string heading, string description)
     {
-        var p = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Panel, Padding = new Padding(14, 11, 14, 11), Margin = new Padding(0, 0, 0, 12) };
-        p.Controls.Add(new Label { Text = heading, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = TextColor, AutoSize = true, BackColor = Panel, Margin = new Padding(0, 0, 0, 2) });
-        p.Controls.Add(new Label { Text = description, ForeColor = Muted, AutoSize = true, MaximumSize = new Size(900, 0), BackColor = Panel, Margin = new Padding(0, 2, 0, 3) });
+        var p = new ConsoleCard { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, BackColor = Panel, Padding = new Padding(20, 18, 20, 18), Margin = new Padding(0, 0, 0, 14) };
+        p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        p.Controls.Add(new Label { Text = heading, Font = new Font("Bahnschrift", 11, FontStyle.Bold), ForeColor = TextColor, AutoSize = true, Margin = new Padding(0, 0, 0, 5) });
+        p.Controls.Add(new Label { Text = description, ForeColor = Muted, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 2, 0, 12) });
         return p;
     }
 
     private Control PathRow(TextBox box, string buttonText, Action browse, string hint)
     {
         box.Dock = DockStyle.Fill; box.BackColor = Panel2; box.ForeColor = TextColor; box.BorderStyle = BorderStyle.FixedSingle; box.Margin = new Padding(0, 4, 8, 4); box.PlaceholderText = hint;
-        var row = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, BackColor = Panel, Margin = new Padding(0, 0, 0, 2), Width = 860 };
+        var row = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, BackColor = Panel, Margin = new Padding(0, 0, 0, 2) };
         row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
         var btn = MakeButton(buttonText, false); btn.Width = 105; btn.Click += (_, _) => browse();
         row.Controls.Add(box, 0, 0); row.Controls.Add(btn, 1, 0); return row;
@@ -176,24 +223,24 @@ internal sealed class LauncherForm : Form
 
     private static Button MakeButton(string label, bool primary, Action? action = null)
     {
-        var b = new Button { Text = label, AutoSize = false, Height = 36, Width = 155, FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Panel2, ForeColor = primary ? Color.FromArgb(9, 20, 34) : TextColor, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Margin = new Padding(0, 2, 8, 2), Cursor = Cursors.Hand };
+        var b = new TechButton { Text = label, AutoSize = false, Height = 36, Width = 155, FlatStyle = FlatStyle.Flat, BackColor = primary ? Accent : Panel2, ForeColor = primary ? Color.FromArgb(9, 20, 34) : TextColor, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Margin = new Padding(0, 2, 8, 2), Cursor = Cursors.Hand };
         b.FlatAppearance.BorderColor = primary ? Accent : Color.FromArgb(66, 82, 107); b.FlatAppearance.BorderSize = 1;
+        b.Primary = primary;
         if (action is not null) b.Click += (_, _) => action();
         return b;
     }
     private static void StyleButton(Button b, bool primary)
-    { b.FlatStyle = FlatStyle.Flat; b.BackColor = primary ? Accent : Panel2; b.ForeColor = primary ? Color.FromArgb(9, 20, 34) : TextColor; b.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold); b.FlatAppearance.BorderColor = primary ? Accent : Color.FromArgb(66, 82, 107); b.Cursor = Cursors.Hand; b.Margin = new Padding(0, 2, 8, 2); }
+    {
+        b.FlatStyle = FlatStyle.Flat; b.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold); b.Cursor = Cursors.Hand; b.Margin = new Padding(0, 2, 8, 2);
+        if (b is TechButton tech) tech.Primary = primary;
+    }
 
     private void ChooseSource()
     {
-        var choice = MessageBox.Show(this, "Choose Yes to select an ISO/XISO image, or No to select an extracted game folder.", "Select local game files", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
-        if (choice == DialogResult.Yes)
-        {
-            using var dlg = new OpenFileDialog { Title = "Choose your local disc image", Filter = "Xbox disc images (*.iso;*.xiso)|*.iso;*.xiso|All files (*.*)|*.*", CheckFileExists = true };
-            if (dlg.ShowDialog(this) == DialogResult.OK) sourcePath.Text = dlg.FileName;
-        }
-        else if (choice == DialogResult.No) ChooseFolder(sourcePath, "Choose extracted game files");
+        using var dlg = new OpenFileDialog { Title = "Choose your local Fuzion Frenzy disc image", Filter = "Xbox disc images (*.iso;*.xiso)|*.iso;*.xiso|All files (*.*)|*.*", CheckFileExists = true };
+        if (dlg.ShowDialog(this) == DialogResult.OK) sourcePath.Text = dlg.FileName;
     }
+
     private void ChooseFolder(TextBox target, string description)
     {
         using var dlg = new FolderBrowserDialog { Description = description, UseDescriptionForTitle = true, ShowNewFolderButton = true };
