@@ -100,10 +100,10 @@ internal sealed class LauncherForm : Form
             for (int n = 0; n < pages.Length; n++) { pages[n].Visible = n == index; tabs[n].Selected = n == index; }
             pages[index].BringToFront();
         }
-        string[] names = { "01   BUILD + PLAY", "02   GAME SETTINGS", "03   CONTROLS" };
+        string[] names = { "BUILD + PLAY", "GAME SETTINGS", "CONTROLS" };
         for (int n = 0; n < names.Length; n++) {
             int index = n;
-            var tab = new TechButton { Text = names[n], Width = 202, Height = 40, Margin = new Padding(0, 0, 10, 0), AccessibleName = names[n][5..] };
+            var tab = new TechButton { Text = names[n], Width = 202, Height = 40, Margin = new Padding(0, 0, 10, 0), AccessibleName = names[n] };
             tab.Click += (_, _) => ShowPage(index);
             tabs.Add(tab); navigation.Controls.Add(tab);
         }

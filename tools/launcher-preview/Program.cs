@@ -17,9 +17,9 @@ internal static class Preview
         form.Shown += (_, _) => form.BeginInvoke(new Action(() => {
             try {
                 foreach (var (caption, filename) in new[] {
-                    ("01   BUILD + PLAY", "build-play.png"),
-                    ("02   GAME SETTINGS", "game-settings.png"),
-                    ("03   CONTROLS", "controls.png") }) {
+                    ("BUILD + PLAY", "build-play.png"),
+                    ("GAME SETTINGS", "game-settings.png"),
+                    ("CONTROLS", "controls.png") }) {
                     FindButton(form, caption).PerformClick();
                     form.PerformLayout();
                     form.Refresh();

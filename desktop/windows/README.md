@@ -1,7 +1,7 @@
 # Fuzion Frenzy Windows builder
 
 Version **0.1.4** removes the large banner, decorative header graphic and
-promotional taglines. The application title stays in the Windows title bar;
+promotional taglines. Navigation tabs have plain labels without numbering. The application title stays in the Windows title bar;
 navigation and build controls now start at the top of the window. The dark
 surfaces, cyan accents, beveled controls and segmented progress remain.
 
