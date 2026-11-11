@@ -65,6 +65,11 @@ the accepted browser checkpoint; original browser playability remains unproved.
 [Download the Windows builder preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.1-preview.1).
 Supply your own compatible game files; the installer contains no game content.
 
+[Download the browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser).
+Extract the ZIP, run **Start Browser.cmd**, and select your local ISO in the
+browser. This software-renderer build has compiled successfully; original
+browser gameplay and performance remain unverified here.
+
 Use **Node.js 24.14.0** and **npm 11.x** (pin 11.9.0):
 
 ```sh

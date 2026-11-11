@@ -1,5 +1,8 @@
 # Local-ISO SDK browser build
 
+[Browser build downloads and checksums](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser)
+· [Successful browser build workflow](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43036929326)
+
 This build compiles the original title and the full pinned native SDK into
 WebAssembly. It uses the SDK's kernel services, guest threads/TLS, disc reader,
 XDK overrides and CPU reference renderer. Rendering, input and audio run in the
