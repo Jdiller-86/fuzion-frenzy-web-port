@@ -36,7 +36,10 @@
     },
     "sdk": {
       "repository": "https://github.com/abilliontokens/XboxXBERecomp.git",
-      "commit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3"
+      "commit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3",
+      "localBuildPatch": "patches/runtime-fixes.patch",
+      "patchIdentities": "patches/manifest.json",
+      "patchLifecycle": "Apply for configure/compile; restore known patched files afterwards; recover exact known interrupted patches before checkout validation."
     }
   },
   "gameInput": {

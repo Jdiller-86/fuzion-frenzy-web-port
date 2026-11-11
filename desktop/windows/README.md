@@ -1,5 +1,10 @@
 # Fuzion Frenzy Windows builder
 
+Current source includes [two Windows rendering repairs](patches/README.md)
+for white geometry and descriptor-related flicker observed in Twisted System.
+The builder applies these SDK patches during compilation. The downloadable
+0.1.1 preview below predates these repairs; package current source to include them.
+
 [Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.1-preview.1/FuzionFrenzySetup.exe)
 · [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.1-preview.1)
 

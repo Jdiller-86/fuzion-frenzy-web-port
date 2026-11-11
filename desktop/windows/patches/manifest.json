@@ -1,0 +1,15 @@
+{
+  "sdkCommit": "58757ab255c0a6b3929f405d7a5f1567fcd7fda3",
+  "files": [
+    {
+      "path": "runtime/gpu/d3d12.cpp",
+      "beforeSha256": "86ee60d7ede6e91273abd72de789da4e453b1e65fed495b0df58523266c92786",
+      "afterSha256": "0c50b5303232e6fe3a61d526393a95f960ef63537e273a901e350ded58497b6c"
+    },
+    {
+      "path": "runtime/gpu/shaders.cpp",
+      "beforeSha256": "1e0352771d26c78f3a37b1e6ffea8d0f394c4ce3b848b0c4bdf94d72115cc347",
+      "afterSha256": "04468fb7b978df09fb1c87ea880a8c7b5879dc9a7a79151207a606f37067d20b"
+    }
+  ]
+}

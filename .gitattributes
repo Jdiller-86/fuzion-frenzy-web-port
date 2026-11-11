@@ -2,3 +2,5 @@
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
+# Unified patches encode blank context lines as a single space.
+desktop/windows/patches/*.patch whitespace=-blank-at-eol

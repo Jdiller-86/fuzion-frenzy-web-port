@@ -9,6 +9,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Runtime-Patches.ps1')
+
+$script:SdkCommit = '58757ab255c0a6b3929f405d7a5f1567fcd7fda3'
+$script:RuntimePatchRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'patches'
 
 $script:StatusPathValue = $null
 $script:LastProgress = $null
@@ -412,7 +416,7 @@ try {
     if (-not $env:LOCALAPPDATA) { throw 'Windows did not provide the per-user LocalAppData folder.' }
     $localAppData = [IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
     if ($workspaceFull -ne $localAppData -and -not $workspaceFull.StartsWith(($localAppData + [IO.Path]::DirectorySeparatorChar), [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'The source workspace must remain inside this Windows user’s LocalAppData folder.'
+        throw 'The source workspace must remain inside this Windows user''s LocalAppData folder.'
     }
     if (-not $StatusPath) { $StatusPath = Join-Path $workspaceFull 'build-status.json' }
     $script:StatusPathValue = [IO.Path]::GetFullPath($StatusPath)
@@ -488,7 +492,10 @@ try {
 
     Write-ProgressStatus -Phase 'checkout' -Message 'Preparing the pinned native project and SDK source.' -Progress 12
     Ensure-PinnedCheckout -Path $script:NativeRoot -Url 'https://github.com/abilliontokens/fuzionfrenzy-recomp.git' -Commit '071dbd97bdc098c4647cc24c99f9eae693fde1eb' -Label 'native'
-    Ensure-PinnedCheckout -Path $script:SdkRoot -Url 'https://github.com/abilliontokens/XboxXBERecomp.git' -Commit '58757ab255c0a6b3929f405d7a5f1567fcd7fda3' -Label 'XboxXBERecomp SDK'
+    # An interrupted build may have left our exact known patch in the SDK tree.
+    # Recover it before checkout validation; unknown edits remain untouched.
+    Restore-KnownRuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit -SkipDifferentHead
+    Ensure-PinnedCheckout -Path $script:SdkRoot -Url 'https://github.com/abilliontokens/XboxXBERecomp.git' -Commit $script:SdkCommit -Label 'XboxXBERecomp SDK'
 
     if ($script:InputKind -eq 'image') {
         Write-ProgressStatus -Phase 'extract' -Message 'Validating and reading default.xbe from the local image.' -Progress 28
@@ -506,11 +513,17 @@ try {
     [IO.File]::Copy($xbePath, (Join-Path $buildAssets 'default.xbe'), $true)
     $script:GameRoot = $buildAssets
 
-    Write-ProgressStatus -Phase 'configure' -Message 'Configuring the pinned release build.' -Progress 48
-    Invoke-Native -FilePath 'cmake.exe' -Arguments @('--preset', 'release') -WorkingDirectory $script:NativeRoot -Phase 'configure' -Message 'Configuring the release build.'
+    try {
+        Apply-RuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit
+        Write-ProgressStatus -Phase 'configure' -Message 'Configuring the pinned release build.' -Progress 48
+        Invoke-Native -FilePath 'cmake.exe' -Arguments @('--preset', 'release') -WorkingDirectory $script:NativeRoot -Phase 'configure' -Message 'Configuring the release build.'
 
-    Write-ProgressStatus -Phase 'compile' -Message 'Compiling the game. The initial native build can take a long time.' -Progress 65
-    Invoke-Native -FilePath 'cmake.exe' -Arguments @('--build', 'out/build/release', '--parallel', [string]$Jobs) -WorkingDirectory $script:NativeRoot -Phase 'compile' -Message 'Compiling the game.'
+        Write-ProgressStatus -Phase 'compile' -Message 'Compiling the game. The initial native build can take a long time.' -Progress 65
+        Invoke-Native -FilePath 'cmake.exe' -Arguments @('--build', 'out/build/release', '--parallel', [string]$Jobs) -WorkingDirectory $script:NativeRoot -Phase 'compile' -Message 'Compiling the game.'
+    }
+    finally {
+        Restore-KnownRuntimePatches -GitExe $script:GitExe -SdkRoot $script:SdkRoot -PatchRoot $script:RuntimePatchRoot -ExpectedCommit $script:SdkCommit
+    }
 
     $staging = Join-Path $gameDirectoryFull ('.install-staging-' + [Guid]::NewGuid().ToString('N'))
     try {
@@ -523,7 +536,6 @@ try {
         if (Test-Path -LiteralPath $staging) { [IO.Directory]::Delete($staging, $true) }
         if ($script:ImageStage -and (Test-Path -LiteralPath $script:ImageStage)) { [IO.Directory]::Delete($script:ImageStage, $true) }
     }
-
     Write-Status -Phase 'complete' -Message 'The native game build is ready.' -Progress 100 -State 'completed' -OutputExe $installedExe
     Write-Output ('Game ready: {0}' -f $installedExe)
     exit 0
