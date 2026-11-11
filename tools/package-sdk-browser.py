@@ -28,13 +28,17 @@ def main():
     with zipfile.ZipFile(args.output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for name in required:
             archive.write(ROOT / name, 'FuzionFrenzyBrowser/' + name)
-        archive.writestr('FuzionFrenzyBrowser/Start Browser.cmd', '@echo off\r\ncd /d "%~dp0"\r\npy -3.12 tools\\serve-sdk-browser.py --open\r\npause\r\n')
+        archive.writestr('FuzionFrenzyBrowser/Start Browser.cmd', '@echo off\r\ncd /d "%~dp0"\r\npy -3.12 tools\\serve-sdk-browser.py --open %*\r\npause\r\n')
         archive.writestr('FuzionFrenzyBrowser/README.txt', '''Fuzion Frenzy browser build
 
 Extract the ZIP completely, then double-click Start Browser.cmd on Windows.
 It uses Python 3.12, already installed by the Windows game's build-tools setup.
 On macOS/Linux: python3 tools/serve-sdk-browser.py --open
-Open http://127.0.0.1:4182/sdk-browser/ in a current 64-bit Chrome or Edge.
+Use the URL opened by the launcher in a current 64-bit Chrome or Edge.
+The host tries port 4182, then 8765, then an available OS-selected port if
+Windows reserves or another app occupies the preferred ports.
+To keep a fixed alternate port: Start Browser.cmd --port 8765
+Browser saves belong to the URL/port used; changing ports does not move saves.
 Select your compatible USA Fuzion Frenzy ISO/XISO, then Start game.
 Do not open the HTML directly: browser threads require the local host's headers.
 

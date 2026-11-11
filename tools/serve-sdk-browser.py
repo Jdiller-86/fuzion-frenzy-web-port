@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Loopback-only, allowlisted host for the local-ISO browser build."""
 import argparse
+import errno
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import threading
@@ -51,15 +52,35 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
 
+def bind_server(port=None):
+    # Bind the actual server directly: probing then reopening would race another app.
+    ports = [port] if port is not None else [4182, 8765, 0]
+    for candidate in ports:
+        try:
+            return ThreadingHTTPServer(('127.0.0.1', candidate), Handler)
+        except OSError as error:
+            retryable = (error.errno in (errno.EACCES, errno.EADDRINUSE)
+                         or getattr(error, 'winerror', None) in (10013, 10048))
+            if not retryable or candidate == ports[-1]:
+                raise
+            print(f'Local port {candidate} is unavailable; trying another port.', flush=True)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', type=int, default=4182)
+    parser.add_argument('--port', type=int, default=None,
+                        help='Use this port (0 lets Windows/the OS choose). Default: try 4182, then 8765, then an available port.')
     parser.add_argument('--open', action='store_true')
     args = parser.parse_args()
-    if not 1024 <= args.port <= 65535:
-        parser.error('Port must be between 1024 and 65535')
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
-    url = f'http://127.0.0.1:{args.port}/sdk-browser/'
+    if args.port is not None and args.port != 0 and not 1024 <= args.port <= 65535:
+        parser.error('Port must be 0 or between 1024 and 65535')
+    try:
+        server = bind_server(args.port)
+    except OSError as error:
+        parser.exit(1, f'Cannot start the local browser host: {error}\n'
+                    'Try: py -3.12 tools\\serve-sdk-browser.py --open --port 8765\n'
+                    'If other ports also fail, check security software or Windows policy blocking local servers.\n')
+    url = f'http://127.0.0.1:{server.server_address[1]}/sdk-browser/'
     print(f'Fuzion Frenzy browser host: {url}\nKeep this window open. Ctrl+C stops the host.', flush=True)
     if args.open:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()

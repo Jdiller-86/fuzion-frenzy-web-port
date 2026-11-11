@@ -6,7 +6,7 @@ A project to run the original Xbox **Fuzion Frenzy entirely in a web browser** t
 
 | Build | What it provides | Status |
 | --- | --- | --- |
-| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/browser-v0.1.0-preview.1) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | Compiles and packages successfully; original browser gameplay and performance still need verification. |
+| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | Compiles and packages successfully; original browser gameplay and performance still need verification. |
 | [Windows builder 0.2.0](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.0-preview.1) | Builds the native game from your ISO/folder; Control Room launcher with amber progress display, settings, logs and saves access | Published installer; working native gameplay and geometry stability reported by the user/local agent. |
 
 Supply your own compatible USA ISO/XISO. Game content stays on your device; no game assets are included or uploaded. The ISO check verifies compatibility and local access, not legal ownership.

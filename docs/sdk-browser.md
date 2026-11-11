@@ -18,10 +18,20 @@ Python 3.12. On Linux/macOS run:
 python3 tools/serve-sdk-browser.py --open
 ```
 
-Open <http://127.0.0.1:4182/sdk-browser/> in a current 64-bit Chrome or Edge.
+Use the URL opened by the launcher in a current 64-bit Chrome or Edge (normally
+<http://127.0.0.1:4182/sdk-browser/>). The host tries port 8765 and then an
+OS-selected port if a preferred port is reserved or already occupied.
 Select the compatible USA ISO/XISO, then **Start game**. Opening the HTML as a
 file will not work: browser threads require the supplied isolation headers.
 No game compiler is needed to run the package.
+
+If an older download fails with **WinError 10013**, run
+`py -3.12 tools\serve-sdk-browser.py --open --port 8765` from the extracted
+folder, or update the browser package. This error occurs before game execution:
+Windows denied the local server's port. The new host handles reserved/busy ports
+automatically; if every port fails, check local security software or policy.
+Browser saves are scoped to the URL/port; use the same working port to retain
+access to them (`Start Browser.cmd --port 8765` in the updated package).
 
 The intake probes known XDVDFS partition offsets using the existing range
 reader, extracts only `DEFAULT.XBE`, and checks its 2,834,432-byte size and
