@@ -1,5 +1,4 @@
 using System.Drawing.Imaging;
-using System.Reflection;
 
 // Render the real Windows controls, with no ISO and without starting a build.
 internal static class Preview
@@ -12,8 +11,7 @@ internal static class Preview
         Application.SetCompatibleTextRenderingDefault(false);
         var output = Path.GetFullPath(args[0]);
         Directory.CreateDirectory(output);
-        var assembly = Assembly.Load("FuzionFrenzyBuilder");
-        using var form = (Form)Activator.CreateInstance(assembly.GetType("FuzionFrenzyLauncher.LauncherForm", true)!, true)!;
+        using var form = new FuzionFrenzyLauncher.LauncherForm();
         form.StartPosition = FormStartPosition.Manual;
         form.Location = new Point(30, 30);
         form.Shown += (_, _) => form.BeginInvoke(new Action(() => {

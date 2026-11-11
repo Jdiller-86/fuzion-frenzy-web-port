@@ -5,8 +5,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <StartupObject>Preview</StartupObject>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../desktop/windows/Launcher/FuzionFrenzyBuilder.csproj" />
+    <Compile Include="../../desktop/windows/Launcher/*.cs" />
   </ItemGroup>
 </Project>
