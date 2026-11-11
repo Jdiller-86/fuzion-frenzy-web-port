@@ -102,7 +102,7 @@ export function renderNativeBrowserWork(work) {
 }
 
 function renderPrioritySummary(plan, prefix) {
-  return '<details><summary>M1 implementation order</summary>\n\n'+plan.browserWork.priorities.map(p=>`${p.rank}. [${p.title}](${prefix}m1-browser-work.md#largest-first-implementation-order)`).join('\n')+'\n\n</details>\n';
+  return '<details><summary>M1 implementation order</summary>\n\n'+plan.browserWork.priorities.map(p=>`${p.rank}. [${p.title}](${prefix}m1-browser-work.md#largest-first-implementation-order) (${plan.browserWork.items.filter(i=>i.priority===p.rank).map(i=>i.id).join(', ')})`).join('\n')+'\n\n</details>\n';
 }
 
 export function renderProjectOverview(plan) {

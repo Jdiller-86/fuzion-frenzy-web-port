@@ -38,13 +38,13 @@ Supply your own compatible USA ISO/XISO. Game content stays on your device; no g
 
 <details><summary>M1 implementation order</summary>
 
-1. [SDK integration and execution bottlenecks](docs/m1-browser-work.md#largest-first-implementation-order)
-2. [Original graphics, including an early title frame](docs/m1-browser-work.md#largest-first-implementation-order)
-3. [Original audio](docs/m1-browser-work.md#largest-first-implementation-order)
-4. [Finish the selected startup and resource path](docs/m1-browser-work.md#largest-first-implementation-order)
-5. [Original input and controllable menu](docs/m1-browser-work.md#largest-first-implementation-order)
-6. [Complete the original round/results/return](docs/m1-browser-work.md#largest-first-implementation-order)
-7. [Bounded corrections and M1 acceptance](docs/m1-browser-work.md#largest-first-implementation-order)
+1. [SDK integration and execution bottlenecks](docs/m1-browser-work.md#largest-first-implementation-order) (MB04, MB05, MB06, MB07)
+2. [Original graphics, including an early title frame](docs/m1-browser-work.md#largest-first-implementation-order) (MB11, MB12, MB13, MB14, MB15, MB16, MB17)
+3. [Original audio](docs/m1-browser-work.md#largest-first-implementation-order) (MB18, MB19)
+4. [Finish the selected startup and resource path](docs/m1-browser-work.md#largest-first-implementation-order) (MB02, MB03, MB08, MB09, MB10)
+5. [Original input and controllable menu](docs/m1-browser-work.md#largest-first-implementation-order) (MB20, MB21, MB22)
+6. [Complete the original round/results/return](docs/m1-browser-work.md#largest-first-implementation-order) (MB23)
+7. [Bounded corrections and M1 acceptance](docs/m1-browser-work.md#largest-first-implementation-order) (MB24)
 
 </details>
 M1 remains open; accepted startup reference **M44** is unchanged. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
