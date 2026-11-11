@@ -1,5 +1,7 @@
 # SDK browser integration: native reference to first original frame
 
+Windows builder **0.2.0** implements the selected [Control Room launcher](control-room-launcher.md) with real build-status display and focused dialogs. Its UI/packaging changes do not alter game/browser execution evidence or accepted checkpoints. Earlier design prototypes remain available.
+
 Windows builder 0.1.2 now incorporates the native UI batch through the standard
 build path, including player-local pack generation and launcher replacement
 mode selection. Preserve that integration when updating the pinned patches.

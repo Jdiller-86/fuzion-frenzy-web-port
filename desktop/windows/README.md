@@ -96,6 +96,17 @@ To package on Windows with .NET 8 SDK and NSIS 3.11 installed:
 ./desktop/windows/Package-Installer.ps1
 ```
 
+On Linux with .NET 8 SDK and NSIS 3.11 installed, the same Windows application
+and installer can also be cross-packaged:
+
+```sh
+./desktop/windows/Package-Installer.sh
+```
+
+`DOTNET_BIN` and `MAKENSIS_BIN` can select user-owned tool installations; an
+extracted NSIS distribution also needs its normal `NSISDIR`. This is a packaging
+fallback, not Windows game or UI execution evidence. No game files are needed.
+
 Output: `artifacts/windows/FuzionFrenzySetup.exe`. Smoke and regression tests are
 deferred by project direction; packaging success is not game execution evidence.
 
