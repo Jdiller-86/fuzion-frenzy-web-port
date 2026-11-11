@@ -4,6 +4,7 @@ on:
   push:
     branches: [codex/sdk-baseline-execution]
     paths:
+      - 'desktop/windows/Launcher/**'
       - 'tools/launcher-preview/**'
       - '.github/workflows/launcher-preview.yml'
 permissions:
