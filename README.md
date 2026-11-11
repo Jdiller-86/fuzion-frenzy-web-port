@@ -47,7 +47,7 @@ Supply your own compatible USA ISO/XISO. Game content stays on your device; no g
 7. [Bounded corrections and M1 acceptance](docs/m1-browser-work.md#largest-first-implementation-order) (MB24)
 
 </details>
-M1 remains open; accepted startup reference **M44** is unchanged. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
+**Development:** M1 / awaiting-evidence. Accepted startup reference: **M44**; live milestone acceptance is recorded in the linked issues. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
 <!-- project-goals:end -->
 
 ## Development

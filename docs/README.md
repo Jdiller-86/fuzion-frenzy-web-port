@@ -38,7 +38,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 7. [Bounded corrections and M1 acceptance](m1-browser-work.md#largest-first-implementation-order) (MB24)
 
 </details>
-M1 remains open; accepted startup reference **M44** is unchanged. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
+**Development:** M1 / awaiting-evidence. Accepted startup reference: **M44**; live milestone acceptance is recorded in the linked issues. The chart tracks 51 delivery issues in 10 work packages; counts are not effort estimates or a completion percentage.
 <!-- project-goals:end -->
 
 | Purpose | Guide |

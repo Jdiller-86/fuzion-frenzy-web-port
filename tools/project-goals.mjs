@@ -133,7 +133,7 @@ export function renderGoalSummary(plan, state, filename) {
   body += '\n**Next:** '+plan.milestones[0].tasks.find(task=>task.id==='m1-build').brief.firstStep+'\n\n';
   body += `[M1 tasks, sizes and remaining connections](${prefix}m1-browser-work.md) · [Acceptance criteria](${prefix}milestones.md) · [Agent handoff](${prefix}handoff.md)\n\n`;
   body += renderPrioritySummary(plan, prefix);
-  body += `M1 remains open; accepted startup reference **M${state.checkpoint.profile}** is unchanged. The chart tracks ${plan.milestones.flatMap(m=>m.tasks).reduce((n,t)=>n+t.brief.deliverables.length,0)} delivery issues in ${plan.milestones.flatMap(m=>m.tasks).length} work packages; counts are not effort estimates or a completion percentage.\n`;
+  body += `**Development:** ${state.milestone} / ${state.status}. Accepted startup reference: **M${state.checkpoint.profile}**; live milestone acceptance is recorded in the linked issues. The chart tracks ${plan.milestones.flatMap(m=>m.tasks).reduce((n,t)=>n+t.brief.deliverables.length,0)} delivery issues in ${plan.milestones.flatMap(m=>m.tasks).length} work packages; counts are not effort estimates or a completion percentage.\n`;
   return body;
 }
 
