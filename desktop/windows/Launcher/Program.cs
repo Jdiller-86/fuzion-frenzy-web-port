@@ -37,7 +37,7 @@ internal sealed class LauncherForm : Form
     private readonly ContextMenuStrip sourceMenu = new();
     private readonly System.Windows.Forms.Panel logPanel = new();
     private Form settingsDialog = null!, optionsDialog = null!, controlsDialog = null!;
-    private Process? activeProcess;
+    private Process? activeProcess, gameProcess;
     private StreamWriter? operationLog;
     private string? currentLogPath, idleMessage;
     private string operationWorkspace = "";
@@ -248,16 +248,18 @@ internal sealed class LauncherForm : Form
     { using var dlg=new FolderBrowserDialog{Description=description,UseDescriptionForTitle=true,ShowNewFolderButton=true};if(Directory.Exists(target.Text))dlg.SelectedPath=target.Text;if(dlg.ShowDialog(this)==DialogResult.OK)target.Text=dlg.SelectedPath; }
 
     private bool GameExists() => File.Exists(Path.Combine(gamePath.Text,"FuzionFrenzy.exe"));
+    private bool GameRunning() => gameProcess is { HasExited: false };
     private bool SourceExists() => File.Exists(sourcePath.Text) || Directory.Exists(sourcePath.Text);
     private void RefreshGameState()
     {
-        bool exists=GameExists(), source=SourceExists();
-        primaryButton.Text=operationRunning ? (cancelRequested?"Stopping…":"Cancel") : exists?"Play game":"Build game";
-        primaryButton.Enabled=operationRunning?!cancelRequested:exists||source;
-        buildButton.Visible=exists; buildButton.Enabled=!operationRunning&&source;
-        sourcePath.Enabled=sourceButton.Enabled=optionsButton.Enabled=toolsButton.Enabled=settingsButton.Enabled=!operationRunning;
+        bool exists=GameExists(), source=SourceExists(), running=GameRunning();
+        primaryButton.Text=operationRunning ? (cancelRequested?"Stopping…":"Cancel") : running?"Game running":exists?"Play game":"Build game";
+        primaryButton.Enabled=operationRunning?!cancelRequested:!running&&(exists||source);
+        buildButton.Visible=exists; buildButton.Enabled=!operationRunning&&!running&&source;
+        sourcePath.Enabled=sourceButton.Enabled=toolsButton.Enabled=settingsButton.Enabled=!operationRunning;
+        optionsButton.Enabled=!operationRunning&&!running;
         hints.SetToolTip(buildButton,source?"Recompile using the selected local game files.":"Choose a local ISO or extracted game folder to rebuild.");
-        if(!operationRunning){matrix.Busy=false;matrix.Progress=null;matrix.Text=idleMessage??(exists?"READY":source?"READY TO BUILD":"SELECT SOURCE");}
+        if(!operationRunning){matrix.Busy=false;matrix.Progress=null;matrix.Text=running?"RUNNING":idleMessage??(exists?"READY":source?"READY TO BUILD":"SELECT SOURCE");}
     }
     private void UpdateDisplaySummary()
     {
@@ -300,6 +302,7 @@ internal sealed class LauncherForm : Form
     private async Task RunBuild()
     {
         if(operationRunning)return;
+        if(GameRunning()){Notice("Close the game before rebuilding.");return;}
         var script=Path.Combine(AppContext.BaseDirectory,"scripts","Build-Game.ps1");
         if(!File.Exists(script)){Notice("The bundled build script is missing. Reinstall the builder.",true);return;}
         if(!SourceExists()){Notice("Choose a local ISO/XISO or extracted game folder to build.",true);return;}
@@ -377,7 +380,7 @@ internal sealed class LauncherForm : Form
     }
     private void PlayGame()
     {
-        if(operationRunning||!GameExists())return;
+        if(operationRunning||GameRunning()||!GameExists())return;
         try{
             var exe=Path.Combine(Path.GetFullPath(gamePath.Text),"FuzionFrenzy.exe");
             var psi=new ProcessStartInfo(exe){WorkingDirectory=Path.GetFullPath(gamePath.Text),UseShellExecute=false};
@@ -385,8 +388,15 @@ internal sealed class LauncherForm : Form
             psi.Environment["FUZION_UI_REPLACE"]=uiArtwork.SelectedIndex switch{1=>"identity",2=>"off",_=>"pilot"};
             if(File.Exists(pack))psi.Environment["FUZION_UI_PACK"]=pack;
             else Log("No local UI artwork pack found. Rebuild to add it.");
-            Process.Start(psi);ClearNotice();Log("Started FuzionFrenzy.exe.");
-        }catch(Exception ex){Notice(ex.Message,true);Log(ex.Message);ShowLog(true);}
+            var launched=new Process{StartInfo=psi,EnableRaisingEvents=true};
+            launched.Exited+=(_,_)=>{
+                if(IsDisposed||!IsHandleCreated)return;
+                try{BeginInvoke(new Action(()=>{if(ReferenceEquals(gameProcess,launched)){gameProcess.Dispose();gameProcess=null;RefreshGameState();}}));}catch(InvalidOperationException){}
+            };
+            gameProcess=launched;
+            if(!launched.Start())throw new InvalidOperationException("The game did not start.");
+            ClearNotice();Log("Started FuzionFrenzy.exe.");RefreshGameState();
+        }catch(Exception ex){gameProcess?.Dispose();gameProcess=null;Notice(ex.Message,true);Log(ex.Message);ShowLog(true);RefreshGameState();}
     }
     private void OpenPath(string path)
     {
@@ -499,7 +509,7 @@ internal sealed class LauncherForm : Form
     }
     protected override void Dispose(bool disposing)
     {
-        if(disposing){statusTimer.Dispose();hints.Dispose();sourceMenu.Dispose();operationLog?.Dispose();settingsDialog?.Dispose();optionsDialog?.Dispose();controlsDialog?.Dispose();}
+        if(disposing){statusTimer.Dispose();hints.Dispose();sourceMenu.Dispose();operationLog?.Dispose();gameProcess?.Dispose();settingsDialog?.Dispose();optionsDialog?.Dispose();controlsDialog?.Dispose();}
         base.Dispose(disposing);
     }
     private sealed record LauncherPreferences(string InputPath,string Workspace,string GameDirectory,string UiArtwork="4x preview",int ParallelJobs=0);

@@ -36,7 +36,9 @@ first status. Null progress remains indeterminate. Completion still waits for
 the child process to exit, rather than enabling Play on an intermediate file.
 
 Source/configuration changes and another build/tool install are blocked during
-an operation. The main primary button becomes Cancel; cancellation stops the
+an operation. A game launched by this builder is tracked until it exits: the
+matrix shows Running, duplicate launches and rebuilds are disabled, and closing
+the builder leaves the game running. The main primary button becomes Cancel; cancellation stops the
 child process tree and is distinguished from failure. Existing installed games
 remain available after a failed/cancelled rebuild. A failed operation retains its
 failure headline, shows the actual error outside the matrix, and opens the log.
