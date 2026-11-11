@@ -108,7 +108,7 @@ internal sealed class LauncherForm : Form
             tabs.Add(tab); navigation.Controls.Add(tab);
         }
         ShowPage(0);
-        var footer = new Label { Text = "LOCAL FILES ONLY  /  NO GAME DATA UPLOADED                                      WINDOWS x64  ·  BUILDER 0.1.4", ForeColor = Muted, Font = new Font("Bahnschrift", 8.5f), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Margin = new Padding(0, 6, 0, 0) };
+        var footer = new Label { Text = "WINDOWS x64  ·  BUILDER 0.1.4", ForeColor = Muted, Font = new Font("Bahnschrift", 8.5f), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Margin = new Padding(0, 6, 0, 0) };
         shell.Controls.Add(footer, 0, 2);
 
         var statusPanel = Card();

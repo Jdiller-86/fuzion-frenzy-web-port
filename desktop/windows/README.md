@@ -2,15 +2,16 @@
 
 Version **0.1.4** removes the large banner, decorative header graphic and
 promotional taglines. Navigation tabs have plain labels without numbering. The application title stays in the Windows title bar;
-navigation and build controls now start at the top of the window. The dark
+navigation and build controls now start at the top of the window. The footer
+shows only platform and version, aligned right. The dark
 surfaces, cyan accents, beveled controls and segmented progress remain.
 
 The builder includes the [native styled F1 settings panel](../../docs/native-ui.md),
 three local UI texture overrides, and the [Windows rendering repairs](patches/README.md)
 into the normal build flow.
 
-[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.4-preview.2/FuzionFrenzySetup.exe)
-· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.4-preview.2)
+[Download the Windows installer preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/download/windows-builder-v0.1.4-preview.3/FuzionFrenzySetup.exe)
+· [Release and checksum](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.1.4-preview.3)
 
 Close the old launcher and install the update. Existing game builds, saves and
 settings remain available. If you already rebuilt with 0.1.2, this visual update
