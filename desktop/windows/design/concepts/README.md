@@ -53,3 +53,7 @@ Native follow-through: preserve the existing builder/process lifecycle, local IS
 intake, game settings keys and save-preserving installation. Choose a direction
 before investing in custom WinForms controls or another UI host. None of these
 concepts requires changing the game renderer.
+
+A separate [Alloy-focused second round](../alloy-studies/README.md) explores four
+additional hardware directions and an animated dot-matrix build display. This
+first round's four concepts and source files remain available unchanged.

@@ -112,3 +112,7 @@ Four separate [interactive design prototypes](design/concepts/README.md) explore
 graphite, silver equipment, colorful console and light desktop directions.
 They are visual proposals with simulated states; the released Windows launcher
 is unchanged by this design work.
+
+The [Alloy studies](design/alloy-studies/README.md) add four hardware-oriented
+alternatives with animated dot-matrix progress displays, while retaining every
+original concept. These remain simulated visual prototypes.
