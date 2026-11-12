@@ -35,7 +35,10 @@
       {
         "path": "src/common/overlay.cpp",
         "beforeSha256": "d75b09753aba6618f9db3493eb5e704c9198607ad09e12436cb73883c26bcfaf",
-        "afterSha256": "5e9e3405ffc852f2247bc7657d02d8b782de84b8b5c72f8ef900c4a54dc15f7f"
+        "afterSha256": "db16f68f3bdc168e0f6652c8e37b30a061254d3df6a7c58d3ad3a02464f37687",
+        "previousAfterSha256": [
+          "5e9e3405ffc852f2247bc7657d02d8b782de84b8b5c72f8ef900c4a54dc15f7f"
+        ]
       },
       {
         "path": "src/common/overlay.h",

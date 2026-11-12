@@ -18,11 +18,11 @@ Connect the reached CPU, kernel, graphics, audio and controller requirements thr
 
 #### Current foundation and gap
 
-Published local-ISO browser build with the full SDK, software rendering, input, audio and save adapters; working Windows reference reported by the user. Browser gameplay remains unverified. Preserve M44 as the separate accepted startup reference; build on the merged SDK candidate from PR #102.
+Published full-SDK browser build with local ISO intake and software rendering. The user reports original browser launch but unplayably slow execution; the native Windows reference is working well. M44 remains the separate accepted startup reference; no browser gameplay milestone is accepted.
 
 #### First bounded assignment
 
-Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
+Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
 
 #### Inputs and prerequisites
 
@@ -42,7 +42,7 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 | **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
 | **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
-**Next assignment for m1-build-execution:** Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
+**Next assignment for m1-build-execution:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
 
 #### Validation and evidence
 

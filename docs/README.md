@@ -23,7 +23,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
 | [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
-**Next:** Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
+**Next:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
 
 [M1 tasks, sizes and remaining connections](m1-browser-work.md) · [Acceptance criteria](milestones.md) · [Agent handoff](handoff.md)
 
@@ -60,6 +60,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | Original UI resource/code investigation and private catalog workflow | [UI architecture](ui-architecture.md), [settings integration](ui-settings-integration.md), [upscaling](ui-upscaling.md), and [tools](../tools/ui/README.md) |
 | Runnable native F1 settings and bounded texture replacements | [Native UI](native-ui.md), [font recovery](ui-font-recovery.md), and [incremental build](../tools/ui/BUILD-NATIVE-UI.md) |
 | Windows Control Room builder layout, progress and failure handling | [Control Room launcher](control-room-launcher.md), [Windows installer](../desktop/windows/README.md) |
+| Current GPU-performance and original-menu mouse assignment | [Local implementation goal](local-menu-and-browser-goal.md) |
 | Curated facts, static/fixture/browser evidence distinctions | [Research](research.md) |
 | Optional private toolchain and analysis prerequisites | [Analysis](analysis.md) |
 | Resource reuse, automated preparation and fast M1 iteration | [Development workflow](resource-reuse.md) |

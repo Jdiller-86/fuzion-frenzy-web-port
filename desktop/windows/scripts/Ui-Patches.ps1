@@ -24,7 +24,9 @@ function Restore-KnownUiPatches {
             continue
         }
         $hash = Get-NormalizedRuntimePatchHash -Path $path
-        if ($hash -eq $entry.afterSha256) {
+        $previousHashes = @()
+        if ($entry.PSObject.Properties.Name -contains 'previousAfterSha256') { $previousHashes = @($entry.previousAfterSha256) }
+        if ($hash -eq $entry.afterSha256 -or $previousHashes -contains $hash) {
             if ($null -eq $entry.beforeSha256) { $added.Add($path) } else { $tracked.Add($relative) }
         } elseif ($null -ne $entry.beforeSha256 -and $hash -eq $entry.beforeSha256) {
             continue

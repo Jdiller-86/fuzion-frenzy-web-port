@@ -5,6 +5,7 @@ const status = document.querySelector('#status');
 const error = document.querySelector('#error');
 const log = document.querySelector('#log');
 const canvas = document.querySelector('#screen');
+const performanceReadout = document.querySelector('#performance');
 const context = canvas.getContext('2d', { alpha: false });
 let worker;
 let inputTimer;
@@ -58,6 +59,7 @@ runButton.addEventListener('click', () => {
   const current = worker;
   setBusy(true);
   status.textContent = 'Checking the local disc image…';
+  performanceReadout.textContent = 'Software renderer. Waiting for frame measurements…';
   current.addEventListener('message', ({data}) => {
     if (worker !== current) return;
     if (data.type === 'log') {
@@ -70,6 +72,10 @@ runButton.addEventListener('click', () => {
       if (canvas.width !== data.width || canvas.height !== data.height) { canvas.width = data.width; canvas.height = data.height; }
       context.putImageData(new ImageData(pixels, data.width, data.height), 0, 0);
       status.textContent = 'Rendering original game frames.';
+    } else if (data.type === 'performance') {
+      if ([data.fps, data.drawMs, data.clearMs, data.copyMs, data.drawCalls].every(v => Number.isFinite(v) && v >= 0)) {
+        performanceReadout.textContent = `${data.fps.toFixed(1)} FPS · CPU draw ${data.drawMs.toFixed(1)} ms · clear ${data.clearMs.toFixed(1)} ms · copy ${data.copyMs.toFixed(1)} ms · ${Math.round(data.drawCalls)} draws/frame`;
+      }
     } else if (data.type === 'audio') {
       if (audioContext && data.frames > 0 && data.frames <= 65536) {
         const samples = new Float32Array(data.samplesBuffer);

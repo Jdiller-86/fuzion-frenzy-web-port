@@ -19,7 +19,7 @@ internal static class Program
 
 internal sealed class LauncherForm : Form
 {
-    private const string Version = "0.2.0";
+    private const string Version = "0.2.1";
     private static readonly Color Bg = ConsoleTheme.Background;
     private static readonly Color Panel2 = Color.FromArgb(51, 61, 42);
     private static readonly string UserRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FuzionFrenzy");

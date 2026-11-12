@@ -2,9 +2,9 @@
 
 ## Current status
 
-- **Windows:** builder 0.2.0 is published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the local-ISO preview compiles and packages the full SDK/title with software rendering, keyboard/gamepad, audio and save adapters. Original browser gameplay and performance remain unverified.
-- **Next:** run that browser candidate with the compatible local ISO; fix the first actual blocker, then reach an original menu and complete minigame. Reuse existing work.
+- **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
+- **Browser:** the local-ISO preview compiles and packages the full SDK/title with software rendering, keyboard/gamepad, audio and save adapters. The user reports original browser launch but unplayably slow execution; measured frame costs and a complete playable round remain unverified.
+- **Next:** measure the release-optimized browser build, reduce actual costs and connect GPU rendering, then complete an original playable minigame. Reuse the working native reference.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

@@ -136,3 +136,11 @@ open/adjust/cancel/release/return, then identify a validated guest pause-mode
 lifecycle observer before adding automatic pause or a contextual original-menu
 entry hint. Original font recovery separately needs the unresolved object-method
 consumer joined to live atlas pixels and assembled glyph UVs.
+
+## Clickable PC controls (builder 0.2.1)
+
+A small **PC menu** button at the top right opens **Settings** and, on Windows, **Exit to Desktop**. Settings opens the existing mouse/keyboard/pad panel; F1 remains a shortcut. Exit posts the same `WM_CLOSE` event as the window close button. It does not invent a guest save action or promise an autosave. The popup captures guest input until dismissed and controls return to neutral.
+
+This is a host overlay available over the game, not a new row inserted into the original main menu. Original-menu hit areas and mode/action ownership are not traced sufficiently for reliable mouse clicking. Use the [local implementation goal](local-menu-and-browser-goal.md) for that work. Install the updated builder and **Rebuild** once; a launcher-only update cannot change an existing game executable. Known prior UI-patch hashes can be restored during upgrade; unknown edits remain protected.
+
+The overlay source compiles against the pinned ImGui headers on Linux; Windows game compilation and interactive behavior still require the player-local build. Installer packaging does not execute the game.

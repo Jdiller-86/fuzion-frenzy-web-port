@@ -9,15 +9,22 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  #include <atomic>
  #include <cfloat>
  #include <cmath>
-@@ -15,6 +16,7 @@
+@@ -15,14 +16,24 @@
  #include <cstdio>
  #include <cstring>
  #include <iterator>
 +#include <mutex>
  
  #include <imgui.h>
++#if defined(_WIN32)
++#ifndef NOMINMAX
++#define NOMINMAX
++#endif
++#include <windows.h>
++#endif
  
-@@ -23,6 +25,9 @@
+ #include "app/app.h"
+ #if !defined(_WIN32)
  #include "app/platform.h"  // app::HostAspect
  #endif
  #include "gpu/backend.h"
@@ -27,7 +34,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  
  namespace overlay {
  
-@@ -47,10 +52,26 @@
+@@ -47,10 +58,27 @@
  Ring g_ring;
  
  bool g_perf_open = false, g_settings_open = false;
@@ -35,6 +42,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  float g_ui_scale = 0.0f;        // style and font scale in use, 0 before the first frame
  // g_settings_open is the render thread's; this is the copy the window and guest threads read
  std::atomic<bool> g_settings_up{false};
++std::atomic<bool> g_controls_up{false};
 +std::mutex g_pad_lock;
 +input::Pad g_pad_previous[4]{};
 +bool g_pad_blocked[4]{};
@@ -55,7 +63,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  
  // the settings panel edits a copy and only writes it back on Apply, so a half typed resolution
  // never reaches the renderer
-@@ -263,7 +284,7 @@
+@@ -263,7 +291,7 @@
      uint32_t rw = 0, rh = 0;
      FrameTarget(scale, widen, rw, rh);  // D9: the target the backend actually builds
  #if defined(_WIN32)
@@ -64,11 +72,43 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  #else
      float host_aspect = app::HostAspect();
      float aspect = host_aspect > 0.0f ? host_aspect : (app::Widescreen() ? 16.0f / 9.0f : 4.0f / 3.0f);
-@@ -534,77 +555,128 @@
+@@ -534,77 +562,160 @@
  }
  
  
 -void DrawSettings() {
++// Host controls are deliberately separate from the original guest menu. No guessed guest hitboxes.
++void DrawHostControls() {
++    ImGuiIO& io = ImGui::GetIO();
++    io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
++    ImGui::SetNextWindowPos({io.DisplaySize.x - 12.0f*g_ui_scale, 12.0f*g_ui_scale},
++                            ImGuiCond_Always, {1.0f, 0.0f});
++    ImGui::SetNextWindowBgAlpha(0.86f);
++    ImGui::Begin("##fuzion_pc_controls", nullptr,
++        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
++        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
++        ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing);
++    if (ImGui::Button("PC menu")) ImGui::OpenPopup("##fuzion_pc_menu");
++    bool open = false;
++    if (ImGui::BeginPopup("##fuzion_pc_menu")) {
++        open = true;
++        if (ImGui::MenuItem("Settings", "F1")) {
++            SyncDraft();
++            g_focus_row = 0;
++            g_settings_open = true;
++        }
++#if defined(_WIN32)
++        if (ImGui::MenuItem("Exit to Desktop")) {
++            // Use the same window-thread shutdown path as the native close button.
++            if (auto window = static_cast<HWND>(app::Window())) PostMessageW(window, WM_CLOSE, 0, 0);
++        }
++#endif
++        ImGui::EndPopup();
++    }
++    ImGui::End();
++    g_controls_up.store(open, std::memory_order_relaxed);
++}
++
 +void DrawSettingsNative() {
      const ImGuiIO& io = ImGui::GetIO();
 -    // centred, auto fitting its height, and resizable once it is up
@@ -85,7 +125,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
 +    const ImVec2 size{680.0f*s,470.0f*s};
 +    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f}, ImGuiCond_Always, {0.5f, 0.5f});
 +    ImGui::SetNextWindowSize(size, ImGuiCond_Always);
-+    ImGui::SetNextWindowFocus();
++    if (!g_controls_up.load(std::memory_order_relaxed)) ImGui::SetNextWindowFocus();
 +    if (!ImGui::Begin("##fuzion_native_settings", nullptr,
 +                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
 +                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoFocusOnAppearing)) {
@@ -258,7 +298,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
  }
  
  }  // namespace
-@@ -615,21 +687,35 @@
+@@ -615,31 +726,48 @@
      if (!ImGui::GetCurrentContext()) return;
      ImGuiIO& io = ImGui::GetIO();
  
@@ -271,9 +311,11 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
      if (io.DisplaySize.x < 1.0f || io.DisplaySize.y < 1.0f) return;
      ScaleStyle(io);
      Sample(io.DeltaTime);
- 
+-
 -    // the host feeds every key to ImGui under the same lock, so these land while the game has
 -    // focus. F3 is the frame capture's
++    io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
++
 +    // the host feeds keys to ImGui under the same lock, so F1/F2 are observed here.
      if (ImGui::IsKeyPressed(ImGuiKey_F1, false)) {
          g_settings_open = !g_settings_open;
@@ -299,21 +341,43 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
          }
      }
      if (ImGui::IsKeyPressed(ImGuiKey_F2, false)) g_perf_open = !g_perf_open;
-@@ -651,9 +737,43 @@
+     // the keyboard-to-pad layer stands down while the panel has the keyboard (input_kbm.cpp)
+     g_settings_up.store(g_settings_open, std::memory_order_relaxed);
  
-     if (!g_perf_open && !g_settings_open) return;  // closed: the overlay draws nothing else
+-    // the mouse is only ImGui's while the settings panel is up; closed, the overlay neither
+-    // captures a click nor touches the cursor, and io.WantCaptureMouse stays false
+-    if (g_settings_open) io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+-    else io.ConfigFlags |= ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange;
++    // Only host widgets claim clicks. The rest of the original game stays controller-driven.
++    io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
++    if (g_settings_open || g_controls_up.load(std::memory_order_relaxed) ||
++        ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
++        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
++    else io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+ 
+     // the wheel reaches the keyboard-and-mouse pad as a camera zoom pulse (input_kbm.cpp); while
+     // the settings panel is up it is the panel's, not the game's
+@@ -649,11 +777,45 @@
+     if (!g_settings_open && io.MouseWheel != 0.0f) kbm::NoteWheel(int(std::lround(io.MouseWheel)));
+ #endif
+ 
+-    if (!g_perf_open && !g_settings_open) return;  // closed: the overlay draws nothing else
      if (g_perf_open) DrawPerf(fps);
 -    if (g_settings_open) DrawSettings();
+-}
+-
+-bool SettingsOpen() { return g_settings_up.load(std::memory_order_relaxed); }
 +    if (g_settings_open) DrawSettingsNative();
++    DrawHostControls();
 +    if (!g_settings_open) {
 +        std::lock_guard<std::mutex> guard(g_pad_lock);
 +        g_pad_edge_head = g_pad_edge_count = 0;
 +    }
 +    g_settings_up.store(g_settings_open, std::memory_order_relaxed);
- }
- 
- bool SettingsOpen() { return g_settings_up.load(std::memory_order_relaxed); }
- 
++}
++
++bool SettingsOpen() { return g_settings_up.load(std::memory_order_relaxed) || g_controls_up.load(std::memory_order_relaxed); }
++
 +bool CapturePad(int port, const input::Pad& pad) {
 +    if (port < 0 || port >= 4) return false;
 +    std::lock_guard<std::mutex> guard(g_pad_lock);
@@ -326,7 +390,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
 +        return false;
 +    };
 +    if (g_pad_blocked[port] && !SettingsOpen() && !held(pad)) g_pad_blocked[port] = false;
-+    if (SettingsOpen() && port == 0) {
++    if (g_settings_up.load(std::memory_order_relaxed) && port == 0) {
 +        const size_t prior_edges = g_pad_edge_count;
 +        auto button = [&](uint16_t bit, int edge) { if ((pad.buttons & bit) && !(old.buttons & bit)) QueuePadEdge(edge); };
 +        button(0x0001, -1); button(0x0002, 1);
@@ -342,7 +406,7 @@ diff --git a/src/common/overlay.cpp b/src/common/overlay.cpp
 +    g_pad_previous[port] = pad;
 +    return SettingsOpen() || g_pad_blocked[port];
 +}
-+
+ 
  }  // namespace overlay
 diff --git a/src/common/overlay.h b/src/common/overlay.h
 --- a/src/common/overlay.h

@@ -40,7 +40,7 @@ jobs:
       - name: Compile full SDK browser runtime and title
         env:
           EM_CONFIG: /tmp/fuzion-emscripten.conf
-        run: python3 tools/build-sdk-browser-full.py --opt=-O1 --jobs 2
+        run: python3 tools/build-sdk-browser-full.py --opt=-O3 --jobs 2
       - name: Package local-ISO browser build
         run: python3 tools/package-sdk-browser.py
       - uses: actions/upload-artifact@v4
@@ -67,4 +67,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" browser/FuzionFrenzyBrowser.zip browser/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Fuzion Frenzy Browser $RELEASE_TAG" --notes "Experimental full-SDK WebAssembly build with player-local ISO intake, software reference rendering, keyboard/gamepad input and browser audio. Extract and run Start Browser.cmd on Windows (Python 3.12), or python3 tools/serve-sdk-browser.py --open. The local host automatically tries alternate ports when Windows reserves a port or another app occupies it (including WinError 10013). Use the URL it opens; --port selects a fixed alternate port. Browser saves remain scoped to that URL/port. Select your compatible USA ISO locally; no ISO or assets are included or uploaded. Includes the published native texture-cascade correction; the D3D12 descriptor fix does not apply to this software renderer. Compilation is established; original browser gameplay and performance remain unverified without matching local inputs."
+          gh release create "$RELEASE_TAG" browser/FuzionFrenzyBrowser.zip browser/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Fuzion Frenzy Browser $RELEASE_TAG" --notes "Release-optimized (-O3, SIMD, release logging) full-SDK WebAssembly build with player-local ISO intake, software reference rendering, keyboard/gamepad input and browser audio. Includes reusable frame buffers and an on-screen FPS/CPU render-time readout. The user reports the initial preview launches but is unplayably slow; this update has no measured speedup yet and still uses CPU rendering. Extract and run Start Browser.cmd on Windows (Python 3.12), or python3 tools/serve-sdk-browser.py --open. The local host automatically tries alternate ports when Windows reserves a port or another app occupies it (including WinError 10013). Use the URL it opens; --port selects a fixed alternate port. Browser saves remain scoped to that URL/port. Select your compatible USA ISO locally; no ISO or assets are included or uploaded. Includes the published native texture-cascade correction; the D3D12 descriptor fix does not apply to this software renderer. Compilation is established; original browser gameplay and performance remain unverified without matching local inputs."

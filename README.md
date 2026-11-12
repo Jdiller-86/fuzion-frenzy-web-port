@@ -6,14 +6,14 @@ A project to run the original Xbox **Fuzion Frenzy entirely in a web browser** t
 
 | Build | What it provides | Status |
 | --- | --- | --- |
-| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | Compiles and packages successfully; original browser gameplay and performance still need verification. |
-| [Windows builder 0.2.0](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.0-preview.1) | Builds the native game from your ISO/folder; Control Room launcher with amber progress display, settings, logs and saves access | Published installer; working native gameplay and geometry stability reported by the user/local agent. |
+| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | User reports the game launches but is unplayably slow. This build uses CPU software rendering; newer optimizations still need measurement. |
+| [Windows builder 0.2.1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.1-preview.1) | Builds the native game from your ISO/folder; Control Room launcher with amber progress display, settings, logs and saves access | Working native gameplay and geometry stability reported by the user/local agent. Rebuild for the new PC menu. |
 
 Supply your own compatible USA ISO/XISO. Game content stays on your device; no game assets are included or uploaded. The ISO check verifies compatibility and local access, not legal ownership.
 
 **Browser:** extract the preview ZIP, run **Start Browser.cmd** (Python required), choose your ISO and select **Start game**. [Browser guide](docs/sdk-browser.md).
 
-**Windows:** install `FuzionFrenzySetup.exe`, choose your ISO or extracted folder, and build. The builder installs compiler prerequisites on demand. Includes native F1 settings and three locally generated UI artwork replacements. Games already built with builder 0.1.2 or later do not need rebuilding for this launcher update. [Windows guide](desktop/windows/README.md) · [Control Room](docs/control-room-launcher.md).
+**Windows:** install `FuzionFrenzySetup.exe`, choose your ISO or extracted folder, and build. The builder installs compiler prerequisites on demand. Includes native F1 settings and three locally generated UI artwork replacements. Rebuild the game after updating to 0.2.1 to add the clickable in-game PC menu (Settings / Exit to Desktop). Original-menu mouse hit targets still need local integration. [Windows guide](desktop/windows/README.md) · [Control Room](docs/control-room-launcher.md).
 
 ## Project progress
 
@@ -32,7 +32,7 @@ Supply your own compatible USA ISO/XISO. Game content stays on your device; no g
 | [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
 | [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
-**Next:** Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
+**Next:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
 
 [M1 tasks, sizes and remaining connections](docs/m1-browser-work.md) · [Acceptance criteria](docs/milestones.md) · [Agent handoff](docs/handoff.md)
 

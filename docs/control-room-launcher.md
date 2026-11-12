@@ -63,3 +63,5 @@ proof. The normal installer workflow compiles the launcher and NSIS installer.
 Existing publication CI is retained; no new smoke/unit/regression suite is added.
 
 Builder 0.2.0 [installer publication](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43098718168) and [native control captures](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43097742369) completed successfully. Captures use sample UI states without game content; they do not verify interactive gameplay.
+
+Builder 0.2.1 also carries a native game patch for the clickable PC menu. Unlike the 0.2.0 launcher-only redesign, this addition requires one game rebuild. See [native controls](native-ui.md#clickable-pc-controls-builder-021).

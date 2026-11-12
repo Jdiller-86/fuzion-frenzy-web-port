@@ -43,6 +43,20 @@ function onFrame(ptr, width, height, pitch, format) {
   const rgbaBuffer = rgba.buffer;
   postMessage({ type: 'frame', width, height, rgbaBuffer }, [rgbaBuffer]);
 }
+let metricStart = 0, metricFrames = 0, metricDraw = 0, metricClear = 0, metricCopy = 0, metricCalls = 0;
+function onMetrics(drawMs, clearMs, copyMs, drawCalls) {
+  if (cancelled || ![drawMs, clearMs, copyMs, drawCalls].every(v => Number.isFinite(v) && v >= 0)) return;
+  const now = performance.now();
+  if (!metricStart) { metricStart = now; return; }
+  metricFrames++;
+  metricDraw += drawMs; metricClear += clearMs; metricCopy += copyMs; metricCalls += drawCalls;
+  const elapsed = now - metricStart;
+  if (elapsed < 1000) return;
+  postMessage({type: 'performance', fps: metricFrames * 1000 / elapsed,
+    drawMs: metricDraw / metricFrames, clearMs: metricClear / metricFrames,
+    copyMs: metricCopy / metricFrames, drawCalls: metricCalls / metricFrames});
+  metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
+}
 function onAudio(ptr, frames, rate) {
   if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
   const start = Number(ptr) >>> 2;
@@ -99,6 +113,7 @@ async function boot(iso) {
     printErr: line => postMessage({ type: 'log', text: String(line) }),
     onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason), done: true }),
     onFuzionFrame: onFrame,
+    onFuzionMetrics: onMetrics,
     onFuzionAudio: onAudio,
     preRun: [runtime => {
       const FS = runtime.FS;

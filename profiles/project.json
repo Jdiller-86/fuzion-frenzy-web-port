@@ -10,7 +10,7 @@
     {
       "id": "m1",
       "title": "Original browser execution",
-      "foundation": "Published local-ISO browser build with the full SDK, software rendering, input, audio and save adapters; working Windows reference reported by the user. Browser gameplay remains unverified.",
+      "foundation": "Published full-SDK browser build with local ISO intake and software rendering. The user reports original browser launch but unplayably slow execution; the native Windows reference is working well.",
       "goal": "Play one original minigame through its original menus, round and results entirely in a desktop browser.",
       "dependsOn": [],
       "criteria": [
@@ -46,8 +46,8 @@
           "dependsOn": [],
           "issueNumber": 23,
           "brief": {
-            "context": "Published local-ISO browser build with the full SDK, software rendering, input, audio and save adapters; working Windows reference reported by the user. Browser gameplay remains unverified. Preserve M44 as the separate accepted startup reference; build on the merged SDK candidate from PR #102.",
-            "firstStep": "Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.",
+            "context": "Published full-SDK browser build with local ISO intake and software rendering. The user reports original browser launch but unplayably slow execution; the native Windows reference is working well. M44 remains the separate accepted startup reference; no browser gameplay milestone is accepted.",
+            "firstStep": "Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.",
             "prerequisites": [
               "Inspect current status, task ownership, matching input/source/toolchain identities and any retained native/browser runs. Keep upstream-reported results, local desktop observations, experimental browser results and accepted M44 evidence distinct.",
               "Original-code claims and title execution require the purpose-specific local baseline, retained provenance and focused independent review. Source-owned interface work can proceed without those private inputs.",
@@ -60,7 +60,7 @@
                 "size": "L",
                 "doneWhen": "Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented.",
                 "dependsOn": [],
-                "firstStep": "Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works."
+                "firstStep": "Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline."
               },
               {
                 "id": "m1-build-graphics",

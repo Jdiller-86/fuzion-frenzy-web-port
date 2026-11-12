@@ -101,6 +101,8 @@ Use the [largest-first implementation order](m1-browser-work.md#largest-first-im
 
 ### G. Sustained browser execution and host delivery (MB05)
 
+**Current starting point:** the user reports original browser launch, but unplayably slow software rendering. Follow the [updated local goal](local-menu-and-browser-goal.md) for performance and original-menu mouse integration. Reuse the existing full browser build; do not repeat first-frame integration.
+
 **Objective:** Get the existing original SDK path working in the browser. The first original frame (MB17) is the first checkpoint; continue the same implementation loop toward a controllable original menu or selected minigame. This is the active baseline-first assignment under #49, with enabling graphics/resource/input changes in scope when ownership permits. Detailed acceptance statements in the other goals govern later promotion, not mandatory per-step certification of this prototype.
 
 **Build-run-fix:** Confirm current ownership and reuse the pinned SDK/configuration and retained output. Reuse the existing working native reference and the published browser candidate. Run with the matching local ISO, fix the first actual failure and continue toward a controllable menu and complete minigame. Do not repeat initial integration or native setup. Choose supported worker/thread patterns, adapt shared interfaces, run the actual path, inspect the failure and implement the next supported fix. A new caller alone does not require a separate task or full audit. Keep private inputs/artifacts local, preserve M44 and keep basic resource/identity/bounds checks. Declare candidate limits explicitly; detailed contract review follows the baseline.

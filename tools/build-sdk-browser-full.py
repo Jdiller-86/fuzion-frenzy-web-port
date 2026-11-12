@@ -30,7 +30,7 @@ def main() -> int:
     parser.add_argument('--output', type=Path, default=ROOT / '.tools/artifacts/sdk-browser-full')
     parser.add_argument('--compiler', default=shutil.which('em++'))
     parser.add_argument('--jobs', type=int, default=2)
-    parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O1')
+    parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O3')
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
     args = parser.parse_args()
@@ -44,7 +44,7 @@ def main() -> int:
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-overlay.py'), '--sdk', str(sdk), '--output', str(overlay)], check=True)
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-host-header.py'), '--config', str(args.config), '--xdk', str(sdk / 'xdk'), '--output', str(output / 'image_symbols.h')], check=True)
     includes = [overlay, output, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
-    common = [args.compiler, '-std=c++20', args.opt, '-pthread', '-fexceptions', '-fno-strict-aliasing',
+    common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', '-fexceptions', '-fno-strict-aliasing',
               '-DXBE_RAW_VERTICES=0', '-DXBE_RENDER_THREAD=0', '-DXBE_BROWSER=1']
     for directory in includes:
         common += ['-I', str(directory)]

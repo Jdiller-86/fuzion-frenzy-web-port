@@ -57,7 +57,7 @@ candidate; the managed Debian fallback is documented by
 
 ```sh
 source .tools/emscripten-env.sh
-python3 tools/build-sdk-browser-full.py --opt=-O1 --jobs 2
+python3 tools/build-sdk-browser-full.py --opt=-O3 --jobs 2
 python3 tools/package-sdk-browser.py
 python3 tools/serve-sdk-browser.py --open
 ```
@@ -98,9 +98,8 @@ renderer uses no D3D12 descriptors. The user reports smooth Windows execution
 and a local agent's geometry-stability verification. Browser rendering has not
 been observed here and remains separate from that native evidence.
 
-This workspace still has no compatible original ISO/assets. No original browser
-frame, game round, performance target or M1 acceptance is claimed. The CPU
-reference renderer has different performance characteristics from the Windows
-D3D12 backend. Next: run this build with the matching local image, fix the actual
-first failing boundary, and then connect accelerated browser graphics. The accepted M44 proof remains
-unchanged. Smoke, unit and regression suites remain deferred by user direction.
+The user reports that the original game now launches in the browser, but is unplayably slow. This is reported local execution, not a captured or accepted gameplay result. The cloud workspace still has no compatible original ISO/assets; browser/device details and FPS were not supplied.
+
+The first preview compiled at `-O1` without `NDEBUG` and uses the SDK's CPU reference renderer for every triangle/pixel. The new build uses `-O3`, Wasm SIMD and release logging, reuses presentation buffers, and displays average FPS plus CPU draw/clear/copy times. Those changes reduce known overhead; no measured speedup or playable result is claimed. Software rasterization remains; canvas presentation does not turn it into GPU rendering.
+
+The next large task is an accelerated browser backend with the SDK's real shader/texture/state and guest readback contracts. The [local implementation goal](local-menu-and-browser-goal.md) records reusable upstream candidates and exact boundaries. M44 and product milestone acceptance remain unchanged.

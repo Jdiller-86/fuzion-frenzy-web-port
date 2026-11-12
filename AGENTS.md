@@ -12,7 +12,7 @@ Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md)
 
 ## Baseline state
 
-M1 SDK/browser integration is the primary path. PR #102 has merged the full SDK browser candidate and the Control Room Windows builder. Reuse the published browser package, existing source adapters and working native reference; do not restart the integration. Under Goal G / #49, run the compatible player-local ISO in the browser, fix actual failures and continue toward an original controllable menu and complete minigame. Keep commentary to major progress or blockers. Defer detailed tests until the browser baseline works.
+M1 SDK/browser integration is the primary path. PR #102 has merged the full SDK browser candidate and the Control Room Windows builder. Reuse the published browser package, existing source adapters and working native reference; do not restart the integration. Under Goal G / #49, use the reported running but unplayably slow browser baseline: measure its FPS/CPU draw costs and connect accelerated graphics, then reach an original responsive menu and complete minigame. Release optimization, not more initial integration, is now the starting point. Keep commentary to major progress or blockers. Defer detailed tests until the browser baseline works.
 
 Keep the accepted M44 proof and its resume task separate from this candidate. Use the existing Fuzion SDK and applicable OpenCE browser patterns before new compatibility code. Desktop execution is a local developer reference; browser execution remains the product goal. The roadmap does not start every implementation task, and tracking workflows run no game or coding agent.
 

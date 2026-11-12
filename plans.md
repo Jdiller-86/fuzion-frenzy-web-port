@@ -12,7 +12,7 @@ Run the original Xbox Fuzion Frenzy entirely in a browser through static recompi
 
 ## Current work
 
-M1's primary assignment is [Goal G](docs/local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05). Run the published browser candidate with the compatible player-local ISO. Fix the first actual execution or performance blocker, then reach a controllable original menu and one complete minigame. Reuse the working native reference and existing adapters; do not restart integration. Defer detailed test suites until the browser baseline works.
+M1's primary assignment is [browser performance](docs/local-menu-and-browser-goal.md#1-browser-performance--largest-remaining-implementation-item). Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
 
 The generated pointer and [status](docs/status.md) retain the accepted M44 boundary separately from this experimental SDK candidate. Desktop execution helps isolate upstream/game behavior from browser adaptation; its executable is not converted to Wasm, and it does not satisfy the browser milestone. Build the same source for the browser with reviewed memory/dispatch/thread/file/GPU/audio adaptations. No controllable original browser screen or complete product is accepted.
 

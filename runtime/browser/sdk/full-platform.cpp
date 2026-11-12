@@ -54,15 +54,22 @@ public:
     }
     void Clear(const gpu::State& s, uint32_t n, const uint8_t* r, uint32_t flags,
                uint32_t color, float z, uint32_t stencil) override {
+        const auto start = Clock::now();
         reference::Clear(s, n, r, flags, color, z, stencil);
+        clear_ms_ += ElapsedMs(start);
     }
     void Draw(const gpu::State& s, uint32_t prim, uint32_t start, uint32_t count,
               const uint8_t* indices) override {
+        const auto started = Clock::now();
         reference::Draw(s, prim, start, count, indices);
+        draw_ms_ += ElapsedMs(started);
+        ++draw_count_;
     }
     void Copy(const gpu::Surface& src, const gpu::Surface& dst, uint32_t n,
               uint32_t rects, uint32_t points) override {
+        const auto start = Clock::now();
         reference::Copy(src, dst, n, rects, points);
+        copy_ms_ += ElapsedMs(start);
     }
     void Present(const gpu::Surface& front) override {
         // The SDK CPU renderer writes the title's actual render target in guest
@@ -70,22 +77,25 @@ public:
         gpu::TextureDesc desc;
         if (!gpu::DescribeSurface(front, desc) || !desc.width || !desc.height || desc.width > 4096 || desc.height > 4096) return;
         if (gpu::Format(desc.format).host != gpu::Host::BGRA8) return;
-        std::vector<uint8_t> decoded;
         uint32_t decodedPitch = 0;
-        gpu::DecodeLevel(desc, 0, 0, ff_sdk_guest_ptr(desc.data, gpu::TotalSize(desc)), nullptr, decoded, decodedPitch);
+        gpu::DecodeLevel(desc, 0, 0, ff_sdk_guest_ptr(desc.data, gpu::TotalSize(desc)), nullptr, decoded_, decodedPitch);
         const uint32_t pitch = desc.width * 4;
-        if (decodedPitch < pitch || decoded.size() < uint64_t(decodedPitch) * desc.height) return;
-        std::vector<uint8_t> rgba(size_t(desc.width) * desc.height * 4);
+        if (decodedPitch < pitch || decoded_.size() < uint64_t(decodedPitch) * desc.height) return;
+        rgba_.resize(size_t(desc.width) * desc.height * 4);
         for (uint32_t y = 0; y < desc.height; ++y) for (uint32_t x = 0; x < desc.width; ++x) {
-            const auto* source = decoded.data() + size_t(y) * decodedPitch + x * 4;
-            auto* target = rgba.data() + (size_t(y) * desc.width + x) * 4;
+            const auto* source = decoded_.data() + size_t(y) * decodedPitch + x * 4;
+            auto* target = rgba_.data() + (size_t(y) * desc.width + x) * 4;
             target[0] = source[2]; target[1] = source[1]; target[2] = source[0]; target[3] = 255;
         }
 #ifdef __EMSCRIPTEN__
         MAIN_THREAD_EM_ASM({ if (Module.onFuzionFrame) Module.onFuzionFrame($0, $1, $2, $3, $4); },
-                            rgba.data(), desc.width, desc.height, pitch, 0);
+                            rgba_.data(), desc.width, desc.height, pitch, 0);
+        MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0, $1, $2, $3); },
+                            draw_ms_, clear_ms_, copy_ms_, static_cast<uint32_t>(draw_count_));
 #endif
         ++frames_;
+        draw_ms_ = clear_ms_ = copy_ms_ = 0.0;
+        draw_count_ = 0;
         reference::BeginFrame();
     }
     void Sync(uint32_t, uint32_t) override {}
@@ -95,8 +105,15 @@ public:
     bool WidensFrame() const override { return false; }
 
 private:
+    using Clock = std::chrono::steady_clock;
+    static double ElapsedMs(Clock::time_point start) {
+        return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    }
     uint32_t width_ = 0, height_ = 0;
     uint64_t frames_ = 0;
+    std::vector<uint8_t> decoded_, rgba_;
+    double draw_ms_ = 0.0, clear_ms_ = 0.0, copy_ms_ = 0.0;
+    uint64_t draw_count_ = 0;
 };
 } // namespace
 
