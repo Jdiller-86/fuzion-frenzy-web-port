@@ -1,5 +1,7 @@
 # Settings and host overlay integration
 
+**Current user requirement:** make the original game menus mouse/keyboard-interactive and add PC Settings and Exit to Desktop beside the normal menu entries. The host overlays below are retained implementation history and reusable settings infrastructure; they do not fulfill that requirement. Follow the [corrected native goal](local-menu-and-browser-goal.md#2-native-original-menu-mousekeyboard-and-integrated-settings--corrected-requirement).
+
 The native F1 implementation, observed behavior and current browser adapter seam
 are recorded in [the native UI handoff](native-ui.md). The original-screen
 injection and contextual Y hint below remain proposed; the initial host panel,

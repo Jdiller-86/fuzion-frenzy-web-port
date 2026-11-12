@@ -20,16 +20,34 @@ Use the first identified original menu and one selected minigame to implement th
 
 Return the runnable package, exact source/build identities, before/after FPS and CPU/GPU costs, selected scene/device, actual visible limitations and next largest blocker. Runtime logs/captures containing game content stay local. Update #49/#50, the browser work map and current status without accepting M1 from a frame or compile alone.
 
-## 2. Native original-menu mouse support and integrated actions
+## 2. Native original-menu mouse/keyboard and integrated settings — corrected requirement
 
-Builder 0.2.1 adds a clickable **PC menu → Settings / Exit to Desktop** host overlay. It opens the existing mouse-capable F1 panel and uses the normal Windows close event. Install it and rebuild the game to include the patch. F1 remains available. This does **not** add mouse hit targets or new rows to original guest menus.
+The user wants the **actual game UI** to respond to mouse and keyboard, with **PC Settings** and **Exit to Desktop** alongside the regular main-menu entries. The floating PC menu in builder 0.2.1 does not fulfill this request. Do not deliver another toolbar, popup, launcher setting or lookalike replacement menu as the solution. Rebuilding 0.2.1 will not add these original-menu features.
 
-Use `docs/ui-architecture.md`, `docs/ui-settings-integration.md`, the private inventory and retained native source to trace the active original main-menu/Options object, input handler and presentation transform. Existing constructor/vtable addresses and isolated quad coordinates are static leads, not a complete active-state or hit-target contract.
+### Required result
 
-Implement mouse hover/selection/click for the original main menu and Options first. Derive hit areas from the actual rendered layout, including letterboxing, aspect changes and render scale. Route actions through the same selection/activation path as the original pad. Clear held/queued actions on focus loss and transitions; clicks must not leak into gameplay or the host panel. Preserve keyboard/controller navigation.
+- Hover highlights the original interactive item; click activates that same item/action. Keep the original labels, layout, transitions and controller navigation.
+- On menus, arrow keys navigate/change values, Enter activates and Escape returns. Coordinate these mappings with the existing gameplay Start/A/B bindings so one key cannot trigger both paths.
+- Add **PC Settings** and **Exit to Desktop** as ordinary main-menu entries in the same focus/navigation sequence as the original rows. Do not replace original game options or turn an existing unrelated action into Exit.
+- The settings screen must fit the original UI styling and component system. Reuse the existing SDK settings and Apply/Save/Cancel implementation behind it; F1 may remain a secondary shortcut. Settings must be reachable without knowing a hotkey.
+- Exit uses normal platform shutdown after the menu action. Do not invent an autosave promise.
 
-Add **PC Settings** and **Exit to Desktop** to the main-menu presentation only once its active-state, row-count/layout, ownership and action lifecycle are established. PC Settings opens the existing host draft/settings path; Exit uses the platform's normal shutdown path, with no invented autosave promise. If an original row cannot be safely extended, use an explicit, correctly positioned host addition gated to the verified main-menu state. Do not guess screen coordinates or overwrite unrelated original options. Retain the general PC menu as a fallback.
+Start with main menu and Options. Continue through character selection, pause menus, confirmation/results dialogs and other original interactive screens. Report supported screens individually; main-menu support does not establish all-screen mouse support. Observe actual hit targets at the player's resolution, aspect and render scale; do not fake hit regions from screenshot proportions.
 
-Own `desktop/windows/patches/native-ui.patch` and its normalized manifest, plus the minimum original input/UI adapter changes. Preserve the known-previous-patch upgrade path in `scripts/Ui-Patches.ps1`; unknown local source edits must remain protected. Use the existing incremental native build and retained object cache. Observe actual click/navigation/shutdown behavior in the original game; do not substitute fixture tests for that implementation loop.
+### Local implementation route
 
-Return the working executable/incremental patch, privately retained before/after menu captures and a short map of supported menus and remaining screens. Publish only authored adapters/patches, normalized manifests and curated findings; never publish original media, extracted UI assets, generated title code or private raw traces. Keep this native work separate from browser milestone acceptance.
+Use the current local native executable, matching ISO/source, private UI inventory and incremental object cache. Read `docs/ui-architecture.md` and `docs/ui-settings-integration.md`. Existing main/Options constructor, handler and presentation addresses are investigation leads. The retained source supports focus fields and hard-coded row wraps, but it does not yet establish the full live-object lifecycle, row-to-text/layout mapping or input-selector contract.
+
+Trace the current main-menu object and its original draw/update/event path in the running game. Join each visible row to its focus state, label/layout object and activation action. Trace the existing text/font draw path rather than guessing a system-font substitute. Use the matching source/disassembly and a short actual navigation capture; do not rebuild Ghidra projects, replay M44 or demand a broad test matrix before implementing the feature.
+
+The existing native `src/game/hooks.cpp` supports strong definitions wrapping recompiled guest functions; call their original `__imp__` implementation to preserve stock behavior where appropriate. Confirm the exact calling convention, stack/register/flag behavior and object lifetime before using a hook. Do not copy generated original bodies into public patches. Extend the real menu's row storage, count/wrap, rendering and action dispatch together; changing only a focus bound or drawing extra text is incomplete.
+
+Collect mouse movement/clicks and keyboard edges in the host adapter, map through the actual viewport/letterbox transform, and consume commands in the owning guest menu thread. Avoid mutating live guest UI state from the renderer thread. Revalidate the active object on each relevant callback; discard queued commands when focus, screen or ownership changes. Keep keyboard and controller paths intact. Existing host settings requests should cross to the render thread through synchronized state; do not invoke ImGui drawing from a guest callback.
+
+Own the minimum native input/menu adapters plus `desktop/windows/patches/native-ui.patch` and its normalized manifest. Preserve known-previous-patch upgrades and protection for unknown local edits. Remove the floating PC menu from the normal experience once real menu entries work; it is not an acceptable fallback completion.
+
+Compile the actual game incrementally, run it, fix the observed interaction and continue. Do not spend this implementation pass on fixture/smoke/unit/regression suites, elaborate probe frameworks or repeated historical audits. Stop only affected work for a concrete missing contract/input; report exactly what is needed and continue independent implementation. Do not finish with another proposal when the local game/source can resolve the next step.
+
+### Handoff result
+
+Return the working executable and authored incremental patches, source/build identities, a short list of supported/remaining screens, and privately retained captures showing original-row mouse selection, keyboard activation, Settings entry and Exit. Keep screenshots/assets, original media, generated title code and raw traces local. Update the current UI docs and task with actual behavior and remaining gaps; do not mark this request complete for a floating host menu or a successful compile. Native UI delivery does not accept the browser milestone.

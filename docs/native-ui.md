@@ -1,5 +1,7 @@
 # Native settings and three-texture replacement prototype
 
+**Requested original-menu integration remains unfinished.** The user wants mouse/keyboard interaction with the real menu rows, plus PC Settings and Exit to Desktop in the normal main menu. The F1 panel and floating PC menu below are existing host additions, not completion of that request. See the [corrected local implementation goal](local-menu-and-browser-goal.md#2-native-original-menu-mousekeyboard-and-integrated-settings--corrected-requirement).
+
 The native F1 panel now uses the three confirmed header components, a bright/dim
 focus list and a proposed segmented render-scale meter. It has four live SDK
 settings, Apply/Save/Cancel, keyboard navigation and port-0 pad navigation. The
