@@ -4,6 +4,7 @@
 #include "full-memory.h"
 #include "gpu/texture.h"
 #include "gpu/shaders.h"
+#include "gpu/vertex.h"
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -21,6 +22,7 @@
 #include "fixed-constants.inc"
 bool ff_webgl_pipelined();
 bool ff_browser_pacing_timing_enabled();
+namespace gpu { uint64_t BrowserDirtyRevision(); }
 
 // Exact equality, including NaN payloads, without the pinned libc's scalar
 // word-at-a-time memcmp loop. Never reads beyond either supplied span.
@@ -51,6 +53,13 @@ uint64_t frame = 0;
 uint32_t last_vertex_constants=0;
 uint32_t last_draw_state=0,last_pixel_uniforms=0,last_texture_state=0,last_raw_layout=0;
 std::vector<std::array<uint32_t,12>> commands;
+thread_local bool recorded_draws = false;
+// Only the recorder's consumer can reuse the last packet in this command arena.
+uint64_t prepared_revision = 0;
+uint64_t prepared_decode = 0;
+bool prepared_pretransformed = false;
+size_t prepare_queue_size = 0;
+uint64_t raw_draw_reuses = 0;
 struct Block { std::unique_ptr<uint8_t[]> bytes; size_t capacity,used=0; };
 struct Flight {
     std::vector<std::array<uint32_t,12>> commands;
@@ -105,6 +114,7 @@ void ResetCommands() {
     last_image_copy_valid.fill(false);last_image_version_valid.fill(false);
     commands.clear();for(auto& block:owned)block.used=0;owned_block=0;image_copies.clear();image_versions.clear();pinned_images.clear();pinned_image_bytes=0;owned_bytes=0;last_vertex_constants=0;
     last_draw_state=last_pixel_uniforms=last_texture_state=last_raw_layout=0;
+    prepared_revision = 0;
 }
 uint32_t InternLast(const void* source,size_t bytes,uint32_t& previous) {
     if(previous&&ff_webgl_equal_bytes(reinterpret_cast<const void*>(previous),source,bytes))return previous;
@@ -322,6 +332,53 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         commands.push_back({0,key,d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
     }
 }
+static void PushDraw(std::array<uint32_t, 12> packet, const void* vertices, uint32_t count,
+                     uint32_t stride, const void* indices, uint32_t index_count) {
+    if (!count || count > 1024u * 1024 || index_count > 16u * 1024 * 1024) std::abort();
+    packet[1] = Own(vertices, size_t(count) * stride);
+    packet[2] = count;
+    packet[3] = stride;
+    packet[4] = Own(indices, size_t(index_count) * 4);
+    packet[5] = index_count;
+    commands.push_back(packet);
+    const auto* state = reinterpret_cast<const uint32_t*>(packet[6]);
+    if (state[0]) targets.at(state[0]).cpu_coherent = false;
+    if (state[1]) targets.at(state[1]).cpu_coherent = false;
+}
+
+void ff_webgl_begin_recorded_draws() { recorded_draws = true; }
+
+void ff_webgl_invalidate_prepared_draw() { prepared_revision = 0; }
+
+uint64_t ff_webgl_raw_draw_reuses() { return raw_draw_reuses; }
+
+uint64_t ff_webgl_begin_prepare_raw_draw() {
+    if (!recorded_draws) return 0;
+    prepare_queue_size = commands.size();
+    return gpu::BrowserDirtyRevision();
+}
+
+bool ff_webgl_reuse_raw_draw(const gpu::Assembled& as, uint64_t revision) {
+    if (!revision || prepared_revision != revision || commands.empty() ||
+        prepared_decode != as.decode || prepared_pretransformed != as.pretransformed) return false;
+    const auto previous = commands.back();
+    const auto& vertices = as.buffers[0];
+    if (previous[0] != 3 || previous[3] != vertices.stride) return false;
+    const auto* state = reinterpret_cast<const uint32_t*>(previous[6]);
+    if ((state[39] & 0xffff) != as.regs) return false;
+    const auto* layout = reinterpret_cast<const uint32_t*>(previous[10]);
+    for (unsigned reg = 0; reg < 16; ++reg) {
+        if (!(as.regs & (1u << reg))) continue;
+        const auto& element = as.elements[reg];
+        const auto word = uint32_t(element.format) | (uint32_t(element.offset) << 8);
+        if (element.buffer || layout[reg] != word) return false;
+    }
+    PushDraw(previous, vertices.src, as.vertex_count, vertices.stride,
+             as.indices.data(), uint32_t(as.indices.size()));
+    ++raw_draw_reuses;
+    return true;
+}
+
 static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const void* indices, uint32_t n,
                    const uint32_t* state, const float* uniforms, const char* shader, const uint32_t* textures,const uint32_t* layout) {
     uint32_t tx[4*14];std::memcpy(tx,textures,sizeof(tx));
@@ -381,23 +438,32 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
             q[6]=copy;q[11]=uint32_t(hash);q[12]=uint32_t(hash>>32);
         } else {q[6]=found->second[0];q[11]=found->second[1];q[12]=found->second[2];}
     }
-    if(!count||count>1024u*1024||n>16u*1024*1024)std::abort();
-    commands.push_back({layout?3u:1u,Own(v,size_t(count)*stride),count,stride,Own(indices,size_t(n)*4),n,
+    PushDraw({layout?3u:1u,0,0,0,0,0,
         InternLast(states,sizeof(states),last_draw_state),InternLast(uniforms,152*4,last_pixel_uniforms),
         uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state),
-        layout?InternLast(layout,16*sizeof(*layout),last_raw_layout):0});
-    if(states[0])targets.at(states[0]).cpu_coherent=false;
-    if(states[1])targets.at(states[1]).cpu_coherent=false;
+        layout?InternLast(layout,16*sizeof(*layout),last_raw_layout):0}, v, count, stride, indices, n);
     return true;
 }
 bool ff_webgl_draw(const void* v,uint32_t count,uint32_t stride,const void* indices,uint32_t n,
                   const uint32_t* state,const float* uniforms,const char* shader,const uint32_t* textures) {
     return SubmitDraw(v,count,stride,indices,n,state,uniforms,shader,textures,nullptr);
 }
-bool ff_webgl_draw_raw(const void* v,uint32_t count,uint32_t stride,const void* indices,uint32_t n,
-                      const uint32_t* state,const float* uniforms,const char* shader,const uint32_t* textures,const uint32_t* layout) {
-    if(!layout||!stride||stride>252||stride%4)std::abort();
-    return SubmitDraw(v,count,stride,indices,n,state,uniforms,shader,textures,layout);
+bool ff_webgl_draw_raw(const gpu::Assembled& as, const uint32_t* state, const float* uniforms,
+                      const char* shader, const uint32_t* textures, const uint32_t* layout,
+                      uint64_t revision) {
+    const auto& vertices = as.buffers[0];
+    if (!layout || !vertices.stride || vertices.stride > 252 || vertices.stride % 4) std::abort();
+    // A target upload can change how the next draw resolves a sampled surface.
+    const uint64_t reusable = commands.size() == prepare_queue_size ? revision : 0;
+    prepared_revision = 0;
+    const bool submitted = SubmitDraw(vertices.src, as.vertex_count, vertices.stride,
+                                      as.indices.data(), uint32_t(as.indices.size()), state, uniforms,
+                                      shader, textures, layout);
+    if (!submitted) return false;
+    prepared_revision = reusable;
+    prepared_decode = as.decode;
+    prepared_pretransformed = as.pretransformed;
+    return true;
 }
 void ff_webgl_clear(const gpu::State& s, uint32_t n, const uint8_t* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil) {
     uint32_t color_id=0,depth_id=0;gpu::TextureDesc d;

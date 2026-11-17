@@ -26,6 +26,7 @@
 void ff_webgl_advance_frame();
 void ff_webgl_flush();
 bool ff_webgl_pipelined();
+uint64_t ff_webgl_raw_draw_reuses();
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -253,12 +254,15 @@ public:
         // it is not the title thread's frame-start or physical display time.
         const double completion_ms = emscripten_get_now();
         const double frame_sequence = static_cast<double>(frames_ + 1);
+        const double raw_draw_reuses = static_cast<double>(ff_webgl_raw_draw_reuses());
         if(ff_webgl_enabled()&&ff_webgl_pipelined()) {
-            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
-                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
+            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6,$7); },
+                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,
+                                    browser_vblank_ticks.load(std::memory_order_relaxed),raw_draw_reuses);
         } else {
-            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
-                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
+            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6,$7); },
+                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,
+                              browser_vblank_ticks.load(std::memory_order_relaxed),raw_draw_reuses);
         }
 #endif
         ++frames_;

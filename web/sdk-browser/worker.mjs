@@ -57,7 +57,7 @@ function intervalSummary(intervals) {
   const percentile = p => ordered[Math.min(ordered.length - 1, Math.floor((ordered.length - 1) * p))];
   return { p50: percentile(.5), p95: percentile(.95), p99: percentile(.99), max: ordered.at(-1), samples: ordered.length };
 }
-function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequence, blankCount) {
+function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequence, blankCount, rawDrawReuses) {
   if (cancelled || ![drawMs, clearMs, copyMs, drawCalls].every(v => Number.isFinite(v) && v >= 0)) return;
   const now = performance.now();
   // These timestamps are captured at BrowserBackend::EndFrame after Present
@@ -100,6 +100,7 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     imageLookups: moduleInstance?.onFuzionGpu?.imageLookups,
     constantPacking: moduleInstance?.onFuzionGpu?.constantPacking,
     textureMetadataLookups: moduleInstance?.onFuzionGpu?.textureMetadataLookups,
+    rawDrawReuses,
     gpuTiming: moduleInstance?.onFuzionGpu?.gpuTimingStats,
     pacingTiming,
     metricsCallbackIntervalMs,

@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the [GPU candidate](browser-gpu.md) reads each pixel header through a checked span. Ten warmed Erodeo windows recorded vertex-buffer waits before 603 of 605 consecutive enqueues, at a 5.08 ms median. Callback interval p95 was 18.2–19.2 ms.
-- **Next:** compare vertex-buffer waits with the last queued uses of those backings and measure compositor cadence on modest hardware. Fidelity qualification remains open. Evaluate 120 FPS after stable 60 FPS and compare original game timing and behavior.
+- **Browser:** the [GPU candidate](browser-gpu.md) reuses prepared state for consecutive compatible draws. Warmed Erodeo median render preparation fell from 8.73 to 3.43 ms. Waits of at least 0.5 ms fell from 605 to one across roughly 600 presents per build. Callback interval p95 was 18.3–18.7 ms.
+- **Next:** address measured frame-cap lateness and check physical display cadence on modest hardware. Fidelity qualification remains open. Evaluate 120 FPS after stable 60 FPS and compare original game timing and behavior.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) and #49, reuse the Erodeo route with local shader warmup. Three physical vertex-buffer backings account for the sampled waits. Resolve the last queued access and byte extent before changing the fence. The controlled original comparison with recorded input and audible audio remains open.
+For [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) and #49, use the warmed Erodeo route and the reduced CPU preparation budget. Frame-cap callback lateness was 2.20 ms at p95. Establish actual presentation cadence and the next timing change. The controlled original comparison with recorded input and audible audio remains open.
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

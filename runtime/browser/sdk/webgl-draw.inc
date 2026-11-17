@@ -87,7 +87,7 @@ if (ff_webgl_enabled()) {
     ff_webgl_target(s.rt, false);
     if (zs.ok) ff_webgl_target(s.zs, true);
     const bool submitted=bridge_layout?
-        ff_webgl_draw_raw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures,bridge_layout):
+        ff_webgl_draw_raw(as,states,uniforms,source,textures,bridge_layout,prepare_revision):
         ff_webgl_draw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures);
     if(submitted)return;
     // A rejected shader/state is a visible stop, never an omitted draw.

@@ -187,7 +187,9 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         render,
         'namespace gpu {\n',
         'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n'
-        'bool ff_browser_pacing_timing_enabled();\n\nnamespace gpu {\n',
+        'bool ff_browser_pacing_timing_enabled();\n'
+        'void ff_webgl_begin_recorded_draws();\n'
+        'void ff_webgl_invalidate_prepared_draw();\n\nnamespace gpu {\n',
         "Optional checked browser span declaration",
     )
     render = _replace_once(render, '#include <smmintrin.h>\n', '#include <smmintrin.h>\n#include <emscripten.h>\n', "Resource wait timing bridge")
@@ -233,6 +235,33 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     )
     render = _replace_once(
         render,
+        '        cur_ = NewBatch();\n        std::thread',
+        '        cur_ = new Batch;\n        cur_->id = ++next_id_;\n        std::thread',
+        "Initial recording batch before the worker starts",
+    )
+    render = _replace_once(
+        render,
+        """    Batch* NewBatch() {
+        Batch* b;
+        {
+            std::lock_guard lock(m_);
+            if (free_.empty()) {
+                b = new Batch;
+            } else {
+                b = free_.back();
+                free_.pop_back();
+            }
+        }
+        b->id = ++next_id_;
+        return b;
+    }
+
+""",
+        "",
+        "Remove the second batch-pool lock",
+    )
+    render = _replace_once(
+        render,
         """    uint64_t Submit() {
         uint64_t id = cur_->id;
         {
@@ -244,21 +273,27 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         return id;
     }""",
         """    uint64_t Submit() {
-        uint64_t id = cur_->id, oldest = 0;
-        size_t pending = 0;
+        const uint64_t id = cur_->id;
+        uint64_t oldest = 0;
         {
             std::lock_guard lock(m_);
+            // Obtain the successor before handing the current batch to the worker.
+            std::unique_ptr<Batch> created;
+            if (free_.empty()) created = std::make_unique<Batch>();
+            Batch* next = created ? created.get() : free_.back();
             queue_.push_back(cur_);
-            pending = queue_.size();
-            if (pending >= 128) oldest = queue_.front()->id;
+            if (created) (void)created.release();
+            else free_.pop_back();
+            next->id = ++next_id_;
+            cur_ = next;
+            if (queue_.size() >= 128) oldest = queue_.front()->id;
         }
         cv_.notify_one();
-        cur_ = NewBatch();
         // Never hold m_ while waiting; worker completion needs that mutex.
         if (oldest) Wait(oldest, WaitFor::Resource, "render queue backpressure");
         return id;
     }""",
-        "Bound pending render batches",
+        "Publish and replenish bounded render batches under one lock",
     )
     render = _replace_once(
         render,
@@ -277,14 +312,20 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         }
         // A guest resource can alias another header or backing span. Until the
         // browser route proves canonical spans, drain all prior work here.
+        const uint64_t completed = sampled ? done_.load() : 0;
         const uint64_t through = (!cur_->cmds.empty() || !cur_->bytes.empty()) ? Submit() : cur_->id - 1;
         const uint64_t waited = Wait(through, WaitFor::Resource, "resource");
         if (sampled && waited >= 500000) {
+            const double finished = emscripten_get_now();
             const auto data = mem::VirtualFromPhysical(header[1]);
             const auto backing = mem::VirtualFromPhysical(mem::PhysicalFromVirtual(data));
+            const auto use = last_use_.find(resource);
+            const uint64_t last = use == last_use_.end() ? 0 : use->second;
+            const uint32_t allocation = mem::AllocationSize(backing);
             MAIN_THREAD_ASYNC_EM_ASM({
-                Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5);
-            }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), emscripten_get_now());
+                Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5, $6, $7, $8 >>> 0);
+            }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), finished,
+               double(last), double(completed), allocation);
         }
     }""",
         "Alias-safe resource barrier",
@@ -302,6 +343,19 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         '        }\n    }\n\n    void Run() {',
         '        }\n        return ns;\n    }\n\n    void Run() {',
         "Return the existing wait counter sample",
+    )
+    render = _replace_once(
+        render,
+        '    void Run() {\n',
+        '    void Run() {\n        ff_webgl_begin_recorded_draws();\n',
+        "Enable draw preparation reuse on the command consumer",
+    )
+    render = _replace_once(
+        render,
+        '    void Execute(const Batch& b, const Cmd& c) {\n',
+        '    void Execute(const Batch& b, const Cmd& c) {\n'
+        '        if (c.op != Op::Draw) ff_webgl_invalidate_prepared_draw();\n',
+        "Invalidate prepared draws at state and non-draw commands",
     )
 
     d3d = _replace_once(
@@ -363,7 +417,11 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     auto it = g_dirty.find(data);
     return it == g_dirty.end() ? 0 : it->second;
 }""",
-        """uint64_t DirtyEpoch(uint32_t data) {
+        """uint64_t BrowserDirtyRevision() {
+    return g_epoch.load(std::memory_order_acquire);
+}
+
+uint64_t DirtyEpoch(uint32_t data) {
     struct RecentEpoch {
         uint32_t data = 0;
         uint64_t revision = 0;
@@ -396,10 +454,12 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             "abort on oversized reservation or any scratch allocation beyond its reservation",
             "skip resource header capture calls for empty bindings or an unavailable scratch ring",
             "capture each resource header from a checked single-window span while admitting short window-end headers",
+            "publish a batch and take its successor under the same queue lock",
+            "invalidate prepared raw draw state at state updates and non-draw commands",
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
             "resource waits drain all preceding work to preserve aliases; D3D_BlockOnResource waits before Sync",
-            "pacing diagnostics relate waits of at least 0.5 ms to the resource header, canonical data address and batch",
+            "pacing diagnostics record the drain, exact-header use, completed batch and allocation extent",
             "pixel header descriptions read all required fields through one checked guest mapping",
             "dirty epoch reads reuse thread-local values at the same published revision, with locked lookup on misses",
             "submit Clear/Copy/RecordLate/Gamma once a complete command reaches the batch threshold",

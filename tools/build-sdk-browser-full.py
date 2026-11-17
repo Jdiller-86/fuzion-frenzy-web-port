@@ -85,6 +85,15 @@ def main() -> int:
         raise RuntimeError('Reference image-cache seam differs')
     reference_text=reference_text.replace(image_anchor,'#include "webgl-images.inc"\n'+image_anchor+'\n    BrowserImagesWritten(lo,hi);')
     reference_text=reference_text.replace('    Assembled as;', '    static thread_local Assembled as;')
+    assembled_draw = '    if (!Assemble(s, prim, start, count, indices, as) || as.topology != Topology::Triangles) return;'
+    if reference_text.count(assembled_draw) != 1:
+        raise RuntimeError('Reference draw assembly seam differs from retained source')
+    reference_text = reference_text.replace(assembled_draw, assembled_draw + '''
+    uint64_t prepare_revision = 0;
+    if (as.vertices.empty() && as.buffer_count == 1 && ff_webgl_enabled() && ff_webgl_gpu_vertex_enabled()) {
+        prepare_revision = ff_webgl_begin_prepare_raw_draw();
+        if (ff_webgl_reuse_raw_draw(as, prepare_revision)) return;
+    }''', 1)
     anchor = '    // raster and output state'
     if reference_text.count(anchor) != 1:
         raise RuntimeError('Reference renderer vertex bridge anchor differs from retained source')
@@ -117,7 +126,7 @@ def main() -> int:
 #include "webgl-draw.inc"
     }
 '''
-    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <cmath>\n#include <limits>\n#include <optional>\n#include <tuple>\n#include <utility>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nconst float* ff_webgl_program_constants(const void*,const float*);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&,uint32_t,uint32_t,bool);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nbool ff_webgl_draw_raw(const void*,uint32_t,uint32_t,const void*,uint32_t,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
+    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <cmath>\n#include <limits>\n#include <optional>\n#include <tuple>\n#include <utility>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nconst float* ff_webgl_program_constants(const void*,const float*);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&,uint32_t,uint32_t,bool);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nnamespace gpu { struct Assembled; }\nuint64_t ff_webgl_begin_prepare_raw_draw();\nbool ff_webgl_reuse_raw_draw(const gpu::Assembled&, uint64_t);\nbool ff_webgl_draw_raw(const gpu::Assembled&,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*,uint64_t);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
     reference.write_text(reference_text)
     runtime += [reference]
     original_title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']
