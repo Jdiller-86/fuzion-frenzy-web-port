@@ -28,9 +28,10 @@ export class WebGLRenderer {
     if (!gl) throw new Error('WebGL 2 is unavailable. Select Software reference or enable browser hardware acceleration.');
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
-    this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0};
+    this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
+    this.fragmentShaders=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     if(gpuTiming) {
       const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
@@ -65,7 +66,7 @@ void main() {
   vD0=aD0;vD1=aD1;vB0=aB0;vB1=aB1;vFog=aFog.x;
   vTc0=aTc0;vTc1=aTc1;vTc2=aTc2;vTc3=aTc3;
 }`;
-    this.vertexShader = this.shader(gl.VERTEX_SHADER, this.vertexSource);
+    this.vertexShader = this.compileShader(gl.VERTEX_SHADER, this.vertexSource);
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
       this.disposeGpuTiming();
@@ -185,16 +186,14 @@ void main() {
     if(end===heap.length || end-ptr===1000000) throw new Error('Unterminated shader');
     return new TextDecoder().decode(heap.slice(ptr,end));
   }
-  shader(kind, source) {
-    const g=this.gl,start=performance.now(),s=g.createShader(kind);g.shaderSource(s,source);g.compileShader(s);this.shaderStats.compileMs+=performance.now()-start;
-    const waitStart=performance.now(),compiled=g.getShaderParameter(s,g.COMPILE_STATUS),wait=performance.now()-waitStart;
-    this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
-    if(!compiled) {
-      const e=g.getShaderInfoLog(s),lines=source.split('\n');
-      const context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
-      g.deleteShader(s);throw new Error(`GPU shader: ${e}\n${context}`);
-    }
-    return s;
+  compileShader(kind, source) {
+    const g=this.gl,start=performance.now();
+    const shader=g.createShader(kind);
+    if(!shader)throw new Error('Could not allocate WebGL shader');
+    g.shaderSource(shader,source);
+    g.compileShader(shader);
+    this.shaderStats.compileMs+=performance.now()-start;
+    return shader;
   }
   commands(ptr,count) {
     try {
@@ -344,31 +343,47 @@ void main() {
     const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
     if(this.programs.has(key)) return this.programs.get(key);
     if(this.programs.size>=2048)throw new Error('GPU shader cache budget exceeded');
-    const g=this.gl, parallel=prewarm&&!!this.parallelShaderCompile;
-    const compile=(kind,text)=>{const start=performance.now(),s=g.createShader(kind);g.shaderSource(s,text);g.compileShader(s);this.shaderStats.compileMs+=performance.now()-start;return s;};
-    const fragmentSource=pixelGlsl(source,kinds,shadows,flat),f=parallel?compile(g.FRAGMENT_SHADER,fragmentSource):this.shader(g.FRAGMENT_SHADER,fragmentSource),p=g.createProgram();
-    let vertexSource,vertexShader;
+    const fragmentSource=pixelGlsl(source,kinds,shadows,flat);
+    const g=this.gl,p=g.createProgram();
+    if(!p)throw new Error('Could not allocate WebGL program');
+    let fragmentShader,vertexShader;
     try{
+      fragmentShader=this.fragmentShaders.get(fragmentSource);
+      if(fragmentShader) {
+        this.shaderStats.fragmentReuses++;
+      } else {
+        if(this.fragmentShaders.size>=2048)throw new Error('GPU fragment shader cache budget exceeded');
+        fragmentShader=this.compileShader(g.FRAGMENT_SHADER,fragmentSource);
+        this.fragmentShaders.set(fragmentSource,fragmentShader);
+        this.shaderStats.fragmentCompiles++;
+      }
       if(vertexPointer){
         const vk=`${vertexPointer}:${flat}:${regs}`;vertexShader=this.vertexPrograms.get(vk);
         if(!vertexShader){
           const hlsl=this.string(vertexPointer);
-          try{vertexSource=vertexGlsl(hlsl,regs,flat);vertexShader=parallel?compile(g.VERTEX_SHADER,vertexSource):this.shader(g.VERTEX_SHADER,vertexSource);}
+          try{vertexShader=this.compileShader(g.VERTEX_SHADER,vertexGlsl(hlsl,regs,flat));}
           catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
           this.vertexPrograms.set(vk,vertexShader);
         }
       } else {
-        if(flat&&!this.flatVertexShader){vertexSource=this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1');this.flatVertexShader=parallel?compile(g.VERTEX_SHADER,vertexSource):this.shader(g.VERTEX_SHADER,vertexSource);}
+        if(flat&&!this.flatVertexShader){
+          const flatSource=this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1');
+          this.flatVertexShader=this.compileShader(g.VERTEX_SHADER,flatSource);
+        }
         vertexShader=flat?this.flatVertexShader:this.vertexShader;
       }
-      g.attachShader(p,vertexShader);g.attachShader(p,f);const linkStart=performance.now();g.linkProgram(p);this.shaderStats.linkMs+=performance.now()-linkStart;
-    }catch(error){g.deleteShader(f);g.deleteProgram(p);throw error;}
-    g.deleteShader(f);
-    if(parallel){const result={p,pending:true,vertexShader,vertexPointer,regs,flat,fragmentShader:f,fragmentSource,vertexSource};this.programs.set(key,result);return result;}
-    const waitStart=performance.now(),linked=g.getProgramParameter(p,g.LINK_STATUS),wait=performance.now()-waitStart;
-    this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);this.shaderStats.blockingPrograms++;
-    if(!linked){const error=new Error(`GPU program: ${g.getProgramInfoLog(p)}`);g.deleteProgram(p);throw error;}
-    const result=this.finishProgram(p);this.shaderStats.completedPrograms++;this.programs.set(key,result);return result;
+      g.attachShader(p,vertexShader);
+      g.attachShader(p,fragmentShader);
+      const linkStart=performance.now();
+      g.linkProgram(p);
+      this.shaderStats.linkMs+=performance.now()-linkStart;
+    }catch(error){g.deleteProgram(p);throw error;}
+    const program={p,pending:true,vertexShader,vertexPointer,regs,flat,fragmentShader,fragmentSource};
+    // The extension only controls when we can check the link. Both stages
+    // have already been submitted to the compiler, including in fallback.
+    if(!prewarm||!this.parallelShaderCompile)this.readyProgram(program);
+    this.programs.set(key,program);
+    return program;
   }
   finishProgram(p,result={}) {
     const g=this.gl;
@@ -392,28 +407,43 @@ void main() {
   }
   readyProgram(program) {
     if(!program.pending)return program;
+    if(program.error)throw program.error;
     const g=this.gl,start=performance.now(),extension=this.parallelShaderCompile;
-    const completed=g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR),linked=g.getProgramParameter(program.p,g.LINK_STATUS),wait=performance.now()-start;
+    const completed=extension&&g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR);
+    const linked=g.getProgramParameter(program.p,g.LINK_STATUS),wait=performance.now()-start;
     this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
     if(!completed)this.shaderStats.blockingPrograms++;
-    let statusStart=performance.now(),vertexCompiled=g.getShaderParameter(program.vertexShader,g.COMPILE_STATUS),statusWait=performance.now()-statusStart;
-    this.shaderStats.waitMs+=statusWait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,statusWait);
-    if(!vertexCompiled){
-      const source=program.vertexSource??(program.vertexPointer?vertexGlsl(this.string(program.vertexPointer),program.regs,program.flat):program.flat?this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1'):this.vertexSource),e=g.getShaderInfoLog(program.vertexShader),lines=source.split('\n'),context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
-      if(program.vertexPointer){const hlsl=this.string(program.vertexPointer);postMessage({type:'vertex-diagnostic',hlsl,regs:program.regs,flat:program.flat});}
-      throw new Error(`GPU shader: ${e}\n${context}`);
+    if(!linked){
+      try {
+        const {p,vertexShader,fragmentShader,vertexPointer,regs,flat,fragmentSource}=program;
+        if(!g.getShaderParameter(vertexShader,g.COMPILE_STATUS)){
+          let vertexSource=this.vertexSource;
+          if(vertexPointer){
+            const hlsl=this.string(vertexPointer);
+            postMessage({type:'vertex-diagnostic',hlsl,regs,flat});
+            vertexSource=vertexGlsl(hlsl,regs,flat);
+          } else if(flat) vertexSource=vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1');
+          throw this.shaderError(vertexShader,vertexSource);
+        }
+        if(!g.getShaderParameter(fragmentShader,g.COMPILE_STATUS))throw this.shaderError(fragmentShader,fragmentSource);
+        throw new Error(`GPU program: ${g.getProgramInfoLog(p)}`);
+      } catch(error) {
+        program.error=error;
+        throw error;
+      } finally { g.deleteProgram(program.p); }
     }
-    statusStart=performance.now();const fragmentCompiled=g.getShaderParameter(program.fragmentShader,g.COMPILE_STATUS);statusWait=performance.now()-statusStart;
-    this.shaderStats.waitMs+=statusWait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,statusWait);
-    if(!fragmentCompiled){
-      const e=g.getShaderInfoLog(program.fragmentShader),lines=program.fragmentSource.split('\n'),context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
-      throw new Error(`GPU shader: ${e}\n${context}`);
-    }
-    if(!linked)throw new Error(`GPU program: ${g.getProgramInfoLog(program.p)}`);
     if(completed)this.shaderStats.readyWithoutWait++;
+    g.detachShader(program.p,program.vertexShader);
+    g.detachShader(program.p,program.fragmentShader);
     program.pending=false;const ready=this.finishProgram(program.p,program);this.shaderStats.completedPrograms++;
-    program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=undefined;
+    program.vertexShader=program.fragmentShader=program.fragmentSource=undefined;
     return ready;
+  }
+  shaderError(shader,source) {
+    const message=this.gl.getShaderInfoLog(shader),lines=source.split('\n');
+    const locations=[...new Set([...message.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(match=>Number(match[1])))];
+    const context=locations.slice(0,10).map(line=>`${line}: ${lines[line-1]}`).join('\n');
+    return new Error(`GPU shader: ${message}\n${context}`);
   }
   target(id,w,h,format,pitch,linear,depth,ptr,size,hashLo,hashHi) {
     if(!id || !w || !h || w>4096 || h>4096) throw new Error('Invalid GPU surface');

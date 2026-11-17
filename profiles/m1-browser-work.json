@@ -270,7 +270,7 @@
       "size": "L",
       "state": "Awaiting evidence",
       "evidence": "bounded title evidence",
-      "startingPoint": "Required programmable and fixed-function paths for the sampled original scenes run through WebGL2. The candidate reuses shader variants and owned constant packets. Native comparison and first-use stall reduction remain open.",
+      "startingPoint": "Required programmable and fixed-function paths for the sampled scenes run through WebGL2. Shared fragment stages compiled 10 times for 23 linked programs in Erodeo. The longest first-use link check was 96.7 ms. Earlier linkage and native comparison remain open.",
       "completion": "Required original vertex-program/pixel-combiner paths execute through the selected backend with a checked reference comparison. Inventory actual instructions, constants and combiners, including skinning inputs only if the target uses them, then split feature families. Question: which title programs/features can existing translators cover?",
       "evidenceRef": "docs/browser-gpu.md#actual-gameplay-observations",
       "workPackage": "m1-build",
