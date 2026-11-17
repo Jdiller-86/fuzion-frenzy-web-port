@@ -32,6 +32,7 @@ export class WebGLRenderer {
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
+    this.stateSnapshot = new Uint32Array(40);
     this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
     this.vao = gl.createVertexArray(); this.vbo = gl.createBuffer(); this.ibo = gl.createBuffer();
     const commandFloatBuffer=new ArrayBuffer(4);this.commandFloatBits=new Uint32Array(commandFloatBuffer);this.commandFloatValue=new Float32Array(commandFloatBuffer);
@@ -66,13 +67,14 @@ void main() {
     report(`WebGL 2 triangle renderer: ${info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`);
     report(`Programmable vertices: ${this.gpuVertices?'GPU':'CPU reference'}`);
   }
-  bytes(ptr, length) {
+  checkedHeapSpan(ptr, length) {
     const heap = this.memory().HEAPU8;
     if (!Number.isInteger(ptr) || !Number.isSafeInteger(length) || ptr < 0 || length < 0 || ptr + length > heap.length) throw new Error('GPU bridge span outside WASM memory');
-    return heap.subarray(ptr,ptr+length);
+    return heap;
   }
-  wordView(ptr,n) { const span=this.bytes(ptr,n*4);return new Uint32Array(span.buffer,span.byteOffset,n); }
-  floatView(ptr,n) { const span=this.bytes(ptr,n*4);return new Float32Array(span.buffer,span.byteOffset,n); }
+  bytes(ptr, length) { const heap=this.checkedHeapSpan(ptr,length);return heap.subarray(ptr,ptr+length); }
+  wordView(ptr,n) { const heap=this.checkedHeapSpan(ptr,n*4);return new Uint32Array(heap.buffer,heap.byteOffset+ptr,n); }
+  floatView(ptr,n) { const heap=this.checkedHeapSpan(ptr,n*4);return new Float32Array(heap.buffer,heap.byteOffset+ptr,n); }
   words(ptr,n) { return new Uint32Array(this.bytes(ptr,n*4).slice().buffer); }
   floats(ptr,n) { return new Float32Array(this.bytes(ptr,n*4).slice().buffer); }
   sameWords(a,b,count) {
@@ -449,7 +451,7 @@ void main() {
   }
   draw(v,count,stride,indices,n,state,uniforms,source,textures,layout=0,binding,commandOffset=0) {
     try {
-      const g=this.gl,s=this.words(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
+      const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
       const kinds=[0,1,2,3].map(t=>tx[t*14]),shadows=[0,1,2,3].map(t=>tx[t*14+1]);
       if(kinds.some(k=>k===2||k===3))throw new Error('GPU 3D/cube texture admission is not implemented');
@@ -571,7 +573,9 @@ void main() {
         if(!program.samplersSet)g.uniform1i(loc(`tex${t}`),t);
       }
       program.samplersSet=true;
-      if(!this.lastState||u[2]!==this.lastZscale||s.subarray(0,37).some((value,i)=>value!==this.lastState[i])) {
+      let stateChanged=!this.lastState||u[2]!==this.lastZscale;
+      if(!stateChanged)for(let i=0;i<37;i++)if(s[i]!==this.lastState[i]){stateChanged=true;break;}
+      if(stateChanged) {
       g.viewport(0,0,s[2],s[3]);g.enable(g.SCISSOR_TEST);
       let rect=[s[22],s[23],s[22]+s[24],s[23]+s[25]];
       if(s[26])rect=[Math.max(rect[0],s[27]),Math.max(rect[1],s[28]),Math.min(rect[2],s[29]),Math.min(rect[3],s[30])];
@@ -585,8 +589,8 @@ void main() {
       enable(g.CULL_FACE,s[20]===0x900||s[20]===0x901);
       // GPU coordinates have y down, matching the reference winding convention.
       g.frontFace(s[21]===0x901?g.CW:g.CCW);g.cullFace(s[20]===s[21]?g.FRONT:g.BACK);
-      enable(g.POLYGON_OFFSET_FILL,s[34]);const f=new Float32Array(s.buffer);g.polygonOffset(f[35],f[36]*16777215*u[2]);
-      this.lastState=s;
+      enable(g.POLYGON_OFFSET_FILL,s[34]);const f=new Float32Array(s.buffer,s.byteOffset,s.length);g.polygonOffset(f[35],f[36]*16777215*u[2]);
+      this.stateSnapshot.set(s);this.lastState=this.stateSnapshot;
       this.lastZscale=u[2];
       }
       this.bindGeometry(binding);
