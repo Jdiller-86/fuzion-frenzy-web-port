@@ -318,6 +318,7 @@ void main() {
     const bindings=this.drawBindings??=[];
     bindings.length=count;
     let convertedOffset=0,rawOffset=convertedBytes,io=0,rawGroup=null;
+    let rawLayoutReuses=0;
     const convertedBinding={kind:'converted',totalVertices:convertedVertices};
     for(let i=0;i<count;i++){
       const b=i*12,opcode=words[b];
@@ -347,11 +348,24 @@ void main() {
         convertedOffset+=vertexCount*256;io+=indexCountForDraw;
       }else if(opcode===3){
         const vertexCount=words[b+2],stride=words[b+3],layoutPtr=words[b+10],indexCountForDraw=words[b+5];if(!layoutPtr)throw new Error('Missing raw vertex layout');
-        const layout=this.wordView(layoutPtr,16),state=this.wordView(words[b+6],40),mask=state[39]&0xffff;
+        const state=this.wordView(words[b+6],40),mask=state[39]&0xffff;
         let same=!!rawGroup&&rawGroup.stride===stride;
-        if(same)for(let r=0;r<16;r++)if(rawGroup.layout[r]!==layout[r]){same=false;break;}
-        if(same){let active=0;for(let r=0;r<16;r++)if(layout[r])active|=1<<r;if(active!==mask)throw new Error('Raw vertex layout does not match register mask');}
-        else rawGroup={kind:'raw',baseByte:rawOffset,stride,layout:layout.slice(),attributes:this.rawLayout(stride,layout,mask),vertexCount:0};
+        // Equal interned pointers refer to the same owned layout in this batch.
+        const interned=same&&rawGroup.layoutPtr===layoutPtr;
+        let layout;
+        if(interned){
+          ++rawLayoutReuses;
+        }else{
+          layout=this.wordView(layoutPtr,16);
+          if(same)for(let r=0;r<16;r++)if(rawGroup.layout[r]!==layout[r]){same=false;break;}
+        }
+        if(same){
+          if(rawGroup.mask!==mask)throw new Error('Raw vertex layout does not match register mask');
+          if(!interned)rawGroup.layoutPtr=layoutPtr;
+        }else{
+          rawGroup={kind:'raw',baseByte:rawOffset,stride,mask,layoutPtr,layout:layout.slice(),
+            attributes:this.rawLayout(stride,layout,mask),vertexCount:0};
+        }
         const base=rawGroup.vertexCount,sourceBytes=this.bytes(words[b+1],vertexCount*stride);
         vertices.set(sourceBytes,rawOffset);
         const order=this.wordView(words[b+4],indexCountForDraw),flat=state[32];
@@ -369,6 +383,7 @@ void main() {
         io+=indexCountForDraw;
       }else bindings[i]=null;
     }
+    if(rawLayoutReuses)this.frameStats.rawLayoutReuses=(this.frameStats.rawLayoutReuses??0)+rawLayoutReuses;
     if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
     if(vertexBytes>(this.vertexBufferCapacity||0)){this.vertexBufferCapacity=this.capacity(this.vertexBufferCapacity||0,vertexBytes,256*1024*1024);g.bufferData(g.ARRAY_BUFFER,this.vertexBufferCapacity,g.STREAM_DRAW);}

@@ -49,7 +49,7 @@ std::map<uint32_t, Target> targets;
 size_t target_snapshot_bytes=0;
 uint64_t frame = 0;
 uint32_t last_vertex_constants=0;
-uint32_t last_draw_state=0,last_pixel_uniforms=0,last_texture_state=0;
+uint32_t last_draw_state=0,last_pixel_uniforms=0,last_texture_state=0,last_raw_layout=0;
 std::vector<std::array<uint32_t,12>> commands;
 struct Block { std::unique_ptr<uint8_t[]> bytes; size_t capacity,used=0; };
 struct Flight {
@@ -104,7 +104,7 @@ void WaitFlight() {
 void ResetCommands() {
     last_image_copy_valid.fill(false);last_image_version_valid.fill(false);
     commands.clear();for(auto& block:owned)block.used=0;owned_block=0;image_copies.clear();image_versions.clear();pinned_images.clear();pinned_image_bytes=0;owned_bytes=0;last_vertex_constants=0;
-    last_draw_state=last_pixel_uniforms=last_texture_state=0;
+    last_draw_state=last_pixel_uniforms=last_texture_state=last_raw_layout=0;
 }
 uint32_t InternLast(const void* source,size_t bytes,uint32_t& previous) {
     if(previous&&ff_webgl_equal_bytes(reinterpret_cast<const void*>(previous),source,bytes))return previous;
@@ -384,7 +384,8 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
     if(!count||count>1024u*1024||n>16u*1024*1024)std::abort();
     commands.push_back({layout?3u:1u,Own(v,size_t(count)*stride),count,stride,Own(indices,size_t(n)*4),n,
         InternLast(states,sizeof(states),last_draw_state),InternLast(uniforms,152*4,last_pixel_uniforms),
-        uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state),layout?Own(layout,16*4):0});
+        uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state),
+        layout?InternLast(layout,16*sizeof(*layout),last_raw_layout):0});
     if(states[0])targets.at(states[0]).cpu_coherent=false;
     if(states[1])targets.at(states[1]).cpu_coherent=false;
     return true;
