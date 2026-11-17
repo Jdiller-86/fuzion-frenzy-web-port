@@ -22,7 +22,7 @@ const RAW_VERTEX_FORMATS = new Map([
 // Runs on the runtime worker. Commands synchronously consume the checked,
 // owned SDK buffers while the title thread waits at its bridge callback.
 export class WebGLRenderer {
-  constructor(canvas, memory, report, gpuVertices=true, shaderPrewarm=true) {
+  constructor(canvas, memory, report, gpuVertices=true, shaderPrewarm=true, gpuTiming=false) {
     this.canvas = canvas; this.memory = memory; this.report = report;
     const gl = this.gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL 2 is unavailable. Select Software reference or enable browser hardware acceleration.');
@@ -32,6 +32,13 @@ export class WebGLRenderer {
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
+    if(gpuTiming) {
+      const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+      const bits=ext?gl.getQuery(ext.TIME_ELAPSED_EXT,ext.QUERY_COUNTER_BITS_EXT):0;
+      this.gpuTimerExtension=bits>0?ext:null;this.gpuTimerPending=[];
+      this.gpuTimingStats={supported:bits>0,enabled:bits>0,counterBits:bits,periodFrames:6,samples:0,pending:0,disjointEvents:0,dropped:0,skippedStarts:0,results:[]};
+      report(`GPU elapsed timing: ${bits>0?'enabled (one sample per six frames)':'unavailable; rendering unchanged'}`);
+    }
     this.stateSnapshot = new Uint32Array(40);
     this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
     this.vao = gl.createVertexArray(); this.vbo = gl.createBuffer(); this.ibo = gl.createBuffer();
@@ -61,11 +68,62 @@ void main() {
     this.vertexShader = this.shader(gl.VERTEX_SHADER, this.vertexSource);
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
+      this.disposeGpuTiming();
       postMessage({type:'gpu-error',text:'The graphics context was lost. Start the game again to recreate its resources.'});
     });
     const info = gl.getExtension('WEBGL_debug_renderer_info');
     report(`WebGL 2 triangle renderer: ${info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`);
     report(`Programmable vertices: ${this.gpuVertices?'GPU':'CPU reference'}`);
+  }
+  clearGpuTimerQueries() {
+    const g=this.gl;
+    if(this.gpuTimerActive) {
+      try {g.endQuery(this.gpuTimerExtension.TIME_ELAPSED_EXT);} catch {}
+      g.deleteQuery(this.gpuTimerActive[0]);this.gpuTimerActive=undefined;
+      this.gpuTimingStats.dropped++;
+    }
+    for(const [query] of this.gpuTimerPending||[])g.deleteQuery(query);
+    if(this.gpuTimingStats){this.gpuTimingStats.dropped+=this.gpuTimerPending.length;this.gpuTimingStats.pending=0;}
+    if(this.gpuTimerPending)this.gpuTimerPending.length=0;
+  }
+  disposeGpuTiming() {
+    this.clearGpuTimerQueries();this.gpuTimerExtension=null;
+    if(this.gpuTimingStats)this.gpuTimingStats.enabled=false;
+  }
+  beginGpuTimer() {
+    const g=this.gl,ext=this.gpuTimerExtension,stats=this.gpuTimingStats;
+    if(!ext)return;
+    try {
+      if(g.getParameter(ext.GPU_DISJOINT_EXT)) {
+        stats.disjointEvents++;this.clearGpuTimerQueries();this.gpuTimerSkipFrame=this.frame;return;
+      }
+      while(this.gpuTimerPending.length) {
+        const [query,frame]=this.gpuTimerPending[0];
+        if(!g.getQueryParameter(query,g.QUERY_RESULT_AVAILABLE)) {
+          if(this.frame-frame<=120)break;
+          g.deleteQuery(query);this.gpuTimerPending.shift();stats.dropped++;continue;
+        }
+        const ns=g.getQueryParameter(query,g.QUERY_RESULT);
+        g.deleteQuery(query);this.gpuTimerPending.shift();
+        if(Number.isSafeInteger(ns)&&ns>=0) {
+          stats.samples++;stats.results.push([frame,ns/1e6]);
+          if(stats.results.length>120)stats.results.shift();
+        } else stats.dropped++;
+      }
+      stats.pending=this.gpuTimerPending.length+(this.gpuTimerActive?1:0);
+      if(this.gpuTimerActive||this.frame%6||this.gpuTimerSkipFrame===this.frame)return;
+      if(this.gpuTimerPending.length>=4){stats.skippedStarts++;return;}
+      const query=g.createQuery();if(!query){stats.skippedStarts++;return;}
+      this.gpuTimerActive=[query,this.frame+1];g.beginQuery(ext.TIME_ELAPSED_EXT,query);stats.pending++;
+    } catch(error) {this.disposeGpuTiming();this.report(`GPU timing disabled: ${error.message}`);}
+  }
+  endGpuTimer() {
+    if(!this.gpuTimerActive)return;
+    try {
+      this.gl.endQuery(this.gpuTimerExtension.TIME_ELAPSED_EXT);
+      this.gpuTimerPending.push(this.gpuTimerActive);this.gpuTimerActive=undefined;
+      this.gpuTimingStats.pending=this.gpuTimerPending.length;
+    } catch(error) {this.disposeGpuTiming();this.report(`GPU timing disabled: ${error.message}`);}
   }
   checkedHeapSpan(ptr, length) {
     const heap = this.memory().HEAPU8;
@@ -247,6 +305,7 @@ void main() {
         io+=indexCountForDraw;
       }
     }
+    if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
     if(vertexBytes>(this.vertexBufferCapacity||0)){this.vertexBufferCapacity=this.capacity(this.vertexBufferCapacity||0,vertexBytes,256*1024*1024);g.bufferData(g.ARRAY_BUFFER,this.vertexBufferCapacity,g.STREAM_DRAW);}
     if(vertexBytes)g.bufferSubData(g.ARRAY_BUFFER,0,vertices);
@@ -277,7 +336,7 @@ void main() {
     if(error)throw new Error(`GPU command batch error 0x${error.toString(16)}`);
     this.submitMs=(this.submitMs||0)+performance.now()-started;
     return true;
-    } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
+    } catch(error) {this.disposeGpuTiming();this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
   }
   program(source,kinds,shadows,flat,vertexPointer=0,regs=0,prewarm=false) {
     const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
@@ -600,10 +659,12 @@ void main() {
     } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
   }
   present(id) {
-    const t=this.targets.get(id);if(!t||t.depth)return false;
+    const t=this.targets.get(id);if(!t||t.depth){this.disposeGpuTiming();return false;}
+    if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;if(this.canvas.width!==t.w||this.canvas.height!==t.h){this.canvas.width=t.w;this.canvas.height=t.h;}
     g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
-    g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);g.flush();
+    g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);
+    this.endGpuTimer();g.flush();
     this.boundFramebuffer=null;this.lastState=undefined;
     ++this.frame;
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
