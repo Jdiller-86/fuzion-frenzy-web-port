@@ -6,7 +6,7 @@ A project to run the original Xbox **Fuzion Frenzy entirely in a web browser** t
 
 | Build | What it provides | Status |
 | --- | --- | --- |
-| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | User reports the game launches but is unplayably slow. This build uses CPU software rendering; newer optimizations still need measurement. |
+| [Browser preview](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser) | Local ISO intake, full SDK runtime, software rendering, keyboard/gamepad input, audio and save adapters | The current tagged download uses CPU rendering. The WebGL2 source candidate has full-window play and sampled Erodeo gameplay near 60 FPS on the development desktop. [GPU candidate](docs/browser-gpu.md). |
 | [Windows builder 0.2.1](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases/tag/windows-builder-v0.2.1-preview.1) | Builds the native game from your ISO/folder; Control Room launcher with amber progress display, settings, logs and saves access | Working native gameplay and geometry stability reported by the user/local agent. Rebuild for the new PC menu. |
 
 Supply your own compatible USA ISO/XISO. Game content stays on your device; no game assets are included or uploaded. The ISO check verifies compatibility and local access, not legal ownership.
@@ -32,7 +32,7 @@ Supply your own compatible USA ISO/XISO. Game content stays on your device; no g
 | [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
 | [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
-**Next:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
+**Next:** Use the WebGL2 candidate and retained Erodeo evidence. Measure browser timer and presentation queue delays, then fix the measured pacing bottleneck while preserving guest timing. Verify the selected round through results and menu return with recorded input and audible sound.
 
 [M1 tasks, sizes and remaining connections](docs/m1-browser-work.md) · [Acceptance criteria](docs/milestones.md) · [Agent handoff](docs/handoff.md)
 

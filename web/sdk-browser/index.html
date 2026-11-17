@@ -3,33 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fuzion Frenzy browser build</title>
+  <meta name="theme-color" content="#000000">
+  <title>Fuzion Frenzy</title>
   <style>
-    :root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0a101b;color:#eaf2ff}body{max-width:1000px;margin:0 auto;padding:24px}section{background:#121d2d;border:1px solid #34445c;border-radius:12px;padding:20px;margin:18px 0}h1{font-size:clamp(2rem,5vw,3rem);line-height:1.1}label{display:block;margin:14px 0;font-weight:650}input{display:block;margin-top:6px;max-width:100%}button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid #66c8b3;background:#126b5b;color:white;cursor:pointer}button:disabled{opacity:.45;cursor:default}#status{white-space:pre-wrap;overflow-wrap:anywhere;min-height:3em;padding:12px;background:#080d15;border-radius:8px}#error{color:#ffaaa3}.muted{color:#afbed2;font-size:.92rem}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}canvas{display:block;width:100%;max-height:70vh;object-fit:contain;background:#000;border-radius:8px}
+    :root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#000;color:#eaf2ff}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#000}
+    button{font:inherit;color:inherit;background:#142234;border:1px solid #73849a;border-radius:7px;padding:.55rem .85rem;cursor:pointer}
+    button:hover{background:#20354b}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #72e6cb;outline-offset:3px}
+    button:disabled{opacity:.45;cursor:default}
+    .stage{position:relative;display:grid;place-items:center;width:100vw;height:100vh;min-height:300px;overflow:hidden;background:#000}
+    #screen{display:block;width:100vw;height:100vh;object-fit:contain;background:#000}
+    #screen:focus{outline:none}
+    .launch{position:fixed;z-index:3;inset:0;overflow:auto;padding:clamp(18px,4vw,56px);background:radial-gradient(ellipse at 50% 30%,#17263a 0,#080d15 65%,#000 100%);transition:opacity .25s ease,visibility .25s ease}
+    .launch-inner{max-width:760px;margin:4vh auto;padding:clamp(22px,4vw,44px);background:#101a28;border:1px solid #34445c;border-radius:14px;box-shadow:0 18px 70px #0009}
+    h1{font-size:clamp(2.4rem,7vw,5rem);line-height:1;margin:.2em 0 .35em;letter-spacing:-.04em}h2{font-size:1.15rem;margin:0 0 .6rem}
+    p{margin:.7rem 0}.eyebrow,.muted{color:#afbed2;font-size:.92rem}.eyebrow{letter-spacing:.12em;font-weight:700}
+    label{display:block;margin:20px 0;font-weight:650}input,select{display:block;margin-top:8px;max-width:100%;font:inherit;color:inherit;background:#080d15;border:1px solid #73849a;border-radius:6px;padding:.55rem}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.primary{background:#126b5b;border-color:#66c8b3}
+    .loading-line{height:3px;overflow:hidden;border-radius:2px;background:#34445c;margin:18px 0 10px;visibility:hidden}
+    .loading-line::after{content:"";display:block;height:100%;width:35%;background:#72e6cb;animation:loading 1.3s ease-in-out infinite alternate}
+    body.is-loading .loading-line{visibility:visible}
+    @keyframes loading{to{transform:translateX(185%)}}
+    body.is-running .launch{opacity:0;visibility:hidden;pointer-events:none}
+    body.is-running.show-launch .launch{opacity:1;visibility:visible;pointer-events:auto}
+    .toolbar{position:fixed;z-index:4;top:12px;right:12px;display:flex;gap:8px;align-items:center;padding:8px;background:#080d15d9;border:1px solid #44536a;border-radius:10px;opacity:.14;transform:translateY(-3px);transition:opacity .18s ease,transform .18s ease}
+    .toolbar:hover,.toolbar:focus-within,.toolbar.is-open{opacity:1;transform:none}.toolbar button{font-size:.9rem}
+    #toolbar-actions{display:none} .toolbar:hover #toolbar-actions,.toolbar:focus-within #toolbar-actions,.toolbar.is-open #toolbar-actions{display:flex}
+    .details{position:fixed;z-index:4;left:12px;bottom:12px;max-width:min(560px,calc(100vw - 24px));padding:8px 12px;background:#080d15e8;border:1px solid #44536a;border-radius:9px;opacity:.16;transition:opacity .18s ease}
+    .details:hover,.details:focus-within,.details[open]{opacity:1}.details summary{cursor:pointer}.details-content{max-height:min(45vh,320px);overflow:auto;padding-top:8px}
+    #status{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:10px;background:#05080d;border-radius:6px}#error{color:#ffaaa3;white-space:pre-wrap;overflow-wrap:anywhere}
+    #log{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem}
+    #performance{margin:0;color:#c6d3e2;font-size:.78rem;max-width:50vw;overflow-wrap:anywhere}
+    @media(max-width:600px){.stage{min-height:240px}.toolbar{top:8px;right:8px;gap:5px;padding:6px}.toolbar button{padding:.45rem .6rem}.details{left:8px;bottom:8px;max-width:calc(100vw - 16px)}.launch{padding:14px}.launch-inner{margin:2vh auto}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
   </style>
 </head>
 <body>
-  <p class="muted">LOCAL BROWSER BUILD</p>
-  <h1>Fuzion Frenzy</h1>
-  <p>Choose your local disc image to start the original game in this browser. Compatibility checks identify the expected game build; they do not verify ownership. The disc image stays on your device.</p>
-  <section>
-    <label>Select your local Fuzion Frenzy disc image
-      <input id="iso" type="file" accept=".iso,.xiso,application/octet-stream">
-    </label>
-    <p class="muted">Keyboard: WASD moves, arrows use the D-pad, Enter is Start, Space is A, Escape is B, X/Y are X/Y, Z/C are triggers. A standard connected gamepad is also read locally.</p>
-    <div class="row"><button id="run">Start game</button><button id="stop" disabled>Stop game</button></div>
+  <main class="stage" aria-label="Game viewport"><canvas id="screen" width="640" height="480" aria-label="Fuzion Frenzy game screen" tabindex="0"></canvas></main>
+  <section class="launch" id="launch-card" aria-labelledby="title">
+    <div class="launch-inner">
+      <p class="eyebrow">LOCAL BROWSER BUILD</p>
+      <h1 id="title">Fuzion Frenzy</h1>
+      <p>Start the original game from a compatible local disc image. Your image stays on this device.</p>
+      <label>Select your local Fuzion Frenzy disc image
+        <input id="iso" type="file" accept=".iso,.xiso,application/octet-stream">
+      </label>
+      <details><summary>Compatibility options</summary>
+      <label>Renderer
+        <select id="renderer">
+          <option value="webgl" selected>GPU (WebGL2)</option>
+          <option value="software">Software (diagnostic)</option>
+        </select>
+      </label>
+      <p class="muted">GPU rendering is recommended for playing. Software rendering is a much slower diagnostic fallback.</p>
+      </details>
+      <p class="muted">Keyboard: WASD moves, arrows use the D-pad, Enter is Start, Space is A, Escape is B, X/Y are X/Y, Z/C are triggers. A standard connected gamepad is also read locally.</p>
+      <div class="row"><button class="primary" id="run">Start game</button><button id="stop" disabled>Stop game</button></div>
+      <div class="loading-line" aria-hidden="true"></div>
+      <p id="launch-status" class="muted" role="status" aria-live="polite">Your game runs on this device.</p>
+      <p id="error" role="alert"></p>
+    </div>
   </section>
-  <section>
-    <h2>Game screen</h2>
-    <canvas id="screen" width="640" height="480" aria-label="Game screen"></canvas>
-    <p id="performance" class="muted">Software renderer. Performance is measured while the game runs.</p>
-  </section>
-  <section>
-    <h2>Run status</h2>
-    <pre id="status" role="status" aria-live="polite">Select your local Fuzion Frenzy disc image.</pre>
-    <p id="error" role="alert"></p>
-    <details><summary>Local runtime log</summary><pre id="log" style="max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere"></pre></details>
-  </section>
+  <nav class="toolbar" aria-label="Game controls">
+    <button id="toolbar-toggle" type="button" aria-expanded="false" aria-controls="toolbar-actions" title="F1: show game controls">Controls</button>
+    <span id="toolbar-actions" class="row">
+      <button id="fullscreen" type="button">Enter fullscreen</button>
+      <button id="toolbar-stop" type="button" hidden>Stop game</button>
+      <button id="reopen-launch" type="button" hidden>Launch panel</button>
+    </span>
+  </nav>
+  <details class="details" id="run-details">
+    <summary>Run details</summary>
+    <div class="details-content">
+      <h2>Run status</h2>
+      <pre id="status" role="status" aria-live="polite">Select your local Fuzion Frenzy disc image.</pre>
+      <p id="display-feedback" role="status"></p>
+      <p id="performance" class="muted">Performance is measured while the game runs.</p>
+      <details><summary>Local runtime log</summary><pre id="log"></pre></details>
+    </div>
+  </details>
   <script type="module" src="./app.mjs"></script>
+  <script type="module" src="./presentation.mjs"></script>
 </body>
 </html>

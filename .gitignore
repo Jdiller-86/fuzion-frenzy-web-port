@@ -53,5 +53,7 @@ test-results/
 .DS_Store
 Thumbs.db
 artifacts/
+.playwright-cli/
+output/playwright/
 desktop/windows/Launcher/bin/
 desktop/windows/Launcher/obj/

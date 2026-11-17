@@ -23,7 +23,7 @@ Start with [the project overview](../README.md) and [development plan](../plans.
 | [M4: Player experience](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/31) | Players can set up their content and controls, find friends, join lobbies and play/rematch through the supported browser interface. |
 | [M5: Release readiness](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues/34) | Ship a reproducible, documented and operationally supported release for the declared browser/device matrix. |
 
-**Next:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
+**Next:** Use the WebGL2 candidate and retained Erodeo evidence. Measure browser timer and presentation queue delays, then fix the measured pacing bottleneck while preserving guest timing. Verify the selected round through results and menu return with recorded input and audible sound.
 
 [M1 tasks, sizes and remaining connections](m1-browser-work.md) · [Acceptance criteria](milestones.md) · [Agent handoff](handoff.md)
 

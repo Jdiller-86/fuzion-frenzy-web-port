@@ -36,6 +36,20 @@ bool GuestSpan(uint32_t va, size_t bytes, uint32_t start, size_t capacity, size_
 uint8_t* ff_sdk_guest_base() { return g_guest_backing.data(); }
 
 uint8_t* ff_sdk_guest_ptr(uint32_t va, size_t bytes) {
+    size_t backing = 0;
+    bool selected = true;
+    switch (va >> 26) {
+        case 0: backing = 0; break;
+        case kGuestPhysical >> 26: backing = kGuestWindow; break;
+        case kGuestWriteCombine >> 26: backing = kGuestWindow; break;
+        case kGuestSystem >> 26: backing = 2 * kGuestWindow; break;
+        case kGuestStack >> 26: backing = 3 * kGuestWindow; break;
+        default: selected = false; break;
+    }
+    if (selected) {
+        const size_t delta = va & (kGuestWindow - 1);
+        if (bytes <= kGuestWindow - delta) return g_guest_backing.data() + backing + delta;
+    }
     size_t offset = 0;
     if (GuestSpan(va, bytes, 0, kGuestWindow, 0, offset) ||
         GuestSpan(va, bytes, kGuestPhysical, kGuestWindow, kGuestWindow, offset) ||

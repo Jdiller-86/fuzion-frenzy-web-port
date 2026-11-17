@@ -4,19 +4,37 @@ const stopButton = document.querySelector('#stop');
 const status = document.querySelector('#status');
 const error = document.querySelector('#error');
 const log = document.querySelector('#log');
-const canvas = document.querySelector('#screen');
+let canvas = document.querySelector('#screen');
 const performanceReadout = document.querySelector('#performance');
-const context = canvas.getContext('2d', { alpha: false });
+let context;
 let worker;
 let inputTimer;
 let audioContext;
 let audioCursor = 0;
+let hasFrame = false;
+function showFrame() {
+  if (!hasFrame) {
+    status.textContent = 'Rendering original game frames.';
+    runButton.textContent = 'Game running';
+    window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy:false}}));
+    hasFrame = true;
+    window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:true}}));
+    canvas.focus({preventScroll:true});
+  }
+}
 
 function setBusy(busy) {
   runButton.disabled = busy;
   stopButton.disabled = !busy;
+  isoPicker.disabled = busy;
+  document.querySelector('#renderer').disabled = busy;
+  runButton.textContent = busy ? 'Starting…' : 'Start game';
+  window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy}}));
 }
 function stop() {
+  hasFrame = false;
+  globalThis.fuzionPerformance = undefined;
+  window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:false}}));
   if (audioContext) { audioContext.close().catch(() => {}); audioContext = undefined; }
   audioCursor = 0;
   clearInterval(inputTimer);
@@ -32,11 +50,12 @@ function stop() {
 function keyboardBits() {
   const keys = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter','Escape','Space','Tab','Backspace','KeyW','KeyA','KeyS','KeyD','KeyX','KeyY','KeyZ','KeyC','Digit1','Digit2']);
   const held = new Set();
-  window.addEventListener('keydown', e => { if (keys.has(e.code)) { held.add(e.code); e.preventDefault(); } });
+  window.addEventListener('keydown', e => { if (worker && e.target === canvas && keys.has(e.code)) { held.add(e.code); e.preventDefault(); } });
   window.addEventListener('keyup', e => held.delete(e.code));
   const release = () => { held.clear(); worker?.postMessage({ type: 'input', keys: [], buttons: [], axes: [] }); };
   window.addEventListener('blur', release);
   document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
+  document.addEventListener('focusin', e => { if(e.target !== canvas) release(); });
   return held;
 }
 const heldKeys = keyboardBits();
@@ -50,6 +69,19 @@ runButton.addEventListener('click', () => {
   const iso = isoPicker.files?.[0];
   if (!iso) { error.textContent = 'Select your local Fuzion Frenzy disc image.'; return; }
   stop();
+  heldKeys.clear();
+  const renderer = document.querySelector('#renderer').value;
+  if (renderer === 'webgl' && !canvas.transferControlToOffscreen) {
+    error.textContent = 'This browser needs OffscreenCanvas for GPU rendering. Choose Software reference or use current Chrome/Edge.';
+    return;
+  }
+  // A transferred canvas belongs to one worker. A fresh element makes restart
+  // and backend switching deterministic after its worker has been terminated.
+  const nextCanvas = canvas.cloneNode(false);
+  canvas.replaceWith(nextCanvas); canvas = nextCanvas;
+  canvas.addEventListener('click', () => canvas.focus());
+  context = renderer === 'software' ? canvas.getContext('2d', {alpha:false}) : undefined;
+  const offscreen = renderer === 'webgl' ? canvas.transferControlToOffscreen() : undefined;
   if (typeof AudioContext !== 'undefined') {
     audioContext ??= new AudioContext();
     audioContext.resume().catch(() => {});
@@ -59,7 +91,7 @@ runButton.addEventListener('click', () => {
   const current = worker;
   setBusy(true);
   status.textContent = 'Checking the local disc image…';
-  performanceReadout.textContent = 'Software renderer. Waiting for frame measurements…';
+  performanceReadout.textContent = `${renderer === 'webgl' ? 'WebGL 2 GPU' : 'Software reference'} renderer. Waiting for frame measurements…`;
   current.addEventListener('message', ({data}) => {
     if (worker !== current) return;
     if (data.type === 'log') {
@@ -67,14 +99,26 @@ runButton.addEventListener('click', () => {
       log.textContent = lines.slice(-200).join('\n');
     }
     else if (data.type === 'progress') status.textContent = data.text;
+    else if (data.type === 'gpu-error') {
+      error.textContent = data.text; status.textContent = 'GPU renderer stopped.'; stop();
+    }
+    else if (data.type === 'vertex-diagnostic') {
+      // Player-local diagnostic only. Never sent to the HTTP host or telemetry.
+      globalThis.fuzionVertexDiagnostic = {hlsl:data.hlsl,regs:data.regs,flat:data.flat};
+    }
+    else if (data.type === 'gpu-frame') {
+      showFrame();
+    }
     else if (data.type === 'frame') {
       const pixels = new Uint8ClampedArray(data.rgbaBuffer);
       if (canvas.width !== data.width || canvas.height !== data.height) { canvas.width = data.width; canvas.height = data.height; }
       context.putImageData(new ImageData(pixels, data.width, data.height), 0, 0);
-      status.textContent = 'Rendering original game frames.';
+      showFrame();
     } else if (data.type === 'performance') {
+        globalThis.fuzionPerformance = data; // Local profiling; never uploaded.
       if ([data.fps, data.drawMs, data.clearMs, data.copyMs, data.drawCalls].every(v => Number.isFinite(v) && v >= 0)) {
-        performanceReadout.textContent = `${data.fps.toFixed(1)} FPS · CPU draw ${data.drawMs.toFixed(1)} ms · clear ${data.clearMs.toFixed(1)} ms · copy ${data.copyMs.toFixed(1)} ms · ${Math.round(data.drawCalls)} draws/frame`;
+          performanceReadout.textContent = `${renderer === 'webgl' ? 'WebGL 2' : 'Software'} · ${data.fps.toFixed(1)} FPS · CPU ${data.pipeline?'prepare/wait':renderer === 'webgl'?'frame/submit':'draw/submit'} ${data.drawMs.toFixed(1)} ms · clear ${data.clearMs.toFixed(1)} ms · copy ${data.copyMs.toFixed(1)} ms · ${Math.round(data.drawCalls)} draws/frame`;
+        if (renderer === 'webgl') performanceReadout.textContent += ` · JS submit ${Number(data.submissionMs||0).toFixed(1)} ms · ${Math.round(data.gpuBatches||0)} GPU batches · ${Math.round(data.vertexPrograms||0)} vertex programs`;
       }
     } else if (data.type === 'audio') {
       if (audioContext && data.frames > 0 && data.frames <= 65536) {
@@ -110,10 +154,10 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
-  current.postMessage({ type: 'run', iso });
+  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1', threadedGpu: new URLSearchParams(location.search).get('threadedGpu') !== '0', pipelinedGpu: new URLSearchParams(location.search).get('pipelinedGpu') !== '0', rawVertices: new URLSearchParams(location.search).get('rawVertices') !== '0', shaderPrewarm: new URLSearchParams(location.search).get('shaderPrewarm') !== '0', gpuTiming: new URLSearchParams(location.search).get('gpuTiming') === '1', precisePacing: new URLSearchParams(location.search).has('precisePacing') ? new URLSearchParams(location.search).get('precisePacing') === '1' : /Windows/.test(navigator.userAgent) }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
-    const pad = !document.hasFocus() || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
-    current.postMessage({ type: 'input', keys: [...heldKeys], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });
+    const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
+    current.postMessage({ type: 'input', keys: document.activeElement === canvas ? [...heldKeys] : [], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });
   }, 1000 / 60);
 });
 
