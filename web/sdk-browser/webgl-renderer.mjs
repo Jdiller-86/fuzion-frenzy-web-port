@@ -41,7 +41,7 @@ export class WebGLRenderer {
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
     Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupFallbacks:0,warmupMaxCheckMs:0});
-    Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackDraws:0,fixedFallbackFrames:0});
+    Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -80,7 +80,7 @@ void main() {
   vTc0=aTc0;vTc1=aTc1;vTc2=aTc2;vTc3=aTc3;
 }`;
     this.defaultVertexStage = {source:this.vertexSource,shader:this.compileShader(gl.VERTEX_SHADER,this.vertexSource)};
-    if (shaderFallback && this.parallelShaderCompile && this.gpuVertices) this.prepareFixedFallbacks();
+    if (shaderFallback && this.parallelShaderCompile && this.gpuVertices) this.beginFixedFallbacks();
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
       this.disposeGpuTiming();
@@ -224,34 +224,46 @@ void main() {
       throw error;
     }
   }
-  prepareFixedFallbacks() {
+  beginFixedFallbacks() {
     const g = this.gl;
     const programs = [];
     try {
       for (const flat of [false, true]) {
-        let vertex, fragment, program;
+        let vertex, fragment;
         try {
           vertex = this.compileShader(g.VERTEX_SHADER, fixedFallbackVertexGlsl(flat));
           fragment = this.compileShader(g.FRAGMENT_SHADER, fixedFallbackPixelGlsl(flat));
-          program = this.linkStages(vertex, fragment);
-          if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
-          programs.push(this.finishProgram(program));
-        } catch (error) {
-          if (program) g.deleteProgram(program);
-          throw error;
+          programs.push(this.linkStages(vertex, fragment));
         } finally {
           if (vertex) g.deleteShader(vertex);
           if (fragment) g.deleteShader(fragment);
         }
       }
+      g.flush();
+      this.pendingFixedFallbackPrograms = programs;
+    } catch (error) {
+      for (const program of programs) g.deleteProgram(program);
+      this.report(`Fixed shader fallback is unavailable: ${error.message}`);
+    }
+  }
+  finishFixedFallbacks() {
+    const programs = this.pendingFixedFallbackPrograms;
+    if (!programs) return;
+    this.pendingFixedFallbackPrograms = undefined;
+    const g = this.gl, started = performance.now();
+    try {
+      for (const program of programs) {
+        if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
+      }
+      this.shaderStats.fixedFallbackStartupWaitMs = performance.now() - started;
       this.fixedFallbackTexture = g.createTexture();
       if (!this.fixedFallbackTexture) throw new Error('Could not allocate the fallback texture');
       this.bindTexture(0, this.fixedFallbackTexture);
       g.texStorage2D(g.TEXTURE_2D, 1, g.RGBA8, 1, 1);
-      this.fixedFallbackPrograms = programs;
+      this.fixedFallbackPrograms = programs.map(program => this.finishProgram(program));
       this.shaderStats.fixedFallbackEnabled = true;
     } catch (error) {
-      for (const program of programs) g.deleteProgram(program.p);
+      for (const program of programs) g.deleteProgram(program);
       this.report(`Fixed shader fallback is unavailable: ${error.message}`);
     }
   }

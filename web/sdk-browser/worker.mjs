@@ -163,18 +163,16 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
   if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
   if (cancelled) return;
   const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true,shaderFallback===true);
-  let gpu;
-  if(renderer==='webgl'&&shaderWarmup===true&&shaderPrewarm!==false){
-    gpu=createGpu();
-    if(gpu.parallelShaderCompile){
-      report('Preparing recorded WebGL shader programs…');
-      try {
-        const {openShaderWarmup}=await import('./shader-warmup.mjs');
-        const store=await openShaderWarmup(xbeHash);
-        if(cancelled)return;
-        gpu.prepareWarmup(store);
-      } catch { postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}); }
-    }
+  const prepareShaders = renderer === 'webgl' && shaderPrewarm !== false;
+  const gpu = prepareShaders && (shaderWarmup === true || shaderFallback === true) ? createGpu() : undefined;
+  if (gpu?.parallelShaderCompile && shaderWarmup === true) {
+    report('Preparing recorded WebGL shader programs…');
+    try {
+      const {openShaderWarmup}=await import('./shader-warmup.mjs');
+      const store=await openShaderWarmup(xbeHash);
+      if(cancelled)return;
+      gpu.prepareWarmup(store);
+    } catch { postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}); }
   }
   if(cancelled)return;
   report('Starting the full SDK runtime from the local disc image…');
@@ -232,6 +230,8 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
       saveTimer = setInterval(() => flushSaves().catch(error => postMessage({ type: 'log', text: `Save persistence: ${error.message}` })), 30000);
     } catch (error) { report(`Browser save storage is unavailable: ${error.message}. Saves will last only for this run.`); }
   }
+  if (cancelled) { stopThreads(module); return; }
+  module.onFuzionGpu?.finishFixedFallbacks();
   pushInput();
   const bootFn = module._ff_browser_boot;
   if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');

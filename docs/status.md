@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the opt-in prelinked fixed-function path rendered 19 frames with pending specialized shaders in Twisted System and an empty shader recipe cache. The longest sampled acknowledgement gap fell from 274.06 to 123.05 ms. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
-- **Next:** extend cold fallback coverage, measure startup and visual parity, and isolate guest scene-entry work. Qualify 60 FPS on a modest PC at a compatible display cadence before testing 120 FPS and comparing original game timing.
+- **Browser:** overlapping the opt-in fixed-function shader links with startup cut time to the first original frame from 2,201 to 1,529 ms in cold Twisted System runs. The two long remaining links used programmable vertices with raw integer inputs. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Next:** trace the two programmable vertex variants from creation to first use to find an earlier link point. The separate warm scene-entry gap still needs guest CPU work. Qualify 60 FPS on a modest PC before testing 120 FPS and comparing original game timing.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
