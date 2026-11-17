@@ -4,21 +4,11 @@ Use the current `main` checkout, existing native build, compatible player-local 
 
 ## 1. Browser performance — largest remaining implementation item
 
-The user reports that the original browser game launches but is unplayably slow. The candidate already has the full SDK boot, disc, input, audio and frame pipeline. The new release build uses `-O3`, SIMD, release logging and reusable presentation buffers. Read the on-screen FPS/CPU draw/clear/copy measurements before changing architecture; record browser, CPU/GPU, build and scene. Do not claim a speedup without comparing actual execution.
+The WebGL2 candidate runs the original menus and 640×480 minigames in the browser from the player-local ISO. Local Erodeo runs have reached a winner. Recent gameplay windows average about 60 FPS on the development desktop, with consumer interval p95 around 21 ms. [Build and measured results](browser-gpu.md).
 
-The current `runtime/browser/sdk/full-platform.cpp` backend calls the SDK's **CPU** `reference::Draw/Clear/Copy`. Canvas output only displays those CPU-rendered pixels. Raising the frame cap or putting that canvas on WebGL will not accelerate the game's triangles.
+Under #49 and #50, measure timer wake-up and presentation queue delays, then fix the largest observed cost while preserving guest timing and checked resource ownership. Use the existing SDK backend and software reference when comparing reached texture, vertex, shader and draw-state differences. Keep source, browser/device and scenario identities with each focused run.
 
-Implement one accelerated backend behind the existing SDK `gpu::Backend` interface. Preserve the software backend as an explicitly selected reference/fallback. Search/reuse existing work first:
-
-- The pinned SDK's D3D12/Vulkan backends and shader generator own the title's surface, texture, shader, vertex and render-state semantics.
-- [OpenCE's browser host](https://github.com/OpenCommunityEdition/OpenCE/tree/main/port/web) supplies relevant WebGL/thread/host patterns; its game-specific renderer is not a drop-in Xbox backend.
-- [web-recomp-kit](https://github.com/A1isandr/web-recomp-kit), inspected at `4a7da07447e59f02491484c17e4b35543f50f3dd`, has an MIT-licensed WebGPU device/backend and WGSL generation under `host/gpu/webgpu/` and `dx/d3d9_shadergen.cpp`. Its D3D8 shim uses different device/resource/shader interfaces. Inspect that mismatch before reuse; do not replace the SDK or imply its shader generator already accepts Xbox shader/state objects.
-
-Keep guest address/span validation, physical aliases, resource lifetime, texture updates, render-to-texture, depth/blend state, shader/combiner semantics and CPU readback/Sync behavior intact. Do not cache guest textures indefinitely without tracking CPU writes and allocation reuse. Do not add fast-math or skip original draw calls to manufacture an FPS gain. Retain the local-content boundary.
-
-Use the first identified original menu and one selected minigame to implement the actually exercised feature families. Group missing states by shared provider rather than opening one task per draw. Compile/run/fix the next actual failure; broad matrices, regression suites and independent acceptance review follow the playable baseline. Target a responsive menu and at least 30 FPS for the selected original 640×480 minigame on the recorded desktop, with working input/audio and results return. If a real capability blocks that target, record its exact cost/contract and continue independent work; do not stop at a plan or empty renderer scaffold.
-
-Return the runnable package, exact source/build identities, before/after FPS and CPU/GPU costs, selected scene/device, actual visible limitations and next largest blocker. Runtime logs/captures containing game content stay local. Update #49/#50, the browser work map and current status without accepting M1 from a frame or compile alone.
+Record one controlled round through results and menu return with audible audio and recorded input. Use an identified modest integrated-GPU laptop to qualify stable 60 FPS beyond the development desktop. Evaluate 120 FPS after stable 60 FPS and verify that input, physics, animation and timers retain their original behavior. Keep captures and local build artifacts private. M1 acceptance follows the separate three-cycle review.
 
 ## 2. Native original-menu mouse/keyboard and integrated settings — corrected requirement
 

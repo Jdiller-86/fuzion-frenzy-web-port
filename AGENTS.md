@@ -12,7 +12,7 @@ Read this file, [the handoff](docs/handoff.md), [current status](docs/status.md)
 
 ## Baseline state
 
-M1 SDK/browser integration is the primary path. PR #102 has merged the full SDK browser candidate and the Control Room Windows builder. Reuse the published browser package, existing source adapters and working native reference; do not restart the integration. Under Goal G / #49, use the reported running but unplayably slow browser baseline: measure its FPS/CPU draw costs and connect accelerated graphics, then reach an original responsive menu and complete minigame. Release optimization, not more initial integration, is now the starting point. Keep commentary to major progress or blockers. Defer detailed tests until the browser baseline works.
+M1 SDK/browser integration is the primary path. The WebGL2 candidate reaches original menus and minigames. Follow [the GPU evidence](docs/browser-gpu.md) and Goal G / #49 for remaining CPU and frame pacing work. Use the existing build and native reference for a selected round, audible audio and results-to-menu verification. Run targeted checks for the affected path.
 
 Keep the accepted M44 proof and its resume task separate from this candidate. Use the existing Fuzion SDK and applicable OpenCE browser patterns before new compatibility code. Desktop execution is a local developer reference; browser execution remains the product goal. The roadmap does not start every implementation task, and tracking workflows run no game or coding agent.
 
@@ -20,7 +20,7 @@ Keep the accepted M44 proof and its resume task separate from this candidate. Us
 
 The product is the original Xbox Fuzion Frenzy executing entirely in the browser through static recompilation to WebAssembly, with the complete planned online/social/control features. A replica would have to be identical in every minute detail. Approximate reconstruction, native helpers, and streaming do not meet that goal. Preserve the Twisted System prototype as research.
 
-The current implementation objective is an original frame through the SDK browser candidate. The retained startup proof remains supporting evidence; its former stack/return-address fault is repaired. Exact accepted stops and local-candidate observations belong in `docs/status.md`. A controllable original screen and product completion remain unaccepted.
+The current SDK browser objective is stable pacing and a controlled original audiovisual round through results and menu return. Exact accepted stops and local candidate observations belong in `docs/status.md`. M1 acceptance and the retained startup record use separate evidence.
 
 Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md), and [concerns](docs/risks.md) before affected gameplay/import/network work. Keep static, synthetic, component, and actual browser evidence distinct.
 

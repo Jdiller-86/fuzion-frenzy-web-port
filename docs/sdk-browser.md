@@ -3,11 +3,10 @@
 [Browser build downloads and checksums](https://github.com/Jdiller-86/fuzion-frenzy-web-port/releases?q=browser)
 · [Successful browser build workflow](https://github.com/Jdiller-86/fuzion-frenzy-web-port/actions/runs/43036929326)
 
-This build compiles the original title and the full pinned native SDK into
-WebAssembly. It uses the SDK's kernel services, guest threads/TLS, disc reader,
-XDK overrides and reference state/texture interpretation, with WebGL2 GPU rendering
-by default and a selectable software reference backend. Rendering, input and audio run in the
-browser; the local HTTP host only serves the application files.
+The browser builds run the original title and pinned SDK in WebAssembly with
+local ISO intake. The tagged preview uses the SDK software renderer. The current
+source candidate defaults to WebGL2 and offers the software reference under
+Compatibility options. The loopback host serves the application files.
 
 ## Run the packaged build
 
@@ -52,9 +51,9 @@ fallback. No saves or logs are uploaded.
 ## Build from source
 
 Keep the SDK and native configuration in ignored `.tools/`, using the versions
-recorded below. An Emscripten 3.1.69 compiler is required for the currently built
-candidate; the managed Debian fallback is documented by
-`tools/setup-wasm-toolchain.py`. From the repository root:
+recorded below. The measured GPU candidate used Emscripten 3.1.50 with native
+Wasm exceptions and O3. [Pinned build and cache details](browser-gpu.md#run-and-rebuild).
+From the repository root:
 
 ```sh
 source .tools/emscripten-env.sh
@@ -87,7 +86,7 @@ The GPU build compiles and links **92 source objects**, including all 64 title
 shards, function mapping and the owned-command GPU bridge. The [GPU candidate
 guide](browser-gpu.md) records actual local execution, performance, full-window
 presentation, build commands and unsupported rendering features. Download links
-above include older previews; use the GPU branch/package for the new backend.
+above point to the tagged software previews. Build the GPU candidate from source using the guide.
 
 The source baseline is XboxXBERecomp
 `58757ab255c0a6b3929f405d7a5f1567fcd7fda3` and native game configuration
@@ -98,10 +97,7 @@ is consumed by the CPU reference renderer through `MakePixelKey`. The D3D12
 descriptor-rollover fix remains in the native backend; WebGL uses no D3D12
 descriptors. Native evidence remains separate from browser evidence.
 
-The local GPU investigation observed original menus, character selection and
-minigame rendering using the matching player-local ISO. The title screen measured
-3.3 FPS in software and around 60 FPS using WebGL2 on the recorded desktop.
-Dense gameplay remains slower; menu speed does not establish gameplay performance.
+The local WebGL2 build navigated the original menus and character selection and reached an Erodeo winner. Four Erodeo gameplay windows measured roughly 60 callback FPS on the development desktop. Consumer interval p95 was 21.0–21.4 ms. Physical cadence, integrated-GPU performance and full audiovisual round acceptance remain open. [Measured results](browser-gpu.md#actual-gameplay-observations).
 
 The game now fills the browser window at its original aspect ratio. **Controls**
 or F1 reveals fullscreen/stop actions; F11 also provides browser fullscreen.

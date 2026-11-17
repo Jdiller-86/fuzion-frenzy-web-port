@@ -18,11 +18,11 @@ Connect the reached CPU, kernel, graphics, audio and controller requirements thr
 
 #### Current foundation and gap
 
-Published full-SDK browser build with local ISO intake and software rendering. The user reports original browser launch but unplayably slow execution; the native Windows reference is working well. M44 remains the separate accepted startup reference; no browser gameplay milestone is accepted.
+Published SDK preview with player-local ISO intake and a working Windows reference. The separate WebGL2 candidate runs original menus and minigames in the browser, with Erodeo reaching a winner and recent gameplay samples near 60 FPS on the development desktop. Frame pacing, audiovisual comparison and controlled round acceptance are open. M44 is the separate accepted startup reference.
 
 #### First bounded assignment
 
-Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
+Use the WebGL2 candidate and retained Erodeo evidence. Measure browser timer and presentation queue delays, then fix the measured pacing bottleneck while preserving guest timing. Verify the selected round through results and menu return with recorded input and audible sound.
 
 #### Inputs and prerequisites
 
@@ -37,12 +37,12 @@ Choose the largest ready bounded issue per assignment. These children decompose 
 | Stable slice / deliverable | Size | Observable exit |
 | --- | --- | --- |
 | **m1-build-execution** — [Sustained execution and a viable admission route (MB04–07)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-execution%22) | L | Continuing guest execution preserves context and supports responsive browser delivery under a reviewed capacity route; only scenario-required callbacks, waits and timing are implemented. |
-| **m1-build-graphics** — [Original graphics and the first title frame (MB11–17)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-graphics%22) | L | The existing software-renderer path presents an identified original frame with correct required textures, shaders and draw state. Fix observed fidelity or performance gaps; add acceleration only when measurements justify it. |
+| **m1-build-graphics** — [Original graphics and the first title frame (MB11–17)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-graphics%22) | L | The selected browser renderer presents an identified original frame with correct required textures, shaders and draw state. Compare observed fidelity against the existing reference and resolve required rendering gaps. |
 | **m1-build-audio** — [Original sound processing and audible output (MB18–19)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-audio%22) | L | Required original sound-buffer/voice behavior reaches one browser output route with sample, timing, activation and lifetime evidence. |
 | **m1-build-resources** — [Selected startup and original resource lifecycle (MB02–03, MB08–10)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-resources%22) | M–L | The selected path consumes actual player-local resource bytes with checked buffers, statuses, ownership and cleanup. Pull the exact needed read or continuation ahead of its dependent graphics/audio proof. |
 | **m1-build-round-path** — [Owned input, original menu and one complete round (MB20–23)](https://github.com/Jdiller-86/fuzion-frenzy-web-port/issues?q=is%3Aissue%20label%3Awork%3Adelivery%20%22m1-build-round-path%22) | M–L | One chosen host input method reaches original pad polling; the original menu selects the target, a round reaches results, and execution returns to the menu without replacement rules or scenes. |
 
-**Next assignment for m1-build-execution:** Use the release-optimized browser build and its FPS/CPU-draw readout to identify actual costs. Connect an accelerated browser renderer using existing SDK/upstream components, then reach a responsive original menu and complete minigame. Reuse the working native reference; do not restart integration or run broad test suites before the playable baseline.
+**Next assignment for m1-build-execution:** Use the WebGL2 candidate and retained Erodeo evidence. Measure browser timer and presentation queue delays, then fix the measured pacing bottleneck while preserving guest timing. Verify the selected round through results and menu return with recorded input and audible sound.
 
 #### Validation and evidence
 
@@ -81,11 +81,11 @@ Execute and review the repeatable original-menu/round/results scenario on the id
 
 #### Current foundation and gap
 
-The three-cycle gate and comparison/audit tools exist, but no accepted original menu/game/results/menu cycle is recorded. Evidence preparation can proceed before the playable candidate; execution and acceptance require that candidate.
+Local keyboard navigation, original Erodeo gameplay and a winner transition are recorded. Freeze the candidate and input/capture recipe and collect the three consecutive audiovisual cycles and independent review required for acceptance.
 
 #### First bounded assignment
 
-With the runtime owner, freeze one compatible original build, desktop browser/device, selected minigame, input method and seat recipe. Draft the exact input/capture procedure and identity checklist before scheduling the first end-to-end run.
+With the runtime owner, freeze one compatible original build, desktop browser/device, selected minigame, input method and seat recipe. Use the retained Erodeo route to write the exact input and capture procedure, then exercise the full results-to-menu return.
 
 #### Inputs and prerequisites
 
