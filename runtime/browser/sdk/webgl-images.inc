@@ -30,9 +30,24 @@ struct BrowserImageEntry {
     size_t accounted = 0;
 };
 
-std::map<BrowserImageKey, BrowserImageEntry> g_browser_images;
+using BrowserImageMap = std::map<BrowserImageKey, BrowserImageEntry>;
+BrowserImageMap g_browser_images;
+BrowserImageMap::iterator g_browser_last_entry = g_browser_images.end();
+bool g_browser_last_valid = false;
 size_t g_browser_image_bytes = 0;
 uint64_t g_browser_image_version = 0;
+
+void BrowserImageInvalidate(BrowserImageMap::iterator it) {
+    if(g_browser_last_valid&&g_browser_last_entry==it) {
+        g_browser_last_entry=g_browser_images.end();g_browser_last_valid=false;
+    }
+}
+
+bool BrowserImageKeyMatches(const BrowserImageKey& key,uint32_t backing,const gpu::TextureDesc& d,const uint32_t* palette) {
+    return key.backing==backing&&key.format==d.format&&key.width==d.width&&key.height==d.height&&
+        key.depth==d.depth&&key.levels==d.levels&&key.pitch==d.pitch&&key.cube==d.cube&&key.linear==d.linear&&
+        key.has_palette==bool(palette)&&(!palette||ff_webgl_equal_bytes(key.palette.data(),palette,256*sizeof(uint32_t)));
+}
 
 void BrowserImageReserve(size_t required,uint64_t frame) {
     constexpr size_t limit=256u*1024u*1024u;
@@ -42,7 +57,7 @@ void BrowserImageReserve(size_t required,uint64_t frame) {
         for(auto it=g_browser_images.begin();it!=g_browser_images.end();++it)
             if(it->second.checked_frame!=frame&&(oldest==g_browser_images.end()||it->second.checked_frame<oldest->second.checked_frame))oldest=it;
         if(oldest==g_browser_images.end())std::abort();
-        g_browser_image_bytes-=oldest->second.accounted;g_browser_images.erase(oldest);
+        BrowserImageInvalidate(oldest);g_browser_image_bytes-=oldest->second.accounted;g_browser_images.erase(oldest);
     }
 }
 
@@ -88,6 +103,7 @@ void BrowserImagesWritten(uint32_t lo,uint32_t hi) {
     const uint64_t end=uint64_t(first)+hi-lo;
     for(auto it=g_browser_images.begin();it!=g_browser_images.end();) {
         if(uint64_t(it->first.backing)<end&&uint64_t(it->first.backing)+it->second.encoded.size()>first) {
+            BrowserImageInvalidate(it);
             g_browser_image_bytes-=it->second.accounted;
             it=g_browser_images.erase(it);
         } else ++it;
@@ -116,13 +132,21 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
     if (!bytes) return FindImage(header, palette_header);
     uint8_t* guest = ff_sdk_guest_ptr(d.data, bytes);
     const uint32_t backing = uint32_t(guest - ff_sdk_guest_base());
-    BrowserImageKey key{backing,d.format,d.width,d.height,d.depth,d.levels,d.pitch,d.cube,d.linear,false,{}};
     uint64_t palette_hash = 0;
     const uint32_t* palette = d.format == 0x0B ? ff_webgl_palette(palette_header, palette_hash) : nullptr;
-    if (palette) { key.has_palette = true; std::copy_n(palette, 256, key.palette.begin()); }
 
     constexpr size_t limit = 256u * 1024u * 1024u;
-    auto it = g_browser_images.find(key);
+    auto it = g_browser_images.end();
+    bool shortcut_lookup=false;
+    std::optional<BrowserImageKey> key;
+    if(g_browser_last_valid&&BrowserImageKeyMatches(g_browser_last_entry->first,backing,d,palette)) {
+        it=g_browser_last_entry;shortcut_lookup=true;
+    } else {
+        key.emplace(BrowserImageKey{backing,d.format,d.width,d.height,d.depth,d.levels,d.pitch,d.cube,d.linear,bool(palette),{}});
+        if(palette)std::copy_n(palette,256,key->palette.begin());
+        it=g_browser_images.find(*key);
+        if(it!=g_browser_images.end()){g_browser_last_entry=it;g_browser_last_valid=true;}
+    }
     const uint64_t epoch = gpu::DirtyEpoch(d.data), frame = ff_webgl_frame();
     bool changed = it == g_browser_images.end();
     if (!changed && (it->second.checked_frame != frame || it->second.epoch != epoch))
@@ -130,6 +154,8 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
 
     if (changed) {
         if (it != g_browser_images.end()) {
+            if(!key)key.emplace(it->first);
+            BrowserImageInvalidate(it);
             g_browser_image_bytes -= it->second.accounted;
             g_browser_images.erase(it);
         }
@@ -164,14 +190,16 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         entry.accounted = bytes + image_payload + metadata;
         BrowserImageReserve(entry.accounted,frame);
         g_browser_image_bytes += entry.accounted;
-        it = g_browser_images.emplace(std::move(key), std::move(entry)).first;
+        it = g_browser_images.emplace(std::move(*key), std::move(entry)).first;
+        g_browser_last_entry=it;g_browser_last_valid=true;
     } else {
         it->second.checked_frame = frame;
         it->second.epoch = epoch;
+        g_browser_last_entry=it;g_browser_last_valid=true;
     }
     const auto& image=*it->second.image;
     const void* pixels=image.gpu_encoding?static_cast<const void*>(image.gpu_pixels.data()):static_cast<const void*>(image.texels[0].data());
     const uint32_t payload_bytes=uint32_t(size_t(image.w)*image.h*(image.gpu_encoding?4:sizeof(Vec)));
-    ff_webgl_image_owner(pixels,it->second.version,it->second.owner,image.gpu_encoding,payload_bytes);
+    ff_webgl_image_owner(pixels,it->second.version,it->second.owner,image.gpu_encoding,payload_bytes,shortcut_lookup);
     return it->second.image;
 }

@@ -68,6 +68,7 @@ struct ImageVersion {uint64_t version=0;std::shared_ptr<const void> owner;uint32
 std::map<const void*,ImageVersion> image_versions;
 std::vector<std::shared_ptr<const void>> pinned_images;
 size_t pinned_image_bytes=0;
+uint64_t image_shortcut_lookups=0,image_map_lookups=0;
 size_t owned_bytes = 0;
 uint32_t Own(const void* src, size_t bytes) {
     if(bridge_failed.load(std::memory_order_acquire))std::abort();
@@ -114,6 +115,7 @@ void QueuePresent(uint32_t target) {
         let failed=false;
         try {
             if(($1&&!Module.onFuzionGpu.commands($0,$1))||!Module.onFuzionGpu.present($2))throw new Error('Pipelined GPU submission failed');
+            Module.onFuzionGpu.imageLookups=({shortcutHits:$5,mapLookups:$6});
         } catch(error) {
             failed=true;
             Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
@@ -122,7 +124,7 @@ void QueuePresent(uint32_t target) {
             const heap=new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer);
             Atomics.store(heap,$3>>2,failed?-1:1);Atomics.notify(heap,$3>>2);
         }
-    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed);
+    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups));
 }
 // Use the checked backing identity: physical/write-combine views alias each
 // other, but user/system/stack allocations at the same offset do not.
@@ -139,7 +141,8 @@ uint32_t Offset(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 uint64_t ff_webgl_frame() { return frame; }
 bool ff_webgl_is_target(uint32_t data) { return targets.count(Key(data)) != 0; }
 void ff_webgl_image_version(const void* pixels,uint64_t version) { image_versions[pixels].version=version; }
-void ff_webgl_image_owner(const void* pixels,uint64_t version,const std::shared_ptr<const void>& owner,uint32_t encoding,uint32_t bytes) {
+void ff_webgl_image_owner(const void* pixels,uint64_t version,const std::shared_ptr<const void>& owner,uint32_t encoding,uint32_t bytes,bool shortcut_lookup) {
+    if(shortcut_lookup)++image_shortcut_lookups;else ++image_map_lookups;
     auto& entry=image_versions[pixels];
     if(entry.version!=version||entry.owner.get()!=owner.get()||entry.encoding!=encoding||entry.bytes!=bytes)entry={version,owner,encoding,bytes};
 }
@@ -356,7 +359,11 @@ bool ff_webgl_present(const gpu::Surface& front) {
     if (!gpu::DescribeSurface(front, d)) return false;
     if(ff_webgl_pipelined()&&targets.count(Key(d.data))) {QueuePresent(Key(d.data));return true;}
     FlushCommands();
-    bool shown = MAIN_THREAD_EM_ASM_INT({ return Module.onFuzionGpu.present($0) ? 1 : 0; }, Key(d.data));
+    bool shown = MAIN_THREAD_EM_ASM_INT({
+        const shown=Module.onFuzionGpu.present($0);
+        if(shown)Module.onFuzionGpu.imageLookups=({shortcutHits:$1,mapLookups:$2});
+        return shown?1:0;
+    }, Key(d.data),double(image_shortcut_lookups),double(image_map_lookups));
     return shown;
 }
 void ff_webgl_sync(uint32_t data, uint32_t size) {

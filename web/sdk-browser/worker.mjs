@@ -95,6 +95,7 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     pipeline:moduleInstance?.onFuzionGpu?.pipelined===true,
     geometry: moduleInstance?.onFuzionGpu?.lastFrameStats,
     shaders: moduleInstance?.onFuzionGpu?.shaderStats,
+    imageLookups: moduleInstance?.onFuzionGpu?.imageLookups,
     metricsCallbackIntervalMs,
     frameMs: metricsCallbackIntervalMs,
     prepareCompletionIntervalMs,vblankHz});
