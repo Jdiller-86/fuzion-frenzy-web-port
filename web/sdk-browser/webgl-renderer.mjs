@@ -1,7 +1,16 @@
-import { pixelGlsl } from './pixel-glsl.mjs';
+import { fixedFallbackPixelGlsl, pixelGlsl } from './pixel-glsl.mjs';
 import { vertexGlsl } from './vertex-glsl.mjs';
+import { fixedFallbackVertexGlsl } from './fixed-vertex-fallback.mjs';
 
 const MAX_LINKED_PROGRAMS = 2048;
+
+function fixedShaderKey(source, kind, length) {
+  const match = /^\/\/ ff_browser_fixed_(vertex|pixel)=([0-9,]+)$/m.exec(source);
+  if (match?.[1] !== kind) return null;
+  const words = match[2].split(',').map(Number);
+  if (words.length !== length || words.some(word => !Number.isInteger(word) || word < 0 || word > 0xffffffff)) return null;
+  return Uint32Array.from(words);
+}
 
 const RAW_VERTEX_FORMATS = new Map([
   [41,{components:1,componentBytes:4,type:'FLOAT',normalized:false,integer:false}],
@@ -24,7 +33,7 @@ const RAW_VERTEX_FORMATS = new Map([
 // Runs on the runtime worker. Commands synchronously consume the checked,
 // owned SDK buffers while the title thread waits at its bridge callback.
 export class WebGLRenderer {
-  constructor(canvas, memory, report, gpuVertices=true, shaderPrewarm=true, gpuTiming=false) {
+  constructor(canvas, memory, report, gpuVertices=true, shaderPrewarm=true, gpuTiming=false, shaderFallback=false) {
     this.canvas = canvas; this.memory = memory; this.report = report;
     const gl = this.gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL 2 is unavailable. Select Software reference or enable browser hardware acceleration.');
@@ -32,6 +41,7 @@ export class WebGLRenderer {
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
     Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupFallbacks:0,warmupMaxCheckMs:0});
+    Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackDraws:0,fixedFallbackFrames:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -70,6 +80,7 @@ void main() {
   vTc0=aTc0;vTc1=aTc1;vTc2=aTc2;vTc3=aTc3;
 }`;
     this.defaultVertexStage = {source:this.vertexSource,shader:this.compileShader(gl.VERTEX_SHADER,this.vertexSource)};
+    if (shaderFallback && this.parallelShaderCompile && this.gpuVertices) this.prepareFixedFallbacks();
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
       this.disposeGpuTiming();
@@ -211,6 +222,37 @@ void main() {
     } catch(error) {
       g.deleteProgram(p);
       throw error;
+    }
+  }
+  prepareFixedFallbacks() {
+    const g = this.gl;
+    const programs = [];
+    try {
+      for (const flat of [false, true]) {
+        let vertex, fragment, program;
+        try {
+          vertex = this.compileShader(g.VERTEX_SHADER, fixedFallbackVertexGlsl(flat));
+          fragment = this.compileShader(g.FRAGMENT_SHADER, fixedFallbackPixelGlsl(flat));
+          program = this.linkStages(vertex, fragment);
+          if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
+          programs.push(this.finishProgram(program));
+        } catch (error) {
+          if (program) g.deleteProgram(program);
+          throw error;
+        } finally {
+          if (vertex) g.deleteShader(vertex);
+          if (fragment) g.deleteShader(fragment);
+        }
+      }
+      this.fixedFallbackTexture = g.createTexture();
+      if (!this.fixedFallbackTexture) throw new Error('Could not allocate the fallback texture');
+      this.bindTexture(0, this.fixedFallbackTexture);
+      g.texStorage2D(g.TEXTURE_2D, 1, g.RGBA8, 1, 1);
+      this.fixedFallbackPrograms = programs;
+      this.shaderStats.fixedFallbackEnabled = true;
+    } catch (error) {
+      for (const program of programs) g.deleteProgram(program.p);
+      this.report(`Fixed shader fallback is unavailable: ${error.message}`);
     }
   }
   prepareWarmup(store) {
@@ -443,7 +485,10 @@ void main() {
     if(!stage){
       if(this.vertexPrograms.size>=MAX_LINKED_PROGRAMS)throw new Error('GPU vertex shader cache budget exceeded');
       const hlsl=this.string(pointer);
-      try { stage={source:vertexGlsl(hlsl,regs,flat)}; }
+      try {
+        stage={source:vertexGlsl(hlsl,regs,flat)};
+        if (this.fixedFallbackPrograms) stage.fixedKey = fixedShaderKey(hlsl, 'vertex', 11);
+      }
       catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
       this.vertexPrograms.set(key,stage);
     }
@@ -452,7 +497,8 @@ void main() {
   program(source,kinds,shadows,flat,vertexPointer=0,regs=0,prewarm=false) {
     const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
     if(this.programs.has(key)) return this.programs.get(key);
-    if(this.programs.size>=MAX_LINKED_PROGRAMS)throw new Error('GPU shader cache budget exceeded');
+    const programLimit = MAX_LINKED_PROGRAMS - (this.fixedFallbackPrograms?.length ?? 0);
+    if(this.programs.size>=programLimit)throw new Error('GPU shader cache budget exceeded');
     const fragmentSource=pixelGlsl(source,kinds,shadows,flat);
     const vertex=this.vertexStage(vertexPointer,regs,flat);
     const sources=this.shaderWarmup&&[vertex.source,fragmentSource];
@@ -465,7 +511,7 @@ void main() {
         this.programs.set(key,warm);
         return warm;
       }
-      if(this.programs.size+this.warmPrograms.size>=MAX_LINKED_PROGRAMS){
+      if(this.programs.size+this.warmPrograms.size>=programLimit){
         const unused=this.warmPrograms.keys().next().value;
         g.deleteProgram(this.warmPrograms.get(unused).p);
         this.warmPrograms.delete(unused);
@@ -483,9 +529,17 @@ void main() {
     const vertexShader=vertex.shader??=this.compileShader(g.VERTEX_SHADER,vertex.source);
     const p=this.linkStages(vertexShader,fragmentShader);
     const program={p,pending:true,vertexShader,vertexPointer,regs,flat,vertexSource:vertex.source,fragmentShader,fragmentSource,sources,recipeKey};
+    if (vertex.fixedKey && vertex.fixedKey[0] === regs && !vertex.fixedKey[8] && !vertex.fixedKey[9] &&
+        kinds.every(kind => kind <= 1) && shadows.every(shadow => !shadow)) {
+      const pixelKey = fixedShaderKey(source, 'pixel', 41);
+      const textureMask = kinds.reduce((mask, kind, stage) => mask | kind << stage, 0);
+      if (pixelKey?.[4] === textureMask) {
+        program.fixedFallback = { pipeline: this.fixedFallbackPrograms[Number(flat)], vertexKey: vertex.fixedKey, pixelKey };
+      }
+    }
     // The extension only controls when we can check the link. Both stages
     // have already been submitted to the compiler, including in fallback.
-    if(!prewarm||!this.parallelShaderCompile)this.readyProgram(program);
+    if((!prewarm&&!program.fixedFallback)||!this.parallelShaderCompile)this.readyProgram(program);
     this.programs.set(key,program);
     return program;
   }
@@ -541,6 +595,14 @@ void main() {
     if(program.sources)this.shaderWarmup.remember(program.sources,program.recipeKey);
     program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=program.sources=program.recipeKey=undefined;
     return ready;
+  }
+  resolveProgram(program) {
+    if (!program.pending || !program.fixedFallback || program.error) return this.readyProgram(program);
+    if (program.lastFallbackPoll !== this.frame) {
+      program.lastFallbackPoll = this.frame;
+      if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program);
+    }
+    return program.fixedFallback.pipeline;
   }
   shaderError(shader,source) {
     const message=this.gl.getShaderInfoLog(shader),lines=source.split('\n');
@@ -653,10 +715,21 @@ void main() {
       const programKey=`${source}:${s[37]}:${kinds}:${shadows}:${!!s[32]}:${s[39]&0xffff}`;
       let program=this.pointerPrograms.get(programKey);
       if(!program){program=this.program(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);this.pointerPrograms.set(programKey,program);}
-      program=this.readyProgram(program);
+      const specialized = program;
+      program=this.resolveProgram(specialized);
+      const fallback = program === specialized ? null : specialized.fixedFallback;
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};
+      if (fallback) {
+        if (program.fixedKeys !== fallback) {
+          g.uniform1uiv(loc('fallbackVertexKey[0]'), fallback.vertexKey);
+          g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey);
+          program.fixedKeys = fallback;
+        }
+        this.shaderStats.fixedFallbackDraws++;
+        this.usedFallbackThisFrame = true;
+      }
       const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
       const uniform=(name,offset,count)=>{
         const location=loc(name);if(location===null)return;
@@ -720,7 +793,14 @@ void main() {
         if(changed){g.uniform4fv(borderLocation,candidate);program.borders=candidate;program.borderScratch=previous;program.bordersValid=true;}
       }
       for(let t=0;t<4;t++) {
-        const q=tx.subarray(t*14,t*14+14); if(!q[0])continue;
+        const q=tx.subarray(t*14,t*14+14);
+        if(!q[0]){
+          if (fallback) {
+            this.bindTexture(t,this.fixedFallbackTexture);
+            if(!program.samplersSet)g.uniform1i(loc(`tex${t}`),t);
+          }
+          continue;
+        }
         let image=this.targets.get(q[2]&0x1fffffff);
         if(shadows[t]&&!image)throw new Error('CPU depth-texture uploads are not admitted; depth sampling requires a GPU-owned surface');
         if(!image) {
@@ -802,6 +882,10 @@ void main() {
     this.endGpuTimer();g.flush();
     this.boundFramebuffer=null;this.lastState=undefined;
     ++this.frame;
+    if (this.usedFallbackThisFrame) {
+      this.shaderStats.fixedFallbackFrames++;
+      this.usedFallbackThisFrame = false;
+    }
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
     this.lastFrameStats=this.frameStats;this.frameStats=undefined;
     for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}

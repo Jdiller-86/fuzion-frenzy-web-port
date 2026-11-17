@@ -16,6 +16,7 @@ def main():
         'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs',
         'web/sdk-browser/presentation.mjs', 'web/sdk-browser/webgl-renderer.mjs', 'web/sdk-browser/pixel-glsl.mjs',
         'web/sdk-browser/vertex-glsl.mjs', 'web/sdk-browser/shader-warmup.mjs',
+        'web/sdk-browser/fixed-vertex-fallback.mjs',
         'host/xdvdfs.mjs', 'tools/serve-sdk-browser.py',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm',

@@ -73,6 +73,12 @@ WebGL2 warmup is enabled when parallel shader compilation and local storage are 
 
 Startup requests and flushes the links before the Wasm runtime starts. A pair can be used only when both generated GLSL sources match exactly and WebGL reports a completed, successful link. Other draws use the normal link path. The local `shaders` metrics report submitted links, hits, fallbacks and the longest hit check. To clear just these recipes, run `await caches.delete('fuzion-webgl-shader-recipes-v1')` in the browser console while the game is stopped.
 
+## First-use shader fallback prototype
+
+Enable early fixed-function fallback with `?shaderFallback=1` in a WebGL2 browser that supports parallel shader compilation. Two general fixed-function programs link during startup for smooth and flat color interpolation. The SDK supplies checked, owned integer state keys for float vertex attributes and ordinary 2D texture stages. While a matching specialized link is pending, the prelinked program draws from the same geometry, texture and constant packets. It switches at readiness and validates the specialized link before use. Programmable vertices, packed attributes and unsupported texture modes still use the existing specialized path. The prototype remains opt-in while its visual and device coverage grows. [Khronos parallel compilation specification](https://registry.khronos.org/webgl/extensions/KHR_parallel_shader_compile/) · [Dolphin hybrid shader design](https://dolphin-emu.org/blog/2017/07/30/ubershaders/)
+
+The `shaders` metrics report whether the fallback linked successfully and count its issued draw batches and presented frames. Add `shaderWarmup=0` to the query to disable saved recipes during a cold comparison.
+
 ## Actual gameplay observations
 
 Hardware: Ryzen9 9900X, Radeon RX9070XT, ANGLE D3D11, Windows Chrome157, 1600x900 viewport and original 640x480 game target. These are sequential original-game runs, not deterministic matched replays or a modest-laptop qualification.
@@ -159,6 +165,8 @@ An aligned Twisted System capture on the same Wasm found a 254.35 ms acknowledge
 
 Raising the entry cap to 64 and retaining recently used pairs shared 33 recipes between Erodeo and Twisted System at 274,121 bytes under the existing 1 MiB ceiling. On the Twisted System return, 16 of 17 linked programs were reused. Blocking links fell from five to one, and the longest link wait fell from 164.50 to 2.29 ms. Longest submission fell from 233.38 to 22.59 ms and the longest acknowledgement interval fell from 254.35 to 76.20 ms. Acknowledgement p95 was 17.32 and 17.25 ms over 781 and 848 intervals. The new longest gap started before submission, with a 76.46 ms enqueue interval during scene entry while the guest executed game code and the preparation thread waited. The two captures reflect first encounter and repeat play with different cache and scene state. Both played original Twisted System and stopped normally on the development desktop. First-play shader compilation and the guest loading gap remain open.
 
+The fixed-function prototype played the original Twisted System with no saved shader recipes in two separate foreground Chrome profiles. The fallback issued 326 draw batches over 19 frames. Observed blocking specialized links fell from 11 to two. Longest WebGL submission fell from 250.37 to 100.95 ms, and the longest acknowledgement interval fell from 274.06 to 123.05 ms. The 95th-percentile interval was 17.51 versus 17.22 ms. Startup to first original frame took 886 ms with the fallback off and 2,249 ms with it on. Both runs used the same annotated Wasm and stopped normally. Scene states and driver cache state can vary across those runs. The capture validates the fallback in gameplay, with pixel-by-pixel comparison and modest-PC performance still pending. The Wasm SHA-256 is `3a8d9639c7f4a983f045731143397b1a65e67af98aaba9896aea5d07a64ae95c`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -167,7 +175,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Shader first use.** The local cache now retains 33 pairs across the two tested minigames. Find where exact shader variants become available before first use and measure first-play stalls on modest hardware.
+1. **Shader first use.** Extend prelinked fallback to the vertex formats and programmable variants that still block. Measure startup cost, compare pixels through the admitted fixed-function path, and qualify it on modest hardware before changing the default.
 2. **Guest CPU and render preparation.** Trace the guest work in the 76 ms Twisted System scene-entry gap and the 32 ms Erodeo gap. Retain bounds, palette/content checks, queue ownership and barriers.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.

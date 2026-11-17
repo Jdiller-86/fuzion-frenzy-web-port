@@ -309,6 +309,10 @@ export function pixelGlsl(hlsl, texKinds, shadows, flat = false) {
   for (const kind of texKinds) if (![0, 1, 2, 3].includes(kind)) fail(`invalid texture kind ${kind}`);
   for (let i = 0; i < 4; i++) if (shadows[i] && texKinds[i] !== 1) fail(`shadow texture ${i} must be 2D`);
   const body = lowerBody(mainBody(hlsl), texKinds, shadows);
+  return pixelShaderSource(body, texKinds, shadows, flat);
+}
+
+function pixelShaderSource(body, texKinds, shadows, flat, helpers = "") {
   const colorQualifier = flat ? "flat " : "";
   const samplers = texKinds.map((kind, i) => kind ? `uniform highp ${kind === 1 ? "sampler2D" : kind === 2 ? "sampler3D" : "samplerCube"} tex${i};` : "").filter(Boolean).join("\n");
   const inputs = varyingNames.map((name) => `${["vD0", "vD1", "vB0", "vB1"].includes(name) ? colorQualifier : ""}in vec4 ${name};`).join("\n");
@@ -338,7 +342,110 @@ void alphatest(float a) {
   bool ok = f == 0 ? false : f == 1 ? v < r : f == 2 ? v == r : f == 3 ? v <= r : f == 4 ? v > r : f == 5 ? v != r : f == 6 ? v >= r : true;
   if (!ok) discard;
 }
-void main() {${body}
+${helpers}void main() {${body}
 }
 `;
+}
+
+// A uniform-driven form of the pinned GPU generator's fixed texture stages.
+// Admission of non-2D, shadow, wide and quad modes belongs to the caller.
+export function fixedFallbackPixelGlsl(flat = false) {
+  const helpers = `uniform highp uint fallbackPixelKey[41];
+vec4 fallbackArgument(uint argument, vec4 v0, vec4 v1, vec4 cur, vec4 tmp, vec4 texel) {
+  vec4 value;
+  switch (argument & 15u) {
+    case 0u: value = v0; break;
+    case 2u: value = texel; break;
+    case 3u: value = tfactor; break;
+    case 4u: value = v1; break;
+    case 5u: value = tmp; break;
+    default: value = cur; break;
+  }
+  if ((argument & 32u) != 0u) value = vec4(value.a);
+  if ((argument & 16u) != 0u) value = vec4(1.0) - value;
+  return value;
+}
+vec4 fallbackOperation(uint operation, vec4 a1, vec4 a2, vec4 a0,
+                       vec4 cur, vec4 v0, vec4 texel, bool alpha) {
+  switch (operation) {
+    case 2u: return a1;
+    case 3u: return a2;
+    case 4u: return a1 * a2;
+    case 5u: return a1 * a2 * 2.0;
+    case 6u: return a1 * a2 * 4.0;
+    case 7u: return a1 + a2;
+    case 8u: return a1 + a2 - 0.5;
+    case 9u: return (a1 + a2 - 0.5) * 2.0;
+    case 10u: return a1 - a2;
+    case 11u: return a1 + a2 * (vec4(1.0) - a1);
+    case 12u: return mix(a2, a1, v0.a);
+    case 13u: return mix(a2, a1, cur.a);
+    case 14u: return mix(a2, a1, texel.a);
+    case 15u: return mix(a2, a1, tfactor.a);
+    case 16u: return a1 + a2 * (1.0 - texel.a);
+    case 18u: return alpha ? a1 : a1 + a2 * a1.a;
+    case 19u: return alpha ? a1 : a1 * a2 + a1.a;
+    case 20u: return alpha ? a1 : a1 + a2 * (1.0 - a1.a);
+    case 21u: return alpha ? a1 : (vec4(1.0) - a1) * a2 + a1.a;
+    case 22u: {
+      vec3 x = alpha ? vec3(a1.a, 0.0, 0.0) : a1.rgb;
+      vec3 y = alpha ? vec3(a2.a, 0.0, 0.0) : a2.rgb;
+      return vec4(clamp(dot((x - 0.5) * 2.0, (y - 0.5) * 2.0), 0.0, 1.0));
+    }
+    case 23u: return a0 + a1 * a2;
+    case 24u: return mix(a2, a1, a0);
+    default: return cur;
+  }
+}
+`;
+  const stages = Array.from({length: 4}, (_, stage) => {
+    const base = 5 + stage * 9, bit = 1 << stage;
+    return `
+  if (fallbackPixelKey[${base}] <= 1u) stagesEnabled = false;
+  if (stagesEnabled) {
+    vec4 texel = vec4(1.0);
+    if ((fallbackPixelKey[4] & ${bit}u) != 0u) {
+      vec4 coord = vTc${stage};
+      vec2 uv = coord.xy;
+      if ((fallbackPixelKey[2] & ${bit}u) != 0u) uv /= coord.w;
+      if ((fallbackPixelKey[3] & ${bit}u) != 0u) uv /= texsize[${stage}].xy;
+      uv += texsize[${stage}].zw;
+      texel = sample${stage}(uvclamp(uv, uvrect[${stage}]));
+    }
+    if ((fallbackPixelKey[0] & ${bit}u) != 0u && texel.a == 0.0) discard;
+    vec4 a1 = fallbackArgument(fallbackPixelKey[${base + 1}], v0, v1, cur, tmp, texel);
+    vec4 a2 = fallbackArgument(fallbackPixelKey[${base + 2}], v0, v1, cur, tmp, texel);
+    vec4 a0 = fallbackArgument(fallbackPixelKey[${base + 3}], v0, v1, cur, tmp, texel);
+    vec3 color = clamp(fallbackOperation(fallbackPixelKey[${base}], a1, a2, a0,
+                                       cur, v0, texel, false).rgb, vec3(0.0), vec3(1.0));
+    float alpha = cur.a;
+    if (fallbackPixelKey[${base + 4}] > 1u) {
+      a1 = fallbackArgument(fallbackPixelKey[${base + 5}], v0, v1, cur, tmp, texel);
+      a2 = fallbackArgument(fallbackPixelKey[${base + 6}], v0, v1, cur, tmp, texel);
+      a0 = fallbackArgument(fallbackPixelKey[${base + 7}], v0, v1, cur, tmp, texel);
+      alpha = fallbackOperation(fallbackPixelKey[${base + 4}], a1, a2, a0,
+                                cur, v0, texel, true).a;
+    }
+    alpha = clamp(alpha, 0.0, 1.0);
+    if (fallbackPixelKey[${base + 8}] == 5u) tmp = vec4(color, alpha);
+    else cur = vec4(color, alpha);
+  }
+`;
+  }).join("");
+  const body = `
+  vec4 v0 = fallbackPixelKey[1] != 0u && !gl_FrontFacing ? vB0 : vD0;
+  vec4 v1 = fallbackPixelKey[1] != 0u && !gl_FrontFacing ? vB1 : vD1;
+  if (misc.w == 0.0) v1 = vec4(0.0, 0.0, 0.0, 1.0);
+  vec4 fogin = vec4(fogcolor.rgb, clamp(vFog, 0.0, 1.0));
+  vec4 cur = v0, tmp = vec4(0.0);
+  bool stagesEnabled = true;
+${stages}
+  cur.rgb = clamp(cur.rgb + v1.rgb, vec3(0.0), vec3(1.0));
+  vec4 outc = vec4(mix(fogin.rgb, cur.rgb, fogin.a), cur.a);
+  alphatest(outc.a);
+  outc.rgb = clamp(outc.rgb, vec3(0.0), vec3(1.0));
+  fragColor = outc;
+  return;
+`;
+  return pixelShaderSource(body, [1, 1, 1, 1], [0, 0, 0, 0], flat, helpers);
 }

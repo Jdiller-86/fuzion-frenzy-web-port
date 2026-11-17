@@ -142,7 +142,7 @@ function parseInput(message) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,frameCapPrecision,
-                     shaderPrewarm,shaderWarmup,gpuTiming,pacingTiming:measurePacing}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,gpuTiming,pacingTiming:measurePacing}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -162,7 +162,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
   const xbeHash = await digestHex(await xbe.arrayBuffer());
   if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
   if (cancelled) return;
-  const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true);
+  const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true,shaderFallback===true);
   let gpu;
   if(renderer==='webgl'&&shaderWarmup===true&&shaderPrewarm!==false){
     gpu=createGpu();

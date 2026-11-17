@@ -80,7 +80,7 @@ if (ff_webgl_enabled()) {
         for(auto& entry:bucket)if(ff_webgl_equal_bytes(&entry.first,&mat.key,sizeof(mat.key))){source=entry.second.c_str();break;}
         if(!source) {
             if(shader_text.size()>2048)std::abort();
-            bucket.emplace_back(mat.key,PixelHlsl(mat.key));source=bucket.back().second.c_str();
+            bucket.emplace_back(mat.key,ff_webgl_pixel_source(mat.key));source=bucket.back().second.c_str();
         }
         std::memcpy(&previous_pixel_key,&mat.key,sizeof(mat.key));previous_pixel_source=source;
     }

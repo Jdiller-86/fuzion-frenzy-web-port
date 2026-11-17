@@ -285,6 +285,28 @@ std::string VertexSourceText(std::string text,uint32_t bgra) {
     if(bgra)text="// ff_browser_bgra_mask="+std::to_string(bgra)+"\n"+text;
     return text;
 }
+template<size_t N>
+static std::string FixedShaderText(const char* name, const std::array<uint32_t, N>& key, const std::string& source) {
+    std::string text = std::string("// ff_browser_fixed_") + name + "=";
+    for (size_t i = 0; i < key.size(); ++i) {
+        if (i) text += ',';
+        text += std::to_string(key[i]);
+    }
+    return text + "\n" + source;
+}
+std::string ff_webgl_pixel_source(const gpu::PixelKey& key) {
+    auto source = gpu::PixelHlsl(key);
+    if (key.programmable || key.quad) return source;
+    std::array<uint32_t, 41> fixed = {key.alphakill, key.two_sided, key.proj, 0, 0};
+    for (unsigned i = 0; i < 4; ++i) {
+        const auto& texture = key.tex[i];
+        if (texture.kind > gpu::kTex2D || texture.shadow || texture.flags) return source;
+        if (texture.rect) fixed[3] |= 1u << i;
+        if (texture.kind) fixed[4] |= 1u << i;
+        std::copy_n(key.ff[i], 9, fixed.begin() + 5 + i * 9);
+    }
+    return FixedShaderText("pixel", fixed, source);
+}
 const char* ff_webgl_fixed_source(const gpu::State& s,uint32_t regs,bool pretransformed,uint64_t decode,uint32_t bgra) {
     const auto f=gpu::MakeFixedKey(s);
     const std::array<uint32_t,11> key={regs,uint32_t(pretransformed),f.light,f.types,f.tex[0],f.tex[1],f.tex[2],f.tex[3],uint32_t(decode),uint32_t(decode>>32),bgra};
@@ -292,7 +314,9 @@ const char* ff_webgl_fixed_source(const gpu::State& s,uint32_t regs,bool pretran
     auto found=sources.find(key);
     if(found!=sources.end())return found->second.c_str();
     if(sources.size()>=1024)std::abort();
-    return sources.emplace(key,VertexSourceText(gpu::FixedVertexHlsl(uint16_t(regs),pretransformed,decode,f),bgra)).first->second.c_str();
+    auto source = gpu::FixedVertexHlsl(uint16_t(regs), pretransformed, decode, f);
+    if (!decode) source = FixedShaderText("vertex", key, source);
+    return sources.emplace(key, VertexSourceText(std::move(source), bgra)).first->second.c_str();
 }
 const char* ff_webgl_vertex_source(const gpu::State& s, uint32_t regs,uint64_t decode,uint32_t bgra) {
     struct OwnedSource {std::vector<uint32_t> words;const char* text=nullptr;};
