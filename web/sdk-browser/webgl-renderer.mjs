@@ -22,11 +22,14 @@ const RAW_VERTEX_FORMATS = new Map([
 // Runs on the runtime worker. Commands synchronously consume the checked,
 // owned SDK buffers while the title thread waits at its bridge callback.
 export class WebGLRenderer {
-  constructor(canvas, memory, report, gpuVertices=true) {
+  constructor(canvas, memory, report, gpuVertices=true, shaderPrewarm=true) {
     this.canvas = canvas; this.memory = memory; this.report = report;
     const gl = this.gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL 2 is unavailable. Select Software reference or enable browser hardware acceleration.');
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
+    this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
+    this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0};
+    this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
@@ -129,8 +132,10 @@ void main() {
     return new TextDecoder().decode(heap.slice(ptr,end));
   }
   shader(kind, source) {
-    const g=this.gl,s=g.createShader(kind);g.shaderSource(s,source);g.compileShader(s);
-    if(!g.getShaderParameter(s,g.COMPILE_STATUS)) {
+    const g=this.gl,start=performance.now(),s=g.createShader(kind);g.shaderSource(s,source);g.compileShader(s);this.shaderStats.compileMs+=performance.now()-start;
+    const waitStart=performance.now(),compiled=g.getShaderParameter(s,g.COMPILE_STATUS),wait=performance.now()-waitStart;
+    this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
+    if(!compiled) {
       const e=g.getShaderInfoLog(s),lines=source.split('\n');
       const context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
       g.deleteShader(s);throw new Error(`GPU shader: ${e}\n${context}`);
@@ -142,6 +147,33 @@ void main() {
     const started=performance.now();
     if(count>65536)throw new Error('GPU command budget exceeded');
     const words=this.wordView(ptr,count*12);
+    if(this.parallelShaderCompile){
+      const prewarmStart=performance.now(),heapBytes=this.memory().HEAPU8,heapWords=new Uint32Array(heapBytes.buffer,heapBytes.byteOffset,heapBytes.byteLength>>>2);this.shaderPrewarmSeen.clear();this.shaderPrewarmPending.clear();let prewarmAttempts=0,pendingPairCount=0;
+      for(let i=0;i<count;i++){
+        const b=i*12,opcode=words[b];if(opcode!==1&&opcode!==3)continue;
+        try{
+          const sourcePointer=words[b+8],statePointer=words[b+6];
+          if((statePointer&3)||statePointer>heapBytes.length-160)continue;
+          const stateOffset=statePointer>>>2,flat=!!heapWords[stateOffset+32],vertexPointer=heapWords[stateOffset+37],regs=heapWords[stateOffset+39]&0xffff,signature=vertexPointer*131072+(flat?65536:0)+regs;
+          if(this.shaderPrewarmDiscovered.get(sourcePointer)?.has(signature))continue;
+          let pending=this.shaderPrewarmPending.get(sourcePointer);
+          if(!pending){if(this.shaderPrewarmPairCount+pendingPairCount>=2048)continue;pending=new Set();this.shaderPrewarmPending.set(sourcePointer,pending);}
+          if(!pending.has(signature)){if(this.shaderPrewarmPairCount+pendingPairCount>=2048)continue;pending.add(signature);pendingPairCount++;}
+          if(prewarmAttempts>=128)continue;
+          const texturePointer=words[b+9];if((texturePointer&3)||texturePointer>heapBytes.length-224)continue;
+          const textureOffset=texturePointer>>>2,t0=heapWords[textureOffset],t1=heapWords[textureOffset+14],t2=heapWords[textureOffset+28],t3=heapWords[textureOffset+42],s0=heapWords[textureOffset+1],s1=heapWords[textureOffset+15],s2=heapWords[textureOffset+29],s3=heapWords[textureOffset+43],identity=`${sourcePointer}:${vertexPointer}:${t0},${t1},${t2},${t3}:${s0},${s1},${s2},${s3}:${flat}:${regs}`;
+          if(this.pointerPrograms?.has(identity)||this.shaderPrewarmSeen.has(identity))continue;
+          this.shaderPrewarmSeen.add(identity);
+          prewarmAttempts++;
+          const source=this.string(sourcePointer),before=this.programs.size;
+          const kinds=[t0,t1,t2,t3],shadows=[s0,s1,s2,s3],program=this.program(source,kinds,shadows,flat,vertexPointer,regs,true);
+          this.pointerPrograms??=new Map();this.pointerPrograms.set(identity,program);
+          if(this.programs.size!==before)this.shaderStats.prepassPrograms++;
+        }catch{/* Preserve the original error point at the command's draw. */}
+      }
+      for(const [sourcePointer,signatures] of this.shaderPrewarmPending){let discovered=this.shaderPrewarmDiscovered.get(sourcePointer);if(!discovered){discovered=new Set();this.shaderPrewarmDiscovered.set(sourcePointer,discovered);}for(const signature of signatures){if(this.shaderPrewarmPairCount>=2048)break;if(!discovered.has(signature)){discovered.add(signature);this.shaderPrewarmPairCount++;}}}
+      this.shaderStats.prepassMs+=performance.now()-prewarmStart;
+    }
     // Keep converted float planes first; append raw, interleaved layout groups.
     let convertedVertices=0,rawBytes=0,indexCount=0;
     for(let i=0;i<count;i++){
@@ -245,26 +277,38 @@ void main() {
     return true;
     } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
   }
-  program(source,kinds,shadows,flat,vertexPointer=0,regs=0) {
-    const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer;
+  program(source,kinds,shadows,flat,vertexPointer=0,regs=0,prewarm=false) {
+    const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
     if(this.programs.has(key)) return this.programs.get(key);
     if(this.programs.size>=2048)throw new Error('GPU shader cache budget exceeded');
-    const g=this.gl, p=g.createProgram(), f=this.shader(g.FRAGMENT_SHADER,pixelGlsl(source,kinds,shadows,flat));
-    let vertexShader;
-    if(vertexPointer){
-      const vk=`${vertexPointer}:${flat}`;vertexShader=this.vertexPrograms.get(vk);
-      if(!vertexShader){
-        const hlsl=this.string(vertexPointer);
-        try{vertexShader=this.shader(g.VERTEX_SHADER,vertexGlsl(hlsl,regs,flat));}
-        catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
-        this.vertexPrograms.set(vk,vertexShader);
+    const g=this.gl, parallel=prewarm&&!!this.parallelShaderCompile;
+    const compile=(kind,text)=>{const start=performance.now(),s=g.createShader(kind);g.shaderSource(s,text);g.compileShader(s);this.shaderStats.compileMs+=performance.now()-start;return s;};
+    const fragmentSource=pixelGlsl(source,kinds,shadows,flat),f=parallel?compile(g.FRAGMENT_SHADER,fragmentSource):this.shader(g.FRAGMENT_SHADER,fragmentSource),p=g.createProgram();
+    let vertexSource,vertexShader;
+    try{
+      if(vertexPointer){
+        const vk=`${vertexPointer}:${flat}:${regs}`;vertexShader=this.vertexPrograms.get(vk);
+        if(!vertexShader){
+          const hlsl=this.string(vertexPointer);
+          try{vertexSource=vertexGlsl(hlsl,regs,flat);vertexShader=parallel?compile(g.VERTEX_SHADER,vertexSource):this.shader(g.VERTEX_SHADER,vertexSource);}
+          catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
+          this.vertexPrograms.set(vk,vertexShader);
+        }
+      } else {
+        if(flat&&!this.flatVertexShader){vertexSource=this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1');this.flatVertexShader=parallel?compile(g.VERTEX_SHADER,vertexSource):this.shader(g.VERTEX_SHADER,vertexSource);}
+        vertexShader=flat?this.flatVertexShader:this.vertexShader;
       }
-    } else {
-      if(flat&&!this.flatVertexShader)this.flatVertexShader=this.shader(g.VERTEX_SHADER,this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1'));
-      vertexShader=flat?this.flatVertexShader:this.vertexShader;
-    }
-    g.attachShader(p,vertexShader);g.attachShader(p,f);g.linkProgram(p);g.deleteShader(f);
-    if(!g.getProgramParameter(p,g.LINK_STATUS)) throw new Error(`GPU program: ${g.getProgramInfoLog(p)}`);
+      g.attachShader(p,vertexShader);g.attachShader(p,f);const linkStart=performance.now();g.linkProgram(p);this.shaderStats.linkMs+=performance.now()-linkStart;
+    }catch(error){g.deleteShader(f);g.deleteProgram(p);throw error;}
+    g.deleteShader(f);
+    if(parallel){const result={p,pending:true,vertexShader,vertexPointer,regs,flat,fragmentShader:f,fragmentSource,vertexSource};this.programs.set(key,result);return result;}
+    const waitStart=performance.now(),linked=g.getProgramParameter(p,g.LINK_STATUS),wait=performance.now()-waitStart;
+    this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);this.shaderStats.blockingPrograms++;
+    if(!linked){const error=new Error(`GPU program: ${g.getProgramInfoLog(p)}`);g.deleteProgram(p);throw error;}
+    const result=this.finishProgram(p);this.shaderStats.completedPrograms++;this.programs.set(key,result);return result;
+  }
+  finishProgram(p,result={}) {
+    const g=this.gl;
     const uniforms=new Float32Array(152),uniformWords=new Uint32Array(uniforms.buffer),uniformSpans=new Map();
     for(const [name,offset,count] of [['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16]])
       uniformSpans.set(name,new Float32Array(uniforms.buffer,offset*4,count));
@@ -277,11 +321,36 @@ void main() {
       mat:new Float32Array(fixedVertexConstants.buffer,112*4,20),amb:new Float32Array(fixedVertexConstants.buffer,132*4,4),
       lt:new Float32Array(fixedVertexConstants.buffer,136*4,224),
     };
-    const result={p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
+    Object.assign(result,{p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
       vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false,
       addresses:new Float32Array(16),addressScratch:new Float32Array(16),addressesValid:false,
-      borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false};
-    this.programs.set(key,result);return result;
+      borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false});
+    return result;
+  }
+  readyProgram(program) {
+    if(!program.pending)return program;
+    const g=this.gl,start=performance.now(),extension=this.parallelShaderCompile;
+    const completed=g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR),linked=g.getProgramParameter(program.p,g.LINK_STATUS),wait=performance.now()-start;
+    this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
+    if(!completed)this.shaderStats.blockingPrograms++;
+    let statusStart=performance.now(),vertexCompiled=g.getShaderParameter(program.vertexShader,g.COMPILE_STATUS),statusWait=performance.now()-statusStart;
+    this.shaderStats.waitMs+=statusWait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,statusWait);
+    if(!vertexCompiled){
+      const source=program.vertexSource??(program.vertexPointer?vertexGlsl(this.string(program.vertexPointer),program.regs,program.flat):program.flat?this.vertexSource.replace(/out vec4 v([DB][01])/g,'flat out vec4 v$1'):this.vertexSource),e=g.getShaderInfoLog(program.vertexShader),lines=source.split('\n'),context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
+      if(program.vertexPointer){const hlsl=this.string(program.vertexPointer);postMessage({type:'vertex-diagnostic',hlsl,regs:program.regs,flat:program.flat});}
+      throw new Error(`GPU shader: ${e}\n${context}`);
+    }
+    statusStart=performance.now();const fragmentCompiled=g.getShaderParameter(program.fragmentShader,g.COMPILE_STATUS);statusWait=performance.now()-statusStart;
+    this.shaderStats.waitMs+=statusWait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,statusWait);
+    if(!fragmentCompiled){
+      const e=g.getShaderInfoLog(program.fragmentShader),lines=program.fragmentSource.split('\n'),context=[...new Set([...e.matchAll(/ERROR:\s*\d+:(\d+)/g)].map(m=>Number(m[1])))].slice(0,10).map(n=>`${n}: ${lines[n-1]}`).join('\n');
+      throw new Error(`GPU shader: ${e}\n${context}`);
+    }
+    if(!linked)throw new Error(`GPU program: ${g.getProgramInfoLog(program.p)}`);
+    if(completed)this.shaderStats.readyWithoutWait++;
+    program.pending=false;const ready=this.finishProgram(program.p,program);this.shaderStats.completedPrograms++;
+    program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=undefined;
+    return ready;
   }
   target(id,w,h,format,pitch,linear,depth,ptr,size,hashLo,hashHi) {
     if(!id || !w || !h || w>4096 || h>4096) throw new Error('Invalid GPU surface');
@@ -385,9 +454,10 @@ void main() {
       const kinds=[0,1,2,3].map(t=>tx[t*14]),shadows=[0,1,2,3].map(t=>tx[t*14+1]);
       if(kinds.some(k=>k===2||k===3))throw new Error('GPU 3D/cube texture admission is not implemented');
       this.pointerPrograms ??= new Map();
-      const programKey=`${source}:${s[37]}`;
+      const programKey=`${source}:${s[37]}:${kinds}:${shadows}:${!!s[32]}:${s[39]&0xffff}`;
       let program=this.pointerPrograms.get(programKey);
       if(!program){program=this.program(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);this.pointerPrograms.set(programKey,program);}
+      program=this.readyProgram(program);
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};

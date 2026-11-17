@@ -94,6 +94,7 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     vertexPrograms: moduleInstance?.onFuzionGpu?.vertexPrograms?.size ?? 0,
     pipeline:moduleInstance?.onFuzionGpu?.pipelined===true,
     geometry: moduleInstance?.onFuzionGpu?.lastFrameStats,
+    shaders: moduleInstance?.onFuzionGpu?.shaderStats,
     metricsCallbackIntervalMs,
     frameMs: metricsCallbackIntervalMs,
     prepareCompletionIntervalMs,vblankHz});
@@ -129,7 +130,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing) {
+async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,shaderPrewarm) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -170,7 +171,7 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
   });
   moduleInstance = module;
   if (renderer === 'webgl') {
-    module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices);
+    module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false);
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
@@ -206,7 +207,7 @@ onmessage = async ({ data }) => {
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing); }
+  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing,data.shaderPrewarm); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });
