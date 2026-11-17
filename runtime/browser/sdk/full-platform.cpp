@@ -68,11 +68,85 @@ bool ff_browser_pacing_timing_enabled() {
 }
 
 #ifdef __EMSCRIPTEN__
+constexpr double kFrameCapPrecisionMs = 2.0;
+
+static bool FrameCapPrecisionEnabled() {
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.frameCapPrecision === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+}
+
 static void RecordPacingWait(uint32_t kind, double queued, double deadline,
-                             double armed, double signalled, double woke, double timers) {
+                             double armed, double signalled, double finished, double timers, double precision_ms) {
     MAIN_THREAD_ASYNC_EM_ASM({
-        Module.onFuzionPacingWait?.($0, $1, $2, $3, $4, $5, $6);
-    }, kind, queued, deadline, armed, signalled, woke, timers);
+        Module.onFuzionPacingWait?.($0, $1, $2, $3, $4, $5, $6, $7);
+    }, kind, queued, deadline, armed, signalled, finished, timers, precision_ms);
+}
+
+// Cancellation stays disabled in the caller until the JS callback releases
+// the signal and timing storage. A result of 3 hands off the final time check.
+static uint32_t WaitForBrowserDeadline(double deadline, double precision_ms, double* timing) {
+    std::atomic<uint32_t> ready{0};
+    static_assert(sizeof(ready) == sizeof(uint32_t));
+    MAIN_THREAD_ASYNC_EM_ASM({
+        const address = $0 >>> 2;
+        const deadline = $1;
+        const timing = $2;
+        const precision = $3;
+        const armed = timing ? performance.timeOrigin + performance.now() : 0;
+        let timers = 0;
+        let completed = false;
+        let watchdog = null;
+        const signal = value => {
+            const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
+            const heap = new Int32Array(memory);
+            // Publish these words before the atomic release. Once signalled,
+            // the waiting thread can release both of its stack slots.
+            if (timing && value !== 2) {
+                const out = new Float64Array(memory, timing, 3);
+                out[0] = armed;
+                out[1] = performance.timeOrigin + performance.now();
+                out[2] = timers;
+            }
+            Atomics.store(heap, address, value);
+            Atomics.notify(heap, address, 1);
+            completed = true;
+            if (watchdog !== null) clearTimeout(watchdog);
+        };
+        const fail = error => {
+            if (completed) return;
+            try { signal(2); } catch {}
+            postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
+        };
+        const arm = () => {
+            if (completed) return;
+            try {
+                const now = performance.timeOrigin + performance.now();
+                if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
+                const remaining = deadline - now;
+                if (remaining > precision) {
+                    if (timing) ++timers;
+                    setTimeout(arm, Math.ceil(remaining - precision));
+                } else {
+                    signal(remaining > 0 ? 3 : 1);
+                }
+            } catch (error) {
+                fail(error);
+            }
+        };
+        try {
+            watchdog = setTimeout(() => fail(new Error('Timer acknowledgement exceeded 5 seconds')), 5000);
+            arm();
+        } catch (error) {
+            fail(error);
+        }
+    }, &ready, deadline, timing, precision_ms);
+    while (ready.load(std::memory_order_acquire) == 0) {
+        const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
+        if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
+    }
+    return ready.load(std::memory_order_acquire);
 }
 #endif
 
@@ -91,75 +165,31 @@ extern "C" void ff_browser_sleep_for(double milliseconds, uint32_t kind) {
         const double deadline = queued + milliseconds;
         if (!std::isfinite(deadline)) std::abort();
         if (milliseconds <= 0.0) {
-            RecordPacingWait(kind, queued, deadline, queued, queued, queued, 0);
+            RecordPacingWait(kind, queued, deadline, queued, queued, queued, 0, 0);
             return;
         }
-        std::atomic<uint32_t> ready{0};
+        const double precision = kind == 0 && milliseconds > kFrameCapPrecisionMs && FrameCapPrecisionEnabled()
+            ? kFrameCapPrecisionMs : 0.0;
         double timing[3];
-        static_assert(sizeof(ready) == sizeof(uint32_t));
+        double precision_spent = 0;
         int previous_cancel_state = PTHREAD_CANCEL_ENABLE;
         if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_cancel_state) != 0) std::abort();
-        MAIN_THREAD_ASYNC_EM_ASM({
-            const address = $0 >>> 2;
-            const deadline = $1;
-            const timing = $2;
-            const armed = timing ? performance.timeOrigin + performance.now() : 0;
-            let timers = 0;
-            let completed = false;
-            let watchdog = null;
-            const signal = value => {
-                const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
-                const heap = new Int32Array(memory);
-                // Publish these words before the atomic release. Once signalled,
-                // the waiting thread can release both of its stack slots.
-                if (timing && value === 1) {
-                    const out = new Float64Array(memory, timing, 3);
-                    out[0] = armed;
-                    out[1] = performance.timeOrigin + performance.now();
-                    out[2] = timers;
-                }
-                Atomics.store(heap, address, value);
-                Atomics.notify(heap, address, 1);
-                completed = true;
-                if (watchdog !== null) clearTimeout(watchdog);
-            };
-            const fail = error => {
-                if (completed) return;
-                try { signal(2); } catch {}
-                postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
-            };
-            const arm = () => {
-                if (completed) return;
-                try {
-                    const now = performance.timeOrigin + performance.now();
-                    if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
-                    const remaining = deadline - now;
-                    if (remaining > 0) {
-                        if (timing) ++timers;
-                        // setTimeout truncates fractional milliseconds. Round up
-                        // so a positive remainder does not schedule an early retry.
-                        setTimeout(arm, Math.ceil(remaining));
-                    } else {
-                        signal(1);
-                    }
-                } catch (error) {
-                    fail(error);
-                }
-            };
-            try {
-                watchdog = setTimeout(() => fail(new Error('Timer acknowledgement exceeded 5 seconds')), 5000);
-                arm();
-            } catch (error) {
-                fail(error);
+        uint32_t result = WaitForBrowserDeadline(deadline, precision, trace ? timing : nullptr);
+        if (result == 3u) {
+            const double start = emscripten_get_now();
+            if (deadline - start > precision) {
+                // A clock discrepancy must stay on the ordinary timer path.
+                result = WaitForBrowserDeadline(deadline, 0, trace ? timing : nullptr);
+            } else {
+                double now = start;
+                while (now < deadline) now = emscripten_get_now();
+                precision_spent = now - start;
+                result = 1;
             }
-        }, &ready, deadline, trace ? timing : nullptr);
-        while (ready.load(std::memory_order_acquire) == 0) {
-            const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
-            if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
         }
-        const int result = ready.load(std::memory_order_acquire);
         if (result != 1u) std::abort();
-        if (trace) RecordPacingWait(kind, queued, deadline, timing[0], timing[1], emscripten_get_now(), timing[2]);
+        if (trace) RecordPacingWait(kind, queued, deadline, timing[0], timing[1],
+                                   emscripten_get_now(), timing[2], precision_spent);
         if (pthread_setcancelstate(previous_cancel_state, nullptr) != 0) std::abort();
         return;
     }

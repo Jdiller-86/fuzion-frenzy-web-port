@@ -155,6 +155,7 @@ runButton.addEventListener('click', () => {
     stop();
   });
   const options = new URLSearchParams(location.search);
+  const windowsPacing = /Windows/.test(navigator.userAgent);
   current.postMessage({
     type: 'run', iso, renderer, canvas: offscreen,
     gpuVertices: options.get('cpuVertices') !== '1',
@@ -167,7 +168,10 @@ runButton.addEventListener('click', () => {
     pacingTiming: options.get('pacingTiming') === '1',
     precisePacing: options.has('precisePacing')
       ? options.get('precisePacing') === '1'
-      : /Windows/.test(navigator.userAgent),
+      : windowsPacing,
+    frameCapPrecision: options.has('frameCapPrecision')
+      ? options.get('frameCapPrecision') === '1'
+      : windowsPacing,
   }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
     const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
