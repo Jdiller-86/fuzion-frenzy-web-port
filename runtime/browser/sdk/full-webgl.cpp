@@ -63,13 +63,21 @@ Flight flight;
 std::atomic<int32_t> bridge_failed{0};
 std::vector<Block> owned;
 size_t owned_block=0,owned_capacity=0;
-std::map<std::pair<uint32_t,uint64_t>,std::array<uint32_t,3>> image_copies;
+using ImageCopyKey = std::pair<uint32_t,uint64_t>;
+using ImageCopyMap = std::map<ImageCopyKey,std::array<uint32_t,3>>;
+ImageCopyMap image_copies;
 struct ImageVersion {uint64_t version=0;std::shared_ptr<const void> owner;uint32_t encoding=0,bytes=0;};
-std::map<const void*,ImageVersion> image_versions;
+using ImageVersionMap = std::map<const void*,ImageVersion>;
+ImageVersionMap image_versions;
+std::array<ImageCopyMap::iterator,4> last_image_copy{};
+std::array<bool,4> last_image_copy_valid{};
+std::array<ImageVersionMap::iterator,4> last_image_version{};
+std::array<bool,4> last_image_version_valid{};
 std::vector<std::shared_ptr<const void>> pinned_images;
 size_t pinned_image_bytes=0;
 uint64_t image_shortcut_lookups=0,image_map_lookups=0;
 uint64_t program_constant_reuses=0,program_constant_packs=0;
+uint64_t versionHits=0,versionSearches=0,copyHits=0,copySearches=0;
 size_t owned_bytes = 0;
 uint32_t Own(const void* src, size_t bytes) {
     if(bridge_failed.load(std::memory_order_acquire))std::abort();
@@ -93,6 +101,7 @@ void WaitFlight() {
     if(bridge_failed.load(std::memory_order_acquire)||flight.done.load(std::memory_order_acquire)<0)std::abort();
 }
 void ResetCommands() {
+    last_image_copy_valid.fill(false);last_image_version_valid.fill(false);
     commands.clear();for(auto& block:owned)block.used=0;owned_block=0;image_copies.clear();image_versions.clear();pinned_images.clear();pinned_image_bytes=0;owned_bytes=0;last_vertex_constants=0;
     last_draw_state=last_pixel_uniforms=last_texture_state=0;
 }
@@ -118,6 +127,7 @@ void QueuePresent(uint32_t target) {
             if(($1&&!Module.onFuzionGpu.commands($0,$1))||!Module.onFuzionGpu.present($2))throw new Error('Pipelined GPU submission failed');
             Module.onFuzionGpu.imageLookups=({shortcutHits:$5,mapLookups:$6});
             Module.onFuzionGpu.constantPacking=({reuses:$7,packs:$8});
+            Module.onFuzionGpu.textureMetadataLookups=({versionHits:$9,versionSearches:$10,copyHits:$11,copySearches:$12});
         } catch(error) {
             failed=true;
             Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
@@ -126,7 +136,7 @@ void QueuePresent(uint32_t target) {
             const heap=new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer);
             Atomics.store(heap,$3>>2,failed?-1:1);Atomics.notify(heap,$3>>2);
         }
-    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs));
+    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs),double(versionHits),double(versionSearches),double(copyHits),double(copySearches));
 }
 // Use the checked backing identity: physical/write-combine views alias each
 // other, but user/system/stack allocations at the same offset do not.
@@ -328,12 +338,25 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
         if(!pixel_count||pixel_count>8u*1024*1024)std::abort();
         const uint64_t expected_bytes=pixel_count*(encoding?4u:16u);
         if(expected_bytes>128u*1024*1024)std::abort();
-        const auto version=image_versions.find(reinterpret_cast<const void*>(q[6]));
+        const void* image_pointer=reinterpret_cast<const void*>(q[6]);
+        auto version=image_versions.end();
+        if(last_image_version_valid[t]&&last_image_version[t]->first==image_pointer) {
+            ++versionHits;version=last_image_version[t];
+        } else {
+            ++versionSearches;version=image_versions.find(image_pointer);
+            if(version!=image_versions.end()) {last_image_version[t]=version;last_image_version_valid[t]=true;}
+        }
         if(encoding==1u&&(version==image_versions.end()||version->second.encoding!=1u||version->second.bytes!=expected_bytes))std::abort();
         if(version!=image_versions.end()&&version->second.owner&&
            (version->second.encoding!=encoding||version->second.bytes!=expected_bytes))std::abort();
-        const auto identity=std::make_pair(q[6],version==image_versions.end()?uint64_t(0):version->second.version);
-        auto found = image_copies.find(identity);
+        const ImageCopyKey identity=std::make_pair(q[6],version==image_versions.end()?uint64_t(0):version->second.version);
+        auto found=image_copies.end();
+        if(last_image_copy_valid[t]&&last_image_copy[t]->first==identity) {
+            ++copyHits;found=last_image_copy[t];
+        } else {
+            ++copySearches;found=image_copies.find(identity);
+            if(found!=image_copies.end()) {last_image_copy[t]=found;last_image_copy_valid[t]=true;}
+        }
         if(found == image_copies.end()) {
             size_t bytes=size_t(expected_bytes);
             uint32_t copy;
@@ -344,7 +367,8 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
             // Persistent decoded images carry a unique content generation.
             // Unregistered reference images retain the conservative hash path.
             auto hash = version==image_versions.end()?gpu::Hash(reinterpret_cast<const void*>(copy),bytes):version->second.version;
-            image_copies[identity]={copy,uint32_t(hash),uint32_t(hash>>32)};
+            found=image_copies.emplace(identity,std::array<uint32_t,3>{copy,uint32_t(hash),uint32_t(hash>>32)}).first;
+            last_image_copy[t]=found;last_image_copy_valid[t]=true;
             q[6]=copy;q[11]=uint32_t(hash);q[12]=uint32_t(hash>>32);
         } else {q[6]=found->second[0];q[11]=found->second[1];q[12]=found->second[2];}
     }
@@ -384,8 +408,9 @@ bool ff_webgl_present(const gpu::Surface& front) {
         const shown=Module.onFuzionGpu.present($0);
         if(shown)Module.onFuzionGpu.imageLookups=({shortcutHits:$1,mapLookups:$2});
         if(shown)Module.onFuzionGpu.constantPacking=({reuses:$3,packs:$4});
+        if(shown)Module.onFuzionGpu.textureMetadataLookups=({versionHits:$5,versionSearches:$6,copyHits:$7,copySearches:$8});
         return shown?1:0;
-    }, Key(d.data),double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs));
+    }, Key(d.data),double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs),double(versionHits),double(versionSearches),double(copyHits),double(copySearches));
     return shown;
 }
 void ff_webgl_sync(uint32_t data, uint32_t size) {
