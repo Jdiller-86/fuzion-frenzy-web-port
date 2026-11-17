@@ -190,6 +190,18 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     )
     render = _replace_once(
         render,
+        """    uint32_t Header(uint32_t header) {
+        if (!header || !ring_) return header;""",
+        """    [[gnu::always_inline]] uint32_t Header(uint32_t header) {
+        if (!header || !ring_) return header;
+        return CaptureHeader(header);
+    }
+
+    uint32_t CaptureHeader(uint32_t header) {""",
+        "Skip out-of-line header capture for empty bindings",
+    )
+    render = _replace_once(
+        render,
         """        const uint32_t type = kernel::R32(header) & 0x70000;  // 0 vertex, 0x10000 index, 0x30000 palette
         uint8_t now[kHeaderBytes] = {};
         std::memcpy(now, kernel::HostPtr(header), type < 0x20000 || type == 0x30000 ? 12 : kHeaderBytes);""",
@@ -282,6 +294,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             "contiguous 32-header-slot plus payload scratch reservations before Draw/Clear/Copy and Present",
             "wait for submitted consumers before scratch-ring lap reuse; clear stale header-copy references",
             "abort on oversized reservation or any scratch allocation beyond its reservation",
+            "skip resource header capture calls for empty bindings or an unavailable scratch ring",
             "capture each resource header from a checked single-window span while admitting short window-end headers",
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
