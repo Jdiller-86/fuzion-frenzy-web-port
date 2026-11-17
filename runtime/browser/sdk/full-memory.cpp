@@ -6,7 +6,6 @@
 #include <cstring>
 #include <map>
 #include <mutex>
-#include <array>
 #include <stdexcept>
 #include <vector>
 
@@ -14,52 +13,24 @@
 
 #include "full-memory.h"
 
-namespace {
-constexpr uint32_t kGuestWindow = 64u << 20;
-constexpr uint32_t kGuestPhysical = 0x80000000u;
-constexpr uint32_t kGuestSystem = 0xB0000000u;
-constexpr uint32_t kGuestStack = 0xD0000000u;
-constexpr uint32_t kGuestWriteCombine = 0xF0000000u;
-constexpr size_t kGuestBackingSize = size_t(kGuestWindow) * 4;
-alignas(65536) std::array<uint8_t, kGuestBackingSize> g_guest_backing{};
-
-bool GuestSpan(uint32_t va, size_t bytes, uint32_t start, size_t capacity, size_t offset,
-               size_t& result) {
-    if (uint64_t(va) < start) return false;
-    const uint64_t delta = uint64_t(va) - start;
-    if (delta > capacity || bytes > capacity - size_t(delta)) return false;
-    result = offset + size_t(delta);
-    return true;
+namespace ff_browser_memory {
+alignas(65536) uint8_t backing[kBackingSize]{};
 }
 
-// Keep both public accessors on the same checked fast path without another call.
+namespace {
 [[gnu::always_inline]] inline uint8_t* MapGuestSpan(uint32_t va, size_t bytes) noexcept {
-    size_t backing = 0;
-    bool selected = true;
-    switch (va >> 26) {
-        case 0: backing = 0; break;
-        case kGuestPhysical >> 26: backing = kGuestWindow; break;
-        case kGuestWriteCombine >> 26: backing = kGuestWindow; break;
-        case kGuestSystem >> 26: backing = 2 * kGuestWindow; break;
-        case kGuestStack >> 26: backing = 3 * kGuestWindow; break;
-        default: selected = false; break;
+    using namespace ff_browser_memory;
+    if (auto* pointer = TryWindow(va, bytes)) return pointer;
+    // A zero-length span can point just past an admitted window.
+    if (bytes == 0 && va != 0 && (va & (kWindowSize - 1)) == 0) {
+        const uint32_t previous = kWindowOffsets[(va >> kWindowBits) - 1];
+        if (previous != kBackingSize) return backing + previous + kWindowSize;
     }
-    if (selected) {
-        const size_t delta = va & (kGuestWindow - 1);
-        if (bytes <= kGuestWindow - delta) return g_guest_backing.data() + backing + delta;
-    }
-    size_t offset = 0;
-    if (GuestSpan(va, bytes, 0, kGuestWindow, 0, offset) ||
-        GuestSpan(va, bytes, kGuestPhysical, kGuestWindow, kGuestWindow, offset) ||
-        GuestSpan(va, bytes, kGuestWriteCombine, kGuestWindow, kGuestWindow, offset) ||
-        GuestSpan(va, bytes, kGuestSystem, kGuestWindow, 2 * kGuestWindow, offset) ||
-        GuestSpan(va, bytes, kGuestStack, kGuestWindow, 3 * kGuestWindow, offset))
-        return g_guest_backing.data() + offset;
     return nullptr;
 }
 }
 
-uint8_t* ff_sdk_guest_base() { return g_guest_backing.data(); }
+uint8_t* ff_sdk_guest_base() { return ff_browser_memory::backing; }
 
 const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept {
     return MapGuestSpan(va, bytes);

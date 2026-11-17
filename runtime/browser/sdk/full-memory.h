@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -7,3 +8,37 @@
 // admitted guest window; arithmetic never wraps across the 32-bit VA space.
 uint8_t* ff_sdk_guest_ptr(uint32_t va, size_t bytes = 1);
 uint8_t* ff_sdk_guest_base();
+
+namespace ff_browser_memory {
+inline constexpr uint32_t kWindowBits = 26;
+inline constexpr uint32_t kWindowSize = 1u << kWindowBits;
+inline constexpr uint32_t kBackingSize = 4 * kWindowSize;
+alignas(65536) extern uint8_t backing[kBackingSize];
+
+inline constexpr auto kWindowOffsets = [] {
+    std::array<uint32_t, 1u << (32 - kWindowBits)> offsets;
+    offsets.fill(kBackingSize);
+    offsets[0] = 0;
+    offsets[0x80000000u >> kWindowBits] = kWindowSize;
+    offsets[0xF0000000u >> kWindowBits] = kWindowSize;
+    offsets[0xB0000000u >> kWindowBits] = 2 * kWindowSize;
+    offsets[0xD0000000u >> kWindowBits] = 3 * kWindowSize;
+    return offsets;
+}();
+
+[[gnu::always_inline]] inline uint8_t* TryWindow(uint32_t va, size_t bytes) noexcept {
+    const uint32_t offset = va & (kWindowSize - 1);
+    const uint32_t window = kWindowOffsets[va >> kWindowBits];
+    if (window == kBackingSize || bytes > kWindowSize - offset) return nullptr;
+    return backing + window + offset;
+}
+} // namespace ff_browser_memory
+
+// Let the compiler see each fixed-width floating-point access and its check.
+// The out-of-line accessor still reports any rejected guest span.
+template<size_t Width>
+[[gnu::always_inline]] inline uint8_t* ff_sdk_guest_scalar_ptr(uint32_t va) {
+    static_assert(Width > 0 && Width <= ff_browser_memory::kWindowSize);
+    if (auto* pointer = ff_browser_memory::TryWindow(va, Width)) return pointer;
+    return ff_sdk_guest_ptr(va, Width);
+}

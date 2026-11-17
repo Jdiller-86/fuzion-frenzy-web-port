@@ -117,7 +117,9 @@ def main() -> int:
         pattern = rf"#define {macro}\(a\).*"
         cast = {"X86_MEM8":"uint8_t", "X86_MEM16":"x86_u16u", "X86_MEM32":"x86_u32u",
                 "X86_MEM64":"x86_u64u", "X86_MEMF32":"x86_f32u", "X86_MEMF64":"x86_f64u"}[macro]
-        text = re.sub(pattern, f"#define {macro}(a) (*reinterpret_cast<{cast}*>(ff_sdk_guest_ptr(uint32_t(a), {width})))", text, count=1)
+        pointer = (f"ff_sdk_guest_scalar_ptr<{width}>(uint32_t(a))" if macro.startswith("X86_MEMF")
+                   else f"ff_sdk_guest_ptr(uint32_t(a), {width})")
+        text = re.sub(pattern, f"#define {macro}(a) (*reinterpret_cast<{cast}*>({pointer}))", text, count=1)
     text = text.replace('#define X86_PTR(T, a) ((T*)(base + (uint32_t)(a)))',
                         '#define X86_PTR(T, a) (reinterpret_cast<T*>(ff_sdk_guest_ptr(uint32_t(a), std::is_same_v<T, uint8_t> ? 10 : sizeof(T))))')
     text = text.replace('std::memmove(base + ctx.edi, base + ctx.esi, bytes)',
