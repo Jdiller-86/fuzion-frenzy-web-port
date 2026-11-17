@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adapt the copied SDK render-thread backend for bounded browser use.
+"""Adapt the copied SDK render thread and resource tracking for browser use.
 
 This deliberately edits only a disposable runtime overlay below this checkout's
 .tools/artifacts/ or artifacts/ directory. The pinned SDK is never modified.
@@ -25,7 +25,8 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         raise RuntimeError("threading adapter requires a disposable runtime overlay under .tools/artifacts or artifacts")
     render_path = runtime / "gpu" / "render_thread.cpp"
     d3d_path = runtime / "xdk" / "d3d8.cpp"
-    if not render_path.is_file() or not d3d_path.is_file():
+    texture_path = runtime / "gpu" / "texture.cpp"
+    if not all(source.is_file() for source in (render_path, d3d_path, texture_path)):
         raise RuntimeError(f"not a copied SDK runtime overlay: {runtime}")
 
     render = render_path.read_text(encoding="utf-8")
@@ -285,11 +286,51 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         "Wait for resource reads before CPU readback",
     )
 
+    texture = texture_path.read_text(encoding="utf-8")
+    texture = _replace_once(texture, '#include <bit>\n', '#include <atomic>\n#include <bit>\n', "Dirty revision include")
+    texture = _replace_once(texture, 'uint64_t g_epoch = 1;', 'std::atomic<uint64_t> g_epoch{1};', "Published dirty revision")
+    texture = _replace_once(
+        texture,
+        "    g_dirty[data] = ++g_epoch;",
+        """    const uint64_t changed = g_epoch.load(std::memory_order_relaxed) + 1;
+    g_dirty[data] = changed;
+    g_epoch.store(changed, std::memory_order_release);""",
+        "Publish only completed dirty-map updates",
+    )
+    texture = _replace_once(
+        texture,
+        """uint64_t DirtyEpoch(uint32_t data) {
+    std::lock_guard<std::mutex> lock(g_dirty_lock);
+    auto it = g_dirty.find(data);
+    return it == g_dirty.end() ? 0 : it->second;
+}""",
+        """uint64_t DirtyEpoch(uint32_t data) {
+    struct RecentEpoch {
+        uint32_t data = 0;
+        uint64_t revision = 0;
+        uint64_t epoch = 0;
+    };
+    static thread_local RecentEpoch recent[32];
+    auto& entry = recent[((data >> 12) ^ (data >> 5)) & 31];
+    const uint64_t revision = g_epoch.load(std::memory_order_acquire);
+    // The revision read is the observation point for a cache hit.
+    if (entry.data == data && entry.revision == revision) return entry.epoch;
+
+    std::lock_guard<std::mutex> lock(g_dirty_lock);
+    const auto it = g_dirty.find(data);
+    const uint64_t epoch = it == g_dirty.end() ? 0 : it->second;
+    entry = {data, g_epoch.load(std::memory_order_relaxed), epoch};
+    return epoch;
+}""",
+        "Reuse dirty lookups while the published revision matches",
+    )
+
     render_path.write_text(render, encoding="utf-8", newline="\n")
     d3d_path.write_text(d3d, encoding="utf-8", newline="\n")
+    texture_path.write_text(texture, encoding="utf-8", newline="\n")
     return {
         "runtime": str(runtime),
-        "files": ["gpu/render_thread.cpp", "xdk/d3d8.cpp"],
+        "files": ["gpu/render_thread.cpp", "xdk/d3d8.cpp", "gpu/texture.cpp"],
         "changes": [
             "contiguous 32-header-slot plus payload scratch reservations before Draw/Clear/Copy and Present",
             "wait for submitted consumers before scratch-ring lap reuse; clear stale header-copy references",
@@ -299,6 +340,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
             "resource waits drain all preceding work to preserve aliases; D3D_BlockOnResource waits before Sync",
+            "dirty epoch reads reuse thread-local values at the same published revision, with locked lookup on misses",
             "submit Clear/Copy/RecordLate/Gamma once a complete command reaches the batch threshold",
             "NOOVERWRITE path remains unchanged",
         ],
