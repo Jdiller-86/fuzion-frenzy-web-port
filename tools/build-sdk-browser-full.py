@@ -67,6 +67,13 @@ def main() -> int:
     # The reference renderer uses kernel::HostPtr, already translated by the overlay.
     reference = output / 'reference_renderer.cpp'
     reference_text = (sdk / 'harness/reference_renderer.cpp').read_text()
+    image_fields = '    std::vector<Vec> texels[6];'
+    if reference_text.count(image_fields) != 1:
+        raise RuntimeError('Reference image storage anchor differs from retained source')
+    reference_text = reference_text.replace(
+        image_fields,
+        image_fields + '\n    std::vector<uint8_t> gpu_pixels;\n    uint32_t gpu_encoding = 0;',
+        1)
     # P8 palettes are real resource inputs, including font transparency. The
     # upstream CPU harness omitted them; preserve the title's stage palette.
     reference_text = reference_text.replace('FindImage(uint32_t header)', 'FindImage(uint32_t header, uint32_t palette_header = 0)')
@@ -110,7 +117,7 @@ def main() -> int:
 #include "webgl-draw.inc"
     }
 '''
-    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <limits>\n#include <tuple>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nbool ff_webgl_draw_raw(const void*,uint32_t,uint32_t,const void*,uint32_t,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
+    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <cmath>\n#include <limits>\n#include <tuple>\n#include <utility>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&,uint32_t,uint32_t);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nbool ff_webgl_draw_raw(const void*,uint32_t,uint32_t,const void*,uint32_t,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
     reference.write_text(reference_text)
     runtime += [reference]
     original_title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']

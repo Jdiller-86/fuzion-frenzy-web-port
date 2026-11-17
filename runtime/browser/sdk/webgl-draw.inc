@@ -45,8 +45,11 @@ if (ff_webgl_enabled()) {
         auto* q = textures + t * 14;
         q[0] = mat.info[t].kind; q[1] = mat.info[t].shadow;
         if (image) {
-            q[2] = image->lo; q[3] = image->w; q[4] = image->h; q[5] = image->faces;
-            q[6] = uint32_t(reinterpret_cast<uintptr_t>(image->texels[0].data()));
+            q[2] = image->lo; q[3] = image->w; q[4] = image->h;
+            q[5] = image->faces | (image->gpu_encoding << 8);
+            q[6] = uint32_t(reinterpret_cast<uintptr_t>(image->gpu_encoding ?
+                static_cast<const void*>(image->gpu_pixels.data()) :
+                static_cast<const void*>(image->texels[0].data())));
             q[7] = unit.address_u; q[8] = unit.address_v; q[9] = unit.min; q[10] = unit.mag;
             // Cube faces are separate owned vectors in the SDK decoder.
             q[13] = s.tss[t][kTssBorderColor];

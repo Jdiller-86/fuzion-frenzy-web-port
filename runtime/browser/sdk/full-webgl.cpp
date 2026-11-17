@@ -64,7 +64,7 @@ std::atomic<int32_t> bridge_failed{0};
 std::vector<Block> owned;
 size_t owned_block=0,owned_capacity=0;
 std::map<std::pair<uint32_t,uint64_t>,std::array<uint32_t,3>> image_copies;
-struct ImageVersion {uint64_t version=0;std::shared_ptr<const void> owner;};
+struct ImageVersion {uint64_t version=0;std::shared_ptr<const void> owner;uint32_t encoding=0,bytes=0;};
 std::map<const void*,ImageVersion> image_versions;
 std::vector<std::shared_ptr<const void>> pinned_images;
 size_t pinned_image_bytes=0;
@@ -139,9 +139,9 @@ uint32_t Offset(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
 uint64_t ff_webgl_frame() { return frame; }
 bool ff_webgl_is_target(uint32_t data) { return targets.count(Key(data)) != 0; }
 void ff_webgl_image_version(const void* pixels,uint64_t version) { image_versions[pixels].version=version; }
-void ff_webgl_image_owner(const void* pixels,uint64_t version,const std::shared_ptr<const void>& owner) {
+void ff_webgl_image_owner(const void* pixels,uint64_t version,const std::shared_ptr<const void>& owner,uint32_t encoding,uint32_t bytes) {
     auto& entry=image_versions[pixels];
-    if(entry.version!=version||entry.owner.get()!=owner.get())entry={version,owner};
+    if(entry.version!=version||entry.owner.get()!=owner.get()||entry.encoding!=encoding||entry.bytes!=bytes)entry={version,owner,encoding,bytes};
 }
 bool ff_webgl_enabled() {
     static const bool enabled = MAIN_THREAD_EM_ASM_INT({ return Module.onFuzionGpu ? 1 : 0; }) != 0;
@@ -297,11 +297,21 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
         q[2]=Key(q[2]);
         if(targets.count(q[2])) continue;
         if(!q[6])std::abort();
+        const uint32_t encoding=q[5]>>8;
+        const uint32_t faces=q[5]&255u;
+        if(faces!=1u||encoding>1u)std::abort();
+        const uint64_t pixel_count=uint64_t(q[3])*q[4];
+        if(!pixel_count||pixel_count>8u*1024*1024)std::abort();
+        const uint64_t expected_bytes=pixel_count*(encoding?4u:16u);
+        if(expected_bytes>128u*1024*1024)std::abort();
         const auto version=image_versions.find(reinterpret_cast<const void*>(q[6]));
+        if(encoding==1u&&(version==image_versions.end()||version->second.encoding!=1u||version->second.bytes!=expected_bytes))std::abort();
+        if(version!=image_versions.end()&&version->second.owner&&
+           (version->second.encoding!=encoding||version->second.bytes!=expected_bytes))std::abort();
         const auto identity=std::make_pair(q[6],version==image_versions.end()?uint64_t(0):version->second.version);
         auto found = image_copies.find(identity);
         if(found == image_copies.end()) {
-            size_t bytes=size_t(q[3])*q[4]*16;
+            size_t bytes=size_t(expected_bytes);
             uint32_t copy;
             if(version!=image_versions.end()&&version->second.owner) {
                 if(bytes>128u*1024*1024||pinned_image_bytes+flight.image_bytes+bytes>256u*1024*1024)std::abort();

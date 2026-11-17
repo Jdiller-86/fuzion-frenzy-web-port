@@ -31,7 +31,9 @@ export class WebGLRenderer {
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
     this.vao = gl.createVertexArray(); this.vbo = gl.createBuffer(); this.ibo = gl.createBuffer();
+    const commandFloatBuffer=new ArrayBuffer(4);this.commandFloatBits=new Uint32Array(commandFloatBuffer);this.commandFloatValue=new Float32Array(commandFloatBuffer);
     this.samplers=Array.from({length:4},()=>gl.createSampler());
+    this.imageUpload=new Uint8Array(0);
     this.samplerKeys=[];this.boundTextures=[];this.activeUnit=0;
     this.samplers.forEach((s,i)=>{gl.bindSampler(i,s);gl.samplerParameteri(s,gl.TEXTURE_COMPARE_MODE,gl.NONE);});
     this.vertexSource = `#version 300 es
@@ -143,11 +145,11 @@ void main() {
     // Keep converted float planes first; append raw, interleaved layout groups.
     let convertedVertices=0,rawBytes=0,indexCount=0;
     for(let i=0;i<count;i++){
-      const q=words.subarray(i*12,i*12+12);
-      if(q[0]===1){convertedVertices+=q[2]*1;indexCount+=q[5];}
-      else if(q[0]===3){
-        if(!q[3]||q[3]>252||(q[3]&3))throw new Error('Unsupported raw vertex stride');
-        rawBytes+=q[2]*q[3];indexCount+=q[5];
+      const b=i*12,opcode=words[b];
+      if(opcode===1){convertedVertices+=words[b+2];indexCount+=words[b+5];}
+      else if(opcode===3){
+        const stride=words[b+3];if(!stride||stride>252||(stride&3))throw new Error('Unsupported raw vertex stride');
+        rawBytes+=words[b+2]*stride;indexCount+=words[b+5];
         if(rawBytes>256*1024*1024||indexCount>16*1024*1024)throw new Error('GPU geometry budget exceeded');
       }
       if(convertedVertices*256+rawBytes>256*1024*1024||indexCount>16*1024*1024)throw new Error('GPU geometry budget exceeded');
@@ -162,53 +164,53 @@ void main() {
     this.indexOffsets??=new Map();this.indexOffsets.clear();this.indexBindings??=new Map();this.indexBindings.clear();let convertedOffset=0,rawOffset=convertedBytes,io=0,rawGroup=null;
     const convertedBinding={kind:'converted',totalVertices:convertedVertices};
     for(let i=0;i<count;i++){
-      const q=words.subarray(i*12,i*12+12);
-      if(q[0]===1){
+      const b=i*12,opcode=words[b],commandOffset=words.byteOffset+b*4;
+      if(opcode===1){
         rawGroup=null;
-        const metadata=this.wordView(q[6],40),raw=!!metadata[37],mask=metadata[39];
+        const vertexCount=words[b+2],sourceStride=words[b+3],metadata=this.wordView(words[b+6],40),raw=!!metadata[37],mask=metadata[39];
         this.frameStats??={gpuVertexDraws:0,cpuVertexDraws:0,gpuVertices:0,cpuVertices:0,vertexBytes:0,rawStreamDraws:0,rawStreamBytes:0};
         this.frameStats.rawStreamDraws??=0;this.frameStats.rawStreamBytes??=0;
         this.frameStats[raw?'gpuVertexDraws':'cpuVertexDraws']++;
-        this.frameStats[raw?'gpuVertices':'cpuVertices']+=q[2];this.frameStats.vertexBytes+=q[2]*256;
-        if(!raw&&q[3]!==160)throw new Error('Unexpected SDK shaded vertex stride');
+        this.frameStats[raw?'gpuVertices':'cpuVertices']+=vertexCount;this.frameStats.vertexBytes+=vertexCount*256;
+        if(!raw&&sourceStride!==160)throw new Error('Unexpected SDK shaded vertex stride');
         let registers=0;for(let r=0;r<16;r++)if(mask&(1<<r))registers++;
-        if(raw&&q[3]!==registers*16)throw new Error('Unexpected raw vertex register span');
-        const sourceBytes=this.bytes(q[1],q[2]*q[3]);
+        if(raw&&sourceStride!==registers*16)throw new Error('Unexpected raw vertex register span');
+        const sourceBytes=this.bytes(words[b+1],vertexCount*sourceStride);
         const input=new Uint32Array(sourceBytes.buffer,sourceBytes.byteOffset,sourceBytes.length/4);
         let slot=0;
         for(let r=0;r<(raw?16:10);r++)if(!raw||(mask&(1<<r))){
           let from=slot++*4,to=(r*convertedVertices+convertedOffset/256)*4;
-          for(let v=0;v<q[2];v++,from+=q[3]/4,to+=4){vertexWords[to]=input[from];vertexWords[to+1]=input[from+1];vertexWords[to+2]=input[from+2];vertexWords[to+3]=input[from+3];}
+          for(let v=0;v<vertexCount;v++,from+=sourceStride/4,to+=4){vertexWords[to]=input[from];vertexWords[to+1]=input[from+1];vertexWords[to+2]=input[from+2];vertexWords[to+3]=input[from+3];}
         }
-        const order=this.wordView(q[4],q[5]),base=convertedOffset/256,flat=metadata[32];
+        const indexCountForDraw=words[b+5],order=this.wordView(words[b+4],indexCountForDraw),base=convertedOffset/256,flat=metadata[32];
         for(let j=0;j<order.length;j++){
           const lane=flat&&j-j%3+2<order.length?j-j%3+(j%3+1)%3:j;
-          const index=order[lane];if(index>=q[2])throw new Error('GPU index exceeds vertex span');elements[io+j]=index+base;
+          const index=order[lane];if(index>=vertexCount)throw new Error('GPU index exceeds vertex span');elements[io+j]=index+base;
         }
-        this.indexOffsets.set(q.byteOffset,io*4);this.indexBindings.set(q.byteOffset,convertedBinding);
-        convertedOffset+=q[2]*256;io+=q[5];
-      }else if(q[0]===3){
-        const stride=q[3],layoutPtr=q[10];if(!layoutPtr)throw new Error('Missing raw vertex layout');
-        const layout=this.wordView(layoutPtr,16),state=this.wordView(q[6],40),mask=state[39]&0xffff;
+        this.indexOffsets.set(commandOffset,io*4);this.indexBindings.set(commandOffset,convertedBinding);
+        convertedOffset+=vertexCount*256;io+=indexCountForDraw;
+      }else if(opcode===3){
+        const vertexCount=words[b+2],stride=words[b+3],layoutPtr=words[b+10],indexCountForDraw=words[b+5];if(!layoutPtr)throw new Error('Missing raw vertex layout');
+        const layout=this.wordView(layoutPtr,16),state=this.wordView(words[b+6],40),mask=state[39]&0xffff;
         let same=!!rawGroup&&rawGroup.stride===stride;
         if(same)for(let r=0;r<16;r++)if(rawGroup.layout[r]!==layout[r]){same=false;break;}
         if(same){let active=0;for(let r=0;r<16;r++)if(layout[r])active|=1<<r;if(active!==mask)throw new Error('Raw vertex layout does not match register mask');}
         else rawGroup={kind:'raw',baseByte:rawOffset,stride,layout:layout.slice(),attributes:this.rawLayout(stride,layout,mask),vertexCount:0};
-        const base=rawGroup.vertexCount,sourceBytes=this.bytes(q[1],q[2]*stride);
+        const base=rawGroup.vertexCount,sourceBytes=this.bytes(words[b+1],vertexCount*stride);
         vertices.set(sourceBytes,rawOffset);
-        const order=this.wordView(q[4],q[5]),flat=state[32];
+        const order=this.wordView(words[b+4],indexCountForDraw),flat=state[32];
         for(let j=0;j<order.length;j++){
           const lane=flat&&j-j%3+2<order.length?j-j%3+(j%3+1)%3:j;
-          const index=order[lane];if(index>=q[2])throw new Error('GPU index exceeds raw vertex span');elements[io+j]=index+base;
+          const index=order[lane];if(index>=vertexCount)throw new Error('GPU index exceeds raw vertex span');elements[io+j]=index+base;
         }
         this.frameStats??={gpuVertexDraws:0,cpuVertexDraws:0,gpuVertices:0,cpuVertices:0,vertexBytes:0,rawStreamDraws:0,rawStreamBytes:0};
         this.frameStats.rawStreamDraws??=0;this.frameStats.rawStreamBytes??=0;
         this.frameStats.rawStreamDraws++;this.frameStats.rawStreamBytes+=sourceBytes.length;
         this.frameStats.vertexBytes+=sourceBytes.length;
-        this.frameStats.gpuVertexDraws++;this.frameStats.gpuVertices+=q[2];
-        rawGroup.vertexCount+=q[2];rawOffset+=sourceBytes.length;
-        this.indexOffsets.set(q.byteOffset,io*4);this.indexBindings.set(q.byteOffset,rawGroup);
-        io+=q[5];
+        this.frameStats.gpuVertexDraws++;this.frameStats.gpuVertices+=vertexCount;
+        rawGroup.vertexCount+=vertexCount;rawOffset+=sourceBytes.length;
+        this.indexOffsets.set(commandOffset,io*4);this.indexBindings.set(commandOffset,rawGroup);
+        io+=indexCountForDraw;
       }
     }
     const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
@@ -217,23 +219,23 @@ void main() {
     g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,this.ibo);
     if(indexCount>(this.indexBufferCapacity||0)){this.indexBufferCapacity=this.capacity(this.indexBufferCapacity||0,indexCount,16*1024*1024);g.bufferData(g.ELEMENT_ARRAY_BUFFER,this.indexBufferCapacity*4,g.STREAM_DRAW);}
     if(indexCount)g.bufferSubData(g.ELEMENT_ARRAY_BUFFER,0,elements);
-    let pending;
-    const emit=()=>{if(pending){const q=pending.row,raw=q[0]===3;
-      if(!this.draw(q[1],q[2],q[3],q[4],pending.indexCount,q[6],q[7],q[8],q[9],raw?q[10]:0,pending.binding,q.byteOffset))throw new Error('GPU draw rejected');pending=undefined;}};
+    let pendingRow=-1,pendingCount=0,pendingBinding;
+    const emit=()=>{if(pendingRow>=0){const b=pendingRow,raw=words[b]===3,commandOffset=words.byteOffset+b*4;
+      if(!this.draw(words[b+1],words[b+2],words[b+3],words[b+4],pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],raw?words[b+10]:0,pendingBinding,commandOffset))throw new Error('GPU draw rejected');pendingRow=-1;}};
     for(let i=0;i<count;i++) {
-      const q=words.subarray(i*12,i*12+12);
-      if(q[0]===1||q[0]===3) {
-        const binding=this.indexBindings.get(q.byteOffset);
-        if(pending&&pending.row[0]===q[0]&&pending.binding===binding&&pending.row[8]===q[8]&&
-           this.indexOffsets.get(pending.row.byteOffset)+pending.indexCount*4===this.indexOffsets.get(q.byteOffset)&&
-           this.sameWords(pending.row[6],q[6],40)&&this.sameWords(pending.row[7],q[7],152)&&this.sameWords(pending.row[9],q[9],56)) {
-          pending.indexCount+=q[5];continue;
+      const b=i*12,opcode=words[b],commandOffset=words.byteOffset+b*4;
+      if(opcode===1||opcode===3) {
+        const binding=this.indexBindings.get(commandOffset);
+        if(pendingRow>=0&&words[pendingRow]===opcode&&pendingBinding===binding&&words[pendingRow+8]===words[b+8]&&
+           this.indexOffsets.get(words.byteOffset+pendingRow*4)+pendingCount*4===this.indexOffsets.get(commandOffset)&&
+           this.sameWords(words[pendingRow+6],words[b+6],40)&&this.sameWords(words[pendingRow+7],words[b+7],152)&&this.sameWords(words[pendingRow+9],words[b+9],56)) {
+          pendingCount+=words[b+5];continue;
         }
-        emit();pending={row:q,indexCount:q[5],binding};continue;
+        emit();pendingRow=b;pendingCount=words[b+5];pendingBinding=binding;continue;
       }
       emit();
-      if(q[0]===0)this.target(...q.subarray(1));
-      else if(q[0]===2){const z=new Float32Array(q.buffer,q.byteOffset+7*4,1)[0];this.clear(...q.subarray(1,7),z,q[8],q[9]);}
+      if(opcode===0)this.target(words[b+1],words[b+2],words[b+3],words[b+4],words[b+5],words[b+6],words[b+7],words[b+8],words[b+9],words[b+10],words[b+11]);
+      else if(opcode===2){this.commandFloatBits[0]=words[b+7];this.clear(words[b+1],words[b+2],words[b+3],words[b+4],words[b+5],words[b+6],this.commandFloatValue[0],words[b+8],words[b+9]);}
       else throw new Error('Unknown GPU command');
     }
     emit();
@@ -276,7 +278,9 @@ void main() {
       lt:new Float32Array(fixedVertexConstants.buffer,136*4,224),
     };
     const result={p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
-      vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false};
+      vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false,
+      addresses:new Float32Array(16),addressScratch:new Float32Array(16),addressesValid:false,
+      borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false};
     this.programs.set(key,result);return result;
   }
   target(id,w,h,format,pitch,linear,depth,ptr,size,hashLo,hashHi) {
@@ -429,30 +433,60 @@ void main() {
         }
         program.fogConstantsValid=true;
       }
-      const addresses=new Float32Array(16),borders=new Float32Array(16);
-      for(let t=0;t<4;t++){
-        const q=tx.subarray(t*14,t*14+14),o=t*4,c=q[13];
-        addresses.set([q[7],q[8],q[9],q[10]],o);
-        borders.set([(c>>>16&255)/255,(c>>>8&255)/255,(c&255)/255,(c>>>24)/255],o);
+      const addressLocation=loc('addresses');
+      if(addressLocation!==null){
+        const candidate=program.addressScratch,previous=program.addresses;let changed=!program.addressesValid;
+        for(let t=0;t<4;t++){
+          const base=t*14,o=t*4;
+          for(let c=0;c<4;c++){const value=tx[base+7+c];candidate[o+c]=value;if(!changed&&candidate[o+c]!==previous[o+c])changed=true;}
+        }
+        if(changed){g.uniform4fv(addressLocation,candidate);program.addresses=candidate;program.addressScratch=previous;program.addressesValid=true;}
       }
-      if(!program.addresses||addresses.some((v,i)=>v!==program.addresses[i])){g.uniform4fv(loc('addresses'),addresses);program.addresses=addresses;}
-      if(!program.borders||borders.some((v,i)=>v!==program.borders[i])){g.uniform4fv(loc('border'),borders);program.borders=borders;}
+      const borderLocation=loc('border');
+      if(borderLocation!==null){
+        const candidate=program.borderScratch,previous=program.borders;let changed=!program.bordersValid;
+        for(let t=0;t<4;t++){
+          const base=t*14,o=t*4,c=tx[base+13];
+          const r=Math.fround((c>>>16&255)/255),green=Math.fround((c>>>8&255)/255),b=Math.fround((c&255)/255),a=Math.fround((c>>>24)/255);
+          candidate[o]=r;candidate[o+1]=green;candidate[o+2]=b;candidate[o+3]=a;
+          if(!changed&&(r!==previous[o]||green!==previous[o+1]||b!==previous[o+2]||a!==previous[o+3]))changed=true;
+        }
+        if(changed){g.uniform4fv(borderLocation,candidate);program.borders=candidate;program.borderScratch=previous;program.bordersValid=true;}
+      }
       for(let t=0;t<4;t++) {
         const q=tx.subarray(t*14,t*14+14); if(!q[0])continue;
         let image=this.targets.get(q[2]&0x1fffffff);
         if(shadows[t]&&!image)throw new Error('CPU depth-texture uploads are not admitted; depth sampling requires a GPU-owned surface');
         if(!image) {
-          // SDK decoded image storage is frame-local. Re-upload on the next
-          // frame, including CPU changes and allocation reuse at the same VA.
-          const key=`${q[2]}:${q[3]}:${q[4]}`;
+          // Versioned SDK pixels have immutable owners until this batch is
+          // consumed. Encoding is independent of the guest texture layout.
+          const encoding=q[5]>>>8;
+          if((q[5]&255)!==1||encoding>1)throw new Error('Unsupported GPU image encoding');
+          const key=`${q[2]}:${q[3]}:${q[4]}:${encoding}`;
           image=this.images.get(key);
           if(!image){if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');image={texture:g.createTexture(),frame:-1};this.images.set(key,image);}
           this.bindTexture(t,image.texture);
           if(image.hashLo!==q[11] || image.hashHi!==q[12]){
             this.bindTexture(t,image.texture,true);
-            const pixels=this.floats(q[6],q[3]*q[4]*4), rgba=new Uint8Array(pixels.length);
-            for(let j=0;j<pixels.length;j++)rgba[j]=Math.round(Math.max(0,Math.min(1,pixels[j]))*255);
-            g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,q[3],q[4],0,g.RGBA,g.UNSIGNED_BYTE,rgba);image.hashLo=q[11];image.hashHi=q[12];
+            const size=q[3]*q[4]*4;
+            if(!q[3]||!q[4]||!Number.isSafeInteger(size)||size>32*1024*1024)throw new Error('GPU image staging budget exceeded');
+            if(size>this.imageUpload.length)this.imageUpload=new Uint8Array(this.capacity(this.imageUpload.length,size,32*1024*1024));
+            const rgba=this.imageUpload.subarray(0,size);
+            if(encoding===1)rgba.set(this.bytes(q[6],size));
+            else {
+              const pixels=this.floatView(q[6],size);
+              for(let j=0;j<size;j++)rgba[j]=Math.round(Math.max(0,Math.min(1,pixels[j]))*255);
+            }
+            // An ordinary ArrayBuffer also works on WebGL implementations
+            // that reject views backed by the shared Wasm memory.
+            if(image.allocated)g.texSubImage2D(g.TEXTURE_2D,0,0,0,q[3],q[4],g.RGBA,g.UNSIGNED_BYTE,rgba);
+            else {g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,q[3],q[4],0,g.RGBA,g.UNSIGNED_BYTE,rgba);image.allocated=true;}
+            image.hashLo=q[11];image.hashHi=q[12];
+            if(this.frameStats){
+              this.frameStats.textureUploads=(this.frameStats.textureUploads||0)+1;
+              this.frameStats.textureUploadBytes=(this.frameStats.textureUploadBytes||0)+size;
+              if(encoding===1)this.frameStats.byteTextureUploads=(this.frameStats.byteTextureUploads||0)+1;
+            }
           }
           image.frame=this.frame;
         } else this.bindTexture(t,image.texture);
