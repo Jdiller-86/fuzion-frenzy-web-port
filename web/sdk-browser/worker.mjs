@@ -1,5 +1,6 @@
 import createFuzionSdkRuntime from '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs';
 import { openXiso } from '/host/xdvdfs.mjs';
+import { WebGLRenderer } from './webgl-renderer.mjs';
 
 const PINNED_XBE = {
   bytes: 2_834_432,
@@ -33,6 +34,7 @@ function stopThreads(module) {
 function onFrame(ptr, width, height, pitch, format) {
   if (!moduleInstance || cancelled || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > 4096 || height > 4096) return;
   const rowBytes = width * 4;
+  if (moduleInstance.onFuzionGpu) { moduleInstance.onFuzionGpu.pixels(ptr,width,height,pitch); return; }
   pitch = Number(pitch) || rowBytes;
   if (pitch < rowBytes || pitch > rowBytes + 65536) return;
   const length = pitch * height;
@@ -54,7 +56,10 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls) {
   if (elapsed < 1000) return;
   postMessage({type: 'performance', fps: metricFrames * 1000 / elapsed,
     drawMs: metricDraw / metricFrames, clearMs: metricClear / metricFrames,
-    copyMs: metricCopy / metricFrames, drawCalls: metricCalls / metricFrames});
+    copyMs: metricCopy / metricFrames, drawCalls: metricCalls / metricFrames,
+    submissionMs: moduleInstance?.onFuzionGpu?.lastSubmitMs ?? 0,
+    gpuBatches: moduleInstance?.onFuzionGpu?.lastIssuedDraws ?? 0,
+    vertexPrograms: moduleInstance?.onFuzionGpu?.vertexPrograms?.size ?? 0});
   metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
 }
 function onAudio(ptr, frames, rate) {
@@ -84,7 +89,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso) {
+async function boot(iso, canvas, renderer, gpuVertices) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -124,6 +129,9 @@ async function boot(iso) {
     }],
   });
   moduleInstance = module;
+  if (renderer === 'webgl') {
+    module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices);
+  }
   if (cancelled) { stopThreads(module); return; }
   if (module.IDBFS) {
     try {
@@ -153,7 +161,7 @@ onmessage = async ({ data }) => {
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso); }
+  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });

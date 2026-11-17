@@ -14,6 +14,8 @@ def main():
     args = parser.parse_args()
     required = [
         'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs',
+        'web/sdk-browser/presentation.mjs', 'web/sdk-browser/webgl-renderer.mjs', 'web/sdk-browser/pixel-glsl.mjs',
+        'web/sdk-browser/vertex-glsl.mjs',
         'host/xdvdfs.mjs', 'tools/serve-sdk-browser.py',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm',
@@ -25,6 +27,8 @@ def main():
         if not path.is_file() or path.is_symlink():
             raise FileNotFoundError(f'Required build output missing: {name}')
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    if (ROOT / '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js').is_file():
+        required.append('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js')
     with zipfile.ZipFile(args.output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for name in required:
             archive.write(ROOT / name, 'FuzionFrenzyBrowser/' + name)
@@ -52,11 +56,15 @@ Controls: Enter Start, Space A, Escape B, X/Y face buttons, WASD left stick,
 arrows D-pad, Z/C triggers. Standard gamepads are supported on the first seat.
 Save files stay in this browser's local storage; use Stop game to flush saves.
 
-This is an experimental software-renderer port, not the native D3D12 backend.
+GPU (WebGL2) is the default renderer; Software reference is selectable before
+starting. Programmable vertices, triangles and pixel combiners execute on the
+browser GPU; vertex assembly and texture decoding remain on the CPU. The game fills the window
+at its original aspect ratio. Controls opens fullscreen and Stop game actions.
+This remains an experimental browser port with incomplete rendering coverage.
 Compilation/linking alone does not prove original-game execution or fidelity.
 The build manifest records the SDK revision and published rendering patch.
 The shared texture-cascade correction is included; D3D12 descriptor heaps are
-not used by the software renderer. Keep runtime diagnostics
+not used by WebGL. Keep runtime diagnostics
 private if they contain player information. Nothing sends logs automatically.
 ''')
     checksum = hashlib.sha256(args.output.read_bytes()).hexdigest()

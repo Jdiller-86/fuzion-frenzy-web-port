@@ -5,7 +5,8 @@
 
 This build compiles the original title and the full pinned native SDK into
 WebAssembly. It uses the SDK's kernel services, guest threads/TLS, disc reader,
-XDK overrides and CPU reference renderer. Rendering, input and audio run in the
+XDK overrides and reference state/texture interpretation, with WebGL2 GPU rendering
+by default and a selectable software reference backend. Rendering, input and audio run in the
 browser; the local HTTP host only serves the application files.
 
 ## Run the packaged build
@@ -76,16 +77,17 @@ existing SDK allocator algorithms into four bounded 64 MiB backing windows:
 user, physical, system and stack. The two console physical aliases share the
 same physical window. Native process relaunch aborts explicitly in this browser
 candidate. The module starts with 512 MiB linear memory, can grow to 2 GiB, and
-prepares twelve pthread workers. The CPU renderer presents actual guest surfaces
-and sends native mixed PCM to WebAudio. Gamma adjustment and rumble remain
-unimplemented, and GPU acceleration is not yet connected.
+prepares twelve pthread workers. The WebGL2 backend executes programmable vertices,
+triangles and pixel combiners, and presents actual guest surfaces. Native mixed PCM
+feeds WebAudio. Gamma adjustment and rumble remain unimplemented.
 
 ## Build evidence and remaining boundary
 
-The full build compiled and linked **91 source objects**, including all 64 title
-shards and the function mapping. The initial optimized module is approximately
-25.7 MB before ZIP compression. The bundle is approximately 3.6 MB. This is
-compilation/link/package evidence, not original-game execution evidence.
+The GPU build compiles and links **92 source objects**, including all 64 title
+shards, function mapping and the owned-command GPU bridge. The [GPU candidate
+guide](browser-gpu.md) records actual local execution, performance, full-window
+presentation, build commands and unsupported rendering features. Download links
+above include older previews; use the GPU branch/package for the new backend.
 
 The source baseline is XboxXBERecomp
 `58757ab255c0a6b3929f405d7a5f1567fcd7fda3` and native game configuration
@@ -93,13 +95,20 @@ The source baseline is XboxXBERecomp
 project commit `93ec832`. The overlay applies that patch with its recorded
 before/after source hashes. Its shared fixed-function texture-cascade correction
 is consumed by the CPU reference renderer through `MakePixelKey`. The D3D12
-descriptor-rollover fix remains in the native backend; the browser software
-renderer uses no D3D12 descriptors. The user reports smooth Windows execution
-and a local agent's geometry-stability verification. Browser rendering has not
-been observed here and remains separate from that native evidence.
+descriptor-rollover fix remains in the native backend; WebGL uses no D3D12
+descriptors. Native evidence remains separate from browser evidence.
 
-The user reports that the original game now launches in the browser, but is unplayably slow. This is reported local execution, not a captured or accepted gameplay result. The cloud workspace still has no compatible original ISO/assets; browser/device details and FPS were not supplied.
+The local GPU investigation observed original menus, character selection and
+minigame rendering using the matching player-local ISO. The title screen measured
+3.3 FPS in software and around 60 FPS using WebGL2 on the recorded desktop.
+Dense gameplay remains slower; menu speed does not establish gameplay performance.
 
-The first preview compiled at `-O1` without `NDEBUG` and uses the SDK's CPU reference renderer for every triangle/pixel. The new build uses `-O3`, Wasm SIMD and release logging, reuses presentation buffers, and displays average FPS plus CPU draw/clear/copy times. Those changes reduce known overhead; no measured speedup or playable result is claimed. Software rasterization remains; canvas presentation does not turn it into GPU rendering.
+The game now fills the browser window at its original aspect ratio. **Controls**
+or F1 reveals fullscreen/stop actions; F11 also provides browser fullscreen.
+Host controls take input focus and release held guest input. They do not pause
+the guest. Fullscreen permission remains subject to browser policy.
 
-The next large task is an accelerated browser backend with the SDK's real shader/texture/state and guest readback contracts. The [local implementation goal](local-menu-and-browser-goal.md) records reusable upstream candidates and exact boundaries. M44 and product milestone acceptance remain unchanged.
+Next: reduce remaining CPU assembly/submission costs, verify an entire controlled
+minigame and extend unsupported GPU contracts from actual failures. The
+[local implementation goal](local-menu-and-browser-goal.md) records the acceptance
+boundary. M44 and product milestone acceptance remain unchanged.

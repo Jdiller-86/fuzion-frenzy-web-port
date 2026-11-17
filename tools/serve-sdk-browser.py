@@ -13,9 +13,14 @@ ROUTES = {
     '/sdk-browser/index.html': ('web/sdk-browser/index.html', 'text/html; charset=utf-8'),
     '/sdk-browser/app.mjs': ('web/sdk-browser/app.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/worker.mjs': ('web/sdk-browser/worker.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/presentation.mjs': ('web/sdk-browser/presentation.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/webgl-renderer.mjs': ('web/sdk-browser/webgl-renderer.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/pixel-glsl.mjs': ('web/sdk-browser/pixel-glsl.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/vertex-glsl.mjs': ('web/sdk-browser/vertex-glsl.mjs', 'text/javascript; charset=utf-8'),
     '/host/xdvdfs.mjs': ('host/xdvdfs.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', 'application/wasm'),
+    '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js', 'text/javascript; charset=utf-8'),
 }
 
 

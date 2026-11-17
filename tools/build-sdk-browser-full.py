@@ -31,6 +31,8 @@ def main() -> int:
     parser.add_argument('--compiler', default=shutil.which('em++'))
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O3')
+    parser.add_argument('--link-opt', choices=['-O0', '-O1', '-O2', '-O3'], default=None,
+                        help='Override link optimization for incremental development; objects retain --opt')
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
     args = parser.parse_args()
@@ -43,7 +45,10 @@ def main() -> int:
     overlay = output / 'sdk-overlay'
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-overlay.py'), '--sdk', str(sdk), '--output', str(overlay)], check=True)
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-host-header.py'), '--config', str(args.config), '--xdk', str(sdk / 'xdk'), '--output', str(output / 'image_symbols.h')], check=True)
-    includes = [overlay, output, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
+    title_overlay = output / 'title-overlay'
+    subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-tailcalls.py'),
+                    '--generated', str(generated), '--output', str(title_overlay)], check=True)
+    includes = [overlay, output, title_overlay, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
     common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', '-fexceptions', '-fno-strict-aliasing',
               '-DXBE_RAW_VERTICES=0', '-DXBE_RENDER_THREAD=0', '-DXBE_BROWSER=1']
     for directory in includes:
@@ -54,10 +59,43 @@ def main() -> int:
     runtime = [path for path in runtime if path.name != 'memory.cpp']
     runtime += [overlay / 'core/log.cpp']
     runtime += [overlay / ('gpu/' + name) for name in ['texture.cpp', 'vertex.cpp', 'shaders.cpp', 'render_thread.cpp']]
-    runtime += [ROOT / ('runtime/browser/sdk/' + name) for name in ['full-memory.cpp', 'full-platform.cpp', 'full-entry.cpp']]
+    runtime += [ROOT / ('runtime/browser/sdk/' + name) for name in ['full-memory.cpp', 'full-platform.cpp', 'full-entry.cpp', 'full-webgl.cpp']]
     # The reference renderer uses kernel::HostPtr, already translated by the overlay.
-    runtime += [sdk / 'harness/reference_renderer.cpp']
-    title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']
+    reference = output / 'reference_renderer.cpp'
+    reference_text = (sdk / 'harness/reference_renderer.cpp').read_text()
+    # P8 palettes are real resource inputs, including font transparency. The
+    # upstream CPU harness omitted them; preserve the title's stage palette.
+    reference_text = reference_text.replace('FindImage(uint32_t header)', 'FindImage(uint32_t header, uint32_t palette_header = 0)')
+    reference_text = reference_text.replace('    if (auto it = g_images.find(key);', '    uint64_t palette_hash=0;\n    const uint32_t* palette=d.format==0x0B?ff_webgl_palette(palette_header,palette_hash):nullptr;\n    key ^= palette_hash;\n    key ^= DirtyEpoch(d.data);\n    if (auto it = g_images.find(key);')
+    reference_text = reference_text.replace('DecodeLevel(d, 0, f, guest, nullptr, raw, pitch)', 'DecodeLevel(d, 0, f, guest, palette, raw, pitch)')
+    reference_text = reference_text.replace('FindImage(s.textures[size_t(i)])', 'FindImage(s.textures[size_t(i)], s.palettes[size_t(i)])')
+    anchor = '    // raster and output state'
+    if reference_text.count(anchor) != 1:
+        raise RuntimeError('Reference renderer vertex bridge anchor differs from retained source')
+    bridge_hash = digest(ROOT / 'runtime/browser/sdk/webgl-draw.inc')
+    raw_vertex = '''    if(ff_webgl_enabled() && program && ff_webgl_gpu_vertex_enabled()) {
+        const void* bridge_vertices=as.vertices.data();
+        uint32_t bridge_count=as.vertex_count,bridge_stride=uint32_t(regs)*16,bridge_registers=as.regs;
+        const char* bridge_vertex_shader=ff_webgl_vertex_source(s,as.regs);
+#include "webgl-draw.inc"
+    }
+'''
+    vertex_anchor='    std::vector<Shaded> verts(as.vertex_count);'
+    if reference_text.count(vertex_anchor)!=1:
+        raise RuntimeError('Reference programmable vertex seam differs')
+    reference_text=reference_text.replace(vertex_anchor,raw_vertex+vertex_anchor)
+    evaluated_vertex='''    {
+        const void* bridge_vertices=verts.data();
+        uint32_t bridge_count=uint32_t(verts.size()),bridge_stride=sizeof(Shaded),bridge_registers=0;
+        const char* bridge_vertex_shader=nullptr;
+#include "webgl-draw.inc"
+    }
+'''
+    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include <array>\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
+    reference.write_text(reference_text)
+    runtime += [reference]
+    original_title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']
+    title = [title_overlay / path.name for path in original_title]
     if len(title) != 65:
         parser.error('Expected retained 64 title shards and function mapping')
     sources = runtime if args.host_only else runtime + title
@@ -73,7 +111,7 @@ def main() -> int:
     def compile_source(source: Path):
         key = hashlib.sha256(str(source).encode()).hexdigest()[:12]
         obj = objects_dir / (source.stem + '-' + key + '.o')
-        source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else []
+        source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
         signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, digest(source)]).encode()).hexdigest()
         stamp = obj.with_suffix('.signature')
         if obj.is_file() and stamp.is_file() and stamp.read_text() == signature:
@@ -101,24 +139,32 @@ def main() -> int:
         print(f'Compiled {len(built)} real SDK integration objects; no title execution claimed')
         return 0
     exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_malloc', '_free']
-    link = [*common, '-msimd128', *map(str, built), '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
+    link_output = output / 'link-stage'
+    link_output.mkdir(exist_ok=True)
+    link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
             '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
             '-sINITIAL_MEMORY=536870912', '-sMAXIMUM_MEMORY=2147483648', '-sALLOW_MEMORY_GROWTH=1',
             '-sSTACK_SIZE=8388608', '-sDEFAULT_PTHREAD_STACK_SIZE=2097152', '-sPTHREAD_POOL_SIZE=12',
             '-sPTHREAD_POOL_SIZE_STRICT=0', '-sEXIT_RUNTIME=0', '-sFORCE_FILESYSTEM=1',
             '-lworkerfs.js', '-lidbfs.js', '-sEXPORTED_FUNCTIONS=' + json.dumps(exports),
             '-sEXPORTED_RUNTIME_METHODS=' + json.dumps(['FS', 'WORKERFS', 'IDBFS', 'HEAPU8', 'HEAPF32', 'PThread']),
-            '-o', str(output / 'fuzion-sdk-full.mjs')]
+            '-o', str(link_output / 'fuzion-sdk-full.mjs')]
     subprocess.run(link, check=True)
+    # Never serve a partially written wasm paired with the previous JS glue.
+    for name in ['fuzion-sdk-full.wasm', 'fuzion-sdk-full.worker.js', 'fuzion-sdk-full.mjs']:
+        if (link_output / name).is_file():
+            (link_output / name).replace(output / name)
     revision = subprocess.check_output(['git', '-C', str(sdk), 'rev-parse', 'HEAD'], text=True).strip()
     (output / 'full-build-manifest.json').write_text(json.dumps({
-        'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt,
+        'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt, 'linkOptimization': args.link_opt or args.opt,
         'sourceCount': len(sources), 'moduleBytes': (output / 'fuzion-sdk-full.wasm').stat().st_size,
         'runtimePatchManifestSha256': digest(ROOT / 'desktop/windows/patches/manifest.json'),
-        'textureCascadeFix': 'Published native shader-key fix also consumed by CPU reference renderer',
-        'descriptorRolloverFix': 'D3D12-only backend; not used by this software browser renderer',
+        'rendererBackends': ['webgl2-triangles', 'software-reference'],
+        'textureCascadeFix': 'Published shader-key fix consumed by both browser backends',
+        'descriptorRolloverFix': 'Preserved D3D12-only fix; browser uses WebGL resources',
+        'tailTransfers': json.loads((title_overlay / 'tailcall-manifest.json').read_text()),
         'evidence': 'full SDK and title compilation/link only; original execution requires player-local image',
-        'generatedSources': {path.name: digest(path) for path in title},
+        'generatedSources': {path.name: digest(path) for path in original_title},
     }, indent=2) + '\n')
     print(f'Full SDK browser module: {output / "fuzion-sdk-full.mjs"}')
     return 0

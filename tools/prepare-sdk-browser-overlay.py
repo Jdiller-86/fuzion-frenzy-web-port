@@ -10,6 +10,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -26,6 +27,8 @@ def main() -> int:
         parser.error('Overlay output must be a build subdirectory under .tools/artifacts or artifacts')
     if not (source / "kernel/kernel.h").is_file() or not (source / "kernel/memory.cpp").is_file():
         parser.error(f"not an XboxXBERecomp runtime tree: {source}")
+    if source == out or source.is_relative_to(out) or out.is_relative_to(source):
+        parser.error('SDK input and disposable overlay must not overlap')
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(source, out)
@@ -36,8 +39,12 @@ def main() -> int:
         relative = Path(record['path']).relative_to('runtime')
         content = (out / relative).read_bytes().replace(b'\r\n', b'\n')
         identities.append(hashlib.sha256(content).hexdigest())
+        (out / relative).write_bytes(content)
     if identities == [record['beforeSha256'] for record in manifest['files']]:
-        subprocess.run(['git', 'apply', '-p2', '--directory', str(out.relative_to(root)), str(patch_root / 'runtime-fixes.patch')], cwd=root, check=True)
+        # Windows worktree .git pointers cannot be interpreted by Linux Git in
+        # WSL. Apply the hash-admitted patch outside repository discovery.
+        with tempfile.TemporaryDirectory(prefix='ff-sdk-patch-') as patch_cwd:
+            subprocess.run(['git', 'apply', '--unsafe-paths', '-p2', '--directory', str(out), str(patch_root / 'runtime-fixes.patch')], cwd=patch_cwd, check=True)
     elif identities != [record['afterSha256'] for record in manifest['files']]:
         raise RuntimeError('SDK rendering sources differ from the published runtime-patch manifest')
     for record in manifest['files']:
@@ -72,6 +79,9 @@ def main() -> int:
     # Generated CPU helpers use these lvalues for every scalar and REP span.
     ops = out / "cpu/x86_ops.h"
     text = ops.read_text(encoding="utf-8")
+    # A generated guest jump must not accumulate a second host frame in this
+    # noinline weak wrapper. Title objects compile with -mtail-call.
+    text = text.replace('{ impl(ctx, base); }', '{ [[clang::musttail]] return impl(ctx, base); }')
     text = text.replace('#include "x86_context.h"', '#include "x86_context.h"\n#include "ff_sdk_guest_memory.hpp"')
     for macro, width in (("X86_MEM8", 1), ("X86_MEM16", 2), ("X86_MEM32", 4),
                          ("X86_MEM64", 8), ("X86_MEMF32", 4), ("X86_MEMF64", 8)):

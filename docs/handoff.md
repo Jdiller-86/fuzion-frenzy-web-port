@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the local-ISO preview compiles and packages the full SDK/title with software rendering, keyboard/gamepad, audio and save adapters. The user reports original browser launch but unplayably slow execution; measured frame costs and a complete playable round remain unverified.
-- **Next:** measure the release-optimized browser build, reduce actual costs and connect GPU rendering, then complete an original playable minigame. Reuse the working native reference.
+- **Browser:** the [GPU candidate](browser-gpu.md) runs original menus and minigames locally through WebGL2 programmable vertex/pixel rendering. Menus measured around 60 FPS; Tank Tracks gameplay measured 15-16 FPS on the recorded desktop. Full-window aspect-preserving presentation is implemented; a complete controlled round and broader rendering coverage remain unaccepted.
+- **Next:** reduce browser CPU assembly/submission costs and complete a controlled original minigame with repeatable input/audio evidence. Reuse the working native reference.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
@@ -25,7 +25,7 @@ The [largest-first M1 order](m1-browser-work.md#largest-first-implementation-ord
 
 ## Current boundary
 
-The separate [SDK browser build](sdk-browser.md) now links the full SDK kernel/HLE, boot/thread/TLS, translated guest memory, local ISO disc mount, CPU reference rendering, input and audio. It packages a local-server browser app with ISO intake and browser-local saves. All 91 source objects link; no original browser execution was observed here because the matching ISO/assets are absent. The rendering patch from project commit `93ec832` is applied: its shared texture-cascade correction feeds the software renderer; D3D12 descriptor management is native-only. Continue MB04–MB07 with the first actual local-image run and fix the reached runtime boundary before accelerating graphics. Keep M44 unchanged; smoke/regression suites remain deferred.
+The [SDK browser GPU candidate](browser-gpu.md) links 92 source objects with the full SDK/title, local ISO intake and existing input/audio/save adapters. Actual local execution reached original menus, character selection, Tank Tracks gameplay and earlier Bombstruck results. WebGL2 executes programmable vertices and pixel combiners with bounded owned command batches. The texture-cascade fix remains applied; D3D12 descriptor management stays native-only. CPU assembly/submission costs still limit dense gameplay. Keep the separate M44 checkpoint unchanged; no complete controlled-round or product milestone acceptance is claimed.
 
 Local Goal A continuation (2026-11-09): PR #46 at `b2c4d1e` is loaded with all five pre-existing worker-cap edits preserved. The newer November8 bundle is preparation only. M44 below remains the accepted checkpoint; forecast16/28/49 is unchanged. The mutable Ghidra database has no trusted pre-incident identity, but neither unchanged replay nor the covered retained-code candidate consumes that database. Pinned original bytes, retained seeds/listings and audited source/build evidence support the exact caller and literal. Do not invent a historical database checksum or infer new facts from it.
 

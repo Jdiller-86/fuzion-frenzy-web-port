@@ -18,6 +18,8 @@
 #include "kernel/kernel.h"
 #include "full-memory.h"
 #include "reference_renderer.h"
+#include "full-webgl.h"
+void ff_webgl_advance_frame();
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -55,7 +57,8 @@ public:
     void Clear(const gpu::State& s, uint32_t n, const uint8_t* r, uint32_t flags,
                uint32_t color, float z, uint32_t stencil) override {
         const auto start = Clock::now();
-        reference::Clear(s, n, r, flags, color, z, stencil);
+        if (ff_webgl_enabled()) ff_webgl_clear(s, n, r, flags, color, z, stencil);
+        else reference::Clear(s, n, r, flags, color, z, stencil);
         clear_ms_ += ElapsedMs(start);
     }
     void Draw(const gpu::State& s, uint32_t prim, uint32_t start, uint32_t count,
@@ -68,10 +71,18 @@ public:
     void Copy(const gpu::Surface& src, const gpu::Surface& dst, uint32_t n,
               uint32_t rects, uint32_t points) override {
         const auto start = Clock::now();
+        if (ff_webgl_enabled()) {
+            gpu::TextureDesc a,b;
+            if (gpu::DescribeSurface(src,a)) ff_webgl_sync(a.data,gpu::TotalSize(a));
+            if (gpu::DescribeSurface(dst,b)) ff_webgl_sync(b.data,gpu::TotalSize(b));
+        }
         reference::Copy(src, dst, n, rects, points);
+        if (ff_webgl_enabled()) {gpu::TextureDesc d;if(gpu::DescribeSurface(dst,d))ff_webgl_invalidate(d.data);}
         copy_ms_ += ElapsedMs(start);
     }
     void Present(const gpu::Surface& front) override {
+        const auto submitted = Clock::now();
+        if (ff_webgl_enabled() && ff_webgl_present(front)) { draw_ms_ += ElapsedMs(submitted); EndFrame(); return; }
         // The SDK CPU renderer writes the title's actual render target in guest
         // RAM. Copy it into an owned RGBA buffer before crossing into JS.
         gpu::TextureDesc desc;
@@ -90,6 +101,12 @@ public:
 #ifdef __EMSCRIPTEN__
         MAIN_THREAD_EM_ASM({ if (Module.onFuzionFrame) Module.onFuzionFrame($0, $1, $2, $3, $4); },
                             rgba_.data(), desc.width, desc.height, pitch, 0);
+#endif
+        EndFrame();
+    }
+    void EndFrame() {
+        ff_webgl_advance_frame();
+#ifdef __EMSCRIPTEN__
         MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0, $1, $2, $3); },
                             draw_ms_, clear_ms_, copy_ms_, static_cast<uint32_t>(draw_count_));
 #endif
@@ -98,8 +115,8 @@ public:
         draw_count_ = 0;
         reference::BeginFrame();
     }
-    void Sync(uint32_t, uint32_t) override {}
-    void SyncLate(uint32_t, uint32_t) override {}
+    void Sync(uint32_t data, uint32_t size) override { if (ff_webgl_enabled()) ff_webgl_sync(data,size); }
+    void SyncLate(uint32_t data, uint32_t size) override { Sync(data,size); }
     void Flush() override {}
     void SetGamma(const uint8_t*) override {}
     bool WidensFrame() const override { return false; }
