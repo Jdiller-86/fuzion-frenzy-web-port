@@ -16,6 +16,7 @@ test('browser map keeps stable unique IDs, conditional scope, structural sizes a
   const resolved = structuredClone(work); resolved.items[0].state = 'Verified connection';
   assert.throws(() => validateBrowserWork(resolved));
   resolved.items[0].resolution = 'The selected recipe is recorded and independently reviewed.';
+  resolved.items[0].evidenceRef = 'docs/status.md';
   assert.throws(() => validateBrowserWork(resolved), /specific curated/);
   resolved.items[0].evidenceRef = 'docs/status.md#selected-recipe';
   assert.doesNotThrow(() => validateBrowserWork(resolved));
