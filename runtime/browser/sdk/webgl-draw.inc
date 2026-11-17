@@ -14,18 +14,20 @@ if (ff_webgl_enabled()) {
         mat.key.flat, s.rs[kRsZBias], simple(kMSolidOffsetEnable), simple(kMSlopeScale), simple(kMDepthOffset),
         uint32_t(reinterpret_cast<uintptr_t>(bridge_vertex_shader)),0,bridge_registers|(bridge_vertex_shader&&!program?0x10000u:0u)
     };
-    float program_constants[772];
-    float* vertex_constants=program_constants;
     if(bridge_vertex_shader) {
-        if(program)std::memcpy(vertex_constants,s.vsc.data(),768*4);
-        // The SDK pretransformed generator reads vertex colors/UVs directly;
-        // it never reads transform, material or light constants.
-        else if(as.pretransformed) {static float unused_constants[772]={};vertex_constants=unused_constants;}
-        else vertex_constants=ff_webgl_fixed_constants(s,gw,gh);
-        auto* fog=vertex_constants+768;std::fill(fog,fog+4,0.f);
+        float fog[4]={};
         if(s.rs[kRsFogEnable]) {
             if(program&&!s.rs[kRsFogTableMode]) {fog[0]=1;fog[3]=3;}
             else {fog[0]=AsFloat(s.rs[kRsFogStart]);fog[1]=AsFloat(s.rs[kRsFogEnd]);fog[2]=AsFloat(s.rs[kRsFogDensity]);fog[3]=float(s.rs[kRsFogTableMode]);}
+        }
+        const float* vertex_constants;
+        if(program)vertex_constants=ff_webgl_program_constants(s.vsc.data(),fog);
+        else {
+            float* fixed;
+            // Pretransformed vertices never read transform/material/light constants.
+            if(as.pretransformed) {static float unused_constants[772]={};fixed=unused_constants;}
+            else fixed=ff_webgl_fixed_constants(s,gw,gh);
+            std::memcpy(fixed+768,fog,sizeof(fog));vertex_constants=fixed;
         }
         states[38]=uint32_t(reinterpret_cast<uintptr_t>(vertex_constants));
     }

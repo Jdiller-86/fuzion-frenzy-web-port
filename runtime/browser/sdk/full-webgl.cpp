@@ -69,6 +69,7 @@ std::map<const void*,ImageVersion> image_versions;
 std::vector<std::shared_ptr<const void>> pinned_images;
 size_t pinned_image_bytes=0;
 uint64_t image_shortcut_lookups=0,image_map_lookups=0;
+uint64_t program_constant_reuses=0,program_constant_packs=0;
 size_t owned_bytes = 0;
 uint32_t Own(const void* src, size_t bytes) {
     if(bridge_failed.load(std::memory_order_acquire))std::abort();
@@ -116,6 +117,7 @@ void QueuePresent(uint32_t target) {
         try {
             if(($1&&!Module.onFuzionGpu.commands($0,$1))||!Module.onFuzionGpu.present($2))throw new Error('Pipelined GPU submission failed');
             Module.onFuzionGpu.imageLookups=({shortcutHits:$5,mapLookups:$6});
+            Module.onFuzionGpu.constantPacking=({reuses:$7,packs:$8});
         } catch(error) {
             failed=true;
             Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
@@ -124,7 +126,7 @@ void QueuePresent(uint32_t target) {
             const heap=new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer);
             Atomics.store(heap,$3>>2,failed?-1:1);Atomics.notify(heap,$3>>2);
         }
-    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups));
+    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs));
 }
 // Use the checked backing identity: physical/write-combine views alias each
 // other, but user/system/stack allocations at the same offset do not.
@@ -145,6 +147,23 @@ void ff_webgl_image_owner(const void* pixels,uint64_t version,const std::shared_
     if(shortcut_lookup)++image_shortcut_lookups;else ++image_map_lookups;
     auto& entry=image_versions[pixels];
     if(entry.version!=version||entry.owner.get()!=owner.get()||entry.encoding!=encoding||entry.bytes!=bytes)entry={version,owner,encoding,bytes};
+}
+// Compare the source bank and fog against the existing owned command payload.
+// Unchanged draws borrow that immutable payload, not the mutable SDK state.
+const float* ff_webgl_program_constants(const void* source,const float* fog) {
+    if(last_vertex_constants) {
+        const auto* previous=reinterpret_cast<const float*>(last_vertex_constants);
+        if(ff_webgl_equal_bytes(previous,source,768*sizeof(float))&&
+           ff_webgl_equal_bytes(previous+768,fog,4*sizeof(float))) {
+            ++program_constant_reuses;return previous;
+        }
+    }
+    std::array<float,772> packed;
+    std::memcpy(packed.data(),source,768*sizeof(float));
+    std::memcpy(packed.data()+768,fog,4*sizeof(float));
+    last_vertex_constants=Own(packed.data(),sizeof(packed));
+    ++program_constant_packs;
+    return reinterpret_cast<const float*>(last_vertex_constants);
 }
 bool ff_webgl_enabled() {
     static const bool enabled = MAIN_THREAD_EM_ASM_INT({ return Module.onFuzionGpu ? 1 : 0; }) != 0;
@@ -260,8 +279,9 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
     gpu::TextureDesc d;
     if (!gpu::DescribeSurface(surface, d) || !d.width || !d.height || d.width > 4096 || d.height > 4096) std::abort();
     auto size = gpu::TotalSize(d);
-    auto* guest = ff_sdk_guest_ptr(d.data, size);
-    auto& target = targets[Key(d.data)];
+    auto* guest = ff_sdk_guest_ptr(d.data, std::max<uint32_t>(size,1));
+    const uint32_t key=uint32_t(guest-ff_sdk_guest_base());
+    auto& target = targets[key];
     const bool changed = target.checked == ~0ull || target.desc.width != d.width || target.desc.height != d.height || target.desc.format != d.format || target.desc.pitch != d.pitch || target.desc.linear != d.linear;
     uint64_t epoch = gpu::DirtyEpoch(d.data);
     bool upload=changed;
@@ -280,7 +300,7 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         target_snapshot_bytes=other+size;
         target.cpu_coherent=true;
         if(++target.hash==0)std::abort();
-        commands.push_back({0,Key(d.data),d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
+        commands.push_back({0,key,d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
     }
 }
 static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const void* indices, uint32_t n,
@@ -290,7 +310,8 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
     states[0]=state[0]?Key(state[0]):0;states[1]=state[1]?Key(state[1]):0;
     if(states[37]) {
         const auto* constants=reinterpret_cast<const void*>(states[38]);
-        if(!last_vertex_constants||!ff_webgl_equal_bytes(reinterpret_cast<const void*>(last_vertex_constants),constants,772*4))
+        if(!last_vertex_constants||(constants!=reinterpret_cast<const void*>(last_vertex_constants)&&
+           !ff_webgl_equal_bytes(reinterpret_cast<const void*>(last_vertex_constants),constants,772*4)))
             last_vertex_constants=Own(constants,772*4);
         states[38]=last_vertex_constants;
     }
@@ -362,8 +383,9 @@ bool ff_webgl_present(const gpu::Surface& front) {
     bool shown = MAIN_THREAD_EM_ASM_INT({
         const shown=Module.onFuzionGpu.present($0);
         if(shown)Module.onFuzionGpu.imageLookups=({shortcutHits:$1,mapLookups:$2});
+        if(shown)Module.onFuzionGpu.constantPacking=({reuses:$3,packs:$4});
         return shown?1:0;
-    }, Key(d.data),double(image_shortcut_lookups),double(image_map_lookups));
+    }, Key(d.data),double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs));
     return shown;
 }
 void ff_webgl_sync(uint32_t data, uint32_t size) {
