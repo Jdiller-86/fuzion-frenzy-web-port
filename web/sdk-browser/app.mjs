@@ -154,7 +154,20 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
-  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1', threadedGpu: new URLSearchParams(location.search).get('threadedGpu') !== '0', pipelinedGpu: new URLSearchParams(location.search).get('pipelinedGpu') !== '0', rawVertices: new URLSearchParams(location.search).get('rawVertices') !== '0', shaderPrewarm: new URLSearchParams(location.search).get('shaderPrewarm') !== '0', gpuTiming: new URLSearchParams(location.search).get('gpuTiming') === '1', precisePacing: new URLSearchParams(location.search).has('precisePacing') ? new URLSearchParams(location.search).get('precisePacing') === '1' : /Windows/.test(navigator.userAgent) }, offscreen ? [offscreen] : []);
+  const options = new URLSearchParams(location.search);
+  current.postMessage({
+    type: 'run', iso, renderer, canvas: offscreen,
+    gpuVertices: options.get('cpuVertices') !== '1',
+    threadedGpu: options.get('threadedGpu') !== '0',
+    pipelinedGpu: options.get('pipelinedGpu') !== '0',
+    rawVertices: options.get('rawVertices') !== '0',
+    shaderPrewarm: options.get('shaderPrewarm') !== '0',
+    gpuTiming: options.get('gpuTiming') === '1',
+    pacingTiming: options.get('pacingTiming') === '1',
+    precisePacing: options.has('precisePacing')
+      ? options.get('precisePacing') === '1'
+      : /Windows/.test(navigator.userAgent),
+  }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
     const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
     current.postMessage({ type: 'input', keys: document.activeElement === canvas ? [...heldKeys] : [], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });

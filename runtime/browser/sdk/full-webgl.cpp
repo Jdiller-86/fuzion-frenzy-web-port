@@ -20,6 +20,7 @@
 #include <wasm_simd128.h>
 #include "fixed-constants.inc"
 bool ff_webgl_pipelined();
+bool ff_browser_pacing_timing_enabled();
 
 // Exact equality, including NaN payloads, without the pinned libc's scalar
 // word-at-a-time memcmp loop. Never reads beyond either supplied span.
@@ -116,12 +117,17 @@ void FlushCommands() {
     ResetCommands();
 }
 void QueuePresent(uint32_t target) {
+    const bool trace = ff_browser_pacing_timing_enabled();
+    const double wait_start = trace ? emscripten_get_now() : 0;
     WaitFlight();
+    const double wait_ms = trace ? emscripten_get_now() - wait_start : 0;
     commands.swap(flight.commands);owned.swap(flight.blocks);std::swap(owned_capacity,flight.capacity);
     pinned_images.swap(flight.images);std::swap(pinned_image_bytes,flight.image_bytes);
     ResetCommands();
     flight.done.store(0,std::memory_order_release);
     MAIN_THREAD_ASYNC_EM_ASM({
+        const queued = $13;
+        const started = queued ? performance.timeOrigin + performance.now() : 0;
         let failed=false;
         try {
             if(($1&&!Module.onFuzionGpu.commands($0,$1))||!Module.onFuzionGpu.present($2))throw new Error('Pipelined GPU submission failed');
@@ -133,10 +139,13 @@ void QueuePresent(uint32_t target) {
             Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
             postMessage({type:'gpu-error',text:error.message});
         } finally {
+            const ack = queued ? performance.timeOrigin + performance.now() : 0;
             const heap=new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer);
             Atomics.store(heap,$3>>2,failed?-1:1);Atomics.notify(heap,$3>>2);
+            if (queued && !failed) Module.onFuzionPacingPresent?.($14, $15, queued, started, ack);
         }
-    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs),double(versionHits),double(versionSearches),double(copyHits),double(copySearches));
+    },flight.commands.data(),uint32_t(flight.commands.size()),target,&flight.done,&bridge_failed,double(image_shortcut_lookups),double(image_map_lookups),double(program_constant_reuses),double(program_constant_packs),double(versionHits),double(versionSearches),double(copyHits),double(copySearches),
+      trace ? emscripten_get_now() : 0, double(frame + 1), wait_ms);
 }
 // Use the checked backing identity: physical/write-combine views alias each
 // other, but user/system/stack allocations at the same offset do not.

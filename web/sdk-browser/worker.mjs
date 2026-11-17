@@ -17,6 +17,7 @@ let lastInput = { buttons: 0, lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
 let cancelled = false;
 let saveTimer;
 let persistentSaves = false;
+let pacingTiming;
 
 async function flushSaves() {
   if (persistentSaves && moduleInstance) await new Promise((resolve, reject) => moduleInstance.FS.syncfs(false, error => error ? reject(error) : resolve()));
@@ -100,12 +101,16 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     constantPacking: moduleInstance?.onFuzionGpu?.constantPacking,
     textureMetadataLookups: moduleInstance?.onFuzionGpu?.textureMetadataLookups,
     gpuTiming: moduleInstance?.onFuzionGpu?.gpuTimingStats,
+    pacingTiming,
     metricsCallbackIntervalMs,
     frameMs: metricsCallbackIntervalMs,
     prepareCompletionIntervalMs,vblankHz});
   // The SDK virtual-blank counter is independent of rendered/presented frames.
   metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
   metricIntervals=[];completionIntervals=[];
+  if (pacingTiming) {
+    for (const samples of Object.values(pacingTiming)) samples.length = 0;
+  }
   blankStartCount=validBlank?blankCount:null;blankStartMs=validBlank?completionMs:null;
 }
 function onAudio(ptr, frames, rate) {
@@ -135,7 +140,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,shaderPrewarm,gpuTiming) {
+async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,shaderPrewarm,gpuTiming,measurePacing) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -175,6 +180,18 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
     }],
   });
   moduleInstance = module;
+  if (measurePacing === true) {
+    const waits = [[], [], []];
+    const presents = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents };
+    module.onFuzionPacingWait = (kind, ...sample) => {
+      const list = waits[kind];
+      if (list && list.length < 120) list.push(sample);
+    };
+    module.onFuzionPacingPresent = (...sample) => {
+      if (presents.length < 120) presents.push(sample);
+    };
+  }
   if (renderer === 'webgl') {
     module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true);
     module.onFuzionGpu.threaded=threadedGpu===true;
@@ -212,7 +229,7 @@ onmessage = async ({ data }) => {
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing,data.shaderPrewarm,data.gpuTiming); }
+  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing,data.shaderPrewarm,data.gpuTiming,data.pacingTiming); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });

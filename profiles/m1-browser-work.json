@@ -158,7 +158,7 @@
       "size": "M–L",
       "state": "Awaiting evidence",
       "evidence": "bounded title evidence",
-      "startingPoint": "The browser timer and futex path preserves virtual blank event order. Erodeo consumer intervals show about 21 ms p95, and the observed GPU command span has a 1.48 ms p95. Measure deadline and queue delays to isolate the frame pacing limit.",
+      "startingPoint": "Whole-millisecond browser timer requests removed premature retries in sampled Erodeo gameplay. Consumer interval p95 improved from 20.5–21.9 to 18.3–18.7 ms on the development desktop. Compare remaining CPU preparation and physical presentation timing with the original cadence.",
       "completion": "Guest-observed time, required timer/DPC delivery and input/audio ordering agree for the selected foreground scenario and defined stalls. Question: which clock consumers and timer events are actually required? Share one reviewed policy with MB05/06; broad device timing calibration belongs beyond this gate.",
       "evidenceRef": "docs/browser-gpu.md#actual-gameplay-observations",
       "workPackage": "m1-build",

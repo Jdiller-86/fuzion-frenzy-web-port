@@ -20,7 +20,7 @@ def adapt_browser_pacing(runtime: Path) -> None:
         include_anchor,
         '#if defined(__EMSCRIPTEN__)\n'
         'extern "C" bool ff_browser_precise_pacing_enabled();\n'
-        'extern "C" void ff_browser_sleep_for(double);\n'
+        'extern "C" void ff_browser_sleep_for(double, uint32_t);\n'
         'extern "C" void ff_browser_observe_vblank();\n'
         '#endif\n\n'
         + include_anchor,
@@ -35,7 +35,7 @@ def adapt_browser_pacing(runtime: Path) -> None:
     wait_replacement = (
         "#if defined(__EMSCRIPTEN__)\n"
         "        if (ff_browser_precise_pacing_enabled()) {\n"
-        "            ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count());\n"
+        "            ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count(), 1);\n"
         "        } else {\n"
         "            std::this_thread::sleep_until(next);\n"
         "        }\n"
@@ -46,7 +46,7 @@ def adapt_browser_pacing(runtime: Path) -> None:
     blank_anchor = "        std::this_thread::sleep_for(std::chrono::milliseconds(1));"
     blank_replacement = (
         "#if defined(__EMSCRIPTEN__)\n"
-        "        ff_browser_sleep_for(1.0);\n"
+        "        ff_browser_sleep_for(1.0, 2);\n"
         "#else\n"
         "        std::this_thread::sleep_for(std::chrono::milliseconds(1));\n"
         "#endif"

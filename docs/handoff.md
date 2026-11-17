@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the [GPU candidate](browser-gpu.md) now offers optional bounded asynchronous GPU timing. Fifty Erodeo command-span samples measured 1.07 ms median / 1.48 ms p95 on the development GPU, while CPU preparation/wait remained 7.9-9.6 ms and callback FPS near 60. Compositor DrawAndSwap spacing p95 was about 20.59 ms in a separate short trace. CPU scheduling/pacing, physical cadence, modest hardware and fidelity remain open; these observations do not establish a lock.
-- **Next:** measure pacer deadline/callback/PThread wake latency and presentation enqueue/ack timing, then fix the reached host scheduling bottleneck while preserving virtual-blank and game timing. Qualify physical cadence and modest integrated-GPU full rounds. Pursue consistent 120 FPS only after stable 60 FPS timing and preserved input/physics/animation behavior are established.
+- **Browser:** the [GPU candidate](browser-gpu.md) rounds timer delays up to avoid early retries. The development desktop sampled Erodeo near 60 FPS with consumer interval p95 of 18.3–18.7 ms, improved from 20.5–21.9 ms. Physical cadence, modest hardware and fidelity qualification are open.
+- **Next:** correlate remaining slow frames with CPU preparation and compositor cadence using the retained timer and presentation measurements. Qualify full rounds on modest integrated-GPU hardware. Evaluate 120 FPS after stable 60 FPS and compare original game timing and behavior.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) and #49, use the current WebGL2 build and retained Erodeo route. Measure timer wake-up and presentation queue delays and prepare the selected complete round with recorded input and audible audio.
+For [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) and #49, use the current WebGL2 build and retained Erodeo route. Use the timer and submission measurements to isolate remaining slow frames. Prepare the selected complete round with recorded input and audible audio.
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

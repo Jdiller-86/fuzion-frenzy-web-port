@@ -55,25 +55,68 @@ extern "C" void ff_browser_observe_vblank() {
     browser_vblank_ticks.fetch_add(1,std::memory_order_relaxed);
 }
 
-extern "C" void ff_browser_sleep_for(double milliseconds) {
-    if (!std::isfinite(milliseconds) || milliseconds <= 0.0) return;
+bool ff_browser_pacing_timing_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return typeof Module.onFuzionPacingWait === 'function' ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+static void RecordPacingWait(uint32_t kind, double queued, double deadline,
+                             double armed, double signalled, double woke, double timers) {
+    MAIN_THREAD_ASYNC_EM_ASM({
+        Module.onFuzionPacingWait?.($0, $1, $2, $3, $4, $5, $6);
+    }, kind, queued, deadline, armed, signalled, woke, timers);
+}
+#endif
+
+extern "C" void ff_browser_sleep_for(double milliseconds, uint32_t kind) {
+    if (!std::isfinite(milliseconds)) return;
     milliseconds = std::min(milliseconds, 1000.0);
 #ifdef __EMSCRIPTEN__
     if (ff_browser_precise_pacing_enabled() && !emscripten_is_main_runtime_thread()) {
-        const double deadline = emscripten_get_now() + milliseconds;
+        // Frame cap, vertical blank, and event hold share a thread in different
+        // combinations. Sample each source separately so none is missed.
+        static thread_local uint32_t samples[3]{};
+        const bool trace = ff_browser_pacing_timing_enabled() && kind < 3 &&
+                           (samples[kind]++ & 3u) == 0;
+        if (milliseconds <= 0.0 && !trace) return;
+        const double queued = emscripten_get_now();
+        const double deadline = queued + milliseconds;
         if (!std::isfinite(deadline)) std::abort();
+        if (milliseconds <= 0.0) {
+            RecordPacingWait(kind, queued, deadline, queued, queued, queued, 0);
+            return;
+        }
         std::atomic<uint32_t> ready{0};
+        double timing[3];
         static_assert(sizeof(ready) == sizeof(uint32_t));
         int previous_cancel_state = PTHREAD_CANCEL_ENABLE;
         if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_cancel_state) != 0) std::abort();
         MAIN_THREAD_ASYNC_EM_ASM({
             const address = $0 >>> 2;
             const deadline = $1;
+            const timing = $2;
+            const armed = timing ? performance.timeOrigin + performance.now() : 0;
+            let timers = 0;
             let completed = false;
             let watchdog = null;
             const signal = value => {
                 const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
                 const heap = new Int32Array(memory);
+                // Publish these words before the atomic release. Once signalled,
+                // the waiting thread can release both of its stack slots.
+                if (timing && value === 1) {
+                    const out = new Float64Array(memory, timing, 3);
+                    out[0] = armed;
+                    out[1] = performance.timeOrigin + performance.now();
+                    out[2] = timers;
+                }
                 Atomics.store(heap, address, value);
                 Atomics.notify(heap, address, 1);
                 completed = true;
@@ -91,7 +134,10 @@ extern "C" void ff_browser_sleep_for(double milliseconds) {
                     if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
                     const remaining = deadline - now;
                     if (remaining > 0) {
-                        setTimeout(arm, remaining);
+                        if (timing) ++timers;
+                        // setTimeout truncates fractional milliseconds. Round up
+                        // so a positive remainder does not schedule an early retry.
+                        setTimeout(arm, Math.ceil(remaining));
                     } else {
                         signal(1);
                     }
@@ -105,18 +151,19 @@ extern "C" void ff_browser_sleep_for(double milliseconds) {
             } catch (error) {
                 fail(error);
             }
-        }, &ready, deadline);
+        }, &ready, deadline, trace ? timing : nullptr);
         while (ready.load(std::memory_order_acquire) == 0) {
             const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
             if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
         }
         const int result = ready.load(std::memory_order_acquire);
         if (result != 1u) std::abort();
+        if (trace) RecordPacingWait(kind, queued, deadline, timing[0], timing[1], emscripten_get_now(), timing[2]);
         if (pthread_setcancelstate(previous_cancel_state, nullptr) != 0) std::abort();
         return;
     }
 #endif
-    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(milliseconds));
+    if (milliseconds > 0.0) std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(milliseconds));
 }
 
 namespace {
@@ -322,7 +369,7 @@ void Pace() {
     next += period;
     if (next < now - period) next = now;
     if (ff_browser_precise_pacing_enabled()) {
-        ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count());
+        ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count(), 0);
     } else {
         std::this_thread::sleep_until(next);
     }
