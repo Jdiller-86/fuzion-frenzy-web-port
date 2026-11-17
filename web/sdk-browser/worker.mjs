@@ -199,13 +199,17 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
   if (measurePacing === true) {
     const waits = [[], [], []];
     const presents = [];
-    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents };
+    const resourceWaits = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits };
     module.onFuzionPacingWait = (kind, ...sample) => {
       const list = waits[kind];
       if (list && list.length < 120) list.push(sample);
     };
     module.onFuzionPacingPresent = (...sample) => {
       if (presents.length < 120) presents.push(sample);
+    };
+    module.onFuzionPacingResourceWait = (...sample) => {
+      if (resourceWaits.length < 120) resourceWaits.push(sample);
     };
   }
   if (renderer === 'webgl') {

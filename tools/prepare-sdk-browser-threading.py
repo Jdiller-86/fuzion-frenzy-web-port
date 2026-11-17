@@ -186,9 +186,11 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     render = _replace_once(
         render,
         'namespace gpu {\n',
-        'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n\nnamespace gpu {\n',
+        'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n'
+        'bool ff_browser_pacing_timing_enabled();\n\nnamespace gpu {\n',
         "Optional checked browser span declaration",
     )
+    render = _replace_once(render, '#include <smmintrin.h>\n', '#include <smmintrin.h>\n#include <emscripten.h>\n', "Resource wait timing bridge")
     render = _replace_once(
         render,
         """    uint32_t Header(uint32_t header) {
@@ -265,13 +267,41 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         if (it != last_use_.end()) Wait(it->second, WaitFor::Resource, "resource");
     }""",
         """    void WaitResource(uint32_t resource) override {
-        (void)resource;
+        uint32_t header[2];
+        bool sampled = false;
+        if (resource && ff_browser_pacing_timing_enabled()) {
+            if (const auto* span = ff_sdk_try_guest_ptr(resource, sizeof(header))) {
+                std::memcpy(header, span, sizeof(header));
+                sampled = true;
+            }
+        }
         // A guest resource can alias another header or backing span. Until the
         // browser route proves canonical spans, drain all prior work here.
         const uint64_t through = (!cur_->cmds.empty() || !cur_->bytes.empty()) ? Submit() : cur_->id - 1;
-        Wait(through, WaitFor::Resource, "resource");
+        const uint64_t waited = Wait(through, WaitFor::Resource, "resource");
+        if (sampled && waited >= 500000) {
+            const auto data = mem::VirtualFromPhysical(header[1]);
+            const auto backing = mem::VirtualFromPhysical(mem::PhysicalFromVirtual(data));
+            MAIN_THREAD_ASYNC_EM_ASM({
+                Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5);
+            }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), emscripten_get_now());
+        }
     }""",
         "Alias-safe resource barrier",
+    )
+    render = _replace_once(
+        render,
+        """    void Wait(uint64_t id, WaitFor kind, const char* why) {
+        if (!id || done_.load() >= id) return;""",
+        """    uint64_t Wait(uint64_t id, WaitFor kind, const char* why) {
+        if (!id || done_.load() >= id) return 0;""",
+        "Read the measured resource wait duration",
+    )
+    render = _replace_once(
+        render,
+        '        }\n    }\n\n    void Run() {',
+        '        }\n        return ns;\n    }\n\n    void Run() {',
+        "Return the existing wait counter sample",
     )
 
     d3d = _replace_once(
@@ -288,6 +318,35 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
 
     texture = texture_path.read_text(encoding="utf-8")
     texture = _replace_once(texture, '#include <bit>\n', '#include <atomic>\n#include <bit>\n', "Dirty revision include")
+    texture = _replace_once(
+        texture,
+        'namespace gpu {\n',
+        'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n\nnamespace gpu {\n',
+        "Checked pixel header span declaration",
+    )
+    texture = _replace_once(
+        texture,
+        """    uint32_t common = R32(header);
+    uint32_t type = common & 0x70000;  // 0x40000 texture, 0x50000 surface
+    if (type != 0x40000 && type != 0x50000) return false;
+    // D3DPixelContainer: Common, Data, Lock, Format, Size
+    uint32_t fmt = R32(header + 12), size = R32(header + 16);
+    d.data = mem::VirtualFromPhysical(R32(header + 4));""",
+        """    constexpr size_t header_bytes = 20;
+    const auto* span = ff_sdk_try_guest_ptr(header, header_bytes);
+    uint32_t common;
+    if (span) std::memcpy(&common, span, sizeof(common));
+    else common = R32(header);
+    const uint32_t type = common & 0x70000;
+    if (type != 0x40000 && type != 0x50000) return false;
+    if (!span) span = ff_sdk_guest_ptr(header, header_bytes);
+    uint32_t data, fmt, size;
+    std::memcpy(&fmt, span + 12, sizeof(fmt));
+    std::memcpy(&size, span + 16, sizeof(size));
+    std::memcpy(&data, span + 4, sizeof(data));
+    d.data = mem::VirtualFromPhysical(data);""",
+        "Decode the pixel header through one checked guest mapping",
+    )
     texture = _replace_once(texture, 'uint64_t g_epoch = 1;', 'std::atomic<uint64_t> g_epoch{1};', "Published dirty revision")
     texture = _replace_once(
         texture,
@@ -340,6 +399,8 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
             "resource waits drain all preceding work to preserve aliases; D3D_BlockOnResource waits before Sync",
+            "pacing diagnostics relate waits of at least 0.5 ms to the resource header, canonical data address and batch",
+            "pixel header descriptions read all required fields through one checked guest mapping",
             "dirty epoch reads reuse thread-local values at the same published revision, with locked lookup on misses",
             "submit Clear/Copy/RecordLate/Gamma once a complete command reaches the batch threshold",
             "NOOVERWRITE path remains unchanged",
