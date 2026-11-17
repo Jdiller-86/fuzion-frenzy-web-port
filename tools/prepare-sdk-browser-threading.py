@@ -184,6 +184,32 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     )
     render = _replace_once(
         render,
+        'namespace gpu {\n',
+        'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n\nnamespace gpu {\n',
+        "Optional checked browser span declaration",
+    )
+    render = _replace_once(
+        render,
+        """        const uint32_t type = kernel::R32(header) & 0x70000;  // 0 vertex, 0x10000 index, 0x30000 palette
+        uint8_t now[kHeaderBytes] = {};
+        std::memcpy(now, kernel::HostPtr(header), type < 0x20000 || type == 0x30000 ? 12 : kHeaderBytes);""",
+        """        constexpr size_t short_bytes = 12;
+        const auto* whole = ff_sdk_try_guest_ptr(header, kHeaderBytes);
+        const auto* data = whole ? whole : ff_sdk_guest_ptr(header, short_bytes);
+        uint8_t now[kHeaderBytes] = {};
+        std::memcpy(now, data, short_bytes);
+        uint32_t common;
+        std::memcpy(&common, now, sizeof(common));
+        const uint32_t type = common & 0x70000;
+        if (type >= 0x20000 && type != 0x30000) {
+            // The long header must fit within the same admitted guest window.
+            if (!whole) data = ff_sdk_guest_ptr(header, kHeaderBytes);
+            std::memcpy(now + short_bytes, data + short_bytes, kHeaderBytes - short_bytes);
+        }""",
+        "One checked translation for each full resource header",
+    )
+    render = _replace_once(
+        render,
         """    uint32_t ring_ = 0;
     uint64_t ring_pos_ = 0;""",
         """    uint32_t ring_ = 0;
@@ -256,6 +282,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             "contiguous 32-header-slot plus payload scratch reservations before Draw/Clear/Copy and Present",
             "wait for submitted consumers before scratch-ring lap reuse; clear stale header-copy references",
             "abort on oversized reservation or any scratch allocation beyond its reservation",
+            "capture each resource header from a checked single-window span while admitting short window-end headers",
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
             "resource waits drain all preceding work to preserve aliases; D3D_BlockOnResource waits before Sync",

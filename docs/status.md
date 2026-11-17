@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the [GPU candidate](browser-gpu.md) verified all 23 shader warmup hits in foreground Chrome. Consecutive raw layouts were reused on 99.88% of sampled Erodeo draws, and median JavaScript submission fell from 4.07 to 3.39 ms. Callback interval p95 was 18.7–19.4 ms.
-- **Next:** profile CPU frame preparation after the frame-cap wake and measure compositor cadence on modest hardware. Fidelity qualification remains open. Evaluate 120 FPS after stable 60 FPS and compare original game timing and behavior.
+- **Browser:** the [GPU candidate](browser-gpu.md) captures ordinary resource headers with one complete guest-span check. Six warmed Erodeo windows ran at 59.85–60.21 callback FPS with per-window interval p95 of 17.8–19.6 ms. Median wake-to-enqueue was 9.41 ms versus 9.19 ms in the retained sample.
+- **Next:** measure `Threaded::SendState` and compositor cadence on modest hardware. Fidelity qualification remains open. Evaluate 120 FPS after stable 60 FPS and compare original game timing and behavior.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

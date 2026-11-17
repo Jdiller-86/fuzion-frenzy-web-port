@@ -214,7 +214,7 @@
       "size": "M",
       "state": "Awaiting evidence",
       "evidence": "bounded title evidence",
-      "startingPoint": "The SDK backend submits checked command batches to the runtime worker's WebGL2 context. Sequential index offsets, interned packets and raw layout reuse reduce draw bookkeeping. Erodeo reached the replay prompt and returned to the game selector. The software reference is selectable for comparison.",
+      "startingPoint": "The SDK backend submits checked command batches to the runtime worker's WebGL2 context. Sequential index offsets, interned packets and raw layout reuse reduce draw bookkeeping. Threaded resource-header capture checks one complete guest span in the common case. Erodeo reached the replay prompt and returned to the game selector. The software reference is selectable for comparison.",
       "completion": "The SDK GPU path calls one selected browser backend/context through a checked resource boundary with teardown. Adapt its real shader/surface/submission requirements and applicable OpenCE WebGL2 patterns. Resolve ownership by a runnable build/browser attempt; avoid implementing multiple competing architectures.",
       "evidenceRef": "docs/browser-gpu.md#actual-gameplay-observations",
       "workPackage": "m1-build",

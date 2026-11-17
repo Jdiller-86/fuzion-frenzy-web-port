@@ -31,11 +31,9 @@ bool GuestSpan(uint32_t va, size_t bytes, uint32_t start, size_t capacity, size_
     result = offset + size_t(delta);
     return true;
 }
-}
 
-uint8_t* ff_sdk_guest_base() { return g_guest_backing.data(); }
-
-uint8_t* ff_sdk_guest_ptr(uint32_t va, size_t bytes) {
+// Keep both public accessors on the same checked fast path without another call.
+[[gnu::always_inline]] inline uint8_t* MapGuestSpan(uint32_t va, size_t bytes) noexcept {
     size_t backing = 0;
     bool selected = true;
     switch (va >> 26) {
@@ -57,6 +55,18 @@ uint8_t* ff_sdk_guest_ptr(uint32_t va, size_t bytes) {
         GuestSpan(va, bytes, kGuestSystem, kGuestWindow, 2 * kGuestWindow, offset) ||
         GuestSpan(va, bytes, kGuestStack, kGuestWindow, 3 * kGuestWindow, offset))
         return g_guest_backing.data() + offset;
+    return nullptr;
+}
+}
+
+uint8_t* ff_sdk_guest_base() { return g_guest_backing.data(); }
+
+const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept {
+    return MapGuestSpan(va, bytes);
+}
+
+uint8_t* ff_sdk_guest_ptr(uint32_t va, size_t bytes) {
+    if (auto* pointer = MapGuestSpan(va, bytes)) return pointer;
     char message[128];
     std::snprintf(message, sizeof(message), "Unmapped Xbox guest span: VA 0x%08X + %zu bytes", va, bytes);
     throw std::out_of_range(message);
