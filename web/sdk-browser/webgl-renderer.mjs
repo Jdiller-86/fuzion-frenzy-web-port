@@ -135,12 +135,6 @@ void main() {
   floatView(ptr,n) { const heap=this.checkedHeapSpan(ptr,n*4);return new Float32Array(heap.buffer,heap.byteOffset+ptr,n); }
   words(ptr,n) { return new Uint32Array(this.bytes(ptr,n*4).slice().buffer); }
   floats(ptr,n) { return new Float32Array(this.bytes(ptr,n*4).slice().buffer); }
-  sameWords(a,b,count) {
-    if(a===b)return true;
-    const av=this.wordView(a,count),bv=this.wordView(b,count);
-    for(let i=0;i<count;i++)if(av[i]!==bv[i])return false;
-    return true;
-  }
   capacity(current,required,limit) {
     if(required>limit)throw new Error('GPU geometry budget exceeded');
     let size=Math.max(current,256);
@@ -253,10 +247,12 @@ void main() {
     const vertices=this.vertexStaging.subarray(0,vertexBytes),elements=this.indexStaging.subarray(0,indexCount);
     vertices.fill(0,0,convertedBytes);
     const vertexWords=new Uint32Array(vertices.buffer,vertices.byteOffset,vertices.byteLength/4);
-    this.indexOffsets??=new Map();this.indexOffsets.clear();this.indexBindings??=new Map();this.indexBindings.clear();let convertedOffset=0,rawOffset=convertedBytes,io=0,rawGroup=null;
+    const bindings=this.drawBindings??=[];
+    bindings.length=count;
+    let convertedOffset=0,rawOffset=convertedBytes,io=0,rawGroup=null;
     const convertedBinding={kind:'converted',totalVertices:convertedVertices};
     for(let i=0;i<count;i++){
-      const b=i*12,opcode=words[b],commandOffset=words.byteOffset+b*4;
+      const b=i*12,opcode=words[b];
       if(opcode===1){
         rawGroup=null;
         const vertexCount=words[b+2],sourceStride=words[b+3],metadata=this.wordView(words[b+6],40),raw=!!metadata[37],mask=metadata[39];
@@ -279,7 +275,7 @@ void main() {
           const lane=flat&&j-j%3+2<order.length?j-j%3+(j%3+1)%3:j;
           const index=order[lane];if(index>=vertexCount)throw new Error('GPU index exceeds vertex span');elements[io+j]=index+base;
         }
-        this.indexOffsets.set(commandOffset,io*4);this.indexBindings.set(commandOffset,convertedBinding);
+        bindings[i]=convertedBinding;
         convertedOffset+=vertexCount*256;io+=indexCountForDraw;
       }else if(opcode===3){
         const vertexCount=words[b+2],stride=words[b+3],layoutPtr=words[b+10],indexCountForDraw=words[b+5];if(!layoutPtr)throw new Error('Missing raw vertex layout');
@@ -301,9 +297,9 @@ void main() {
         this.frameStats.vertexBytes+=sourceBytes.length;
         this.frameStats.gpuVertexDraws++;this.frameStats.gpuVertices+=vertexCount;
         rawGroup.vertexCount+=vertexCount;rawOffset+=sourceBytes.length;
-        this.indexOffsets.set(commandOffset,io*4);this.indexBindings.set(commandOffset,rawGroup);
+        bindings[i]=rawGroup;
         io+=indexCountForDraw;
-      }
+      }else bindings[i]=null;
     }
     if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
@@ -312,19 +308,25 @@ void main() {
     g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,this.ibo);
     if(indexCount>(this.indexBufferCapacity||0)){this.indexBufferCapacity=this.capacity(this.indexBufferCapacity||0,indexCount,16*1024*1024);g.bufferData(g.ELEMENT_ARRAY_BUFFER,this.indexBufferCapacity*4,g.STREAM_DRAW);}
     if(indexCount)g.bufferSubData(g.ELEMENT_ARRAY_BUFFER,0,elements);
-    let pendingRow=-1,pendingCount=0,pendingBinding;
-    const emit=()=>{if(pendingRow>=0){const b=pendingRow,raw=words[b]===3,commandOffset=words.byteOffset+b*4;
-      if(!this.draw(words[b+1],words[b+2],words[b+3],words[b+4],pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],raw?words[b+10]:0,pendingBinding,commandOffset))throw new Error('GPU draw rejected');pendingRow=-1;}};
+    let pendingRow=-1,pendingCount=0,pendingBinding,pendingOffset=0,indexOffset=0;
+    const emit=()=>{
+      if(pendingRow<0)return;
+      const b=pendingRow,layout=words[b]===3?words[b+10]:0;
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset))throw new Error('GPU draw rejected');
+      pendingRow=-1;
+    };
     for(let i=0;i<count;i++) {
-      const b=i*12,opcode=words[b],commandOffset=words.byteOffset+b*4;
+      const b=i*12,opcode=words[b];
       if(opcode===1||opcode===3) {
-        const binding=this.indexBindings.get(commandOffset);
+        // Packing writes indices in this same row order. SubmitDraw interns
+        // byte-identical consecutive state, uniform and texture packets.
+        const binding=bindings[i],n=words[b+5],offset=indexOffset;
+        indexOffset+=n*4;
         if(pendingRow>=0&&words[pendingRow]===opcode&&pendingBinding===binding&&words[pendingRow+8]===words[b+8]&&
-           this.indexOffsets.get(words.byteOffset+pendingRow*4)+pendingCount*4===this.indexOffsets.get(commandOffset)&&
-           this.sameWords(words[pendingRow+6],words[b+6],40)&&this.sameWords(words[pendingRow+7],words[b+7],152)&&this.sameWords(words[pendingRow+9],words[b+9],56)) {
-          pendingCount+=words[b+5];continue;
+           words[pendingRow+6]===words[b+6]&&words[pendingRow+7]===words[b+7]&&words[pendingRow+9]===words[b+9]) {
+          pendingCount+=n;continue;
         }
-        emit();pendingRow=b;pendingCount=words[b+5];pendingBinding=binding;continue;
+        emit();pendingRow=b;pendingCount=n;pendingBinding=binding;pendingOffset=offset;continue;
       }
       emit();
       if(opcode===0)this.target(words[b+1],words[b+2],words[b+3],words[b+4],words[b+5],words[b+6],words[b+7],words[b+8],words[b+9],words[b+10],words[b+11]);
@@ -508,7 +510,7 @@ void main() {
     const list=n?this.wordView(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
     for(let i=0;i<(n||1);i++){const o=i*4,x=list[o],y=list[o+1],x1=list[o+2],y1=list[o+3];g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
   }
-  draw(v,count,stride,indices,n,state,uniforms,source,textures,layout=0,binding,commandOffset=0) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
@@ -653,7 +655,7 @@ void main() {
       this.lastZscale=u[2];
       }
       this.bindGeometry(binding);
-      g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,this.indexOffsets.get(commandOffset));
+      g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,indexOffset);
       this.issuedDraws=(this.issuedDraws||0)+1;
       return true;
     } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
