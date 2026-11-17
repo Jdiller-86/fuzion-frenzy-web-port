@@ -218,6 +218,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
+    module.onFuzionGpu.measurePacing=measurePacing===true;
     module.onFuzionGpu.precisePacing=precisePacing===true;
     module.onFuzionGpu.frameCapPrecision=frameCapPrecision===true;
     postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});

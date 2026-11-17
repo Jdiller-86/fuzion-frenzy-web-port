@@ -296,13 +296,16 @@ void main() {
       for(const [sourcePointer,signatures] of this.shaderPrewarmPending){let discovered=this.shaderPrewarmDiscovered.get(sourcePointer);if(!discovered){discovered=new Set();this.shaderPrewarmDiscovered.set(sourcePointer,discovered);}for(const signature of signatures){if(this.shaderPrewarmPairCount>=2048)break;if(!discovered.has(signature)){discovered.add(signature);this.shaderPrewarmPairCount++;}}}
       this.shaderStats.prepassMs+=performance.now()-prewarmStart;
     }
+    const packingStarted=this.measurePacing?performance.now():0;
     // Keep converted float planes first; append raw, interleaved layout groups.
-    let convertedVertices=0,rawBytes=0,indexCount=0;
+    let convertedVertices=0,rawBytes=0,indexCount=0,rawStart=0,contiguousRaw=true;
     for(let i=0;i<count;i++){
       const b=i*12,opcode=words[b];
       if(opcode===1){convertedVertices+=words[b+2];indexCount+=words[b+5];}
       else if(opcode===3){
         const stride=words[b+3];if(!stride||stride>252||(stride&3))throw new Error('Unsupported raw vertex stride');
+        if(!rawBytes)rawStart=words[b+1];
+        if(words[b+1]!==rawStart+rawBytes)contiguousRaw=false;
         rawBytes+=words[b+2]*stride;indexCount+=words[b+5];
         if(rawBytes>256*1024*1024||indexCount>16*1024*1024)throw new Error('GPU geometry budget exceeded');
       }
@@ -310,11 +313,14 @@ void main() {
     }
     const convertedBytes=convertedVertices*256,vertexBytes=convertedBytes+rawBytes;
     if(vertexBytes>256*1024*1024||indexCount>16*1024*1024)throw new Error('GPU geometry budget exceeded');
-    if(!this.vertexStaging||this.vertexStaging.length<vertexBytes)this.vertexStaging=new Uint8Array(this.capacity(this.vertexStaging?.length||0,vertexBytes,256*1024*1024));
+    // A raw-only batch already owns the complete upload span until consumption ends.
+    const directVertices=rawBytes>0&&!convertedBytes&&contiguousRaw;
+    if(!directVertices&&(!this.vertexStaging||this.vertexStaging.length<vertexBytes))this.vertexStaging=new Uint8Array(this.capacity(this.vertexStaging?.length||0,vertexBytes,256*1024*1024));
     if(!this.indexStaging||this.indexStaging.length<indexCount)this.indexStaging=new Uint32Array(this.capacity(this.indexStaging?.length||0,indexCount,16*1024*1024));
-    const vertices=this.vertexStaging.subarray(0,vertexBytes),elements=this.indexStaging.subarray(0,indexCount);
-    vertices.fill(0,0,convertedBytes);
-    const vertexWords=new Uint32Array(vertices.buffer,vertices.byteOffset,vertices.byteLength/4);
+    const vertices=directVertices?this.bytes(rawStart,rawBytes):this.vertexStaging.subarray(0,vertexBytes);
+    const elements=this.indexStaging.subarray(0,indexCount);
+    if(convertedBytes)vertices.fill(0,0,convertedBytes);
+    const vertexWords=convertedBytes?new Uint32Array(vertices.buffer,vertices.byteOffset,vertices.byteLength/4):null;
     const bindings=this.drawBindings??=[];
     bindings.length=count;
     let convertedOffset=0,rawOffset=convertedBytes,io=0,rawGroup=null;
@@ -366,8 +372,8 @@ void main() {
           rawGroup={kind:'raw',baseByte:rawOffset,stride,mask,layoutPtr,layout:layout.slice(),
             attributes:this.rawLayout(stride,layout,mask),vertexCount:0};
         }
-        const base=rawGroup.vertexCount,sourceBytes=this.bytes(words[b+1],vertexCount*stride);
-        vertices.set(sourceBytes,rawOffset);
+        const base=rawGroup.vertexCount,sourceSize=vertexCount*stride;
+        if(!directVertices)vertices.set(this.bytes(words[b+1],sourceSize),rawOffset);
         const order=this.wordView(words[b+4],indexCountForDraw),flat=state[32];
         for(let j=0;j<order.length;j++){
           const lane=flat&&j-j%3+2<order.length?j-j%3+(j%3+1)%3:j;
@@ -375,15 +381,19 @@ void main() {
         }
         this.frameStats??={gpuVertexDraws:0,cpuVertexDraws:0,gpuVertices:0,cpuVertices:0,vertexBytes:0,rawStreamDraws:0,rawStreamBytes:0};
         this.frameStats.rawStreamDraws??=0;this.frameStats.rawStreamBytes??=0;
-        this.frameStats.rawStreamDraws++;this.frameStats.rawStreamBytes+=sourceBytes.length;
-        this.frameStats.vertexBytes+=sourceBytes.length;
-        this.frameStats.gpuVertexDraws++;this.frameStats.gpuVertices+=vertexCount;
-        rawGroup.vertexCount+=vertexCount;rawOffset+=sourceBytes.length;
+        const drawCalls=1+words[b+11];
+        this.frameStats.rawStreamDraws+=drawCalls;this.frameStats.rawStreamBytes+=sourceSize;
+        this.frameStats.rawStreamRows=(this.frameStats.rawStreamRows??0)+1;
+        this.frameStats.vertexBytes+=sourceSize;
+        this.frameStats.gpuVertexDraws+=drawCalls;this.frameStats.gpuVertices+=vertexCount;
+        rawGroup.vertexCount+=vertexCount;rawOffset+=sourceSize;
         bindings[i]=rawGroup;
         io+=indexCountForDraw;
       }else bindings[i]=null;
     }
     if(rawLayoutReuses)this.frameStats.rawLayoutReuses=(this.frameStats.rawLayoutReuses??0)+rawLayoutReuses;
+    if(directVertices)this.frameStats.directVertexBytes=(this.frameStats.directVertexBytes??0)+rawBytes;
+    if(this.measurePacing&&this.frameStats)this.frameStats.geometryPackingMs=(this.frameStats.geometryPackingMs??0)+performance.now()-packingStarted;
     if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
     if(vertexBytes>(this.vertexBufferCapacity||0)){this.vertexBufferCapacity=this.capacity(this.vertexBufferCapacity||0,vertexBytes,256*1024*1024);g.bufferData(g.ARRAY_BUFFER,this.vertexBufferCapacity,g.STREAM_DRAW);}

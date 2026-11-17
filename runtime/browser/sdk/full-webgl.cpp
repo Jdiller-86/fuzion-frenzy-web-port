@@ -60,10 +60,21 @@ uint64_t prepared_decode = 0;
 bool prepared_pretransformed = false;
 size_t prepare_queue_size = 0;
 uint64_t raw_draw_reuses = 0;
+constexpr size_t kOwnedLimit = 256u * 1024 * 1024;
+constexpr uint32_t kVertexLimit = 1024u * 1024;
+constexpr uint32_t kIndexLimit = 16u * 1024 * 1024;
+struct RawGeometry {
+    std::vector<uint8_t> vertices;
+    std::vector<uint32_t> indices;
+    size_t CapacityBytes() const { return vertices.capacity() + indices.capacity() * sizeof(uint32_t); }
+};
+RawGeometry raw_geometry;
+size_t merged_raw_draws = 0;
 struct Block { std::unique_ptr<uint8_t[]> bytes; size_t capacity,used=0; };
 struct Flight {
     std::vector<std::array<uint32_t,12>> commands;
     std::vector<Block> blocks;
+    RawGeometry raw_geometry;
     size_t capacity=0;
     std::vector<std::shared_ptr<const void>> images;
     size_t image_bytes=0;
@@ -89,14 +100,25 @@ uint64_t image_shortcut_lookups=0,image_map_lookups=0;
 uint64_t program_constant_reuses=0,program_constant_packs=0;
 uint64_t versionHits=0,versionSearches=0,copyHits=0,copySearches=0;
 size_t owned_bytes = 0;
+size_t AllocatedBytes() {
+    return owned_capacity + flight.capacity + raw_geometry.CapacityBytes() + flight.raw_geometry.CapacityBytes();
+}
+template<typename T>
+void ReserveRaw(std::vector<T>& buffer, size_t size) {
+    if (size <= buffer.capacity()) return;
+    // Include the old allocation while reserve copies its contents.
+    const size_t available = (kOwnedLimit - AllocatedBytes()) / sizeof(T);
+    if (size > available) std::abort();
+    buffer.reserve(std::min(available, std::max(size, buffer.capacity() * 2)));
+}
 uint32_t Own(const void* src, size_t bytes) {
     if(bridge_failed.load(std::memory_order_acquire))std::abort();
-    if(bytes > 128u*1024*1024 || owned_bytes + bytes > 256u*1024*1024) std::abort();
+    if(bytes > 128u*1024*1024 || bytes > kOwnedLimit-owned_bytes) std::abort();
     const size_t span=(bytes+7)&~size_t(7);
     while(owned_block<owned.size() && owned[owned_block].capacity-owned[owned_block].used<span) ++owned_block;
     if(owned_block==owned.size()) {
         size_t capacity=std::max<size_t>(4u*1024*1024,span);
-        if(owned_capacity+flight.capacity+capacity>256u*1024*1024)std::abort();
+        if(capacity>kOwnedLimit-AllocatedBytes())std::abort();
         owned.push_back({std::make_unique<uint8_t[]>(capacity),capacity,0});owned_capacity+=capacity;
     }
     auto& block=owned[owned_block];auto* dst=block.bytes.get()+block.used;block.used+=span;
@@ -113,6 +135,8 @@ void WaitFlight() {
 void ResetCommands() {
     last_image_copy_valid.fill(false);last_image_version_valid.fill(false);
     commands.clear();for(auto& block:owned)block.used=0;owned_block=0;image_copies.clear();image_versions.clear();pinned_images.clear();pinned_image_bytes=0;owned_bytes=0;last_vertex_constants=0;
+    raw_geometry.vertices.clear();raw_geometry.indices.clear();
+    merged_raw_draws = 0;
     last_draw_state=last_pixel_uniforms=last_texture_state=last_raw_layout=0;
     prepared_revision = 0;
 }
@@ -120,9 +144,19 @@ uint32_t InternLast(const void* source,size_t bytes,uint32_t& previous) {
     if(previous&&ff_webgl_equal_bytes(reinterpret_cast<const void*>(previous),source,bytes))return previous;
     return previous=Own(source,bytes);
 }
+void SealRawGeometry() {
+    if (commands.size() + merged_raw_draws > 65536) std::abort();
+    for (auto& packet : commands) {
+        if (packet[0] != 3) continue;
+        // Offsets survive growth; convert them to addresses only at handoff.
+        packet[1] = uint32_t(reinterpret_cast<uintptr_t>(raw_geometry.vertices.data() + packet[1]));
+        packet[4] = uint32_t(reinterpret_cast<uintptr_t>(raw_geometry.indices.data() + packet[4]));
+    }
+}
 void FlushCommands() {
     WaitFlight();
     if(commands.empty()) return;
+    SealRawGeometry();
     if(!MAIN_THREAD_EM_ASM_INT({ return Module.onFuzionGpu.commands($0,$1)?1:0; }, commands.data(),uint32_t(commands.size())))std::abort();
     ResetCommands();
 }
@@ -131,7 +165,9 @@ void QueuePresent(uint32_t target) {
     const double wait_start = trace ? emscripten_get_now() : 0;
     WaitFlight();
     const double wait_ms = trace ? emscripten_get_now() - wait_start : 0;
+    SealRawGeometry();
     commands.swap(flight.commands);owned.swap(flight.blocks);std::swap(owned_capacity,flight.capacity);
+    std::swap(raw_geometry,flight.raw_geometry);
     pinned_images.swap(flight.images);std::swap(pinned_image_bytes,flight.image_bytes);
     ResetCommands();
     flight.done.store(0,std::memory_order_release);
@@ -333,13 +369,44 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
     }
 }
 static void PushDraw(std::array<uint32_t, 12> packet, const void* vertices, uint32_t count,
-                     uint32_t stride, const void* indices, uint32_t index_count) {
-    if (!count || count > 1024u * 1024 || index_count > 16u * 1024 * 1024) std::abort();
-    packet[1] = Own(vertices, size_t(count) * stride);
+                     uint32_t stride, const void* indices, uint32_t index_count, bool extend_raw = false) {
+    if (!count || count > kVertexLimit || index_count > kIndexLimit) std::abort();
     packet[2] = count;
     packet[3] = stride;
-    packet[4] = Own(indices, size_t(index_count) * 4);
     packet[5] = index_count;
+    if (packet[0] == 3) {
+        if (!index_count || index_count % 3 || bridge_failed.load(std::memory_order_acquire)) std::abort();
+        const size_t vertex_bytes = size_t(count) * stride;
+        if (vertex_bytes > 128u * 1024 * 1024 || index_count > kIndexLimit - raw_geometry.indices.size()) std::abort();
+        auto* previous = extend_raw ? &commands.back() : nullptr;
+        const bool extend = previous && count <= kVertexLimit - (*previous)[2] &&
+                            index_count <= kIndexLimit - (*previous)[5];
+        const uint32_t base = extend ? (*previous)[2] : 0;
+        packet[1] = uint32_t(raw_geometry.vertices.size());
+        packet[4] = uint32_t(raw_geometry.indices.size());
+        ReserveRaw(raw_geometry.vertices, packet[1] + vertex_bytes);
+        ReserveRaw(raw_geometry.indices, packet[4] + index_count);
+        const auto* vertex_data = static_cast<const uint8_t*>(vertices);
+        raw_geometry.vertices.insert(raw_geometry.vertices.end(), vertex_data, vertex_data + vertex_bytes);
+        raw_geometry.indices.resize(packet[4] + index_count);
+        auto* out = raw_geometry.indices.data() + packet[4];
+        const auto* in = static_cast<const uint32_t*>(indices);
+        for (uint32_t i = 0; i < index_count; ++i) {
+            if (in[i] >= count) std::abort();
+            out[i] = in[i] + base;
+        }
+        if (extend) {
+            // Only prepared reuse extends a consecutive row with the same state.
+            (*previous)[2] += count;
+            (*previous)[5] += index_count;
+            ++(*previous)[11];
+            ++merged_raw_draws;
+            return;
+        }
+    } else {
+        packet[1] = Own(vertices, size_t(count) * stride);
+        packet[4] = Own(indices, size_t(index_count) * 4);
+    }
     commands.push_back(packet);
     const auto* state = reinterpret_cast<const uint32_t*>(packet[6]);
     if (state[0]) targets.at(state[0]).cpu_coherent = false;
@@ -361,7 +428,7 @@ uint64_t ff_webgl_begin_prepare_raw_draw() {
 bool ff_webgl_reuse_raw_draw(const gpu::Assembled& as, uint64_t revision) {
     if (!revision || prepared_revision != revision || commands.empty() ||
         prepared_decode != as.decode || prepared_pretransformed != as.pretransformed) return false;
-    const auto previous = commands.back();
+    auto previous = commands.back();
     const auto& vertices = as.buffers[0];
     if (previous[0] != 3 || previous[3] != vertices.stride) return false;
     const auto* state = reinterpret_cast<const uint32_t*>(previous[6]);
@@ -373,8 +440,9 @@ bool ff_webgl_reuse_raw_draw(const gpu::Assembled& as, uint64_t revision) {
         const auto word = uint32_t(element.format) | (uint32_t(element.offset) << 8);
         if (element.buffer || layout[reg] != word) return false;
     }
+    previous[11] = 0;
     PushDraw(previous, vertices.src, as.vertex_count, vertices.stride,
-             as.indices.data(), uint32_t(as.indices.size()));
+             as.indices.data(), uint32_t(as.indices.size()), true);
     ++raw_draw_reuses;
     return true;
 }
