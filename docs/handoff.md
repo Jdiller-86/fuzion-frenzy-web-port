@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** faster checked guest-memory access cut a repeatable Erodeo enqueue gap from 38.19 to 32.08 ms in aligned Chrome captures. The frame remains above the 16.67 ms budget, with about 20 ms from the frame-cap wake to enqueue. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
-- **Next:** isolate the remaining guest work at that hitch and capture another minigame. Qualify 60 FPS on a modest PC at a compatible display cadence before testing 120 FPS and comparing original game timing.
+- **Browser:** the enlarged local shader cache retained 33 pairs across Erodeo and Twisted System. On repeat Twisted System gameplay, the longest shader link fell from 164.50 to 2.29 ms. The largest remaining gap during scene entry began before WebGL submission. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Next:** isolate the guest work at scene entry and find where new shader variants can be prepared on first play. Qualify 60 FPS on a modest PC at a compatible display cadence before testing 120 FPS and comparing original game timing.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For Goal G and #49, retain the Erodeo frame-cap, submission and compositor measurements as the desktop reference. The synchronized captures place the repeated hitch in guest work after the frame-cap wake. Compare another minigame and trace the remaining hot routine before broadening the memory inlining. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
+For Goal G and #49, use the warmed Twisted System trace to isolate the 76 ms enqueue gap during scene entry. The Erodeo captures separately place the repeated 32 ms gap in the guest path after the frame-cap wake. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

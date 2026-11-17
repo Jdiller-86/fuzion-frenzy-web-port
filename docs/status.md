@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** faster checked guest-memory access cut a repeatable Erodeo enqueue gap from 38.19 to 32.08 ms in aligned Chrome captures. The frame remains above the 16.67 ms budget, with about 20 ms from the frame-cap wake to enqueue. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
-- **Next:** isolate the remaining guest work at that hitch and capture another minigame. Qualify 60 FPS on a modest PC at a compatible display cadence before testing 120 FPS and comparing original game timing.
+- **Browser:** the enlarged local shader cache retained 33 pairs across Erodeo and Twisted System. On repeat Twisted System gameplay, the longest shader link fell from 164.50 to 2.29 ms. The largest remaining gap during scene entry began before WebGL submission. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Next:** isolate the guest work at scene entry and find where new shader variants can be prepared on first play. Qualify 60 FPS on a modest PC at a compatible display cadence before testing 120 FPS and comparing original game timing.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

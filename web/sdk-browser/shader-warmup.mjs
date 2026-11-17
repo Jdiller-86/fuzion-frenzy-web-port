@@ -1,5 +1,5 @@
 const CACHE_NAME = 'fuzion-webgl-shader-recipes-v1';
-const MAX_PROGRAMS = 32;
+const MAX_PROGRAMS = 64;
 const MAX_BYTES = 1024 * 1024;
 const SAVE_DELAY_MS = 1000;
 
@@ -33,7 +33,13 @@ export async function openShaderWarmup(titleDigest) {
   let pendingSave = Promise.resolve();
 
   function remember(sources, key = JSON.stringify(sources)) {
-    if (recipes.has(key)) return;
+    const existing = recipes.get(key);
+    if (existing) {
+      recipes.delete(key);
+      recipes.set(key, existing);
+      dirty = true;
+      return;
+    }
     const size = encoder.encode(key).byteLength + 1;
     if (size + 2 > MAX_BYTES) return;
     while (recipes.size >= MAX_PROGRAMS || size + bytes > MAX_BYTES) {

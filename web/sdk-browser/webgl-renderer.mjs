@@ -461,6 +461,7 @@ void main() {
     if(sources){
       const warm=this.takeWarmProgram(recipeKey);
       if(warm){
+        this.shaderWarmup.remember(sources,recipeKey);
         this.programs.set(key,warm);
         return warm;
       }
