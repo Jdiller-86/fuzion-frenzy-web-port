@@ -162,6 +162,7 @@ runButton.addEventListener('click', () => {
     pipelinedGpu: options.get('pipelinedGpu') !== '0',
     rawVertices: options.get('rawVertices') !== '0',
     shaderPrewarm: options.get('shaderPrewarm') !== '0',
+    shaderWarmup: options.get('shaderWarmup') === '1',
     gpuTiming: options.get('gpuTiming') === '1',
     pacingTiming: options.get('pacingTiming') === '1',
     precisePacing: options.has('precisePacing')

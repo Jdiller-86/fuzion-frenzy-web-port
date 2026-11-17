@@ -17,6 +17,7 @@ ROUTES = {
     '/sdk-browser/webgl-renderer.mjs': ('web/sdk-browser/webgl-renderer.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/pixel-glsl.mjs': ('web/sdk-browser/pixel-glsl.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/vertex-glsl.mjs': ('web/sdk-browser/vertex-glsl.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/shader-warmup.mjs': ('web/sdk-browser/shader-warmup.mjs', 'text/javascript; charset=utf-8'),
     '/host/xdvdfs.mjs': ('host/xdvdfs.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', 'application/wasm'),

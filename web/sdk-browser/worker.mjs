@@ -140,7 +140,8 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,shaderPrewarm,gpuTiming,measurePacing) {
+async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,
+                     shaderPrewarm,shaderWarmup,gpuTiming,pacingTiming:measurePacing}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -160,6 +161,21 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
   const xbeHash = await digestHex(await xbe.arrayBuffer());
   if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
   if (cancelled) return;
+  const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true);
+  let gpu;
+  if(renderer==='webgl'&&shaderWarmup===true&&shaderPrewarm!==false){
+    gpu=createGpu();
+    if(gpu.parallelShaderCompile){
+      report('Preparing recorded WebGL shader programs…');
+      try {
+        const {openShaderWarmup}=await import('./shader-warmup.mjs');
+        const store=await openShaderWarmup(xbeHash);
+        if(cancelled)return;
+        gpu.prepareWarmup(store);
+      } catch { postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}); }
+    }
+  }
+  if(cancelled)return;
   report('Starting the full SDK runtime from the local disc image…');
   const gameXbe = new Blob([xbe], { type: 'application/octet-stream' });
   const factory = createFuzionSdkRuntime;
@@ -193,7 +209,7 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
     };
   }
   if (renderer === 'webgl') {
-    module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true);
+    module.onFuzionGpu = gpu ?? createGpu();
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
@@ -224,12 +240,16 @@ onmessage = async ({ data }) => {
     cancelled = true;
     clearInterval(saveTimer);
     stopThreads(moduleInstance);
+    const saveShaders=moduleInstance?.onFuzionGpu?.shaderWarmup?.save().catch(()=>{
+      postMessage({type:'log',text:'Local shader warmup could not be saved.'});
+    });
     try { await flushSaves(); } catch (error) { postMessage({ type: 'log', text: `Save flush failed: ${error.message}` }); }
+    await saveShaders;
     postMessage({ type: 'stopped' });
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing,data.shaderPrewarm,data.gpuTiming,data.pacingTiming); }
+  try { await boot(data); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });
