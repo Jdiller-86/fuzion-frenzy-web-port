@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the [GPU candidate](browser-gpu.md) now uses GPU fixed-function lighting/transforms, persistent texture caches, threaded preparation, pipelined submission and native Wasm exceptions. Recorded Air Raid windows measured 56.8-60.9 FPS and Twisted System 59.3-60.8 FPS. The final active Erodeo run measured 46.4-56.2 FPS; heavy gameplay remains below target. Full-window aspect-preserving presentation remains implemented. Locked 60 FPS across all gameplay is unproved.
-- **Next:** reduce converted-vertex assembly/packing costs in heavy gameplay, resolve frame-pacing/shader-compile stalls, and complete broader controlled gameplay/rendering/input/audio evidence. Reuse the working native reference.
+- **Browser:** the [GPU candidate](browser-gpu.md) now includes checked raw vertex uploads, SIMD/key/constant reuse and Windows browser-timer pacing. Final Erodeo windows measured 59.7-60.6 FPS and Twisted System 58.7-60.5 FPS on the powerful development desktop. Full-window presentation and startup feedback are implemented. Timing tails, native fidelity, all-minigame coverage and modest-laptop locked 60 FPS remain unproved.
+- **Next:** reduce remaining CPU preparation/submission and shader first-use stalls, measure physical presentation, and validate representative full rounds on actual modest integrated-GPU hardware. Complete native rendering/input/audio comparisons before acceptance.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

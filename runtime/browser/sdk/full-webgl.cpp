@@ -14,10 +14,33 @@
 #include <vector>
 #include <cmath>
 #include <atomic>
+#include <tuple>
 #include <emscripten.h>
 #include <emscripten/threading.h>
+#include <wasm_simd128.h>
 #include "fixed-constants.inc"
 bool ff_webgl_pipelined();
+
+// Exact equality, including NaN payloads, without the pinned libc's scalar
+// word-at-a-time memcmp loop. Never reads beyond either supplied span.
+bool ff_webgl_equal_bytes(const void* left,const void* right,size_t bytes) {
+    const auto* a=static_cast<const uint8_t*>(left);
+    const auto* b=static_cast<const uint8_t*>(right);
+    while(bytes>=64) {
+        auto x=wasm_v128_xor(wasm_v128_load(a),wasm_v128_load(b));
+        x=wasm_v128_or(x,wasm_v128_xor(wasm_v128_load(a+16),wasm_v128_load(b+16)));
+        x=wasm_v128_or(x,wasm_v128_xor(wasm_v128_load(a+32),wasm_v128_load(b+32)));
+        x=wasm_v128_or(x,wasm_v128_xor(wasm_v128_load(a+48),wasm_v128_load(b+48)));
+        if(wasm_v128_any_true(x))return false;
+        a+=64;b+=64;bytes-=64;
+    }
+    while(bytes>=16) {
+        if(wasm_v128_any_true(wasm_v128_xor(wasm_v128_load(a),wasm_v128_load(b))))return false;
+        a+=16;b+=16;bytes-=16;
+    }
+    while(bytes--)if(*a++!=*b++)return false;
+    return true;
+}
 
 namespace {
 struct Target { gpu::TextureDesc desc; uint64_t hash = 0, epoch = 0, checked = ~0ull; std::vector<uint8_t> snapshot; bool cpu_coherent=false; };
@@ -72,7 +95,7 @@ void ResetCommands() {
     last_draw_state=last_pixel_uniforms=last_texture_state=0;
 }
 uint32_t InternLast(const void* source,size_t bytes,uint32_t& previous) {
-    if(previous&&!std::memcmp(reinterpret_cast<const void*>(previous),source,bytes))return previous;
+    if(previous&&ff_webgl_equal_bytes(reinterpret_cast<const void*>(previous),source,bytes))return previous;
     return previous=Own(source,bytes);
 }
 void FlushCommands() {
@@ -137,41 +160,71 @@ bool ff_webgl_gpu_vertex_enabled() {
     static const bool enabled=MAIN_THREAD_EM_ASM_INT({return Module.onFuzionGpu?.gpuVertices?1:0;})!=0;
     return enabled;
 }
-void ff_webgl_fixed_constants(const gpu::State& s,uint32_t width,uint32_t height,float* output) {
+bool ff_webgl_raw_vertices_enabled() {
+    static const bool requested=MAIN_THREAD_EM_ASM_INT({return Module.onFuzionGpu?.rawVertices?1:0;})!=0;
+    return requested&&ff_webgl_enabled()&&ff_webgl_gpu_vertex_enabled();
+}
+float* ff_webgl_fixed_constants(const gpu::State& s,uint32_t width,uint32_t height) {
+    struct Cache {
+        bool valid=false;
+        uint32_t width=0,height=0,ambient=0,types=0;
+        gpu::Viewport viewport;
+        std::array<std::array<float,16>,7> transforms{};
+        std::array<float,17> material{};
+        std::array<std::array<uint32_t,26>,8> lights{};
+        std::array<float,772> values{};
+    };
+    static Cache cache;
+    constexpr size_t transform_slots[]={256,2,3,16,17,18,19};
+    const auto fixed=gpu::MakeFixedKey(s);
+    bool same=cache.valid&&cache.width==width&&cache.height==height&&cache.ambient==s.rs[gpu::kRsAmbient]&&cache.types==fixed.types&&
+        ff_webgl_equal_bytes(&cache.viewport,&s.viewport,sizeof(s.viewport))&&
+        ff_webgl_equal_bytes(cache.material.data(),s.material.data(),sizeof(cache.material))&&
+        ff_webgl_equal_bytes(cache.lights.data(),s.lights.data(),sizeof(cache.lights));
+    if(same)for(size_t i=0;i<7;++i)if(!ff_webgl_equal_bytes(cache.transforms[i].data(),s.transforms[transform_slots[i]].data(),64)){same=false;break;}
+    if(same)return cache.values.data();
     gpu::DrawConstants c{};
     ff_fixed::FillTransformConstants(s,{width,height,0},c);
-    ff_fixed::FillLightConstants(s,gpu::MakeFixedKey(s),c);
-    std::fill(output,output+768,0.f);
+    ff_fixed::FillLightConstants(s,fixed,c);
+    auto* output=cache.values.data();std::fill(output,output+768,0.f);
     std::memcpy(output,c.wvp,16*4);std::memcpy(output+16,c.wv,16*4);std::memcpy(output+32,c.wvn,16*4);
     std::memcpy(output+48,c.tm,64*4);std::memcpy(output+112,c.mat,20*4);std::memcpy(output+132,c.amb,4*4);std::memcpy(output+136,c.lt,224*4);
+    cache.width=width;cache.height=height;cache.ambient=s.rs[gpu::kRsAmbient];cache.types=fixed.types;
+    cache.viewport=s.viewport;cache.material=s.material;cache.lights=s.lights;
+    for(size_t i=0;i<7;++i)cache.transforms[i]=s.transforms[transform_slots[i]];
+    cache.valid=true;return output;
 }
-const char* ff_webgl_fixed_source(const gpu::State& s,uint32_t regs,bool pretransformed) {
+std::string VertexSourceText(std::string text,uint32_t bgra) {
+    if(bgra)text="// ff_browser_bgra_mask="+std::to_string(bgra)+"\n"+text;
+    return text;
+}
+const char* ff_webgl_fixed_source(const gpu::State& s,uint32_t regs,bool pretransformed,uint64_t decode,uint32_t bgra) {
     const auto f=gpu::MakeFixedKey(s);
-    const std::array<uint32_t,8> key={regs,uint32_t(pretransformed),f.light,f.types,f.tex[0],f.tex[1],f.tex[2],f.tex[3]};
-    static std::map<std::array<uint32_t,8>,std::string> sources;
+    const std::array<uint32_t,11> key={regs,uint32_t(pretransformed),f.light,f.types,f.tex[0],f.tex[1],f.tex[2],f.tex[3],uint32_t(decode),uint32_t(decode>>32),bgra};
+    static std::map<std::array<uint32_t,11>,std::string> sources;
     auto found=sources.find(key);
     if(found!=sources.end())return found->second.c_str();
     if(sources.size()>=1024)std::abort();
-    return sources.emplace(key,gpu::FixedVertexHlsl(uint16_t(regs),pretransformed,0,f)).first->second.c_str();
+    return sources.emplace(key,VertexSourceText(gpu::FixedVertexHlsl(uint16_t(regs),pretransformed,decode,f),bgra)).first->second.c_str();
 }
-const char* ff_webgl_vertex_source(const gpu::State& s, uint32_t regs) {
+const char* ff_webgl_vertex_source(const gpu::State& s, uint32_t regs,uint64_t decode,uint32_t bgra) {
     struct OwnedSource {std::vector<uint32_t> words;const char* text=nullptr;};
-    struct Owner {std::shared_ptr<gpu::VertexShader> shader;std::map<uint32_t,OwnedSource> inputs;};
+    struct Owner {std::shared_ptr<gpu::VertexShader> shader;std::map<std::tuple<uint32_t,uint64_t,uint32_t>,OwnedSource> inputs;};
     static std::map<const gpu::VertexShader*,Owner> owners;
     if(owners.size()>=1024&&!owners.count(s.vs.get()))std::abort();
     auto& owner=owners[s.vs.get()];owner.shader=s.vs;
-    auto& known=owner.inputs[regs];
+    auto& known=owner.inputs[{regs,decode,bgra}];
     const auto& words=s.vs->program;
     // Retain the shader owner against address reuse, and compare its program
     // bytes so an in-place edit still invalidates this shortcut.
     if(known.text&&known.words==words)return known.text;
-    struct Source {std::vector<uint32_t> words;uint32_t regs;std::string text;};
+    struct Source {std::vector<uint32_t> words;uint32_t regs;uint64_t decode;uint32_t bgra;std::string text;};
     static std::map<uint64_t,std::vector<Source>> cache;
-    auto hash=gpu::Hash(words.data(),words.size()*4)^uint64_t(regs);
+    auto hash=gpu::Hash(words.data(),words.size()*4)^uint64_t(regs)^decode^(uint64_t(bgra)<<32);
     auto& bucket=cache[hash];
-    for(auto& source:bucket)if(source.regs==regs&&source.words==words){known={words,source.text.c_str()};return known.text;}
+    for(auto& source:bucket)if(source.regs==regs&&source.decode==decode&&source.bgra==bgra&&source.words==words){known={words,source.text.c_str()};return known.text;}
     if(cache.size()>1024)std::abort();
-    bucket.push_back({words,regs,gpu::VertexProgramHlsl(words,uint16_t(regs))});
+    bucket.push_back({words,regs,decode,bgra,VertexSourceText(gpu::VertexProgramHlsl(words,uint16_t(regs),decode),bgra)});
     known={words,bucket.back().text.c_str()};return known.text;
 }
 const uint32_t* ff_webgl_palette(uint32_t header, uint64_t& hash) {
@@ -213,7 +266,7 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         // Exact CPU-byte comparison replaces a costly 64-bit hash. A dirty
         // mark still forces upload when GPU writes made the CPU copy stale.
         upload |= (!target.cpu_coherent&&target.epoch!=epoch) || target.snapshot.size()!=size ||
-                  std::memcmp(target.snapshot.data(),guest,size)!=0;
+                  !ff_webgl_equal_bytes(target.snapshot.data(),guest,size);
         target.checked=frame;target.epoch=epoch;
     }
     target.desc = d;
@@ -227,14 +280,14 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         commands.push_back({0,Key(d.data),d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
     }
 }
-bool ff_webgl_draw(const void* v, uint32_t count, uint32_t stride, const void* indices, uint32_t n,
-                   const uint32_t* state, const float* uniforms, const char* shader, const uint32_t* textures) {
+static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const void* indices, uint32_t n,
+                   const uint32_t* state, const float* uniforms, const char* shader, const uint32_t* textures,const uint32_t* layout) {
     uint32_t tx[4*14];std::memcpy(tx,textures,sizeof(tx));
     uint32_t states[40];std::memcpy(states,state,sizeof(states));
     states[0]=state[0]?Key(state[0]):0;states[1]=state[1]?Key(state[1]):0;
     if(states[37]) {
         const auto* constants=reinterpret_cast<const void*>(states[38]);
-        if(!last_vertex_constants||std::memcmp(reinterpret_cast<const void*>(last_vertex_constants),constants,772*4))
+        if(!last_vertex_constants||!ff_webgl_equal_bytes(reinterpret_cast<const void*>(last_vertex_constants),constants,772*4))
             last_vertex_constants=Own(constants,772*4);
         states[38]=last_vertex_constants;
     }
@@ -261,12 +314,22 @@ bool ff_webgl_draw(const void* v, uint32_t count, uint32_t stride, const void* i
             q[6]=copy;q[11]=uint32_t(hash);q[12]=uint32_t(hash>>32);
         } else {q[6]=found->second[0];q[11]=found->second[1];q[12]=found->second[2];}
     }
-    commands.push_back({1,Own(v,size_t(count)*stride),count,stride,Own(indices,size_t(n)*4),n,
+    if(!count||count>1024u*1024||n>16u*1024*1024)std::abort();
+    commands.push_back({layout?3u:1u,Own(v,size_t(count)*stride),count,stride,Own(indices,size_t(n)*4),n,
         InternLast(states,sizeof(states),last_draw_state),InternLast(uniforms,152*4,last_pixel_uniforms),
-        uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state)});
+        uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state),layout?Own(layout,16*4):0});
     if(states[0])targets.at(states[0]).cpu_coherent=false;
     if(states[1])targets.at(states[1]).cpu_coherent=false;
     return true;
+}
+bool ff_webgl_draw(const void* v,uint32_t count,uint32_t stride,const void* indices,uint32_t n,
+                  const uint32_t* state,const float* uniforms,const char* shader,const uint32_t* textures) {
+    return SubmitDraw(v,count,stride,indices,n,state,uniforms,shader,textures,nullptr);
+}
+bool ff_webgl_draw_raw(const void* v,uint32_t count,uint32_t stride,const void* indices,uint32_t n,
+                      const uint32_t* state,const float* uniforms,const char* shader,const uint32_t* textures,const uint32_t* layout) {
+    if(!layout||!stride||stride>252||stride%4)std::abort();
+    return SubmitDraw(v,count,stride,indices,n,state,uniforms,shader,textures,layout);
 }
 void ff_webgl_clear(const gpu::State& s, uint32_t n, const uint8_t* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil) {
     uint32_t color_id=0,depth_id=0;gpu::TextureDesc d;

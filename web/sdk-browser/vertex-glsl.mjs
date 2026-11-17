@@ -15,6 +15,116 @@ function block(source, signature) {
   fail("unterminated generated function");
 }
 
+function mainInfo(source) {
+  const re = /VOut\s+main\s*\(\s*(VIn|VRaw)\s+([A-Za-z_]\w*)\s*\)\s*\{/g;
+  const match = re.exec(source);
+  if (!match) fail("expected generated VIn or VRaw main signature");
+  const signature = `VOut\\s+main\\s*\\(\\s*${match[1]}\\s+${match[2]}\\s*\\)\\s*\\{`;
+  return { kind: match[1], arg: match[2], body: block(source, signature) };
+}
+
+function bgraMask(source) {
+  const marker = /^\/\/ ff_browser_bgra_mask=([^\r\n]*)\r?\n?/;
+  const match = marker.exec(source);
+  if (!match) return { source, mask: 0 };
+  if (!/^\d+$/.test(match[1])) fail("invalid BGRA input mask marker");
+  const mask = Number(match[1]);
+  if (!Number.isInteger(mask) || mask < 0 || mask > 0xffff) fail("BGRA input mask exceeds 16 bits");
+  return { source: source.slice(match[0].length), mask };
+}
+
+function inputFields(source, structName, semanticRequired) {
+  const re = new RegExp(`\\bstruct\\s+${structName}\\s*\\{([\\s\\S]*?)\\};`);
+  const match = re.exec(source);
+  if (!match) fail(`missing generated ${structName} input structure`);
+  const fields = [];
+  for (const statement of match[1].split(";").map((part) => part.trim()).filter(Boolean)) {
+    const field = /^(float4|int4|uint)\s+v(\d+)(?:\s*:\s*ATTR(\d+))?$/.exec(statement);
+    if (!field) fail(`unsupported ${structName} field ${statement}`);
+    const reg = Number(field[2]);
+    const location = field[3] === undefined ? undefined : Number(field[3]);
+    if (reg > 15 || (semanticRequired && location !== reg) || (!semanticRequired && location !== undefined))
+      fail(`unexpected ${structName} attribute semantic for v${reg}`);
+    if (fields.some((item) => item.reg === reg)) fail(`duplicate ${structName} input v${reg}`);
+    fields.push({ reg, type: field[1], location });
+  }
+  if (!fields.length) fail(`empty ${structName} input structure`);
+  return fields;
+}
+
+function lowerUnpackNp3(source) {
+  const raw = block(source, "float4\\s+UnpackNp3\\s*\\(\\s*uint\\s+u\\s*\\)\\s*\\{");
+  let code = raw
+    .replace(/\bfloat([234])\b/g, "vec$1")
+    .replace(/\bint([234])\b/g, "ivec$1");
+  code = lowerCasts(code);
+  code = decimalizeFloatLiterals(code);
+  code = code.replace(/,\s*-1\)/g, ", -1.0)");
+  if (/\b(?:float[234]|int[234]|UnpackNp3)\b/.test(code)) fail("unsupported UnpackNp3 helper syntax");
+  return `vec4 UnpackNp3(uint u) {${code}}`;
+}
+
+function prepareInputs(source, kind, arg, bgra) {
+  const bodyStart = source.indexOf("VOut main");
+  if (bodyStart < 0) fail("missing generated vertex main");
+  const main = mainInfo(source);
+  if (main.kind !== kind || main.arg !== arg) fail("vertex main signature changed during input parsing");
+  let body = main.body;
+  if (kind === "VIn") {
+    const fields = inputFields(source, "VIn", true);
+    if (fields.some((field) => field.type !== "float4")) fail("decode-none VIn attributes must be float4");
+    const fieldMask = fields.reduce((mask, field) => mask | (1 << field.reg), 0);
+    if (bgra & ~fieldMask) fail("BGRA mask names an absent VIn input");
+    const attributes = Array.from({ length: 16 }, (_, reg) =>
+      `layout(location=${reg}) in vec4 ${(bgra & (1 << reg)) ? `aRaw${reg}` : `aV${reg}`};`).join("\n");
+    const locals = fields.filter((field) => bgra & (1 << field.reg))
+      .map((field) => `vec4 aV${field.reg} = aRaw${field.reg}.zyxw;`).join("\n");
+    return { body: locals ? `${locals}\n${body}` : body, attributes, decoder: "" };
+  }
+
+  const rawFields = inputFields(source, "VRaw", true);
+  const localFields = inputFields(source, "VIn", false);
+  const rawMask = rawFields.reduce((mask, field) => mask | (1 << field.reg), 0);
+  const localMask = localFields.reduce((mask, field) => mask | (1 << field.reg), 0);
+  if (localMask !== rawMask) fail("VRaw and VIn register masks differ");
+  if (bgra & ~rawMask) fail("BGRA mask names an absent VRaw input");
+  const attrs = rawFields.map(({ reg, type }) => {
+    const glType = type === "float4" ? "vec4" : type === "int4" ? "ivec4" : "uint";
+    return `layout(location=${reg}) in ${glType} aRaw${reg};`;
+  }).join("\n");
+  const declarations = localFields.map(({ reg }) => `vec4 aV${reg};`).join("\n");
+  body = body.replace(new RegExp(`\\b${arg}\\.v(\\d+)`, "g"), "ri.v$1");
+  body = body.replace(/\bVIn\s+i\s*;/, "");
+  const assignments = new Map();
+  body = body.replace(/^\s*i\.v(\d+)\s*=\s*([^;]+);\s*$/gm, (_line, rawReg, expression) => {
+    const reg = Number(rawReg);
+    if (!localFields.some((field) => field.reg === reg) || assignments.has(reg)) fail(`unexpected decoded input assignment v${reg}`);
+    let rhs = expression.replace(/\bri\.v(\d+)\b/g, (_m, n) => {
+      const inputReg = Number(n);
+      const field = rawFields.find((item) => item.reg === inputReg);
+      if (!field) fail(`decoder reads absent raw input v${inputReg}`);
+      const flagged = !!(bgra & (1 << inputReg));
+      if (flagged && (field.type !== "float4" || !/^ri\.v\d+$/.test(expression.trim())))
+        fail(`BGRA decoder v${inputReg} is not a raw float4 copy`);
+      return `aRaw${inputReg}${flagged ? ".zyxw" : ""}`;
+    });
+    if (bgra & (1 << reg)) {
+      const field = rawFields.find((item) => item.reg === reg);
+      if (!field || field.type !== "float4" || expression.trim() !== `ri.v${reg}`)
+        fail(`BGRA input v${reg} does not use SDK decodeNone`);
+    }
+    assignments.set(reg, true);
+    return `aV${reg} = ${rhs};`;
+  });
+  if (assignments.size !== localFields.length || localFields.some((field) => !assignments.has(field.reg)))
+    fail("SDK VRaw decoder assignments do not cover VIn fields");
+  body = `${declarations}\n${body}`.replace(/\bi\.v(\d+)\b/g, "aV$1");
+  if (/\bri\.v\d+\b|\bVIn\s+i\b/.test(body)) fail("unlowered SDK vertex input wrapper");
+  const packed = rawFields.some((field) => field.type === "uint");
+  const helper = packed ? lowerUnpackNp3(source) : "";
+  return { body, attributes: attrs, decoder: helper };
+}
+
 function balancedEnd(code, start) {
   if (code[start] === "(") {
     let depth = 1;
@@ -210,7 +320,7 @@ function lowerBody(body) {
     .replace(/\breturn\s+o\s*;/g, "return;");
   code = lowerMatrixMultiplies(code);
   if (/\b(?:mul|transpose|mad|rsqrt)\b/.test(code)) fail("unlowered HLSL construct");
-  const known = new Set(["if", "float", "vec2", "vec3", "vec4", "int", "ivec2", "ivec3", "ivec4", "uint", "dot", "min", "max", "abs", "clamp", "floor", "exp", "exp2", "log2", "sqrt", "inversesqrt", "normalize", "length", "any", "equal", "mix", "uintBitsToFloat", "sat", "mac_mul", "mac_arl", "magclamp", "ilu_rcp", "ilu_rcc", "ilu_rsq", "ilu_exp", "ilu_log", "ilu_lit", "fogfactor"]);
+  const known = new Set(["if", "float", "vec2", "vec3", "vec4", "int", "ivec2", "ivec3", "ivec4", "uint", "dot", "min", "max", "abs", "clamp", "floor", "exp", "exp2", "log2", "sqrt", "inversesqrt", "normalize", "length", "any", "equal", "mix", "uintBitsToFloat", "UnpackNp3", "sat", "mac_mul", "mac_arl", "magclamp", "ilu_rcp", "ilu_rcc", "ilu_rsq", "ilu_exp", "ilu_log", "ilu_lit", "fogfactor"]);
   known.add('if');
   known.add('pow');known.add('reflect');
   for (const [, name] of code.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) if (!known.has(name)) fail(`unknown helper ${name}`);
@@ -230,8 +340,10 @@ function lowerBody(body) {
 function lowerHelpers(hlsl) {
   // Preserve the SDK's helper formulas by extracting them from the supplied generator output.
   const start = hlsl.indexOf("float4 mac_mul(");
-  const end = hlsl.indexOf("struct VIn", start);
-  if (start < 0 || end < 0) fail("missing pinned SDK vertex helper block");
+  const rawStruct = hlsl.indexOf("struct VRaw", start);
+  const inStruct = hlsl.indexOf("struct VIn", start);
+  const end = [rawStruct, inStruct].filter((index) => index >= 0).reduce((a, b) => Math.min(a, b), hlsl.length);
+  if (start < 0 || (rawStruct < 0 && inStruct < 0)) fail("missing pinned SDK vertex helper block");
   let helpers = hlsl.slice(start, end);
   helpers = helpers
     .replace(/\bfloat([234])\b/g, "vec$1")
@@ -264,15 +376,17 @@ function lowerHelpers(hlsl) {
 export function vertexGlsl(hlsl, regs, flat = false) {
   if (typeof hlsl !== "string" || !Number.isInteger(regs) || regs < 0 || regs > 0xffff || typeof flat !== "boolean")
     throw new TypeError("vertexGlsl expects generated HLSL, a 16-bit register mask, and optional flat flag");
-  const body = block(hlsl, "VOut\\s+main\\s*\\(\\s*VIn\\s+i\\s*\\)\\s*\\{");
-  // The register mask describes supplied attributes. Unused supplied inputs are valid; absent reads already use SDK defaults.
-  let lowered = lowerBody(body)
+  const marked = bgraMask(hlsl);
+  hlsl = marked.source;
+  const info = mainInfo(hlsl);
+  const prepared = prepareInputs(hlsl, info.kind, info.arg, marked.mask);
+  let lowered = lowerBody(prepared.body)
     .replace(/q\.x\s*=\s*p\.x\s*\*\s*2(?:\.0)?\s*\/\s*surf\.x(?:\s*-\s*1(?:\.0)?)?\s*;/, "q.x = p.x * 2.0 / surf.x - 1.0;")
     .replace(/q\.y\s*=\s*1(?:\.0)?\s*-\s*p\.y\s*\*\s*2(?:\.0)?\s*\/\s*surf\.y\s*;/, "q.y = p.y * 2.0 / surf.y - 1.0;")
     .replace(/q\.z\s*=\s*p\.z\s*\*\s*surf\.z\s*;/, "q.z = p.z * surf.z * 2.0 - 1.0;");
   lowered = lowered.replace(/gl_Position\s*=\s*cp\s*;/, "gl_Position = vec4(cp.x, -cp.y, 2.0 * cp.z - cp.w, cp.w);");
   if (/q\.y\s*=|q\.z\s*=/.test(lowered) && (!/q\.y\s*=\s*p\.y\s*\*\s*2\.0\s*\/\s*surf\.y\s*-\s*1\.0/.test(lowered) || !/q\.z\s*=\s*p\.z\s*\*\s*surf\.z\s*\*\s*2\.0\s*-\s*1\.0/.test(lowered))) fail("unexpected SDK clip-space epilogue");
-  const attrs = Array.from({ length: 16 }, (_, i) => `layout(location=${i}) in vec4 aV${i};`).join("\n");
+  const attrs = prepared.attributes;
   const quals = flat ? "flat " : "";
   const varyings = outputs.map((name) => `${["vD0", "vD1", "vB0", "vB1"].includes(name) ? quals : ""}out vec4 ${name};`).join("\n");
   const helper = lowerHelpers(hlsl);
@@ -294,5 +408,6 @@ float sat(float x) { return clamp(x, 0.0, 1.0); }
 vec2 sat(vec2 x) { return clamp(x, 0.0, 1.0); }
 vec3 sat(vec3 x) { return clamp(x, 0.0, 1.0); }
 ${helper}
+${prepared.decoder}
 void main() {\n${lowered}\n}\n`;
 }

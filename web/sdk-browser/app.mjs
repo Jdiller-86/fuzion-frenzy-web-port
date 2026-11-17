@@ -13,8 +13,10 @@ let audioContext;
 let audioCursor = 0;
 let hasFrame = false;
 function showFrame() {
-  status.textContent = 'Rendering original game frames.';
   if (!hasFrame) {
+    status.textContent = 'Rendering original game frames.';
+    runButton.textContent = 'Game running';
+    window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy:false}}));
     hasFrame = true;
     window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:true}}));
     canvas.focus({preventScroll:true});
@@ -24,6 +26,10 @@ function showFrame() {
 function setBusy(busy) {
   runButton.disabled = busy;
   stopButton.disabled = !busy;
+  isoPicker.disabled = busy;
+  document.querySelector('#renderer').disabled = busy;
+  runButton.textContent = busy ? 'Starting…' : 'Start game';
+  window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy}}));
 }
 function stop() {
   hasFrame = false;
@@ -148,7 +154,7 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
-  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1', threadedGpu: new URLSearchParams(location.search).get('threadedGpu') !== '0', pipelinedGpu: new URLSearchParams(location.search).get('pipelinedGpu') !== '0' }, offscreen ? [offscreen] : []);
+  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1', threadedGpu: new URLSearchParams(location.search).get('threadedGpu') !== '0', pipelinedGpu: new URLSearchParams(location.search).get('pipelinedGpu') !== '0', rawVertices: new URLSearchParams(location.search).get('rawVertices') !== '0', precisePacing: new URLSearchParams(location.search).has('precisePacing') ? new URLSearchParams(location.search).get('precisePacing') === '1' : /Windows/.test(navigator.userAgent) }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
     const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
     current.postMessage({ type: 'input', keys: document.activeElement === canvas ? [...heldKeys] : [], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });

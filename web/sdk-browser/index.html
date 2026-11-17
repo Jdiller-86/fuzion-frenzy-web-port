@@ -20,6 +20,10 @@
     p{margin:.7rem 0}.eyebrow,.muted{color:#afbed2;font-size:.92rem}.eyebrow{letter-spacing:.12em;font-weight:700}
     label{display:block;margin:20px 0;font-weight:650}input,select{display:block;margin-top:8px;max-width:100%;font:inherit;color:inherit;background:#080d15;border:1px solid #73849a;border-radius:6px;padding:.55rem}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.primary{background:#126b5b;border-color:#66c8b3}
+    .loading-line{height:3px;overflow:hidden;border-radius:2px;background:#34445c;margin:18px 0 10px;visibility:hidden}
+    .loading-line::after{content:"";display:block;height:100%;width:35%;background:#72e6cb;animation:loading 1.3s ease-in-out infinite alternate}
+    body.is-loading .loading-line{visibility:visible}
+    @keyframes loading{to{transform:translateX(185%)}}
     body.is-running .launch{opacity:0;visibility:hidden;pointer-events:none}
     body.is-running.show-launch .launch{opacity:1;visibility:visible;pointer-events:auto}
     .toolbar{position:fixed;z-index:4;top:12px;right:12px;display:flex;gap:8px;align-items:center;padding:8px;background:#080d15d9;border:1px solid #44536a;border-radius:10px;opacity:.14;transform:translateY(-3px);transition:opacity .18s ease,transform .18s ease}
@@ -31,7 +35,7 @@
     #log{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem}
     #performance{margin:0;color:#c6d3e2;font-size:.78rem;max-width:50vw;overflow-wrap:anywhere}
     @media(max-width:600px){.stage{min-height:240px}.toolbar{top:8px;right:8px;gap:5px;padding:6px}.toolbar button{padding:.45rem .6rem}.details{left:8px;bottom:8px;max-width:calc(100vw - 16px)}.launch{padding:14px}.launch-inner{margin:2vh auto}}
-    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
   </style>
 </head>
 <body>
@@ -44,14 +48,19 @@
       <label>Select your local Fuzion Frenzy disc image
         <input id="iso" type="file" accept=".iso,.xiso,application/octet-stream">
       </label>
+      <details><summary>Compatibility options</summary>
       <label>Renderer
         <select id="renderer">
           <option value="webgl" selected>GPU (WebGL2)</option>
-          <option value="software">Software reference</option>
+          <option value="software">Software (diagnostic)</option>
         </select>
       </label>
+      <p class="muted">GPU rendering is recommended for playing. Software rendering is a much slower diagnostic fallback.</p>
+      </details>
       <p class="muted">Keyboard: WASD moves, arrows use the D-pad, Enter is Start, Space is A, Escape is B, X/Y are X/Y, Z/C are triggers. A standard connected gamepad is also read locally.</p>
       <div class="row"><button class="primary" id="run">Start game</button><button id="stop" disabled>Stop game</button></div>
+      <div class="loading-line" aria-hidden="true"></div>
+      <p id="launch-status" class="muted" role="status" aria-live="polite">Your game runs on this device.</p>
       <p id="error" role="alert"></p>
     </div>
   </section>

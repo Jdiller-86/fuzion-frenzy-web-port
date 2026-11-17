@@ -10,7 +10,14 @@ const gameScreen = () => document.querySelector('#screen');
 const displayFeedback = document.querySelector('#display-feedback');
 const launch = document.querySelector('#launch-card');
 const details = document.querySelector('#run-details');
+const launchStatus = document.querySelector('#launch-status');
 let wasRunning = false;
+new MutationObserver(() => {
+  launchStatus.textContent = status.textContent;
+}).observe(status,{childList:true,characterData:true,subtree:true});
+window.addEventListener('fuzion-busy',event => {
+  document.body.classList.toggle('is-loading',event.detail?.busy===true);
+});
 
 function updateFullscreenLabel() {
   fullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen';

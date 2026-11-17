@@ -47,17 +47,45 @@ function onFrame(ptr, width, height, pitch, format) {
 }
 let metricStart = 0, metricFrames = 0, metricDraw = 0, metricClear = 0, metricCopy = 0, metricCalls = 0;
 let metricPrevious = 0, metricIntervals = [];
-function onMetrics(drawMs, clearMs, copyMs, drawCalls) {
+let completionPreviousMs = null, completionPreviousSequence = null, completionIntervals = [];
+let blankStartCount=null,blankStartMs=null;
+function intervalSummary(intervals) {
+  if (!intervals.length) return null;
+  const ordered = intervals.slice().sort((a, b) => a - b);
+  const percentile = p => ordered[Math.min(ordered.length - 1, Math.floor((ordered.length - 1) * p))];
+  return { p50: percentile(.5), p95: percentile(.95), p99: percentile(.99), max: ordered.at(-1), samples: ordered.length };
+}
+function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequence, blankCount) {
   if (cancelled || ![drawMs, clearMs, copyMs, drawCalls].every(v => Number.isFinite(v) && v >= 0)) return;
   const now = performance.now();
+  // These timestamps are captured at BrowserBackend::EndFrame after Present
+  // returns. Count only adjacent, strictly monotonic consumer sequences.
+  const validBlank=Number.isInteger(blankCount)&&blankCount>=0&&blankCount<=0xffffffff&&Number.isFinite(completionMs);
+  if(validBlank&&blankStartCount===null){blankStartCount=blankCount;blankStartMs=completionMs;}
+  if (Number.isFinite(completionMs) && completionMs >= 0 && Number.isSafeInteger(frameSequence) && frameSequence > 0) {
+    if (completionPreviousMs !== null && completionPreviousSequence !== null &&
+        completionMs > completionPreviousMs && frameSequence > completionPreviousSequence) {
+      if (frameSequence === completionPreviousSequence + 1) completionIntervals.push(completionMs - completionPreviousMs);
+      completionPreviousMs = completionMs;
+      completionPreviousSequence = frameSequence;
+    } else {
+      completionPreviousMs = completionMs;
+      completionPreviousSequence = frameSequence;
+    }
+  } else {
+    completionPreviousMs = completionPreviousSequence = null;
+  }
   if (!metricStart) { metricStart = metricPrevious = now; return; }
-  metricIntervals.push(now-metricPrevious);metricPrevious=now;
+  if (now > metricPrevious) metricIntervals.push(now-metricPrevious);
+  metricPrevious=now;
   metricFrames++;
   metricDraw += drawMs; metricClear += clearMs; metricCopy += copyMs; metricCalls += drawCalls;
   const elapsed = now - metricStart;
   if (elapsed < 1000) return;
-  const ordered=metricIntervals.slice().sort((a,b)=>a-b);
-  const percentile=p=>ordered[Math.min(ordered.length-1,Math.floor((ordered.length-1)*p))];
+  const metricsCallbackIntervalMs = intervalSummary(metricIntervals);
+  const prepareCompletionIntervalMs = intervalSummary(completionIntervals);
+  const vblankHz=validBlank&&blankStartCount!==null&&completionMs>blankStartMs?
+    ((blankCount-blankStartCount)>>>0)*1000/(completionMs-blankStartMs):null;
   postMessage({type: 'performance', fps: metricFrames * 1000 / elapsed,
     drawMs: metricDraw / metricFrames, clearMs: metricClear / metricFrames,
     copyMs: metricCopy / metricFrames, drawCalls: metricCalls / metricFrames,
@@ -66,9 +94,13 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls) {
     vertexPrograms: moduleInstance?.onFuzionGpu?.vertexPrograms?.size ?? 0,
     pipeline:moduleInstance?.onFuzionGpu?.pipelined===true,
     geometry: moduleInstance?.onFuzionGpu?.lastFrameStats,
-    frameMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:ordered.at(-1),samples:ordered.length}});
+    metricsCallbackIntervalMs,
+    frameMs: metricsCallbackIntervalMs,
+    prepareCompletionIntervalMs,vblankHz});
+  // The SDK virtual-blank counter is independent of rendered/presented frames.
   metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
-  metricIntervals=[];
+  metricIntervals=[];completionIntervals=[];
+  blankStartCount=validBlank?blankCount:null;blankStartMs=validBlank?completionMs:null;
 }
 function onAudio(ptr, frames, rate) {
   if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
@@ -97,7 +129,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu) {
+async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -141,6 +173,8 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu)
     module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices);
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
+    module.onFuzionGpu.rawVertices=rawVertices===true;
+    module.onFuzionGpu.precisePacing=precisePacing===true;
     postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});
   }
   if (cancelled) { stopThreads(module); return; }
@@ -172,7 +206,7 @@ onmessage = async ({ data }) => {
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu); }
+  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });

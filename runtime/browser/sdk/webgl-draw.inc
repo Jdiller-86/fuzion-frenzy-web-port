@@ -14,13 +14,14 @@ if (ff_webgl_enabled()) {
         mat.key.flat, s.rs[kRsZBias], simple(kMSolidOffsetEnable), simple(kMSlopeScale), simple(kMDepthOffset),
         uint32_t(reinterpret_cast<uintptr_t>(bridge_vertex_shader)),0,bridge_registers|(bridge_vertex_shader&&!program?0x10000u:0u)
     };
-    float vertex_constants[772];
+    float program_constants[772];
+    float* vertex_constants=program_constants;
     if(bridge_vertex_shader) {
         if(program)std::memcpy(vertex_constants,s.vsc.data(),768*4);
         // The SDK pretransformed generator reads vertex colors/UVs directly;
         // it never reads transform, material or light constants.
-        else if(as.pretransformed)std::fill(vertex_constants,vertex_constants+768,0.f);
-        else ff_webgl_fixed_constants(s,gw,gh,vertex_constants);
+        else if(as.pretransformed) {static float unused_constants[772]={};vertex_constants=unused_constants;}
+        else vertex_constants=ff_webgl_fixed_constants(s,gw,gh);
         auto* fog=vertex_constants+768;std::fill(fog,fog+4,0.f);
         if(s.rs[kRsFogEnable]) {
             if(program&&!s.rs[kRsFogTableMode]) {fog[0]=1;fog[3]=3;}
@@ -63,20 +64,27 @@ if (ff_webgl_enabled()) {
     static std::map<uint64_t,std::vector<std::pair<PixelKey,std::string>>> shader_text;
     // This hash chooses a bucket only; full PixelKey equality below remains
     // authoritative. Keep the frequent lookup in native 32-bit arithmetic.
-    uint32_t pixel_hash=2166136261u;
-    const auto* key_bytes=reinterpret_cast<const uint8_t*>(&mat.key);
-    for(size_t j=0;j<sizeof(mat.key);++j)pixel_hash=(pixel_hash^key_bytes[j])*16777619u;
-    auto& bucket = shader_text[pixel_hash];
-    const char* source = nullptr;
-    for(auto& entry:bucket) if(entry.first==mat.key) {source=entry.second.c_str();break;}
+    static PixelKey previous_pixel_key;
+    static const char* previous_pixel_source=nullptr;
+    const char* source=previous_pixel_source&&ff_webgl_equal_bytes(&previous_pixel_key,&mat.key,sizeof(mat.key))?previous_pixel_source:nullptr;
     if(!source) {
-        if(shader_text.size()>2048) std::abort();
-        bucket.emplace_back(mat.key,PixelHlsl(mat.key));source=bucket.back().second.c_str();
+        uint32_t pixel_hash=2166136261u;
+        const auto* key_bytes=reinterpret_cast<const uint8_t*>(&mat.key);
+        for(size_t j=0;j<sizeof(mat.key);++j)pixel_hash=(pixel_hash^key_bytes[j])*16777619u;
+        auto& bucket=shader_text[pixel_hash];
+        for(auto& entry:bucket)if(ff_webgl_equal_bytes(&entry.first,&mat.key,sizeof(mat.key))){source=entry.second.c_str();break;}
+        if(!source) {
+            if(shader_text.size()>2048)std::abort();
+            bucket.emplace_back(mat.key,PixelHlsl(mat.key));source=bucket.back().second.c_str();
+        }
+        std::memcpy(&previous_pixel_key,&mat.key,sizeof(mat.key));previous_pixel_source=source;
     }
     ff_webgl_target(s.rt, false);
     if (zs.ok) ff_webgl_target(s.zs, true);
-    if (ff_webgl_draw(bridge_vertices, bridge_count, bridge_stride, as.indices.data(),
-                      uint32_t(as.indices.size()), states, uniforms, source, textures)) return;
+    const bool submitted=bridge_layout?
+        ff_webgl_draw_raw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures,bridge_layout):
+        ff_webgl_draw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures);
+    if(submitted)return;
     // A rejected shader/state is a visible stop, never an omitted draw.
     std::abort();
 }

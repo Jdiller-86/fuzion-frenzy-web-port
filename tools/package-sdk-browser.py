@@ -56,12 +56,16 @@ Controls: Enter Start, Space A, Escape B, X/Y face buttons, WASD left stick,
 arrows D-pad, Z/C triggers. Standard gamepads are supported on the first seat.
 Save files stay in this browser's local storage; use Stop game to flush saves.
 
-GPU (WebGL2) is the default renderer; Software reference is selectable before
+GPU (WebGL2) is the default renderer; the slower Software diagnostic is under
+Compatibility options before
 starting. Programmable and fixed-function vertices, lighting, triangles and pixel
 combiners execute on the browser GPU; vertex assembly and texture decoding remain
-on the CPU. Native WebAssembly exceptions, threaded render preparation and
-pipelined submission are enabled in this build. Development fallbacks:
+on the CPU. Checked compact native vertex streams avoid CPU expansion where
+admitted. Native WebAssembly exceptions, SIMD/key/constant reuse, threaded
+preparation and pipelined submission are enabled. Windows uses browser-timer
+pacing; it remains best-effort. Development fallbacks:
 ?threadedGpu=0&pipelinedGpu=0 (serial), ?pipelinedGpu=0 (synchronous submit).
+?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window
 at its original aspect ratio. Controls opens fullscreen and Stop game actions.

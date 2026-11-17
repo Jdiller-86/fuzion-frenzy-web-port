@@ -3,8 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <cstdlib>
+#include <cmath>
+#include <limits>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -34,6 +38,86 @@ extern "C" int pthread_setname_np(pthread_t thread, const char* name) {
     return 0;
 }
 #endif
+
+extern "C" bool ff_browser_precise_pacing_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.precisePacing === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+static std::atomic<uint32_t> browser_vblank_ticks{0};
+extern "C" void ff_browser_observe_vblank() {
+    browser_vblank_ticks.fetch_add(1,std::memory_order_relaxed);
+}
+
+extern "C" void ff_browser_sleep_for(double milliseconds) {
+    if (!std::isfinite(milliseconds) || milliseconds <= 0.0) return;
+    milliseconds = std::min(milliseconds, 1000.0);
+#ifdef __EMSCRIPTEN__
+    if (ff_browser_precise_pacing_enabled() && !emscripten_is_main_runtime_thread()) {
+        const double deadline = emscripten_get_now() + milliseconds;
+        if (!std::isfinite(deadline)) std::abort();
+        std::atomic<uint32_t> ready{0};
+        static_assert(sizeof(ready) == sizeof(uint32_t));
+        int previous_cancel_state = PTHREAD_CANCEL_ENABLE;
+        if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_cancel_state) != 0) std::abort();
+        MAIN_THREAD_ASYNC_EM_ASM({
+            const address = $0 >>> 2;
+            const deadline = $1;
+            let completed = false;
+            let watchdog = null;
+            const signal = value => {
+                const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
+                const heap = new Int32Array(memory);
+                Atomics.store(heap, address, value);
+                Atomics.notify(heap, address, 1);
+                completed = true;
+                if (watchdog !== null) clearTimeout(watchdog);
+            };
+            const fail = error => {
+                if (completed) return;
+                try { signal(2); } catch {}
+                postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
+            };
+            const arm = () => {
+                if (completed) return;
+                try {
+                    const now = performance.timeOrigin + performance.now();
+                    if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
+                    const remaining = deadline - now;
+                    if (remaining > 0) {
+                        setTimeout(arm, remaining);
+                    } else {
+                        signal(1);
+                    }
+                } catch (error) {
+                    fail(error);
+                }
+            };
+            try {
+                watchdog = setTimeout(() => fail(new Error('Timer acknowledgement exceeded 5 seconds')), 5000);
+                arm();
+            } catch (error) {
+                fail(error);
+            }
+        }, &ready, deadline);
+        while (ready.load(std::memory_order_acquire) == 0) {
+            const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
+            if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
+        }
+        const int result = ready.load(std::memory_order_acquire);
+        if (result != 1u) std::abort();
+        if (pthread_setcancelstate(previous_cancel_state, nullptr) != 0) std::abort();
+        return;
+    }
+#endif
+    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(milliseconds));
+}
 
 namespace {
 struct PadState {
@@ -118,12 +202,16 @@ public:
     void EndFrame() {
         ff_webgl_advance_frame();
 #ifdef __EMSCRIPTEN__
+        // This is backend-consumer completion time, after Present/QueuePresent;
+        // it is not the title thread's frame-start or physical display time.
+        const double completion_ms = emscripten_get_now();
+        const double frame_sequence = static_cast<double>(frames_ + 1);
         if(ff_webgl_enabled()&&ff_webgl_pipelined()) {
-            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3); },
-                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_));
+            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
+                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
         } else {
-            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3); },
-                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_));
+            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
+                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
         }
 #endif
         ++frames_;
@@ -233,7 +321,11 @@ void Pace() {
     const auto period = std::chrono::nanoseconds(1000000000ull / cap);
     next += period;
     if (next < now - period) next = now;
-    std::this_thread::sleep_until(next);
+    if (ff_browser_precise_pacing_enabled()) {
+        ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count());
+    } else {
+        std::this_thread::sleep_until(next);
+    }
 }
 } // namespace app
 

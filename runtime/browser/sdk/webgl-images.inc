@@ -90,7 +90,7 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
     const uint64_t epoch = gpu::DirtyEpoch(d.data), frame = ff_webgl_frame();
     bool changed = it == g_browser_images.end();
     if (!changed && (it->second.checked_frame != frame || it->second.epoch != epoch))
-        changed = it->second.encoded.size() != bytes || std::memcmp(it->second.encoded.data(), guest, bytes) != 0;
+        changed = it->second.encoded.size() != bytes || !ff_webgl_equal_bytes(it->second.encoded.data(), guest, bytes);
 
     if (changed) {
         g_images.clear(); // FindImage's per-frame key is intentionally not the persistent cache key.

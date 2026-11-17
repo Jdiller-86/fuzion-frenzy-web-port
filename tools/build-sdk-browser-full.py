@@ -82,10 +82,19 @@ def main() -> int:
     if reference_text.count(anchor) != 1:
         raise RuntimeError('Reference renderer vertex bridge anchor differs from retained source')
     bridge_hash = digest(ROOT / 'runtime/browser/sdk/webgl-draw.inc') + digest(ROOT / 'runtime/browser/sdk/webgl-images.inc')
-    raw_vertex = '''    if(ff_webgl_enabled() && ff_webgl_gpu_vertex_enabled() && !as.vertices.empty()) {
-        const void* bridge_vertices=as.vertices.data();
-        uint32_t bridge_count=as.vertex_count,bridge_stride=uint32_t(regs)*16,bridge_registers=as.regs;
-        const char* bridge_vertex_shader=program?ff_webgl_vertex_source(s,as.regs):ff_webgl_fixed_source(s,as.regs,as.pretransformed);
+    raw_vertex = '''    if(ff_webgl_enabled() && ff_webgl_gpu_vertex_enabled()) {
+        const bool stream=as.vertices.empty();
+        if(stream && as.buffer_count!=1)std::abort();
+        const void* bridge_vertices=stream?as.buffers[0].src:static_cast<const void*>(as.vertices.data());
+        uint32_t bridge_count=as.vertex_count,bridge_stride=stream?as.buffers[0].stride:uint32_t(regs)*16,bridge_registers=as.regs;
+        uint32_t layout[16]={},bgra=0;
+        if(stream)for(int r=0;r<16;++r)if(as.regs&(1u<<r)) {
+            const auto& e=as.elements[r];if(e.buffer)std::abort();
+            layout[r]=uint32_t(e.format)|(uint32_t(e.offset)<<8);
+            if(e.format==87)bgra|=1u<<r;
+        }
+        const uint32_t* bridge_layout=stream?layout:nullptr;
+        const char* bridge_vertex_shader=program?ff_webgl_vertex_source(s,as.regs,as.decode,bgra):ff_webgl_fixed_source(s,as.regs,as.pretransformed,as.decode,bgra);
 #include "webgl-draw.inc"
     }
 '''
@@ -96,11 +105,12 @@ def main() -> int:
     evaluated_vertex='''    {
         const void* bridge_vertices=verts.data();
         uint32_t bridge_count=uint32_t(verts.size()),bridge_stride=sizeof(Shaded),bridge_registers=0;
+        const uint32_t* bridge_layout=nullptr;
         const char* bridge_vertex_shader=nullptr;
 #include "webgl-draw.inc"
     }
 '''
-    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <limits>\n#include <tuple>\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool);\nvoid ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t,float*);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
+    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <limits>\n#include <tuple>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nbool ff_webgl_draw_raw(const void*,uint32_t,uint32_t,const void*,uint32_t,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
     reference.write_text(reference_text)
     runtime += [reference]
     original_title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']

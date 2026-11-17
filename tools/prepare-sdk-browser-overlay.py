@@ -154,6 +154,8 @@ def main() -> int:
     adapter_header.write_text('#pragma once\n#include "full-memory.h"\n', encoding="utf-8")
 
     adapt_nonindexed_converted_assembler(out)
+    runpy.run_path(str(root / 'tools/prepare-sdk-browser-vertices.py'))['adapt_browser_vertices'](out)
+    runpy.run_path(str(root / 'tools/prepare-sdk-browser-pacing.py'))['adapt_browser_pacing'](out)
 
     threading = runpy.run_path(str(root / 'tools/prepare-sdk-browser-threading.py'))['adapt_browser_threading'](out)
     d3d = out / 'xdk/d3d8.cpp'
