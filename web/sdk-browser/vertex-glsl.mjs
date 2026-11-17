@@ -54,6 +54,35 @@ function lowerCasts(code) {
   return out + code.slice(last);
 }
 
+function lowerMatrixMultiplies(code) {
+  const re = /\bmul\s*\(/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(code))) {
+    const open = code.indexOf("(", m.index);
+    let depth = 1, brackets = 0, split = -1, end = open + 1;
+    for (; end < code.length && depth; end++) {
+      const c = code[end];
+      if (c === "(") depth++;
+      else if (c === ")") depth--;
+      else if (c === "[") brackets++;
+      else if (c === "]") brackets--;
+      else if (c === "," && depth === 1 && brackets === 0) {
+        if (split >= 0) fail("mul has more than two arguments");
+        split = end;
+      }
+    }
+    if (depth) fail("unterminated mul call");
+    if (split < 0) fail("mul requires a row-vector and matrix");
+    const left = code.slice(open + 1, split).trim();
+    const right = code.slice(split + 1, end - 1).trim();
+    if (!/^(?:wvp|wv|wvn|tm\s*\[\s*[0-3]\s*\])$/.test(right)) fail(`unsupported HLSL mul matrix ${right}`);
+    out += code.slice(last, m.index) + `(${left} * ${right})`;
+    last = end;
+    re.lastIndex = end;
+  }
+  return out + code.slice(last);
+}
+
 function lowerSplats(code) {
   const re = /\.xxxx\b/g;
   let out = "", last = 0, m;
@@ -112,9 +141,10 @@ function decimalizeFloatLiterals(code) {
     return undefined;
   };
   const replacements = [];
-  const literal = /(?<![\w.])\d+(?![\w.])/g;
+  const literal = /(?<![\w.])\d+(?:\.\d*)?(?:[eE][+-]?\d+)?(?![\w.])/g;
   for (const m of code.matchAll(literal)) {
     const at = m.index, value = m[0];
+    if(/[.eE]/.test(value))continue;
     let inIndex = false, depth = 0;
     for (let i = 0; i < at; i++) {
       if (code[i] === "[") { if (!depth) inIndex = true; depth++; }
@@ -128,7 +158,15 @@ function decimalizeFloatLiterals(code) {
     if (left) inferred = baseType(before.slice(0, left.index));
     if (!inferred) {
       const right = /^\s*(?:==|!=|<=|>=|[+*/<>-])/.exec(after);
-      if (right) inferred = baseType(after.slice(right[0].length));
+      if (right) {
+        const operand=/^\s*([A-Za-z_]\w*)/.exec(after.slice(right[0].length));
+        inferred=operand?types.get(operand[1]):undefined;
+      }
+    }
+    if(!inferred&&/\bfloat\s+\w+\s*=[^;]*$/.test(before))inferred='float';
+    if(!inferred){
+      const assignment=/\b([A-Za-z_]\w*)(?:\.[xyzwrgba]+)?\s*(?:[+*/-]?=)\s*[^;{}]*$/.exec(before);
+      if(assignment&&floatType(types.get(assignment[1])))inferred=types.get(assignment[1]);
     }
     if (floatType(inferred)) replacements.push([at, at + value.length, `${value}.0`]);
   }
@@ -140,8 +178,8 @@ function decimalizeFloatLiterals(code) {
 }
 
 function vectorScalarInitializers(code) {
-  const decl = /\b(vec[234])\s+([^;]+);/g;
-  return code.replace(decl, (_whole, type, tail) => {
+  const decl = /^([ \t]*)(vec[234])\s+([^;\r\n]+);/gm;
+  return code.replace(decl, (_whole, indent, type, tail) => {
     const parts = [];
     let start = 0, depth = 0;
     for (let i = 0; i < tail.length; i++) {
@@ -150,7 +188,7 @@ function vectorScalarInitializers(code) {
       else if (tail[i] === "," && depth === 0) { parts.push(tail.slice(start, i)); start = i + 1; }
     }
     parts.push(tail.slice(start));
-    return `${type} ${parts.map((part) => part.replace(/(=\s*)([-+]?\d+)(\s*)$/, (_m, before, n, after) => `${before}${type}(${n}.0)${after}`)).join(",")};`;
+    return `${indent}${type} ${parts.map((part) => part.replace(/(=\s*)([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)(\s*)$/, (_m, before, n, after) => `${before}${type}(${n.includes(".") || /[eE]/.test(n) ? n : `${n}.0`})${after}`)).join(",")};`;
   });
 }
 
@@ -170,9 +208,11 @@ function lowerBody(body) {
     .replace(/\bsaturate\s*\(/g, "sat(")
     .replace(/\bc\[clamp\(a0\s*\+\s*(\d+),\s*0,\s*191\)\]/g, "c[clamp(a0 + $1, 0, 191)]")
     .replace(/\breturn\s+o\s*;/g, "return;");
+  code = lowerMatrixMultiplies(code);
   if (/\b(?:mul|transpose|mad|rsqrt)\b/.test(code)) fail("unlowered HLSL construct");
   const known = new Set(["if", "float", "vec2", "vec3", "vec4", "int", "ivec2", "ivec3", "ivec4", "uint", "dot", "min", "max", "abs", "clamp", "floor", "exp", "exp2", "log2", "sqrt", "inversesqrt", "normalize", "length", "any", "equal", "mix", "uintBitsToFloat", "sat", "mac_mul", "mac_arl", "magclamp", "ilu_rcp", "ilu_rcc", "ilu_rsq", "ilu_exp", "ilu_log", "ilu_lit", "fogfactor"]);
   known.add('if');
+  known.add('pow');known.add('reflect');
   for (const [, name] of code.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) if (!known.has(name)) fail(`unknown helper ${name}`);
   code = lowerCasts(code);
   code = code.replace(/vec4\((.+)\s(>=|<)\s(.+)\)/g, (_m, left, op, right) => `vec4(${op === "<" ? "lessThan" : "greaterThanEqual"}(${left}, ${right}))`);
@@ -230,6 +270,7 @@ export function vertexGlsl(hlsl, regs, flat = false) {
     .replace(/q\.x\s*=\s*p\.x\s*\*\s*2(?:\.0)?\s*\/\s*surf\.x(?:\s*-\s*1(?:\.0)?)?\s*;/, "q.x = p.x * 2.0 / surf.x - 1.0;")
     .replace(/q\.y\s*=\s*1(?:\.0)?\s*-\s*p\.y\s*\*\s*2(?:\.0)?\s*\/\s*surf\.y\s*;/, "q.y = p.y * 2.0 / surf.y - 1.0;")
     .replace(/q\.z\s*=\s*p\.z\s*\*\s*surf\.z\s*;/, "q.z = p.z * surf.z * 2.0 - 1.0;");
+  lowered = lowered.replace(/gl_Position\s*=\s*cp\s*;/, "gl_Position = vec4(cp.x, -cp.y, 2.0 * cp.z - cp.w, cp.w);");
   if (/q\.y\s*=|q\.z\s*=/.test(lowered) && (!/q\.y\s*=\s*p\.y\s*\*\s*2\.0\s*\/\s*surf\.y\s*-\s*1\.0/.test(lowered) || !/q\.z\s*=\s*p\.z\s*\*\s*surf\.z\s*\*\s*2\.0\s*-\s*1\.0/.test(lowered))) fail("unexpected SDK clip-space epilogue");
   const attrs = Array.from({ length: 16 }, (_, i) => `layout(location=${i}) in vec4 aV${i};`).join("\n");
   const quals = flat ? "flat " : "";
@@ -242,10 +283,16 @@ invariant gl_Position;
 uniform vec4 c[192];
 uniform vec4 surf;
 uniform vec4 fogp;
+uniform mat4 wvp, wv, wvn;
+uniform mat4 tm[4];
+uniform vec4 mat[5], amb, lt[56];
 ${attrs}
 ${varyings}
 out float vFog;
 vec4 sat(vec4 x) { return clamp(x, 0.0, 1.0); }
+float sat(float x) { return clamp(x, 0.0, 1.0); }
+vec2 sat(vec2 x) { return clamp(x, 0.0, 1.0); }
+vec3 sat(vec3 x) { return clamp(x, 0.0, 1.0); }
 ${helper}
 void main() {\n${lowered}\n}\n`;
 }

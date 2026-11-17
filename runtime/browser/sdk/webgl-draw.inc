@@ -12,14 +12,18 @@ if (ff_webgl_enabled()) {
         s.viewport.w, s.viewport.h, s.scissor_count ? 1u : 0u,
         s.scissors[0], s.scissors[1], s.scissors[2], s.scissors[3], simple(kMBlendColor),
         mat.key.flat, s.rs[kRsZBias], simple(kMSolidOffsetEnable), simple(kMSlopeScale), simple(kMDepthOffset),
-        uint32_t(reinterpret_cast<uintptr_t>(bridge_vertex_shader)),0,bridge_registers
+        uint32_t(reinterpret_cast<uintptr_t>(bridge_vertex_shader)),0,bridge_registers|(bridge_vertex_shader&&!program?0x10000u:0u)
     };
     float vertex_constants[772];
     if(bridge_vertex_shader) {
-        std::memcpy(vertex_constants,s.vsc.data(),768*4);
+        if(program)std::memcpy(vertex_constants,s.vsc.data(),768*4);
+        // The SDK pretransformed generator reads vertex colors/UVs directly;
+        // it never reads transform, material or light constants.
+        else if(as.pretransformed)std::fill(vertex_constants,vertex_constants+768,0.f);
+        else ff_webgl_fixed_constants(s,gw,gh,vertex_constants);
         auto* fog=vertex_constants+768;std::fill(fog,fog+4,0.f);
         if(s.rs[kRsFogEnable]) {
-            if(!s.rs[kRsFogTableMode]) {fog[0]=1;fog[3]=3;}
+            if(program&&!s.rs[kRsFogTableMode]) {fog[0]=1;fog[3]=3;}
             else {fog[0]=AsFloat(s.rs[kRsFogStart]);fog[1]=AsFloat(s.rs[kRsFogEnd]);fog[2]=AsFloat(s.rs[kRsFogDensity]);fog[3]=float(s.rs[kRsFogTableMode]);}
         }
         states[38]=uint32_t(reinterpret_cast<uintptr_t>(vertex_constants));
@@ -27,7 +31,7 @@ if (ff_webgl_enabled()) {
     float uniforms[4 + 4 + 4 + 18 * 4 + 4 + 4 * 4 * 4] = {};
     float* u = uniforms;
     auto push = [&](Vec v) { for (int j = 0; j < 4; ++j) *u++ = v[j]; };
-    push(V(float(gw)*(bridge_vertex_shader?s.super_x:1.f),float(gh)*(bridge_vertex_shader?s.super_y:1.f),1.0f/s.zscale,0));
+    push(V(float(gw)*(bridge_vertex_shader&&program?s.super_x:1.f),float(gh)*(bridge_vertex_shader&&program?s.super_y:1.f),1.0f/s.zscale,0));
     push(Unpack(s.rs[kRsFogColor]));
     push(V(float(simple(kMAlphaRef) & 255), simple(kMAlphaTestEnable) ? float(simple(kMAlphaFunc) & 7) : 7.f,
            float(s.rs[kRsShadowFunc] & 7), float(s.rs[kRsSpecularEnable])));
@@ -57,7 +61,12 @@ if (ff_webgl_enabled()) {
     // Stable owned shader text avoids regenerating and decoding the same
     // combiner program for every text glyph/draw. Compare keys after hashing.
     static std::map<uint64_t,std::vector<std::pair<PixelKey,std::string>>> shader_text;
-    auto& bucket = shader_text[Hash(&mat.key,sizeof(mat.key))];
+    // This hash chooses a bucket only; full PixelKey equality below remains
+    // authoritative. Keep the frequent lookup in native 32-bit arithmetic.
+    uint32_t pixel_hash=2166136261u;
+    const auto* key_bytes=reinterpret_cast<const uint8_t*>(&mat.key);
+    for(size_t j=0;j<sizeof(mat.key);++j)pixel_hash=(pixel_hash^key_bytes[j])*16777619u;
+    auto& bucket = shader_text[pixel_hash];
     const char* source = nullptr;
     for(auto& entry:bucket) if(entry.first==mat.key) {source=entry.second.c_str();break;}
     if(!source) {

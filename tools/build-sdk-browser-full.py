@@ -35,6 +35,7 @@ def main() -> int:
                         help='Override link optimization for incremental development; objects retain --opt')
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
+    parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
     args = parser.parse_args()
     if not args.compiler:
         parser.error('em++ missing: source .tools/emscripten-env.sh or select an Emscripten compiler')
@@ -49,7 +50,10 @@ def main() -> int:
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-tailcalls.py'),
                     '--generated', str(generated), '--output', str(title_overlay)], check=True)
     includes = [overlay, output, title_overlay, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
-    common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', '-fexceptions', '-fno-strict-aliasing',
+    subprocess.run([sys.executable,str(ROOT/'tools/prepare-sdk-browser-fixed.py'),
+                    '--sdk',str(sdk),'--output',str(output)],check=True)
+    exception_flag='-fwasm-exceptions' if args.exceptions=='wasm' else '-fexceptions'
+    common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', exception_flag, '-fno-strict-aliasing',
               '-DXBE_RAW_VERTICES=0', '-DXBE_RENDER_THREAD=0', '-DXBE_BROWSER=1']
     for directory in includes:
         common += ['-I', str(directory)]
@@ -68,15 +72,20 @@ def main() -> int:
     reference_text = reference_text.replace('FindImage(uint32_t header)', 'FindImage(uint32_t header, uint32_t palette_header = 0)')
     reference_text = reference_text.replace('    if (auto it = g_images.find(key);', '    uint64_t palette_hash=0;\n    const uint32_t* palette=d.format==0x0B?ff_webgl_palette(palette_header,palette_hash):nullptr;\n    key ^= palette_hash;\n    key ^= DirtyEpoch(d.data);\n    if (auto it = g_images.find(key);')
     reference_text = reference_text.replace('DecodeLevel(d, 0, f, guest, nullptr, raw, pitch)', 'DecodeLevel(d, 0, f, guest, palette, raw, pitch)')
-    reference_text = reference_text.replace('FindImage(s.textures[size_t(i)])', 'FindImage(s.textures[size_t(i)], s.palettes[size_t(i)])')
+    reference_text = reference_text.replace('FindImage(s.textures[size_t(i)])', 'BrowserImage(s.textures[size_t(i)], s.palettes[size_t(i)],d)')
+    image_anchor='void Written(uint32_t lo, uint32_t hi) {'
+    if reference_text.count(image_anchor)!=1:
+        raise RuntimeError('Reference image-cache seam differs')
+    reference_text=reference_text.replace(image_anchor,'#include "webgl-images.inc"\n'+image_anchor+'\n    BrowserImagesWritten(lo,hi);')
+    reference_text=reference_text.replace('    Assembled as;', '    static thread_local Assembled as;')
     anchor = '    // raster and output state'
     if reference_text.count(anchor) != 1:
         raise RuntimeError('Reference renderer vertex bridge anchor differs from retained source')
-    bridge_hash = digest(ROOT / 'runtime/browser/sdk/webgl-draw.inc')
-    raw_vertex = '''    if(ff_webgl_enabled() && program && ff_webgl_gpu_vertex_enabled()) {
+    bridge_hash = digest(ROOT / 'runtime/browser/sdk/webgl-draw.inc') + digest(ROOT / 'runtime/browser/sdk/webgl-images.inc')
+    raw_vertex = '''    if(ff_webgl_enabled() && ff_webgl_gpu_vertex_enabled() && !as.vertices.empty()) {
         const void* bridge_vertices=as.vertices.data();
         uint32_t bridge_count=as.vertex_count,bridge_stride=uint32_t(regs)*16,bridge_registers=as.regs;
-        const char* bridge_vertex_shader=ff_webgl_vertex_source(s,as.regs);
+        const char* bridge_vertex_shader=program?ff_webgl_vertex_source(s,as.regs):ff_webgl_fixed_source(s,as.regs,as.pretransformed);
 #include "webgl-draw.inc"
     }
 '''
@@ -91,7 +100,7 @@ def main() -> int:
 #include "webgl-draw.inc"
     }
 '''
-    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include <array>\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
+    reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <limits>\n#include <tuple>\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool);\nvoid ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t,float*);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
     reference.write_text(reference_text)
     runtime += [reference]
     original_title = sorted(generated.glob('x86_recomp.[0-9]*.cpp')) + [generated / 'x86_func_mapping.cpp']
@@ -112,7 +121,9 @@ def main() -> int:
         key = hashlib.sha256(str(source).encode()).hexdigest()[:12]
         obj = objects_dir / (source.stem + '-' + key + '.o')
         source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
-        signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, digest(source)]).encode()).hexdigest()
+        source_digest=digest(source)
+        if source.name=='full-webgl.cpp':source_digest+=digest(output/'fixed-constants.inc')
+        signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, source_digest]).encode()).hexdigest()
         stamp = obj.with_suffix('.signature')
         if obj.is_file() and stamp.is_file() and stamp.read_text() == signature:
             return obj, True, ''
@@ -157,6 +168,7 @@ def main() -> int:
     revision = subprocess.check_output(['git', '-C', str(sdk), 'rev-parse', 'HEAD'], text=True).strip()
     (output / 'full-build-manifest.json').write_text(json.dumps({
         'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt, 'linkOptimization': args.link_opt or args.opt,
+        'exceptions':args.exceptions,
         'sourceCount': len(sources), 'moduleBytes': (output / 'fuzion-sdk-full.wasm').stat().st_size,
         'runtimePatchManifestSha256': digest(ROOT / 'desktop/windows/patches/manifest.json'),
         'rendererBackends': ['webgl2-triangles', 'software-reference'],

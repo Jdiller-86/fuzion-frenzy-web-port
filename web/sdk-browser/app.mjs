@@ -27,6 +27,7 @@ function setBusy(busy) {
 }
 function stop() {
   hasFrame = false;
+  globalThis.fuzionPerformance = undefined;
   window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:false}}));
   if (audioContext) { audioContext.close().catch(() => {}); audioContext = undefined; }
   audioCursor = 0;
@@ -108,8 +109,9 @@ runButton.addEventListener('click', () => {
       context.putImageData(new ImageData(pixels, data.width, data.height), 0, 0);
       showFrame();
     } else if (data.type === 'performance') {
+        globalThis.fuzionPerformance = data; // Local profiling; never uploaded.
       if ([data.fps, data.drawMs, data.clearMs, data.copyMs, data.drawCalls].every(v => Number.isFinite(v) && v >= 0)) {
-        performanceReadout.textContent = `${renderer === 'webgl' ? 'WebGL 2' : 'Software'} · ${data.fps.toFixed(1)} FPS · CPU draw/submit ${data.drawMs.toFixed(1)} ms · clear ${data.clearMs.toFixed(1)} ms · copy ${data.copyMs.toFixed(1)} ms · ${Math.round(data.drawCalls)} draws/frame`;
+          performanceReadout.textContent = `${renderer === 'webgl' ? 'WebGL 2' : 'Software'} · ${data.fps.toFixed(1)} FPS · CPU ${data.pipeline?'prepare/wait':renderer === 'webgl'?'frame/submit':'draw/submit'} ${data.drawMs.toFixed(1)} ms · clear ${data.clearMs.toFixed(1)} ms · copy ${data.copyMs.toFixed(1)} ms · ${Math.round(data.drawCalls)} draws/frame`;
         if (renderer === 'webgl') performanceReadout.textContent += ` · JS submit ${Number(data.submissionMs||0).toFixed(1)} ms · ${Math.round(data.gpuBatches||0)} GPU batches · ${Math.round(data.vertexPrograms||0)} vertex programs`;
       }
     } else if (data.type === 'audio') {
@@ -146,7 +148,7 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
-  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1' }, offscreen ? [offscreen] : []);
+  current.postMessage({ type: 'run', iso, renderer, canvas: offscreen, gpuVertices: new URLSearchParams(location.search).get('cpuVertices') !== '1', threadedGpu: new URLSearchParams(location.search).get('threadedGpu') !== '0', pipelinedGpu: new URLSearchParams(location.search).get('pipelinedGpu') !== '0' }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
     const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
     current.postMessage({ type: 'input', keys: document.activeElement === canvas ? [...heldKeys] : [], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });

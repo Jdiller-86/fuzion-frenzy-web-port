@@ -46,21 +46,29 @@ function onFrame(ptr, width, height, pitch, format) {
   postMessage({ type: 'frame', width, height, rgbaBuffer }, [rgbaBuffer]);
 }
 let metricStart = 0, metricFrames = 0, metricDraw = 0, metricClear = 0, metricCopy = 0, metricCalls = 0;
+let metricPrevious = 0, metricIntervals = [];
 function onMetrics(drawMs, clearMs, copyMs, drawCalls) {
   if (cancelled || ![drawMs, clearMs, copyMs, drawCalls].every(v => Number.isFinite(v) && v >= 0)) return;
   const now = performance.now();
-  if (!metricStart) { metricStart = now; return; }
+  if (!metricStart) { metricStart = metricPrevious = now; return; }
+  metricIntervals.push(now-metricPrevious);metricPrevious=now;
   metricFrames++;
   metricDraw += drawMs; metricClear += clearMs; metricCopy += copyMs; metricCalls += drawCalls;
   const elapsed = now - metricStart;
   if (elapsed < 1000) return;
+  const ordered=metricIntervals.slice().sort((a,b)=>a-b);
+  const percentile=p=>ordered[Math.min(ordered.length-1,Math.floor((ordered.length-1)*p))];
   postMessage({type: 'performance', fps: metricFrames * 1000 / elapsed,
     drawMs: metricDraw / metricFrames, clearMs: metricClear / metricFrames,
     copyMs: metricCopy / metricFrames, drawCalls: metricCalls / metricFrames,
     submissionMs: moduleInstance?.onFuzionGpu?.lastSubmitMs ?? 0,
     gpuBatches: moduleInstance?.onFuzionGpu?.lastIssuedDraws ?? 0,
-    vertexPrograms: moduleInstance?.onFuzionGpu?.vertexPrograms?.size ?? 0});
+    vertexPrograms: moduleInstance?.onFuzionGpu?.vertexPrograms?.size ?? 0,
+    pipeline:moduleInstance?.onFuzionGpu?.pipelined===true,
+    geometry: moduleInstance?.onFuzionGpu?.lastFrameStats,
+    frameMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:ordered.at(-1),samples:ordered.length}});
   metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
+  metricIntervals=[];
 }
 function onAudio(ptr, frames, rate) {
   if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
@@ -89,7 +97,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices) {
+async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -116,7 +124,7 @@ async function boot(iso, canvas, renderer, gpuVertices) {
     locateFile: name => name.endsWith('.wasm') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm' : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
     print: line => report(`SDK: ${line}`),
     printErr: line => postMessage({ type: 'log', text: String(line) }),
-    onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason), done: true }),
+    onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason || 'Runtime aborted; the local browser console contains the stack.'), done: true }),
     onFuzionFrame: onFrame,
     onFuzionMetrics: onMetrics,
     onFuzionAudio: onAudio,
@@ -131,6 +139,9 @@ async function boot(iso, canvas, renderer, gpuVertices) {
   moduleInstance = module;
   if (renderer === 'webgl') {
     module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices);
+    module.onFuzionGpu.threaded=threadedGpu===true;
+    module.onFuzionGpu.pipelined=pipelinedGpu===true;
+    postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});
   }
   if (cancelled) { stopThreads(module); return; }
   if (module.IDBFS) {
@@ -161,7 +172,7 @@ onmessage = async ({ data }) => {
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices); }
+  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });

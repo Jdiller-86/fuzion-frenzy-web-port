@@ -11,7 +11,35 @@ import json
 import shutil
 import subprocess
 import tempfile
+import runpy
 from pathlib import Path
+
+
+def adapt_nonindexed_converted_assembler(runtime: Path) -> None:
+    """Avoid a per-draw index sequence when converted draws are non-indexed."""
+    source = runtime / "gpu/vertex.cpp"
+    text = source.read_text(encoding="utf-8")
+    anchors = (
+        "    std::vector<uint32_t> seq(d.count);\n"
+        "    for (uint32_t i = 0; i < d.count; i++) seq[i] = DrawVertex(s, d, i);",
+        "            uint32_t id = ranged ? d.first_vertex + v : seq[v];",
+        "    auto local = [&](uint32_t i) { return ranged ? seq[i] - d.first_vertex : i; };",
+    )
+    replacements = (
+        "    std::vector<uint32_t> seq;\n"
+        "    if (d.ip) {\n"
+        "        seq.resize(d.count);\n"
+        "        for (uint32_t i = 0; i < d.count; i++) seq[i] = DrawVertex(s, d, i);\n"
+        "    }",
+        "            uint32_t id = ranged ? d.first_vertex + v : (d.ip ? seq[v] : d.start + v);",
+        "    auto local = [&](uint32_t i) { return ranged ? (d.ip ? seq[i] : d.start + i) - d.first_vertex : i; };",
+    )
+    for anchor in anchors:
+        if text.count(anchor) != 1:
+            raise RuntimeError("Converted vertex assembler optimization anchor differs")
+    for anchor, replacement in zip(anchors, replacements):
+        text = text.replace(anchor, replacement, 1)
+    source.write_text(text, encoding="utf-8")
 
 
 def main() -> int:
@@ -124,6 +152,17 @@ def main() -> int:
     winsock.write_text(winsock.read_text(encoding='utf-8').replace('#include <sys/socket.h>', '#include <sys/socket.h>\n#include <sys/time.h>'), encoding='utf-8')
     adapter_header = out / "ff_sdk_guest_memory.hpp"
     adapter_header.write_text('#pragma once\n#include "full-memory.h"\n', encoding="utf-8")
+
+    adapt_nonindexed_converted_assembler(out)
+
+    threading = runpy.run_path(str(root / 'tools/prepare-sdk-browser-threading.py'))['adapt_browser_threading'](out)
+    d3d = out / 'xdk/d3d8.cpp'
+    text = d3d.read_text(encoding='utf-8')
+    anchor = 'if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));'
+    if text.count(anchor)!=1: raise RuntimeError('Browser render-thread selection anchor differs')
+    text = 'bool ff_webgl_threaded_enabled();\n' + text.replace(anchor,'if (ff_webgl_threaded_enabled()) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));')
+    d3d.write_text(text,encoding='utf-8')
+    (out/'browser-threading-manifest.json').write_text(json.dumps(threading,indent=2)+'\n',encoding='utf-8')
 
     # Emit an auditable record of remaining direct guest arithmetic; the full
     # adapter must handle each of these before it is linked into the module.

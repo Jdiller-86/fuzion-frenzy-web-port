@@ -11,7 +11,7 @@ export class WebGLRenderer {
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.vertexPrograms=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
-    this.fbo = gl.createFramebuffer(); this.readFbo = gl.createFramebuffer();
+    this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
     this.vao = gl.createVertexArray(); this.vbo = gl.createBuffer(); this.ibo = gl.createBuffer();
     this.samplers=Array.from({length:4},()=>gl.createSampler());
     this.samplerKeys=[];this.boundTextures=[];this.activeUnit=0;
@@ -45,13 +45,21 @@ void main() {
     if (!Number.isInteger(ptr) || !Number.isSafeInteger(length) || ptr < 0 || length < 0 || ptr + length > heap.length) throw new Error('GPU bridge span outside WASM memory');
     return heap.subarray(ptr,ptr+length);
   }
+  wordView(ptr,n) { const span=this.bytes(ptr,n*4);return new Uint32Array(span.buffer,span.byteOffset,n); }
+  floatView(ptr,n) { const span=this.bytes(ptr,n*4);return new Float32Array(span.buffer,span.byteOffset,n); }
   words(ptr,n) { return new Uint32Array(this.bytes(ptr,n*4).slice().buffer); }
   floats(ptr,n) { return new Float32Array(this.bytes(ptr,n*4).slice().buffer); }
   sameWords(a,b,count) {
     if(a===b)return true;
-    const av=new Uint32Array(this.bytes(a,count*4).buffer,a,count),bv=new Uint32Array(this.bytes(b,count*4).buffer,b,count);
+    const av=this.wordView(a,count),bv=this.wordView(b,count);
     for(let i=0;i<count;i++)if(av[i]!==bv[i])return false;
     return true;
+  }
+  capacity(current,required,limit) {
+    if(required>limit)throw new Error('GPU geometry budget exceeded');
+    let size=Math.max(current,256);
+    while(size<required)size=Math.min(limit,size*2);
+    return size;
   }
   bindTexture(unit,texture,needActive=false) {
     if(this.boundTextures[unit]===texture&&!needActive)return;
@@ -78,40 +86,55 @@ void main() {
     try {
     const started=performance.now();
     if(count>65536)throw new Error('GPU command budget exceeded');
-    const words=this.words(ptr,count*12);
+    const words=this.wordView(ptr,count*12);
     // One streaming geometry upload per batch rather than two driver-buffer
     // allocations per glyph/draw. Rebase indices; guest vertices stay intact.
     let vertexBytes=0,indexCount=0;
     for(let i=0;i<count;i++){const q=words.subarray(i*12,i*12+12);if(q[0]===1){vertexBytes+=q[2]*256;indexCount+=q[5];}}
     if(vertexBytes>256*1024*1024||indexCount>16*1024*1024)throw new Error('GPU geometry budget exceeded');
-    const vertices=new Uint8Array(vertexBytes),elements=new Uint32Array(indexCount);
-    const vertexWords=new Uint32Array(vertices.buffer);
+    if(!this.vertexStaging||this.vertexStaging.length<vertexBytes)this.vertexStaging=new Uint8Array(this.capacity(this.vertexStaging?.length||0,vertexBytes,256*1024*1024));
+    if(!this.indexStaging||this.indexStaging.length<indexCount)this.indexStaging=new Uint32Array(this.capacity(this.indexStaging?.length||0,indexCount,16*1024*1024));
+    const vertices=this.vertexStaging.subarray(0,vertexBytes),elements=this.indexStaging.subarray(0,indexCount);
+    vertices.fill(0);
+    const vertexWords=new Uint32Array(vertices.buffer,vertices.byteOffset,vertices.byteLength/4);
     const totalVertices=vertexBytes/256;
-    this.indexOffsets=new Map();let vo=0,io=0;
+    this.indexOffsets??=new Map();this.indexOffsets.clear();let vo=0,io=0;
     for(let i=0;i<count;i++){
       const q=words.subarray(i*12,i*12+12);if(q[0]!==1)continue;
-      const metadata=this.words(q[6],40),raw=!!metadata[37],mask=metadata[39];
+      const metadata=this.wordView(q[6],40),raw=!!metadata[37],mask=metadata[39];
+      this.frameStats??={gpuVertexDraws:0,cpuVertexDraws:0,gpuVertices:0,cpuVertices:0,vertexBytes:0};
+      this.frameStats[raw?'gpuVertexDraws':'cpuVertexDraws']++;
+      this.frameStats[raw?'gpuVertices':'cpuVertices']+=q[2];
+      this.frameStats.vertexBytes+=q[2]*256;
       if(!raw&&q[3]!==160)throw new Error('Unexpected SDK shaded vertex stride');
       let registers=0;for(let r=0;r<16;r++)if(mask&(1<<r))registers++;
       if(raw&&q[3]!==registers*16)throw new Error('Unexpected raw vertex register span');
       const sourceBytes=this.bytes(q[1],q[2]*q[3]);
       const input=new Uint32Array(sourceBytes.buffer,sourceBytes.byteOffset,sourceBytes.length/4);
-      for(let v=0;v<q[2];v++) {
-        let from=v*q[3]/4;
-        for(let r=0;r<(raw?16:10);r++)if(!raw||(mask&(1<<r))){
-          const to=(r*totalVertices+vo/256+v)*4;
-          vertexWords[to]=input[from++];vertexWords[to+1]=input[from++];vertexWords[to+2]=input[from++];vertexWords[to+3]=input[from++];
+      // Walk one attribute plane at a time: test the input mask once per
+      // register, rather than for every vertex, and write contiguous output.
+      let slot=0;
+      for(let r=0;r<(raw?16:10);r++)if(!raw||(mask&(1<<r))){
+        let from=slot++*4,to=(r*totalVertices+vo/256)*4;
+        for(let v=0;v<q[2];v++,from+=q[3]/4,to+=4){
+          vertexWords[to]=input[from];vertexWords[to+1]=input[from+1];vertexWords[to+2]=input[from+2];vertexWords[to+3]=input[from+3];
         }
       }
-      const order=this.words(q[4],q[5]),base=vo/256,flat=metadata[32];
-      if(flat)for(let j=0;j+2<order.length;j+=3){const first=order[j];order[j]=order[j+1];order[j+1]=order[j+2];order[j+2]=first;}
-      for(let j=0;j<order.length;j++){if(order[j]>=q[2])throw new Error('GPU index exceeds vertex span');elements[io+j]=order[j]+base;}
+      const order=this.wordView(q[4],q[5]),base=vo/256,flat=metadata[32];
+      for(let j=0;j<order.length;j++){
+        const lane=flat&&j-j%3+2<order.length?j-j%3+(j%3+1)%3:j;
+        const index=order[lane];if(index>=q[2])throw new Error('GPU index exceeds vertex span');elements[io+j]=index+base;
+      }
       this.indexOffsets.set(q[4],io*4);vo+=q[2]*256;io+=q[5];
     }
-    const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);g.bufferData(g.ARRAY_BUFFER,vertices,g.STREAM_DRAW);
+    const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
+    if(vertexBytes>(this.vertexBufferCapacity||0)){this.vertexBufferCapacity=this.capacity(this.vertexBufferCapacity||0,vertexBytes,256*1024*1024);g.bufferData(g.ARRAY_BUFFER,this.vertexBufferCapacity,g.STREAM_DRAW);}
+    if(vertexBytes)g.bufferSubData(g.ARRAY_BUFFER,0,vertices);
     // Attribute planes avoid WebGL's 255-byte vertex stride limit.
     for(let a=0;a<16;a++){g.enableVertexAttribArray(a);g.vertexAttribPointer(a,4,g.FLOAT,false,16,a*totalVertices*16);}
-    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,this.ibo);g.bufferData(g.ELEMENT_ARRAY_BUFFER,elements,g.STREAM_DRAW);
+    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,this.ibo);
+    if(indexCount>(this.indexBufferCapacity||0)){this.indexBufferCapacity=this.capacity(this.indexBufferCapacity||0,indexCount,16*1024*1024);g.bufferData(g.ELEMENT_ARRAY_BUFFER,this.indexBufferCapacity*4,g.STREAM_DRAW);}
+    if(indexCount)g.bufferSubData(g.ELEMENT_ARRAY_BUFFER,0,elements);
     let pending;
     const emit=()=>{if(pending){if(!this.draw(...pending.subarray(1,10)))throw new Error('GPU draw rejected');pending=undefined;}};
     for(let i=0;i<count;i++) {
@@ -155,13 +178,43 @@ void main() {
     }
     g.attachShader(p,vertexShader);g.attachShader(p,f);g.linkProgram(p);g.deleteShader(f);
     if(!g.getProgramParameter(p,g.LINK_STATUS)) throw new Error(`GPU program: ${g.getProgramInfoLog(p)}`);
-    const result={p,locations:new Map()};this.programs.set(key,result);return result;
+    const uniforms=new Float32Array(152),uniformWords=new Uint32Array(uniforms.buffer),uniformSpans=new Map();
+    for(const [name,offset,count] of [['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16]])
+      uniformSpans.set(name,new Float32Array(uniforms.buffer,offset*4,count));
+    const vertexConstants=new Float32Array(772),vertexConstantWords=new Uint32Array(vertexConstants.buffer);
+    const vertexConstantSpans={c:new Float32Array(vertexConstants.buffer,0,768),fogp:new Float32Array(vertexConstants.buffer,768*4,4)};
+    const fixedVertexConstants=new Float32Array(772),fixedVertexConstantWords=new Uint32Array(fixedVertexConstants.buffer);
+    const fixedVertexSpans={
+      wvp:new Float32Array(fixedVertexConstants.buffer,0,16),wv:new Float32Array(fixedVertexConstants.buffer,16*4,16),
+      wvn:new Float32Array(fixedVertexConstants.buffer,32*4,16),tm:new Float32Array(fixedVertexConstants.buffer,48*4,64),
+      mat:new Float32Array(fixedVertexConstants.buffer,112*4,20),amb:new Float32Array(fixedVertexConstants.buffer,132*4,4),
+      lt:new Float32Array(fixedVertexConstants.buffer,136*4,224),
+    };
+    const result={p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
+      vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false};
+    this.programs.set(key,result);return result;
   }
   target(id,w,h,format,pitch,linear,depth,ptr,size,hashLo,hashHi) {
     if(!id || !w || !h || w>4096 || h>4096) throw new Error('Invalid GPU surface');
     const old=this.targets.get(id);
     if(!old&&this.targets.size>=256)throw new Error('GPU target budget exceeded');
-    if(old && old.w===w && old.h===h && old.format===format && old.depth===!!depth && old.hashLo===hashLo && old.hashHi===hashHi) {old.last=this.frame;return;}
+    const sameAllocation=old&&old.w===w&&old.h===h&&old.format===format&&old.depth===!!depth;
+    if(sameAllocation && old.hashLo===hashLo && old.hashHi===hashHi) {old.last=this.frame;return;}
+    if(sameAllocation&&!depth) {
+      const input=this.bytes(ptr,size),rgba=new Uint8Array(w*h*4),bpp=[0x05,0x11].includes(format)?2:4;
+      for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
+        let o=0,bit=0;
+        if(linear) o=y*pitch+x*bpp;
+        else {for(let m=1;m<w||m<h;m<<=1) {if(m<w) {if(x&m)o|=1<<bit;bit++;}if(m<h){if(y&m)o|=1<<bit;bit++;}}o*=bpp;}
+        const q=(y*w+x)*4;if(o+bpp>input.length)throw new Error('Surface span mismatch');
+        if(bpp===4) {rgba[q]=input[o+2];rgba[q+1]=input[o+1];rgba[q+2]=input[o];rgba[q+3]=[7,0x1e].includes(format)?255:input[o+3];}
+        else {const v=input[o]|input[o+1]<<8;rgba[q]=(v>>11)*255/31;rgba[q+1]=(v>>5&63)*255/63;rgba[q+2]=(v&31)*255/31;rgba[q+3]=255;}
+      }
+      this.bindTexture(this.activeUnit,old.texture,true);
+      this.gl.texSubImage2D(this.gl.TEXTURE_2D,0,0,0,w,h,this.gl.RGBA,this.gl.UNSIGNED_BYTE,rgba);
+      old.hashLo=hashLo;old.hashHi=hashHi;old.last=this.frame;
+      return;
+    }
     if(old) this.invalidate(id);
     const g=this.gl,t={id,w,h,format,depth:!!depth,texture:g.createTexture(),last:this.frame,hashLo,hashHi};
     g.bindTexture(g.TEXTURE_2D,t.texture);this.boundTextures[this.activeUnit]=t.texture;g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.NEAREST);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.NEAREST);
@@ -189,47 +242,106 @@ void main() {
   }
   attach(color,depth) {
     const g=this.gl;
-    if(!this.fboBound){g.bindFramebuffer(g.FRAMEBUFFER,this.fbo);this.fboBound=true;}
-    if(this.attachmentsValid&&this.attachedColor===color&&this.attachedDepth===depth)return;
-    g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,color?.texture||null,0);
-    g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,depth?.texture||null,0);
-    g.drawBuffers([color?g.COLOR_ATTACHMENT0:g.NONE]);g.readBuffer(color?g.COLOR_ATTACHMENT0:g.NONE);
-    if(g.checkFramebufferStatus(g.FRAMEBUFFER)!==g.FRAMEBUFFER_COMPLETE)throw new Error('GPU framebuffer is incomplete');
-    this.attachedColor=color;this.attachedDepth=depth;
-    this.attachmentsValid=true;
+    const key=`${color?.id??0}:${depth?.id??0}`;
+    let entry=this.framebuffers.get(key);
+    if(entry&&(entry.color!==color||entry.depth!==depth)){
+      this.framebuffers.delete(key);
+      if(this.boundFramebuffer===entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundFramebuffer=null;}
+      g.deleteFramebuffer(entry.framebuffer);entry=undefined;
+    }
+    if(!entry){
+      const layout=`c:${color?`${color.w}x${color.h}:RGBA8:${color.format}`:'none'};d:${depth?`${depth.w}x${depth.h}:DEPTH24_STENCIL8:${depth.format}`:'none'};draw:${color?'COLOR_ATTACHMENT0':'NONE'};read:${color?'COLOR_ATTACHMENT0':'NONE'}`;
+      let validated=this.validatedFramebufferLayouts.has(layout);
+      if(validated){this.validatedFramebufferLayouts.delete(layout);this.validatedFramebufferLayouts.set(layout,true);}
+      const framebuffer=g.createFramebuffer();
+      g.bindFramebuffer(g.FRAMEBUFFER,framebuffer);this.boundFramebuffer=framebuffer;
+      g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,color?.texture||null,0);
+      g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,depth?.texture||null,0);
+      g.drawBuffers([color?g.COLOR_ATTACHMENT0:g.NONE]);g.readBuffer(color?g.COLOR_ATTACHMENT0:g.NONE);
+      if(!validated){
+        if(g.checkFramebufferStatus(g.FRAMEBUFFER)!==g.FRAMEBUFFER_COMPLETE){
+          g.deleteFramebuffer(framebuffer);this.boundFramebuffer=null;
+          throw new Error('GPU framebuffer is incomplete');
+        }
+        this.validatedFramebufferLayouts.set(layout,true);
+        if(this.validatedFramebufferLayouts.size>512)this.validatedFramebufferLayouts.delete(this.validatedFramebufferLayouts.keys().next().value);
+      }
+      entry={framebuffer,color,depth};
+      this.framebuffers.set(key,entry);
+      if(this.framebuffers.size>512){
+        const oldestKey=this.framebuffers.keys().next().value,oldest=this.framebuffers.get(oldestKey);
+        this.framebuffers.delete(oldestKey);g.deleteFramebuffer(oldest.framebuffer);
+      }
+    } else {
+      // Refresh insertion order so eviction is least-recently-used.
+      this.framebuffers.delete(key);this.framebuffers.set(key,entry);
+      if(this.boundFramebuffer!==entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,entry.framebuffer);this.boundFramebuffer=entry.framebuffer;}
+    }
   }
   clear(rt,zs,n,rects,flags,color,z,stencil,viewport) {
     this.lastState=undefined;
-    const g=this.gl,r=this.targets.get(rt),d=this.targets.get(zs),v=this.words(viewport,4);
+    const g=this.gl,r=this.targets.get(rt),d=this.targets.get(zs),v=this.wordView(viewport,4);
     if((flags&0xf0)&&!r)throw new Error('Clear references an unregistered color target');
     if((flags&3)&&!d)throw new Error('Clear references an unregistered depth target');
     this.attach(flags&0xf0?r:null,flags&3?d:null);
     g.enable(g.SCISSOR_TEST);g.colorMask(!!(flags&0x10),!!(flags&0x20),!!(flags&0x40),!!(flags&0x80));
     g.depthMask(true);g.stencilMask(255);g.clearColor((color>>>16&255)/255,(color>>>8&255)/255,(color&255)/255,(color>>>24)/255);g.clearDepth(z);g.clearStencil(stencil);
-    const list=n?this.words(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
-    for(let i=0;i<(n||1);i++){const [x,y,x1,y1]=Array.from(list).slice(i*4,i*4+4);g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
+    const list=n?this.wordView(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
+    for(let i=0;i<(n||1);i++){const o=i*4,x=list[o],y=list[o+1],x1=list[o+2],y1=list[o+3];g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
   }
   draw(v,count,stride,indices,n,state,uniforms,source,textures) {
     try {
-      const g=this.gl,s=this.words(state,40),tx=this.words(textures,4*14),u=this.floats(uniforms,152);
+      const g=this.gl,s=this.words(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       const kinds=[0,1,2,3].map(t=>tx[t*14]),shadows=[0,1,2,3].map(t=>tx[t*14+1]);
       if(kinds.some(k=>k===2||k===3))throw new Error('GPU 3D/cube texture admission is not implemented');
       this.pointerPrograms ??= new Map();
       const programKey=`${source}:${s[37]}`;
       let program=this.pointerPrograms.get(programKey);
-      if(!program){program=this.program(this.string(source),kinds,shadows,!!s[32],s[37],s[39]);this.pointerPrograms.set(programKey,program);}
+      if(!program){program=this.program(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);this.pointerPrograms.set(programKey,program);}
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};
-      const previous=program.uniforms;
-      const uniform=(name,offset,num)=>{if(!previous||u.subarray(offset,offset+num).some((v,i)=>v!==previous[offset+i]))g.uniform4fv(loc(name),u.subarray(offset,offset+num));};
+      const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
+      const uniform=(name,offset,count)=>{
+        const location=loc(name);if(location===null)return;
+        let changed=forceUniforms;
+        if(!changed)for(let i=0;i<count;i++)if(inputUniformWords[offset+i]!==uniformWords[offset+i]){changed=true;break;}
+        if(changed){for(let i=0;i<count;i++)uniformWords[offset+i]=inputUniformWords[offset+i];g.uniform4fv(location,program.uniformSpans.get(name));}
+      };
       uniform('surf',0,4);uniform('fogcolor',4,4);uniform('misc',8,4);uniform('pc',12,72);uniform('tfactor',84,4);uniform('texsize',88,16);uniform('bumpmat',104,16);uniform('bumplum',120,16);uniform('uvrect',136,16);
-      program.uniforms=u;
+      program.uniformsValid=true;
       if(s[37]) {
-        const constants=this.floats(s[38],772),old=program.vertexConstants;
-        if(!old||constants.subarray(0,768).some((value,i)=>value!==old[i]))g.uniform4fv(loc('c'),constants.subarray(0,768));
-        if(!old||constants.subarray(768).some((value,i)=>value!==old[768+i]))g.uniform4fv(loc('fogp'),constants.subarray(768));
-        program.vertexConstants=constants;
+        const constants=this.floatView(s[38],772),constantWords=new Uint32Array(constants.buffer,constants.byteOffset,772);
+        if(s[39]&0x10000) {
+          const fixedWords=program.fixedVertexConstantWords,forceFixed=!program.fixedVertexConstantsValid;
+          const upload=(name,offset,count,matrix)=>{
+            const location=loc(name);if(location===null)return;
+            let changed=forceFixed;
+            if(!changed)for(let i=0;i<count;i++)if(constantWords[offset+i]!==fixedWords[offset+i]){changed=true;break;}
+            if(changed){for(let i=0;i<count;i++)fixedWords[offset+i]=constantWords[offset+i];
+              if(matrix)g.uniformMatrix4fv(location,false,program.fixedVertexSpans[name]);
+              else g.uniform4fv(location,program.fixedVertexSpans[name]);
+            }
+          };
+          upload('wvp',0,16,true);upload('wv',16,16,true);upload('wvn',32,16,true);upload('tm',48,64,true);
+          upload('mat',112,20,false);upload('amb',132,4,false);upload('lt',136,224,false);
+          program.fixedVertexConstantsValid=true;
+        } else {
+          const location=loc('c'),snapshotWords=program.vertexConstantWords,forceConstants=!program.vertexConstantsValid;
+          if(location!==null){
+            let changed=forceConstants;
+            if(!changed)for(let i=0;i<768;i++)if(constantWords[i]!==snapshotWords[i]){changed=true;break;}
+            if(changed){for(let i=0;i<768;i++)snapshotWords[i]=constantWords[i];g.uniform4fv(location,program.vertexConstantSpans.c);}
+          }
+          program.vertexConstantsValid=true;
+        }
+        const fogLocation=loc('fogp'),snapshotWords=program.vertexConstantWords;
+        if(fogLocation!==null){
+          let changed=!program.fogConstantsValid;
+          if(!changed)for(let i=0;i<4;i++)if(constantWords[768+i]!==snapshotWords[768+i]){changed=true;break;}
+          if(changed){for(let i=0;i<4;i++)snapshotWords[768+i]=constantWords[768+i];g.uniform4fv(fogLocation,program.vertexConstantSpans.fogp);}
+        }
+        program.fogConstantsValid=true;
       }
       const addresses=new Float32Array(16),borders=new Float32Array(16);
       for(let t=0;t<4;t++){
@@ -295,11 +407,12 @@ void main() {
   present(id) {
     const t=this.targets.get(id);if(!t||t.depth)return false;
     const g=this.gl;if(this.canvas.width!==t.w||this.canvas.height!==t.h){this.canvas.width=t.w;this.canvas.height=t.h;}
-    g.bindFramebuffer(g.READ_FRAMEBUFFER,this.fbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);
+    g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
     g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);g.flush();
-    this.fboBound=false;this.attachmentsValid=false;this.attachedColor=undefined;this.attachedDepth=undefined;this.lastState=undefined;
+    this.boundFramebuffer=null;this.lastState=undefined;
     ++this.frame;
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
+    this.lastFrameStats=this.frameStats;this.frameStats=undefined;
     for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}
     postMessage({type:'gpu-frame',width:t.w,height:t.h});return true;
   }
@@ -316,7 +429,24 @@ void main() {
   read(id,ptr) {
     const t=this.targets.get(id);if(!t)return false;
     if(t.depth)throw new Error('Guest depth readback is not yet admitted by the WebGL backend');
-    const g=this.gl;this.attach(t,null);const pixels=new Uint8Array(t.w*t.h*4);g.readPixels(0,0,t.w,t.h,g.RGBA,g.UNSIGNED_BYTE,pixels);this.bytes(ptr,pixels.length).set(pixels);return true;
+    const g=this.gl;this.attach(t,null);const pixels=new Uint8Array(t.w*t.h*4);g.readPixels(0,0,t.w,t.h,g.RGBA,g.UNSIGNED_BYTE,pixels);
+    const error=g.getError();if(error!==g.NO_ERROR)throw new Error(`GPU readback error 0x${error.toString(16)}`);
+    this.bytes(ptr,pixels.length).set(pixels);return true;
   }
-  invalidate(id) {const t=this.targets.get(id);if(t){this.gl.deleteTexture(t.texture);this.targets.delete(id);}}
+  invalidate(id) {
+    const t=this.targets.get(id);if(!t)return;
+    const g=this.gl;
+    for(const [key,entry] of this.framebuffers){
+      if(entry.color!==t&&entry.depth!==t)continue;
+      if(this.boundFramebuffer===entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundFramebuffer=null;}
+      g.deleteFramebuffer(entry.framebuffer);this.framebuffers.delete(key);
+    }
+    if(this.readFramebufferTarget===t){
+      this.boundFramebuffer=null;
+      g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);
+      g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,null,0);
+      this.readFramebufferTarget=undefined;
+    }
+    g.deleteTexture(t.texture);this.targets.delete(id);
+  }
 }

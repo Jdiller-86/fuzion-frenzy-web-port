@@ -20,6 +20,8 @@
 #include "reference_renderer.h"
 #include "full-webgl.h"
 void ff_webgl_advance_frame();
+void ff_webgl_flush();
+bool ff_webgl_pipelined();
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -56,6 +58,7 @@ public:
     }
     void Clear(const gpu::State& s, uint32_t n, const uint8_t* r, uint32_t flags,
                uint32_t color, float z, uint32_t stencil) override {
+        TouchGpuFrame();
         const auto start = Clock::now();
         if (ff_webgl_enabled()) ff_webgl_clear(s, n, r, flags, color, z, stencil);
         else reference::Clear(s, n, r, flags, color, z, stencil);
@@ -63,6 +66,9 @@ public:
     }
     void Draw(const gpu::State& s, uint32_t prim, uint32_t start, uint32_t count,
               const uint8_t* indices) override {
+        if(ff_webgl_enabled()) {
+            TouchGpuFrame();reference::Draw(s,prim,start,count,indices);++draw_count_;return;
+        }
         const auto started = Clock::now();
         reference::Draw(s, prim, start, count, indices);
         draw_ms_ += ElapsedMs(started);
@@ -70,6 +76,7 @@ public:
     }
     void Copy(const gpu::Surface& src, const gpu::Surface& dst, uint32_t n,
               uint32_t rects, uint32_t points) override {
+        TouchGpuFrame();
         const auto start = Clock::now();
         if (ff_webgl_enabled()) {
             gpu::TextureDesc a,b;
@@ -82,7 +89,11 @@ public:
     }
     void Present(const gpu::Surface& front) override {
         const auto submitted = Clock::now();
-        if (ff_webgl_enabled() && ff_webgl_present(front)) { draw_ms_ += ElapsedMs(submitted); EndFrame(); return; }
+        if (ff_webgl_enabled() && ff_webgl_present(front)) {
+            // A single interval includes guest work between rendering calls and
+            // synchronous JS submission. Avoid two Wasm/JS clock calls per draw.
+            draw_ms_=ElapsedMs(gpu_frame_active_?gpu_frame_start_:submitted);EndFrame();return;
+        }
         // The SDK CPU renderer writes the title's actual render target in guest
         // RAM. Copy it into an owned RGBA buffer before crossing into JS.
         gpu::TextureDesc desc;
@@ -107,22 +118,33 @@ public:
     void EndFrame() {
         ff_webgl_advance_frame();
 #ifdef __EMSCRIPTEN__
-        MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0, $1, $2, $3); },
-                            draw_ms_, clear_ms_, copy_ms_, static_cast<uint32_t>(draw_count_));
+        if(ff_webgl_enabled()&&ff_webgl_pipelined()) {
+            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3); },
+                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_));
+        } else {
+            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3); },
+                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_));
+        }
 #endif
         ++frames_;
         draw_ms_ = clear_ms_ = copy_ms_ = 0.0;
         draw_count_ = 0;
+        gpu_frame_active_=false;
         reference::BeginFrame();
     }
     void Sync(uint32_t data, uint32_t size) override { if (ff_webgl_enabled()) ff_webgl_sync(data,size); }
     void SyncLate(uint32_t data, uint32_t size) override { Sync(data,size); }
-    void Flush() override {}
+    void Flush() override {if(ff_webgl_enabled())ff_webgl_flush();}
     void SetGamma(const uint8_t*) override {}
     bool WidensFrame() const override { return false; }
 
 private:
     using Clock = std::chrono::steady_clock;
+    void TouchGpuFrame() {
+        if(ff_webgl_enabled()&&!gpu_frame_active_){gpu_frame_start_=Clock::now();gpu_frame_active_=true;}
+    }
+    Clock::time_point gpu_frame_start_;
+    bool gpu_frame_active_=false;
     static double ElapsedMs(Clock::time_point start) {
         return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
     }
