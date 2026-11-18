@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Shared memory checks for the original segment routine cut the largest Water Gate Scramble gap from 210.63 to 135.38 ms. Samples on the main intersection call stack fell from 103.17 to 38.81 ms. [Gameplay observations](browser-gpu.md#checked-segment-intersection-spans)
+- **Browser.** Local x87 slots and reused argument spans cut Water Gate Scramble's largest measured gap from 135.38 to 123.58 ms. The original measured gap was 210.63 ms. [Gameplay observations](browser-gpu.md#local-floating-point-stack-and-grid-argument-span)
 - **Next.** Look for repeated inputs in Water Gate Scramble's grid-mask pass and reuse exact arithmetic where the inputs match. Measure modest hardware and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

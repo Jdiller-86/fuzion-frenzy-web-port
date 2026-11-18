@@ -23,6 +23,17 @@ struct Spans {
     const auto leftAddress = *reinterpret_cast<const x86_u32u*>(stack + 36);
     const auto rightAddress = *reinterpret_cast<const x86_u32u*>(stack + 40);
     const auto resultAddress = *reinterpret_cast<const x86_u32u*>(stack + 44);
+
+    // The grid caller places all three operands in the same stack window.
+    // Admit the whole group when its pointer words match that layout.
+    if (leftAddress == esp + 0x50u && rightAddress == esp + 0x40u && resultAddress == esp + 0x60u) {
+        if (TryWindow(esp - 32, 0x98)) {
+            auto* result = stack + 0x80;
+            if (result[16] & 4u) return false;
+            spans = {stack, stack + 0x70, stack + 0x60, result, leftAddress, rightAddress, resultAddress};
+            return true;
+        }
+    }
     const auto* left = TryWindow(leftAddress, 16);
     const auto* right = TryWindow(rightAddress, 16);
     auto* result = TryWindow(resultAddress, 24);

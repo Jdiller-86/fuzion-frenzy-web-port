@@ -84,6 +84,14 @@ INTERSECTION_ACCESS = re.compile(
     rb"(?P<indent>[ \t]+)\{ uint32_t ea = \(uint32_t\)\((?P<address>[^)\n]+)\); (?P<body>[^\n]*) \}$"
 )
 INTERSECTION_MEMORY = re.compile(rb"X86_MEM(?P<type>32|F32|8)\(ea\)")
+X87_SLOT = re.compile(rb"X87_ST\(([0-7])\)")
+X87_PUSH = re.compile(rb"x87_push\(ctx, (.+)\);")
+X87_POP = b"x87_pop(ctx);"
+X86_BRANCH = re.compile(rb"\bgoto (loc_[0-9A-F]{8});")
+X86_LABEL = re.compile(rb"(loc_[0-9A-F]{8}):")
+GRID_ENTRY = b"X86_FUNC(__imp__sub_0019EAA0) {"
+GRID_DIGEST = "9214230456b79b7634b56cc54ad7c0c5d272611e28b166ceea9fa4351d88f7a7"
+GRID_PUSH = re.compile(rb"X86_PUSH32\((v|0x[0-9A-F]+u)\);")
 
 
 def instruction_comment(opcode: bytes) -> bytes:
@@ -251,6 +259,76 @@ def lower_memory_runs(block: bytes) -> tuple[bytes, int, int]:
     return b"".join(pieces), runs, words
 
 
+def lower_mapped_x87_stack(body: bytes) -> bytes:
+    # The mapped body runs without guest faults. Check the logical stack
+    # depth at each branch join before deferring writes to the guest context.
+    lines = body.splitlines()
+    labels = {label[1]: index for index, line in enumerate(lines)
+              if (label := X86_LABEL.fullmatch(line.strip()))}
+    depths: dict[int, int] = {}
+    pending = [(0, 0)]
+    while pending:
+        index, depth = pending.pop()
+        if index in depths:
+            if depths[index] != depth:
+                raise ValueError("mapped x87 stack depths disagree at a branch join")
+            continue
+        if not 0 <= index < len(lines):
+            raise ValueError("mapped x87 control flow leaves the function")
+        depths[index] = depth
+        line = lines[index].strip()
+        if not line.startswith(b"//"):
+            depth += line.count(X87_POP) - len(X87_PUSH.findall(line))
+            if b"return;" in line:
+                if depth:
+                    raise ValueError("mapped x87 stack is unbalanced at return")
+                continue
+            if match := X86_BRANCH.search(line):
+                pending.append((labels[match[1]], depth))
+                if line.startswith(b"goto "):
+                    continue
+        pending.append((index + 1, depth))
+    if len(depths) != len(lines):
+        raise ValueError("mapped x87 body has unreachable statements")
+
+    slots: set[int] = set()
+
+    def slot(depth: int) -> bytes:
+        index = depth & 7
+        slots.add(index)
+        return f"x87Slot{index}".encode("ascii")
+
+    return_lines = []
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(b"//"):
+            continue
+        depth = depths[index]
+        # Source operands of FLD are evaluated at the incoming depth.
+        line = X87_SLOT.sub(lambda match: slot(depth + int(match[1])), line)
+        line = X87_PUSH.sub(lambda match: slot(depth - 1) + b" = " + match[1] + b";", line)
+        line = line.replace(X87_POP, b"")
+        if b"x87_status(ctx)" in line:
+            top = f"((x87Base + {depth & 7}u) & 7u)".encode("ascii")
+            line = line.replace(b"x87_status(ctx)", b"uint16_t((ctx.fsw & ~0x3800u) | (" + top + b" << 11))")
+        if b"return;" in line:
+            return_lines.append(index)
+        lines[index] = line
+
+    if slots != {4, 5, 6, 7} or len(return_lines) != 3:
+        raise ValueError("mapped x87 body differs from the reviewed stack layout")
+    context_slots = [f"ctx.st[(x87Base + {index}u) & 7u]".encode("ascii") for index in sorted(slots)]
+    local_slots = [slot(index) for index in sorted(slots)]
+    restore = b" ".join(context + b" = " + local + b";" for context, local in zip(context_slots, local_slots))
+    for index in return_lines:
+        lines[index] = lines[index].replace(b"return;", restore + b" ctx.top = x87Base; return;")
+    prefix = [b"\n\tconst uint32_t x87Base = ctx.top & 7u;"]
+    prefix.extend(b"\tdouble " + local + b" = " + context + b";" for context, local in zip(context_slots, local_slots))
+    result = b"\n".join(prefix + lines)
+    if re.search(rb"\b(?:X87_ST|x87_push|x87_pop|x87_status)\(", result):
+        raise ValueError("mapped x87 body contains an unlowered stack access")
+    return result
+
+
 def lower_intersection(block: bytes) -> tuple[bytes, int]:
     if not block.startswith(INTERSECTION_ENTRY):
         return block, 0
@@ -310,6 +388,7 @@ def lower_intersection(block: bytes) -> tuple[bytes, int]:
     body = body.replace(b"X86_MEM32(ctx.esp)", b"*reinterpret_cast<const x86_u32u*>(spans.stack)")
     if count != 198 or re.search(rb"\bX86_(?:MEM|PUSH|POP|PTR)", body):
         raise ValueError("intersection body contains unmapped memory operations")
+    body = lower_mapped_x87_stack(body)
 
     fast = (b"[[gnu::always_inline]] static inline void ff_browser_mapped_intersection(\n"
             b"    X86Context& __restrict ctx, const ff_browser_intersection::Spans& spans) noexcept {"
@@ -320,7 +399,60 @@ def lower_intersection(block: bytes) -> tuple[bytes, int]:
     return fast + entry + block[len(INTERSECTION_ENTRY):], 1
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int]:
+def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
+    if not block.startswith(GRID_ENTRY):
+        return block, 0
+    head, closing, tail = block.replace(b"\r\n", b"\n").partition(b"\n}")
+    if not closing or sha256(head + closing) != GRID_DIGEST:
+        return block, 0
+
+    start_label = b"\nloc_0019EB80:"
+    start = head.index(start_label) + len(start_label)
+    end = head.index(b"\n\t// 0019EBAE ", start)
+    checked = head[start:end]
+    stores = 0
+
+    def map_store(match: re.Match[bytes]) -> bytes:
+        nonlocal stores
+        address = match["address"]
+        if not address.startswith(b"ctx.esp + "):
+            return match[0]
+        offset = int(address.rsplit(b" ", 1)[1][:-1], 16) + 16
+        if int(match["pc"], 16) > 0x0019EB9A:
+            offset -= 4  # One argument has already been pushed.
+        if not 0 <= offset <= 0x4c:
+            raise ValueError("grid call store leaves the admitted stack span")
+        target = f"(*reinterpret_cast<x86_u32u*>(gridStack + {offset}))".encode("ascii")
+        stores += 1
+        body = match["body"].replace(b"X86_MEM32(ea)", target)
+        return match["comment"] + match["indent"] + b"{ " + body + b" }"
+
+    mapped = INTERSECTION_ACCESS.sub(map_store, checked)
+    cursor = 16
+
+    def map_push(match: re.Match[bytes]) -> bytes:
+        nonlocal cursor
+        cursor -= 4
+        pointer = f"gridStack + {cursor}".encode("ascii")
+        return b"ctx.esp -= 4; *reinterpret_cast<x86_u32u*>(" + pointer + b") = " + match[1] + b";"
+
+    mapped, pushes = GRID_PUSH.subn(map_push, mapped)
+    if stores != 4 or pushes != 4:
+        raise ValueError("grid call differs from the reviewed argument layout")
+
+    setup = b"\n\tuint32_t gridStackEsp = 0;\n\tuint8_t* gridStack = nullptr;"
+    guard = (b"\n\tif (gridStackEsp != ctx.esp) {\n\t\tgridStackEsp = ctx.esp;\n"
+             b"\t\tgridStack = ff_browser_memory::TryWindow(gridStackEsp - 16, 0x50);\n\t}"
+             b"\n\tif (gridStack) [[likely]] {")
+    # The existing call and its binding remain in both paths. The cached
+    # host pointer covers only argument stores, and is refreshed on ESP changes.
+    mapped = mapped.replace(b"\n\t", b"\n\t\t")
+    checked = checked.replace(b"\n\t", b"\n\t\t")
+    return (GRID_ENTRY + setup + head[len(GRID_ENTRY):start] + guard + mapped
+            + b"\n\t} else {" + checked + b"\n\t}" + head[end:] + closing + tail), 1
+
+
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -333,6 +465,7 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     memory_runs = memory_words = 0
     matching_byte_loops = 0
     mapped_intersections = 0
+    mapped_grid_calls = 0
 
     for index, marker in enumerate(markers):
         start = marker.start()
@@ -343,6 +476,8 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
         if block.startswith(b"X86_FUNC("):
             block, count = lower_intersection(block)
             mapped_intersections += count
+            block, count = lower_grid_arguments(block)
+            mapped_grid_calls += count
             if contains_eh(block):
                 excluded_eh_transfers += len(TAIL_TRANSFER.findall(block))
                 eh_functions += 1
@@ -397,8 +532,11 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     if mapped_intersections:
         helper_digest = sha256(INTERSECTION_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Intersection spans helper SHA-256: ' + helper_digest + b'\n#include "guest-intersection-spans.inc"\n' + adapted
+    if mapped_grid_calls:
+        adapted = b'#include "full-memory.h"\n' + adapted
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
-            push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops, mapped_intersections)
+            push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops,
+            mapped_grid_calls, mapped_intersections)
 
 
 def main() -> int:
@@ -456,11 +594,12 @@ def main() -> int:
     total_memory_runs = total_memory_words = 0
     total_matching_byte_loops = 0
     total_mapped_intersections = 0
+    total_mapped_grid_calls = 0
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
-         matching_byte_loops, mapped_intersections) = adapt_source(original)
+         matching_byte_loops, mapped_grid_calls, mapped_intersections) = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -480,6 +619,7 @@ def main() -> int:
                 "memoryWordsInRuns": memory_words,
                 "matchingByteLoopCount": matching_byte_loops,
                 "mappedIntersectionCount": mapped_intersections,
+                "mappedGridCallCount": mapped_grid_calls,
                 "adaptedSha256": sha256(adapted),
             }
         )
@@ -493,6 +633,7 @@ def main() -> int:
         total_memory_words += memory_words
         total_matching_byte_loops += matching_byte_loops
         total_mapped_intersections += mapped_intersections
+        total_mapped_grid_calls += mapped_grid_calls
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -512,6 +653,7 @@ def main() -> int:
         "memoryWordsInRuns": total_memory_words,
         "matchingByteLoopCount": total_matching_byte_loops,
         "mappedIntersectionCount": total_mapped_intersections,
+        "mappedGridCallCount": total_mapped_grid_calls,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -524,6 +666,7 @@ def main() -> int:
     print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
     print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
+    print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
