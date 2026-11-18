@@ -51,6 +51,7 @@ COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
+GRID_REJECTION_HELPER = ROOT / "runtime/browser/sdk/guest-grid-rejection.inc"
 GUEST_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)"
 MEMORY_WORD = re.compile(
     rb"(?m)^(?P<comment>[ \t]+// [0-9A-F]{8} mov[ \t][^\r\n]*\r?\n)"
@@ -92,6 +93,12 @@ X86_LABEL = re.compile(rb"(loc_[0-9A-F]{8}):")
 GRID_ENTRY = b"X86_FUNC(__imp__sub_0019EAA0) {"
 GRID_DIGEST = "9214230456b79b7634b56cc54ad7c0c5d272611e28b166ceea9fa4351d88f7a7"
 GRID_PUSH = re.compile(rb"X86_PUSH32\((v|0x[0-9A-F]+u)\);")
+GRID_WEAK_WRAPPER = b"X86_WEAK_FUNC(sub_001EA530, __imp__sub_001EA530)"
+GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_001EA530(
+    X86Context& __restrict ctx, uint8_t* base) {
+    ff_browser_grid_batch(ctx);
+    [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
+}'''
 
 
 def instruction_comment(opcode: bytes) -> bytes:
@@ -399,6 +406,90 @@ def lower_intersection(block: bytes) -> tuple[bytes, int]:
     return fast + entry + block[len(INTERSECTION_ENTRY):], 1
 
 
+def grid_rejection_source(leaf: bytes) -> bytes | None:
+    leaf = leaf.replace(b"\r\n", b"\n")
+    start = leaf.find(INTERSECTION_ENTRY)
+    if start < 0 or leaf.count(GRID_WEAK_WRAPPER) != 1:
+        return None
+    head, closing, _ = leaf[start:].partition(b"\n}")
+    if not closing or sha256(head + closing) != INTERSECTION_DIGEST:
+        return None
+    instructions = {
+        int(match[1], 16): match[2]
+        for match in re.finditer(rb"(?m)^[ \t]+// ([0-9A-F]{8}) [^\n]+\n[ \t]+([^\n]+)", head)
+    }
+
+    def arithmetic(ranges: tuple[tuple[int, int], ...], memory: dict[int, bytes], point_base: int) -> None:
+        # Lift the arithmetic from the checksum-matched emitter. Stores in
+        # these straight-line ranges are private float conversions only.
+        fpu: list[bytes] = []
+
+        def read(operand: re.Match[bytes]) -> bytes:
+            register, displacement = operand.groups()
+            offset = int(displacement, 16) if displacement else 0
+            if register == b"esp":
+                return b"double(" + memory[offset] + b")"
+            if register == b"edx":
+                offset -= point_base
+            if offset not in ((0, 4) if register == b"edx" else (0, 4, 8, 12)):
+                raise ValueError("grid predicate coordinate is outside its admitted span")
+            base = b"query" if register == b"ecx" else b"point"
+            return b"double(ff_browser_grid::ReadFloat(" + base + b" + " + str(offset).encode() + b"))"
+
+        for pc, instruction in instructions.items():
+            if not any(low <= pc <= high for low, high in ranges):
+                continue
+            operand = re.search(rb"ea = \(uint32_t\)\(ctx\.(ecx|edx|esp)(?: \+ 0x([0-9A-Fa-f]+)u)?\);", instruction)
+            if operand and b"x87_push(ctx, (double)X86_MEMF32(ea))" in instruction:
+                fpu.append(read(operand))
+            elif operation := re.search(rb"x87_prec\(ctx, \(d ([+*\-]) s\)\)", instruction):
+                if operand:
+                    right = read(operand)
+                elif X87_POP in instruction and b"X87_ST(1) =" in instruction:
+                    right = fpu.pop()
+                else:
+                    raise ValueError("unexpected x87 arithmetic in the admitted grid prefix")
+                left = fpu.pop()
+                if operation[1] == b"+":
+                    # The two endpoint sequences reverse these additions.
+                    # Only ordered, finite side values may admit a skip.
+                    left, right = sorted((left, right))
+                fpu.append(b"x87_prec(ctx, (" + left + b" " + operation[1] + b" " + right + b"))")
+            elif operand and operand[1] == b"esp" and b"X86_MEMF32(ea) = (float)X87_ST(0)" in instruction:
+                memory[int(operand[2], 16)] = b"float(" + fpu[-1] + b")"
+                if X87_POP in instruction:
+                    fpu.pop()
+            else:
+                raise ValueError("unexpected instruction in the admitted grid prefix")
+        if fpu:
+            raise ValueError("grid predicate has unbalanced x87 arithmetic")
+
+    line: dict[int, bytes] = {}
+    arithmetic(((0x001EA545, 0x001EA54B), (0x001EA562, 0x001EA578)), line, 0)
+    offsets = (4, 0x14, 0x28)
+    if set(line) != set(offsets):
+        raise ValueError("grid line term offsets differ from the reviewed layout")
+    initial = {offset: f"terms[{index}]".encode() for index, offset in enumerate(offsets)}
+    first, second = initial.copy(), initial.copy()
+    arithmetic(((0x001EA57C, 0x001EA593),), first, 0)
+    arithmetic(((0x001EA59F, 0x001EA5B7),), second, 8)
+    if first[0x0c] != second[8]:
+        raise ValueError("grid endpoint paths differ beyond commuted additions")
+    constants = []
+    for left, right in ((0x001EA5C7, 0x001EA5D8), (0x001EA5E9, 0x001EA603)):
+        addresses = [re.search(rb"ea = \(uint32_t\)\((0x[0-9A-F]+u)\);", instructions[pc]) for pc in (left, right)]
+        if not all(addresses) or addresses[0][1] != addresses[1][1]:
+            raise ValueError("grid endpoint comparisons use different constants")
+        constants.append(addresses[0][1])
+    return (b"static auto ff_browser_grid_terms(X86Context& ctx, const uint8_t* query) noexcept {\n"
+            b"    return std::array<float, 3>{" + b", ".join(line[key] for key in offsets) + b"};\n}\n"
+            b"static float ff_browser_grid_side(X86Context& ctx, const std::array<float, 3>& terms,\n"
+            b"                                  const uint8_t* point) noexcept {\n    return " + first[0x0c] + b";\n}\n"
+            b"static void ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
+            b"    ff_browser_grid::BatchFirstRejects(ctx, ff_browser_grid_terms, ff_browser_grid_side, 0x0019EBAEu, "
+            + b", ".join(constants) + b");\n}\n")
+
+
 def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
     if not block.startswith(GRID_ENTRY):
         return block, 0
@@ -452,7 +543,8 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
             + b"\n\t} else {" + checked + b"\n\t}" + head[end:] + closing + tail), 1
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int]:
+def adapt_source(original: bytes, grid_predicate: bytes | None = None
+                 ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -534,6 +626,10 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
         adapted = b'// Intersection spans helper SHA-256: ' + helper_digest + b'\n#include "guest-intersection-spans.inc"\n' + adapted
     if mapped_grid_calls:
         adapted = b'#include "full-memory.h"\n' + adapted
+    if mapped_intersections and grid_predicate is not None:
+        digest = sha256(GRID_REJECTION_HELPER.read_bytes()).encode("ascii")
+        adapted = (b'// Grid rejection helper SHA-256: ' + digest + b'\n#include "guest-grid-rejection.inc"\n'
+                   + grid_predicate + adapted.replace(GRID_WEAK_WRAPPER, GRID_DEFAULT_WRAPPER))
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
             push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops,
             mapped_grid_calls, mapped_intersections)
@@ -595,11 +691,18 @@ def main() -> int:
     total_matching_byte_loops = 0
     total_mapped_intersections = 0
     total_mapped_grid_calls = 0
+    total_grid_reject_batches = 0
+    grid_predicate = None
+    grid = shards[46][1].read_bytes()
+    grid_index = grid.find(GRID_ENTRY)
+    if grid_index >= 0 and lower_grid_arguments(grid[grid_index:])[1] == 1:
+        grid_predicate = grid_rejection_source(shards[54][1].read_bytes())
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
-         matching_byte_loops, mapped_grid_calls, mapped_intersections) = adapt_source(original)
+         matching_byte_loops, mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
+        grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -620,6 +723,7 @@ def main() -> int:
                 "matchingByteLoopCount": matching_byte_loops,
                 "mappedIntersectionCount": mapped_intersections,
                 "mappedGridCallCount": mapped_grid_calls,
+                "gridRejectBatchCount": grid_reject_batches,
                 "adaptedSha256": sha256(adapted),
             }
         )
@@ -634,6 +738,7 @@ def main() -> int:
         total_matching_byte_loops += matching_byte_loops
         total_mapped_intersections += mapped_intersections
         total_mapped_grid_calls += mapped_grid_calls
+        total_grid_reject_batches += grid_reject_batches
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -654,6 +759,7 @@ def main() -> int:
         "matchingByteLoopCount": total_matching_byte_loops,
         "mappedIntersectionCount": total_mapped_intersections,
         "mappedGridCallCount": total_mapped_grid_calls,
+        "gridRejectBatchCount": total_grid_reject_batches,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -667,6 +773,7 @@ def main() -> int:
     print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
+    print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
