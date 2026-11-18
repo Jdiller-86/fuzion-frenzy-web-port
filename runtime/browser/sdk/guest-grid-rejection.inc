@@ -17,8 +17,8 @@ inline bool Overlaps(const uint8_t* first, size_t firstSize,
 }
 
 template<typename Line, typename Side>
-inline void BatchFirstRejects(X86Context& ctx, Line lineTerms, Side pointSide,
-                              uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress) noexcept {
+inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
+                               uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress) noexcept {
     using ff_browser_memory::TryWindow;
     const uint32_t esp = ctx.esp;
     if (int32_t(ctx.edi) < 3 || ctx.eax != esp + 0x40 || ctx.ecx != esp + 0x50 || ctx.edx != esp + 0x60) return;
@@ -45,17 +45,26 @@ inline void BatchFirstRejects(X86Context& ctx, Line lineTerms, Side pointSide,
     const float zero = ReadFloat(zeroBytes);
     if (!std::isfinite(tolerance) || !std::isfinite(zero)) return;
 
-    const auto terms = lineTerms(ctx, stack + 0x70);
-    const auto classify = [&](const uint8_t* point) {
+    const auto* query = stack + 0x70;
+    const auto queryTerms = lineTerms(ctx, query);
+    const auto classify = [&](const auto& terms, const uint8_t* point) {
         const float side = pointSide(ctx, terms, point);
         if (!std::isfinite(side) || !(std::fabs(side) >= tolerance)) return 0;
         return side < zero ? -1 : 1;
     };
-    const int direction = classify(edge);
-    if (!direction) return;
 
+    int previous = classify(queryTerms, edge);
     uint32_t rejected = 0;
-    while (rejected < count && classify(rest + rejected * 8) == direction) ++rejected;
+    for (; rejected < count; ++rejected) {
+        const int current = classify(queryTerms, rest + rejected * 8);
+        if (!previous || previous != current) {
+            const auto* segment = rejected ? rest + (rejected - 1) * 8 : edge;
+            const auto edgeTerms = lineTerms(ctx, segment);
+            const int first = classify(edgeTerms, query);
+            if (!first || first != classify(edgeTerms, query + 8)) break;
+        }
+        previous = current;
+    }
     // Run the last proven rejection normally so its stack, registers and
     // both touched x87 slots retain the original values at loop exit.
     if (rejected < 2) return;

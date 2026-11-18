@@ -490,7 +490,8 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
         for match in re.finditer(rb"(?m)^[ \t]+// ([0-9A-F]{8}) [^\n]+\n[ \t]+([^\n]+)", head)
     }
 
-    def arithmetic(ranges: tuple[tuple[int, int], ...], memory: dict[int, bytes], point_base: int) -> None:
+    def arithmetic(ranges: tuple[tuple[int, int], ...], memory: dict[int, bytes], point_base: int,
+                   swap_segments: bool = False) -> None:
         # Lift the arithmetic from the checksum-matched emitter. Stores in
         # these straight-line ranges are private float conversions only.
         fpu: list[bytes] = []
@@ -510,6 +511,9 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
         for pc, instruction in instructions.items():
             if not any(low <= pc <= high for low, high in ranges):
                 continue
+            if swap_segments:
+                instruction = re.sub(rb"ctx\.(ecx|edx)\b",
+                                     lambda m: b"ctx.edx" if m[1] == b"ecx" else b"ctx.ecx", instruction)
             operand = re.search(rb"ea = \(uint32_t\)\(ctx\.(ecx|edx|esp)(?: \+ 0x([0-9A-Fa-f]+)u)?\);", instruction)
             if operand and b"x87_push(ctx, (double)X86_MEMF32(ea))" in instruction:
                 fpu.append(read(operand))
@@ -521,8 +525,8 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
                 else:
                     raise ValueError("unexpected x87 arithmetic in the admitted grid prefix")
                 left = fpu.pop()
-                if operation[1] == b"+":
-                    # The two endpoint sequences reverse these additions.
+                if operation[1] in (b"+", b"*"):
+                    # The endpoint and swapped-segment paths commute these operands.
                     # Only ordered, finite side values may admit a skip.
                     left, right = sorted((left, right))
                 fpu.append(b"x87_prec(ctx, (" + left + b" " + operation[1] + b" " + right + b"))")
@@ -536,20 +540,29 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
             raise ValueError("grid predicate has unbalanced x87 arithmetic")
 
     line: dict[int, bytes] = {}
+    opposite_line: dict[int, bytes] = {}
     arithmetic(((0x001EA545, 0x001EA54B), (0x001EA562, 0x001EA578)), line, 0)
+    arithmetic(((0x001EA558, 0x001EA55E), (0x001EA621, 0x001EA637)), opposite_line, 0, True)
     offsets = (4, 0x14, 0x28)
-    if set(line) != set(offsets):
-        raise ValueError("grid line term offsets differ from the reviewed layout")
+    opposite_offsets = (0x28, 0x1c, 8)
+    if (set(line) != set(offsets) or set(opposite_line) != set(opposite_offsets) or
+            tuple(line[key] for key in offsets) != tuple(opposite_line[key] for key in opposite_offsets)):
+        raise ValueError("grid line terms differ when swapping the two segments")
     initial = {offset: f"terms[{index}]".encode() for index, offset in enumerate(offsets)}
     first, second = initial.copy(), initial.copy()
     arithmetic(((0x001EA57C, 0x001EA593),), first, 0)
     arithmetic(((0x001EA59F, 0x001EA5B7),), second, 8)
-    if first[0x0c] != second[8]:
-        raise ValueError("grid endpoint paths differ beyond commuted additions")
+    opposite = {offset: f"terms[{index}]".encode() for index, offset in enumerate(opposite_offsets)}
+    opposite_first, opposite_second = opposite.copy(), opposite.copy()
+    arithmetic(((0x001EA63B, 0x001EA652),), opposite_first, 0, True)
+    arithmetic(((0x001EA65E, 0x001EA676),), opposite_second, 8, True)
+    if not first[0x0c] == second[8] == opposite_first[0x0c] == opposite_second[8]:
+        raise ValueError("grid endpoint paths differ beyond commuted arithmetic")
     constants = []
-    for left, right in ((0x001EA5C7, 0x001EA5D8), (0x001EA5E9, 0x001EA603)):
-        addresses = [re.search(rb"ea = \(uint32_t\)\((0x[0-9A-F]+u)\);", instructions[pc]) for pc in (left, right)]
-        if not all(addresses) or addresses[0][1] != addresses[1][1]:
+    for comparisons in ((0x001EA5C7, 0x001EA5D8, 0x001EA686, 0x001EA697),
+                        (0x001EA5E9, 0x001EA603, 0x001EA6A8, 0x001EA6C2)):
+        addresses = [re.search(rb"ea = \(uint32_t\)\((0x[0-9A-F]+u)\);", instructions[pc]) for pc in comparisons]
+        if not all(addresses) or len({match[1] for match in addresses}) != 1:
             raise ValueError("grid endpoint comparisons use different constants")
         constants.append(addresses[0][1])
     return (b"static auto ff_browser_grid_terms(X86Context& ctx, const uint8_t* query) noexcept {\n"
@@ -557,7 +570,7 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
             b"static float ff_browser_grid_side(X86Context& ctx, const std::array<float, 3>& terms,\n"
             b"                                  const uint8_t* point) noexcept {\n    return " + first[0x0c] + b";\n}\n"
             b"static void ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
-            b"    ff_browser_grid::BatchFirstRejects(ctx, ff_browser_grid_terms, ff_browser_grid_side, 0x0019EBAEu, "
+            b"    ff_browser_grid::BatchRejectedEdges(ctx, ff_browser_grid_terms, ff_browser_grid_side, 0x0019EBAEu, "
             + b", ".join(constants) + b");\n}\n")
 
 

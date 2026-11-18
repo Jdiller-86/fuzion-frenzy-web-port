@@ -264,6 +264,12 @@ The checked decimal loader accumulates the digit prefix in three integer words a
 
 In the foreground Water Gate Scramble replay, the longest acknowledgement gap fell from 80.86 to 76.26 ms. Guest samples in that interval fell from 64.32 to 59.14 ms, and the mantissa routine and its helpers fell from 9.52 to 1.10 ms. Acknowledgement p95 was 17.26 and 17.28 ms across 854 adjacent pairs per run. Both runs reached keyboard-controlled play, recorded zero blocking shader links and stopped cleanly. Scene and driver state varied between launches. The build reused 91 objects, rebuilt one title shard and grew the module by 98 bytes. The Wasm SHA-256 is `c7b7570338cbff103f94df35efbecd8021bc565cbd632b7df35af14cc4610940`.
 
+### Both segment rejection tests
+
+The grid batch now admits consecutive edges rejected by either original separating-line test. The adapter verifies that swapping the segments preserves the emitted arithmetic and comparison operands. The batch uses checked spans and runs the last rejection normally to reproduce its guest state. The focused Wasm comparison matched 1,152 loops, including 316 faults, and skipped 15,024 calls. Inputs that required the second test accounted for 1,013 skips. A strong SDK override matched another 1,152 loops and skipped zero calls.
+
+The largest Water Gate Scramble acknowledgement gap fell from 76.26 to 74.62 ms. Samples in the grid branch fell from 13.13 to 11.48 ms, and acknowledgement p95 was 17.28 and 17.30 ms across 854 and 858 pairs. First frame arrived in 1.66 and 1.78 seconds. A separate trial also batched non-collinear hits with no result writes. It matched 1,539 focused cases and measured a 74.75 ms largest gap. The selected implementation batches rejections only. All three runs reached keyboard-controlled play with zero blocking shader links, and scene and driver state varied. The selected build reused 91 objects, rebuilt one title shard and added 346 bytes. The Wasm SHA-256 is `cd0bc8455bef3b27054973cd2fca9fef683c63dca8794b94559dd3972b9430be`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -272,7 +278,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** Inspect the remaining segment tests under `0x0019EAA0` during the Water Gate Scramble scene-entry gap. This branch includes 13.13 ms of the peak's 59.14 ms of active guest work. The text loading and scene traversal under `0x001B43C0` account for 34.11 ms across several routines. Twisted System still has a 53–56 ms gap with about 37–39 ms of active guest work. Preserve guest timing, draw ordering and checked memory.
+1. **Guest scene setup.** Focus on text loading and scene traversal under `0x001B43C0` during Water Gate Scramble. It accounts for 34.46 ms of the largest gap's 58.60 ms of active guest work. The segment grid branch accounts for another 11.48 ms. Twisted System still has a 53–56 ms gap with about 37–39 ms of active guest work. Preserve guest timing, draw ordering and checked memory.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.
