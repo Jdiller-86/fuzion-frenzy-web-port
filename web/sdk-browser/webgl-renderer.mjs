@@ -4,6 +4,16 @@ import { fixedFallbackVertexGlsl } from './fixed-vertex-fallback.mjs';
 import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERTEX_CODE_BYTES } from './programmable-vertex-fallback.mjs';
 
 const MAX_LINKED_PROGRAMS = 2048;
+const FRAME_ERROR_CHECK_DELAY_MS = 250;
+const PIXEL_UNIFORMS = [
+  ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
+  ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
+];
+const DRAW_UNIFORMS = [
+  ...PIXEL_UNIFORMS.map(([name]) => name),
+  'c', 'fogp', 'wvp', 'wv', 'wvn', 'tm', 'mat', 'amb', 'lt', 'addresses', 'border',
+  'tex0', 'tex1', 'tex2', 'tex3', 'fallbackVertexKey[0]', 'fallbackPixelKey[0]', 'fallbackInstructionCount',
+];
 
 function decodeColorTarget(input, width, height, format, pitch, linear) {
   const bytesPerPixel = format === 0x05 || format === 0x11 ? 2 : 4;
@@ -92,6 +102,7 @@ export class WebGLRenderer {
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
     this.programVariants=new Map();
+    this.pendingDrawPrograms = new Set();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     if(gpuTiming) {
       const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
@@ -309,7 +320,7 @@ void main() {
       if (!this.fixedFallbackTexture) throw new Error('Could not allocate the fallback texture');
       this.bindTexture(0, this.fixedFallbackTexture);
       g.texStorage2D(g.TEXTURE_2D, 1, g.RGBA8, 1, 1);
-      this.fixedFallbackPrograms = programs.map(program => this.finishProgram(program));
+      this.fixedFallbackPrograms = programs.map(program => this.cacheDrawUniforms(this.finishProgram(program)));
       this.shaderStats.fixedFallbackEnabled = true;
     } catch (error) {
       if (this.fixedFallbackTexture) g.deleteTexture(this.fixedFallbackTexture);
@@ -356,7 +367,7 @@ void main() {
       g.bindBufferBase(g.UNIFORM_BUFFER, 0, code);
       g.bufferData(g.UNIFORM_BUFFER, FALLBACK_VERTEX_CODE_BYTES, g.DYNAMIC_DRAW);
       g.uniformBlockBinding(program, block, 0);
-      this.programmableFallback = this.finishProgram(program, {codeBuffer:code});
+      this.programmableFallback = this.cacheDrawUniforms(this.finishProgram(program, {codeBuffer:code}));
       this.shaderStats.programmableFallbackEnabled = true;
     } catch (error) {
       if (code) g.deleteBuffer(code);
@@ -443,20 +454,30 @@ void main() {
     const fence = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
     if (!fence) {
       this.deferGpuErrors = false;
+      this.cancelFrameErrorCheck();
       this.checkGpuError();
       return;
     }
-    const check = {fence, deadline: performance.now() + 16, timer: 0};
+    const pending = this.pendingFrameErrorCheck;
+    if (pending) {
+      // The newest fence covers all earlier commands in this context. Keep
+      // the first poll and deadline so busy frames cannot postpone checks.
+      g.deleteSync(pending.fence);
+      pending.fence = fence;
+      return;
+    }
+    const check = {fence, deadline: performance.now() + FRAME_ERROR_CHECK_DELAY_MS, timer: 0};
     const poll = () => {
       if (this.pendingFrameErrorCheck !== check) return;
       try {
-        const status = g.clientWaitSync(fence, 0, 0);
+        const status = g.clientWaitSync(check.fence, 0, 0);
         if (status === g.TIMEOUT_EXPIRED && performance.now() < check.deadline) {
           check.timer = setTimeout(poll, 4);
           return;
         }
         this.finishFrameErrorCheck();
         if (status === g.WAIT_FAILED) throw new Error('GPU frame validation fence failed');
+        this.prepareDrawPrograms();
       } catch (error) {
         this.frameError = error;
         this.cancelFrameErrorCheck();
@@ -475,9 +496,8 @@ void main() {
   commands(ptr,count,checkErrors=true) {
     try {
     const started=performance.now();
-    // At most one submitted frame can await validation. Drain it before
-    // another batch touches the context, including synchronous flushes.
-    this.finishFrameErrorCheck();
+    if(checkErrors)this.finishFrameErrorCheck();
+    else if(this.frameError)throw this.frameError;
     if(count>65536)throw new Error('GPU command budget exceeded');
     const words=this.wordView(ptr,count*12);
     if(this.parallelShaderCompile){
@@ -616,7 +636,7 @@ void main() {
     const emit=()=>{
       if(pendingRow<0)return;
       const b=pendingRow,layout=words[b]===3?words[b+10]:0;
-      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset))throw new Error('GPU draw rejected');
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,!checkErrors))throw new Error('GPU draw rejected');
       pendingRow=-1;
     };
     for(let i=0;i<count;i++) {
@@ -738,7 +758,7 @@ void main() {
   finishProgram(p,result={}) {
     const g=this.gl;
     const uniforms=new Float32Array(152),uniformWords=new Uint32Array(uniforms.buffer),uniformSpans=new Map();
-    for(const [name,offset,count] of [['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16]])
+    for(const [name,offset,count] of PIXEL_UNIFORMS)
       uniformSpans.set(name,new Float32Array(uniforms.buffer,offset*4,count));
     const vertexConstants=new Float32Array(772),vertexConstantWords=new Uint32Array(vertexConstants.buffer);
     const vertexConstantSpans={c:new Float32Array(vertexConstants.buffer,0,768),fogp:new Float32Array(vertexConstants.buffer,768*4,4)};
@@ -789,8 +809,32 @@ void main() {
     program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=program.sources=program.recipeKey=undefined;
     return ready;
   }
-  resolveProgram({specialized:program, fallback}) {
-    if (!program.pending || !fallback || program.error) return this.readyProgram(program);
+  cacheDrawUniforms(program) {
+    for (const name of DRAW_UNIFORMS) {
+      if (!program.locations.has(name)) program.locations.set(name, this.gl.getUniformLocation(program.p, name));
+    }
+    program.drawUniformsReady = true;
+    return program;
+  }
+  prepareDrawPrograms() {
+    // Link completion does not guarantee that uniform reflection can run
+    // without a round trip. Reuse the validation boundary for that query.
+    let remaining = 4;
+    for (const program of this.pendingDrawPrograms) {
+      if (remaining === 0) break;
+      --remaining;
+      if (program.pending && !this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) continue;
+      this.cacheDrawUniforms(this.readyProgram(program, true));
+      this.pendingDrawPrograms.delete(program);
+    }
+  }
+  resolveProgram({specialized:program, fallback}, deferred) {
+    if (!fallback || program.error || program.drawUniformsReady) return this.readyProgram(program);
+    if (deferred) {
+      this.pendingDrawPrograms.add(program);
+      return fallback.pipeline;
+    }
+    if (!program.pending) return program;
     if (program.lastFallbackPoll !== this.frame) {
       program.lastFallbackPoll = this.frame;
       if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program,true);
@@ -816,7 +860,7 @@ void main() {
       old.hashLo=hashLo;old.hashHi=hashHi;old.last=this.frame;
       return;
     }
-    if(old) this.invalidate(id);
+    if(old) this.invalidate(id, false);
     const g=this.gl,t={id,w,h,format,depth:!!depth,texture:g.createTexture(),last:this.frame,hashLo,hashHi};
     g.bindTexture(g.TEXTURE_2D,t.texture);this.boundTextures[this.activeUnit]=t.texture;g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,g.NEAREST);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,g.NEAREST);
     g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);
@@ -891,7 +935,7 @@ void main() {
     const list=n?this.wordView(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
     for(let i=0;i<(n||1);i++){const o=i*4,x=list[o],y=list[o+1],x1=list[o+2],y1=list[o+3];g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
   }
-  draw(n,state,uniforms,source,textures,layout,binding,indexOffset) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,deferred) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
@@ -904,7 +948,7 @@ void main() {
         variant=this.programVariant(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);
         this.pointerPrograms.set(programKey,variant);
       }
-      const program = this.resolveProgram(variant);
+      const program = this.resolveProgram(variant, deferred);
       const fallback = program === variant.specialized ? null : variant.fallback;
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
@@ -1073,15 +1117,14 @@ void main() {
     } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
   }
   present(id,onError) {
-    this.finishFrameErrorCheck();
+    if(!onError)this.finishFrameErrorCheck();
+    else if(this.frameError)throw this.frameError;
     const t=this.targets.get(id);if(!t||t.depth){this.disposeGpuTiming();return false;}
     if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;if(this.canvas.width!==t.w||this.canvas.height!==t.h){this.canvas.width=t.w;this.canvas.height=t.h;}
     g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
     g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);
     this.endGpuTimer();
-    if(onError)this.scheduleFrameErrorCheck(onError);
-    g.flush();
     this.boundFramebuffer=null;this.lastState=undefined;
     ++this.frame;
     if (this.usedFallbackThisFrame) {
@@ -1095,6 +1138,8 @@ void main() {
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
     this.lastFrameStats=this.frameStats;this.frameStats=undefined;
     for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}
+    if(onError)this.scheduleFrameErrorCheck(onError);
+    g.flush();
     postMessage({type:'gpu-frame',width:t.w,height:t.h});return true;
   }
   pixels(ptr,w,h,pitch) {
@@ -1116,8 +1161,8 @@ void main() {
     const error=g.getError();if(error!==g.NO_ERROR)throw new Error(`GPU readback error 0x${error.toString(16)}`);
     this.bytes(ptr,pixels.length).set(pixels);return true;
   }
-  invalidate(id) {
-    this.finishFrameErrorCheck();
+  invalidate(id,checkErrors=true) {
+    if(checkErrors)this.finishFrameErrorCheck();
     const t=this.targets.get(id);if(!t)return;
     const g=this.gl;
     for(const [key,entry] of this.framebuffers){
