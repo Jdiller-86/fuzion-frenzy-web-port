@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Longer scene marker confirmation reduced sampled two-pass parser time from 9.79 to 7.84 ms. Water Gate Scramble's latest entry gaps were 36.63 and 23.42 ms, and steady acknowledgement p95 was 17.01 ms. On integrated Radeon, Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Loader evidence](browser-gpu.md#confirm-scene-marker-candidates-with-eight-bytes) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
-- **Next.** Use the retained collision-grid counts to target remaining scalar intersections. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser.** Widening the checked collision batch reduced Water Gate Scramble grid samples from 8.78 to 6.43 ms. The latest entry gaps were 35.68 and 23.32 ms, and steady acknowledgement p95 was 17.08 ms. On integrated Radeon, Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Grid evidence](browser-gpu.md#widen-checked-collision-batches) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
+- **Next.** Inspect allocator work inside the shared loader. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

@@ -104,18 +104,27 @@ inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSi
     const auto word = [stack](uint32_t offset) { return *reinterpret_cast<const x86_u32u*>(stack + offset); };
     if (word(32) != returnAddress || word(36) != ctx.ecx || word(40) != ctx.eax || word(44) != ctx.edx) return nullptr;
 
-    const uint32_t count = ctx.edi < 64 ? ctx.edi : 64;
-    const auto* rest = TryWindow(ctx.esi, count * 8);
     const auto* toleranceBytes = TryWindow(toleranceAddress, 4);
     const auto* zeroBytes = TryWindow(zeroAddress, 4);
-    if (!rest || !toleranceBytes || !zeroBytes) return stack;
+    if (!toleranceBytes || !zeroBytes) return stack;
 
     // The original call rewrites its frame and the caller's edge copy.
     // Keep the root operands live and disjoint from both physical spans.
     const auto touchesWrites = [stack](const uint8_t* bytes, size_t size) {
         return Overlaps(bytes, size, stack, 0x30) || Overlaps(bytes, size, stack + 0x60, 0x10);
     };
-    if (touchesWrites(rest, count * 8) || touchesWrites(toleranceBytes, 4) || touchesWrites(zeroBytes, 4)) return stack;
+    const auto edgeSpan = [&](uint32_t count) -> const uint8_t* {
+        const auto* bytes = TryWindow(ctx.esi, count * 8);
+        return bytes && !touchesWrites(bytes, count * 8) ? bytes : nullptr;
+    };
+    constexpr uint32_t smallBatch = 64, largeBatch = 256;
+    uint32_t count = ctx.edi < largeBatch ? ctx.edi : largeBatch;
+    const auto* rest = edgeSpan(count);
+    if (!rest && count > smallBatch) {
+        count = smallBatch;
+        rest = edgeSpan(count);
+    }
+    if (!rest || touchesWrites(toleranceBytes, 4) || touchesWrites(zeroBytes, 4)) return stack;
     auto* edge = stack + 0x60;
     if (std::memcmp(edge + 8, rest, 8)) return stack;
     const float tolerance = ReadFloat(toleranceBytes);
