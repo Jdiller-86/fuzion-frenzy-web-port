@@ -652,8 +652,8 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
     arithmetic(((0x001EA65E, 0x001EA676),), opposite_second, 8, True)
     if not first[0x0c] == second[8] == opposite_first[0x0c] == opposite_second[8]:
         raise ValueError("grid endpoint paths differ beyond commuted arithmetic")
-    # The vector type supplies the SDK's selected arithmetic precision.
-    # Replace scalar loads and conversions with already promoted operands.
+    # Scalar and vector operands use the selected SDK precision. Float stores
+    # in the line expressions still round at the original scratch boundaries.
     side = first[0x0c]
     vector_side = side.removeprefix(b"float(").removesuffix(b")")
     vector_side = re.sub(rb"double\(ff_browser_grid::ReadFloat\(point \+ ([04])\)\)",
@@ -663,6 +663,7 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
     vector_side = vector_side.replace(b"x87_prec(ctx, ", b"(")
     if not re.fullmatch(rb"[xyabc ()+*\-]+", vector_side):
         raise ValueError("grid SIMD endpoint expression leaves its admitted arithmetic")
+    typed_line = [line[key].replace(b"double(", b"Real(").replace(b"x87_prec(ctx, ", b"(") for key in offsets]
     constants = []
     for comparisons in ((0x001EA5C7, 0x001EA5D8, 0x001EA686, 0x001EA697),
                         (0x001EA5E9, 0x001EA603, 0x001EA6A8, 0x001EA6C2)):
@@ -670,13 +671,11 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
         if not all(addresses) or len({match[1] for match in addresses}) != 1:
             raise ValueError("grid endpoint comparisons use different constants")
         constants.append(addresses[0][1])
-    return (b"static auto ff_browser_grid_terms(X86Context& ctx, const uint8_t* query) noexcept {\n"
-            b"    return std::array<float, 3>{" + b", ".join(line[key] for key in offsets) + b"};\n}\n"
-            b"static float ff_browser_grid_side(X86Context& ctx, const std::array<float, 3>& terms,\n"
-            b"                                  const uint8_t* point) noexcept {\n    return " + side + b";\n}\n"
-            b"static void ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
+    return (b"static void ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
+            b"    const auto lineTerms = []<typename Real>(const uint8_t* query) {\n"
+            b"        return std::array<float, 3>{" + b", ".join(typed_line) + b"};\n    };\n"
             b"    const auto vectorSide = [](auto x, auto y, auto a, auto b, auto c) { return " + vector_side + b"; };\n"
-            b"    ff_browser_grid::BatchRejectedEdges(ctx, ff_browser_grid_terms, ff_browser_grid_side, vectorSide, 0x0019EBAEu, "
+            b"    ff_browser_grid::BatchRejectedEdges(ctx, lineTerms, vectorSide, 0x0019EBAEu, "
             + b", ".join(constants) + b");\n}\n")
 
 

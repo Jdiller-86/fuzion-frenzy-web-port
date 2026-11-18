@@ -28,9 +28,9 @@ struct SideMasks {
     uint32_t above;
 };
 
-template<typename Side>
-[[gnu::always_inline]] inline SideMasks ClassifyFour(Side side, bool wide, const std::array<float, 3>& terms,
-                                                       const uint8_t* points, float tolerance, float zero) noexcept {
+template<bool Wide, typename Side>
+[[gnu::always_inline]] inline SideMasks ClassifyFour(Side side, const std::array<float, 3>& terms,
+                                                     const uint8_t* points, float tolerance, float zero) noexcept {
     using Float4 = float __attribute__((vector_size(16)));
     using Double2 = double __attribute__((vector_size(16)));
     const v128_t first = wasm_v128_load(points);
@@ -38,7 +38,7 @@ template<typename Side>
     const v128_t xs = wasm_i32x4_shuffle(first, second, 0, 2, 4, 6);
     const v128_t ys = wasm_i32x4_shuffle(first, second, 1, 3, 5, 7);
     v128_t results;
-    if (wide) {
+    if constexpr (Wide) {
         const auto splat = [](float term) { return std::bit_cast<Double2>(wasm_f64x2_splat(double(term))); };
         const auto a = splat(terms[0]), b = splat(terms[1]), c = splat(terms[2]);
         const auto pair = [&](v128_t x, v128_t y) {
@@ -65,8 +65,8 @@ template<typename Side>
 }
 #endif
 
-template<typename Line, typename Side, typename VectorSide>
-inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide, VectorSide vectorSide,
+template<typename Line, typename Side>
+inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
                                uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress) noexcept {
     using ff_browser_memory::TryWindow;
     const uint32_t esp = ctx.esp;
@@ -95,51 +95,56 @@ inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide, 
     if (!std::isfinite(tolerance) || !std::isfinite(zero)) return;
 
     const auto* query = stack + 0x70;
-    const auto queryTerms = lineTerms(ctx, query);
-    const auto classify = [&](const auto& terms, const uint8_t* point) {
-        const float side = pointSide(ctx, terms, point);
-        if (!std::isfinite(side) || !(std::fabs(side) >= tolerance)) return 0;
-        return side < zero ? -1 : 1;
-    };
+    const auto scan = [&]<typename Real>() {
+        const auto queryTerms = lineTerms.template operator()<Real>(query);
+        const auto classify = [&](const auto& terms, const uint8_t* point) {
+            const float side = float(pointSide(Real(ReadFloat(point)), Real(ReadFloat(point + 4)),
+                                               Real(terms[0]), Real(terms[1]), Real(terms[2])));
+            if (!std::isfinite(side) || !(std::fabs(side) >= tolerance)) return 0;
+            return side < zero ? -1 : 1;
+        };
 
-    const auto rejectsOpposite = [&](uint32_t index) {
-        const auto* segment = index ? rest + (index - 1) * 8 : edge;
-        const auto terms = lineTerms(ctx, segment);
-        const int first = classify(terms, query);
-        return first && first == classify(terms, query + 8);
-    };
+        const auto rejectsOpposite = [&](uint32_t index) {
+            const auto* segment = index ? rest + (index - 1) * 8 : edge;
+            const auto terms = lineTerms.template operator()<Real>(segment);
+            const int first = classify(terms, query);
+            return first && first == classify(terms, query + 8);
+        };
 
-    int previous = classify(queryTerms, edge);
+        int previous = classify(queryTerms, edge);
+        uint32_t rejected = 0;
+        while (rejected < count) {
 #if defined(__wasm_simd128__)
-    const bool wide = (ctx.fcw & 0x300) != 0;
+            if (count - rejected >= 4) {
+                const auto sides = ClassifyFour<sizeof(Real) == sizeof(double)>(
+                    pointSide, queryTerms, rest + rejected * 8, tolerance, zero);
+                // Shift each side mask to align it with the preceding endpoint.
+                const uint32_t same =
+                    (sides.below & ((sides.below << 1) | uint32_t(previous < 0))) |
+                    (sides.above & ((sides.above << 1) | uint32_t(previous > 0)));
+                uint32_t remaining = same ^ 0xfu;
+                while (remaining && rejectsOpposite(rejected + std::countr_zero(remaining))) {
+                    remaining &= remaining - 1;
+                }
+                if (remaining) {
+                    rejected += std::countr_zero(remaining);
+                    break;
+                }
+                rejected += 4;
+                previous = int(sides.above >> 3) - int(sides.below >> 3);
+                continue;
+            }
 #endif
-    uint32_t rejected = 0;
-    while (rejected < count) {
-#if defined(__wasm_simd128__)
-        if (count - rejected >= 4) {
-            const auto sides = ClassifyFour(vectorSide, wide, queryTerms, rest + rejected * 8, tolerance, zero);
-            // Shift each side mask to align it with the preceding endpoint.
-            const uint32_t same =
-                (sides.below & ((sides.below << 1) | uint32_t(previous < 0))) |
-                (sides.above & ((sides.above << 1) | uint32_t(previous > 0)));
-            uint32_t remaining = same ^ 0xfu;
-            while (remaining && rejectsOpposite(rejected + std::countr_zero(remaining))) {
-                remaining &= remaining - 1;
-            }
-            if (remaining) {
-                rejected += std::countr_zero(remaining);
-                break;
-            }
-            rejected += 4;
-            previous = int(sides.above >> 3) - int(sides.below >> 3);
-            continue;
+            const int current = classify(queryTerms, rest + rejected * 8);
+            if ((!previous || previous != current) && !rejectsOpposite(rejected)) break;
+            previous = current;
+            ++rejected;
         }
-#endif
-        const int current = classify(queryTerms, rest + rejected * 8);
-        if ((!previous || previous != current) && !rejectsOpposite(rejected)) break;
-        previous = current;
-        ++rejected;
-    }
+        return rejected;
+    };
+    // The predicate has no guest side effects, including changes to the control word.
+    const uint32_t rejected = (ctx.fcw & 0x300) != 0
+        ? scan.template operator()<double>() : scan.template operator()<float>();
     // Run the last proven rejection normally so its stack, registers and
     // both touched x87 slots retain the original values at loop exit.
     if (rejected < 2) return;
