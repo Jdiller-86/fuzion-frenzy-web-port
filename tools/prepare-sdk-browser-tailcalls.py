@@ -133,10 +133,10 @@ LOADER_BYTE_LOOPS = (
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\n\tX86_LOAD_FLAGS();",
-     b"\n\tif (const auto miss = ff_browser_loader_bytes::TrySubstringMiss(ctx.esp, ctx.esi, ctx.ebx, ctx.edi);"
-     b" miss.complete) {"
-     b" ctx.ecx = miss.needle; ctx.edx = (ctx.edx & 0xffff0000u) | miss.pair;"
-     b" ctx.eax = 0; ctx.esp += 4; return; }"),
+     b"\n\tif (const auto result = ff_browser_loader_bytes::TrySceneSubstring(ctx.esp, ctx.esi, ctx.ebx, ctx.edi);"
+     b" result.complete) {"
+     b" ctx.ecx = result.needleCursor; ctx.edx = (ctx.edx & 0xffff0000u) | result.pair;"
+     b" ctx.eax = result.address; ctx.esp += 4; return; }"),
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001DF119:",

@@ -167,13 +167,14 @@ inline uint32_t SkipSuppressedWord(uint32_t frame, uint32_t stack) noexcept {
     return advance;
 }
 
-struct SubstringMiss {
-    uint32_t needle;
+struct SubstringResult {
+    uint32_t address;
+    uint32_t needleCursor;
     uint16_t pair;
     bool complete;
 };
 
-inline SubstringMiss TrySubstringMiss(uint32_t stack, uint32_t esi, uint32_t ebx, uint32_t edi) noexcept {
+inline SubstringResult TrySceneSubstring(uint32_t stack, uint32_t esi, uint32_t ebx, uint32_t edi) noexcept {
     using ff_browser_memory::TryWindow;
     constexpr size_t saves = 3 * sizeof(uint32_t);
     auto* frame = TryWindow(stack - uint32_t(saves), saves + 3 * sizeof(uint32_t));
@@ -200,15 +201,57 @@ inline SubstringMiss TrySubstringMiss(uint32_t stack, uint32_t esi, uint32_t ebx
     if (!prefix || !prefix[0] || !prefix[1] || Overlaps(prefix, 2, frame, saves)) return {};
     uint16_t pair;
     std::memcpy(&pair, prefix, 2);
-    const auto match = SearchPairBytes(source, pair, 128);
-    if (!match.atEnd) return {};
-    const auto* text = TryWindow(source, match.advance);
-    if (!text || Overlaps(text, match.advance, frame, saves)) return {};
-    // These writes reproduce the original pushes in stack order. A miss
-    // before any candidate leaves the saved registers as they were on entry.
-    const uint32_t saved[] = {esi, ebx, edi};
-    std::memcpy(frame, saved, saves);
-    return {needle, pair, true};
+    const uint32_t available = std::min(128u, BytesInWindow(source));
+    const auto* text = TryWindow(source, available);
+    if (!text || Overlaps(text, available, frame, saves)) return {};
+
+    auto finish = [&](uint32_t address, uint32_t needleCursor) {
+        // The original search saves and restores these registers on both exits.
+        const uint32_t saved[] = {esi, ebx, edi};
+        std::memcpy(frame, saved, saves);
+        return SubstringResult{address, needleCursor, pair, true};
+    };
+    const auto low = wasm_i8x16_splat(uint8_t(pair));
+    const auto high = wasm_i8x16_splat(uint8_t(pair >> 8));
+    const auto zero = wasm_i8x16_splat(0);
+    uint32_t length = 0;
+    for (uint32_t offset = 0; offset < available;) {
+        const uint32_t remaining = available - offset;
+        uint32_t hits, step;
+        if (remaining > kChunkBytes) {
+            const auto bytes = wasm_v128_load(text + offset);
+            const auto next = wasm_v128_load(text + offset + 1);
+            const auto pairs = wasm_v128_and(wasm_i8x16_eq(bytes, low), wasm_i8x16_eq(next, high));
+            hits = uint32_t(wasm_i8x16_bitmask(wasm_v128_or(pairs, wasm_i8x16_eq(bytes, zero))));
+            step = kChunkBytes;
+        } else {
+            hits = !text[offset] || (remaining > 1 && text[offset] == prefix[0] && text[offset + 1] == prefix[1]);
+            step = 1;
+        }
+        while (hits) {
+            const uint32_t candidate = offset + std::countr_zero(hits);
+            if (!text[candidate]) return finish(0, needle);
+            if (!length) {
+                // Most misses need only the first pair. Map the whole needle
+                // once when a pair survives, including its required NUL.
+                const uint32_t bound = std::min(25u, BytesInWindow(needle));
+                const auto* bytes = TryWindow(needle, bound);
+                if (!bytes) return {};
+                const auto* end = static_cast<const uint8_t*>(std::memchr(bytes, 0, bound));
+                if (!end || Overlaps(bytes, end - bytes + 1, frame, saves)) return {};
+                prefix = bytes;
+                length = uint32_t(end - bytes);
+            }
+            if (length > available - candidate) return {};
+            if (std::memcmp(text + candidate + 2, prefix + 2, length - 2) == 0) {
+                // The scalar search advances ECX after each additional pair.
+                return finish(source + candidate, needle + ((length - 2) & ~1u));
+            }
+            hits &= hits - 1;
+        }
+        offset += step;
+    }
+    return {};
 }
 
 inline uint32_t CopyStringPrefix(uint32_t source, uint32_t destination) noexcept {
