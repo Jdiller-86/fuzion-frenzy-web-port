@@ -1096,7 +1096,7 @@ def main() -> int:
     scene_lines = scene_line_batch_available(shards)
     shard_numbers = {path: number for number, path in shards}
     warmup_profile = json.loads(CODE_WARMUP_PROFILE.read_text(encoding="utf-8"))
-    if sum(map(len, warmup_profile.values())) > 128:
+    if sum(map(len, warmup_profile.values())) > 256:
         raise ValueError("guest code warmup target limit exceeded")
     warmup_names: list[bytes] = []
     for source in package:
