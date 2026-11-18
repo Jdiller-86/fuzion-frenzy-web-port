@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Combining x87 memory operations reduced Wasm size from 47.65 to 47.37 MB. The latest cold Twisted System replay measured a 62.95 ms largest frame gap and zero blocking shader links. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Browser.** Deferred WebGL error checks cut the observed follow-up scene submission from 32.96 to 20.84 ms in cold Twisted System. The largest gap still began in the guest and measured 64.20 ms. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
 - **Next.** Reduce the remaining guest scene-entry and GPU submission costs. Measure modest hardware, then qualify 60 FPS and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

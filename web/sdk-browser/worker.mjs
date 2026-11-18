@@ -29,7 +29,12 @@ function digestHex(bytes) {
 }
 function boundedInt16(value) { return Math.max(-32768, Math.min(32767, Math.round(value * 32767))); }
 function stopThreads(module) {
-  try { module?.onFuzionGpu?.disposeGpuTiming?.(); } catch {}
+  const gpu = module?.onFuzionGpu;
+  if (gpu) {
+    gpu.deferGpuErrors = false;
+    try { gpu.cancelFrameErrorCheck(); } catch {}
+    try { gpu.disposeGpuTiming(); } catch {}
+  }
   try { module?._ff_browser_stop?.(); } catch {}
   try { module?.PThread?.terminateAllThreads?.(); } catch {}
 }
@@ -141,7 +146,7 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,frameCapPrecision,
+async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,
                      shaderPrewarm,shaderWarmup,shaderFallback,gpuTiming,pacingTiming:measurePacing}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
@@ -212,6 +217,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
     module.onFuzionGpu = gpu ?? createGpu();
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
+    module.onFuzionGpu.deferGpuErrors=deferGpuErrors===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
     if (shaderFallback && rawVertices && module._ff_browser_fallback_vertex_template)
       module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());

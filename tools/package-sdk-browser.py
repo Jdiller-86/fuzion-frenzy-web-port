@@ -66,6 +66,7 @@ admitted. Native WebAssembly exceptions, SIMD/key/constant reuse, threaded
 preparation and pipelined submission are enabled. Windows uses browser-timer
 pacing; it remains best-effort. Development fallbacks:
 ?threadedGpu=0&pipelinedGpu=0 (serial), ?pipelinedGpu=0 (synchronous submit).
+?gpuErrorChecks=sync validates WebGL errors inside each pipelined frame batch.
 ?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
 ?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
 Ready shader fallbacks cover supported draws while specialized programs link.

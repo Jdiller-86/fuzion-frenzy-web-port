@@ -153,9 +153,15 @@ void SealRawGeometry() {
         packet[4] = uint32_t(reinterpret_cast<uintptr_t>(raw_geometry.indices.data() + packet[4]));
     }
 }
-void FlushCommands() {
+void FlushCommands(bool validateEmpty = false) {
     WaitFlight();
-    if(commands.empty()) return;
+    if(commands.empty()) {
+        if(validateEmpty && !MAIN_THREAD_EM_ASM_INT({
+            try { Module.onFuzionGpu.finishFrameErrorCheck(); return 1; }
+            catch(error) { postMessage({type:'gpu-error',text:error.message}); return 0; }
+        })) std::abort();
+        return;
+    }
     SealRawGeometry();
     if(!MAIN_THREAD_EM_ASM_INT({ return Module.onFuzionGpu.commands($0,$1)?1:0; }, commands.data(),uint32_t(commands.size())))std::abort();
     ResetCommands();
@@ -174,16 +180,19 @@ void QueuePresent(uint32_t target) {
     MAIN_THREAD_ASYNC_EM_ASM({
         const queued = $13;
         const started = queued ? performance.timeOrigin + performance.now() : 0;
+        const failGpu = error => {
+            Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
+            postMessage({type:'gpu-error',text:error.message});
+        };
         let failed=false;
         try {
-            if(($1&&!Module.onFuzionGpu.commands($0,$1))||!Module.onFuzionGpu.present($2))throw new Error('Pipelined GPU submission failed');
+            if(!Module.onFuzionGpu.pipelinedFrame($0,$1,$2,failGpu))throw new Error('Pipelined GPU submission failed');
             Module.onFuzionGpu.imageLookups=({shortcutHits:$5,mapLookups:$6});
             Module.onFuzionGpu.constantPacking=({reuses:$7,packs:$8});
             Module.onFuzionGpu.textureMetadataLookups=({versionHits:$9,versionSearches:$10,copyHits:$11,copySearches:$12});
         } catch(error) {
             failed=true;
-            Atomics.store(new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer),$4>>2,1);
-            postMessage({type:'gpu-error',text:error.message});
+            failGpu(error);
         } finally {
             const ack = queued ? performance.timeOrigin + performance.now() : 0;
             const heap=new Int32Array(Module.wasmMemory?.buffer||Module.HEAPU8.buffer);
@@ -242,7 +251,7 @@ bool ff_webgl_pipelined() {
     static const bool enabled=MAIN_THREAD_EM_ASM_INT({return Module.onFuzionGpu?.pipelined?1:0;})!=0;
     return enabled;
 }
-void ff_webgl_flush() { FlushCommands(); }
+void ff_webgl_flush() { FlushCommands(ff_webgl_pipelined()); }
 bool ff_webgl_gpu_vertex_enabled() {
     static const bool enabled=MAIN_THREAD_EM_ASM_INT({return Module.onFuzionGpu?.gpuVertices?1:0;})!=0;
     return enabled;

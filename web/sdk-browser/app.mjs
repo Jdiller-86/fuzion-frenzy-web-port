@@ -161,6 +161,7 @@ runButton.addEventListener('click', () => {
     gpuVertices: options.get('cpuVertices') !== '1',
     threadedGpu: options.get('threadedGpu') !== '0',
     pipelinedGpu: options.get('pipelinedGpu') !== '0',
+    deferGpuErrors: options.get('gpuErrorChecks') !== 'sync',
     rawVertices: options.get('rawVertices') !== '0',
     shaderPrewarm: options.get('shaderPrewarm') !== '0',
     shaderWarmup: options.get('shaderWarmup') !== '0',

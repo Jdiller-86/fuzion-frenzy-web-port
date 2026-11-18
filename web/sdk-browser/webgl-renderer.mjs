@@ -130,6 +130,8 @@ void main() {
     if (shaderFallback && this.parallelShaderCompile && this.gpuVertices) this.beginFixedFallbacks();
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
+      this.deferGpuErrors = false;
+      this.cancelFrameErrorCheck();
       this.disposeGpuTiming();
       postMessage({type:'gpu-error',text:'The graphics context was lost. Start the game again to recreate its resources.'});
     });
@@ -419,9 +421,63 @@ void main() {
     this.shaderStats.completedPrograms++;
     return this.finishProgram(program.p);
   }
-  commands(ptr,count) {
+  checkGpuError() {
+    const error = this.gl.getError();
+    if (error !== this.gl.NO_ERROR) throw new Error(`GPU command batch error 0x${error.toString(16)}`);
+  }
+  cancelFrameErrorCheck() {
+    const check = this.pendingFrameErrorCheck;
+    if (!check) return;
+    this.pendingFrameErrorCheck = undefined;
+    clearTimeout(check.timer);
+    this.gl.deleteSync(check.fence);
+  }
+  finishFrameErrorCheck() {
+    if (this.frameError) throw this.frameError;
+    if (!this.pendingFrameErrorCheck) return;
+    this.cancelFrameErrorCheck();
+    this.checkGpuError();
+  }
+  scheduleFrameErrorCheck(onError) {
+    const g = this.gl;
+    const fence = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!fence) {
+      this.deferGpuErrors = false;
+      this.checkGpuError();
+      return;
+    }
+    const check = {fence, deadline: performance.now() + 16, timer: 0};
+    const poll = () => {
+      if (this.pendingFrameErrorCheck !== check) return;
+      try {
+        const status = g.clientWaitSync(fence, 0, 0);
+        if (status === g.TIMEOUT_EXPIRED && performance.now() < check.deadline) {
+          check.timer = setTimeout(poll, 4);
+          return;
+        }
+        this.finishFrameErrorCheck();
+        if (status === g.WAIT_FAILED) throw new Error('GPU frame validation fence failed');
+      } catch (error) {
+        this.frameError = error;
+        this.cancelFrameErrorCheck();
+        this.disposeGpuTiming();
+        onError(error);
+      }
+    };
+    this.pendingFrameErrorCheck = check;
+    check.timer = setTimeout(poll, 4);
+  }
+  pipelinedFrame(ptr, count, id, onError) {
+    const deferred = this.deferGpuErrors;
+    if (count && !this.commands(ptr, count, !deferred)) return false;
+    return this.present(id, deferred ? onError : undefined);
+  }
+  commands(ptr,count,checkErrors=true) {
     try {
     const started=performance.now();
+    // At most one submitted frame can await validation. Drain it before
+    // another batch touches the context, including synchronous flushes.
+    this.finishFrameErrorCheck();
     if(count>65536)throw new Error('GPU command budget exceeded');
     const words=this.wordView(ptr,count*12);
     if(this.parallelShaderCompile){
@@ -582,8 +638,7 @@ void main() {
       else throw new Error('Unknown GPU command');
     }
     emit();
-    const error=this.gl.getError();
-    if(error)throw new Error(`GPU command batch error 0x${error.toString(16)}`);
+    if(checkErrors)this.checkGpuError();
     this.submitMs=(this.submitMs||0)+performance.now()-started;
     return true;
     } catch(error) {this.disposeGpuTiming();this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
@@ -1017,13 +1072,16 @@ void main() {
       return true;
     } catch(error) {this.report(error.message);postMessage({type:'gpu-error',text:error.message});return false;}
   }
-  present(id) {
+  present(id,onError) {
+    this.finishFrameErrorCheck();
     const t=this.targets.get(id);if(!t||t.depth){this.disposeGpuTiming();return false;}
     if(this.gpuTimerExtension)this.beginGpuTimer();
     const g=this.gl;if(this.canvas.width!==t.w||this.canvas.height!==t.h){this.canvas.width=t.w;this.canvas.height=t.h;}
     g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
     g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);
-    this.endGpuTimer();g.flush();
+    this.endGpuTimer();
+    if(onError)this.scheduleFrameErrorCheck(onError);
+    g.flush();
     this.boundFramebuffer=null;this.lastState=undefined;
     ++this.frame;
     if (this.usedFallbackThisFrame) {
@@ -1050,13 +1108,16 @@ void main() {
     g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,w,h,0,g.RGBA,g.UNSIGNED_BYTE,rgba);this.present(-1);
   }
   read(id,ptr) {
+    if(this.frameError)throw this.frameError;
     const t=this.targets.get(id);if(!t)return false;
     if(t.depth)throw new Error('Guest depth readback is not yet admitted by the WebGL backend');
     const g=this.gl;this.attach(t,null);const pixels=new Uint8Array(t.w*t.h*4);g.readPixels(0,0,t.w,t.h,g.RGBA,g.UNSIGNED_BYTE,pixels);
+    this.cancelFrameErrorCheck(); // The synchronous check covers all earlier commands too.
     const error=g.getError();if(error!==g.NO_ERROR)throw new Error(`GPU readback error 0x${error.toString(16)}`);
     this.bytes(ptr,pixels.length).set(pixels);return true;
   }
   invalidate(id) {
+    this.finishFrameErrorCheck();
     const t=this.targets.get(id);if(!t)return;
     const g=this.gl;
     for(const [key,entry] of this.framebuffers){
