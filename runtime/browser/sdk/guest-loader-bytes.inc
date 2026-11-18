@@ -37,11 +37,16 @@ inline uint32_t SearchBytesToSkip(uint32_t source, uint8_t target) noexcept {
     return plain ? plain - 1 : 0;
 }
 
-inline uint32_t SearchPairBytesToSkip(uint32_t source, uint16_t target) noexcept {
+struct PairSearch {
+    uint32_t advance;
+    bool atEnd;
+};
+
+inline PairSearch SearchPairBytes(uint32_t source, uint16_t target) noexcept {
     const uint32_t available = std::min(kMaxPrefixBytes, BytesInWindow(source));
-    if (available <= kChunkBytes) return 0;
+    if (available <= kChunkBytes) return {};
     const auto* input = ff_browser_memory::TryWindow(source, available);
-    if (!input) return 0;
+    if (!input) return {};
     const auto low = wasm_i8x16_splat(uint8_t(target));
     const auto high = wasm_i8x16_splat(uint8_t(target >> 8));
     const auto zero = wasm_i8x16_splat(0);
@@ -51,9 +56,14 @@ inline uint32_t SearchPairBytesToSkip(uint32_t source, uint16_t target) noexcept
         const auto next = wasm_v128_load(input + plain + 1);
         const auto pair = wasm_v128_and(wasm_i8x16_eq(current, low), wasm_i8x16_eq(next, high));
         const auto stop = uint32_t(wasm_i8x16_bitmask(wasm_v128_or(pair, wasm_i8x16_eq(current, zero))));
-        if (stop) { plain += std::countr_zero(stop); break; }
+        if (stop) {
+            const uint32_t offset = plain + std::countr_zero(stop);
+            const bool atEnd = input[offset] == 0;
+            return {offset + uint32_t(atEnd), atEnd};
+        }
     }
-    return plain ? plain - 1 : 0;
+    // At the span limit, preserve a checked scalar step before any fault.
+    return {plain ? plain - 1 : 0, false};
 }
 
 inline uint32_t SearchAsciiWordsToSkip(uint32_t source, uint8_t target) noexcept {

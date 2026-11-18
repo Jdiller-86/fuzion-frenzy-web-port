@@ -116,7 +116,11 @@ LOADER_BYTE_LOOPS = (
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001DF119:",
-     b"\n\tctx.esi += ff_browser_loader_bytes::SearchPairBytesToSkip(ctx.esi, uint16_t(ctx.edx));"),
+     b"\n\t{"
+     b" const auto match = ff_browser_loader_bytes::SearchPairBytes(ctx.esi, uint16_t(ctx.edx));"
+     b" ctx.esi += match.advance;"
+     b" if (match.atEnd) { ctx.eax &= ~0xffu; goto loc_001DF124; }"
+     b" }"),
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001E0376:",
@@ -285,6 +289,14 @@ def lower_repeated_line(block: bytes) -> tuple[bytes, int]:
         b"\nloc_0007F063:",
         b"\n\tif (repeatedLinePrefix) { ctx.eax += repeatedLinePrefix; ctx.ecx = ctx.esi; }"
         b"\nloc_0007F063:", 1)
+    head = head.replace(
+        b"\nloc_0007F0D0:",
+        b"\n\tctx.eax += ff_browser_loader_bytes::SearchBytesToSkip(ctx.eax, 0);"
+        b"\nloc_0007F0D0:", 1)
+    head = head.replace(
+        b"\nloc_0007F104:",
+        b"\n\tctx.eax += ff_browser_loader_bytes::CopyStringPrefix(ctx.eax, ctx.edx + ctx.eax);"
+        b"\nloc_0007F104:", 1)
     return head + closing + tail, 1
 
 
