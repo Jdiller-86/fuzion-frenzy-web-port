@@ -69,6 +69,8 @@ pacing; it remains best-effort. Development fallbacks:
 ?gpuErrorChecks=sync validates WebGL errors inside each pipelined frame batch.
 ?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
 ?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
+Windows pipelined WebGL applies the cap before submitting each frame.
+?presentPacing=after restores the previous timing.
 Covered draws use shaders prepared during startup. Select Stop game to retain
 their browser-local recipes and prepare specialized programs on the next launch.
 ?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.

@@ -51,6 +51,17 @@ extern "C" bool ff_browser_precise_pacing_enabled() {
 #endif
 }
 
+extern "C" bool ff_browser_pace_before_present() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.pipelined === true && Module.onFuzionGpu?.paceBeforePresent === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 static std::atomic<uint32_t> browser_vblank_ticks{0};
 extern "C" void ff_browser_observe_vblank() {
     browser_vblank_ticks.fetch_add(1,std::memory_order_relaxed);
