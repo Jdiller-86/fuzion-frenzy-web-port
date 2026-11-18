@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Batched decimal products and reused line scans cut sampled Water Gate Scramble loading from 34.46 to 32.96 ms. The largest measured frame gap was 74.30 ms. [Gameplay observations](browser-gpu.md#decimal-products-and-repeated-line-scans)
+- **Browser.** Covered shader variants now use startup-prepared programs. Cold Erodeo and its cached restart issued zero live links. Water Gate Scramble retains a measured 74.30 ms scene-entry gap. [Gameplay observations](browser-gpu.md#startup-only-specialization-for-covered-shaders)
 - **Next.** Follow the remaining formatted input work at `0x001E3C87` in the scene-loading trace. Measure modest hardware and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

@@ -8,6 +8,7 @@ let canvas = document.querySelector('#screen');
 const performanceReadout = document.querySelector('#performance');
 let context;
 let worker;
+let stopping = false;
 let inputTimer;
 let audioContext;
 let audioCursor = 0;
@@ -24,11 +25,11 @@ function showFrame() {
 }
 
 function setBusy(busy) {
-  runButton.disabled = busy;
+  runButton.disabled = busy || stopping;
   stopButton.disabled = !busy;
   isoPicker.disabled = busy;
   document.querySelector('#renderer').disabled = busy;
-  runButton.textContent = busy ? 'Starting…' : 'Start game';
+  runButton.textContent = busy ? 'Starting…' : stopping ? 'Stopping…' : 'Start game';
   window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy}}));
 }
 function stop() {
@@ -41,9 +42,19 @@ function stop() {
   inputTimer = undefined;
   if (worker) {
     const previous = worker;
-    previous.postMessage({ type: 'stop' });
-    setTimeout(() => previous.terminate(), 3000);
     worker = undefined;
+    stopping = true;
+    const finish = () => {
+      clearTimeout(timeout);
+      previous.terminate();
+      stopping = false;
+      setBusy(false);
+    };
+    const timeout = setTimeout(finish, 3000);
+    previous.addEventListener('message', ({data}) => {
+      if (data.type === 'stopped') finish();
+    });
+    previous.postMessage({ type: 'stop' });
   }
   setBusy(false);
 }
@@ -61,6 +72,7 @@ function keyboardBits() {
 const heldKeys = keyboardBits();
 
 runButton.addEventListener('click', () => {
+  if (stopping) return;
   error.textContent = '';
   if (!globalThis.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
     error.textContent = 'This build needs browser thread support. Use a current 64-bit Chrome or Edge and start the included local server; do not open the HTML file directly.';
@@ -137,9 +149,6 @@ runButton.addEventListener('click', () => {
         source.start(audioCursor);
         audioCursor += buffer.duration;
       }
-    } else if (data.type === 'stopped') {
-      current.terminate();
-      if (worker === current) worker = undefined;
     } else if (data.type === 'result') {
       status.textContent = data.text;
       error.textContent = data.error || '';
