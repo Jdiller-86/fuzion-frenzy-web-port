@@ -103,7 +103,7 @@ export class WebGLRenderer {
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
     Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0,fastCombinerDraws:0});
     Object.assign(this.shaderStats,{backgroundLinks:0,promotedVariants:0,promotionFailures:0,promotionMaxStepMs:0});
-    if (shaderFallback && shaderPromotion && this.parallelShaderCompile) this.shaderPromotionQueue = [];
+    if (shaderFallback && shaderPromotion && this.parallelShaderCompile) this.shaderPromotionCandidates = new Set();
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -150,7 +150,7 @@ void main() {
       e.preventDefault();
       this.contextLost = true;
       this.deferGpuErrors = false;
-      this.shaderPromotionQueue = undefined;
+      this.cancelShaderPromotion();
       this.cancelFrameErrorCheck();
       this.disposeGpuTiming();
       postMessage({type:'gpu-error',text:'The graphics context was lost. Start the game again to recreate its resources.'});
@@ -818,7 +818,8 @@ void main() {
     if (fallback) this.shaderStats.residentVariants++;
     else if (request) specialized = this.translateProgram(request);
     const variant = {specialized, fallback, recipe, recipeKey};
-    if (fallback && this.shaderPromotionQueue) variant.promotion = request;
+    if (fallback && this.shaderPromotionCandidates)
+      variant.promotion = {variant, request, frame:-2, indices:0};
     this.programVariants.set(key, variant);
     return variant;
   }
@@ -840,11 +841,28 @@ void main() {
     }
     return this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit, background);
   }
+  cancelShaderPromotion() {
+    this.shaderPromotionCandidates = undefined;
+    this.activeShaderPromotion = undefined;
+  }
   stepShaderPromotion() {
     // Link completion alone does not keep uniform reflection from waiting
     // on earlier draws. Run one step after the latest frame fence signals.
-    const queue = this.shaderPromotionQueue, job = queue?.[0];
-    if (!job || this.contextLost || this.frameError) return;
+    const candidates = this.shaderPromotionCandidates;
+    if (!candidates || this.contextLost || this.frameError) return;
+    let job = this.activeShaderPromotion;
+    if (!job) {
+      // Prefer the busiest resident shader in the last completed frame.
+      // A material that went away can qualify again when its draws return.
+      for (const candidate of candidates) {
+        if (candidate.frame !== this.frame - 1) candidates.delete(candidate);
+        else if (!job || candidate.indices > job.indices) job = candidate;
+      }
+      if (!job) return;
+      candidates.delete(job);
+      job.variant.promotion = undefined;
+      this.activeShaderPromotion = job;
+    }
     const start = performance.now(), g = this.gl;
     try {
       if (!job.program) {
@@ -867,7 +885,7 @@ void main() {
     } finally {
       this.shaderStats.promotionMaxStepMs = Math.max(this.shaderStats.promotionMaxStepMs, performance.now() - start);
     }
-    queue.shift();
+    this.activeShaderPromotion = undefined;
   }
   specializedProgram(vertex, fragmentSource, diagnostic, programLimit, background) {
     const key = JSON.stringify([vertex.source, fragmentSource]);
@@ -1276,9 +1294,16 @@ void main() {
       if(stateChanged)this.applyRasterState(s,u[2]);
       this.bindGeometry(binding);
       g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,indexOffset);
-      if (variant.promotion && this.shaderPromotionQueue) {
-        this.shaderPromotionQueue.push({variant, request:variant.promotion});
-        variant.promotion = undefined;
+      const candidate = variant.promotion;
+      if (candidate && this.shaderPromotionCandidates) {
+        if (candidate.frame !== this.frame) {
+          // Confirm demand in consecutive frames before spending a driver link.
+          if (candidate.frame === this.frame - 1) this.shaderPromotionCandidates.add(candidate);
+          else this.shaderPromotionCandidates.delete(candidate);
+          candidate.frame = this.frame;
+          candidate.indices = 0;
+        }
+        candidate.indices += n;
       }
       if (variant.recipe) {
         this.shaderWarmup.observe(variant.recipe, variant.recipeKey);

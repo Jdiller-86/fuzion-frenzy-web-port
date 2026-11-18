@@ -34,7 +34,7 @@ function stopThreads(module) {
   const gpu = module?.onFuzionGpu;
   if (gpu) {
     gpu.deferGpuErrors = false;
-    gpu.shaderPromotionQueue = undefined;
+    gpu.cancelShaderPromotion();
     try { gpu.cancelFrameErrorCheck(); } catch {}
     try { gpu.disposeGpuTiming(); } catch {}
   }
