@@ -90,6 +90,54 @@ inline bool Overlaps(const uint8_t* a, size_t aSize, const uint8_t* b, size_t bS
     return a < b + bSize && b < a + aSize;
 }
 
+inline uint32_t ReadWord(const uint8_t* p) noexcept {
+    uint32_t word;
+    std::memcpy(&word, p, sizeof(word));
+    return word;
+}
+
+inline void WriteWord(uint8_t* p, uint32_t word) noexcept {
+    std::memcpy(p, &word, sizeof(word));
+}
+
+inline uint32_t SkipSuppressedWord(uint32_t frame, uint32_t stack) noexcept {
+    // The scanner's SEH frame and its caller's stack-backed string stream.
+    constexpr uint32_t frameOffset = 0x1e4;
+    constexpr uint32_t streamOffset = 0x14;
+    constexpr uint32_t frameBytes = frameOffset + streamOffset + 16;
+    if (stack != frame - (frameOffset - 4)) return 0;
+    using ff_browser_memory::TryWindow;
+    auto* span = TryWindow(stack - 4u, frameBytes);
+    if (!span) return 0;
+    auto* bp = span + frameOffset;
+    auto* stream = bp + streamOffset;
+    if (ReadWord(bp + 4) != 0x001df9b9 || ReadWord(bp + 8) != frame + streamOffset ||
+        ReadWord(stream + 12) != 0x49 || ReadWord(bp - 0x64) != 's' ||
+        !bp[-0x47] || bp[-0x49] || ReadWord(bp - 0x40)) return 0;
+
+    const uint32_t source = ReadWord(stream);
+    const uint32_t remaining = ReadWord(stream + 4);
+    if (remaining < 2 || remaining > 0x7fffffffu) return 0;
+    const uint32_t available = std::min({remaining, 128u, BytesInWindow(source)});
+    const auto* text = TryWindow(source, available);
+    if (!text || Overlaps(text, available, span, frameBytes)) return 0;
+    uint32_t ordinary = 0;
+    while (ordinary < available) {
+        const uint8_t byte = text[ordinary];
+        if (!byte || byte == ' ' || uint32_t(byte) - 9u <= 4u) break;
+        ++ordinary;
+    }
+    if (ordinary < 2) return 0;
+    // One mapped ordinary byte remains. The original iteration writes
+    // its return slot, scratch character, registers and flags before any
+    // delimiter, EOF or other operation that could fault.
+    const uint32_t advance = ordinary - 1;
+    WriteWord(stream, source + advance);
+    WriteWord(stream + 4, remaining - advance);
+    WriteWord(bp - 0x2c, ReadWord(bp - 0x2c) + advance);
+    return advance;
+}
+
 struct SubstringMiss {
     uint32_t needle;
     uint16_t pair;

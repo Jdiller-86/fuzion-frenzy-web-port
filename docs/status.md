@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** The level parser returns directly on a checked marker miss. Water Gate Scramble sampled 4.37 and 1.64 ms in substring search, with a 49.70 ms scene-entry peak and 17.01 ms steady acknowledgement p95 in the selected run. [Browser observations](browser-gpu.md#direct-returns-for-checked-marker-misses)
-- **Next.** The peak sampled 27.72 ms in the shared guest loader, including 6.70 ms through the formatted scanner. Identify the hot formats and conversions. Measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser.** The formatted scanner batches checked text-field reads. Water Gate Scramble sampled 3.57 ms in formatted scanning, with a 53.22 ms scene-entry peak and 17.10 ms steady acknowledgement p95. The two preceding-build replays sampled 5.52–6.70 ms in formatted scanning. [Browser observations](browser-gpu.md#batch-reads-for-suppressed-text-fields)
+- **Next.** The peak sampled 27.27 ms in the shared guest loader, including 10.36 ms in the recursive tree reader. Check repeated input processing and allocation in that tree. Measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

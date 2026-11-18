@@ -175,6 +175,8 @@ DECIMAL_PRODUCT_CALLER = b"001E86F9"
 DECIMAL_PRODUCT_CALLER_DIGEST = "e85c95b6030c4acb7dc53a0b0751ee2751037e3625b4148cdb1679ad41c219cd"
 REPEATED_LINE_ENTRY = b"X86_FUNC(__imp__sub_0007F08E) {"
 REPEATED_LINE_DIGEST = "d0459384057379296516e727f0dd42875ed504afbc0f073fa7844052f18db17c"
+SCANNER_DIGEST = "e168ac6f3c74e7d67eeda4356e26e73bdea86537d92607cea9e64be627471772"
+SCANNER_GET_DIGEST = "355f8c787eb54cc135218de7ce162659c3bf40b331eacf7c0ffa08491377ea61"
 
 
 def instruction_comment(opcode: bytes) -> bytes:
@@ -318,7 +320,7 @@ def lower_repeated_line(block: bytes) -> tuple[bytes, int]:
     return head + closing + tail, 1
 
 
-def matched_decimal_body(source: bytes, address: bytes, digest: str) -> bytes | None:
+def matched_body(source: bytes, address: bytes, digest: str) -> bytes | None:
     entry = b"X86_FUNC(__imp__sub_" + address + b") {"
     start = source.find(entry)
     if start < 0:
@@ -336,7 +338,7 @@ def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
     normalized = source.replace(b"\r\n", b"\n")
     bodies = {}
     for address, digest in DECIMAL_BODY_DIGESTS.items():
-        body = matched_decimal_body(normalized, address, digest)
+        body = matched_body(normalized, address, digest)
         if body is None:
             return source, 0
         bodies[address] = body
@@ -371,13 +373,35 @@ def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
 
 def lower_decimal_product(source: bytes) -> tuple[bytes, int]:
     # Called after the shared add helper has its checked weak binding.
-    body = matched_decimal_body(source, DECIMAL_PRODUCT_BODY, DECIMAL_PRODUCT_DIGEST)
-    if body is None or matched_decimal_body(source, DECIMAL_PRODUCT_CALLER, DECIMAL_PRODUCT_CALLER_DIGEST) is None:
+    body = matched_body(source, DECIMAL_PRODUCT_BODY, DECIMAL_PRODUCT_DIGEST)
+    if body is None or matched_body(source, DECIMAL_PRODUCT_CALLER, DECIMAL_PRODUCT_CALLER_DIGEST) is None:
         return source, 0
     label = b"\nloc_001E8599:"
     entry = (b"\n\tif (sub_001E7E6D == __imp__sub_001E7E6D)\n"
              b"\t\tff_browser_decimal::AccumulateProduct(ctx.ebp, ctx.esp, ctx.esi, ctx.ebx);")
     return source.replace(body, body.replace(label, entry + label, 1), 1), 1
+
+
+def lower_scanner_word(source: bytes) -> tuple[bytes, int]:
+    if b"X86_FUNC(__imp__sub_001E3C87) {" not in source:
+        return source, 0
+    normalized = source.replace(b"\r\n", b"\n")
+    scanner = matched_body(normalized, b"001E3C87", SCANNER_DIGEST)
+    getter = matched_body(normalized, b"001E3C71", SCANNER_GET_DIGEST)
+    wrapper = b"X86_WEAK_FUNC(sub_001E3C71, __imp__sub_001E3C71)"
+    entry = b"\nloc_001E4162:"
+    if scanner is None or getter is None or normalized.count(wrapper) != 1 or scanner.count(entry) != 1:
+        return source, 0
+    alias = (b'extern "C" void sub_001E3C71(X86Context&, uint8_t*) '
+             b'__attribute__((weak, alias("__imp__sub_001E3C71")));')
+    # Only run on entry to a field. The scalar backedge bypasses the guard.
+    lifted = scanner.replace(
+        entry,
+        b"\n\tif (sub_001E3C71 == __imp__sub_001E3C71)"
+        b"\n\t\tctx.ebx += ff_browser_loader_bytes::SkipSuppressedWord(ctx.ebp, ctx.esp);" + entry,
+        1,
+    )
+    return normalized.replace(scanner, lifted, 1).replace(wrapper, alias, 1), 1
 
 
 def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
@@ -761,6 +785,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
     decimal_products = 0
     if decimal_prefixes:
         original, decimal_products = lower_decimal_product(original)
+    original, loader_byte_loops = lower_scanner_word(original)
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -772,7 +797,6 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
     push_runs = pop_runs = 0
     memory_runs = memory_words = 0
     matching_byte_loops = 0
-    loader_byte_loops = 0
     repeated_lines = 0
     mapped_intersections = 0
     mapped_grid_calls = 0
