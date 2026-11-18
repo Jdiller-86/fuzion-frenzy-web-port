@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Checked string pushback reduced sampled pushback time from 1.15 to 0.54 ms in Water Gate Scramble. The latest entry gap measured 36.67 ms. Cold Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Scanner evidence](browser-gpu.md#consolidate-checked-string-pushback) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
+- **Browser.** Saved shaders now warm their observed draw layouts before guest boot. Twisted System completed 15 warm draws in about 37 ms of loading time on integrated Radeon. The latest Water Gate Scramble entry gap measured 36.67 ms. [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot) · [Scanner evidence](browser-gpu.md#consolidate-checked-string-pushback)
 - **Next.** Inspect remaining scene conversion and tree traversal. Measure physical presentation on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For Goal G and #49, the latest Water Gate Scramble entry peak includes 22.01 ms of shared loader samples and 6.43 ms in the collision grid. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
+For Goal G and #49, the latest Water Gate Scramble entry peak includes 21.10 ms of shared loader samples and 8.23 ms in the collision grid. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

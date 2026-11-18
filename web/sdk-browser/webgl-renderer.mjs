@@ -8,6 +8,7 @@ const FRAME_ERROR_CHECK_DELAY_MS = 250;
 const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
 const WARMUP_STARTUP_BUDGET_MS = 400;
 const WARMUP_POLL_INTERVAL_MS = 8;
+const WARMUP_DRAW_BATCH = 4;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -98,7 +99,7 @@ export class WebGLRenderer {
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,programReuses:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
-    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPrimed:0,warmupPrimeMs:0,warmupWaitMs:0,warmupSkipped:0});
+    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPrimed:0,warmupPrimeMs:0,warmupWaitMs:0,warmupSkipped:0,warmupDraws:0,warmupDrawMs:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
     Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0,fastCombinerDraws:0});
@@ -456,7 +457,7 @@ void main() {
       return shader;
     };
     try {
-      for (const [key,{recipe}] of store.recipes) {
+      for (const [key,{recipe,drawLayout}] of store.recipes) {
         try {
           const [hlsl, pixel, kinds, shadows, flat, regs] = recipe;
           const vertexSource = hlsl === null ? this.vertexStage(0, regs, flat).source : vertexGlsl(hlsl, regs, flat);
@@ -466,9 +467,9 @@ void main() {
             const vertexShader=compileStage(vertexShaders,g.VERTEX_SHADER,vertexSource);
             const fragmentShader=compileStage(fragmentShaders,g.FRAGMENT_SHADER,fragmentSource);
             const p=this.linkStages(vertexShader,fragmentShader);
-            this.warmPrograms.set(programKey,{p,vertexShader,fragmentShader});
+            this.warmPrograms.set(programKey,{p,vertexShader,fragmentShader,drawLayout});
             this.shaderStats.warmupLinks++;
-          }
+          } else if (drawLayout) this.warmPrograms.get(programKey).drawLayout = drawLayout;
           this.warmVariants.set(key, programKey);
         } catch { /* The exact runtime sources still use the checked draw path. */ }
       }
@@ -491,7 +492,7 @@ void main() {
       const pollStart = performance.now();
       for (const key of pending) {
         if (performance.now() >= deadline) break;
-        const {p, vertexShader, fragmentShader} = this.warmPrograms.get(key);
+        const {p, vertexShader, fragmentShader, drawLayout} = this.warmPrograms.get(key);
         if (!g.getProgramParameter(p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) continue;
         pending.delete(key);
         if (!g.getProgramParameter(p, g.LINK_STATUS)) {
@@ -502,7 +503,7 @@ void main() {
         }
         g.detachShader(p, vertexShader);
         g.detachShader(p, fragmentShader);
-        this.warmPrograms.set(key, this.cacheDrawUniforms(this.finishProgram(p)));
+        this.warmPrograms.set(key, this.cacheDrawUniforms(this.finishProgram(p, {drawLayout})));
         this.shaderStats.warmupPrimed++;
       }
       this.shaderStats.warmupPrimeMs += performance.now() - pollStart;
@@ -518,6 +519,105 @@ void main() {
     for (const [key, programKey] of this.warmVariants)
       if (!this.warmPrograms.has(programKey)) this.warmVariants.delete(key);
     this.shaderStats.warmupWaitMs = performance.now() - start;
+    await this.warmStartupDraws(cancelled);
+  }
+  async warmStartupDraws(cancelled) {
+    const programs = Array.from(this.warmPrograms.values()).reverse().filter(({drawLayout}) =>
+      drawLayout?.slice(1).every(format => format === 0 || RAW_VERTEX_FORMATS.has(format)));
+    if (!programs.length || cancelled() || this.contextLost) return;
+    const g = this.gl, start = performance.now(), deadline = start + WARMUP_STARTUP_BUDGET_MS;
+    this.checkGpuError();
+    const vao = g.createVertexArray(), vertices = g.createBuffer(), indices = g.createBuffer();
+    const fbo = g.createFramebuffer(), color = g.createRenderbuffer(), depth = g.createRenderbuffer();
+    const texture = g.createTexture();
+    let fence;
+    try {
+      if (!vao || !vertices || !indices || !fbo || !color || !depth || !texture)
+        throw new Error('Could not allocate WebGL warmup resources');
+      g.bindVertexArray(vao);
+      g.bindBuffer(g.ARRAY_BUFFER, vertices);
+      g.bufferData(g.ARRAY_BUFFER, 16 * 3 * 16, g.STATIC_DRAW);
+      g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, indices);
+      g.bufferData(g.ELEMENT_ARRAY_BUFFER, Uint32Array.of(0, 1, 2), g.STATIC_DRAW);
+      g.bindFramebuffer(g.FRAMEBUFFER, fbo);
+      g.bindRenderbuffer(g.RENDERBUFFER, color);
+      g.renderbufferStorage(g.RENDERBUFFER, g.RGBA8, 1, 1);
+      g.bindRenderbuffer(g.RENDERBUFFER, depth);
+      g.renderbufferStorage(g.RENDERBUFFER, g.DEPTH24_STENCIL8, 1, 1);
+      for (let unit = 0; unit < 4; unit++) {
+        g.activeTexture(g.TEXTURE0 + unit);
+        g.bindTexture(g.TEXTURE_2D, texture);
+      }
+      g.texStorage2D(g.TEXTURE_2D, 1, g.RGBA8, 1, 1);
+
+      // ANGLE can specialize for actual vertex and framebuffer layouts on
+      // the first draw, after WebGL already reports link completion.
+      let attachments = 0;
+      for (let index = 0; index < programs.length;) {
+        if (cancelled() || this.contextLost || performance.now() >= deadline) break;
+        const end = Math.min(index + WARMUP_DRAW_BATCH, programs.length);
+        for (; index < end; index++) {
+          const {p, drawLayout, locations} = programs[index];
+          if (attachments !== drawLayout[0]) {
+            attachments = drawLayout[0];
+            g.framebufferRenderbuffer(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.RENDERBUFFER, attachments & 1 ? color : null);
+            g.framebufferRenderbuffer(g.FRAMEBUFFER, g.DEPTH_STENCIL_ATTACHMENT, g.RENDERBUFFER, attachments & 2 ? depth : null);
+            const drawBuffer = attachments & 1 ? g.COLOR_ATTACHMENT0 : g.NONE;
+            g.drawBuffers([drawBuffer]);
+            g.readBuffer(drawBuffer);
+          }
+          for (let attribute = 0; attribute < 16; attribute++) {
+            const format = RAW_VERTEX_FORMATS.get(drawLayout[attribute + 1]);
+            if (!format) { g.disableVertexAttribArray(attribute); continue; }
+            g.enableVertexAttribArray(attribute);
+            const offset = attribute * 3 * 16;
+            if (format.integer) g.vertexAttribIPointer(attribute, format.components, g[format.type], 16, offset);
+            else g.vertexAttribPointer(attribute, format.components, g[format.type], format.normalized, 16, offset);
+          }
+          g.useProgram(p);
+          for (let unit = 0; unit < 4; unit++) g.uniform1i(locations.get(`tex${unit}`), unit);
+          g.drawElements(g.TRIANGLES, 3, g.UNSIGNED_INT, 0);
+        }
+        fence = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!fence) throw new Error('Could not fence WebGL warmup draws');
+        g.flush();
+        // The budget limits new submissions. Drain each submitted batch so
+        // its backend work cannot carry over into the first gameplay frame.
+        for (;;) {
+          if (cancelled() || this.contextLost || g.isContextLost()) return;
+          const status = g.clientWaitSync(fence, 0, 0);
+          if (status === g.WAIT_FAILED) throw new Error('WebGL warmup fence failed');
+          if (status !== g.TIMEOUT_EXPIRED) break;
+          await new Promise(resolve => setTimeout(resolve, WARMUP_POLL_INTERVAL_MS));
+        }
+        this.checkGpuError();
+        g.deleteSync(fence);
+        fence = undefined;
+        this.shaderStats.warmupDraws = index;
+      }
+    } catch (error) {
+      this.report(`WebGL draw warmup stopped: ${error.message}`);
+    } finally {
+      if (fence) g.deleteSync(fence);
+      g.useProgram(null);
+      g.bindVertexArray(null);
+      g.bindBuffer(g.ARRAY_BUFFER, null);
+      g.bindFramebuffer(g.FRAMEBUFFER, null);
+      g.bindRenderbuffer(g.RENDERBUFFER, null);
+      for (let unit = 0; unit < 4; unit++) {
+        g.activeTexture(g.TEXTURE0 + unit);
+        g.bindTexture(g.TEXTURE_2D, this.boundTextures[unit] ?? null);
+      }
+      g.activeTexture(g.TEXTURE0 + this.activeUnit);
+      g.deleteVertexArray(vao);
+      g.deleteBuffer(vertices);
+      g.deleteBuffer(indices);
+      g.deleteFramebuffer(fbo);
+      g.deleteRenderbuffer(color);
+      g.deleteRenderbuffer(depth);
+      g.deleteTexture(texture);
+      this.shaderStats.warmupDrawMs = performance.now() - start;
+    }
   }
   takeWarmProgram(key) {
     const program = this.warmPrograms?.get(key);
@@ -1306,7 +1406,10 @@ void main() {
         candidate.indices += n;
       }
       if (variant.recipe) {
-        this.shaderWarmup.observe(variant.recipe, variant.recipeKey);
+        const {color, depth} = this.boundAttachments;
+        const attachments = Number(Boolean(color)) | Number(Boolean(depth)) << 1;
+        const formats = layout ? Array.from((binding.group || binding).layout, word => word & 255) : new Array(16).fill(2);
+        this.shaderWarmup.observe(variant.recipe, variant.recipeKey, [attachments, ...formats]);
         variant.recipe = variant.recipeKey = undefined;
       }
       this.issuedDraws=(this.issuedDraws||0)+1;

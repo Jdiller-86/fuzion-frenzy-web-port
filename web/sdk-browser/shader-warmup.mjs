@@ -32,6 +32,12 @@ function validRecipe(recipe) {
     typeof flat === 'boolean' && Number.isInteger(registers) && registers >= 0 && registers <= 0xffff;
 }
 
+function validDrawLayout(layout) {
+  return Array.isArray(layout) && layout.length === 17 &&
+    Number.isInteger(layout[0]) && layout[0] >= 1 && layout[0] <= 3 &&
+    layout.slice(1).every(format => Number.isInteger(format) && format >= 0 && format <= 255);
+}
+
 export async function openShaderWarmup(titleDigest) {
   const cache = await caches.open(CACHE_NAME);
   const address = new URL(`/sdk-browser/local-shader-recipes/${titleDigest}`, self.location.origin).href;
@@ -43,22 +49,25 @@ export async function openShaderWarmup(titleDigest) {
   let checkpointTimer;
   let pendingWrite = Promise.resolve();
 
-  function remember(key, recipe) {
-    let record = recipes.get(key);
-    if (record) recipes.delete(key);
-    else {
-      if (!validRecipe(recipe)) return;
-      const size = encoder.encode(key).byteLength + 1;
-      if (size + 2 > MAX_BYTES) return;
-      while (recipes.size >= MAX_PROGRAMS || size + bytes > MAX_BYTES) {
-        const oldest = recipes.keys().next().value;
-        bytes -= recipes.get(oldest).size;
-        recipes.delete(oldest);
-      }
-      bytes += size;
-      record = {recipe, size};
+  function remember(recipe, key, drawLayout) {
+    if (!validRecipe(recipe)) return;
+    key ??= JSON.stringify(recipe);
+    const previous = recipes.get(key);
+    if (!validDrawLayout(drawLayout)) drawLayout = previous?.drawLayout;
+    const serialized = drawLayout ? JSON.stringify([...recipe, drawLayout]) : key;
+    const size = encoder.encode(serialized).byteLength + 1;
+    if (size + 2 > MAX_BYTES) return;
+    if (previous) {
+      bytes -= previous.size;
+      recipes.delete(key);
     }
-    recipes.set(key, record);
+    while (recipes.size >= MAX_PROGRAMS || size + bytes > MAX_BYTES) {
+      const oldest = recipes.keys().next().value;
+      bytes -= recipes.get(oldest).size;
+      recipes.delete(oldest);
+    }
+    bytes += size;
+    recipes.set(key, {recipe, drawLayout, serialized, size});
     dirty = true;
   }
 
@@ -66,8 +75,9 @@ export async function openShaderWarmup(titleDigest) {
   let saved;
   try { saved = await readRecipes(await cache.match(address)); }
   catch { saved = []; }
-  for (const recipe of saved) {
-    if (validRecipe(recipe)) remember(JSON.stringify(recipe), recipe);
+  for (const record of saved) {
+    if (!Array.isArray(record) || (record.length !== 6 && record.length !== 7)) continue;
+    remember(record.slice(0, 6), undefined, record[6]);
   }
   dirty = false;
 
@@ -77,10 +87,10 @@ export async function openShaderWarmup(titleDigest) {
     // Stop and a background checkpoint can overlap. Drain observations and
     // write in order so a later snapshot cannot be overwritten by an older one.
     pendingWrite = pendingWrite.catch(() => {}).then(async () => {
-      for (const {recipe, key} of observed) remember(key ?? JSON.stringify(recipe), recipe);
+      for (const {recipe, key, drawLayout} of observed) remember(recipe, key, drawLayout);
       observed.length = 0;
       if (!dirty) return;
-      const body = `[${Array.from(recipes.keys()).join(',')}]`;
+      const body = `[${Array.from(recipes.values(), record => record.serialized).join(',')}]`;
       await cache.put(address, new Response(body, {headers: {'Content-Type': 'application/json'}}));
       dirty = false;
     });
@@ -89,9 +99,9 @@ export async function openShaderWarmup(titleDigest) {
 
   return {
     recipes,
-    observe(recipe, key) {
+    observe(recipe, key, drawLayout) {
       if (observed.length === MAX_PROGRAMS) observed.shift();
-      observed.push({recipe, key});
+      observed.push({recipe, key, drawLayout});
       // Resident draws also teach exact shaders for the next launch.
       if (checkpointTimer === undefined)
         checkpointTimer = setTimeout(() => save().catch(() => {}), CHECKPOINT_DELAY_MS);

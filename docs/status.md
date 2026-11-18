@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Checked string pushback reduced sampled pushback time from 1.15 to 0.54 ms in Water Gate Scramble. The latest entry gaps were 36.67 and 22.14 ms, and steady acknowledgement p95 was 17.02 ms. On integrated Radeon, Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Scanner evidence](browser-gpu.md#consolidate-checked-string-pushback) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
+- **Browser.** Startup warms observed shader draw layouts. In sequential integrated-Radeon Twisted System replays seeded with the same recipes, the largest sampled GPU interval was 18.36 ms with link-only startup and 5.54 ms with warm draws. Scene state varied. Water Gate Scramble still has a measured 36.67 ms entry gap. [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot) · [Scanner evidence](browser-gpu.md#consolidate-checked-string-pushback)
 - **Next.** Inspect remaining scene conversion and tree traversal. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
