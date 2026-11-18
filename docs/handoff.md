@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Decoupling WebGL validation and shader uniform lookup from pipelined draws cut the largest cold Erodeo acknowledgement gap from 64.79 to 43.88 ms. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Browser.** Reusing unchanged geometry reduced the longest cold Erodeo WebGL submission from 42.57 to 17.21 ms. The largest acknowledgement gap was 43.16 ms and began before WebGL submission. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
 - **Next.** Reduce the remaining guest scene-entry and GPU submission costs. Measure modest hardware, then qualify 60 FPS and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For Goal G and #49, use the aligned cold captures to isolate the remaining scene-entry work. Twisted System's largest gap starts in guest setup, which includes parsing and floating-point work. Erodeo shows a 35.70 ms vertex upload after the shader preparation change. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
+For Goal G and #49, use the aligned cold captures to isolate the remaining scene-entry work. The largest gaps in Twisted System and Erodeo are now before WebGL submission. Twisted System's guest setup includes parsing and floating-point work. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

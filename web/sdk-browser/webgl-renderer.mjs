@@ -5,6 +5,7 @@ import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERT
 
 const MAX_LINKED_PROGRAMS = 2048;
 const FRAME_ERROR_CHECK_DELAY_MS = 250;
+const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -113,7 +114,9 @@ export class WebGLRenderer {
     }
     this.stateSnapshot = new Uint32Array(40);
     this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
-    this.vao = gl.createVertexArray(); this.vbo = gl.createBuffer(); this.ibo = gl.createBuffer();
+    this.vao = gl.createVertexArray();
+    this.vertexBuffer = {buffer:gl.createBuffer(), capacity:0, limit:256*1024*1024, shadowLimit:8*1024*1024, validWords:0};
+    this.indexBuffer = {buffer:gl.createBuffer(), capacity:0, limit:64*1024*1024, shadowLimit:2*1024*1024, validWords:0};
     const commandFloatBuffer=new ArrayBuffer(4);this.commandFloatBits=new Uint32Array(commandFloatBuffer);this.commandFloatValue=new Float32Array(commandFloatBuffer);
     this.samplers=Array.from({length:4},()=>gl.createSampler());
     this.imageUpload=new Uint8Array(0);
@@ -215,6 +218,44 @@ void main() {
     let size=Math.max(current,256);
     while(size<required)size=Math.min(limit,size*2);
     return size;
+  }
+  uploadGeometry(target, storage, source, allowReuse) {
+    const g = this.gl, size = source.byteLength;
+    g.bindBuffer(target, storage.buffer);
+    if (!size) return 0;
+    if (size > storage.capacity) {
+      storage.capacity = this.capacity(storage.capacity, size, storage.limit);
+      g.bufferData(target, storage.capacity, g.STREAM_DRAW);
+      storage.validWords = 0;
+    }
+    if (!allowReuse || size < MIN_GEOMETRY_REUSE_BYTES || size > storage.shadowLimit || (source.byteOffset & 3)) {
+      g.bufferSubData(target, 0, source);
+      storage.validWords = 0;
+      return size;
+    }
+
+    // The snapshot owns the exact bytes last sent at these GPU offsets.
+    // Restrict comparison to the valid prefix after shrinking or reallocating.
+    const words = new Uint32Array(source.buffer, source.byteOffset, size / 4);
+    if (!storage.snapshot || storage.snapshot.length < words.length) {
+      storage.snapshot = new Uint32Array(Math.min(storage.capacity, storage.shadowLimit) / 4);
+      storage.validWords = 0;
+    }
+    const snapshot = storage.snapshot;
+    const overlap = Math.min(storage.validWords, words.length);
+    let first = 0;
+    while (first < overlap && words[first] === snapshot[first]) ++first;
+    let end = words.length;
+    if (end <= storage.validWords) {
+      while (end > first && words[end - 1] === snapshot[end - 1]) --end;
+    }
+    if (first < end) {
+      const changed = words.subarray(first, end);
+      g.bufferSubData(target, first * 4, changed);
+      snapshot.set(changed, first);
+    }
+    storage.validWords = words.length;
+    return (end - first) * 4;
   }
   rawLayout(stride,words,mask) {
     if(!stride||stride>252||(stride&3))throw new Error('Unsupported raw vertex stride');
@@ -626,12 +667,16 @@ void main() {
     if(directVertices)this.frameStats.directVertexBytes=(this.frameStats.directVertexBytes??0)+rawBytes;
     if(this.measurePacing&&this.frameStats)this.frameStats.geometryPackingMs=(this.frameStats.geometryPackingMs??0)+performance.now()-packingStarted;
     if(this.gpuTimerExtension)this.beginGpuTimer();
-    const g=this.gl;g.bindVertexArray(this.vao);g.bindBuffer(g.ARRAY_BUFFER,this.vbo);
-    if(vertexBytes>(this.vertexBufferCapacity||0)){this.vertexBufferCapacity=this.capacity(this.vertexBufferCapacity||0,vertexBytes,256*1024*1024);g.bufferData(g.ARRAY_BUFFER,this.vertexBufferCapacity,g.STREAM_DRAW);}
-    if(vertexBytes)g.bufferSubData(g.ARRAY_BUFFER,0,vertices);
-    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,this.ibo);
-    if(indexCount>(this.indexBufferCapacity||0)){this.indexBufferCapacity=this.capacity(this.indexBufferCapacity||0,indexCount,16*1024*1024);g.bufferData(g.ELEMENT_ARRAY_BUFFER,this.indexBufferCapacity*4,g.STREAM_DRAW);}
-    if(indexCount)g.bufferSubData(g.ELEMENT_ARRAY_BUFFER,0,elements);
+    const g=this.gl;g.bindVertexArray(this.vao);
+    const uploadStarted = this.measurePacing ? performance.now() : 0;
+    const vertexUpload = this.uploadGeometry(g.ARRAY_BUFFER, this.vertexBuffer, vertices, directVertices);
+    const indexUpload = this.uploadGeometry(g.ELEMENT_ARRAY_BUFFER, this.indexBuffer, elements, directVertices);
+    if (this.measurePacing && this.frameStats) {
+      const stats = this.frameStats;
+      stats.gpuVertexUploadBytes = (stats.gpuVertexUploadBytes ?? 0) + vertexUpload;
+      stats.gpuIndexUploadBytes = (stats.gpuIndexUploadBytes ?? 0) + indexUpload;
+      stats.geometryUploadMs = (stats.geometryUploadMs ?? 0) + performance.now() - uploadStarted;
+    }
     let pendingRow=-1,pendingCount=0,pendingBinding,pendingOffset=0,indexOffset=0;
     const emit=()=>{
       if(pendingRow<0)return;

@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Decoupling WebGL validation and shader uniform lookup from pipelined draws cut the largest cold Erodeo acknowledgement gap from 64.79 to 43.88 ms. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Browser.** Reusing unchanged geometry reduced the longest cold Erodeo WebGL submission from 42.57 to 17.21 ms. The largest acknowledgement gap was 43.16 ms and began before WebGL submission. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
 - **Next.** Reduce the remaining guest scene-entry and GPU submission costs. Measure modest hardware, then qualify 60 FPS and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
