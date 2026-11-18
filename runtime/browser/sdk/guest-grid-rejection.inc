@@ -2,8 +2,14 @@
 #include "full-memory.h"
 
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstring>
+#include <limits>
+
+#if defined(__wasm_simd128__)
+#include <wasm_simd128.h>
+#endif
 
 namespace ff_browser_grid {
 
@@ -16,8 +22,51 @@ inline bool Overlaps(const uint8_t* first, size_t firstSize,
     return first < second + secondSize && second < first + firstSize;
 }
 
-template<typename Line, typename Side>
-inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
+#if defined(__wasm_simd128__)
+struct SideMasks {
+    uint32_t below;
+    uint32_t above;
+};
+
+template<typename Side>
+[[gnu::always_inline]] inline SideMasks ClassifyFour(Side side, bool wide, const std::array<float, 3>& terms,
+                                                       const uint8_t* points, float tolerance, float zero) noexcept {
+    using Float4 = float __attribute__((vector_size(16)));
+    using Double2 = double __attribute__((vector_size(16)));
+    const v128_t first = wasm_v128_load(points);
+    const v128_t second = wasm_v128_load(points + 16);
+    const v128_t xs = wasm_i32x4_shuffle(first, second, 0, 2, 4, 6);
+    const v128_t ys = wasm_i32x4_shuffle(first, second, 1, 3, 5, 7);
+    v128_t results;
+    if (wide) {
+        const auto splat = [](float term) { return std::bit_cast<Double2>(wasm_f64x2_splat(double(term))); };
+        const auto a = splat(terms[0]), b = splat(terms[1]), c = splat(terms[2]);
+        const auto pair = [&](v128_t x, v128_t y) {
+            const auto px = std::bit_cast<Double2>(wasm_f64x2_promote_low_f32x4(x));
+            const auto py = std::bit_cast<Double2>(wasm_f64x2_promote_low_f32x4(y));
+            const auto values = side(px, py, a, b, c);
+            return wasm_f32x4_demote_f64x2_zero(std::bit_cast<v128_t>(values));
+        };
+        const auto low = pair(xs, ys);
+        const auto high = pair(wasm_i32x4_shuffle(xs, xs, 2, 3, 2, 3), wasm_i32x4_shuffle(ys, ys, 2, 3, 2, 3));
+        results = wasm_i32x4_shuffle(low, high, 0, 1, 4, 5);
+    } else {
+        // With float inputs, each add, subtract or product rounds directly to
+        // the same binary32 value as the SDK's double operation then cast.
+        const auto splat = [](float term) { return std::bit_cast<Float4>(wasm_f32x4_splat(term)); };
+        results = std::bit_cast<v128_t>(side(std::bit_cast<Float4>(xs), std::bit_cast<Float4>(ys),
+                                           splat(terms[0]), splat(terms[1]), splat(terms[2])));
+    }
+    const auto magnitude = wasm_f32x4_abs(results);
+    const auto finite = wasm_f32x4_le(magnitude, wasm_f32x4_splat(std::numeric_limits<float>::max()));
+    const auto valid = wasm_v128_and(finite, wasm_f32x4_ge(magnitude, wasm_f32x4_splat(tolerance)));
+    const auto below = wasm_v128_and(valid, wasm_f32x4_lt(results, wasm_f32x4_splat(zero)));
+    return {uint32_t(wasm_i32x4_bitmask(below)), uint32_t(wasm_i32x4_bitmask(wasm_v128_xor(valid, below)))};
+}
+#endif
+
+template<typename Line, typename Side, typename VectorSide>
+inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide, VectorSide vectorSide,
                                uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress) noexcept {
     using ff_browser_memory::TryWindow;
     const uint32_t esp = ctx.esp;
@@ -53,17 +102,43 @@ inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
         return side < zero ? -1 : 1;
     };
 
+    const auto rejectsOpposite = [&](uint32_t index) {
+        const auto* segment = index ? rest + (index - 1) * 8 : edge;
+        const auto terms = lineTerms(ctx, segment);
+        const int first = classify(terms, query);
+        return first && first == classify(terms, query + 8);
+    };
+
     int previous = classify(queryTerms, edge);
+#if defined(__wasm_simd128__)
+    const bool wide = (ctx.fcw & 0x300) != 0;
+#endif
     uint32_t rejected = 0;
-    for (; rejected < count; ++rejected) {
-        const int current = classify(queryTerms, rest + rejected * 8);
-        if (!previous || previous != current) {
-            const auto* segment = rejected ? rest + (rejected - 1) * 8 : edge;
-            const auto edgeTerms = lineTerms(ctx, segment);
-            const int first = classify(edgeTerms, query);
-            if (!first || first != classify(edgeTerms, query + 8)) break;
+    while (rejected < count) {
+#if defined(__wasm_simd128__)
+        if (count - rejected >= 4) {
+            const auto sides = ClassifyFour(vectorSide, wide, queryTerms, rest + rejected * 8, tolerance, zero);
+            // Shift each side mask to align it with the preceding endpoint.
+            const uint32_t same =
+                (sides.below & ((sides.below << 1) | uint32_t(previous < 0))) |
+                (sides.above & ((sides.above << 1) | uint32_t(previous > 0)));
+            uint32_t remaining = same ^ 0xfu;
+            while (remaining && rejectsOpposite(rejected + std::countr_zero(remaining))) {
+                remaining &= remaining - 1;
+            }
+            if (remaining) {
+                rejected += std::countr_zero(remaining);
+                break;
+            }
+            rejected += 4;
+            previous = int(sides.above >> 3) - int(sides.below >> 3);
+            continue;
         }
+#endif
+        const int current = classify(queryTerms, rest + rejected * 8);
+        if ((!previous || previous != current) && !rejectsOpposite(rejected)) break;
         previous = current;
+        ++rejected;
     }
     // Run the last proven rejection normally so its stack, registers and
     // both touched x87 slots retain the original values at loop exit.
