@@ -1,6 +1,7 @@
 import { fixedFallbackPixelGlsl, pixelGlsl } from './pixel-glsl.mjs';
 import { vertexGlsl } from './vertex-glsl.mjs';
 import { fixedFallbackVertexGlsl } from './fixed-vertex-fallback.mjs';
+import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERTEX_CODE_BYTES } from './programmable-vertex-fallback.mjs';
 
 const MAX_LINKED_PROGRAMS = 2048;
 
@@ -42,6 +43,7 @@ export class WebGLRenderer {
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
     Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupFallbacks:0,warmupMaxCheckMs:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
+    Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackDraws:0,programmableFallbackFrames:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -265,6 +267,49 @@ void main() {
     } catch (error) {
       for (const program of programs) g.deleteProgram(program);
       this.report(`Fixed shader fallback is unavailable: ${error.message}`);
+    }
+  }
+  beginProgrammableFallback(pointer) {
+    if (!pointer || !this.pendingFixedFallbackPrograms) return;
+    const g = this.gl;
+    let vertex, fragment, program;
+    try {
+      vertex = this.compileShader(g.VERTEX_SHADER, programmableFallbackVertexGlsl(this.string(pointer)));
+      fragment = this.compileShader(g.FRAGMENT_SHADER, fixedFallbackPixelGlsl());
+      program = this.linkStages(vertex, fragment);
+      g.flush();
+      this.pendingProgrammableFallback = program;
+    } catch (error) {
+      if (program) g.deleteProgram(program);
+      this.report(`Programmable shader fallback is unavailable: ${error.message}`);
+    } finally {
+      if (vertex) g.deleteShader(vertex);
+      if (fragment) g.deleteShader(fragment);
+    }
+  }
+  readyProgrammableFallback() {
+    if (this.programmableFallback) return this.programmableFallback;
+    const g = this.gl, program = this.pendingProgrammableFallback;
+    if (!program || !g.getProgramParameter(program, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return null;
+    this.pendingProgrammableFallback = undefined;
+    let code;
+    try {
+      if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
+      const block = g.getUniformBlockIndex(program, 'FallbackVertexCode');
+      if (block === g.INVALID_INDEX) throw new Error('Vertex instruction block did not link');
+      code = g.createBuffer();
+      if (!code) throw new Error('Could not allocate the vertex instruction buffer');
+      g.bindBufferBase(g.UNIFORM_BUFFER, 0, code);
+      g.bufferData(g.UNIFORM_BUFFER, FALLBACK_VERTEX_CODE_BYTES, g.DYNAMIC_DRAW);
+      g.uniformBlockBinding(program, block, 0);
+      this.programmableFallback = this.finishProgram(program, {codeBuffer:code});
+      this.shaderStats.programmableFallbackEnabled = true;
+      return this.programmableFallback;
+    } catch (error) {
+      if (code) g.deleteBuffer(code);
+      g.deleteProgram(program);
+      this.report(`Programmable shader fallback is unavailable: ${error.message}`);
+      return null;
     }
   }
   prepareWarmup(store) {
@@ -500,6 +545,8 @@ void main() {
       try {
         stage={source:vertexGlsl(hlsl,regs,flat)};
         if (this.fixedFallbackPrograms) stage.fixedKey = fixedShaderKey(hlsl, 'vertex', 11);
+        if (this.pendingProgrammableFallback || this.programmableFallback)
+          stage.fallbackCode = decodeFallbackVertexCode(hlsl, regs, flat);
       }
       catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
       this.vertexPrograms.set(key,stage);
@@ -509,7 +556,8 @@ void main() {
   program(source,kinds,shadows,flat,vertexPointer=0,regs=0,prewarm=false) {
     const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
     if(this.programs.has(key)) return this.programs.get(key);
-    const programLimit = MAX_LINKED_PROGRAMS - (this.fixedFallbackPrograms?.length ?? 0);
+    const programLimit = MAX_LINKED_PROGRAMS - (this.fixedFallbackPrograms?.length ?? 0)
+      - Number(Boolean(this.pendingProgrammableFallback || this.programmableFallback));
     if(this.programs.size>=programLimit)throw new Error('GPU shader cache budget exceeded');
     const fragmentSource=pixelGlsl(source,kinds,shadows,flat);
     const vertex=this.vertexStage(vertexPointer,regs,flat);
@@ -541,12 +589,16 @@ void main() {
     const vertexShader=vertex.shader??=this.compileShader(g.VERTEX_SHADER,vertex.source);
     const p=this.linkStages(vertexShader,fragmentShader);
     const program={p,pending:true,vertexShader,vertexPointer,regs,flat,vertexSource:vertex.source,fragmentShader,fragmentSource,sources,recipeKey};
-    if (vertex.fixedKey && vertex.fixedKey[0] === regs && !vertex.fixedKey[8] && !vertex.fixedKey[9] &&
+    const fixedVertex = vertex.fixedKey && vertex.fixedKey[0] === regs && !vertex.fixedKey[8] && !vertex.fixedKey[9];
+    if (this.fixedFallbackTexture && (fixedVertex || vertex.fallbackCode) &&
         kinds.every(kind => kind <= 1) && shadows.every(shadow => !shadow)) {
       const pixelKey = fixedShaderKey(source, 'pixel', 41);
       const textureMask = kinds.reduce((mask, kind, stage) => mask | kind << stage, 0);
       if (pixelKey?.[4] === textureMask) {
-        program.fixedFallback = { pipeline: this.fixedFallbackPrograms[Number(flat)], vertexKey: vertex.fixedKey, pixelKey };
+        program.fixedFallback = {
+          pipeline: fixedVertex ? this.fixedFallbackPrograms[Number(flat)] : null,
+          vertexKey: vertex.fixedKey, vertexCode: vertex.fallbackCode, pixelKey
+        };
       }
     }
     // The extension only controls when we can check the link. Both stages
@@ -614,7 +666,8 @@ void main() {
       program.lastFallbackPoll = this.frame;
       if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program);
     }
-    return program.fixedFallback.pipeline;
+    const fallback = program.fixedFallback;
+    return fallback.vertexCode ? this.readyProgrammableFallback() ?? this.readyProgram(program) : fallback.pipeline;
   }
   shaderError(shader,source) {
     const message=this.gl.getShaderInfoLog(shader),lines=source.split('\n');
@@ -735,12 +788,23 @@ void main() {
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};
       if (fallback) {
         if (program.fixedKeys !== fallback) {
-          g.uniform1uiv(loc('fallbackVertexKey[0]'), fallback.vertexKey);
+          if (fallback.vertexCode) {
+            g.bindBuffer(g.UNIFORM_BUFFER, program.codeBuffer);
+            g.bufferSubData(g.UNIFORM_BUFFER, 0, fallback.vertexCode);
+            g.uniform1i(loc('fallbackInstructionCount'), fallback.vertexCode.length / 4);
+          } else {
+            g.uniform1uiv(loc('fallbackVertexKey[0]'), fallback.vertexKey);
+          }
           g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey);
           program.fixedKeys = fallback;
         }
-        this.shaderStats.fixedFallbackDraws++;
-        this.usedFallbackThisFrame = true;
+        if (fallback.vertexCode) {
+          this.shaderStats.programmableFallbackDraws++;
+          this.usedProgrammableFallback = true;
+        } else {
+          this.shaderStats.fixedFallbackDraws++;
+          this.usedFallbackThisFrame = true;
+        }
       }
       const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
       const uniform=(name,offset,count)=>{
@@ -897,6 +961,10 @@ void main() {
     if (this.usedFallbackThisFrame) {
       this.shaderStats.fixedFallbackFrames++;
       this.usedFallbackThisFrame = false;
+    }
+    if (this.usedProgrammableFallback) {
+      this.shaderStats.programmableFallbackFrames++;
+      this.usedProgrammableFallback = false;
     }
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
     this.lastFrameStats=this.frameStats;this.frameStats=undefined;

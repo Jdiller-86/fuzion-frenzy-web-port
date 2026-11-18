@@ -175,7 +175,7 @@ def main() -> int:
     if args.host_only or args.no_link:
         print(f'Compiled {len(built)} real SDK integration objects; no title execution claimed')
         return 0
-    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_malloc', '_free']
+    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template', '_malloc', '_free']
     link_output = output / 'link-stage'
     link_output.mkdir(exist_ok=True)
     link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',

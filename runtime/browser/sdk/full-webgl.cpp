@@ -285,6 +285,32 @@ std::string VertexSourceText(std::string text,uint32_t bgra) {
     if(bgra)text="// ff_browser_bgra_mask="+std::to_string(bgra)+"\n"+text;
     return text;
 }
+// The admitted raw layout keeps one integer attribute and one BGRA attribute.
+constexpr uint16_t kFallbackVertexRegisters = 0x3f;
+constexpr uint64_t kFallbackVertexDecode = uint64_t(gpu::kDecodeInt) << 8;
+constexpr uint32_t kFallbackVertexBgra = 1u << 4;
+constexpr size_t kFallbackVertexWords = 136 * 4;
+
+extern "C" const char* ff_browser_fallback_vertex_template() {
+    static const auto source = VertexSourceText(
+        gpu::VertexProgramHlsl({}, kFallbackVertexRegisters, kFallbackVertexDecode), kFallbackVertexBgra);
+    return source.c_str();
+}
+
+static std::string ProgrammableVertexText(const std::vector<uint32_t>& words, uint16_t regs,
+                                          uint64_t decode, uint32_t bgra) {
+    auto source = gpu::VertexProgramHlsl(words, regs, decode);
+    if (regs == kFallbackVertexRegisters && decode == kFallbackVertexDecode &&
+        bgra == kFallbackVertexBgra && words.size() <= kFallbackVertexWords && words.size() % 4 == 0) {
+        std::string marker = "// ff_browser_vertex_words=";
+        for (size_t i = 0; i < words.size(); ++i) {
+            if (i) marker += ',';
+            marker += std::to_string(words[i]);
+        }
+        source = marker + "\n" + source;
+    }
+    return VertexSourceText(std::move(source), bgra);
+}
 template<size_t N>
 static std::string FixedShaderText(const char* name, const std::array<uint32_t, N>& key, const std::string& source) {
     std::string text = std::string("// ff_browser_fixed_") + name + "=";
@@ -335,7 +361,7 @@ const char* ff_webgl_vertex_source(const gpu::State& s, uint32_t regs,uint64_t d
     auto& bucket=cache[hash];
     for(auto& source:bucket)if(source.regs==regs&&source.decode==decode&&source.bgra==bgra&&source.words==words){known={words,source.text.c_str()};return known.text;}
     if(cache.size()>1024)std::abort();
-    bucket.push_back({words,regs,decode,bgra,VertexSourceText(gpu::VertexProgramHlsl(words,uint16_t(regs),decode),bgra)});
+    bucket.push_back({words,regs,decode,bgra,ProgrammableVertexText(words,uint16_t(regs),decode,bgra)});
     known={words,bucket.back().text.c_str()};return known.text;
 }
 const uint32_t* ff_webgl_palette(uint32_t header, uint64_t& hash) {

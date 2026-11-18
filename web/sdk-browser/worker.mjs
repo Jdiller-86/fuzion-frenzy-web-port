@@ -216,6 +216,8 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
     module.onFuzionGpu.threaded=threadedGpu===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
+    if (shaderFallback && rawVertices && module._ff_browser_fallback_vertex_template)
+      module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());
     module.onFuzionGpu.measurePacing=measurePacing===true;
     module.onFuzionGpu.precisePacing=precisePacing===true;
     module.onFuzionGpu.frameCapPrecision=frameCapPrecision===true;
