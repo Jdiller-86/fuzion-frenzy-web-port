@@ -241,6 +241,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,de
     report('Preparing resident WebGL shaders…');
     module.onFuzionGpu.finishFixedFallbacks();
   }
+  module.onFuzionGpu?.finishWarmup();
   pushInput();
   const bootFn = module._ff_browser_boot;
   if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');

@@ -6,6 +6,7 @@ import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERT
 const MAX_LINKED_PROGRAMS = 2048;
 const FRAME_ERROR_CHECK_DELAY_MS = 250;
 const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
+const WARMUP_REFLECTION_BUDGET_MS = 8;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -96,9 +97,10 @@ export class WebGLRenderer {
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,programReuses:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
-    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPendingClaims:0,warmupFallbacks:0,warmupMaxCheckMs:0});
+    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPendingClaims:0,warmupFallbacks:0,warmupMaxCheckMs:0,warmupPrimed:0,warmupPrimeMs:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
+    Object.assign(this.shaderStats,{deferredLinks:0,deferredProgramsReady:0,deferredWorkMaxMs:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -437,7 +439,7 @@ void main() {
           const vertexShader=compileStage(vertexShaders,g.VERTEX_SHADER,sources[0]);
           const fragmentShader=compileStage(fragmentShaders,g.FRAGMENT_SHADER,sources[1]);
           const p=this.linkStages(vertexShader,fragmentShader);
-          this.warmPrograms.set(key,{p,vertexShader,fragmentShader});
+          this.warmPrograms.set(key,{p,vertexShader,fragmentShader,pending:true});
           this.shaderStats.warmupLinks++;
         } catch { /* The exact runtime sources still use the checked draw path. */ }
       }
@@ -448,30 +450,50 @@ void main() {
     }
     if(this.warmPrograms.size)g.flush();
   }
-  takeWarmProgram(key) {
-    const program=this.warmPrograms?.get(key);
-    if(!program)return null;
-    this.warmPrograms.delete(key);
-    const g=this.gl,start=performance.now();
-    const complete=g.getProgramParameter(program.p,this.parallelShaderCompile.COMPLETION_STATUS_KHR);
-    const linked=complete&&g.getProgramParameter(program.p,g.LINK_STATUS);
-    const wait=performance.now()-start;
-    this.shaderStats.warmupMaxCheckMs=Math.max(this.shaderStats.warmupMaxCheckMs,wait);
-    if(!complete) {
-      this.shaderStats.warmupPendingClaims++;
-      return {...program, pending:true};
-    }
-    if(!linked){
+  pollWarmProgram(program) {
+    const g = this.gl;
+    if (!g.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return program;
+    if (!g.getProgramParameter(program.p, g.LINK_STATUS)) {
       g.deleteProgram(program.p);
       this.shaderStats.warmupFallbacks++;
       return null;
     }
     g.detachShader(program.p,program.vertexShader);
     g.detachShader(program.p,program.fragmentShader);
-    this.shaderStats.warmupHits++;
-    this.shaderStats.readyWithoutWait++;
-    this.shaderStats.completedPrograms++;
     return this.finishProgram(program.p);
+  }
+  finishWarmup() {
+    if (!this.warmPrograms?.size) return;
+    const start = performance.now();
+    // Reflect completed links while the context is still quiet. Give recent
+    // recipes priority and leave the remaining entries for normal admission.
+    for (const [key, program] of Array.from(this.warmPrograms).reverse()) {
+      if (performance.now() - start >= WARMUP_REFLECTION_BUDGET_MS) break;
+      const ready = this.pollWarmProgram(program);
+      if (!ready) this.warmPrograms.delete(key);
+      else if (!ready.pending) {
+        this.warmPrograms.set(key, this.cacheDrawUniforms(ready));
+        this.shaderStats.warmupPrimed++;
+      }
+    }
+    this.shaderStats.warmupPrimeMs = performance.now() - start;
+  }
+  takeWarmProgram(key, defer) {
+    let program = this.warmPrograms?.get(key);
+    if (!program) return null;
+    this.warmPrograms.delete(key);
+    if (program.pending && !defer) {
+      const start = performance.now();
+      program = this.pollWarmProgram(program);
+      this.shaderStats.warmupMaxCheckMs = Math.max(this.shaderStats.warmupMaxCheckMs, performance.now() - start);
+    }
+    if (program?.pending) this.shaderStats.warmupPendingClaims++;
+    else if (program) {
+      this.shaderStats.warmupHits++;
+      this.shaderStats.readyWithoutWait++;
+      this.shaderStats.completedPrograms++;
+    }
+    return program;
   }
   checkGpuError() {
     const error = this.gl.getError();
@@ -518,7 +540,7 @@ void main() {
         }
         this.finishFrameErrorCheck();
         if (status === g.WAIT_FAILED) throw new Error('GPU frame validation fence failed');
-        this.prepareDrawPrograms();
+        if (status !== g.TIMEOUT_EXPIRED) this.prepareDrawPrograms();
       } catch (error) {
         this.frameError = error;
         this.cancelFrameErrorCheck();
@@ -681,7 +703,7 @@ void main() {
     const emit=()=>{
       if(pendingRow<0)return;
       const b=pendingRow,layout=words[b]===3?words[b+10]:0;
-      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,!checkErrors))throw new Error('GPU draw rejected');
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset))throw new Error('GPU draw rejected');
       pendingRow=-1;
     };
     for(let i=0;i<count;i++) {
@@ -738,7 +760,6 @@ void main() {
     if (this.programVariants.size >= programLimit) throw new Error('GPU shader variant budget exceeded');
     const fragmentSource=pixelGlsl(source,kinds,shadows,flat);
     const vertex=this.vertexStage(vertexPointer,regs,flat);
-    const specialized = this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit);
     // Exact GLSL can be shared. Fallback admission and its draw-state keys
     // still belong to the original variant that supplied them.
     let fallback;
@@ -754,11 +775,13 @@ void main() {
         };
       }
     }
+    const defer = Boolean(fallback && this.pipelined && this.deferGpuErrors);
+    const specialized = this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit, defer);
     const variant = {specialized, fallback};
     this.programVariants.set(key, variant);
     return variant;
   }
-  specializedProgram(vertex, fragmentSource, diagnostic, programLimit) {
+  specializedProgram(vertex, fragmentSource, diagnostic, programLimit, defer) {
     const sources = [vertex.source, fragmentSource];
     const recipeKey = JSON.stringify(sources);
     const cached = this.programs.get(recipeKey);
@@ -768,7 +791,7 @@ void main() {
     }
     if (this.programs.size >= programLimit) throw new Error('GPU shader cache budget exceeded');
     const g=this.gl;
-    const warm = this.takeWarmProgram(recipeKey);
+    const warm = this.takeWarmProgram(recipeKey, defer);
     if (warm && !warm.pending) {
       this.shaderWarmup.remember(sources, recipeKey);
       this.programs.set(recipeKey, warm);
@@ -779,26 +802,30 @@ void main() {
       g.deleteProgram(this.warmPrograms.get(unused).p);
       this.warmPrograms.delete(unused);
     }
-    let p, vertexShader, fragmentShader;
-    if (warm) {
-      ({p, vertexShader, fragmentShader} = warm);
-    } else {
-      fragmentShader=this.fragmentShaders.get(fragmentSource);
-      if(fragmentShader) {
-        this.shaderStats.fragmentReuses++;
-      } else {
-        if(this.fragmentShaders.size>=MAX_LINKED_PROGRAMS)throw new Error('GPU fragment shader cache budget exceeded');
-        fragmentShader=this.compileShader(g.FRAGMENT_SHADER,fragmentSource);
-        this.fragmentShaders.set(fragmentSource,fragmentShader);
-        this.shaderStats.fragmentCompiles++;
-      }
-      vertexShader=vertex.shader??=this.compileShader(g.VERTEX_SHADER,vertex.source);
-      p=this.linkStages(vertexShader,fragmentShader);
-    }
-    const program = {p, pending:true, vertexShader, fragmentShader, ...diagnostic,
+    const program = {pending:true, vertex, ...diagnostic,
       vertexSource:vertex.source, fragmentSource, sources, recipeKey, fromWarmup:!!warm};
+    if (warm) {
+      Object.assign(program, warm);
+    } else if (!defer) {
+      this.submitProgram(program);
+    }
     this.programs.set(recipeKey, program);
     return program;
+  }
+  submitProgram(program) {
+    const g = this.gl, {vertex, fragmentSource} = program;
+    let fragmentShader = this.fragmentShaders.get(fragmentSource);
+    if (fragmentShader) {
+      this.shaderStats.fragmentReuses++;
+    } else {
+      if (this.fragmentShaders.size >= MAX_LINKED_PROGRAMS) throw new Error('GPU fragment shader cache budget exceeded');
+      fragmentShader = this.compileShader(g.FRAGMENT_SHADER, fragmentSource);
+      this.fragmentShaders.set(fragmentSource, fragmentShader);
+      this.shaderStats.fragmentCompiles++;
+    }
+    const vertexShader = vertex.shader ??= this.compileShader(g.VERTEX_SHADER, vertex.source);
+    const p = this.linkStages(vertexShader, fragmentShader);
+    Object.assign(program, {p, vertexShader, fragmentShader});
   }
   finishProgram(p,result={}) {
     const g=this.gl;
@@ -820,14 +847,22 @@ void main() {
       borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false});
     return result;
   }
-  readyProgram(program, completed) {
+  readyProgram(program, completed, deferRetry = false) {
     if(!program.pending)return program;
     if(program.error)throw program.error;
+    if(!program.p)this.submitProgram(program);
     const g=this.gl,start=performance.now(),extension=this.parallelShaderCompile;
     completed ??= !!extension && g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR);
     const linked=g.getProgramParameter(program.p,g.LINK_STATUS),wait=performance.now()-start;
     this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
     if(!completed)this.shaderStats.blockingPrograms++;
+    if(!linked && program.fromWarmup) {
+      g.deleteProgram(program.p);
+      program.p=program.vertexShader=program.fragmentShader=undefined;
+      program.fromWarmup=false;
+      this.shaderStats.warmupFallbacks++;
+      return deferRetry ? null : this.readyProgram(program);
+    }
     if(!linked){
       try {
         const {p,vertexShader,fragmentShader,vertexPointer,regs,flat,vertexSource,fragmentSource}=program;
@@ -851,7 +886,7 @@ void main() {
     g.detachShader(program.p,program.fragmentShader);
     program.pending=false;const ready=this.finishProgram(program.p,program);this.shaderStats.completedPrograms++;
     if(this.shaderWarmup)this.shaderWarmup.remember(program.sources,program.recipeKey);
-    program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=program.sources=program.recipeKey=undefined;
+    program.vertex=program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=program.sources=program.recipeKey=undefined;
     return ready;
   }
   cacheDrawUniforms(program) {
@@ -862,24 +897,36 @@ void main() {
     return program;
   }
   prepareDrawPrograms() {
-    // Link completion does not guarantee that uniform reflection can run
-    // without a round trip. Reuse the validation boundary for that query.
-    let remaining = 4;
-    for (const program of this.pendingDrawPrograms) {
-      if (remaining === 0) break;
-      --remaining;
-      if (program.pending && !this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) continue;
-      this.cacheDrawUniforms(this.readyProgram(program, true));
+    // Allow one specialization step after a signalled frame fence. Covered
+    // draws keep their resident program until both link and reflection finish.
+    const program = this.pendingDrawPrograms.values().next().value;
+    if (!program) return;
+    const g = this.gl, start = performance.now();
+    try {
+      if (!program.p) {
+        this.submitProgram(program);
+        g.flush();
+        this.shaderStats.deferredLinks++;
+        return;
+      }
+      if (program.pending && !g.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return;
+      const ready = this.readyProgram(program, true, true);
+      if (!ready) return;
+      this.cacheDrawUniforms(ready);
       this.pendingDrawPrograms.delete(program);
+      this.shaderStats.deferredProgramsReady++;
+    } finally {
+      this.shaderStats.deferredWorkMaxMs = Math.max(this.shaderStats.deferredWorkMaxMs, performance.now() - start);
     }
   }
-  resolveProgram({specialized:program, fallback}, deferred) {
+  resolveProgram({specialized:program, fallback}) {
     if (!fallback || program.error || program.drawUniformsReady) return this.readyProgram(program);
-    if (deferred) {
+    if (this.pipelined && this.deferGpuErrors) {
       this.pendingDrawPrograms.add(program);
       return fallback.pipeline;
     }
     if (!program.pending) return program;
+    if (!program.p) this.submitProgram(program);
     if (program.lastFallbackPoll !== this.frame) {
       program.lastFallbackPoll = this.frame;
       if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program,true);
@@ -980,7 +1027,7 @@ void main() {
     const list=n?this.wordView(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
     for(let i=0;i<(n||1);i++){const o=i*4,x=list[o],y=list[o+1],x1=list[o+2],y1=list[o+3];g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
   }
-  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,deferred) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
@@ -993,7 +1040,7 @@ void main() {
         variant=this.programVariant(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);
         this.pointerPrograms.set(programKey,variant);
       }
-      const program = this.resolveProgram(variant, deferred);
+      const program = this.resolveProgram(variant);
       const fallback = program === variant.specialized ? null : variant.fallback;
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
