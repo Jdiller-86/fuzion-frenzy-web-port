@@ -71,8 +71,8 @@ pacing; it remains best-effort. Development fallbacks:
 ?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
 Windows pipelined WebGL applies the cap before submitting each frame.
 ?presentPacing=after restores the previous timing.
-Covered draws use shaders prepared during startup. Select Stop game to retain
-their browser-local recipes and prepare specialized programs on the next launch.
+Covered draws use shaders prepared during startup. New live-link recipes are
+saved during play. Stop game flushes remaining recipes for the next launch.
 ?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window

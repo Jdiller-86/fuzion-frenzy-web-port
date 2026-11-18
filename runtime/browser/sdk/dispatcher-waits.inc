@@ -2,7 +2,7 @@
 // lives only while its thread waits on the dispatcher condition variable.
 class ParkedWait {
 public:
-    explicit ParkedWait(const std::vector<ObjectRef>& objects) noexcept : objects_(objects) {
+    explicit ParkedWait(std::span<const ObjectRef> objects) noexcept : objects_(objects) {
         if (next_) next_->link_ = &next_;
         head_ = this;
     }
@@ -26,7 +26,7 @@ public:
 
 private:
     static inline ParkedWait* head_ = nullptr;
-    const std::vector<ObjectRef>& objects_;
+    std::span<const ObjectRef> objects_;
     ParkedWait* next_ = head_;
     ParkedWait** link_ = &head_;
 };

@@ -15,26 +15,63 @@ import runpy
 from pathlib import Path
 
 
-def adapt_dispatcher_wakes(runtime: Path) -> None:
-    source = runtime / "kernel/objects.cpp"
-    text = source.read_text(encoding="utf-8")
+def adapt_dispatcher_waits(runtime: Path) -> None:
     helper_path = Path(__file__).resolve().parents[1] / "runtime/browser/sdk/dispatcher-waits.inc"
     helper = helper_path.read_text(encoding="utf-8")
     dispatcher = "std::condition_variable g_cv;\n"
+    wait_for = "static uint32_t WaitFor(const std::vector<ObjectRef>& objs,"
+    wait = "uint32_t Wait(const std::vector<ObjectRef>& objs, bool wait_all, int64_t timeout, bool alertable)"
     finite = "            g_cv.wait_for(lock, nanoseconds(std::min<int64_t>(deadline - now, 50000000)));"
     infinite = "            g_cv.wait_for(lock, milliseconds(50));"
     release = "        o.owner = 0;\n        SetSignal(o, 1);\n        g_cv.notify_all();"
-    replacements = (
-        (dispatcher, dispatcher + "\n" + helper),
-        (finite, "            ParkedWait parked(objs);\n" + finite),
-        (infinite, "            ParkedWait parked(objs);\n" + infinite),
-        (release, release.replace("g_cv.notify_all();", "if (ParkedWait::Includes(o)) g_cv.notify_all();")),
-    )
-    for anchor, replacement in replacements:
-        if text.count(anchor) != 1:
-            raise RuntimeError("Browser dispatcher-wait optimization anchor differs")
-        text = text.replace(anchor, replacement, 1)
-    source.write_text(text, encoding="utf-8")
+    single_wait = "uint32_t WaitOne(const ObjectRef& object, int64_t timeout, bool alertable)"
+    set_event = "int32_t SetEvent(Object& o) {"
+    wrappers = f"""\
+{wait} {{
+    return WaitObjects(objs, wait_all, timeout, alertable);
+}}
+
+{single_wait} {{
+    // The caller owns this reference through both suspend points and the wait.
+    return WaitObjects({{&object, 1}}, false, timeout, alertable);
+}}
+
+{set_event}"""
+    kernel_namespace = "namespace kernel {\n"
+    declaration = kernel_namespace + "\n" + single_wait + ";\n"
+    replacements = {
+        "objects.cpp": (
+            ("#include <queue>\n", "#include <queue>\n#include <span>\n"),
+            (dispatcher, dispatcher + "\n" + helper),
+            (wait_for, "static uint32_t WaitFor(std::span<const ObjectRef> objs,"),
+            (wait, "static uint32_t WaitObjects(std::span<const ObjectRef> objs, bool wait_all, "
+                   "int64_t timeout, bool alertable)"),
+            (set_event, wrappers),
+            (finite, "            ParkedWait parked(objs);\n" + finite),
+            (infinite, "            ParkedWait parked(objs);\n" + infinite),
+            (release, release.replace("g_cv.notify_all();", "if (ParkedWait::Includes(o)) g_cv.notify_all();")),
+        ),
+        "xboxkrnl.cpp": (
+            (kernel_namespace, declaration),
+            ("Wait({ev}, false, INT64_MAX, false)", "WaitOne(ev, INT64_MAX, false)"),
+            ("Wait({w}, false, TimeoutArg(a[4]), a[3] & 0xFF)", "WaitOne(w, TimeoutArg(a[4]), a[3] & 0xFF)"),
+            ("Wait({o}, false, TimeoutArg(a[2]), a[1] & 0xFF)", "WaitOne(o, TimeoutArg(a[2]), a[1] & 0xFF)"),
+            ("Wait({o}, false, TimeoutArg(a[3]), a[2] & 0xFF)", "WaitOne(o, TimeoutArg(a[3]), a[2] & 0xFF)"),
+            ("Wait({o}, false, TimeoutArg(a[4]), a[3] & 0xFF)", "WaitOne(o, TimeoutArg(a[4]), a[3] & 0xFF)"),
+        ),
+        "iocp.cpp": (
+            (kernel_namespace, declaration),
+            ("Wait({port}, false, wait_arg, false)", "WaitOne(port, wait_arg, false)"),
+        ),
+    }
+    for filename, changes in replacements.items():
+        source = runtime / "kernel" / filename
+        text = source.read_text(encoding="utf-8")
+        for anchor, replacement in changes:
+            if text.count(anchor) != 1:
+                raise RuntimeError(f"Browser dispatcher wait source differs: {filename}: {anchor}")
+            text = text.replace(anchor, replacement, 1)
+        source.write_text(text, encoding="utf-8")
 
 
 def adapt_nonindexed_converted_assembler(runtime: Path) -> None:
@@ -205,7 +242,7 @@ def main() -> int:
     adapter_header = out / "ff_sdk_guest_memory.hpp"
     adapter_header.write_text('#pragma once\n#include "full-memory.h"\n', encoding="utf-8")
 
-    adapt_dispatcher_wakes(out)
+    adapt_dispatcher_waits(out)
     adapt_nonindexed_converted_assembler(out)
     runpy.run_path(str(root / 'tools/prepare-sdk-browser-vertices.py'))['adapt_browser_vertices'](out)
     runpy.run_path(str(root / 'tools/prepare-sdk-browser-pacing.py'))['adapt_browser_pacing'](out)

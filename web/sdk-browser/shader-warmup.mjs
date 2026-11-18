@@ -1,6 +1,7 @@
 const CACHE_NAME = 'fuzion-webgl-shader-recipes-v2';
 const MAX_PROGRAMS = 64;
 const MAX_BYTES = 1024 * 1024;
+const CHECKPOINT_DELAY_MS = 1500;
 
 async function readRecipes(response) {
   if (!response?.body) return [];
@@ -39,6 +40,8 @@ export async function openShaderWarmup(titleDigest) {
   const encoder = new TextEncoder();
   let bytes = 2;
   let dirty = false;
+  let checkpointTimer;
+  let pendingWrite = Promise.resolve();
 
   function remember(key, recipe) {
     let record = recipes.get(key);
@@ -68,21 +71,32 @@ export async function openShaderWarmup(titleDigest) {
   }
   dirty = false;
 
-  // The collector retains owned source references. Size accounting and
-  // cache writes run after the title has stopped.
-  return {
-    recipes,
-    observe(recipe, key) {
-      if (observed.length === MAX_PROGRAMS) observed.shift();
-      observed.push({recipe, key});
-    },
-    async save() {
+  function save() {
+    clearTimeout(checkpointTimer);
+    checkpointTimer = undefined;
+    // Stop and a background checkpoint can overlap. Drain observations and
+    // write in order so a later snapshot cannot be overwritten by an older one.
+    pendingWrite = pendingWrite.catch(() => {}).then(async () => {
       for (const {recipe, key} of observed) remember(key ?? JSON.stringify(recipe), recipe);
       observed.length = 0;
       if (!dirty) return;
       const body = `[${Array.from(recipes.keys()).join(',')}]`;
       await cache.put(address, new Response(body, {headers: {'Content-Type': 'application/json'}}));
       dirty = false;
+    });
+    return pendingWrite;
+  }
+
+  return {
+    recipes,
+    observe(recipe, key, requiresLink) {
+      if (observed.length === MAX_PROGRAMS) observed.shift();
+      observed.push({recipe, key});
+      // Save new live links in a separate task, even if the player reloads
+      // the page later without using Stop game.
+      if (requiresLink && checkpointTimer === undefined)
+        checkpointTimer = setTimeout(() => save().catch(() => {}), CHECKPOINT_DELAY_MS);
     },
+    save,
   };
 }

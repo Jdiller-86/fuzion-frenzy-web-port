@@ -828,7 +828,8 @@ void main() {
       this.shaderStats.inlineTranslationMaxMs = Math.max(this.shaderStats.inlineTranslationMaxMs, performance.now() - start);
       specialized = this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit);
     }
-    const variant = {specialized, fallback, recipe, recipeKey};
+    const requiresLink = specialized?.pending === true;
+    const variant = {specialized, fallback, recipe, recipeKey, requiresLink};
     this.programVariants.set(key, variant);
     return variant;
   }
@@ -1239,7 +1240,7 @@ void main() {
       this.bindGeometry(binding);
       g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,indexOffset);
       if (variant.recipe) {
-        this.shaderWarmup.observe(variant.recipe, variant.recipeKey);
+        this.shaderWarmup.observe(variant.recipe, variant.recipeKey, variant.requiresLink);
         variant.recipe = variant.recipeKey = undefined;
       }
       this.issuedDraws=(this.issuedDraws||0)+1;

@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** The grid batch evaluates the two endpoints of its second rejection check together. Water Gate Scramble sampled 7.81 and 7.19 ms in the combined intersection symbol. The largest scene-entry gap measured 52.71 and 49.89 ms across the two runs. [Gameplay observations](browser-gpu.md#paired-endpoint-checks-for-collision-rejection)
-- **Next.** The latest peak sampled 28.45 ms in the shared guest loader. Check formatted scanner and conversion overhead, then measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser.** Newly linked shaders are saved during play. An Erodeo page reload reused all 12 live-link recipes, with zero blocking validations. The Water Gate Scramble replay with allocation-free single-object waits reached gameplay with a 50.21 ms scene-entry peak and 17.02 ms steady acknowledgement p95. [Gameplay observations](browser-gpu.md#shader-recipe-reuse-after-reload)
+- **Next.** The latest peak sampled 27.84 ms in the shared guest loader. Check whether its parser can reuse classification across both passes. Measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
