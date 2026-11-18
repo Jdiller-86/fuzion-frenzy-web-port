@@ -360,17 +360,19 @@ def matched_body(source: bytes, address: bytes, digest: str) -> bytes | None:
     return body if sha256(body) == digest else None
 
 
-def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]) -> tuple[bytes, list[bytes]]:
+def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]) -> tuple[bytes, list[bytes], int]:
     original = original.replace(b"\r\n", b"\n")
     admitted = []
     declarations = []
+    alias_count = 0
     for address, digest in records.items():
         if not re.fullmatch(r"[0-9A-F]{8}", address) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("invalid guest code warmup target")
         key = address.encode("ascii")
         if matched_body(original, key, digest) is None:
             continue
-        name = b"__imp__sub_" + key
+        public = b"sub_" + key
+        name = b"__imp__" + public
         entry = b"X86_FUNC(" + name + b") {"
         if adapted.count(entry) != 1:
             raise ValueError("guest code warmup boundary differs from the reviewed source")
@@ -378,12 +380,19 @@ def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]
         # body. The weak public entry can still be overridden by the SDK.
         declarations.append(b'extern "C" __attribute__((noinline)) void ' + name + b'(X86Context&, uint8_t*);')
         adapted = adapted.replace(entry, entry + b"\n\tif (ff_browser_code_warmup::IsWarmup(ctx)) return;", 1)
+        # Untouched default forwarders can share the implementation's Wasm body.
+        # Custom wrappers still do their own checks before invoking that body.
+        wrapper = b"\nX86_WEAK_FUNC(" + public + b", " + name + b")\n"
+        if original.count(wrapper) == 1 and adapted.count(wrapper) == 1:
+            alias = b'\nX86_EXTERN_FUNC(' + public + b') __attribute__((weak, alias("' + name + b'")));\n'
+            adapted = adapted.replace(wrapper, alias, 1)
+            alias_count += 1
         admitted.append(name)
     if admitted:
         digest = sha256(CODE_WARMUP_HELPER.read_bytes()).encode("ascii")
         adapted = (b'// Guest code warmup helper SHA-256: ' + digest + b'\n#include "guest-code-warmup.h"\n'
                    + b"\n".join(declarations) + b"\n" + adapted)
-    return adapted, admitted
+    return adapted, admitted, alias_count
 
 
 def emit_code_warmup(names: list[bytes]) -> bytes:
@@ -1099,6 +1108,7 @@ def main() -> int:
     if sum(map(len, warmup_profile.values())) > 256:
         raise ValueError("guest code warmup target limit exceeded")
     warmup_names: list[bytes] = []
+    warmup_alias_count = 0
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
@@ -1110,8 +1120,9 @@ def main() -> int:
             adapted, scene_line_batches = lower_scene_line_batches(adapted, shard_numbers.get(source, -1))
         warmup_records = warmup_profile.get(str(shard_numbers.get(source)))
         if warmup_records:
-            adapted, admitted = prepare_code_warmup(original, adapted, warmup_records)
+            adapted, admitted, alias_count = prepare_code_warmup(original, adapted, warmup_records)
             warmup_names.extend(admitted)
+            warmup_alias_count += alias_count
         if source.name == "x86_func_mapping.cpp":
             adapted += emit_code_warmup(warmup_names)
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
@@ -1191,6 +1202,7 @@ def main() -> int:
         "mappedGridCallCount": total_mapped_grid_calls,
         "gridRejectBatchCount": total_grid_reject_batches,
         "guestCodeWarmupCount": len(warmup_names),
+        "guestCodeWarmupAliasCount": warmup_alias_count,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -1211,7 +1223,7 @@ def main() -> int:
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
-    print(f"Prepared {len(warmup_names)} guest code warmup targets")
+    print(f"Prepared {len(warmup_names)} guest code warmup targets with {warmup_alias_count} public aliases")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
