@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Covered cold shader translation runs after a frame fence. Two loader scans helped cut Water Gate Scramble's largest measured gap from 90.19 to 80.86 ms. [Gameplay observations](browser-gpu.md#deferred-shader-translation-and-loader-byte-scans)
-- **Next.** Inspect the 19.75 ms guest subtree under `0x001B4310` during Water Gate Scramble scene entry. Measure modest hardware and verify original game timing before testing 120 FPS.
+- **Browser.** Batched decimal arithmetic cut Water Gate Scramble's largest measured frame gap from 80.86 to 76.26 ms. The mantissa routine and its helpers sampled 1.10 ms, down from 9.52 ms. [Gameplay observations](browser-gpu.md#batched-decimal-mantissa-arithmetic)
+- **Next.** Inspect the remaining segment tests under `0x0019EAA0` during Water Gate Scramble scene entry. Measure modest hardware and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

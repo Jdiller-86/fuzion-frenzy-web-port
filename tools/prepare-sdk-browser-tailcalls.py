@@ -51,6 +51,7 @@ COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 LOADER_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-loader-bytes.inc"
+DECIMAL_PREFIX_HELPER = ROOT / "runtime/browser/sdk/guest-decimal-prefix.inc"
 INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
 GRID_REJECTION_HELPER = ROOT / "runtime/browser/sdk/guest-grid-rejection.inc"
 GUEST_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)"
@@ -110,6 +111,15 @@ LOADER_BYTE_LOOPS = (
      b"\nloc_001DF119:",
      b"\n\tctx.esi += ff_browser_loader_bytes::SearchBytesToSkip(ctx.esi, uint8_t(ctx.edx));"),
 )
+DECIMAL_BODY = b"001E7F47"
+DECIMAL_HELPERS = (b"001E7E6D", b"001E7E8E", b"001E7EEC")
+DECIMAL_BODY_DIGESTS = {
+    b"001E79F6": "7a2bff745924f4f5e4c0921f178c0a28a1ce78b84a7cf3c5624667a3c034150f",
+    b"001E7E6D": "076a8ec275260a83da54c08cbb019ed36aa0311f6c6f853b7ac9e6aaffe5e214",
+    b"001E7E8E": "5740aa5f67b3323fa0ca90cc3ed097f725157654cd9bb5dc12d4f6cfc22ebde6",
+    b"001E7EEC": "746abce9877b680dce19e36999cf255e9cc9176c301f6ed925ddb1d758ba1d11",
+    DECIMAL_BODY: "85caf750a084033da695fef927c7d8b74d513554982ccc3a1e333bd2ab4fd41e",
+}
 
 
 def instruction_comment(opcode: bytes) -> bytes:
@@ -215,6 +225,42 @@ def lower_loader_byte_loop(block: bytes) -> tuple[bytes, int]:
         # Insert on entry. The original backedge stays in the scalar loop.
         return head.replace(label, prefix + label, 1) + closing + tail, 1
     return block, 0
+
+
+def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
+    if b"X86_FUNC(__imp__sub_" + DECIMAL_BODY + b") {" not in source:
+        return source, 0
+    normalized = source.replace(b"\r\n", b"\n")
+    bodies = {}
+    for address, digest in DECIMAL_BODY_DIGESTS.items():
+        entry = b"X86_FUNC(__imp__sub_" + address + b") {"
+        start = normalized.find(entry)
+        end = normalized.find(b"\n}", start)
+        if start < 0 or end < 0 or sha256(normalized[start:end + 2]) != digest:
+            return source, 0
+        bodies[address] = normalized[start:end + 2]
+    for address in DECIMAL_HELPERS:
+        symbol = b"sub_" + address
+        implementation = b"__imp__" + symbol
+        wrapper = b"X86_WEAK_FUNC(" + symbol + b", " + implementation + b")"
+        if normalized.count(wrapper) != 1:
+            return source, 0
+        # Preserve strong overrides and let the fast path identify the
+        # default implementations by function address at runtime.
+        declaration = (b'extern "C" void ' + symbol + b'(X86Context&, uint8_t*) '
+                       b'__attribute__((weak, alias("' + implementation + b'")));')
+        normalized = normalized.replace(wrapper, declaration, 1)
+    body = bodies[DECIMAL_BODY]
+    defaults = b" && ".join(b"sub_" + address + b" == __imp__sub_" + address for address in DECIMAL_HELPERS)
+    lowered = body.replace(b"\tX86_LOAD_FLAGS();", b"\tX86_LOAD_FLAGS();\n\tuint8_t* decimalFrame = nullptr;", 1)
+    lowered = lowered.replace(
+        b"\nloc_001E7F6E:",
+        b"\n\tif (" + defaults + b")\n"
+        b"\t\tdecimalFrame = ff_browser_decimal::AccumulatePrefix(ctx.ebp, ctx.esp, ctx.ebx, ctx.eax, ctx.df);"
+        b"\nloc_001E7F6E:", 1)
+    lowered = lowered.replace(b"\nloc_001E7FEE:", b"\nloc_001E7FEE:\n"
+                              b"\tif (decimalFrame) ff_browser_decimal::NormalizePrefix(decimalFrame);", 1)
+    return normalized.replace(body, lowered, 1), 1
 
 
 def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
@@ -569,7 +615,8 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
 
 
 def adapt_source(original: bytes, grid_predicate: bytes | None = None
-                 ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int, int]:
+                 ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int, int, int]:
+    original, decimal_prefixes = lower_decimal_prefix(original)
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -652,6 +699,9 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
     if loader_byte_loops:
         helper_digest = sha256(LOADER_BYTES_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Loader byte loops helper SHA-256: ' + helper_digest + b'\n#include "guest-loader-bytes.inc"\n' + adapted
+    if decimal_prefixes:
+        helper_digest = sha256(DECIMAL_PREFIX_HELPER.read_bytes()).encode("ascii")
+        adapted = b'// Decimal prefix helper SHA-256: ' + helper_digest + b'\n#include "guest-decimal-prefix.inc"\n' + adapted
     if mapped_intersections:
         helper_digest = sha256(INTERSECTION_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Intersection spans helper SHA-256: ' + helper_digest + b'\n#include "guest-intersection-spans.inc"\n' + adapted
@@ -663,7 +713,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
                    + grid_predicate + adapted.replace(GRID_WEAK_WRAPPER, GRID_DEFAULT_WRAPPER))
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
             push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops,
-            loader_byte_loops, mapped_grid_calls, mapped_intersections)
+            loader_byte_loops, decimal_prefixes, mapped_grid_calls, mapped_intersections)
 
 
 def main() -> int:
@@ -721,6 +771,7 @@ def main() -> int:
     total_memory_runs = total_memory_words = 0
     total_matching_byte_loops = 0
     total_loader_byte_loops = 0
+    total_decimal_prefixes = 0
     total_mapped_intersections = 0
     total_mapped_grid_calls = 0
     total_grid_reject_batches = 0
@@ -733,7 +784,8 @@ def main() -> int:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
-         matching_byte_loops, loader_byte_loops, mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
+         matching_byte_loops, loader_byte_loops, decimal_prefixes,
+         mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
@@ -754,6 +806,7 @@ def main() -> int:
                 "memoryWordsInRuns": memory_words,
                 "matchingByteLoopCount": matching_byte_loops,
                 "loaderByteLoopCount": loader_byte_loops,
+                "decimalPrefixCount": decimal_prefixes,
                 "mappedIntersectionCount": mapped_intersections,
                 "mappedGridCallCount": mapped_grid_calls,
                 "gridRejectBatchCount": grid_reject_batches,
@@ -770,6 +823,7 @@ def main() -> int:
         total_memory_words += memory_words
         total_matching_byte_loops += matching_byte_loops
         total_loader_byte_loops += loader_byte_loops
+        total_decimal_prefixes += decimal_prefixes
         total_mapped_intersections += mapped_intersections
         total_mapped_grid_calls += mapped_grid_calls
         total_grid_reject_batches += grid_reject_batches
@@ -792,6 +846,7 @@ def main() -> int:
         "memoryWordsInRuns": total_memory_words,
         "matchingByteLoopCount": total_matching_byte_loops,
         "loaderByteLoopCount": total_loader_byte_loops,
+        "decimalPrefixCount": total_decimal_prefixes,
         "mappedIntersectionCount": total_mapped_intersections,
         "mappedGridCallCount": total_mapped_grid_calls,
         "gridRejectBatchCount": total_grid_reject_batches,
@@ -807,6 +862,7 @@ def main() -> int:
     print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
     print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
     print(f"Added checked byte scanning to {total_loader_byte_loops} loader loops")
+    print(f"Added checked decimal arithmetic to {total_decimal_prefixes} loader routines")
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
