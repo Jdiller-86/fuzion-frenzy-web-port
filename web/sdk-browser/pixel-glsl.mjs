@@ -347,10 +347,30 @@ ${helpers}void main() {${body}
 `;
 }
 
+export const FIXED_PIXEL_KEY_WORDS = 41;
+const NO_COMBINER_STAGES = 1;
+const SINGLE_MODULATE2X_STAGE = 2;
+
+export function prepareFixedFallbackPixelKey(key) {
+  let path = 0;
+  if (key[5] <= 1) {
+    path = NO_COMBINER_STAGES;
+  } else if (key[4] === 1 && key[5] === 5 && key[6] === 2 && key[7] === 1 &&
+             key[9] === 5 && key[10] === 2 && key[11] === 0 && key[13] === 1 && key[14] <= 1) {
+    // One texture on stage zero. Color multiplies texture and current,
+    // alpha multiplies texture and diffuse, and both use MODULATE2X.
+    path = SINGLE_MODULATE2X_STAGE;
+  }
+  const words = new Uint32Array(FIXED_PIXEL_KEY_WORDS + 1);
+  words.set(key);
+  words[FIXED_PIXEL_KEY_WORDS] = path;
+  return {words, fast: path !== 0};
+}
+
 // A uniform-driven form of the pinned GPU generator's fixed texture stages.
 // Admission of non-2D, shadow, wide and quad modes belongs to the caller.
 export function fixedFallbackPixelGlsl(flat = false) {
-  const helpers = `uniform highp uint fallbackPixelKey[41];
+  const helpers = `uniform highp uint fallbackPixelKey[${FIXED_PIXEL_KEY_WORDS + 1}];
 vec4 fallbackArgument(uint argument, vec4 v0, vec4 v1, vec4 cur, vec4 tmp, vec4 texel) {
   vec4 value;
   switch (argument & 15u) {
@@ -365,11 +385,13 @@ vec4 fallbackArgument(uint argument, vec4 v0, vec4 v1, vec4 cur, vec4 tmp, vec4 
   if ((argument & 16u) != 0u) value = vec4(1.0) - value;
   return value;
 }
-vec4 fallbackOperation(uint operation, vec4 a1, vec4 a2, vec4 a0,
-                       vec4 cur, vec4 v0, vec4 texel, bool alpha) {
+vec4 fallbackOperation(uint operation, uvec3 arguments, vec4 cur,
+                       vec4 v0, vec4 v1, vec4 tmp, vec4 texel, bool alpha) {
+  if (operation == 3u) return fallbackArgument(arguments.y, v0, v1, cur, tmp, texel);
+  vec4 a1 = fallbackArgument(arguments.x, v0, v1, cur, tmp, texel);
+  if (operation == 2u || (alpha && operation >= 18u && operation <= 21u)) return a1;
+  vec4 a2 = fallbackArgument(arguments.y, v0, v1, cur, tmp, texel);
   switch (operation) {
-    case 2u: return a1;
-    case 3u: return a2;
     case 4u: return a1 * a2;
     case 5u: return a1 * a2 * 2.0;
     case 6u: return a1 * a2 * 4.0;
@@ -383,20 +405,28 @@ vec4 fallbackOperation(uint operation, vec4 a1, vec4 a2, vec4 a0,
     case 14u: return mix(a2, a1, texel.a);
     case 15u: return mix(a2, a1, tfactor.a);
     case 16u: return a1 + a2 * (1.0 - texel.a);
-    case 18u: return alpha ? a1 : a1 + a2 * a1.a;
-    case 19u: return alpha ? a1 : a1 * a2 + a1.a;
-    case 20u: return alpha ? a1 : a1 + a2 * (1.0 - a1.a);
-    case 21u: return alpha ? a1 : (vec4(1.0) - a1) * a2 + a1.a;
+    case 18u: return a1 + a2 * a1.a;
+    case 19u: return a1 * a2 + a1.a;
+    case 20u: return a1 + a2 * (1.0 - a1.a);
+    case 21u: return (vec4(1.0) - a1) * a2 + a1.a;
     case 22u: {
       vec3 x = alpha ? vec3(a1.a, 0.0, 0.0) : a1.rgb;
       vec3 y = alpha ? vec3(a2.a, 0.0, 0.0) : a2.rgb;
       return vec4(clamp(dot((x - 0.5) * 2.0, (y - 0.5) * 2.0), 0.0, 1.0));
     }
-    case 23u: return a0 + a1 * a2;
-    case 24u: return mix(a2, a1, a0);
+    case 23u: return fallbackArgument(arguments.z, v0, v1, cur, tmp, texel) + a1 * a2;
+    case 24u: return mix(a2, a1, fallbackArgument(arguments.z, v0, v1, cur, tmp, texel));
     default: return cur;
   }
 }
+`;
+  const sampleStage = (stage, bit) => `
+    vec4 coord = vTc${stage};
+    vec2 uv = coord.xy;
+    if ((fallbackPixelKey[2] & ${bit}u) != 0u) uv /= coord.w;
+    if ((fallbackPixelKey[3] & ${bit}u) != 0u) uv /= texsize[${stage}].xy;
+    uv += texsize[${stage}].zw;
+    texel = sample${stage}(uvclamp(uv, uvrect[${stage}]));
 `;
   const stages = Array.from({length: 4}, (_, stage) => {
     const base = 5 + stage * 9, bit = 1 << stage;
@@ -405,26 +435,17 @@ vec4 fallbackOperation(uint operation, vec4 a1, vec4 a2, vec4 a0,
   if (stagesEnabled) {
     vec4 texel = vec4(1.0);
     if ((fallbackPixelKey[4] & ${bit}u) != 0u) {
-      vec4 coord = vTc${stage};
-      vec2 uv = coord.xy;
-      if ((fallbackPixelKey[2] & ${bit}u) != 0u) uv /= coord.w;
-      if ((fallbackPixelKey[3] & ${bit}u) != 0u) uv /= texsize[${stage}].xy;
-      uv += texsize[${stage}].zw;
-      texel = sample${stage}(uvclamp(uv, uvrect[${stage}]));
+      ${sampleStage(stage, bit)}
     }
     if ((fallbackPixelKey[0] & ${bit}u) != 0u && texel.a == 0.0) discard;
-    vec4 a1 = fallbackArgument(fallbackPixelKey[${base + 1}], v0, v1, cur, tmp, texel);
-    vec4 a2 = fallbackArgument(fallbackPixelKey[${base + 2}], v0, v1, cur, tmp, texel);
-    vec4 a0 = fallbackArgument(fallbackPixelKey[${base + 3}], v0, v1, cur, tmp, texel);
-    vec3 color = clamp(fallbackOperation(fallbackPixelKey[${base}], a1, a2, a0,
-                                       cur, v0, texel, false).rgb, vec3(0.0), vec3(1.0));
+    uvec3 colorArgs = uvec3(fallbackPixelKey[${base + 1}], fallbackPixelKey[${base + 2}], fallbackPixelKey[${base + 3}]);
+    vec3 color = clamp(fallbackOperation(fallbackPixelKey[${base}], colorArgs,
+                                       cur, v0, v1, tmp, texel, false).rgb, vec3(0.0), vec3(1.0));
     float alpha = cur.a;
     if (fallbackPixelKey[${base + 4}] > 1u) {
-      a1 = fallbackArgument(fallbackPixelKey[${base + 5}], v0, v1, cur, tmp, texel);
-      a2 = fallbackArgument(fallbackPixelKey[${base + 6}], v0, v1, cur, tmp, texel);
-      a0 = fallbackArgument(fallbackPixelKey[${base + 7}], v0, v1, cur, tmp, texel);
-      alpha = fallbackOperation(fallbackPixelKey[${base + 4}], a1, a2, a0,
-                                cur, v0, texel, true).a;
+      uvec3 alphaArgs = uvec3(fallbackPixelKey[${base + 5}], fallbackPixelKey[${base + 6}], fallbackPixelKey[${base + 7}]);
+      alpha = fallbackOperation(fallbackPixelKey[${base + 4}], alphaArgs,
+                                cur, v0, v1, tmp, texel, true).a;
     }
     alpha = clamp(alpha, 0.0, 1.0);
     if (fallbackPixelKey[${base + 8}] == 5u) tmp = vec4(color, alpha);
@@ -437,9 +458,18 @@ vec4 fallbackOperation(uint operation, vec4 a1, vec4 a2, vec4 a0,
   vec4 v1 = fallbackPixelKey[1] != 0u && !gl_FrontFacing ? vB1 : vD1;
   if (misc.w == 0.0) v1 = vec4(0.0, 0.0, 0.0, 1.0);
   vec4 fogin = vec4(fogcolor.rgb, clamp(vFog, 0.0, 1.0));
-  vec4 cur = v0, tmp = vec4(0.0);
-  bool stagesEnabled = true;
+  vec4 cur = v0;
+  uint path = fallbackPixelKey[${FIXED_PIXEL_KEY_WORDS}];
+  if (path == ${SINGLE_MODULATE2X_STAGE}u) {
+    vec4 texel;
+    ${sampleStage(0, 1)}
+    if ((fallbackPixelKey[0] & 1u) != 0u && texel.a == 0.0) discard;
+    cur = clamp(texel * v0 * 2.0, vec4(0.0), vec4(1.0));
+  } else if (path != ${NO_COMBINER_STAGES}u) {
+    vec4 tmp = vec4(0.0);
+    bool stagesEnabled = true;
 ${stages}
+  }
   cur.rgb = clamp(cur.rgb + v1.rgb, vec3(0.0), vec3(1.0));
   vec4 outc = vec4(mix(fogin.rgb, cur.rgb, fogin.a), cur.a);
   alphatest(outc.a);

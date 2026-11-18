@@ -1,4 +1,4 @@
-import { fixedFallbackPixelGlsl, pixelGlsl } from './pixel-glsl.mjs';
+import { FIXED_PIXEL_KEY_WORDS, fixedFallbackPixelGlsl, pixelGlsl, prepareFixedFallbackPixelKey } from './pixel-glsl.mjs';
 import { vertexGlsl } from './vertex-glsl.mjs';
 import { fixedFallbackVertexGlsl } from './fixed-vertex-fallback.mjs';
 import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERTEX_CODE_BYTES } from './programmable-vertex-fallback.mjs';
@@ -100,7 +100,7 @@ export class WebGLRenderer {
     Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPrimed:0,warmupPrimeMs:0,warmupSkipped:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
-    Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0});
+    Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0,fastCombinerDraws:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
@@ -329,6 +329,7 @@ void main() {
   beginFixedFallbacks() {
     const g = this.gl;
     const programs = [];
+    let smoothFragment;
     try {
       for (const flat of [false, true]) {
         let vertex, fragment;
@@ -336,23 +337,31 @@ void main() {
           vertex = this.compileShader(g.VERTEX_SHADER, fixedFallbackVertexGlsl(flat));
           fragment = this.compileShader(g.FRAGMENT_SHADER, fixedFallbackPixelGlsl(flat));
           programs.push(this.linkStages(vertex, fragment));
+          if (!flat) {
+            smoothFragment = fragment;
+            fragment = undefined;
+          }
         } finally {
           if (vertex) g.deleteShader(vertex);
           if (fragment) g.deleteShader(fragment);
         }
       }
       g.flush();
-      this.pendingFixedFallbackPrograms = programs;
+      this.pendingFixedFallbackPrograms = {programs, smoothFragment};
     } catch (error) {
       for (const program of programs) g.deleteProgram(program);
+      if (smoothFragment) g.deleteShader(smoothFragment);
       this.report(`Fixed shader fallback is unavailable: ${error.message}`);
     }
   }
   finishFixedFallbacks() {
-    const programs = this.pendingFixedFallbackPrograms;
-    if (!programs) return;
+    const pending = this.pendingFixedFallbackPrograms;
+    if (!pending) return;
     this.pendingFixedFallbackPrograms = undefined;
+    const {programs, smoothFragment} = pending;
     const g = this.gl, started = performance.now();
+    // Both smooth programs hold their shader attachment until validation.
+    g.deleteShader(smoothFragment);
     try {
       for (const program of programs) {
         if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
@@ -373,12 +382,12 @@ void main() {
     this.finishProgrammableFallback();
   }
   beginProgrammableFallback(pointer) {
-    if (!pointer || !this.pendingFixedFallbackPrograms) return;
+    const fragment = this.pendingFixedFallbackPrograms?.smoothFragment;
+    if (!pointer || !fragment) return;
     const g = this.gl;
-    let vertex, fragment, program;
+    let vertex, program;
     try {
       vertex = this.compileShader(g.VERTEX_SHADER, programmableFallbackVertexGlsl(this.string(pointer)));
-      fragment = this.compileShader(g.FRAGMENT_SHADER, fixedFallbackPixelGlsl());
       program = this.linkStages(vertex, fragment);
       g.flush();
       this.pendingProgrammableFallback = program;
@@ -387,7 +396,6 @@ void main() {
       this.report(`Programmable shader fallback is unavailable: ${error.message}`);
     } finally {
       if (vertex) g.deleteShader(vertex);
-      if (fragment) g.deleteShader(fragment);
     }
   }
   finishProgrammableFallback() {
@@ -767,12 +775,12 @@ void main() {
     const fixedVertex = vertex.fixedKey && vertex.fixedKey[0] === regs && !vertex.fixedKey[8] && !vertex.fixedKey[9];
     if (!specialized && this.fixedFallbackTexture && (fixedVertex || vertex.fallbackCode) &&
         kinds.every(kind => kind <= 1) && shadows.every(shadow => !shadow)) {
-      const pixelKey = fixedShaderKey(source, 'pixel', 41);
+      const pixelKey = fixedShaderKey(source, 'pixel', FIXED_PIXEL_KEY_WORDS);
       const textureMask = kinds.reduce((mask, kind, stage) => mask | kind << stage, 0);
       if (pixelKey?.[4] === textureMask) {
         fallback = {
           pipeline: fixedVertex ? this.fixedFallbackPrograms[Number(flat)] : this.programmableFallback,
-          vertexKey: vertex.fixedKey, vertexCode: vertex.fallbackCode, pixelKey
+          vertexKey: vertex.fixedKey, vertexCode: vertex.fallbackCode, pixelKey:prepareFixedFallbackPixelKey(pixelKey)
         };
       }
     }
@@ -1007,9 +1015,10 @@ void main() {
           } else {
             g.uniform1uiv(loc('fallbackVertexKey[0]'), fallback.vertexKey);
           }
-          g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey);
+          g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey.words);
           program.fixedKeys = fallback;
         }
+        if (fallback.pixelKey.fast) this.shaderStats.fastCombinerDraws++;
         if (fallback.vertexCode) {
           this.shaderStats.programmableFallbackDraws++;
           this.usedProgrammableFallback = true;
