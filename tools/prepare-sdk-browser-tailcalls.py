@@ -148,6 +148,10 @@ LOADER_BYTE_LOOPS = (
      b"ctx.edx, ctx.esi, ctx.esp, uint8_t(ctx.ecx));"
      b" if (prefix.consumed) { ctx.edx += prefix.consumed; ctx.esi += prefix.written;"
      b" ctx.ecx = (ctx.ecx & ~0xffu) | prefix.nextByte; } }"),
+    (b"X86_FUNC(__imp__sub_001BA160) {",
+     "139c04c537c741d53fabd4ac130966be65c16adeaf2f6f2f24333f1007782807",
+     b"\nloc_001BA355:",
+     b"\n\tctx.eax = ctx.edx + ff_browser_loader_bytes::SearchBytesToSkip(ctx.edx, 0);"),
 )
 DECIMAL_BODY = b"001E7F47"
 DECIMAL_HELPERS = (b"001E7E6D", b"001E7E8E", b"001E7EEC")
@@ -346,8 +350,13 @@ def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
     lowered = lowered.replace(
         b"\nloc_001E7F6E:",
         b"\n\tif (" + defaults + b")\n"
-        b"\t\tdecimalFrame = ff_browser_decimal::AccumulatePrefix(ctx.ebp, ctx.esp, ctx.ebx, ctx.eax, ctx.df);"
+        b"\t\tdecimalFrame = ff_browser_decimal::AccumulateMantissa(ctx.ebp, ctx.esp, ctx.ebx, ctx.eax, ctx.df);"
+        b"\n\tif (decimalFrame) {"
+        b" ctx.eax = 0; ctx.ecx = ff_browser_decimal::ReadWord(decimalFrame + ff_browser_decimal::kMantissaOffset + 8);"
+        b" ctx.edx = ctx.ebx + 8; ctx.esi = ctx.ebx + 12; ctx.edi = ctx.ebp - 4;"
+        b" goto ff_decimal_mantissa_ready; }"
         b"\nloc_001E7F6E:", 1)
+    lowered = lowered.replace(b"\n\t// 001E7FB8 xor edx, edx", b"\nff_decimal_mantissa_ready:\n\t// 001E7FB8 xor edx, edx", 1)
     lowered = lowered.replace(b"\nloc_001E7FEE:", b"\nloc_001E7FEE:\n"
                               b"\tif (decimalFrame) ff_browser_decimal::NormalizePrefix(decimalFrame);", 1)
     return normalized.replace(body, lowered, 1), 1

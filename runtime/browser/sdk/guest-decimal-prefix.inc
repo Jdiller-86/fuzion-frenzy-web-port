@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <bit>
 #include <cstring>
 
@@ -18,8 +19,8 @@ inline void WriteWord(uint8_t* address, uint32_t value) noexcept {
     std::memcpy(address, &value, sizeof(value));
 }
 
-inline uint8_t* AccumulatePrefix(uint32_t bp, uint32_t sp, uint32_t output, uint32_t count,
-                                 bool backwards) noexcept {
+inline uint8_t* AccumulateMantissa(uint32_t bp, uint32_t sp, uint32_t output, uint32_t count,
+                                   bool backwards) noexcept {
     if (backwards || count == 0 || count > 24 || sp != bp - 28u || output != bp + kMantissaOffset) return nullptr;
     constexpr uint32_t scratchBelowFrame = 88;
     auto* frame = ff_browser_memory::TryWindow(bp - scratchBelowFrame, scratchBelowFrame + kMantissaOffset + 12);
@@ -31,11 +32,17 @@ inline uint8_t* AccumulatePrefix(uint32_t bp, uint32_t sp, uint32_t output, uint
     if (ReadWord(frame) != bp + 116u || ReadWord(frame + 4) != 0x001E7DA5u ||
         ReadWord(frame + 8) != bp + kDigitOffset) return nullptr;
     const auto* digits = frame + kDigitOffset;
-    if (digits[0] == 0 || digits[count - 1] > 9) return nullptr;
-    if (count == 1) return frame;
+    if (digits[0] == 0 || digits[0] > 9) return nullptr;
 
-    uint32_t words[3]{};
-    for (uint32_t i = 0; i < count - 1; ++i) {
+    // Up to nineteen decimal digits fit in a single unsigned 64-bit value.
+    const uint32_t lowDigits = std::min(count, 19u);
+    uint64_t initial = digits[0];
+    for (uint32_t i = 1; i < lowDigits; ++i) {
+        if (digits[i] > 9) return nullptr;
+        initial = initial * 10 + digits[i];
+    }
+    uint32_t words[]{uint32_t(initial), uint32_t(initial >> 32), 0u};
+    for (uint32_t i = lowDigits; i < count; ++i) {
         if (digits[i] > 9) return nullptr;
         const uint64_t low = uint64_t(words[0]) * 10 + digits[i];
         const uint64_t middle = uint64_t(words[1]) * 10 + (low >> 32);
@@ -43,11 +50,19 @@ inline uint8_t* AccumulatePrefix(uint32_t bp, uint32_t sp, uint32_t output, uint
         words[1] = uint32_t(middle);
         words[2] = words[2] * 10 + uint32_t(middle >> 32);
     }
-    // The last digit takes the original helper sequence and rewrites the
-    // same guest stack scratch and registers as the scalar loop.
+    // Restore the final iteration's scratch. The last high-word add has a
+    // zero addend, so its saved high word is the high word of the result.
+    const uint32_t lastCalls[]{
+        output, 0x001e7ee6, words[2], 0, output + 8,  // Last high-word add.
+        bp - 4, output + 12, 0x001e7fad, output, bp - 16,  // Last digit add.
+        output, output, bp - 16, output, output,  // Earlier shifts and sum.
+    };
+    const uint32_t digitAddend[]{digits[count - 1], 0, 0};
+    std::memcpy(frame - scratchBelowFrame, lastCalls, sizeof(lastCalls));
+    std::memcpy(frame - 16, digitAddend, sizeof(digitAddend));
     std::memcpy(frame + kMantissaOffset, words, sizeof(words));
-    WriteWord(frame + 8, bp + kDigitOffset + count - 1);
-    WriteWord(frame + 16, 1);
+    WriteWord(frame + 8, bp + kDigitOffset + count);
+    WriteWord(frame + 16, 0);
     return frame;
 }
 
