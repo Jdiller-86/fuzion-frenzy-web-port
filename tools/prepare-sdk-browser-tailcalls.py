@@ -141,6 +141,13 @@ LOADER_BYTE_LOOPS = (
      "03d98b82563c453c132a3567adea99e117c5e474e9dc20fd213501f894ca7f2f",
      b"\nloc_0007E8A0:",
      b"\n\tctx.ecx += ff_browser_loader_bytes::CopyStringPrefix(ctx.ecx, ctx.esi + ctx.ecx);"),
+    (b"X86_FUNC(__imp__sub_0007E890) {",
+     "03d98b82563c453c132a3567adea99e117c5e474e9dc20fd213501f894ca7f2f",
+     b"\nloc_0007E8F0:",
+     b"\n\t{ const auto prefix = ff_browser_loader_bytes::NormalizeTreeLinePrefix("
+     b"ctx.edx, ctx.esi, ctx.esp, uint8_t(ctx.ecx));"
+     b" if (prefix.consumed) { ctx.edx += prefix.consumed; ctx.esi += prefix.written;"
+     b" ctx.ecx = (ctx.ecx & ~0xffu) | prefix.nextByte; } }"),
 )
 DECIMAL_BODY = b"001E7F47"
 DECIMAL_HELPERS = (b"001E7E6D", b"001E7E8E", b"001E7EEC")

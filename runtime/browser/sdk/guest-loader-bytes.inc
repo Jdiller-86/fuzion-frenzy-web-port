@@ -135,4 +135,51 @@ inline LineCopy CopyLine(uint32_t source, uint32_t remaining, uint32_t destinati
     return {copied, eax, complete};
 }
 
+struct NormalizedLinePrefix {
+    uint32_t consumed;
+    uint32_t written;
+    uint8_t nextByte;
+};
+
+inline NormalizedLinePrefix NormalizeTreeLinePrefix(uint32_t source, uint32_t destination,
+                                                    uint32_t stack, uint8_t first) noexcept {
+    constexpr uint32_t scratch = 0x002ed220;
+    constexpr uint32_t lineBytes = 0x400;
+    const uint32_t offset = source - scratch;
+    // The tree reader's line buffer starts 0x48 bytes above the two saved registers.
+    if (offset >= lineBytes || destination != stack + 0x48u) return {};
+    const uint32_t available = std::min({lineBytes - offset, BytesInWindow(source), BytesInWindow(destination)});
+    if (available < kChunkBytes) return {};
+    using ff_browser_memory::TryWindow;
+    const auto* frame = TryWindow(stack, 12);
+    const auto* input = TryWindow(source, available);
+    auto* output = TryWindow(destination, available);
+    if (!frame || !input || !output || input[0] != first || Overlaps(input, available, output, available)) return {};
+    uint32_t returnAddress;
+    std::memcpy(&returnAddress, frame + 8, 4);
+    if (returnAddress != 0x0007f0a0) return {};
+
+    const auto nul = wasm_i8x16_splat(0);
+    const auto quote = wasm_i8x16_splat('"');
+    const auto slash = wasm_i8x16_splat('/');
+    uint32_t plain = 0;
+    for (; plain + kChunkBytes <= available; plain += kChunkBytes) {
+        const auto chunk = wasm_v128_load(input + plain);
+        const auto special = wasm_v128_or(wasm_i8x16_eq(chunk, nul),
+                             wasm_v128_or(wasm_i8x16_eq(chunk, quote), wasm_i8x16_eq(chunk, slash)));
+        const auto mask = uint32_t(wasm_i8x16_bitmask(special));
+        if (mask) { plain += std::countr_zero(mask); break; }
+    }
+    if (plain < 2) return {};
+    // Keep an ordinary byte in the original loop so it updates CL and flags
+    // before handling a quote, comment, or mapping boundary.
+    const uint32_t consumed = plain - 1;
+    uint32_t written = 0;
+    for (uint32_t i = 0; i < consumed; ++i) {
+        const uint8_t byte = input[i];
+        if (byte != ' ' && byte != '\t') output[written++] = byte;
+    }
+    return {consumed, written, input[consumed]};
+}
+
 } // namespace ff_browser_loader_bytes
