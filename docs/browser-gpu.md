@@ -187,6 +187,8 @@ Color-target uploads now compute the Morton offsets once per axis and check the 
 
 A private guest-entry alias trial reduced the linked function count from 12,851 to 11,920 and increased the module by 92 kB. The toolchain preserved strong SDK overrides for direct and indirect calls. The trial measured a 64.30 ms largest acknowledgement gap versus 63.68 ms in the retained run. The published build uses the original linkage.
 
+The browser build combines 3,116 recognized x87 float32 load, arithmetic and store triples. One test admits all three guest spans before the fast path writes the completed stack slot and destination. Rejected spans execute the original checked access order. A focused Wasm comparison matched result bits, TOP, stack contents and fault-side state across 64,896 cases, including both precision modes, special values and invalid spans. The rebuilt Wasm shrank from 47.65 to 47.37 MB. In a cold foreground Twisted System replay, the largest acknowledgement interval was 62.95 ms versus 63.29 ms in the prior run, and p95 was 17.17 ms over 828 intervals. The game stopped without a reported error and recorded zero blocking shader links. Scene and driver state varied between runs. The candidate Wasm SHA-256 is `cd381d67b50c7e5ce6fedc30c79d04c611651b6648c364e4e61f7a00444dcc2a`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -195,7 +197,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest CPU and render preparation.** Reduce the roughly 63 ms Twisted System scene-entry gap. Inspect the repeated x87 loads, arithmetic and stores in the loader for an exact lowering. The following frame still samples about 5 ms in SDK texture decoding and about 11 ms in synchronous WebGL error checks. Retain bounds, palette/content checks, queue ownership and barriers.
+1. **Guest CPU and render preparation.** Reduce the roughly 63 ms Twisted System scene-entry gap. After lowering the repeated x87 triples, the largest gap still includes about 40 ms of active guest work. The following frame samples about 12 ms in synchronous WebGL error checks. Test whether that check can run after queued GPU work with bounded error reporting and synchronous readback validation. Retain bounds, palette/content checks, queue ownership and barriers.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.

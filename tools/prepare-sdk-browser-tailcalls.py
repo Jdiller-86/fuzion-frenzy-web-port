@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Create an ignored copy of generated title code with safe tail transfers.
+"""Lower selected generated instruction sequences for the browser build.
 
-Only the code generator's exact X86_SAVE_FLAGS + same-signature direct-call +
-return transfer shape is changed. The retained generated package is read-only.
+Only exact emitter forms are changed. The retained generated package is read-only.
 """
 from __future__ import annotations
 
@@ -23,6 +22,20 @@ TAIL_TRANSFER = re.compile(
 )
 FUNCTION_BOUNDARY = re.compile(rb"(?m)^(?:X86_FUNC|X86_WEAK_FUNC|X86_TRACED_FUNC)\(")
 EH_MARKER = re.compile(rb"\btry[ \t]*\{|\bcatch[ \t]*\(")
+ADDRESS_TERM = rb"(?:0x[0-9A-Fa-f]+u|ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)(?: \* [1248]u)?)"
+ADDRESS = ADDRESS_TERM + rb"(?: \+ " + ADDRESS_TERM + rb"){0,2}"
+MEMORY_F32 = re.compile(
+    rb"(?m)^(?P<load>[ \t]+// [0-9A-F]{8} fld[ \t][^\r\n]*\r?\n)"
+    rb"(?P<indent>[ \t]+)\{ uint32_t ea = \(uint32_t\)\((?P<left>" + ADDRESS + rb")\);"
+    rb" x87_push\(ctx, \(double\)X86_MEMF32\(ea\)\); \}\r?\n"
+    rb"(?P<arithmetic>[ \t]+// [0-9A-F]{8} f(?:add|sub|mul|div)[ \t][^\r\n]*\r?\n)"
+    rb"[ \t]+\{ uint32_t ea = \(uint32_t\)\((?P<right>" + ADDRESS + rb")\);"
+    rb" double s = \(double\)X86_MEMF32\(ea\); double d = X87_ST\(0\); X87_ST\(0\) ="
+    rb" x87_prec\(ctx, \(d (?P<operation>[+*/-]) s\)\); \}\r?\n"
+    rb"(?P<store>[ \t]+// [0-9A-F]{8} fstp[ \t][^\r\n]*\r?\n)"
+    rb"[ \t]+\{ uint32_t ea = \(uint32_t\)\((?P<dst>" + ADDRESS + rb")\);"
+    rb" X86_MEMF32\(ea\) = \(float\)X87_ST\(0\); x87_pop\(ctx\); \}(?=\r?$)"
+)
 
 
 def sha256(data: bytes) -> str:
@@ -51,13 +64,22 @@ def contains_eh(block: bytes) -> bool:
     return False
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int]:
+def lower_memory_f32(match: re.Match[bytes]) -> bytes:
+    return (
+        match["load"] + match["arithmetic"] + match["store"] + match["indent"]
+        + b"ff_browser_x87::MemoryF32<'" + match["operation"] + b"'>(ctx, "
+        + b", ".join(b"uint32_t(" + match[operand] + b")" for operand in ("left", "right", "dst")) + b");"
+    )
+
+
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
     transforms = 0
     excluded_eh_transfers = 0
     eh_functions = 0
+    f32_transforms = 0
 
     for index, marker in enumerate(markers):
         start = marker.start()
@@ -81,6 +103,9 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int]:
                     block,
                 )
                 transforms += count
+
+            block, count = MEMORY_F32.subn(lower_memory_f32, block)
+            f32_transforms += count
         pieces.append(block)
         cursor = end
 
@@ -90,7 +115,10 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int]:
         raise ValueError(
             "direct-return transfers were found outside recognized generated function definitions"
         )
-    return b"".join(pieces), transforms, excluded_eh_transfers, eh_functions
+    adapted = b"".join(pieces)
+    if f32_transforms:
+        adapted = b'#include "guest-x87.h"\n' + adapted
+    return adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms
 
 
 def main() -> int:
@@ -142,9 +170,10 @@ def main() -> int:
     records = []
     total_transforms = 0
     total_excluded_eh_transfers = 0
+    total_f32_transforms = 0
     for source in package:
         original = source.read_bytes()
-        adapted, count, excluded_eh_transfers, eh_functions = adapt_source(original)
+        adapted, count, excluded_eh_transfers, eh_functions, f32_transforms = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -156,11 +185,13 @@ def main() -> int:
                 "transformCount": count,
                 "excludedEHTransferCount": excluded_eh_transfers,
                 "EHFunctionCount": eh_functions,
+                "x87MemoryF32Count": f32_transforms,
                 "adaptedSha256": sha256(adapted),
             }
         )
         total_transforms += count
         total_excluded_eh_transfers += excluded_eh_transfers
+        total_f32_transforms += f32_transforms
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -172,13 +203,15 @@ def main() -> int:
         "shardCount": len(shards),
         "totalTransforms": total_transforms,
         "excludedEHTransfers": total_excluded_eh_transfers,
+        "x87MemoryF32Count": total_f32_transforms,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
     manifest_tmp = manifest_path.with_name(manifest_path.name + ".tmp")
     manifest_tmp.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     manifest_tmp.replace(manifest_path)
-    print(f"Prepared {len(shards)} title shards with {total_transforms} musttail transfers in {output}")
+    print(f"Prepared {len(shards)} title shards with {total_transforms} musttail transfers "
+          f"and {total_f32_transforms} x87 memory sequences in {output}")
     print(f"Manifest: {manifest_path}")
     return 0
 
