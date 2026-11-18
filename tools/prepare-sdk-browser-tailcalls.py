@@ -51,6 +51,7 @@ COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 LOADER_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-loader-bytes.inc"
+SCENE_LINES_HELPER = ROOT / "runtime/browser/sdk/guest-scene-lines.inc"
 REPEATED_LINE_HELPER = ROOT / "runtime/browser/sdk/guest-repeated-line.inc"
 DECIMAL_PREFIX_HELPER = ROOT / "runtime/browser/sdk/guest-decimal-prefix.inc"
 INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
@@ -173,6 +174,9 @@ LOADER_BYTE_LOOPS = (
      b"\nloc_001BA355:",
      b"\n\tctx.eax = ctx.edx + ff_browser_loader_bytes::SearchBytesToSkip(ctx.edx, 0);"),
 )
+SCENE_LINE_PRIMITIVES = {21: b"000C3A50", 49: b"001B9E00", 53: b"001DF0F0"}
+SCENE_PARSER_SHARD = 49
+SCENE_PARSER = b"001BA160"
 DECIMAL_BODY = b"001E7F47"
 DECIMAL_HELPERS = (b"001E7E6D", b"001E7E8E", b"001E7EEC")
 DECIMAL_BODY_DIGESTS = {
@@ -343,6 +347,55 @@ def matched_body(source: bytes, address: bytes, digest: str) -> bytes | None:
         return None
     body = source[start:end + 2]
     return body if sha256(body) == digest else None
+
+
+def scene_line_batch_available(shards: list[tuple[int, Path]]) -> bool:
+    # The owner, parser and all three skipped primitives must match together.
+    prefix = b"X86_FUNC(__imp__sub_"
+    loader_digests = {entry.removeprefix(prefix)[:8]: digest for entry, digest, _, _ in LOADER_BYTE_LOOPS}
+    owner = shards[48][1].read_bytes().replace(b"\r\n", b"\n")
+    if matched_body(owner, b"001B2C30", "5a8b0cfc1e120f5c92690539e544bd6119fe8cbce8b7e6a35edbfdc3e19c8c28") is None:
+        return False
+    for shard, address in SCENE_LINE_PRIMITIVES.items():
+        source = shards[shard][1].read_bytes().replace(b"\r\n", b"\n")
+        wrapper = b"X86_WEAK_FUNC(sub_" + address + b", __imp__sub_" + address + b")"
+        if matched_body(source, address, loader_digests[address]) is None or source.count(wrapper) != 1:
+            return False
+        if shard == SCENE_PARSER_SHARD and matched_body(source, SCENE_PARSER, loader_digests[SCENE_PARSER]) is None:
+            return False
+    return True
+
+
+def lower_scene_line_batches(source: bytes, shard: int) -> tuple[bytes, int]:
+    address = SCENE_LINE_PRIMITIVES.get(shard)
+    if address is None:
+        return source, 0
+    symbol = b"sub_" + address
+    implementation = b"__imp__" + symbol
+    wrapper = b"X86_WEAK_FUNC(" + symbol + b", " + implementation + b")"
+    alias = (b'extern "C" void ' + symbol + b'(X86Context&, uint8_t*) '
+             b'__attribute__((weak, alias("' + implementation + b'")));')
+    source = source.replace(wrapper, alias, 1)
+    if shard != SCENE_PARSER_SHARD:
+        return source, 0
+
+    source = source.replace(b"\r\n", b"\n")
+    header = b'#include "x86_recomp_shared.h"\n'
+    if source.count(header) != 1 or b'#include "guest-loader-bytes.inc"' not in source:
+        raise ValueError("scene parser declarations differ from the reviewed build")
+    defaults = list(SCENE_LINE_PRIMITIVES.values())
+    declarations = b"".join(b"X86_EXTERN_FUNC(__imp__sub_" + address + b");\n" for address in defaults)
+    guard = b" && ".join(b"sub_" + address + b" == __imp__sub_" + address for address in defaults)
+    digest = sha256(SCENE_LINES_HELPER.read_bytes()).encode("ascii")
+    source = source.replace(header, header + b"// Scene line helper SHA-256: " + digest +
+                            b'\n#include "guest-scene-lines.inc"\n' + declarations, 1)
+    for label, args in ((b"loc_001BA192:", b"false, (ctx.ebx & 255) != 0"),
+                        (b"loc_001BA2A4:", b"true, false")):
+        if source.count(label) != 1:
+            raise ValueError("scene parser loop boundary differs from the reviewed build")
+        source = source.replace(label, label + b"\n\tif (" + guard + b")\n"
+                                b"\t\tff_browser_loader_bytes::SkipQuietSceneLines(ctx.esp, ctx.esi, " + args + b");", 1)
+    return source, 2
 
 
 def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
@@ -959,6 +1012,7 @@ def main() -> int:
     total_memory_runs = total_memory_words = 0
     total_matching_byte_loops = 0
     total_loader_byte_loops = 0
+    total_scene_line_batches = 0
     total_repeated_lines = 0
     total_decimal_prefixes = 0
     total_decimal_products = 0
@@ -970,12 +1024,17 @@ def main() -> int:
     grid_index = grid.find(GRID_ENTRY)
     if grid_index >= 0 and lower_grid_arguments(grid[grid_index:])[1] == 1:
         grid_predicate = grid_rejection_source(shards[54][1].read_bytes())
+    scene_lines = scene_line_batch_available(shards)
+    shard_numbers = {path: number for number, path in shards}
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
          matching_byte_loops, loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products,
          mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
+        scene_line_batches = 0
+        if scene_lines:
+            adapted, scene_line_batches = lower_scene_line_batches(adapted, shard_numbers.get(source, -1))
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
@@ -996,6 +1055,7 @@ def main() -> int:
                 "memoryWordsInRuns": memory_words,
                 "matchingByteLoopCount": matching_byte_loops,
                 "loaderByteLoopCount": loader_byte_loops,
+                "sceneLineBatchCount": scene_line_batches,
                 "repeatedLineCount": repeated_lines,
                 "decimalPrefixCount": decimal_prefixes,
                 "decimalProductCount": decimal_products,
@@ -1015,6 +1075,7 @@ def main() -> int:
         total_memory_words += memory_words
         total_matching_byte_loops += matching_byte_loops
         total_loader_byte_loops += loader_byte_loops
+        total_scene_line_batches += scene_line_batches
         total_repeated_lines += repeated_lines
         total_decimal_prefixes += decimal_prefixes
         total_decimal_products += decimal_products
@@ -1040,6 +1101,7 @@ def main() -> int:
         "memoryWordsInRuns": total_memory_words,
         "matchingByteLoopCount": total_matching_byte_loops,
         "loaderByteLoopCount": total_loader_byte_loops,
+        "sceneLineBatchCount": total_scene_line_batches,
         "repeatedLineCount": total_repeated_lines,
         "decimalPrefixCount": total_decimal_prefixes,
         "decimalProductCount": total_decimal_products,
@@ -1058,6 +1120,7 @@ def main() -> int:
     print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
     print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
     print(f"Added checked byte scanning to {total_loader_byte_loops} loader loops")
+    print(f"Batched unneeded iterations in {total_scene_line_batches} scene line loops")
     print(f"Reused line scans in {total_repeated_lines} loader routines")
     print(f"Added checked decimal arithmetic to {total_decimal_prefixes} loader routines")
     print(f"Grouped {total_decimal_products} truncated decimal products")
