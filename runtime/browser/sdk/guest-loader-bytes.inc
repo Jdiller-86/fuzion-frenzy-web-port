@@ -93,27 +93,36 @@ inline uint32_t CopyStringPrefix(uint32_t source, uint32_t destination) noexcept
     return copied;
 }
 
-inline uint32_t CopyLinePrefix(uint32_t source, uint32_t remaining, uint32_t destination,
-                               uint32_t cursorAddress) noexcept {
+struct LineCopy {
+    uint32_t copied;
+    uint32_t delimiterEax;
+    bool complete;
+};
+
+inline LineCopy CopyLine(uint32_t source, uint32_t remaining, uint32_t destination,
+                         uint32_t cursorAddress) noexcept {
     const auto available = std::min({kMaxPrefixBytes, remaining, BytesInWindow(source), BytesInWindow(destination)});
-    if (available < kChunkBytes) return 0;
+    if (available < kChunkBytes) return {};
     using ff_browser_memory::TryWindow;
     const auto* input = TryWindow(source, available);
     auto* output = TryWindow(destination, available);
     auto* cursor = TryWindow(cursorAddress, 8);
-    if (!input || !output || !cursor) return 0;
+    if (!input || !output || !cursor) return {};
 
     const uint32_t plain = ScanUntilEither(input, available, '\r', '\n');
-    if (plain < 2 || Overlaps(input, plain, output, plain) ||
-        Overlaps(input, plain, cursor, 8) || Overlaps(output, plain, cursor, 8)) return 0;
+    // The scanner returns the full chunk count when it finds no delimiter.
+    const bool complete = plain < available - available % kChunkBytes;
+    const uint32_t span = plain + uint32_t(complete);
+    if ((!complete && plain < 2) || Overlaps(input, span, output, span) ||
+        Overlaps(input, span, cursor, 8) || Overlaps(output, span, cursor, 8)) return {};
 
-    // Preserve one fully admitted iteration for the original register and
-    // flag updates before a possible terminator store or later memory fault.
-    const uint32_t advance = plain - 1;
-    std::memcpy(output, input, advance);
-    const uint32_t next = source + advance;
+    // At a scan limit leave a checked scalar iteration before any later fault.
+    const uint32_t copied = complete ? plain : plain - 1;
+    const uint32_t next = source + copied;
+    const uint32_t eax = complete ? (next & ~0xffu) | input[copied] : 0;
+    std::memcpy(output, input, copied);
     std::memcpy(cursor, &next, sizeof(next));
-    return advance;
+    return {copied, eax, complete};
 }
 
 } // namespace ff_browser_loader_bytes

@@ -106,7 +106,13 @@ LOADER_BYTE_LOOPS = (
     (b"X86_FUNC(__imp__sub_001B9E00) {",
      "a6e3f41638c48a4cb94676a266a659bca446ad3d9a619389820cacf3df2c0020",
      b"\nloc_001B9E10:",
-     b"\n\tctx.edx += ff_browser_loader_bytes::CopyLinePrefix(ctx.eax, cb - ctx.eax, ctx.edx, ctx.ecx + 8u);"),
+     b"\n\t{"
+     b" const auto line = ff_browser_loader_bytes::CopyLine(ctx.eax, cb - ctx.eax, ctx.edx, ctx.ecx + 8u);"
+     b" ctx.edx += line.copied;"
+     # A matched delimiter clears CF. The unchanged cursor INC in the
+     # epilogue replaces the other status flags.
+     b" if (line.complete) { ctx.eax = line.delimiterEax; cf = 0; goto loc_001B9E2C; }"
+     b" }"),
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001DF119:",

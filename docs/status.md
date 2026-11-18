@@ -4,7 +4,7 @@
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
 - **Browser.** Erodeo ran near 60 callback FPS on the desktop's integrated Radeon. The fixed-function shader fast paths reduced sampled median GPU time from 5.89 to 5.20 ms. [Gameplay observations](browser-gpu.md#integrated-radeon-fixed-function-shader-performance)
-- **Next.** The SIMD grid batch reduced sampled intersection time from 14.96 to 11.72 ms in Water Gate Scramble. The shared loader still accounted for 41.97 ms in the longest gap. Address that work and measure steady frame presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#simd-grid-endpoint-classification)
+- **Next.** A checked delimiter shortcut reduced sampled line-copy time from 5.02 to 1.11 ms in Water Gate Scramble. The shared loader accounted for 31.29 ms of the latest 53.74 ms gap. Address the remaining parsing and measure steady frame presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#checked-line-terminators-during-scene-loading)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
