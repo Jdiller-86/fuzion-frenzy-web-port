@@ -110,7 +110,27 @@ LOADER_BYTE_LOOPS = (
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001DF119:",
-     b"\n\tctx.esi += ff_browser_loader_bytes::SearchBytesToSkip(ctx.esi, uint8_t(ctx.edx));"),
+     b"\n\tctx.esi += ff_browser_loader_bytes::SearchPairBytesToSkip(ctx.esi, uint16_t(ctx.edx));"),
+    (b"X86_FUNC(__imp__sub_001DF0F0) {",
+     "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
+     b"\nloc_001E0376:",
+     b"\n\tctx.edx += ff_browser_loader_bytes::SearchAsciiWordsToSkip(ctx.edx, uint8_t(ctx.ebx));"),
+    (b"X86_FUNC(__imp__sub_001E0340) {",
+     "c8173e63306279b86355645edbd0204e545403115d650dba4630f36f35a4ca1a",
+     b"\nloc_001E0376:",
+     b"\n\tctx.edx += ff_browser_loader_bytes::SearchAsciiWordsToSkip(ctx.edx, uint8_t(ctx.ebx));"),
+    (b"X86_FUNC(__imp__sub_001DF984) {",
+     "c638b1818fe9c23fbd41a717b30ee8cdc8c2f6096dfaecb17f782453a85ec715",
+     b"\nloc_001DF99D:",
+     b"\n\tctx.eax += ff_browser_loader_bytes::SearchBytesToSkip(ctx.eax, 0);"),
+    (b"X86_FUNC(__imp__sub_001E0FA8) {",
+     "c5d1d0cc1283b0ee476735e51d117307f0e71fc99755fa4081dcc73062166c1a",
+     b"\nloc_001E0FE3:",
+     b"\n\tctx.eax += ff_browser_loader_bytes::SearchBytesToSkip(ctx.eax, 0);"),
+    (b"X86_FUNC(__imp__sub_0007E890) {",
+     "03d98b82563c453c132a3567adea99e117c5e474e9dc20fd213501f894ca7f2f",
+     b"\nloc_0007E8A0:",
+     b"\n\tctx.ecx += ff_browser_loader_bytes::CopyStringPrefix(ctx.ecx, ctx.esi + ctx.ecx);"),
 )
 DECIMAL_BODY = b"001E7F47"
 DECIMAL_HELPERS = (b"001E7E6D", b"001E7E8E", b"001E7EEC")
@@ -221,17 +241,23 @@ def lower_matching_byte_loop(match: re.Match[bytes]) -> bytes:
 
 
 def lower_loader_byte_loop(block: bytes) -> tuple[bytes, int]:
-    for entry, digest, label, prefix in LOADER_BYTE_LOOPS:
-        if not block.startswith(entry):
+    matches = [record for record in LOADER_BYTE_LOOPS if block.startswith(record[0])]
+    if not matches:
+        return block, 0
+    head, closing, tail = block.replace(b"\r\n", b"\n").partition(b"\n}")
+    if not closing:
+        return block, 0
+    body_digest = sha256(head + closing)
+    count = 0
+    for _, digest, label, prefix in matches:
+        if body_digest != digest:
             continue
-        head, closing, tail = block.replace(b"\r\n", b"\n").partition(b"\n}")
-        if not closing or sha256(head + closing) != digest:
-            break
         if head.count(label) != 1:
             raise ValueError("loader fast prefix entry differs from its reviewed loop")
         # Insert on entry. The original backedge stays in the scalar loop.
-        return head.replace(label, prefix + label, 1) + closing + tail, 1
-    return block, 0
+        head = head.replace(label, prefix + label, 1)
+        count += 1
+    return (head + closing + tail, count) if count else (block, 0)
 
 
 def lower_repeated_line(block: bytes) -> tuple[bytes, int]:

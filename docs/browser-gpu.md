@@ -290,6 +290,12 @@ In foreground Water Gate Scramble, the largest frame acknowledgement gap was 80.
 
 A separate Erodeo run explicitly enabled the selected ordering. The original round reached a winner, showed the replay prompt and returned to Select Game after declining replay. Keyboard input drove the player, and the game stopped without a reported error. Source review checked the device lock, buffer rotation, prior-flight waits and independent virtual VBlank scheduling. Physical display cadence and timing on modest hardware remain open.
 
+### Batched string searches during scene loading
+
+The checked substring scan finds candidate byte pairs and string terminators together. The original search compares the remaining bytes and handles overlapping matches. The character search skips complete ASCII words, and two length loops and one scratch copy reuse the checked NUL scan. All five generated bodies match the recorded digests. The scalar paths handle the final iteration and retain the original checks at window boundaries and overlapping copies. The focused Wasm comparison matched 3,891 cases, including 762 recorded faults. The build rebuilt three title shards and reduced the module by 1,610 bytes.
+
+In sequential foreground Water Gate Scramble runs, the largest acknowledgement gap was 57.75 and 56.71 ms. The shared loader sampled 32.29 and 30.14 ms during that gap. Combined character and substring search samples were 5.50 and 4.36 ms. Active guest work sampled 56.41 and 54.94 ms. Steady acknowledgement p95 was 17.04 and 17.07 ms across 482 and 483 adjacent pairs. Both runs used the same renderer, reached keyboard-controlled play and stopped cleanly with zero live shader links. Scene and scheduling state varied. The candidate Wasm SHA-256 is `d4888a2daa914d9ab59d4bd2be0d024042d6a4922a879965dec8255c9fa0b6f8`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -298,7 +304,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The pre-submission Water Gate Scramble peak sampled 56.41 ms of active guest work. The loader at `0x001B43C0` covered 32.29 ms and the segment grid branch covered 12.04 ms. A private formatted-input batching trial measured an 89.74 ms gap against 80.47 ms with the same renderer. Follow the larger shared work under `0x0007F2F0` and the remaining grid intersection calls. Preserve guest timing, draw ordering and checked memory.
+1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 54.94 ms of active guest work. The loader at `0x001B43C0` covered 30.14 ms and the segment grid branch covered 12.41 ms. A private formatted-input batching trial measured an 89.74 ms gap against 80.47 ms with the same renderer. The recursive tree work under `0x0007F2F0` and the remaining grid intersection calls still account for larger individual branches. Preserve guest timing, draw ordering and checked memory.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.
