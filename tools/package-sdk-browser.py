@@ -76,6 +76,7 @@ as parallel compilation finishes. The browser saves newly seen shader recipes
 during play. Stop game flushes recipes still queued for saving.
 ?shaderPromotion=0 keeps the resident shaders for newly seen variants.
 ?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.
+?guestCodeWarmup=0 skips startup preparation of previously measured Wasm functions.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window
 at its original aspect ratio. Controls opens fullscreen and Stop game actions.

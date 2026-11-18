@@ -167,7 +167,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,gpuTiming,pacingTiming:measurePacing}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -282,6 +282,15 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     report('Preparing previously seen WebGL shaders…');
     await webgl.finishWarmup(() => cancelled);
     if (cancelled) return;
+  }
+  if (guestCodeWarmup !== false && typeof module._ff_browser_warm_guest_code === 'function') {
+    report('Preparing original game code…');
+    const start = performance.now();
+    const count = module._ff_browser_warm_guest_code();
+    const elapsed = (performance.now() - start).toFixed(2);
+    postMessage({type:'log',text:`Prepared ${count} guest functions in ${elapsed} ms.`});
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (cancelled) { stopThreads(module); return; }
   }
   if (webgl?.contextLost || webgl?.gl.isContextLost())
     throw new Error('The graphics context was lost. Start the game again to recreate its resources.');

@@ -52,6 +52,8 @@ MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 LOADER_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-loader-bytes.inc"
 SCENE_LINES_HELPER = ROOT / "runtime/browser/sdk/guest-scene-lines.inc"
+CODE_WARMUP_HELPER = ROOT / "runtime/browser/sdk/guest-code-warmup.h"
+CODE_WARMUP_PROFILE = ROOT / "profiles/browser-code-warmup.json"
 REPEATED_LINE_HELPER = ROOT / "runtime/browser/sdk/guest-repeated-line.inc"
 DECIMAL_PREFIX_HELPER = ROOT / "runtime/browser/sdk/guest-decimal-prefix.inc"
 INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
@@ -356,6 +358,44 @@ def matched_body(source: bytes, address: bytes, digest: str) -> bytes | None:
         return None
     body = source[start:end + 2]
     return body if sha256(body) == digest else None
+
+
+def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]) -> tuple[bytes, list[bytes]]:
+    original = original.replace(b"\r\n", b"\n")
+    admitted = []
+    declarations = []
+    for address, digest in records.items():
+        if not re.fullmatch(r"[0-9A-F]{8}", address) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("invalid guest code warmup target")
+        key = address.encode("ascii")
+        if matched_body(original, key, digest) is None:
+            continue
+        name = b"__imp__sub_" + key
+        entry = b"X86_FUNC(" + name + b") {"
+        if adapted.count(entry) != 1:
+            raise ValueError("guest code warmup boundary differs from the reviewed source")
+        # Keep both the real calls and the startup call on the same Wasm
+        # body. The weak public entry can still be overridden by the SDK.
+        declarations.append(b'extern "C" __attribute__((noinline)) void ' + name + b'(X86Context&, uint8_t*);')
+        adapted = adapted.replace(entry, entry + b"\n\tif (ff_browser_code_warmup::IsWarmup(ctx)) return;", 1)
+        admitted.append(name)
+    if admitted:
+        digest = sha256(CODE_WARMUP_HELPER.read_bytes()).encode("ascii")
+        adapted = (b'// Guest code warmup helper SHA-256: ' + digest + b'\n#include "guest-code-warmup.h"\n'
+                   + b"\n".join(declarations) + b"\n" + adapted)
+    return adapted, admitted
+
+
+def emit_code_warmup(names: list[bytes]) -> bytes:
+    entry = b'\nextern "C" unsigned ff_browser_warm_guest_code() {\n'
+    if not names:
+        return entry + b"    return 0;\n}\n"
+    declarations = b"".join(b"X86_EXTERN_FUNC(" + name + b");\n" for name in names)
+    return (b'\n#include "guest-code-warmup.h"\n' + declarations + entry +
+            b'    using Function = void (*)(X86Context&, uint8_t*);\n'
+            b'    static constexpr Function functions[]{' + b', '.join(names) + b'};\n'
+            b'    for (Function function : functions) function(ff_browser_code_warmup::context, nullptr);\n'
+            b'    return sizeof(functions) / sizeof(functions[0]);\n}\n')
 
 
 def scene_line_batch_available(shards: list[tuple[int, Path]]) -> bool:
@@ -1055,6 +1095,10 @@ def main() -> int:
         grid_predicate = grid_rejection_source(shards[54][1].read_bytes())
     scene_lines = scene_line_batch_available(shards)
     shard_numbers = {path: number for number, path in shards}
+    warmup_profile = json.loads(CODE_WARMUP_PROFILE.read_text(encoding="utf-8"))
+    if sum(map(len, warmup_profile.values())) > 128:
+        raise ValueError("guest code warmup target limit exceeded")
+    warmup_names: list[bytes] = []
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
@@ -1064,6 +1108,12 @@ def main() -> int:
         scene_line_batches = 0
         if scene_lines:
             adapted, scene_line_batches = lower_scene_line_batches(adapted, shard_numbers.get(source, -1))
+        warmup_records = warmup_profile.get(str(shard_numbers.get(source)))
+        if warmup_records:
+            adapted, admitted = prepare_code_warmup(original, adapted, warmup_records)
+            warmup_names.extend(admitted)
+        if source.name == "x86_func_mapping.cpp":
+            adapted += emit_code_warmup(warmup_names)
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
@@ -1140,6 +1190,7 @@ def main() -> int:
         "mappedIntersectionCount": total_mapped_intersections,
         "mappedGridCallCount": total_mapped_grid_calls,
         "gridRejectBatchCount": total_grid_reject_batches,
+        "guestCodeWarmupCount": len(warmup_names),
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -1160,6 +1211,7 @@ def main() -> int:
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
+    print(f"Prepared {len(warmup_names)} guest code warmup targets")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0

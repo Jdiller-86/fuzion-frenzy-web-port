@@ -452,13 +452,21 @@ In Water Gate Scramble, the shared converter at `0x001E6678` sampled 2.73 and 1.
 
 In the new capture, the two guest call chains headed by `0x001B6130` and `0x001B6150` sampled 14.97 and 15.55 ms in the following gap. Together they account for its 30.52 ms of active guest samples. The branches through `0x001AC8F0` and `0x001AAB80` account for 7.15 and 5.56 ms within those chains. These addresses identify observed call paths.
 
+### Prepare measured guest functions before boot
+
+A private timing probe measured 19.68 ms in the first pair of calls to `0x001B6130` and `0x001B6150`, and 4.58 ms in the second. Calls into the measured children had the same counts. The uninstrumented Chrome traces then recorded 28.40 and 37.15 ms in `wasm.CompileLazy` across the two longest entry gaps. These are compiler events on the guest thread. [V8 WebAssembly compilation](https://v8.dev/docs/wasm-compilation-pipeline)
+
+The build matches 96 measured function bodies by digest. After disc verification, the startup export calls those bodies with a dedicated host context. Each returns before the original instructions. The guest reaches the same Wasm bodies through the existing call bindings. Startup yields and checks Stop and context loss before boot. `?guestCodeWarmup=0` disables the startup call for comparisons.
+
+In sequential cold Chrome replays with the same Wasm, disabling warmup measured entry acknowledgement gaps of 72.45 and 49.55 ms. Enabling it measured 50.30 and 24.31 ms. Guest-thread lazy compilation across those intervals fell from 44.50 to 16.18 ms. Startup prepared the 96 functions in 10.73 ms. The preceding shipped build had measured 50.38 and 35.14 ms. Scene and scheduling state varied across runs. The two same-binary replays reached keyboard-controlled gameplay, recorded zero draw-path shader links and stopped cleanly. Steady acknowledgement p95 was 17.47 and 17.07 ms across 483 pairs per run. The new 40,261,458-byte Wasm has SHA-256 `3e96e459c64181bcfed7bf5b541e0c65f504b48a493c7b10b98a28a2c194ca28`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 49.06 ms of active guest work, including 26.49 ms in the shared loader and 9.28 ms in the collision grid. Profile the two original call chains consuming 30.52 ms in the following gap. Determine which work they repeat across scene entry and regular play.
+1. **Guest scene setup.** With code warmup enabled, the first Water Gate Scramble gap still measured 50.30 ms, including 8.63 ms of guest-thread lazy compilation. The shared loader and collision grid sampled 28.08 and 10.09 ms within that gap. Separate remaining compiler work from guest execution before choosing the next optimization.
 2. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Use the resident path and completed exact programs where the observed inputs support them.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. During the latest Water Gate Scramble steady window, guest enqueues were 16.74 ms apart at p95 and renderer acknowledgements were 17.10 ms apart. Measure physical presentation at a verified display cadence while preserving the original virtual-blank period and callback sequence.

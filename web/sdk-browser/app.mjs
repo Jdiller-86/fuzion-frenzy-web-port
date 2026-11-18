@@ -181,6 +181,7 @@ runButton.addEventListener('click', () => {
     shaderWarmup: options.get('shaderWarmup') !== '0',
     shaderFallback: options.get('shaderFallback') !== '0',
     shaderPromotion: options.get('shaderPromotion') !== '0',
+    guestCodeWarmup: options.get('guestCodeWarmup') !== '0',
     gpuTiming: options.get('gpuTiming') === '1',
     pacingTiming: options.get('pacingTiming') === '1',
     precisePacing: options.has('precisePacing')

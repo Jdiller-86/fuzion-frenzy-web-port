@@ -184,7 +184,8 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
     if args.host_only or args.no_link:
         print(f'Compiled {len(built)} real SDK integration objects; no title execution claimed')
         return 0
-    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template', '_malloc', '_free']
+    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template',
+               '_ff_browser_warm_guest_code', '_malloc', '_free']
     link_output = output / 'link-stage'
     link_output.mkdir(exist_ok=True)
     lto_flags = []
