@@ -157,28 +157,40 @@ inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSi
 
         int previous = classify(queryTerms, edge);
         uint32_t rejected = 0;
-        while (rejected < count) {
 #if defined(__wasm_simd128__)
-            if (count - rejected >= 4) {
-                const auto sides = ClassifyFour<sizeof(Real) == sizeof(double)>(
-                    pointSide, queryTerms, rest + rejected * 8, tolerance, zero);
-                // Shift each side mask to align it with the preceding endpoint.
-                const uint32_t same =
-                    (sides.below & ((sides.below << 1) | uint32_t(previous < 0))) |
-                    (sides.above & ((sides.above << 1) | uint32_t(previous > 0)));
-                uint32_t remaining = same ^ 0xfu;
-                while (remaining && rejectsOpposite(rejected + std::countr_zero(remaining))) {
-                    remaining &= remaining - 1;
-                }
-                if (remaining) {
-                    rejected += std::countr_zero(remaining);
-                    break;
-                }
-                rejected += 4;
-                previous = int(sides.above >> 3) - int(sides.below >> 3);
-                continue;
+        const auto classifyFour = [&](uint32_t first) {
+            return ClassifyFour<sizeof(Real) == sizeof(double)>(
+                pointSide, queryTerms, rest + first * 8, tolerance, zero);
+        };
+        uint32_t previousBelow = previous < 0, previousAbove = previous > 0;
+        const auto rejectTile = [&](SideMasks sides, uint32_t lanes) {
+            // Align each side mask with the preceding endpoint. The low
+            // lanes represent the earliest unresolved edges.
+            const uint32_t same = (sides.below & ((sides.below << 1) | previousBelow)) |
+                                  (sides.above & ((sides.above << 1) | previousAbove));
+            uint32_t remaining = same ^ ((1u << lanes) - 1u);
+            while (remaining && rejectsOpposite(rejected + std::countr_zero(remaining))) {
+                remaining &= remaining - 1;
             }
+            if (remaining) {
+                rejected += std::countr_zero(remaining);
+                return false;
+            }
+            rejected += lanes;
+            previousBelow = sides.below >> (lanes - 1);
+            previousAbove = sides.above >> (lanes - 1);
+            return true;
+        };
+        while (count - rejected >= 8) {
+            const auto low = classifyFour(rejected);
+            const auto high = classifyFour(rejected + 4);
+            if (!rejectTile({low.below | (high.below << 4), low.above | (high.above << 4)}, 8))
+                return rejected;
+        }
+        if (count - rejected >= 4 && !rejectTile(classifyFour(rejected), 4)) return rejected;
+        previous = int(previousAbove) - int(previousBelow);
 #endif
+        while (rejected < count) {
             const int current = classify(queryTerms, rest + rejected * 8);
             if ((!previous || previous != current) && !rejectsOpposite(rejected)) break;
             previous = current;

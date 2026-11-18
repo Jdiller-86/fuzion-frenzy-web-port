@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Checked full marker searches reduced sampled substring time from 2.26 to 0.55 ms in Water Gate Scramble. The longest entry gap measured 38.49 ms. Cold Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Marker search evidence](browser-gpu.md#complete-checked-scene-marker-searches-in-one-scan) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
+- **Browser.** Eight-endpoint classification reduced sampled collision grid time from 9.20 and 9.28 ms in two Water Gate Scramble references to 8.27 ms. The latest scene-entry gap measured 40.44 ms. Cold Twisted System GPU p95 was 3.75 ms with workload-prioritized shaders. [Collision evidence](browser-gpu.md#check-eight-collision-endpoints-per-iteration) · [Shader evidence](browser-gpu.md#specialize-recurring-high-workload-shaders-first)
 - **Next.** Inspect remaining scene conversion and tree traversal. Measure physical presentation on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
