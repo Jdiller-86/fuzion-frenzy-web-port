@@ -13,6 +13,13 @@ struct Spans {
     uint32_t resultAddress;
 };
 
+[[gnu::always_inline]] inline bool TryMappedGridSpans(uint8_t* stack, uint32_t esp, Spans& spans) noexcept {
+    auto* result = stack + 0x80;
+    if (result[16] & 4u) return false;
+    spans = {stack, stack + 0x70, stack + 0x60, result, esp + 0x50, esp + 0x40, esp + 0x60};
+    return true;
+}
+
 [[gnu::always_inline]] inline bool TrySpans(uint32_t esp, Spans& spans) noexcept {
     using ff_browser_memory::TryWindow;
     auto* stack = TryWindow(esp - 32, 48);
@@ -26,13 +33,9 @@ struct Spans {
 
     // The grid caller places all three operands in the same stack window.
     // Admit the whole group when its pointer words match that layout.
-    if (leftAddress == esp + 0x50u && rightAddress == esp + 0x40u && resultAddress == esp + 0x60u) {
-        if (TryWindow(esp - 32, 0x98)) {
-            auto* result = stack + 0x80;
-            if (result[16] & 4u) return false;
-            spans = {stack, stack + 0x70, stack + 0x60, result, leftAddress, rightAddress, resultAddress};
-            return true;
-        }
+    if (leftAddress == esp + 0x50u && rightAddress == esp + 0x40u && resultAddress == esp + 0x60u &&
+        TryWindow(esp - 32, 0x98)) {
+        return TryMappedGridSpans(stack, esp, spans);
     }
     const auto* left = TryWindow(leftAddress, 16);
     const auto* right = TryWindow(rightAddress, 16);

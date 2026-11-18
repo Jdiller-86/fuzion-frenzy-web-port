@@ -99,7 +99,13 @@ GRID_PUSH = re.compile(rb"X86_PUSH32\((v|0x[0-9A-F]+u)\);")
 GRID_WEAK_WRAPPER = b"X86_WEAK_FUNC(sub_001EA530, __imp__sub_001EA530)"
 GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_001EA530(
     X86Context& __restrict ctx, uint8_t* base) {
-    ff_browser_grid_batch(ctx);
+    if (auto* stack = ff_browser_grid_batch(ctx)) {
+        ff_browser_intersection::Spans spans;
+        if (ff_browser_intersection::TryMappedGridSpans(stack, ctx.esp, spans)) {
+            ff_browser_mapped_intersection(ctx, spans);
+            return;
+        }
+    }
     [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
 }'''
 LOADER_BYTE_LOOPS = (
@@ -725,11 +731,11 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
         if not all(addresses) or len({match[1] for match in addresses}) != 1:
             raise ValueError("grid endpoint comparisons use different constants")
         constants.append(addresses[0][1])
-    return (b"static void ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
+    return (b"static uint8_t* ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
             b"    const auto lineTerms = []<typename Real>(const uint8_t* query) {\n"
             b"        return std::array<float, 3>{" + b", ".join(typed_line) + b"};\n    };\n"
             b"    const auto vectorSide = [](auto x, auto y, auto a, auto b, auto c) { return " + vector_side + b"; };\n"
-            b"    ff_browser_grid::BatchRejectedEdges(ctx, lineTerms, vectorSide, 0x0019EBAEu, "
+            b"    return ff_browser_grid::BatchRejectedEdges(ctx, lineTerms, vectorSide, 0x0019EBAEu, "
             + b", ".join(constants) + b");\n}\n")
 
 
