@@ -3,6 +3,7 @@
 #include <cstring>
 #include <wasm_simd128.h>
 
+#include "cpu/x86_context.h"
 #include "full-memory.h"
 
 namespace ff_browser_loader_bytes {
@@ -165,6 +166,42 @@ inline uint32_t SkipSuppressedWord(uint32_t frame, uint32_t stack) noexcept {
     WriteWord(stream + 4, remaining - advance);
     WriteWord(bp - 0x2c, ReadWord(bp - 0x2c) + advance);
     return advance;
+}
+
+inline bool TryUnreadStringByte(X86Context& ctx) noexcept {
+    using ff_browser_memory::TryWindow;
+    constexpr uint32_t saves = 8;
+    auto* frame = TryWindow(ctx.esp - saves, saves + 12);
+    if (!frame) return false;
+    const uint32_t value = ReadWord(frame + saves + 4);
+    if (value == UINT32_MAX) return false;
+    auto* stream = TryWindow(ReadWord(frame + saves + 8), 16);
+    if (!stream || Overlaps(stream, 16, frame, saves)) return false;
+
+    const uint32_t flags = ReadWord(stream + 12);
+    const uint32_t base = ReadWord(stream + 8);
+    const uint32_t cursor = ReadWord(stream);
+    // Admit the read-only string path with an initialized buffer and room
+    // to move back. The regular routine handles all other stream states.
+    if ((flags & 0x41u) != 0x41u || !base || cursor == base) return false;
+    const auto* previous = TryWindow(cursor - 1, 1);
+    if (!previous) return false;
+
+    // Save registers, then move the cursor and read the byte in guest
+    // order. The byte can alias the saved words or the stream descriptor.
+    WriteWord(frame + 4, ctx.ebx);
+    WriteWord(frame, ctx.esi);
+    WriteWord(stream, cursor - 1);
+    if (*previous == uint8_t(value)) {
+        WriteWord(stream + 4, ReadWord(stream + 4) + 1);
+        WriteWord(stream + 12, flags & ~0x10u);
+        ctx.eax = uint8_t(value);
+    } else {
+        WriteWord(stream, cursor);
+        ctx.eax = UINT32_MAX;
+    }
+    ctx.esp += 4;
+    return true;
 }
 
 struct SubstringResult {

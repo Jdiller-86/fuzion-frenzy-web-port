@@ -113,6 +113,10 @@ GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_0
     [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
 }'''
 LOADER_BYTE_LOOPS = (
+    (b"X86_FUNC(__imp__sub_001E70BE) {",
+     "d0c503fa178bfd1612d0742e1e0f0bb9f6842b5a7a6db0ada1974353ccd285b8",
+     b"\n\tX86_LOAD_FLAGS();",
+     b"\n\tif (ff_browser_loader_bytes::TryUnreadStringByte(ctx)) return;"),
     (b"X86_FUNC(__imp__sub_000C3A50) {",
      "668122795a062bb108eb9111f2ba35c19f59201a7df63ba05ea62284c53f71e3",
      b"\n\t// 000C3A5B jmp 0x000C3A60",
