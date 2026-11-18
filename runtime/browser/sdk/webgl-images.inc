@@ -69,19 +69,20 @@ uint8_t BrowserImageByte(float value) {
 }
 
 std::shared_ptr<Image> BrowserImageDecode(const gpu::TextureDesc& d,const gpu::FormatInfo& format,
-                        const uint8_t* guest,const uint32_t* palette,uint32_t lo,uint32_t hi) {
+                        const uint8_t* guest,size_t size,const uint32_t* palette,uint32_t lo,uint32_t hi) {
     const uint64_t pixel_count=uint64_t(d.width)*d.height;
     if(!pixel_count||pixel_count>8u*1024*1024)return {};
     const size_t bytes=size_t(pixel_count)*4;
     auto image=std::make_shared<Image>();image->w=d.width;image->h=d.height;image->faces=1;
     image->depth16=false;image->lo=lo;image->hi=hi;
     if(format.host==gpu::Host::BGRA8) {
-        std::vector<uint8_t> decoded;uint32_t pitch=0;
-        gpu::DecodeLevel(d,0,0,guest,palette,decoded,pitch);
-        if(pitch!=d.width*4||decoded.size()!=bytes)return {};
-        image->gpu_pixels=std::move(decoded);
-        for(size_t p=0;p<bytes;p+=4) {
-            std::swap(image->gpu_pixels[p],image->gpu_pixels[p+2]);
+        if (!gpu::DecodeBrowserColor(d, guest, size, palette, image->gpu_pixels)) {
+            uint32_t pitch=0;
+            gpu::DecodeLevel(d,0,0,guest,palette,image->gpu_pixels,pitch);
+            if(pitch!=d.width*4||image->gpu_pixels.size()!=bytes)return {};
+            for(size_t p=0;p<bytes;p+=4) {
+                std::swap(image->gpu_pixels[p],image->gpu_pixels[p+2]);
+            }
         }
         image->gpu_encoding=1;
     } else if(format.compressed) {
@@ -169,7 +170,7 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         if(reserve_payload>limit-size_t(bytes)-metadata)std::abort();
         BrowserImageReserve(size_t(bytes)+metadata+reserve_payload,frame);
         std::shared_ptr<Image> image;
-        if(byte_path)image=BrowserImageDecode(d,format,guest,palette,d.data,d.data+gpu::TotalSize(d));
+        if(byte_path)image=BrowserImageDecode(d,format,guest,bytes,palette,d.data,d.data+bytes);
         if(!image) {
             if(byte_path&&decoded64>limit-size_t(bytes)-metadata)std::abort();
             if(byte_path)BrowserImageReserve(size_t(bytes)+metadata+size_t(decoded64),frame);

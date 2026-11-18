@@ -238,11 +238,18 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
   }
   if (warmup) await warmup;
   if (cancelled) { stopThreads(module); return; }
-  if (module.onFuzionGpu?.pendingFixedFallbackPrograms) {
+  const webgl = module.onFuzionGpu;
+  if (webgl?.pendingFixedFallbackPrograms) {
     report('Preparing resident WebGL shaders…');
-    module.onFuzionGpu.finishFixedFallbacks();
+    webgl.finishFixedFallbacks();
   }
-  module.onFuzionGpu?.finishWarmup();
+  if (webgl?.warmPrograms?.size) {
+    report('Preparing previously seen WebGL shaders…');
+    await webgl.finishWarmup(() => cancelled);
+    if (cancelled) return;
+  }
+  if (webgl?.contextLost || webgl?.gl.isContextLost())
+    throw new Error('The graphics context was lost. Start the game again to recreate its resources.');
   pushInput();
   const bootFn = module._ff_browser_boot;
   if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');

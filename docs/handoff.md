@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Reusing WebGL draw state reduced median worker service from 2.47 to 2.04 ms in Water Gate Scramble. The largest observed steady acknowledgement gap fell from 22.07 to 18.26 ms. [Gameplay observations](browser-gpu.md#reuse-of-webgl-draw-state)
-- **Next.** Water Gate Scramble sampled 8.30 ms in intersection work after selecting precision once per scan. The longest scene-entry gap was 53.18 ms and steady acknowledgement p95 was 17.03 ms. Continue loader and render-preparation work and measure presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#precision-selected-once-per-grid-scan)
+- **Browser.** Saved shader links can finish during a bounded startup wait. Erodeo rendered with zero live links, and its restart prepared 23 saved programs. Direct RGBA decoding reduced sampled render preparation from 12.64 to 10.54 ms in the Water Gate Scramble comparison frame. Steady acknowledgement p95 stayed at 17.03 ms. [Gameplay observations](browser-gpu.md#shader-startup-completion-and-direct-rgba-decoding)
+- **Next.** The largest Water Gate Scramble gap was 52.63 ms. The shared guest loader accounted for 29.11 ms. Target that loader and measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

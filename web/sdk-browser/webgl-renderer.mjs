@@ -6,7 +6,8 @@ import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERT
 const MAX_LINKED_PROGRAMS = 2048;
 const FRAME_ERROR_CHECK_DELAY_MS = 250;
 const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
-const WARMUP_REFLECTION_BUDGET_MS = 8;
+const WARMUP_STARTUP_BUDGET_MS = 400;
+const WARMUP_POLL_INTERVAL_MS = 8;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -97,7 +98,7 @@ export class WebGLRenderer {
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
     this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,programReuses:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
-    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPrimed:0,warmupPrimeMs:0,warmupSkipped:0});
+    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPrimed:0,warmupPrimeMs:0,warmupWaitMs:0,warmupSkipped:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
     Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0,fastCombinerDraws:0});
@@ -145,6 +146,7 @@ void main() {
     if (shaderFallback && shaderPrewarm && this.gpuVertices) this.beginFixedFallbacks();
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
+      this.contextLost = true;
       this.deferGpuErrors = false;
       this.cancelFrameErrorCheck();
       this.disposeGpuTiming();
@@ -474,30 +476,45 @@ void main() {
     }
     if(this.warmPrograms.size)g.flush();
   }
-  finishWarmup() {
+  async finishWarmup(cancelled) {
     if (!this.warmPrograms?.size) return;
     const g = this.gl;
     const start = performance.now();
-    // Bring only ready programs into gameplay. An unfinished or invalid
-    // warm link cannot force an in-frame check on a covered draw.
-    for (const [key, program] of Array.from(this.warmPrograms).reverse()) {
-      const {p, vertexShader, fragmentShader} = program;
-      if (performance.now() - start < WARMUP_REFLECTION_BUDGET_MS &&
-          g.getProgramParameter(p, this.parallelShaderCompile.COMPLETION_STATUS_KHR) &&
-          g.getProgramParameter(p, g.LINK_STATUS)) {
+    const deadline = start + WARMUP_STARTUP_BUDGET_MS;
+    const pending = new Set(Array.from(this.warmPrograms.keys()).reverse());
+    // Finish known links while the loader is visible. Only completed,
+    // reflected programs may enter the gameplay cache.
+    while (pending.size && !cancelled() && !this.contextLost && !g.isContextLost()) {
+      const pollStart = performance.now();
+      for (const key of pending) {
+        if (performance.now() >= deadline) break;
+        const {p, vertexShader, fragmentShader} = this.warmPrograms.get(key);
+        if (!g.getProgramParameter(p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) continue;
+        pending.delete(key);
+        if (!g.getProgramParameter(p, g.LINK_STATUS)) {
+          g.deleteProgram(p);
+          this.warmPrograms.delete(key);
+          this.shaderStats.warmupSkipped++;
+          continue;
+        }
         g.detachShader(p, vertexShader);
         g.detachShader(p, fragmentShader);
         this.warmPrograms.set(key, this.cacheDrawUniforms(this.finishProgram(p)));
         this.shaderStats.warmupPrimed++;
-      } else {
-        g.deleteProgram(p);
-        this.warmPrograms.delete(key);
-        this.shaderStats.warmupSkipped++;
       }
+      this.shaderStats.warmupPrimeMs += performance.now() - pollStart;
+      const remaining = deadline - performance.now();
+      if (!pending.size || remaining <= 0) break;
+      await new Promise(resolve => setTimeout(resolve, Math.min(WARMUP_POLL_INTERVAL_MS, remaining)));
+    }
+    for (const key of pending) {
+      g.deleteProgram(this.warmPrograms.get(key).p);
+      this.warmPrograms.delete(key);
+      this.shaderStats.warmupSkipped++;
     }
     for (const [key, programKey] of this.warmVariants)
       if (!this.warmPrograms.has(programKey)) this.warmVariants.delete(key);
-    this.shaderStats.warmupPrimeMs = performance.now() - start;
+    this.shaderStats.warmupWaitMs = performance.now() - start;
   }
   takeWarmProgram(key) {
     const program = this.warmPrograms?.get(key);

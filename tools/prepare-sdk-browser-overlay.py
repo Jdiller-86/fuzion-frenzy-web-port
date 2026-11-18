@@ -64,6 +64,19 @@ def adapt_nonindexed_converted_assembler(runtime: Path) -> None:
     source.write_text(text, encoding="utf-8")
 
 
+def adapt_browser_texture_decode(runtime: Path, root: Path) -> None:
+    source = runtime / "gpu/texture.cpp"
+    text = source.read_text(encoding="utf-8")
+    texel = "void Texel(uint32_t fmt, const uint8_t* p, uint8_t* o) {"
+    next_function = "uint32_t LinearColorFormat(uint32_t f) {"
+    if text.count(texel) != 1 or text.count(next_function) != 1:
+        raise RuntimeError("Browser color decoder anchors differ from the pinned SDK")
+    text = text.replace(texel, "template<uint32_t KnownFormat = UINT32_MAX>\n" + texel +
+                        "\n    if constexpr (KnownFormat != UINT32_MAX) fmt = KnownFormat;", 1)
+    helper = (root / "runtime/browser/sdk/texture-rgba.inc").read_text(encoding="utf-8")
+    source.write_text(text.replace(next_function, helper + "\n" + next_function, 1), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", type=Path, required=True)
@@ -198,6 +211,7 @@ def main() -> int:
     runpy.run_path(str(root / 'tools/prepare-sdk-browser-pacing.py'))['adapt_browser_pacing'](out)
 
     threading = runpy.run_path(str(root / 'tools/prepare-sdk-browser-threading.py'))['adapt_browser_threading'](out)
+    adapt_browser_texture_decode(out, root)
     d3d = out / 'xdk/d3d8.cpp'
     text = d3d.read_text(encoding='utf-8')
     anchor = 'if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));'
