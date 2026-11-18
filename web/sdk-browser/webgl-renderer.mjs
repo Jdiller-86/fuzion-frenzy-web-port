@@ -38,15 +38,17 @@ export class WebGLRenderer {
     this.canvas = canvas; this.memory = memory; this.report = report;
     const gl = this.gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL 2 is unavailable. Select Software reference or enable browser hardware acceleration.');
+    this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
     this.gpuVertices=gpuVertices&&gl.getParameter(gl.MAX_VERTEX_ATTRIBS)>=16&&gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)>=195;
     this.parallelShaderCompile=shaderPrewarm?gl.getExtension('KHR_parallel_shader_compile'):null;
-    this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
-    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupFallbacks:0,warmupMaxCheckMs:0});
+    this.shaderStats={enabled:!!this.parallelShaderCompile,prepassMs:0,compileMs:0,linkMs:0,waitMs:0,prepassPrograms:0,completedPrograms:0,programReuses:0,readyWithoutWait:0,blockingPrograms:0,maxWaitMs:0,fragmentCompiles:0,fragmentReuses:0};
+    Object.assign(this.shaderStats,{warmupLinks:0,warmupHits:0,warmupPendingClaims:0,warmupFallbacks:0,warmupMaxCheckMs:0});
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
-    Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackDraws:0,programmableFallbackFrames:0});
+    Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
     this.fragmentShaders=new Map();
+    this.programVariants=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     if(gpuTiming) {
       const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
@@ -265,9 +267,12 @@ void main() {
       this.fixedFallbackPrograms = programs.map(program => this.finishProgram(program));
       this.shaderStats.fixedFallbackEnabled = true;
     } catch (error) {
+      if (this.fixedFallbackTexture) g.deleteTexture(this.fixedFallbackTexture);
+      this.fixedFallbackTexture = undefined;
       for (const program of programs) g.deleteProgram(program);
       this.report(`Fixed shader fallback is unavailable: ${error.message}`);
     }
+    this.finishProgrammableFallback();
   }
   beginProgrammableFallback(pointer) {
     if (!pointer || !this.pendingFixedFallbackPrograms) return;
@@ -287,11 +292,15 @@ void main() {
       if (fragment) g.deleteShader(fragment);
     }
   }
-  readyProgrammableFallback() {
-    if (this.programmableFallback) return this.programmableFallback;
+  finishProgrammableFallback() {
     const g = this.gl, program = this.pendingProgrammableFallback;
-    if (!program || !g.getProgramParameter(program, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return null;
+    if (!program) return;
     this.pendingProgrammableFallback = undefined;
+    if (!this.fixedFallbackTexture) {
+      g.deleteProgram(program);
+      return;
+    }
+    const started = performance.now();
     let code;
     try {
       if (!g.getProgramParameter(program, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(program));
@@ -304,12 +313,12 @@ void main() {
       g.uniformBlockBinding(program, block, 0);
       this.programmableFallback = this.finishProgram(program, {codeBuffer:code});
       this.shaderStats.programmableFallbackEnabled = true;
-      return this.programmableFallback;
     } catch (error) {
       if (code) g.deleteBuffer(code);
       g.deleteProgram(program);
       this.report(`Programmable shader fallback is unavailable: ${error.message}`);
-      return null;
+    } finally {
+      this.shaderStats.programmableFallbackStartupWaitMs = performance.now() - started;
     }
   }
   prepareWarmup(store) {
@@ -343,7 +352,7 @@ void main() {
     if(this.warmPrograms.size)g.flush();
   }
   takeWarmProgram(key) {
-    const program=this.warmPrograms.get(key);
+    const program=this.warmPrograms?.get(key);
     if(!program)return null;
     this.warmPrograms.delete(key);
     const g=this.gl,start=performance.now();
@@ -351,6 +360,10 @@ void main() {
     const linked=complete&&g.getProgramParameter(program.p,g.LINK_STATUS);
     const wait=performance.now()-start;
     this.shaderStats.warmupMaxCheckMs=Math.max(this.shaderStats.warmupMaxCheckMs,wait);
+    if(!complete) {
+      this.shaderStats.warmupPendingClaims++;
+      return {...program, pending:true};
+    }
     if(!linked){
       g.deleteProgram(program.p);
       this.shaderStats.warmupFallbacks++;
@@ -387,8 +400,8 @@ void main() {
           this.shaderPrewarmSeen.add(identity);
           prewarmAttempts++;
           const source=this.string(sourcePointer),before=this.programs.size;
-          const kinds=[t0,t1,t2,t3],shadows=[s0,s1,s2,s3],program=this.program(source,kinds,shadows,flat,vertexPointer,regs,true);
-          this.pointerPrograms??=new Map();this.pointerPrograms.set(identity,program);
+          const kinds=[t0,t1,t2,t3],shadows=[s0,s1,s2,s3],variant=this.programVariant(source,kinds,shadows,flat,vertexPointer,regs);
+          this.pointerPrograms??=new Map();this.pointerPrograms.set(identity,variant);
           if(this.programs.size!==before)this.shaderStats.prepassPrograms++;
         }catch{/* Preserve the original error point at the command's draw. */}
       }
@@ -545,7 +558,7 @@ void main() {
       try {
         stage={source:vertexGlsl(hlsl,regs,flat)};
         if (this.fixedFallbackPrograms) stage.fixedKey = fixedShaderKey(hlsl, 'vertex', 11);
-        if (this.pendingProgrammableFallback || this.programmableFallback)
+        if (this.programmableFallback)
           stage.fallbackCode = decodeFallbackVertexCode(hlsl, regs, flat);
       }
       catch(error){postMessage({type:'vertex-diagnostic',hlsl,regs,flat});throw error;}
@@ -553,58 +566,75 @@ void main() {
     }
     return stage;
   }
-  program(source,kinds,shadows,flat,vertexPointer=0,regs=0,prewarm=false) {
+  programVariant(source,kinds,shadows,flat,vertexPointer,regs) {
     const key=source+':'+kinds+':'+shadows+':'+flat+':'+vertexPointer+':'+regs;
-    if(this.programs.has(key)) return this.programs.get(key);
+    const cached = this.programVariants.get(key);
+    if (cached) return cached;
     const programLimit = MAX_LINKED_PROGRAMS - (this.fixedFallbackPrograms?.length ?? 0)
-      - Number(Boolean(this.pendingProgrammableFallback || this.programmableFallback));
-    if(this.programs.size>=programLimit)throw new Error('GPU shader cache budget exceeded');
+      - Number(Boolean(this.programmableFallback));
+    if (this.programVariants.size >= programLimit) throw new Error('GPU shader variant budget exceeded');
     const fragmentSource=pixelGlsl(source,kinds,shadows,flat);
     const vertex=this.vertexStage(vertexPointer,regs,flat);
-    const sources=this.shaderWarmup&&[vertex.source,fragmentSource];
-    const recipeKey=sources&&JSON.stringify(sources);
-    const g=this.gl;
-    if(sources){
-      const warm=this.takeWarmProgram(recipeKey);
-      if(warm){
-        this.shaderWarmup.remember(sources,recipeKey);
-        this.programs.set(key,warm);
-        return warm;
-      }
-      if(this.programs.size+this.warmPrograms.size>=programLimit){
-        const unused=this.warmPrograms.keys().next().value;
-        g.deleteProgram(this.warmPrograms.get(unused).p);
-        this.warmPrograms.delete(unused);
-      }
-    }
-    let fragmentShader=this.fragmentShaders.get(fragmentSource);
-    if(fragmentShader) {
-      this.shaderStats.fragmentReuses++;
-    } else {
-      if(this.fragmentShaders.size>=MAX_LINKED_PROGRAMS)throw new Error('GPU fragment shader cache budget exceeded');
-      fragmentShader=this.compileShader(g.FRAGMENT_SHADER,fragmentSource);
-      this.fragmentShaders.set(fragmentSource,fragmentShader);
-      this.shaderStats.fragmentCompiles++;
-    }
-    const vertexShader=vertex.shader??=this.compileShader(g.VERTEX_SHADER,vertex.source);
-    const p=this.linkStages(vertexShader,fragmentShader);
-    const program={p,pending:true,vertexShader,vertexPointer,regs,flat,vertexSource:vertex.source,fragmentShader,fragmentSource,sources,recipeKey};
+    const specialized = this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit);
+    // Exact GLSL can be shared. Fallback admission and its draw-state keys
+    // still belong to the original variant that supplied them.
+    let fallback;
     const fixedVertex = vertex.fixedKey && vertex.fixedKey[0] === regs && !vertex.fixedKey[8] && !vertex.fixedKey[9];
     if (this.fixedFallbackTexture && (fixedVertex || vertex.fallbackCode) &&
         kinds.every(kind => kind <= 1) && shadows.every(shadow => !shadow)) {
       const pixelKey = fixedShaderKey(source, 'pixel', 41);
       const textureMask = kinds.reduce((mask, kind, stage) => mask | kind << stage, 0);
       if (pixelKey?.[4] === textureMask) {
-        program.fixedFallback = {
-          pipeline: fixedVertex ? this.fixedFallbackPrograms[Number(flat)] : null,
+        fallback = {
+          pipeline: fixedVertex ? this.fixedFallbackPrograms[Number(flat)] : this.programmableFallback,
           vertexKey: vertex.fixedKey, vertexCode: vertex.fallbackCode, pixelKey
         };
       }
     }
-    // The extension only controls when we can check the link. Both stages
-    // have already been submitted to the compiler, including in fallback.
-    if((!prewarm&&!program.fixedFallback)||!this.parallelShaderCompile)this.readyProgram(program);
-    this.programs.set(key,program);
+    const variant = {specialized, fallback};
+    this.programVariants.set(key, variant);
+    return variant;
+  }
+  specializedProgram(vertex, fragmentSource, diagnostic, programLimit) {
+    const sources = [vertex.source, fragmentSource];
+    const recipeKey = JSON.stringify(sources);
+    const cached = this.programs.get(recipeKey);
+    if (cached) {
+      this.shaderStats.programReuses++;
+      return cached;
+    }
+    if (this.programs.size >= programLimit) throw new Error('GPU shader cache budget exceeded');
+    const g=this.gl;
+    const warm = this.takeWarmProgram(recipeKey);
+    if (warm && !warm.pending) {
+      this.shaderWarmup.remember(sources, recipeKey);
+      this.programs.set(recipeKey, warm);
+      return warm;
+    }
+    if (this.warmPrograms && this.programs.size + this.warmPrograms.size >= programLimit) {
+      const unused = this.warmPrograms.keys().next().value;
+      g.deleteProgram(this.warmPrograms.get(unused).p);
+      this.warmPrograms.delete(unused);
+    }
+    let p, vertexShader, fragmentShader;
+    if (warm) {
+      ({p, vertexShader, fragmentShader} = warm);
+    } else {
+      fragmentShader=this.fragmentShaders.get(fragmentSource);
+      if(fragmentShader) {
+        this.shaderStats.fragmentReuses++;
+      } else {
+        if(this.fragmentShaders.size>=MAX_LINKED_PROGRAMS)throw new Error('GPU fragment shader cache budget exceeded');
+        fragmentShader=this.compileShader(g.FRAGMENT_SHADER,fragmentSource);
+        this.fragmentShaders.set(fragmentSource,fragmentShader);
+        this.shaderStats.fragmentCompiles++;
+      }
+      vertexShader=vertex.shader??=this.compileShader(g.VERTEX_SHADER,vertex.source);
+      p=this.linkStages(vertexShader,fragmentShader);
+    }
+    const program = {p, pending:true, vertexShader, fragmentShader, ...diagnostic,
+      vertexSource:vertex.source, fragmentSource, sources, recipeKey, fromWarmup:!!warm};
+    this.programs.set(recipeKey, program);
     return program;
   }
   finishProgram(p,result={}) {
@@ -627,11 +657,11 @@ void main() {
       borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false});
     return result;
   }
-  readyProgram(program) {
+  readyProgram(program, completed) {
     if(!program.pending)return program;
     if(program.error)throw program.error;
     const g=this.gl,start=performance.now(),extension=this.parallelShaderCompile;
-    const completed=extension&&g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR);
+    completed ??= !!extension && g.getProgramParameter(program.p,extension.COMPLETION_STATUS_KHR);
     const linked=g.getProgramParameter(program.p,g.LINK_STATUS),wait=performance.now()-start;
     this.shaderStats.waitMs+=wait;this.shaderStats.maxWaitMs=Math.max(this.shaderStats.maxWaitMs,wait);
     if(!completed)this.shaderStats.blockingPrograms++;
@@ -653,21 +683,21 @@ void main() {
       } finally { g.deleteProgram(program.p); }
     }
     if(completed)this.shaderStats.readyWithoutWait++;
+    if(program.fromWarmup)this.shaderStats.warmupHits++;
     g.detachShader(program.p,program.vertexShader);
     g.detachShader(program.p,program.fragmentShader);
     program.pending=false;const ready=this.finishProgram(program.p,program);this.shaderStats.completedPrograms++;
-    if(program.sources)this.shaderWarmup.remember(program.sources,program.recipeKey);
+    if(this.shaderWarmup)this.shaderWarmup.remember(program.sources,program.recipeKey);
     program.vertexShader=program.fragmentShader=program.vertexSource=program.fragmentSource=program.sources=program.recipeKey=undefined;
     return ready;
   }
-  resolveProgram(program) {
-    if (!program.pending || !program.fixedFallback || program.error) return this.readyProgram(program);
+  resolveProgram({specialized:program, fallback}) {
+    if (!program.pending || !fallback || program.error) return this.readyProgram(program);
     if (program.lastFallbackPoll !== this.frame) {
       program.lastFallbackPoll = this.frame;
-      if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program);
+      if (this.gl.getProgramParameter(program.p, this.parallelShaderCompile.COMPLETION_STATUS_KHR)) return this.readyProgram(program,true);
     }
-    const fallback = program.fixedFallback;
-    return fallback.vertexCode ? this.readyProgrammableFallback() ?? this.readyProgram(program) : fallback.pipeline;
+    return fallback.pipeline;
   }
   shaderError(shader,source) {
     const message=this.gl.getShaderInfoLog(shader),lines=source.split('\n');
@@ -731,15 +761,24 @@ void main() {
       g.deleteFramebuffer(entry.framebuffer);entry=undefined;
     }
     if(!entry){
-      const layout=`c:${color?`${color.w}x${color.h}:RGBA8:${color.format}`:'none'};d:${depth?`${depth.w}x${depth.h}:DEPTH24_STENCIL8:${depth.format}`:'none'};draw:${color?'COLOR_ATTACHMENT0':'NONE'};read:${color?'COLOR_ATTACHMENT0':'NONE'}`;
-      let validated=this.validatedFramebufferLayouts.has(layout);
+      const target = color ?? depth;
+      // Level-zero RGBA8 color and packed depth/stencil are required formats.
+      // The batch still checks WebGL errors if an allocation or draw fails.
+      const standard = target?.texture && target.w > 0 && target.h > 0 &&
+        target.w <= this.maxTextureSize && target.h <= this.maxTextureSize &&
+        !color?.depth && (!depth || (depth.depth && depth.texture)) &&
+        (!color || !depth || (color.w === depth.w && color.h === depth.h));
+      const layout = standard ? null :
+        `c:${color?`${color.w}x${color.h}:RGBA8:${color.format}`:'none'};d:${depth?`${depth.w}x${depth.h}:DEPTH24_STENCIL8:${depth.format}`:'none'};draw:${color?'COLOR_ATTACHMENT0':'NONE'};read:${color?'COLOR_ATTACHMENT0':'NONE'}`;
+      const validated = layout && this.validatedFramebufferLayouts.has(layout);
       if(validated){this.validatedFramebufferLayouts.delete(layout);this.validatedFramebufferLayouts.set(layout,true);}
       const framebuffer=g.createFramebuffer();
+      if (!framebuffer) throw new Error('Could not allocate a GPU framebuffer');
       g.bindFramebuffer(g.FRAMEBUFFER,framebuffer);this.boundFramebuffer=framebuffer;
       g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,color?.texture||null,0);
       g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,depth?.texture||null,0);
       g.drawBuffers([color?g.COLOR_ATTACHMENT0:g.NONE]);g.readBuffer(color?g.COLOR_ATTACHMENT0:g.NONE);
-      if(!validated){
+      if(layout && !validated){
         if(g.checkFramebufferStatus(g.FRAMEBUFFER)!==g.FRAMEBUFFER_COMPLETE){
           g.deleteFramebuffer(framebuffer);this.boundFramebuffer=null;
           throw new Error('GPU framebuffer is incomplete');
@@ -778,11 +817,13 @@ void main() {
       if(kinds.some(k=>k===2||k===3))throw new Error('GPU 3D/cube texture admission is not implemented');
       this.pointerPrograms ??= new Map();
       const programKey=`${source}:${s[37]}:${kinds}:${shadows}:${!!s[32]}:${s[39]&0xffff}`;
-      let program=this.pointerPrograms.get(programKey);
-      if(!program){program=this.program(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);this.pointerPrograms.set(programKey,program);}
-      const specialized = program;
-      program=this.resolveProgram(specialized);
-      const fallback = program === specialized ? null : specialized.fixedFallback;
+      let variant=this.pointerPrograms.get(programKey);
+      if(!variant){
+        variant=this.programVariant(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);
+        this.pointerPrograms.set(programKey,variant);
+      }
+      const program = this.resolveProgram(variant);
+      const fallback = program === variant.specialized ? null : variant.fallback;
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};

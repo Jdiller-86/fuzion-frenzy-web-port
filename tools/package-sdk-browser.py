@@ -68,6 +68,8 @@ pacing; it remains best-effort. Development fallbacks:
 ?threadedGpu=0&pipelinedGpu=0 (serial), ?pipelinedGpu=0 (synchronous submit).
 ?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
 ?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
+Ready shader fallbacks cover supported draws while specialized programs link.
+?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window
 at its original aspect ratio. Controls opens fullscreen and Stop game actions.

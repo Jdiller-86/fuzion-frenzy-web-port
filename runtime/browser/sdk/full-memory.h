@@ -34,11 +34,17 @@ inline constexpr auto kWindowOffsets = [] {
 }
 } // namespace ff_browser_memory
 
-// Let the compiler see each fixed-width floating-point access and its check.
-// The out-of-line accessor still reports any rejected guest span.
+// Check each fixed-width access with one rejection test. Window entries use
+// kBackingSize for unmapped addresses. The last byte carries into kWindowSize
+// only when the complete span crosses the first byte's window.
 template<size_t Width>
 [[gnu::always_inline]] inline uint8_t* ff_sdk_guest_scalar_ptr(uint32_t va) {
-    static_assert(Width > 0 && Width <= ff_browser_memory::kWindowSize);
-    if (auto* pointer = ff_browser_memory::TryWindow(va, Width)) return pointer;
+    using namespace ff_browser_memory;
+    static_assert(Width > 0 && Width <= kWindowSize);
+    const uint32_t offset = va & (kWindowSize - 1);
+    const uint32_t window = kWindowOffsets[va >> kWindowBits];
+    const uint32_t lastByte = offset + uint32_t(Width - 1);
+    const uint32_t crossing = (lastByte & kWindowSize) * (kBackingSize / kWindowSize);
+    if ((window | crossing) < kBackingSize) return backing + window + offset;
     return ff_sdk_guest_ptr(va, Width);
 }

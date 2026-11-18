@@ -165,15 +165,12 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
   const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true,shaderFallback===true);
   const prepareShaders = renderer === 'webgl' && shaderPrewarm !== false;
   const gpu = prepareShaders && (shaderWarmup === true || shaderFallback === true) ? createGpu() : undefined;
-  if (gpu?.parallelShaderCompile && shaderWarmup === true) {
-    report('Preparing recorded WebGL shader programs…');
-    try {
-      const {openShaderWarmup}=await import('./shader-warmup.mjs');
-      const store=await openShaderWarmup(xbeHash);
-      if(cancelled)return;
-      gpu.prepareWarmup(store);
-    } catch { postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}); }
-  }
+  const warmup = gpu?.parallelShaderCompile && shaderWarmup === true
+    ? import('./shader-warmup.mjs')
+        .then(({openShaderWarmup}) => openShaderWarmup(xbeHash))
+        .then(store => { if (!cancelled) gpu.prepareWarmup(store); })
+        .catch(() => postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}))
+    : undefined;
   if(cancelled)return;
   report('Starting the full SDK runtime from the local disc image…');
   const gameXbe = new Blob([xbe], { type: 'application/octet-stream' });
@@ -232,8 +229,12 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,ra
       saveTimer = setInterval(() => flushSaves().catch(error => postMessage({ type: 'log', text: `Save persistence: ${error.message}` })), 30000);
     } catch (error) { report(`Browser save storage is unavailable: ${error.message}. Saves will last only for this run.`); }
   }
+  if (warmup) await warmup;
   if (cancelled) { stopThreads(module); return; }
-  module.onFuzionGpu?.finishFixedFallbacks();
+  if (module.onFuzionGpu?.pendingFixedFallbackPrograms) {
+    report('Preparing resident WebGL shaders…');
+    module.onFuzionGpu.finishFixedFallbacks();
+  }
   pushInput();
   const bootFn = module._ff_browser_boot;
   if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');

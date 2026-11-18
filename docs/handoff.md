@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** inlining checked integer memory accesses cut the largest Twisted System guest enqueue gap from 75.96 to 65.56 ms. The opt-in shader fallback still recorded zero blocking links in the cold run. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
-- **Next:** reduce the remaining guest scene-entry work and measure the bigger Wasm module on modest hardware. Qualify 60 FPS before testing 120 FPS and comparing original game timing.
+- **Browser.** Startup now prepares fallback shaders by default. Exact program reuse reduced specialized links from 27 to 16 in cold Twisted System replays with zero blocking shader links and a remaining 63.68 ms scene-entry gap. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Next.** Reduce the remaining guest scene-entry and GPU submission costs. Measure modest hardware, then qualify 60 FPS and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
@@ -17,7 +17,7 @@ The selected C allocation wrapper and SDK allocator return; startup reaches the 
 [Current runtime evidence](status.md) owns detailed observations and limits. [Structured state](../profiles/development-state.json) owns this generated pointer; [workflow](development-workflow.md) explains preflight and updates. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05) owns the SDK integration assignment; the retained startup stop is a reference boundary. Source-only work can proceed without private inputs; original execution requires the matching local baseline. No milestone is accepted by this record.
 <!-- development-state:end -->
 
-For Goal G and #49, use the scalar-window capture to isolate the guest work inside the remaining 65.56 ms gap. The runtime samples show one scheduled frame wait plus parsing and floating-point work before the next render submission. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
+For Goal G and #49, use the aligned cold Twisted System capture to isolate the remaining scene-entry work. The largest gap starts on the guest, with scheduled frame waiting, parsing and floating-point work visible in the stacks. The following submission still has a synchronous WebGL error check. The controlled original comparison with recorded input and audible audio remains open. [Goal G](local-agent-handoff.md#g-sustained-browser-execution-and-host-delivery-mb05)
 
 Follow [status](status.md), the [scope ledger](m1-work-scope.md) and [SDK workflow](resource-reuse.md). Keep M44 unchanged. Give the separate SDK candidate explicit resource/import/export/dispatch limits and retain basic bounds, identity and private-content checks. Detailed contract certification and independent correctness review follow the working baseline, before accepted-checkpoint promotion. M1 remains incomplete; original/generated content stays local.
 

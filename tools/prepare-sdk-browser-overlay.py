@@ -111,6 +111,22 @@ def main() -> int:
     # noinline weak wrapper. Title objects compile with -mtail-call.
     text = text.replace('{ impl(ctx, base); }', '{ [[clang::musttail]] return impl(ctx, base); }')
     text = text.replace('#include "x86_context.h"', '#include "x86_context.h"\n#include "ff_sdk_guest_memory.hpp"')
+    # Two ordered comparisons recover the same C0, C2 and C3 bits, including
+    # unordered inputs. The translated x87-heavy paths read these bits often.
+    x87_compare = '''    uint16_t c;
+    if (std::isnan(a) || std::isnan(b)) c = 0x4500;
+    else if (a > b) c = 0;
+    else if (a < b) c = 0x0100;
+    else c = 0x4000;
+    ctx.fsw = uint16_t((ctx.fsw & ~0x4500) | c);'''
+    if text.count(x87_compare) != 1:
+        raise RuntimeError('Browser x87 compare anchor differs from the pinned SDK')
+    text = text.replace(x87_compare, '''    const bool at_most = a <= b;
+    const bool at_least = a >= b;
+    const uint16_t c = (at_least ? 0 : 0x0100) |
+                       ((at_most || at_least) ? 0 : 0x0400) |
+                       ((at_most == at_least) ? 0x4000 : 0);
+    ctx.fsw = uint16_t((ctx.fsw & ~0x4500) | c);''', 1)
     for macro, width in (("X86_MEM8", 1), ("X86_MEM16", 2), ("X86_MEM32", 4),
                          ("X86_MEM64", 8), ("X86_MEMF32", 4), ("X86_MEMF64", 8)):
         import re
