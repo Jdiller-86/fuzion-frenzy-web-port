@@ -52,6 +52,7 @@ MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 LOADER_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-loader-bytes.inc"
 SCENE_LINES_HELPER = ROOT / "runtime/browser/sdk/guest-scene-lines.inc"
+GUEST_BINDING_HELPER = ROOT / "runtime/browser/sdk/guest-function-binding.inc"
 CODE_WARMUP_HELPER = ROOT / "runtime/browser/sdk/guest-code-warmup.h"
 CODE_WARMUP_PROFILE = ROOT / "profiles/browser-code-warmup.json"
 REPEATED_LINE_HELPER = ROOT / "runtime/browser/sdk/guest-repeated-line.inc"
@@ -424,6 +425,11 @@ def scene_line_batch_available(shards: list[tuple[int, Path]]) -> bool:
     return True
 
 
+def uses_default_implementation(address: bytes) -> bytes:
+    return (b"ff_browser_guest_binding::UsesDefaultImplementation(sub_" + address +
+            b", __imp__sub_" + address + b")")
+
+
 def lower_scene_line_batches(source: bytes, shard: int) -> tuple[bytes, int]:
     address = SCENE_LINE_PRIMITIVES.get(shard)
     if address is None:
@@ -443,15 +449,19 @@ def lower_scene_line_batches(source: bytes, shard: int) -> tuple[bytes, int]:
         raise ValueError("scene parser declarations differ from the reviewed build")
     defaults = list(SCENE_LINE_PRIMITIVES.values())
     declarations = b"".join(b"X86_EXTERN_FUNC(__imp__sub_" + address + b");\n" for address in defaults)
-    guard = b" && ".join(b"sub_" + address + b" == __imp__sub_" + address for address in defaults)
+    guard = b" && ".join(uses_default_implementation(address) for address in defaults)
     digest = sha256(SCENE_LINES_HELPER.read_bytes()).encode("ascii")
     source = source.replace(header, header + b"// Scene line helper SHA-256: " + digest +
                             b'\n#include "guest-scene-lines.inc"\n' + declarations, 1)
+    entry = b"X86_FUNC(__imp__sub_" + SCENE_PARSER + b") {"
+    if source.count(entry) != 1:
+        raise ValueError("scene parser entry differs from the reviewed build")
+    source = source.replace(entry, entry + b"\n\tconst bool batchSceneLines = " + guard + b";", 1)
     for label, args in ((b"loc_001BA192:", b"false, (ctx.ebx & 255) != 0"),
                         (b"loc_001BA2A4:", b"true, false")):
         if source.count(label) != 1:
             raise ValueError("scene parser loop boundary differs from the reviewed build")
-        source = source.replace(label, label + b"\n\tif (" + guard + b")\n"
+        source = source.replace(label, label + b"\n\tif (batchSceneLines)\n"
                                 b"\t\tff_browser_loader_bytes::SkipQuietSceneLines(ctx.esp, ctx.esi, " + args + b");", 1)
     return source, 2
 
@@ -478,7 +488,7 @@ def lower_decimal_prefix(source: bytes) -> tuple[bytes, int]:
                        b'__attribute__((weak, alias("' + implementation + b'")));')
         normalized = normalized.replace(wrapper, declaration, 1)
     body = bodies[DECIMAL_BODY]
-    defaults = b" && ".join(b"sub_" + address + b" == __imp__sub_" + address for address in DECIMAL_HELPERS)
+    defaults = b" && ".join(uses_default_implementation(address) for address in DECIMAL_HELPERS)
     lowered = body.replace(b"\tX86_LOAD_FLAGS();", b"\tX86_LOAD_FLAGS();\n\tuint8_t* decimalFrame = nullptr;", 1)
     lowered = lowered.replace(
         b"\nloc_001E7F6E:",
@@ -501,7 +511,7 @@ def lower_decimal_product(source: bytes) -> tuple[bytes, int]:
     if body is None or matched_body(source, DECIMAL_PRODUCT_CALLER, DECIMAL_PRODUCT_CALLER_DIGEST) is None:
         return source, 0
     label = b"\nloc_001E8599:"
-    entry = (b"\n\tif (sub_001E7E6D == __imp__sub_001E7E6D)\n"
+    entry = (b"\n\tif (" + uses_default_implementation(b"001E7E6D") + b")\n"
              b"\t\tff_browser_decimal::AccumulateProduct(ctx.ebp, ctx.esp, ctx.esi, ctx.ebx);")
     return source.replace(body, body.replace(label, entry + label, 1), 1), 1
 
@@ -538,7 +548,7 @@ def lower_scanner_word(source: bytes) -> tuple[bytes, int]:
     # Only run on entry to a field. The scalar backedge bypasses the guard.
     lifted = scanner.replace(
         entry,
-        b"\n\tif (sub_001E3C71 == __imp__sub_001E3C71)"
+        b"\n\tif (" + uses_default_implementation(b"001E3C71") + b")"
         b"\n\t\tctx.ebx += ff_browser_loader_bytes::SkipSuppressedWord(ctx.ebp, ctx.esp);" + entry,
         1,
     )
@@ -1123,6 +1133,9 @@ def main() -> int:
             adapted, admitted, alias_count = prepare_code_warmup(original, adapted, warmup_records)
             warmup_names.extend(admitted)
             warmup_alias_count += alias_count
+        if b"ff_browser_guest_binding::UsesDefaultImplementation(" in adapted:
+            digest = sha256(GUEST_BINDING_HELPER.read_bytes()).encode("ascii")
+            adapted = b'// Guest binding helper SHA-256: ' + digest + b'\n#include "guest-function-binding.inc"\n' + adapted
         if source.name == "x86_func_mapping.cpp":
             adapted += emit_code_warmup(warmup_names)
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
