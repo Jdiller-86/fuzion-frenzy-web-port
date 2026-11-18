@@ -115,6 +115,13 @@ LOADER_BYTE_LOOPS = (
      b" }"),
     (b"X86_FUNC(__imp__sub_001DF0F0) {",
      "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
+     b"\n\tX86_LOAD_FLAGS();",
+     b"\n\tif (const auto miss = ff_browser_loader_bytes::TrySubstringMiss(ctx.esp, ctx.esi, ctx.ebx, ctx.edi);"
+     b" miss.complete) {"
+     b" ctx.ecx = miss.needle; ctx.edx = (ctx.edx & 0xffff0000u) | miss.pair;"
+     b" ctx.eax = 0; ctx.esp += 4; return; }"),
+    (b"X86_FUNC(__imp__sub_001DF0F0) {",
+     "339fa7becfb6f256dc1cc33fbce8315ab1eb40803fbad2d301a11e65dd6ca353",
      b"\nloc_001DF119:",
      b"\n\t{"
      b" const auto match = ff_browser_loader_bytes::SearchPairBytes(ctx.esi, uint16_t(ctx.edx));"

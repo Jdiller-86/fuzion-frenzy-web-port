@@ -42,8 +42,8 @@ struct PairSearch {
     bool atEnd;
 };
 
-inline PairSearch SearchPairBytes(uint32_t source, uint16_t target) noexcept {
-    const uint32_t available = std::min(kMaxPrefixBytes, BytesInWindow(source));
+inline PairSearch SearchPairBytes(uint32_t source, uint16_t target, uint32_t limit = kMaxPrefixBytes) noexcept {
+    const uint32_t available = std::min(limit, BytesInWindow(source));
     if (available <= kChunkBytes) return {};
     const auto* input = ff_browser_memory::TryWindow(source, available);
     if (!input) return {};
@@ -88,6 +88,38 @@ inline uint32_t SearchAsciiWordsToSkip(uint32_t source, uint8_t target) noexcept
 
 inline bool Overlaps(const uint8_t* a, size_t aSize, const uint8_t* b, size_t bSize) noexcept {
     return a < b + bSize && b < a + aSize;
+}
+
+struct SubstringMiss {
+    uint32_t needle;
+    uint16_t pair;
+    bool complete;
+};
+
+inline SubstringMiss TrySubstringMiss(uint32_t stack, uint32_t esi, uint32_t ebx, uint32_t edi) noexcept {
+    using ff_browser_memory::TryWindow;
+    constexpr size_t saves = 3 * sizeof(uint32_t);
+    auto* frame = TryWindow(stack - uint32_t(saves), saves + 3 * sizeof(uint32_t));
+    if (!frame) return {};
+    uint32_t caller;
+    std::memcpy(&caller, frame + saves, 4);
+    if (caller != 0x001ba1b4 && caller != 0x001ba2c6) return {};
+    uint32_t source, needle;
+    std::memcpy(&source, frame + saves + 4, 4);
+    std::memcpy(&needle, frame + saves + 8, 4);
+    const auto* prefix = TryWindow(needle, 2);
+    if (!prefix || !prefix[0] || !prefix[1] || Overlaps(prefix, 2, frame, saves)) return {};
+    uint16_t pair;
+    std::memcpy(&pair, prefix, 2);
+    const auto match = SearchPairBytes(source, pair, 128);
+    if (!match.atEnd) return {};
+    const auto* text = TryWindow(source, match.advance);
+    if (!text || Overlaps(text, match.advance, frame, saves)) return {};
+    // These writes reproduce the original pushes in stack order. A miss
+    // before any candidate leaves the saved registers as they were on entry.
+    const uint32_t saved[] = {esi, ebx, edi};
+    std::memcpy(frame, saved, saves);
+    return {needle, pair, true};
 }
 
 inline uint32_t CopyStringPrefix(uint32_t source, uint32_t destination) noexcept {
