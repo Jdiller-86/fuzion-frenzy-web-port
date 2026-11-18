@@ -1,3 +1,5 @@
+#include <array>
+
 namespace ff_browser_loader_bytes {
 
 inline bool SceneLineCaller(uint32_t caller) noexcept {
@@ -15,9 +17,40 @@ inline bool SceneDelimiter(uint8_t byte) noexcept {
     return byte == '\r' || byte == '\n';
 }
 
+inline uint64_t ReadSceneMarkerWord(const uint8_t* bytes) noexcept {
+    uint64_t word;
+    std::memcpy(&word, bytes, sizeof(word));
+    return word;
+}
+
+struct SceneMarker {
+    uint16_t pair;
+    uint64_t prefix;
+};
+
+struct SceneMarkers {
+    SceneMarker first;
+    uint16_t secondPair;
+    std::array<uint64_t, 4> secondPrefixes;
+
+    bool CouldMatch(const uint8_t* bytes, size_t available) const noexcept {
+        const uint16_t pair = uint16_t(bytes[0]) | (uint16_t(bytes[1]) << 8);
+        if (pair != first.pair && pair != secondPair) return false;
+        if (available < sizeof(uint64_t)) return true;
+        const uint64_t word = ReadSceneMarkerWord(bytes);
+        if (pair == first.pair && (!first.prefix || word == first.prefix)) return true;
+        if (pair == secondPair) {
+            for (const auto prefix : secondPrefixes)
+                if (!prefix || word == prefix) return true;
+        }
+        return false;
+    }
+};
+
 inline const uint8_t* QuietSceneLineEnd(const uint8_t* input, const uint8_t* limit,
-                                        uint16_t first, uint16_t second) noexcept {
+                                       const SceneMarkers& markers) noexcept {
     const auto cr = wasm_i8x16_splat('\r'), lf = wasm_i8x16_splat('\n'), zero = wasm_i8x16_splat(0);
+    const uint16_t first = markers.first.pair, second = markers.secondPair;
     const auto firstLow = wasm_i8x16_splat(uint8_t(first)), firstHigh = wasm_i8x16_splat(uint8_t(first >> 8));
     const auto secondLow = wasm_i8x16_splat(uint8_t(second)), secondHigh = wasm_i8x16_splat(uint8_t(second >> 8));
     for (; limit - input > kChunkBytes; input += kChunkBytes) {
@@ -26,16 +59,17 @@ inline const uint8_t* QuietSceneLineEnd(const uint8_t* input, const uint8_t* lim
         const auto a = wasm_v128_and(wasm_i8x16_eq(current, firstLow), wasm_i8x16_eq(following, firstHigh));
         const auto b = wasm_v128_and(wasm_i8x16_eq(current, secondLow), wasm_i8x16_eq(following, secondHigh));
         const auto stops = wasm_v128_or(wasm_v128_or(a, b), wasm_v128_or(delimiters, wasm_i8x16_eq(current, zero)));
-        const uint32_t mask = wasm_i8x16_bitmask(stops);
-        if (mask) {
+        uint32_t mask = wasm_i8x16_bitmask(stops);
+        while (mask) {
             const auto* stop = input + std::countr_zero(mask);
-            return SceneDelimiter(*stop) ? stop : nullptr;
+            if (SceneDelimiter(*stop)) return stop;
+            if (!*stop || markers.CouldMatch(stop, size_t(limit - stop))) return nullptr;
+            mask &= mask - 1;
         }
     }
     for (; limit - input > 1; ++input) {
         if (SceneDelimiter(*input)) return input;
-        const uint16_t pair = uint16_t(input[0]) | (uint16_t(input[1]) << 8);
-        if (!*input || pair == first || pair == second) return nullptr;
+        if (!*input || markers.CouldMatch(input, size_t(limit - input))) return nullptr;
     }
     return nullptr;
 }
@@ -58,19 +92,35 @@ inline void SkipQuietSceneLines(uint32_t stack, uint32_t file, bool fill, bool c
     if (!source || Overlaps(source, available, frame, savedScratch + frameBytes) ||
         Overlaps(source, available, descriptor, 16)) return;
 
-    auto readPair = [&](uint32_t address) -> uint16_t {
-        const auto* pair = TryWindow(address, 2);
-        if (!pair || !pair[0] || !pair[1] || Overlaps(pair, 2, frame, savedScratch + frameBytes) ||
-            Overlaps(pair, 2, descriptor, 16)) return 0;
-        return uint16_t(pair[0]) | (uint16_t(pair[1]) << 8);
+    auto markerSpan = [&](uint32_t address, size_t width) -> const uint8_t* {
+        const auto* bytes = TryWindow(address, width);
+        if (!bytes || Overlaps(bytes, width, frame, savedScratch + frameBytes) ||
+            Overlaps(bytes, width, descriptor, 16)) return nullptr;
+        return bytes;
     };
-    const uint16_t first = readPair(0x267c10);
-    const uint16_t second = fill ? readPair(0x267bf4) : (countActive ? readPair(0x267c50) : first);
-    if (!first || !second) return;
+    auto readMarker = [&](uint32_t address) -> SceneMarker {
+        const auto* bytes = markerSpan(address, sizeof(uint64_t));
+        const uint64_t word = bytes ? ReadSceneMarkerWord(bytes) : 0;
+        if (!bytes) bytes = markerSpan(address, 2);
+        if (!bytes || !bytes[0] || !bytes[1]) return {};
+        // A zero byte requires the original pair check.
+        constexpr uint64_t lowBits = 0x0101010101010101ull, highBits = 0x8080808080808080ull;
+        const uint64_t prefix = ((word - lowBits) & ~word & highBits) ? 0 : word;
+        return {uint16_t(uint16_t(bytes[0]) | (uint16_t(bytes[1]) << 8)), prefix};
+    };
+    const auto first = readMarker(0x267c10);
+    const auto second = fill ? readMarker(0x267bf4) : (countActive ? readMarker(0x267c50) : first);
+    if (!first.pair || !second.pair) return;
+    SceneMarkers markers{first, second.pair, {second.prefix, second.prefix, second.prefix, second.prefix}};
     // The fill pass can search three more markers inside a matching section.
-    // Use the same scan only when all three live prefixes match the second pair.
-    if (fill && saved[0x12] &&
-        (readPair(0x267c50) != second || readPair(0x267be0) != second || readPair(0x267bcc) != second)) return;
+    if (fill && saved[0x12]) {
+        constexpr std::array<uint32_t, 3> extraMarkers{0x267c50, 0x267be0, 0x267bcc};
+        for (size_t i = 0; i < extraMarkers.size(); ++i) {
+            const auto marker = readMarker(extraMarkers[i]);
+            if (marker.pair != second.pair) return;
+            markers.secondPrefixes[i + 1] = marker.prefix;
+        }
+    }
 
     const auto* limit = source + available;
     const auto* line = source;
@@ -78,7 +128,7 @@ inline void SkipQuietSceneLines(uint32_t stack, uint32_t file, bool fill, bool c
     size_t lastLength = 0;
     while (line < limit) {
         const auto* stop = QuietSceneLineEnd(line, line + std::min<size_t>(limit - line, lineCapacity + 1),
-                                             first, second);
+                                             markers);
         if (!stop || limit - stop < 2 || !SceneDelimiter(stop[1])) break;
         const size_t length = size_t(stop - line);
         if (length >= lineCapacity) break;
