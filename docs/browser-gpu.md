@@ -183,6 +183,10 @@ Two empty-cache foreground Chrome runs used the same Wasm and disc with the defa
 
 The renderer skips the synchronous framebuffer status query for its checked level-zero RGBA8 and packed depth/stencil layouts. Other layouts retain explicit validation, and command batches and readback check WebGL errors. The scene-entry submission following the long guest gap took 38.01 ms before the change and 33.69–34.80 ms in the two default-shader runs. Samples moved from the framebuffer query to `getError`, which accounted for about 9–10 ms in that submission. This points to driver command synchronization as a remaining GPU-side cost. Scene and driver state vary across captures. [OpenGL ES 3.0.6 specification, section 4.4.4](https://registry.khronos.org/OpenGL/specs/es/3.0/es_spec_3.0.pdf)
 
+Color-target uploads now compute the Morton offsets once per axis and check the largest source span before converting pixels. Initial allocations and refreshes use the same decoder with the existing BGRA and RGB565 conversions. A cold original Twisted System replay used the previous 47.65 MB Wasm. The submission following the largest guest gap took 32.30 ms versus 34.80 ms in the retained run. Samples in color-target handling were 3.92 versus 4.43 ms. Acknowledgement p95 was 17.29 ms over 850 intervals and the maximum was 63.29 ms. The game rendered and stopped without a reported error, with zero blocking shader links. Scene state and driver cache varied between launches. Independent review checked rectangular and non-power-of-two addressing, pitch, alpha and bounds.
+
+A private guest-entry alias trial reduced the linked function count from 12,851 to 11,920 and increased the module by 92 kB. The toolchain preserved strong SDK overrides for direct and indirect calls. The trial measured a 64.30 ms largest acknowledgement gap versus 63.68 ms in the retained run. The published build uses the original linkage.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -191,7 +195,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest CPU and render preparation.** Reduce the remaining roughly 64 ms Twisted System scene-entry gap. The remaining GPU-side hitch includes driver synchronization and new texture uploads. Retain bounds, palette/content checks, queue ownership and barriers.
+1. **Guest CPU and render preparation.** Reduce the roughly 63 ms Twisted System scene-entry gap. Inspect the repeated x87 loads, arithmetic and stores in the loader for an exact lowering. The following frame still samples about 5 ms in SDK texture decoding and about 11 ms in synchronous WebGL error checks. Retain bounds, palette/content checks, queue ownership and barriers.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.

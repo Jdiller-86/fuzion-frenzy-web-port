@@ -5,6 +5,49 @@ import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERT
 
 const MAX_LINKED_PROGRAMS = 2048;
 
+function decodeColorTarget(input, width, height, format, pitch, linear) {
+  const bytesPerPixel = format === 0x05 || format === 0x11 ? 2 : 4;
+  const opaque = format === 0x07 || format === 0x1e;
+  let columns, rows;
+  if (!linear) {
+    let xMask = 0, yMask = 0, bit = bytesPerPixel;
+    for (let size = 1; size < width || size < height; size *= 2) {
+      if (size < width) { xMask |= bit; bit *= 2; }
+      if (size < height) { yMask |= bit; bit *= 2; }
+    }
+    // Increment the interleaved address bits separately for each axis.
+    columns = new Uint32Array(width);
+    rows = new Uint32Array(height);
+    for (let x = 1; x < width; x++) columns[x] = (columns[x - 1] - xMask) & xMask;
+    for (let y = 1; y < height; y++) rows[y] = (rows[y - 1] - yMask) & yMask;
+  }
+  const last = linear ? (height - 1) * pitch + (width - 1) * bytesPerPixel
+    : rows[height - 1] + columns[width - 1];
+  if (last + bytesPerPixel > input.length) throw new Error('Surface span mismatch');
+
+  const rgba = new Uint8Array(width * height * 4);
+  let dst = 0;
+  for (let y = 0; y < height; y++) {
+    const row = linear ? y * pitch : rows[y];
+    for (let x = 0; x < width; x++, dst += 4) {
+      const src = row + (linear ? x * bytesPerPixel : columns[x]);
+      if (bytesPerPixel === 4) {
+        rgba[dst] = input[src + 2];
+        rgba[dst + 1] = input[src + 1];
+        rgba[dst + 2] = input[src];
+        rgba[dst + 3] = opaque ? 255 : input[src + 3];
+      } else {
+        const pixel = input[src] | (input[src + 1] << 8);
+        rgba[dst] = (pixel >> 11) * 255 / 31;
+        rgba[dst + 1] = ((pixel >> 5) & 63) * 255 / 63;
+        rgba[dst + 2] = (pixel & 31) * 255 / 31;
+        rgba[dst + 3] = 255;
+      }
+    }
+  }
+  return rgba;
+}
+
 function fixedShaderKey(source, kind, length) {
   const match = /^\/\/ ff_browser_fixed_(vertex|pixel)=([0-9,]+)$/m.exec(source);
   if (match?.[1] !== kind) return null;
@@ -712,15 +755,7 @@ void main() {
     const sameAllocation=old&&old.w===w&&old.h===h&&old.format===format&&old.depth===!!depth;
     if(sameAllocation && old.hashLo===hashLo && old.hashHi===hashHi) {old.last=this.frame;return;}
     if(sameAllocation&&!depth) {
-      const input=this.bytes(ptr,size),rgba=new Uint8Array(w*h*4),bpp=[0x05,0x11].includes(format)?2:4;
-      for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
-        let o=0,bit=0;
-        if(linear) o=y*pitch+x*bpp;
-        else {for(let m=1;m<w||m<h;m<<=1) {if(m<w) {if(x&m)o|=1<<bit;bit++;}if(m<h){if(y&m)o|=1<<bit;bit++;}}o*=bpp;}
-        const q=(y*w+x)*4;if(o+bpp>input.length)throw new Error('Surface span mismatch');
-        if(bpp===4) {rgba[q]=input[o+2];rgba[q+1]=input[o+1];rgba[q+2]=input[o];rgba[q+3]=[7,0x1e].includes(format)?255:input[o+3];}
-        else {const v=input[o]|input[o+1]<<8;rgba[q]=(v>>11)*255/31;rgba[q+1]=(v>>5&63)*255/63;rgba[q+2]=(v&31)*255/31;rgba[q+3]=255;}
-      }
+      const rgba = decodeColorTarget(this.bytes(ptr,size),w,h,format,pitch,linear);
       this.bindTexture(this.activeUnit,old.texture,true);
       this.gl.texSubImage2D(this.gl.TEXTURE_2D,0,0,0,w,h,this.gl.RGBA,this.gl.UNSIGNED_BYTE,rgba);
       old.hashLo=hashLo;old.hashHi=hashHi;old.last=this.frame;
@@ -738,15 +773,7 @@ void main() {
     }
     else {
       if(![0x06,0x07,0x12,0x1e,0x05,0x11].includes(format)) throw new Error(`Unsupported GPU target format 0x${format.toString(16)}`);
-      const input=this.bytes(ptr,size), rgba=new Uint8Array(w*h*4), bpp=[0x05,0x11].includes(format)?2:4;
-      for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
-        let o=0,bit=0;
-        if(linear) o=y*pitch+x*bpp;
-        else {for(let m=1;m<w||m<h;m<<=1) {if(m<w) {if(x&m)o|=1<<bit;bit++;}if(m<h){if(y&m)o|=1<<bit;bit++;}}o*=bpp;}
-        const q=(y*w+x)*4;if(o+bpp>input.length)throw new Error('Surface span mismatch');
-        if(bpp===4) {rgba[q]=input[o+2];rgba[q+1]=input[o+1];rgba[q+2]=input[o];rgba[q+3]=[7,0x1e].includes(format)?255:input[o+3];}
-        else {const v=input[o]|input[o+1]<<8;rgba[q]=(v>>11)*255/31;rgba[q+1]=(v>>5&63)*255/63;rgba[q+2]=(v&31)*255/31;rgba[q+3]=255;}
-      }
+      const rgba = decodeColorTarget(this.bytes(ptr,size),w,h,format,pitch,linear);
       g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,w,h,0,g.RGBA,g.UNSIGNED_BYTE,rgba);
     }
     this.targets.set(id,t);
