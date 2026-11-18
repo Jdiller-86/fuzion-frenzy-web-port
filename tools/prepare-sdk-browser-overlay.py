@@ -254,6 +254,20 @@ def main() -> int:
     anchor = 'if (kRenderThread) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));'
     if text.count(anchor)!=1: raise RuntimeError('Browser render-thread selection anchor differs')
     text = 'bool ff_webgl_threaded_enabled();\n' + text.replace(anchor,'if (ff_webgl_threaded_enabled()) g_backend = gpu::CreateThreadedBackend(std::move(g_backend));')
+    sync = 'void SyncDeferred() {'
+    next_function = '\nfloat ZScale('
+    if text.count(sync) != 1 or text.count(next_function) != 1:
+        raise RuntimeError('Browser deferred-state refresh anchors differ')
+    start = text.index(sync)
+    end = text.index(next_function, start)
+    expected = 'a4915944ea5e39311ba11bcfe47e1c226a9e9215592c331fe44ab1292bdd639e'
+    if hashlib.sha256(text[start:end].encode('utf-8')).hexdigest() != expected:
+        raise RuntimeError('Browser deferred-state refresh source differs')
+    helper = root / 'runtime/browser/sdk/guest-deferred-state.inc'
+    digest = hashlib.sha256(helper.read_bytes()).hexdigest()
+    text = ('#include <utility>\n#include <wasm_simd128.h>\n#include "full-memory.h"\n'
+            + text[:start] + f'// Deferred state helper SHA-256: {digest}\n'
+            + '#include "guest-deferred-state.inc"\n' + text[end:])
     d3d.write_text(text,encoding='utf-8')
     (out/'browser-threading-manifest.json').write_text(json.dumps(threading,indent=2)+'\n',encoding='utf-8')
 
