@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser:** the opt-in startup-linked programmable fallback brought blocking shader links to zero in cold Twisted System. The longest frame acknowledgement gap fell from 110.09 to 76.05 ms and starts before WebGL submission. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
-- **Next:** reduce the repeatable 76 ms guest enqueue gap at Twisted System scene entry. Qualify 60 FPS on a modest PC before testing 120 FPS and comparing original game timing.
+- **Browser:** inlining checked integer memory accesses cut the largest Twisted System guest enqueue gap from 75.96 to 65.56 ms. The opt-in shader fallback still recorded zero blocking links in the cold run. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Next:** reduce the remaining guest scene-entry work and measure the bigger Wasm module on modest hardware. Qualify 60 FPS before testing 120 FPS and comparing original game timing.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
