@@ -70,6 +70,7 @@ pacing; it remains best-effort. Development fallbacks:
 ?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
 ?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
 Ready shader fallbacks cover supported draws while specialized programs link.
+Without parallel shader compilation, covered draws keep using these programs.
 ?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window

@@ -143,7 +143,7 @@ void main() {
   vTc0=aTc0;vTc1=aTc1;vTc2=aTc2;vTc3=aTc3;
 }`;
     this.defaultVertexStage = {source:this.vertexSource,shader:this.compileShader(gl.VERTEX_SHADER,this.vertexSource)};
-    if (shaderFallback && this.parallelShaderCompile && this.gpuVertices) this.beginFixedFallbacks();
+    if (shaderFallback && shaderPrewarm && this.gpuVertices) this.beginFixedFallbacks();
     canvas.addEventListener('webglcontextlost', e => {
       e.preventDefault();
       this.deferGpuErrors = false;
@@ -775,8 +775,11 @@ void main() {
         };
       }
     }
-    const defer = Boolean(fallback && this.pipelined && this.deferGpuErrors);
-    const specialized = this.specializedProgram(vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit, defer);
+    // Without completion polling, even a link submitted earlier can make
+    // the first draw wait. Keep using the prepared program for these draws.
+    const specialized = fallback && !this.parallelShaderCompile ? null : this.specializedProgram(
+      vertex, fragmentSource, {vertexPointer, regs, flat}, programLimit,
+      Boolean(fallback && this.pipelined && this.deferGpuErrors));
     const variant = {specialized, fallback};
     this.programVariants.set(key, variant);
     return variant;
@@ -920,6 +923,7 @@ void main() {
     }
   }
   resolveProgram({specialized:program, fallback}) {
+    if (!program) return fallback.pipeline;
     if (!fallback || program.error || program.drawUniformsReady) return this.readyProgram(program);
     if (this.pipelined && this.deferGpuErrors) {
       this.pendingDrawPrograms.add(program);
