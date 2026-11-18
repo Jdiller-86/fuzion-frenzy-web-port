@@ -24,18 +24,30 @@ FUNCTION_BOUNDARY = re.compile(rb"(?m)^(?:X86_FUNC|X86_WEAK_FUNC|X86_TRACED_FUNC
 EH_MARKER = re.compile(rb"\btry[ \t]*\{|\bcatch[ \t]*\(")
 ADDRESS_TERM = rb"(?:0x[0-9A-Fa-f]+u|ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)(?: \* [1248]u)?)"
 ADDRESS = ADDRESS_TERM + rb"(?: \+ " + ADDRESS_TERM + rb"){0,2}"
-MEMORY_F32 = re.compile(
-    rb"(?m)^(?P<load>[ \t]+// [0-9A-F]{8} fld[ \t][^\r\n]*\r?\n)"
+F32_LOAD = (
+    rb"(?P<load>[ \t]+// [0-9A-F]{8} fld[ \t][^\r\n]*\r?\n)"
     rb"(?P<indent>[ \t]+)\{ uint32_t ea = \(uint32_t\)\((?P<left>" + ADDRESS + rb")\);"
     rb" x87_push\(ctx, \(double\)X86_MEMF32\(ea\)\); \}\r?\n"
+)
+F32_ARITHMETIC = (
     rb"(?P<arithmetic>[ \t]+// [0-9A-F]{8} f(?:add|sub|mul|div)[ \t][^\r\n]*\r?\n)"
     rb"[ \t]+\{ uint32_t ea = \(uint32_t\)\((?P<right>" + ADDRESS + rb")\);"
     rb" double s = \(double\)X86_MEMF32\(ea\); double d = X87_ST\(0\); X87_ST\(0\) ="
     rb" x87_prec\(ctx, \(d (?P<operation>[+*/-]) s\)\); \}\r?\n"
+)
+MEMORY_F32 = re.compile(
+    rb"(?m)^" + F32_LOAD + F32_ARITHMETIC +
     rb"(?P<store>[ \t]+// [0-9A-F]{8} fstp[ \t][^\r\n]*\r?\n)"
     rb"[ \t]+\{ uint32_t ea = \(uint32_t\)\((?P<dst>" + ADDRESS + rb")\);"
     rb" X86_MEMF32\(ea\) = \(float\)X87_ST\(0\); x87_pop\(ctx\); \}(?=\r?$)"
 )
+COMPARE_F32 = re.compile(
+    rb"(?m)^" + F32_LOAD + rb"(?:" + F32_ARITHMETIC + rb")?" +
+    rb"(?P<compare>[ \t]+// [0-9A-F]{8} fcomp[ \t][^\r\n]*\r?\n)"
+    rb"[ \t]+\{ uint32_t ea = \(uint32_t\)\((?P<limit>" + ADDRESS + rb")\);"
+    rb" x87_compare\(ctx, X87_ST\(0\), \(double\)X86_MEMF32\(ea\)\); x87_pop\(ctx\); \}(?=\r?$)"
+)
+COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 STACK_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp)"
 PUSH_COMMENT = rb"[ \t]+// [0-9A-F]{8} push[ \t][^\r\n]*\r?\n"
 PUSH_OPERAND = rb"(?:0x[0-9A-Fa-f]+u|" + STACK_REGISTER + rb")"
@@ -89,6 +101,20 @@ def lower_memory_f32(match: re.Match[bytes]) -> bytes:
     )
 
 
+def lower_compare_f32(match: re.Match[bytes]) -> bytes:
+    arithmetic = match["operation"]
+    operands = ["left", "limit"]
+    template = b""
+    if arithmetic:
+        operands.append("right")
+        template = b"<'" + arithmetic + b"'>"
+    return (
+        match["load"] + (match["arithmetic"] or b"") + match["compare"] + match["indent"]
+        + b"ff_browser_x87::CompareF32" + template + b"(ctx, "
+        + b", ".join(b"uint32_t(" + match[operand] + b")" for operand in operands) + b");"
+    )
+
+
 def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
     push_count = 0
 
@@ -120,7 +146,7 @@ def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
     return block, push_count, pop_count
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int]:
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -128,6 +154,7 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int]:
     excluded_eh_transfers = 0
     eh_functions = 0
     f32_transforms = 0
+    f32_compares = 0
     push_runs = pop_runs = 0
 
     for index, marker in enumerate(markers):
@@ -155,6 +182,8 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int]:
 
             block, count = MEMORY_F32.subn(lower_memory_f32, block)
             f32_transforms += count
+            block, count = COMPARE_F32.subn(lower_compare_f32, block)
+            f32_compares += count
             block, pushes, pops = lower_stack_runs(block)
             push_runs += pushes
             pop_runs += pops
@@ -172,7 +201,10 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int]:
         adapted = b'#include "guest-x87.h"\n' + adapted
     if push_runs or pop_runs:
         adapted = b'#include "guest-stack.h"\n' + adapted
-    return adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms, push_runs, pop_runs
+    if f32_compares:
+        helper_digest = sha256(COMPARE_HELPER.read_bytes()).encode("ascii")
+        adapted = b'// x87 comparison helper SHA-256: ' + helper_digest + b'\n#include "guest-x87-compare.inc"\n' + adapted
+    return adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms, push_runs, pop_runs, f32_compares
 
 
 def main() -> int:
@@ -225,10 +257,12 @@ def main() -> int:
     total_transforms = 0
     total_excluded_eh_transfers = 0
     total_f32_transforms = 0
+    total_f32_compares = 0
     total_push_runs = total_pop_runs = 0
     for source in package:
         original = source.read_bytes()
-        adapted, count, excluded_eh_transfers, eh_functions, f32_transforms, push_runs, pop_runs = adapt_source(original)
+        (adapted, count, excluded_eh_transfers, eh_functions,
+         f32_transforms, push_runs, pop_runs, f32_compares) = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -241,6 +275,7 @@ def main() -> int:
                 "excludedEHTransferCount": excluded_eh_transfers,
                 "EHFunctionCount": eh_functions,
                 "x87MemoryF32Count": f32_transforms,
+                "x87CompareF32Count": f32_compares,
                 "stackPushRunCount": push_runs,
                 "stackPopRunCount": pop_runs,
                 "adaptedSha256": sha256(adapted),
@@ -249,6 +284,7 @@ def main() -> int:
         total_transforms += count
         total_excluded_eh_transfers += excluded_eh_transfers
         total_f32_transforms += f32_transforms
+        total_f32_compares += f32_compares
         total_push_runs += push_runs
         total_pop_runs += pop_runs
 
@@ -263,6 +299,7 @@ def main() -> int:
         "totalTransforms": total_transforms,
         "excludedEHTransfers": total_excluded_eh_transfers,
         "x87MemoryF32Count": total_f32_transforms,
+        "x87CompareF32Count": total_f32_compares,
         "stackPushRunCount": total_push_runs,
         "stackPopRunCount": total_pop_runs,
         "files": records,
@@ -274,6 +311,7 @@ def main() -> int:
     print(f"Prepared {len(shards)} title shards with {total_transforms} musttail transfers "
           f"and {total_f32_transforms} x87 memory sequences in {output}")
     print(f"Combined {total_push_runs} push runs and {total_pop_runs} pop runs")
+    print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
 
