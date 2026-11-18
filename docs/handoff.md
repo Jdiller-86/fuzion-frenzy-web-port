@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Prepared shaders cover supported draws even when parallel shader compilation is unavailable. With the extension hidden in a hardware-rendered Water Gate Scramble replay, blocking links fell from ten to zero and worst WebGL submission fell from 238.23 to 10.24 ms. [Gameplay observations](browser-gpu.md#cold-shader-links-without-parallel-compilation)
-- **Next.** Reduce repeated segment tests during Water Gate Scramble scene setup. A 210.63 ms gap sampled 103.17 ms in the intersection routine at `0x001EA530`. Measure modest hardware and verify original game timing before testing 120 FPS.
+- **Browser.** Shared memory checks for the original segment routine cut the largest Water Gate Scramble gap from 210.63 to 135.38 ms. Samples on the main intersection call stack fell from 103.17 to 38.81 ms. [Gameplay observations](browser-gpu.md#checked-segment-intersection-spans)
+- **Next.** Look for repeated inputs in Water Gate Scramble's grid-mask pass and reuse exact arithmetic where the inputs match. Measure modest hardware and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

@@ -232,6 +232,12 @@ First frame arrived in 0.97 and 1.77 seconds. In the final 120 asynchronous GPU 
 
 An extension-enabled follow-up drove the original boat after the countdown. Chrome sampled 194.19 ms of active guest code during a 210.63 ms scene-entry gap. Repeated calls to the segment intersection routine at `0x001EA530` accounted for 103.17 ms, and its grid-mask caller at `0x0019EAA0` accounted for another 28.39 ms. WebGL submission for that frame took about 0.06 ms. The trace recorded zero blocking links through the opening race. This points to the grid-mask computation as the next larger target.
 
+### Checked segment intersection spans
+
+The browser adapter recognizes the exact emitted intersection body by digest. It checks the stack frame, two segments and result once per call and reuses their mapped spans throughout the original arithmetic and branches. Calls with an unadmitted span, an aliased result flag or a requested normal vector use the checked body. The optional-normal guard preserves the original NaN sign in degenerate cases. A focused Wasm comparison matched full CPU state, guest bytes and faults in 5,184 cases, including 1,548 admitted calls and 1,376 faults. The ThinLTO build reused 91 objects and rebuilt one title shard. The Wasm grew by 3,995 bytes.
+
+In the foreground Water Gate Scramble replay, the longest acknowledgement gap fell from 210.63 to 135.38 ms. Active guest work in that gap fell from 194.19 to 118.22 ms. Samples on the main intersection call stack fell from 103.17 to 38.81 ms, and the grid caller's own samples fell from 28.39 to 18.96 ms. Acknowledgement p95 was 17.22 ms in both launches across 843 and 909 adjacent pairs. Both launches used the same local disc, reached keyboard-controlled play and stopped cleanly with zero blocking shader links. Scene and driver state varied between launches. The selected Wasm SHA-256 is `f206e4393383b9608ebc7ea52d22e8d48b36d56cc0876bcf7ab39ba307aa00d0`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
@@ -240,7 +246,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** Reduce the 53–56 ms Twisted System gap. About 37–39 ms of those intervals is active guest work, with repeated x87 scene calculations, resource lookup and numeric conversion in the traces. Erodeo's last measured first scene-entry gap was 38.60 ms, followed by a 43.22 ms gap that includes WebGL submission. Preserve guest timing, draw ordering and checked memory.
+1. **Guest scene setup.** Look for repeated inputs and reusable exact arithmetic in Water Gate Scramble's grid-mask pass. The 135.38 ms gap includes 118.22 ms of active guest work. Twisted System still has a 53–56 ms gap with about 37–39 ms of active guest work. Erodeo's measured first scene-entry gap was 38.60 ms, followed by a 43.22 ms gap that includes WebGL submission. Preserve guest timing, draw ordering and checked memory.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. Measure repeatable gameplay at a verified 60 Hz or 120 Hz presentation cadence and check replay-transition timing. Keep the original virtual-blank period and callback sequence.

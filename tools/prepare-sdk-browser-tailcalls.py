@@ -50,6 +50,7 @@ COMPARE_F32 = re.compile(
 COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
 MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
+INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
 GUEST_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)"
 MEMORY_WORD = re.compile(
     rb"(?m)^(?P<comment>[ \t]+// [0-9A-F]{8} mov[ \t][^\r\n]*\r?\n)"
@@ -75,6 +76,14 @@ POP_WORD = re.compile(
 )
 PUSH_RUN = re.compile(rb"(?m)^(?P<words>(?:" + PUSH_WORD.pattern + rb")+)(?P<call>" + CALL_RETURN.pattern + rb")?")
 POP_RUN = re.compile(rb"(?m)^(?:" + POP_WORD.pattern + rb"){2,}")
+
+INTERSECTION_ENTRY = b"X86_FUNC(__imp__sub_001EA530) {"
+INTERSECTION_DIGEST = "4e477fe9e69b75be72f0085e213f3b64d7080316084ec56dda323d3e60895e93"
+INTERSECTION_ACCESS = re.compile(
+    rb"(?m)^(?P<comment>[ \t]+// (?P<pc>[0-9A-F]{8}) [^\n]*\n)"
+    rb"(?P<indent>[ \t]+)\{ uint32_t ea = \(uint32_t\)\((?P<address>[^)\n]+)\); (?P<body>[^\n]*) \}$"
+)
+INTERSECTION_MEMORY = re.compile(rb"X86_MEM(?P<type>32|F32|8)\(ea\)")
 
 
 def instruction_comment(opcode: bytes) -> bytes:
@@ -242,7 +251,76 @@ def lower_memory_runs(block: bytes) -> tuple[bytes, int, int]:
     return b"".join(pieces), runs, words
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int]:
+def lower_intersection(block: bytes) -> tuple[bytes, int]:
+    if not block.startswith(INTERSECTION_ENTRY):
+        return block, 0
+    head, closing, _ = block.replace(b"\r\n", b"\n").partition(b"\n}")
+    if not closing or sha256(head + closing) != INTERSECTION_DIGEST:
+        return block, 0
+
+    argument_loads = {
+        0x001EA533: b"leftAddress",
+        0x001EA53A: b"rightAddress",
+        0x001EA89B: b"resultAddress",
+        0x001EA957: b"resultAddress",
+    }
+    types = {b"32": b"x86_u32u", b"F32": b"x86_f32u", b"8": b"uint8_t"}
+    spans = {b"ecx": (b"spans.left", 16), b"edx": (b"spans.right", 16), b"eax": (b"spans.result", 24)}
+
+    def map_access(match: re.Match[bytes]) -> bytes:
+        pc = int(match["pc"], 16)
+        address = match["address"]
+        body = match["body"]
+        prefix = match["comment"] + match["indent"]
+        if pc in argument_loads:
+            body = body.replace(b"X86_MEM32(ea)", b"spans." + argument_loads[pc])
+            return prefix + b"{ " + body + b" }"
+
+        base, _, displacement = address.partition(b" + ")
+        read_only = base != b"ctx.esp" and base != b"ctx.eax"
+        if base == b"ctx.esp":
+            pointer, capacity = b"spans.stack", 48
+            offset = int(displacement[:-1], 16) if displacement else 0
+            # Admit ESP-32. Before the save and after the early success pop,
+            # ESP is four bytes above that anchor.
+            if pc < 0x001EA540 or 0x001EA910 < pc < 0x001EA92F:
+                offset += 4
+        elif base.startswith(b"ctx."):
+            pointer, capacity = spans[base[4:]]
+            offset = int(displacement[:-1], 16) if displacement else 0
+        else:
+            pointer, capacity = b"ff_browser_memory::backing", 1 << 26
+            offset = int(base[:-1], 16)
+
+        def map_memory(access: re.Match[bytes]) -> bytes:
+            kind = access["type"]
+            width = 1 if kind == b"8" else 4
+            if not 0 <= offset <= capacity - width:
+                raise ValueError("intersection access exceeds its admitted span")
+            qualifier = b"const " if read_only else b""
+            return b"(*reinterpret_cast<" + qualifier + types[kind] + b"*>(" + pointer + b" + " + str(offset).encode() + b"))"
+
+        body, count = INTERSECTION_MEMORY.subn(map_memory, body)
+        if not count:
+            raise ValueError("intersection instruction has no recognized memory access")
+        return prefix + b"{ " + body + b" }"
+
+    body, count = INTERSECTION_ACCESS.subn(map_access, head[len(INTERSECTION_ENTRY):])
+    body = body.replace(b"X86_PUSH32(v)", b"ctx.esp -= 4; *reinterpret_cast<x86_u32u*>(spans.stack) = v")
+    body = body.replace(b"X86_MEM32(ctx.esp)", b"*reinterpret_cast<const x86_u32u*>(spans.stack)")
+    if count != 198 or re.search(rb"\bX86_(?:MEM|PUSH|POP|PTR)", body):
+        raise ValueError("intersection body contains unmapped memory operations")
+
+    fast = (b"[[gnu::always_inline]] static inline void ff_browser_mapped_intersection(\n"
+            b"    X86Context& __restrict ctx, const ff_browser_intersection::Spans& spans) noexcept {"
+            + body + closing + b"\n\n")
+    entry = (INTERSECTION_ENTRY + b"\n\tff_browser_intersection::Spans spans;\n"
+             b"\tif (ff_browser_intersection::TrySpans(ctx.esp, spans)) [[likely]] {\n"
+             b"\t\tff_browser_mapped_intersection(ctx, spans);\n\t\treturn;\n\t}")
+    return fast + entry + block[len(INTERSECTION_ENTRY):], 1
+
+
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -254,6 +332,7 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     push_runs = pop_runs = 0
     memory_runs = memory_words = 0
     matching_byte_loops = 0
+    mapped_intersections = 0
 
     for index, marker in enumerate(markers):
         start = marker.start()
@@ -262,6 +341,8 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
         pieces.append(original[cursor:start])
 
         if block.startswith(b"X86_FUNC("):
+            block, count = lower_intersection(block)
+            mapped_intersections += count
             if contains_eh(block):
                 excluded_eh_transfers += len(TAIL_TRANSFER.findall(block))
                 eh_functions += 1
@@ -313,8 +394,11 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     if matching_byte_loops:
         helper_digest = sha256(MATCHING_BYTES_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Matching bytes helper SHA-256: ' + helper_digest + b'\n#include "guest-matching-bytes.inc"\n' + adapted
+    if mapped_intersections:
+        helper_digest = sha256(INTERSECTION_HELPER.read_bytes()).encode("ascii")
+        adapted = b'// Intersection spans helper SHA-256: ' + helper_digest + b'\n#include "guest-intersection-spans.inc"\n' + adapted
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
-            push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops)
+            push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops, mapped_intersections)
 
 
 def main() -> int:
@@ -371,11 +455,12 @@ def main() -> int:
     total_push_runs = total_pop_runs = 0
     total_memory_runs = total_memory_words = 0
     total_matching_byte_loops = 0
+    total_mapped_intersections = 0
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
-         matching_byte_loops) = adapt_source(original)
+         matching_byte_loops, mapped_intersections) = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -394,6 +479,7 @@ def main() -> int:
                 "memoryWordRunCount": memory_runs,
                 "memoryWordsInRuns": memory_words,
                 "matchingByteLoopCount": matching_byte_loops,
+                "mappedIntersectionCount": mapped_intersections,
                 "adaptedSha256": sha256(adapted),
             }
         )
@@ -406,6 +492,7 @@ def main() -> int:
         total_memory_runs += memory_runs
         total_memory_words += memory_words
         total_matching_byte_loops += matching_byte_loops
+        total_mapped_intersections += mapped_intersections
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -424,6 +511,7 @@ def main() -> int:
         "memoryWordRunCount": total_memory_runs,
         "memoryWordsInRuns": total_memory_words,
         "matchingByteLoopCount": total_matching_byte_loops,
+        "mappedIntersectionCount": total_mapped_intersections,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -435,6 +523,7 @@ def main() -> int:
     print(f"Combined {total_push_runs} push runs and {total_pop_runs} pop runs")
     print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
     print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
+    print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
