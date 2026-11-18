@@ -15,6 +15,28 @@ import runpy
 from pathlib import Path
 
 
+def adapt_dispatcher_wakes(runtime: Path) -> None:
+    source = runtime / "kernel/objects.cpp"
+    text = source.read_text(encoding="utf-8")
+    helper_path = Path(__file__).resolve().parents[1] / "runtime/browser/sdk/dispatcher-waits.inc"
+    helper = helper_path.read_text(encoding="utf-8")
+    dispatcher = "std::condition_variable g_cv;\n"
+    finite = "            g_cv.wait_for(lock, nanoseconds(std::min<int64_t>(deadline - now, 50000000)));"
+    infinite = "            g_cv.wait_for(lock, milliseconds(50));"
+    release = "        o.owner = 0;\n        SetSignal(o, 1);\n        g_cv.notify_all();"
+    replacements = (
+        (dispatcher, dispatcher + "\n" + helper),
+        (finite, "            ParkedWait parked(objs);\n" + finite),
+        (infinite, "            ParkedWait parked(objs);\n" + infinite),
+        (release, release.replace("g_cv.notify_all();", "if (ParkedWait::Includes(o)) g_cv.notify_all();")),
+    )
+    for anchor, replacement in replacements:
+        if text.count(anchor) != 1:
+            raise RuntimeError("Browser dispatcher-wait optimization anchor differs")
+        text = text.replace(anchor, replacement, 1)
+    source.write_text(text, encoding="utf-8")
+
+
 def adapt_nonindexed_converted_assembler(runtime: Path) -> None:
     """Avoid a per-draw index sequence when converted draws are non-indexed."""
     source = runtime / "gpu/vertex.cpp"
@@ -170,6 +192,7 @@ def main() -> int:
     adapter_header = out / "ff_sdk_guest_memory.hpp"
     adapter_header.write_text('#pragma once\n#include "full-memory.h"\n', encoding="utf-8")
 
+    adapt_dispatcher_wakes(out)
     adapt_nonindexed_converted_assembler(out)
     runpy.run_path(str(root / 'tools/prepare-sdk-browser-vertices.py'))['adapt_browser_vertices'](out)
     runpy.run_path(str(root / 'tools/prepare-sdk-browser-pacing.py'))['adapt_browser_pacing'](out)
