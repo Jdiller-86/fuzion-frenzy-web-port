@@ -1,6 +1,7 @@
 #include "cpu/x86_ops.h"
 #include "full-memory.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -91,6 +92,44 @@ template<bool Wide, typename Side>
         return (sides.below & 3u) == 3u || (sides.above & 3u) == 3u;
     };
 }
+
+template<typename Side>
+inline uint32_t ProveOneSidedPrefix(Side side, const std::array<float, 3>& terms,
+                                   const uint8_t* points, uint32_t count,
+                                   float tolerance, float zero, int previous) noexcept {
+    if (!previous || count < 8 || zero != 0.0f) return 0;
+    constexpr float pointLimit = 0x1p12f;
+    const double bound = (std::abs(double(terms[0])) + std::abs(double(terms[1]))) * pointLimit
+                         + std::abs(double(terms[2]));
+    if (!(bound <= 0x1p120) || tolerance > bound) return 0;
+
+    // The lifted expression is c + (x*b + y*a). For admitted coordinates,
+    // bound covers the sum of absolute terms. Allow sixteen binary32 unit
+    // roundoffs and a normal-minimum slack for underflow. This covers both
+    // the four binary32 operations and the wide result's final narrowing.
+    // Strict comparison to the rounded cutoff excludes its rounding interval.
+    const float cutoff = float(double(std::max(0.0f, tolerance)) + bound * 0x1p-20 + 0x1p-126);
+    const auto distance = wasm_f32x4_splat(cutoff);
+    const auto limit = wasm_f32x4_splat(pointLimit);
+    const auto sign = wasm_i32x4_splat(previous < 0 ? std::numeric_limits<int32_t>::min() : 0);
+    const auto splat = [](float term) { return std::bit_cast<Float4>(wasm_f32x4_splat(term)); };
+    const auto a = splat(terms[0]), b = splat(terms[1]), c = splat(terms[2]);
+    const auto provesFour = [&](const uint8_t* firstPoint) {
+        const auto first = wasm_v128_load(firstPoint), second = wasm_v128_load(firstPoint + 16);
+        const auto xs = std::bit_cast<Float4>(wasm_i32x4_shuffle(first, second, 0, 2, 4, 6));
+        const auto ys = std::bit_cast<Float4>(wasm_i32x4_shuffle(first, second, 1, 3, 5, 7));
+        const auto bounded = wasm_v128_and(wasm_f32x4_le(wasm_f32x4_abs(first), limit),
+                                           wasm_f32x4_le(wasm_f32x4_abs(second), limit));
+        const auto values = wasm_v128_xor(std::bit_cast<v128_t>(side(xs, ys, a, b, c)), sign);
+        return wasm_i32x4_all_true(wasm_v128_and(bounded, wasm_f32x4_gt(values, distance)));
+    };
+    uint32_t proved = 0;
+    while (count - proved >= 8 && provesFour(points + proved * 8)
+           && provesFour(points + (proved + 4) * 8)) {
+        proved += 8;
+    }
+    return proved;
+}
 #endif
 
 template<typename Line, typename Side>
@@ -158,6 +197,8 @@ inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSi
         int previous = classify(queryTerms, edge);
         uint32_t rejected = 0;
 #if defined(__wasm_simd128__)
+        if constexpr (sizeof(Real) == sizeof(double))
+            rejected = ProveOneSidedPrefix(pointSide, queryTerms, rest, count, tolerance, zero, previous);
         const auto classifyFour = [&](uint32_t first) {
             return ClassifyFour<sizeof(Real) == sizeof(double)>(
                 pointSide, queryTerms, rest + first * 8, tolerance, zero);
