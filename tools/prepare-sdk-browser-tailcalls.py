@@ -48,6 +48,15 @@ COMPARE_F32 = re.compile(
     rb" x87_compare\(ctx, X87_ST\(0\), \(double\)X86_MEMF32\(ea\)\); x87_pop\(ctx\); \}(?=\r?$)"
 )
 COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
+MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
+GUEST_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)"
+MEMORY_WORD = re.compile(
+    rb"(?m)^(?P<comment>[ \t]+// [0-9A-F]{8} mov[ \t][^\r\n]*\r?\n)"
+    rb"(?P<indent>[ \t]+)\{ uint32_t ea = \(uint32_t\)\((?P<base>" + GUEST_REGISTER
+    + rb")(?: \+ 0x(?P<offset>[0-9A-Fa-f]{1,8})u)?\); "
+    rb"(?:(?P<load>" + GUEST_REGISTER + rb") = \(uint32_t\)\(X86_MEM32\(ea\)\);|"
+    rb"X86_MEM32\(ea\) = \(uint32_t\)\((?P<store>" + GUEST_REGISTER + rb"|0x[0-9A-Fa-f]{1,8}u)\);) \}\r?\n"
+)
 STACK_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp)"
 PUSH_COMMENT = rb"[ \t]+// [0-9A-F]{8} push[ \t][^\r\n]*\r?\n"
 PUSH_OPERAND = rb"(?:0x[0-9A-Fa-f]+u|" + STACK_REGISTER + rb")"
@@ -146,7 +155,50 @@ def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
     return block, push_count, pop_count
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int]:
+def lower_memory_runs(block: bytes) -> tuple[bytes, int, int]:
+    pieces = []
+    run = []
+    cursor = runs = words = 0
+
+    def emit() -> None:
+        nonlocal cursor, runs, words
+        if len(run) < 2:
+            return
+        offsets = [int(move["offset"] or b"0", 16) for move in run]
+        offsets = [offset - (1 << 32) if offset >= (1 << 31) else offset for offset in offsets]
+        if max(offsets) - min(offsets) + 4 > (1 << 26):
+            return
+        first, last = run[0], run[-1]
+        operation = "load" if first["load"] else "store"
+        template = b", ".join(str(offset).encode("ascii") for offset in offsets)
+        operands = b", ".join(move[operation] for move in run)
+        newline = b"\r\n" if last[0].endswith(b"\r\n") else b"\n"
+        pieces.append(block[cursor:first.start()])
+        pieces.extend(move["comment"] for move in run)
+        pieces.append(
+            first["indent"] + b"ff_browser_memory_runs::" + operation.title().encode("ascii")
+            + b"32<" + template + b">(" + first["base"] + b", " + operands + b");" + newline
+        )
+        cursor = last.end()
+        runs += 1
+        words += len(run)
+
+    for move in MEMORY_WORD.finditer(block):
+        if run:
+            previous = run[-1]
+            # There must be no alternate entry and no change to the base
+            # before the final instruction of a run.
+            if (previous.end() != move.start() or previous["base"] != move["base"]
+                    or previous["load"] == previous["base"] or bool(previous["load"]) != bool(move["load"])):
+                emit()
+                run.clear()
+        run.append(move)
+    emit()
+    pieces.append(block[cursor:])
+    return b"".join(pieces), runs, words
+
+
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -156,6 +208,7 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     f32_transforms = 0
     f32_compares = 0
     push_runs = pop_runs = 0
+    memory_runs = memory_words = 0
 
     for index, marker in enumerate(markers):
         start = marker.start()
@@ -187,6 +240,9 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
             block, pushes, pops = lower_stack_runs(block)
             push_runs += pushes
             pop_runs += pops
+            block, runs, words = lower_memory_runs(block)
+            memory_runs += runs
+            memory_words += words
         pieces.append(block)
         cursor = end
 
@@ -204,7 +260,11 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     if f32_compares:
         helper_digest = sha256(COMPARE_HELPER.read_bytes()).encode("ascii")
         adapted = b'// x87 comparison helper SHA-256: ' + helper_digest + b'\n#include "guest-x87-compare.inc"\n' + adapted
-    return adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms, push_runs, pop_runs, f32_compares
+    if memory_runs:
+        helper_digest = sha256(MEMORY_RUN_HELPER.read_bytes()).encode("ascii")
+        adapted = b'// Memory run helper SHA-256: ' + helper_digest + b'\n#include "guest-memory-runs.inc"\n' + adapted
+    return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
+            push_runs, pop_runs, f32_compares, memory_runs, memory_words)
 
 
 def main() -> int:
@@ -259,10 +319,11 @@ def main() -> int:
     total_f32_transforms = 0
     total_f32_compares = 0
     total_push_runs = total_pop_runs = 0
+    total_memory_runs = total_memory_words = 0
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
-         f32_transforms, push_runs, pop_runs, f32_compares) = adapt_source(original)
+         f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words) = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -278,6 +339,8 @@ def main() -> int:
                 "x87CompareF32Count": f32_compares,
                 "stackPushRunCount": push_runs,
                 "stackPopRunCount": pop_runs,
+                "memoryWordRunCount": memory_runs,
+                "memoryWordsInRuns": memory_words,
                 "adaptedSha256": sha256(adapted),
             }
         )
@@ -287,6 +350,8 @@ def main() -> int:
         total_f32_compares += f32_compares
         total_push_runs += push_runs
         total_pop_runs += pop_runs
+        total_memory_runs += memory_runs
+        total_memory_words += memory_words
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -302,6 +367,8 @@ def main() -> int:
         "x87CompareF32Count": total_f32_compares,
         "stackPushRunCount": total_push_runs,
         "stackPopRunCount": total_pop_runs,
+        "memoryWordRunCount": total_memory_runs,
+        "memoryWordsInRuns": total_memory_words,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -311,6 +378,7 @@ def main() -> int:
     print(f"Prepared {len(shards)} title shards with {total_transforms} musttail transfers "
           f"and {total_f32_transforms} x87 memory sequences in {output}")
     print(f"Combined {total_push_runs} push runs and {total_pop_runs} pop runs")
+    print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
