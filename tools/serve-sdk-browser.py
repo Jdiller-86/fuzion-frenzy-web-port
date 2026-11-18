@@ -2,7 +2,9 @@
 """Loopback-only, allowlisted host for the local-ISO browser build."""
 import argparse
 import errno
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 from pathlib import Path
 import threading
 import webbrowser
@@ -28,6 +30,22 @@ ROUTES = {
 
 
 class Handler(BaseHTTPRequestHandler):
+    _wasm_validator = None
+
+    @classmethod
+    def wasm_etag(cls, stream, stat):
+        key = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        cached = cls._wasm_validator
+        if cached and cached[0] == key:
+            return cached[1]
+        digest = hashlib.sha256()
+        while block := stream.read(1024 * 1024):
+            digest.update(block)
+        stream.seek(0)
+        etag = f'"{digest.hexdigest()}"'
+        cls._wasm_validator = (key, etag)
+        return etag
+
     def do_HEAD(self):
         self.do_GET()
 
@@ -40,20 +58,26 @@ class Handler(BaseHTTPRequestHandler):
         if source.is_symlink() or not source.is_file():
             self.send_error(503, 'Build artifact missing; compile the full SDK browser module first')
             return
-        self.send_response(200)
-        self.send_header('Content-Type', route[1])
-        self.send_header('Content-Length', str(source.stat().st_size))
-        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
-        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
-        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
-        self.send_header('Cache-Control', 'no-store')
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Referrer-Policy', 'no-referrer')
-        self.end_headers()
-        if self.command == 'HEAD':
-            return
         try:
             with source.open('rb') as stream:
+                stat = os.fstat(stream.fileno())
+                # Tag the exact module so the page can reuse compiled code
+                # when it starts another game worker.
+                etag = self.wasm_etag(stream, stat) if route[1] == 'application/wasm' else None
+                self.send_response(200)
+                self.send_header('Content-Type', route[1])
+                self.send_header('Content-Length', str(stat.st_size))
+                self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+                self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+                self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
+                self.send_header('Cache-Control', 'no-store')
+                if etag:
+                    self.send_header('ETag', etag)
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Referrer-Policy', 'no-referrer')
+                self.end_headers()
+                if self.command == 'HEAD':
+                    return
                 while block := stream.read(1024 * 1024):
                     self.wfile.write(block)
         except (BrokenPipeError, ConnectionResetError):

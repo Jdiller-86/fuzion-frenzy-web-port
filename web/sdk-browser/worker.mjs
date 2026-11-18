@@ -6,6 +6,8 @@ const PINNED_XBE = {
   bytes: 2_834_432,
   sha256: '45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9',
 };
+const SDK_WASM = '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm';
+const BUILD_ETAG = /^"[0-9a-f]{64}"$/;
 // These are the bounded candidate partition bases used by the retained native
 // XISO extractor and the SDK's own disc reader. `openXiso` checks the volume
 // descriptor and both directory ranges after each slice, so this reads only a
@@ -146,7 +148,24 @@ function parseInput(message) {
   lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,
+async function compileWasm(previous) {
+  if (typeof WebAssembly.compileStreaming !== 'function') return undefined;
+  try {
+    if (previous?.module instanceof WebAssembly.Module && BUILD_ETAG.test(previous.etag)) {
+      const head = await fetch(SDK_WASM, {method:'HEAD', cache:'no-store'});
+      if (head.ok && head.headers.get('ETag') === previous.etag) return previous;
+    }
+    if (cancelled) return undefined;
+    const response = await fetch(SDK_WASM, {cache:'no-store'});
+    if (!response.ok) return undefined;
+    const etag = response.headers.get('ETag');
+    return {etag, module:await WebAssembly.compileStreaming(response)};
+  } catch {
+    return undefined;
+  }
+}
+
+async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
                      shaderPrewarm,shaderWarmup,shaderFallback,gpuTiming,pacingTiming:measurePacing}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
@@ -167,6 +186,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
   const xbeHash = await digestHex(await xbe.arrayBuffer());
   if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
   if (cancelled) return;
+  const build = compileWasm(compiledWasm);
   const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true,shaderFallback===true);
   const prepareShaders = renderer === 'webgl' && shaderPrewarm !== false;
   const gpu = prepareShaders && (shaderWarmup === true || shaderFallback === true) ? createGpu() : undefined;
@@ -179,9 +199,18 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
   if(cancelled)return;
   report('Starting the full SDK runtime from the local disc image…');
   const gameXbe = new Blob([xbe], { type: 'application/octet-stream' });
+  const compiled = await build;
+  if (cancelled) return;
   const factory = createFuzionSdkRuntime;
   const module = await factory({
-    locateFile: name => name.endsWith('.wasm') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm' : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
+    locateFile: name => name.endsWith('.wasm') ? SDK_WASM : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
+    ...(compiled && {
+      instantiateWasm(imports, receiveInstance) {
+        const instance = new WebAssembly.Instance(compiled.module, imports);
+        receiveInstance(instance, compiled.module);
+        return instance.exports;
+      },
+    }),
     print: line => report(`SDK: ${line}`),
     printErr: line => postMessage({ type: 'log', text: String(line) }),
     onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason || 'Runtime aborted; the local browser console contains the stack.'), done: true }),
@@ -197,6 +226,11 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     }],
   });
   moduleInstance = module;
+  if (compiled && compiled !== compiledWasm && BUILD_ETAG.test(compiled.etag)) {
+    // Only the compiled module is shared. Each worker creates its own instance,
+    // guest memory and threads, and first verifies the local disc identity.
+    try { postMessage({type:'compiled-wasm', build:compiled}); } catch { /* Sharing is optional. */ }
+  }
   if (measurePacing === true) {
     const waits = [[], [], []];
     const presents = [];

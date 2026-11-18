@@ -8,6 +8,7 @@ let canvas = document.querySelector('#screen');
 const performanceReadout = document.querySelector('#performance');
 let context;
 let worker;
+let compiledWasm;
 let stopping = false;
 let inputTimer;
 let audioContext;
@@ -111,6 +112,7 @@ runButton.addEventListener('click', () => {
       log.textContent = lines.slice(-200).join('\n');
     }
     else if (data.type === 'progress') status.textContent = data.text;
+    else if (data.type === 'compiled-wasm') compiledWasm = data.build;
     else if (data.type === 'gpu-error') {
       error.textContent = data.text; status.textContent = 'GPU renderer stopped.'; stop();
     }
@@ -166,7 +168,7 @@ runButton.addEventListener('click', () => {
   const options = new URLSearchParams(location.search);
   const windowsPacing = /Windows/.test(navigator.userAgent);
   current.postMessage({
-    type: 'run', iso, renderer, canvas: offscreen,
+    type: 'run', iso, renderer, canvas: offscreen, compiledWasm,
     gpuVertices: options.get('cpuVertices') !== '1',
     threadedGpu: options.get('threadedGpu') !== '0',
     pipelinedGpu: options.get('pipelinedGpu') !== '0',

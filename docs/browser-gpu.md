@@ -372,13 +372,19 @@ The browser SDK passes the caller's existing object reference to the dispatcher 
 
 Sequential Water Gate Scramble replays sampled 6.02 and 3.77 ms under the title's allocation and release routines during scene entry. The prior trace sampled 0.56 ms in allocator cleanup under `NtWaitForSingleObjectEx`. The largest frame acknowledgement gap was 49.89 and 50.21 ms, and steady acknowledgement p95 was 16.98 and 17.02 ms across 485 and 482 frame pairs. Both runs recorded zero live shader links, reached keyboard-controlled gameplay and stopped cleanly. Scene state and scheduling can vary. The new module is 40,249,886 bytes with SHA-256 `50301271e14716d812c205d832c1cc15210a19c3b627e14f5636f0071efd2bea`.
 
+### Reuse compiled WebAssembly on restart
+
+The bundled loopback launcher provides a SHA-256 ETag for the SDK Wasm. The page keeps one compiled WebAssembly module while it is open. On Stop game followed by Start game, the new worker verifies the disc and checks the current module identity with a HEAD request. A matching module creates a fresh runtime, memory and thread set. A changed or unavailable tag uses the normal compilation path.
+
+In a Chrome 158 replay on the development desktop, the first launch fetched 40,249,886 bytes of Wasm and entered the streaming compiler once. The same-tab restart requested only the Wasm headers and recorded zero streaming compiler entries. Both launches reached original frames and stopped cleanly. Start-to-first-frame time was 2.28 seconds cold and 0.90 seconds on restart. Other startup state warmed between runs. The conditional HTTP caching trial recorded zero native code cache hits in the tested profiles. [V8 WebAssembly code caching](https://v8.dev/blog/wasm-code-caching)
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 49.47 ms of active guest work and 27.84 ms in the shared loader at `0x001B43C0`. It sampled 10.91 ms in the two-pass parser under `0x001BA160` and 8.12 ms in recursive tree work under `0x0007F2F0`. Check whether the count and fill passes can share classification results while preserving current input and file-position behavior.
+1. **Guest scene setup.** The retained Water Gate Scramble peak sampled 49.47 ms of active guest work and 27.84 ms in the shared loader at `0x001B43C0`. It sampled 10.91 ms in the two-pass parser under `0x001BA160` and 8.12 ms in recursive tree work under `0x0007F2F0`. A full substring scan trial matched the original in 4,356 focused cases, including 919 faults. Its 60.96 ms scene-entry gap and 17.24 ms steady p95 left it out of the build. Measure how often the count and fill passes see identical line and needle bytes before adding classification reuse.
 2. **Shader first use.** Profile scenes that still show blocking specialized links. Extend fallback admission from actual shader layouts and verify image fidelity and device coverage.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. During the latest Water Gate Scramble steady window, guest enqueues were 16.71 ms apart at p95 and renderer acknowledgements were 17.02 ms apart. Align the remaining submission and compositor variance at a verified display cadence while preserving the original virtual-blank period and callback sequence.
