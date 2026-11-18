@@ -220,6 +220,8 @@ Two follow-up cold Twisted System replays measured 53.95 ms maximum and 17.11 ms
 
 A separate ThinLTO trial let the linker inline ordinary weak forwarding wrappers. The SDK dispatch and exception probe passed. All 10,588 named guest function bodies retained their original lengths, the code section retained its byte size, and five inspected hot bodies matched byte for byte. Those hot routines need direct work on the operations inside their loops.
 
+One exactly matched byte-comparison loop now scans checked, equal nonzero bytes in 16-byte chunks. It admits up to 256 bytes in both guest windows and keeps the final known pair for the scalar loop to restore the original registers and flags. The scalar loop handles mismatches, terminators and faults. A focused Wasm differential matched 23,256 stable-input cases, including 9,112 skips and 6,140 ordered faults. In a fresh cold Twisted System replay, Chrome sampled 0.56 ms in the comparison routine during the largest gap versus 2.13 ms in the preceding ThinLTO replay. The largest gap measured 53.68 versus 53.56 ms, and p95 was 17.08 versus 17.09 ms across 850 and 831 acknowledgement pairs. The game stopped cleanly with zero blocking shader links. The module grew by 314 bytes. The selected Wasm SHA-256 is `a3ad09eb5192d8fa6a820675e67090d028d3a2e0d2cb898f7db4c02b49b98150`.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS

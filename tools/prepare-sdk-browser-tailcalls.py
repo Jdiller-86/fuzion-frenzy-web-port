@@ -49,6 +49,7 @@ COMPARE_F32 = re.compile(
 )
 COMPARE_HELPER = ROOT / "runtime/browser/sdk/guest-x87-compare.inc"
 MEMORY_RUN_HELPER = ROOT / "runtime/browser/sdk/guest-memory-runs.inc"
+MATCHING_BYTES_HELPER = ROOT / "runtime/browser/sdk/guest-matching-bytes.inc"
 GUEST_REGISTER = rb"ctx\.e(?:ax|bx|cx|dx|si|di|bp|sp)"
 MEMORY_WORD = re.compile(
     rb"(?m)^(?P<comment>[ \t]+// [0-9A-F]{8} mov[ \t][^\r\n]*\r?\n)"
@@ -74,6 +75,34 @@ POP_WORD = re.compile(
 )
 PUSH_RUN = re.compile(rb"(?m)^(?P<words>(?:" + PUSH_WORD.pattern + rb")+)(?P<call>" + CALL_RETURN.pattern + rb")?")
 POP_RUN = re.compile(rb"(?m)^(?:" + POP_WORD.pattern + rb"){2,}")
+
+
+def instruction_comment(opcode: bytes) -> bytes:
+    return rb"[ \t]+// [0-9A-F]{8} " + opcode + rb"[ \t][^\r\n]*\r?\n"
+
+
+def exact_instruction(opcode: bytes, statement: bytes) -> bytes:
+    return instruction_comment(opcode) + rb"[ \t]+" + re.escape(statement) + rb"\r?\n"
+
+
+MATCHING_BYTE_LOOP = re.compile(
+    rb"(?m)^(?P<header>(?P<label>loc_[0-9A-F]{8}):\r?\n)(?P<body>"
+    + exact_instruction(b"or", b"{ uint8_t a = (uint8_t)(((uint8_t)ctx.eax)); uint8_t b = (uint8_t)(((uint8_t)ctx.eax)); "
+                        b"uint8_t r = (uint8_t)(a | b); ctx.eax = (ctx.eax & 0xFFFFFF00u) | (uint8_t)(r); "
+                        b"cf = 0; of = 0; zf = r == 0; sf = (uint32_t)(r >> 7) & 1; pf = X86_PARITY(r); }")
+    + instruction_comment(b"jz") + rb"[ \t]+if \(zf\) \{ goto loc_[0-9A-F]{8}; \}\r?\n"
+    + exact_instruction(b"mov", b"{ uint32_t ea = (uint32_t)(ctx.esi); ctx.eax = (ctx.eax & 0xFFFFFF00u) | (uint8_t)(X86_MEM8(ea)); }")
+    + exact_instruction(b"inc", b"{ uint32_t a = (uint32_t)(ctx.esi);  uint32_t r = (uint32_t)(a + 1); ctx.esi = (uint32_t)(r); "
+                        b"of = r == (uint32_t)(1u << 31); zf = r == 0; sf = (uint32_t)(r >> 31) & 1; pf = X86_PARITY(r); }")
+    + exact_instruction(b"mov", b"{ uint32_t ea = (uint32_t)(ctx.edi); ctx.eax = (ctx.eax & 0xFFFF00FFu) | ((uint32_t)(uint8_t)(X86_MEM8(ea)) << 8); }")
+    + exact_instruction(b"inc", b"{ uint32_t a = (uint32_t)(ctx.edi);  uint32_t r = (uint32_t)(a + 1); ctx.edi = (uint32_t)(r); "
+                        b"of = r == (uint32_t)(1u << 31); zf = r == 0; sf = (uint32_t)(r >> 31) & 1; pf = X86_PARITY(r); }")
+    + exact_instruction(b"cmp", b"{ uint8_t a = (uint8_t)(((uint8_t)(ctx.eax >> 8))), b = (uint8_t)(((uint8_t)ctx.eax)); "
+                        b"uint8_t r = (uint8_t)(a - b); ca = a; cb = b; cf = a < b; "
+                        b"of = (uint32_t)(((a ^ b) & (a ^ r)) >> 7) & 1; zf = r == 0; sf = (uint32_t)(r >> 7) & 1; pf = X86_PARITY(r); }")
+    + instruction_comment(b"jz") + rb"[ \t]+if \(\(uint8_t\)ca == \(uint8_t\)cb\) \{ X86_BARRIER\(\); goto )"
+    + rb"(?P=label)(?P<end>; \}\r?\n)"
+)
 
 
 def sha256(data: bytes) -> str:
@@ -122,6 +151,21 @@ def lower_compare_f32(match: re.Match[bytes]) -> bytes:
         + b"ff_browser_x87::CompareF32" + template + b"(ctx, "
         + b", ".join(b"uint32_t(" + match[operand] + b")" for operand in operands) + b");"
     )
+
+
+def lower_matching_byte_loop(match: re.Match[bytes]) -> bytes:
+    end = b"\r\n" if match["header"].endswith(b"\r\n") else b"\n"
+    scalar = match["label"] + b"_scalar"
+    entry = end.join((
+        b"\tif ((uint8_t)ctx.eax != 0) {",
+        b"\t    const uint32_t skip = ff_browser_strings::MatchingBytesToSkip(ctx.esi, ctx.edi);",
+        b"\t    ctx.esi += skip;",
+        b"\t    ctx.edi += skip;",
+        b"\t}",
+        scalar + b":",
+        b"",
+    ))
+    return match["header"] + entry + match["body"] + scalar + match["end"]
 
 
 def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
@@ -198,7 +242,7 @@ def lower_memory_runs(block: bytes) -> tuple[bytes, int, int]:
     return b"".join(pieces), runs, words
 
 
-def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int]:
+def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int]:
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
     cursor = 0
@@ -209,6 +253,7 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     f32_compares = 0
     push_runs = pop_runs = 0
     memory_runs = memory_words = 0
+    matching_byte_loops = 0
 
     for index, marker in enumerate(markers):
         start = marker.start()
@@ -237,6 +282,8 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
             f32_transforms += count
             block, count = COMPARE_F32.subn(lower_compare_f32, block)
             f32_compares += count
+            block, count = MATCHING_BYTE_LOOP.subn(lower_matching_byte_loop, block)
+            matching_byte_loops += count
             block, pushes, pops = lower_stack_runs(block)
             push_runs += pushes
             pop_runs += pops
@@ -263,8 +310,11 @@ def adapt_source(original: bytes) -> tuple[bytes, int, int, int, int, int, int, 
     if memory_runs:
         helper_digest = sha256(MEMORY_RUN_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Memory run helper SHA-256: ' + helper_digest + b'\n#include "guest-memory-runs.inc"\n' + adapted
+    if matching_byte_loops:
+        helper_digest = sha256(MATCHING_BYTES_HELPER.read_bytes()).encode("ascii")
+        adapted = b'// Matching bytes helper SHA-256: ' + helper_digest + b'\n#include "guest-matching-bytes.inc"\n' + adapted
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
-            push_runs, pop_runs, f32_compares, memory_runs, memory_words)
+            push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops)
 
 
 def main() -> int:
@@ -320,10 +370,12 @@ def main() -> int:
     total_f32_compares = 0
     total_push_runs = total_pop_runs = 0
     total_memory_runs = total_memory_words = 0
+    total_matching_byte_loops = 0
     for source in package:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
-         f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words) = adapt_source(original)
+         f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
+         matching_byte_loops) = adapt_source(original)
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
         temporary.write_bytes(adapted)
@@ -341,6 +393,7 @@ def main() -> int:
                 "stackPopRunCount": pop_runs,
                 "memoryWordRunCount": memory_runs,
                 "memoryWordsInRuns": memory_words,
+                "matchingByteLoopCount": matching_byte_loops,
                 "adaptedSha256": sha256(adapted),
             }
         )
@@ -352,6 +405,7 @@ def main() -> int:
         total_pop_runs += pop_runs
         total_memory_runs += memory_runs
         total_memory_words += memory_words
+        total_matching_byte_loops += matching_byte_loops
 
     if not total_transforms:
         parser.error("no exact direct-return transfers matched; no adaptation was emitted")
@@ -369,6 +423,7 @@ def main() -> int:
         "stackPopRunCount": total_pop_runs,
         "memoryWordRunCount": total_memory_runs,
         "memoryWordsInRuns": total_memory_words,
+        "matchingByteLoopCount": total_matching_byte_loops,
         "files": records,
     }
     manifest_path = output / "tailcall-manifest.json"
@@ -379,6 +434,7 @@ def main() -> int:
           f"and {total_f32_transforms} x87 memory sequences in {output}")
     print(f"Combined {total_push_runs} push runs and {total_pop_runs} pop runs")
     print(f"Combined {total_memory_words} memory moves into {total_memory_runs} runs")
+    print(f"Added checked prefix scanning to {total_matching_byte_loops} byte comparison loops")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0
