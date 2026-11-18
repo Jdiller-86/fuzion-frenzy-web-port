@@ -100,6 +100,35 @@ inline void WriteWord(uint8_t* p, uint32_t word) noexcept {
     std::memcpy(p, &word, sizeof(word));
 }
 
+struct LineEnding {
+    uint32_t next;
+    uint32_t eax;
+};
+
+inline LineEnding SkipCopiedLineEnding(uint32_t cursor, uint32_t start, uint32_t end,
+                                      uint32_t stack) noexcept {
+    using ff_browser_memory::TryWindow;
+    const auto* frame = TryWindow(stack, 8);
+    if (!frame) return {};
+    const auto caller = ReadWord(frame + 4);
+    if (caller != 0x001ba1a5 && caller != 0x001ba2b7 &&
+        caller != 0x001b9ed3 && caller != 0x001b9f83) return {};
+    // The caller reached the original load with start < end.
+    const uint32_t available = std::min(3u, end - start);
+    auto* state = TryWindow(cursor, 8);
+    const auto* bytes = TryWindow(start, available);
+    if (!state || !bytes || Overlaps(state, 8, frame, 8) || Overlaps(state, 8, bytes, available)) return {};
+    const auto delimiter = [](uint8_t byte) { return byte == '\r' || byte == '\n'; };
+    if (!delimiter(bytes[0])) return {};
+    const uint32_t advance = 1u + uint32_t(available > 1 && delimiter(bytes[1]));
+    if (advance < available && delimiter(bytes[advance])) return {};
+    // AL is the next byte, or the last delimiter when the cursor reaches end.
+    const uint8_t last = bytes[advance < available ? advance : advance - 1];
+    const uint32_t next = start + advance;
+    WriteWord(state, next);
+    return {next, (start & ~0xffu) | last};
+}
+
 inline uint32_t SkipSuppressedWord(uint32_t frame, uint32_t stack) noexcept {
     // The scanner's SEH frame and its caller's stack-backed string stream.
     constexpr uint32_t frameOffset = 0x1e4;

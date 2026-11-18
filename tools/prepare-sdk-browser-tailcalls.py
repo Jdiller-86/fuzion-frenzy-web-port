@@ -103,6 +103,13 @@ GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_0
     [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
 }'''
 LOADER_BYTE_LOOPS = (
+    (b"X86_FUNC(__imp__sub_000C3A50) {",
+     "668122795a062bb108eb9111f2ba35c19f59201a7df63ba05ea62284c53f71e3",
+     b"\n\t// 000C3A5B jmp 0x000C3A60",
+     b"\n\t{ const auto ending = ff_browser_loader_bytes::SkipCopiedLineEnding("
+     b"ctx.ecx + 8, ctx.eax, ctx.esi, ctx.esp);"
+     b" if (ending.next) { ctx.edx = ending.next; ctx.eax = ending.eax; cf = 0;"
+     b" goto loc_000C3A7B; } }"),
     (b"X86_FUNC(__imp__sub_001B9E00) {",
      "a6e3f41638c48a4cb94676a266a659bca446ad3d9a619389820cacf3df2c0020",
      b"\nloc_001B9E10:",
