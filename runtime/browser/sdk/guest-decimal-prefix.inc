@@ -2,6 +2,7 @@
 #include <bit>
 #include <cstring>
 
+#include "cpu/x86_context.h"
 #include "full-memory.h"
 
 namespace ff_browser_decimal {
@@ -116,6 +117,94 @@ inline void AccumulateProduct(uint32_t bp, uint32_t sp, uint32_t leftAddress,
     WriteWord(frame - 16, 4);
     WriteWord(frame - 4, bp - 24u);
     WriteWord(frame + 12, 1);
+}
+
+inline uint8_t* ConversionStack(const X86Context& ctx, uint32_t& distance) noexcept {
+    constexpr uint32_t saves = 32;
+    distance = ctx.ebp - ctx.esp;
+    if (ctx.esp < saves || distance < 0x30 || distance > 0x48) return nullptr;
+    auto* window = ff_browser_memory::TryWindow(ctx.esp - saves, saves + distance);
+    return window ? window + saves : nullptr;
+}
+
+inline bool CopyConversionMantissa(X86Context& ctx) noexcept {
+    uint32_t distance;
+    auto* stack = ConversionStack(ctx, distance);
+    if (!stack || distance != 0x30) return false;
+    const uint32_t caller = ReadWord(stack);
+    if (caller != 0x001e66eau && caller != 0x001e6729u) return false;
+    const uint32_t sourceOffset = caller == 0x001e66eau ? 12 : 24;
+    const uint32_t destinationOffset = 36 - sourceOffset;
+    const uint32_t source = ctx.ebp - sourceOffset, destination = ctx.ebp - destinationOffset;
+    if (ReadWord(stack + 4) != destination || ReadWord(stack + 8) != source) return false;
+
+    WriteWord(stack - 4, ctx.esi);
+    std::memcpy(stack + distance - destinationOffset, stack + distance - sourceOffset, 12);
+    ctx.eax = source + 12;
+    ctx.ecx = destination - source;
+    ctx.edx = 0;
+    ctx.esp += 4;
+    return true;
+}
+
+inline bool ShiftConversionMantissa(X86Context& ctx) noexcept {
+    uint32_t distance;
+    auto* stack = ConversionStack(ctx, distance);
+    if (!stack) return false;
+    switch (ReadWord(stack)) {
+        case 0x001e6770u: case 0x001e678eu: if (distance != 0x30) return false; break;
+        case 0x001e6733u: if (distance != 0x38) return false; break;
+        case 0x001e674du: if (distance != 0x48) return false; break;
+        default: return false;
+    }
+    const uint32_t mantissaAddress = ctx.ebp - 12;
+    const uint32_t count = ReadWord(stack + 8);
+    if (ReadWord(stack + 4) != mantissaAddress || count >= 96) return false;
+
+    auto* mantissa = stack + distance - 12;
+    const uint32_t high = ReadWord(mantissa), middle = ReadWord(mantissa + 4), low = ReadWord(mantissa + 8);
+    const uint32_t bits = count % 32, words = count / 32;
+    const auto carry = [bits](uint32_t value) { return bits ? value << (32 - bits) : 0u; };
+    const uint32_t shifted[]{high >> bits, (middle >> bits) | carry(high), (low >> bits) | carry(middle)};
+    const uint32_t result[]{words == 0 ? shifted[0] : 0u, words < 2 ? shifted[1 - words] : 0u, shifted[2 - words]};
+    const uint32_t scratch[]{2, ctx.edi, ctx.esi, ctx.ebx, low & ((1u << bits) - 1u), words, carry(low), ctx.ebp};
+    std::memcpy(stack - 32, scratch, sizeof(scratch));
+    WriteWord(stack + 8, 32 - bits);
+    std::memcpy(mantissa, result, sizeof(result));
+
+    // Both original loops end after the most significant word is moved.
+    ctx.eax = UINT32_MAX;
+    ctx.ecx = mantissaAddress - 4 * (words + 1);
+    ctx.edx = shifted[0];
+    ctx.esp += 4;
+    return true;
+}
+
+inline bool TruncateConversionMantissa(X86Context& ctx) noexcept {
+    uint32_t distance;
+    auto* stack = ConversionStack(ctx, distance);
+    if (!stack || ctx.df) return false;
+    const uint32_t caller = ReadWord(stack);
+    if (!((caller == 0x001e66f6u && distance == 0x38) || (caller == 0x001e673fu && distance == 0x40))) return false;
+    const uint32_t precision = ReadWord(stack + 8);
+    if (ReadWord(stack + 4) != ctx.ebp - 12 || precision == 0 || precision >= 96) return false;
+
+    const uint32_t word = precision / 32, bit = 31 - precision % 32;
+    auto* mantissa = stack + distance - 12;
+    const uint32_t value = ReadWord(mantissa + word * 4);
+    // A set rounding bit can invoke the original tie and carry helpers.
+    if (value & (1u << bit)) return false;
+    const uint32_t mask = ~0u << bit;
+    const uint32_t scratch[]{3, ctx.edi, ctx.esi, ctx.ebx, 0, ctx.ebp};
+    std::memcpy(stack - 24, scratch, sizeof(scratch));
+    WriteWord(mantissa + word * 4, value & mask);
+    if (word == 0) WriteWord(mantissa + 4, 0);
+    if (word < 2) WriteWord(mantissa + 8, 0);
+    ctx.eax = 0;
+    ctx.ecx = word == 2 ? 3 : 0;
+    ctx.edx = mask;
+    ctx.esp += 4;
+    return true;
 }
 
 } // namespace ff_browser_decimal

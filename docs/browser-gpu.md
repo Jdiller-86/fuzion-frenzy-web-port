@@ -444,13 +444,21 @@ The two parser loops now scan a checked file span for line endings and the activ
 
 The original Water Gate Scramble replay sampled 4.43 and 2.77 ms in substring searches, and 9.89 and 8.94 ms in the two-pass parser. The largest frame acknowledgement gap was 51.86 and 50.64 ms. The following gap was 30.37 and 32.09 ms, respectively. Steady acknowledgement p95 was 17.03 and 16.98 ms over 483 adjacent pairs in each run. Both reached keyboard-controlled gameplay with zero draw-path shader links and stopped cleanly. Scene and scheduling state varied. The new 40,253,711-byte Wasm has SHA-256 `49a6b34828a656b23719275b2dc0a6a6d2cea4d524633121646ce2967446695e`.
 
+### Batch mantissa operations in the shared numeric converter
+
+The integer converter used by both the tree loader and formatted scanner now maps its caller-owned mantissa and scratch once per operation. Three digest-matched helpers copy or right-shift the three words, or clear the unused bits when the rounding bit is already clear. They preserve the original saved stack words, output words and register state. Calls with a set rounding bit, an unexpected caller frame or an unsupported access use the existing conversion code. The focused Wasm comparison matched 1,560 cases including 460 ordered faults and covered 480 copies, 760 shifts and 258 truncations.
+
+In Water Gate Scramble, the shared converter at `0x001E6678` sampled 2.73 and 1.00 ms in consecutive captures, and the shared loader sampled 27.66 and 26.49 ms. The largest acknowledgement gap measured 50.64 and 50.38 ms. The following gap measured 32.09 and 35.14 ms. Steady acknowledgement p95 was 16.98 and 16.99 ms across 483 pairs per run. Both launches reached keyboard-controlled play with zero draw-path links and stopped cleanly. Scene and scheduling state varied. The new 40,255,008-byte Wasm has SHA-256 `9065ba78e5eb177aefa379f36a345eb15f0158f29c1b46fb45afbb9e93052166`.
+
+In the new capture, the two guest call chains headed by `0x001B6130` and `0x001B6150` sampled 14.97 and 15.55 ms in the following gap. Together they account for its 30.52 ms of active guest samples. The branches through `0x001AC8F0` and `0x001AAB80` account for 7.15 and 5.56 ms within those chains. These addresses identify observed call paths.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 48.81 ms of active guest work, including 27.66 ms in the shared loader and 10.25 ms in the collision grid. The parser now batches quiet lines. Profile the fill pass's remaining conversions and the tree's allocation and traversal work before choosing the next batch.
+1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 49.06 ms of active guest work, including 26.49 ms in the shared loader and 9.28 ms in the collision grid. Profile the two original call chains consuming 30.52 ms in the following gap. Determine which work they repeat across scene entry and regular play.
 2. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Use the resident path and completed exact programs where the observed inputs support them.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. During the latest Water Gate Scramble steady window, guest enqueues were 16.74 ms apart at p95 and renderer acknowledgements were 17.10 ms apart. Measure physical presentation at a verified display cadence while preserving the original virtual-blank period and callback sequence.

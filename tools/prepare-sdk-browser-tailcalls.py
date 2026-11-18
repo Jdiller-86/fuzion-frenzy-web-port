@@ -190,6 +190,15 @@ DECIMAL_PRODUCT_BODY = b"001E84D7"
 DECIMAL_PRODUCT_DIGEST = "53b5a3cce47f8641d1f856ea9213f1852c99fd3debdd68d6d4c3544b3f511c52"
 DECIMAL_PRODUCT_CALLER = b"001E86F9"
 DECIMAL_PRODUCT_CALLER_DIGEST = "e85c95b6030c4acb7dc53a0b0751ee2751037e3625b4148cdb1679ad41c219cd"
+DECIMAL_CONVERSION_CALLERS = {
+    b"001E6678": "75bb29c2da1fd0da19c7bd7a722209bb84bc6de00ce3918db01d0db3ff65c3a0",
+    b"001E6723": "ea182b36ad292211b1b22fd58889f3f8cf9d6f97955e6524c6766e92486860f7",
+}
+DECIMAL_CONVERSION_HELPERS = {
+    b"001E65C9": ("03b09a06efb75accd2655db6b46976215d312b030f20c71803c85f56426515e9", b"CopyConversionMantissa"),
+    b"001E65FD": ("3e751a40410a804cf975b758b3ee048a2e29c019d31e08766f294e90bfffd200", b"ShiftConversionMantissa"),
+    b"001E6557": ("21d50b27d27c3e3877d1a29ba686f1c9e2a2a512716418ac001c6d8f276393c2", b"TruncateConversionMantissa"),
+}
 REPEATED_LINE_ENTRY = b"X86_FUNC(__imp__sub_0007F08E) {"
 REPEATED_LINE_DIGEST = "d0459384057379296516e727f0dd42875ed504afbc0f073fa7844052f18db17c"
 SCANNER_DIGEST = "e168ac6f3c74e7d67eeda4356e26e73bdea86537d92607cea9e64be627471772"
@@ -446,6 +455,23 @@ def lower_decimal_product(source: bytes) -> tuple[bytes, int]:
     entry = (b"\n\tif (sub_001E7E6D == __imp__sub_001E7E6D)\n"
              b"\t\tff_browser_decimal::AccumulateProduct(ctx.ebp, ctx.esp, ctx.esi, ctx.ebx);")
     return source.replace(body, body.replace(label, entry + label, 1), 1), 1
+
+
+def lower_decimal_conversion_helpers(source: bytes) -> tuple[bytes, int]:
+    if any(matched_body(source, address, digest) is None for address, digest in DECIMAL_CONVERSION_CALLERS.items()):
+        return source, 0
+    count = 0
+    for address, (digest, helper) in DECIMAL_CONVERSION_HELPERS.items():
+        body = matched_body(source, address, digest)
+        if body is None:
+            continue
+        # The entry binding remains intact. Only the verified default body
+        # handles the fast case, ahead of its original faultable operations.
+        head = b"X86_FUNC(__imp__sub_" + address + b") {"
+        entry = head + b"\n\tif (ff_browser_decimal::" + helper + b"(ctx)) return;"
+        source = source.replace(body, body.replace(head, entry, 1), 1)
+        count += 1
+    return source, count
 
 
 def lower_scanner_word(source: bytes) -> tuple[bytes, int]:
@@ -846,11 +872,13 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
 
 
 def adapt_source(original: bytes, grid_predicate: bytes | None = None
-                 ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int]:
+                 ) -> tuple[bytes, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int]:
     original, decimal_prefixes = lower_decimal_prefix(original)
     decimal_products = 0
+    decimal_conversions = 0
     if decimal_prefixes:
         original, decimal_products = lower_decimal_product(original)
+        original, decimal_conversions = lower_decimal_conversion_helpers(original)
     original, loader_byte_loops = lower_scanner_word(original)
     markers = list(FUNCTION_BOUNDARY.finditer(original))
     pieces = []
@@ -953,7 +981,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
                    + grid_predicate + adapted.replace(GRID_WEAK_WRAPPER, GRID_DEFAULT_WRAPPER))
     return (adapted, transforms, excluded_eh_transfers, eh_functions, f32_transforms,
             push_runs, pop_runs, f32_compares, memory_runs, memory_words, matching_byte_loops,
-            loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products,
+            loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products, decimal_conversions,
             mapped_grid_calls, mapped_intersections)
 
 
@@ -1016,6 +1044,7 @@ def main() -> int:
     total_repeated_lines = 0
     total_decimal_prefixes = 0
     total_decimal_products = 0
+    total_decimal_conversions = 0
     total_mapped_intersections = 0
     total_mapped_grid_calls = 0
     total_grid_reject_batches = 0
@@ -1030,7 +1059,7 @@ def main() -> int:
         original = source.read_bytes()
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
-         matching_byte_loops, loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products,
+         matching_byte_loops, loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products, decimal_conversions,
          mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
         scene_line_batches = 0
         if scene_lines:
@@ -1059,6 +1088,7 @@ def main() -> int:
                 "repeatedLineCount": repeated_lines,
                 "decimalPrefixCount": decimal_prefixes,
                 "decimalProductCount": decimal_products,
+                "decimalConversionHelperCount": decimal_conversions,
                 "mappedIntersectionCount": mapped_intersections,
                 "mappedGridCallCount": mapped_grid_calls,
                 "gridRejectBatchCount": grid_reject_batches,
@@ -1079,6 +1109,7 @@ def main() -> int:
         total_repeated_lines += repeated_lines
         total_decimal_prefixes += decimal_prefixes
         total_decimal_products += decimal_products
+        total_decimal_conversions += decimal_conversions
         total_mapped_intersections += mapped_intersections
         total_mapped_grid_calls += mapped_grid_calls
         total_grid_reject_batches += grid_reject_batches
@@ -1105,6 +1136,7 @@ def main() -> int:
         "repeatedLineCount": total_repeated_lines,
         "decimalPrefixCount": total_decimal_prefixes,
         "decimalProductCount": total_decimal_products,
+        "decimalConversionHelperCount": total_decimal_conversions,
         "mappedIntersectionCount": total_mapped_intersections,
         "mappedGridCallCount": total_mapped_grid_calls,
         "gridRejectBatchCount": total_grid_reject_batches,
@@ -1124,6 +1156,7 @@ def main() -> int:
     print(f"Reused line scans in {total_repeated_lines} loader routines")
     print(f"Added checked decimal arithmetic to {total_decimal_prefixes} loader routines")
     print(f"Grouped {total_decimal_products} truncated decimal products")
+    print(f"Added mapped mantissa operations to {total_decimal_conversions} conversion helpers")
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
