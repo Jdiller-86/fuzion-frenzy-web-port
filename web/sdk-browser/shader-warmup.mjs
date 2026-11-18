@@ -89,12 +89,11 @@ export async function openShaderWarmup(titleDigest) {
 
   return {
     recipes,
-    observe(recipe, key, requiresLink) {
+    observe(recipe, key) {
       if (observed.length === MAX_PROGRAMS) observed.shift();
       observed.push({recipe, key});
-      // Save new live links in a separate task, even if the player reloads
-      // the page later without using Stop game.
-      if (requiresLink && checkpointTimer === undefined)
+      // Resident draws also teach exact shaders for the next launch.
+      if (checkpointTimer === undefined)
         checkpointTimer = setTimeout(() => save().catch(() => {}), CHECKPOINT_DELAY_MS);
     },
     save,
