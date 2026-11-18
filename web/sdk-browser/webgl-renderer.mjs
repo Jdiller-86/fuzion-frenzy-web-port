@@ -114,7 +114,7 @@ export class WebGLRenderer {
       report(`GPU elapsed timing: ${bits>0?'enabled (one sample per six frames)':'unavailable; rendering unchanged'}`);
     }
     this.stateSnapshot = new Uint32Array(40);
-    this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundFramebuffer = null;
+    this.readFbo = gl.createFramebuffer(); this.framebuffers = new Map(); this.validatedFramebufferLayouts = new Map(); this.boundAttachments = null;
     this.vao = gl.createVertexArray();
     this.vertexBuffer = {buffer:gl.createBuffer(), capacity:0, limit:256*1024*1024, shadowLimit:8*1024*1024, validWords:0};
     this.indexBuffer = {buffer:gl.createBuffer(), capacity:0, limit:64*1024*1024, shadowLimit:2*1024*1024, validWords:0};
@@ -276,18 +276,27 @@ void main() {
   bindGeometry(binding) {
     if(this.currentGeometryBinding===binding)return;
     const g=this.gl;
+    const group=binding.group||binding;
+    const mask=binding.kind==='converted'?0xffff:group.mask;
+    const changed=this.enabledAttributes===undefined?0xffff:this.enabledAttributes^mask;
     if(binding.kind==='converted'){
-      for(let a=0;a<16;a++){g.enableVertexAttribArray(a);g.vertexAttribPointer(a,4,g.FLOAT,false,16,a*binding.totalVertices*16);}
-    }else{
-      const group=binding.group||binding;
       for(let a=0;a<16;a++){
-        const attr=group.attributes[a];
-        if(!attr){g.disableVertexAttribArray(a);g.vertexAttrib4f(a,0,0,0,1);continue;}
-        g.enableVertexAttribArray(a);
+        if(changed&(1<<a))g.enableVertexAttribArray(a);
+        g.vertexAttribPointer(a,4,g.FLOAT,false,16,a*binding.totalVertices*16);
+      }
+    }else{
+      for(let a=0;a<16;a++){
+        const attr=group.attributes[a],enableChanged=changed&(1<<a);
+        if(!attr){
+          if(enableChanged){g.disableVertexAttribArray(a);g.vertexAttrib4f(a,0,0,0,1);}
+          continue;
+        }
+        if(enableChanged)g.enableVertexAttribArray(a);
         if(attr.integer)g.vertexAttribIPointer(a,attr.components,g[attr.type],group.stride,group.baseByte+attr.offset);
         else g.vertexAttribPointer(a,attr.components,g[attr.type],attr.normalized,group.stride,group.baseByte+attr.offset);
       }
     }
+    this.enabledAttributes=mask;
     this.currentGeometryBinding=binding;
   }
   bindTexture(unit,texture,needActive=false) {
@@ -931,12 +940,15 @@ void main() {
     this.targets.set(id,t);
   }
   attach(color,depth) {
+    const bound=this.boundAttachments;
+    // Repeated draws to the current pair already use the most recent entry.
+    if(bound&&bound.color===color&&bound.depth===depth)return;
     const g=this.gl;
     const key=`${color?.id??0}:${depth?.id??0}`;
     let entry=this.framebuffers.get(key);
     if(entry&&(entry.color!==color||entry.depth!==depth)){
       this.framebuffers.delete(key);
-      if(this.boundFramebuffer===entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundFramebuffer=null;}
+      if(bound===entry){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundAttachments=null;}
       g.deleteFramebuffer(entry.framebuffer);entry=undefined;
     }
     if(!entry){
@@ -953,13 +965,13 @@ void main() {
       if(validated){this.validatedFramebufferLayouts.delete(layout);this.validatedFramebufferLayouts.set(layout,true);}
       const framebuffer=g.createFramebuffer();
       if (!framebuffer) throw new Error('Could not allocate a GPU framebuffer');
-      g.bindFramebuffer(g.FRAMEBUFFER,framebuffer);this.boundFramebuffer=framebuffer;
+      g.bindFramebuffer(g.FRAMEBUFFER,framebuffer);this.boundAttachments=null;
       g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,color?.texture||null,0);
       g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,depth?.texture||null,0);
       g.drawBuffers([color?g.COLOR_ATTACHMENT0:g.NONE]);g.readBuffer(color?g.COLOR_ATTACHMENT0:g.NONE);
       if(layout && !validated){
         if(g.checkFramebufferStatus(g.FRAMEBUFFER)!==g.FRAMEBUFFER_COMPLETE){
-          g.deleteFramebuffer(framebuffer);this.boundFramebuffer=null;
+          g.deleteFramebuffer(framebuffer);
           throw new Error('GPU framebuffer is incomplete');
         }
         this.validatedFramebufferLayouts.set(layout,true);
@@ -974,8 +986,9 @@ void main() {
     } else {
       // Refresh insertion order so eviction is least-recently-used.
       this.framebuffers.delete(key);this.framebuffers.set(key,entry);
-      if(this.boundFramebuffer!==entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,entry.framebuffer);this.boundFramebuffer=entry.framebuffer;}
+      g.bindFramebuffer(g.FRAMEBUFFER,entry.framebuffer);
     }
+    this.boundAttachments=entry;
   }
   clear(rt,zs,n,rects,flags,color,z,stencil,viewport) {
     this.lastState=undefined;
@@ -988,19 +1001,75 @@ void main() {
     const list=n?this.wordView(rects,n*4):[v[0],v[1],v[0]+v[2],v[1]+v[3]];
     for(let i=0;i<(n||1);i++){const o=i*4,x=list[o],y=list[o+1],x1=list[o+2],y1=list[o+3];g.scissor(x,y,Math.max(0,x1-x),Math.max(0,y1-y));g.clear((flags&0xf0?g.COLOR_BUFFER_BIT:0)|(flags&1?g.DEPTH_BUFFER_BIT:0)|(flags&2?g.STENCIL_BUFFER_BIT:0));}
   }
+  applyRasterState(s,zscale) {
+    const g=this.gl,previous=this.lastState;
+    const changed=(start,end=start+1)=>{
+      if(!previous)return true;
+      for(let i=start;i<end;i++)if(s[i]!==previous[i])return true;
+      return false;
+    };
+    const enable=(cap,on)=>on?g.enable(cap):g.disable(cap);
+    if(changed(2,4))g.viewport(0,0,s[2],s[3]);
+    if(!previous)g.enable(g.SCISSOR_TEST);
+    if(changed(22,31)){
+      let left=s[22],top=s[23],right=left+s[24],bottom=top+s[25];
+      if(s[26]){
+        left=Math.max(left,s[27]);top=Math.max(top,s[28]);
+        right=Math.min(right,s[29]);bottom=Math.min(bottom,s[30]);
+      }
+      g.scissor(left,top,Math.max(0,right-left),Math.max(0,bottom-top));
+    }
+    if(changed(4))enable(g.BLEND,s[4]);
+    if(changed(5,7))g.blendFunc(s[5],s[6]);
+    if(changed(7))g.blendEquation(s[7]||g.FUNC_ADD);
+    if(changed(31))g.blendColor((s[31]>>>16&255)/255,(s[31]>>>8&255)/255,(s[31]&255)/255,(s[31]>>>24)/255);
+    if(changed(8))g.colorMask(!!(s[8]&0x10000),!!(s[8]&0x100),!!(s[8]&1),!!(s[8]&0x1000000));
+    if(changed(9))enable(g.DEPTH_TEST,s[9]);
+    if(changed(10))g.depthMask(!!s[10]);
+    if(changed(11))g.depthFunc(s[11]);
+    if(changed(12))enable(g.STENCIL_TEST,s[12]);
+    if(changed(13,16))g.stencilFunc(s[13],s[14],s[15]);
+    if(changed(16))g.stencilMask(s[16]);
+    if(changed(17,20))g.stencilOp(s[17],s[18],s[19]);
+    if(changed(20))enable(g.CULL_FACE,s[20]===0x900||s[20]===0x901);
+    // GPU coordinates have y down, matching the reference winding convention.
+    if(changed(21))g.frontFace(s[21]===0x901?g.CW:g.CCW);
+    if(changed(20,22))g.cullFace(s[20]===s[21]?g.FRONT:g.BACK);
+    if(changed(34))enable(g.POLYGON_OFFSET_FILL,s[34]);
+    if(changed(35,37)||zscale!==this.lastZscale){
+      const f=new Float32Array(s.buffer,s.byteOffset,s.length);
+      g.polygonOffset(f[35],f[36]*16777215*zscale);
+    }
+    this.stateSnapshot.set(s);
+    this.lastState=this.stateSnapshot;
+    this.lastZscale=zscale;
+  }
+  drawVariant(source,state,textures) {
+    const vertex=state[37],flat=!!state[32],regs=state[39]&0xffff;
+    const last=this.lastDrawVariant;
+    if(last&&last.source===source&&last.vertex===vertex&&last.flat===flat&&last.regs===regs&&
+       last.kinds[0]===textures[0]&&last.kinds[1]===textures[14]&&last.kinds[2]===textures[28]&&last.kinds[3]===textures[42]&&
+       last.shadows[0]===textures[1]&&last.shadows[1]===textures[15]&&last.shadows[2]===textures[29]&&last.shadows[3]===textures[43])
+      return last.variant;
+
+    const kinds=[textures[0],textures[14],textures[28],textures[42]];
+    const shadows=[textures[1],textures[15],textures[29],textures[43]];
+    if(kinds.some(kind=>kind===2||kind===3))throw new Error('GPU 3D/cube texture admission is not implemented');
+    const cache=this.pointerPrograms??=new Map();
+    const key=`${source}:${vertex}:${kinds}:${shadows}:${flat}:${regs}`;
+    let variant=cache.get(key);
+    if(!variant){
+      variant=this.programVariant(this.string(source),kinds,shadows,flat,vertex,regs);
+      cache.set(key,variant);
+    }
+    this.lastDrawVariant={source,vertex,flat,regs,kinds,shadows,variant};
+    return variant;
+  }
   draw(n,state,uniforms,source,textures,layout,binding,indexOffset) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
-      const kinds=[0,1,2,3].map(t=>tx[t*14]),shadows=[0,1,2,3].map(t=>tx[t*14+1]);
-      if(kinds.some(k=>k===2||k===3))throw new Error('GPU 3D/cube texture admission is not implemented');
-      this.pointerPrograms ??= new Map();
-      const programKey=`${source}:${s[37]}:${kinds}:${shadows}:${!!s[32]}:${s[39]&0xffff}`;
-      let variant=this.pointerPrograms.get(programKey);
-      if(!variant){
-        variant=this.programVariant(this.string(source),kinds,shadows,!!s[32],s[37],s[39]&0xffff);
-        this.pointerPrograms.set(programKey,variant);
-      }
+      const variant=this.drawVariant(source,s,tx);
       const {specialized, fallback} = variant;
       const program = specialized ? this.readyProgram(specialized) : fallback.pipeline;
       this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
@@ -1090,41 +1159,43 @@ void main() {
         if(changed){g.uniform4fv(borderLocation,candidate);program.borders=candidate;program.borderScratch=previous;program.bordersValid=true;}
       }
       for(let t=0;t<4;t++) {
-        const q=tx.subarray(t*14,t*14+14);
-        if(!q[0]){
+        const base=t*14;
+        if(!tx[base]){
           if (fallback) {
             this.bindTexture(t,this.fixedFallbackTexture);
             if(!program.samplersSet)g.uniform1i(loc(`tex${t}`),t);
           }
           continue;
         }
-        let image=this.targets.get(q[2]&0x1fffffff);
-        if(shadows[t]&&!image)throw new Error('CPU depth-texture uploads are not admitted; depth sampling requires a GPU-owned surface');
+        const address=tx[base+2];
+        let image=this.targets.get(address&0x1fffffff);
+        if(tx[base+1]&&!image)throw new Error('CPU depth-texture uploads are not admitted; depth sampling requires a GPU-owned surface');
         if(!image) {
           // Versioned SDK pixels have immutable owners until this batch is
           // consumed. Encoding is independent of the guest texture layout.
-          const encoding=q[5]>>>8;
-          if((q[5]&255)!==1||encoding>1)throw new Error('Unsupported GPU image encoding');
-          const key=`${q[2]}:${q[3]}:${q[4]}:${encoding}`;
+          const format=tx[base+5],encoding=format>>>8,width=tx[base+3],height=tx[base+4];
+          if((format&255)!==1||encoding>1)throw new Error('Unsupported GPU image encoding');
+          const key=`${address}:${width}:${height}:${encoding}`;
           image=this.images.get(key);
           if(!image){if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');image={texture:g.createTexture(),frame:-1};this.images.set(key,image);}
           this.bindTexture(t,image.texture);
-          if(image.hashLo!==q[11] || image.hashHi!==q[12]){
+          const hashLo=tx[base+11],hashHi=tx[base+12];
+          if(image.hashLo!==hashLo || image.hashHi!==hashHi){
             this.bindTexture(t,image.texture,true);
-            const size=q[3]*q[4]*4;
-            if(!q[3]||!q[4]||!Number.isSafeInteger(size)||size>32*1024*1024)throw new Error('GPU image staging budget exceeded');
+            const size=width*height*4,pixelsPointer=tx[base+6];
+            if(!width||!height||!Number.isSafeInteger(size)||size>32*1024*1024)throw new Error('GPU image staging budget exceeded');
             if(size>this.imageUpload.length)this.imageUpload=new Uint8Array(this.capacity(this.imageUpload.length,size,32*1024*1024));
             const rgba=this.imageUpload.subarray(0,size);
-            if(encoding===1)rgba.set(this.bytes(q[6],size));
+            if(encoding===1)rgba.set(this.bytes(pixelsPointer,size));
             else {
-              const pixels=this.floatView(q[6],size);
+              const pixels=this.floatView(pixelsPointer,size);
               for(let j=0;j<size;j++)rgba[j]=Math.round(Math.max(0,Math.min(1,pixels[j]))*255);
             }
             // An ordinary ArrayBuffer also works on WebGL implementations
             // that reject views backed by the shared Wasm memory.
-            if(image.allocated)g.texSubImage2D(g.TEXTURE_2D,0,0,0,q[3],q[4],g.RGBA,g.UNSIGNED_BYTE,rgba);
-            else {g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,q[3],q[4],0,g.RGBA,g.UNSIGNED_BYTE,rgba);image.allocated=true;}
-            image.hashLo=q[11];image.hashHi=q[12];
+            if(image.allocated)g.texSubImage2D(g.TEXTURE_2D,0,0,0,width,height,g.RGBA,g.UNSIGNED_BYTE,rgba);
+            else {g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,width,height,0,g.RGBA,g.UNSIGNED_BYTE,rgba);image.allocated=true;}
+            image.hashLo=hashLo;image.hashHi=hashHi;
             if(this.frameStats){
               this.frameStats.textureUploads=(this.frameStats.textureUploads||0)+1;
               this.frameStats.textureUploadBytes=(this.frameStats.textureUploadBytes||0)+size;
@@ -1134,36 +1205,20 @@ void main() {
           image.frame=this.frame;
         } else this.bindTexture(t,image.texture);
         if(image===this.targets.get(s[0]&0x1fffffff)||image===this.targets.get(s[1]&0x1fffffff))throw new Error('GPU feedback texture overlaps an active attachment');
-        const address=m=>m===1?g.REPEAT:m===2?g.MIRRORED_REPEAT:g.CLAMP_TO_EDGE;
-        const sampler=this.samplers[t],samplerKey=`${q[7]}:${q[8]}:${q[9]}:${q[10]}`;
+        const sampler=this.samplers[t],wrapS=tx[base+7],wrapT=tx[base+8],min=tx[base+9],mag=tx[base+10];
+        const samplerKey=`${wrapS}:${wrapT}:${min}:${mag}`;
         if(this.samplerKeys[t]!==samplerKey){
-        g.samplerParameteri(sampler,g.TEXTURE_WRAP_S,address(q[7]));g.samplerParameteri(sampler,g.TEXTURE_WRAP_T,address(q[8]));
-        g.samplerParameteri(sampler,g.TEXTURE_MIN_FILTER,q[9]===1?g.NEAREST:g.LINEAR);g.samplerParameteri(sampler,g.TEXTURE_MAG_FILTER,q[10]===1?g.NEAREST:g.LINEAR);
-        this.samplerKeys[t]=samplerKey;
+          const wrap=mode=>mode===1?g.REPEAT:mode===2?g.MIRRORED_REPEAT:g.CLAMP_TO_EDGE;
+          g.samplerParameteri(sampler,g.TEXTURE_WRAP_S,wrap(wrapS));g.samplerParameteri(sampler,g.TEXTURE_WRAP_T,wrap(wrapT));
+          g.samplerParameteri(sampler,g.TEXTURE_MIN_FILTER,min===1?g.NEAREST:g.LINEAR);g.samplerParameteri(sampler,g.TEXTURE_MAG_FILTER,mag===1?g.NEAREST:g.LINEAR);
+          this.samplerKeys[t]=samplerKey;
         }
         if(!program.samplersSet)g.uniform1i(loc(`tex${t}`),t);
       }
       program.samplersSet=true;
       let stateChanged=!this.lastState||u[2]!==this.lastZscale;
       if(!stateChanged)for(let i=0;i<37;i++)if(s[i]!==this.lastState[i]){stateChanged=true;break;}
-      if(stateChanged) {
-      g.viewport(0,0,s[2],s[3]);g.enable(g.SCISSOR_TEST);
-      let rect=[s[22],s[23],s[22]+s[24],s[23]+s[25]];
-      if(s[26])rect=[Math.max(rect[0],s[27]),Math.max(rect[1],s[28]),Math.min(rect[2],s[29]),Math.min(rect[3],s[30])];
-      g.scissor(rect[0],rect[1],Math.max(0,rect[2]-rect[0]),Math.max(0,rect[3]-rect[1]));
-      const enable=(cap,on)=>on?g.enable(cap):g.disable(cap);
-      enable(g.BLEND,s[4]);g.blendFunc(s[5],s[6]);g.blendEquation(s[7]||g.FUNC_ADD);
-      g.blendColor((s[31]>>>16&255)/255,(s[31]>>>8&255)/255,(s[31]&255)/255,(s[31]>>>24)/255);
-      g.colorMask(!!(s[8]&0x10000),!!(s[8]&0x100),!!(s[8]&1),!!(s[8]&0x1000000));
-      enable(g.DEPTH_TEST,s[9]);g.depthMask(!!s[10]);g.depthFunc(s[11]);
-      enable(g.STENCIL_TEST,s[12]);g.stencilFunc(s[13],s[14],s[15]);g.stencilMask(s[16]);g.stencilOp(s[17],s[18],s[19]);
-      enable(g.CULL_FACE,s[20]===0x900||s[20]===0x901);
-      // GPU coordinates have y down, matching the reference winding convention.
-      g.frontFace(s[21]===0x901?g.CW:g.CCW);g.cullFace(s[20]===s[21]?g.FRONT:g.BACK);
-      enable(g.POLYGON_OFFSET_FILL,s[34]);const f=new Float32Array(s.buffer,s.byteOffset,s.length);g.polygonOffset(f[35],f[36]*16777215*u[2]);
-      this.stateSnapshot.set(s);this.lastState=this.stateSnapshot;
-      this.lastZscale=u[2];
-      }
+      if(stateChanged)this.applyRasterState(s,u[2]);
       this.bindGeometry(binding);
       g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,indexOffset);
       if (variant.recipe) {
@@ -1183,7 +1238,7 @@ void main() {
     g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
     g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);
     this.endGpuTimer();
-    this.boundFramebuffer=null;this.lastState=undefined;
+    this.boundAttachments=null;this.lastState=undefined;
     ++this.frame;
     if (this.usedFallbackThisFrame) {
       this.shaderStats.fixedFallbackFrames++;
@@ -1225,11 +1280,11 @@ void main() {
     const g=this.gl;
     for(const [key,entry] of this.framebuffers){
       if(entry.color!==t&&entry.depth!==t)continue;
-      if(this.boundFramebuffer===entry.framebuffer){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundFramebuffer=null;}
+      if(this.boundAttachments===entry){g.bindFramebuffer(g.FRAMEBUFFER,null);this.boundAttachments=null;}
       g.deleteFramebuffer(entry.framebuffer);this.framebuffers.delete(key);
     }
     if(this.readFramebufferTarget===t){
-      this.boundFramebuffer=null;
+      this.boundAttachments=null;
       g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);
       g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,null,0);
       this.readFramebufferTarget=undefined;
