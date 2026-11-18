@@ -99,15 +99,15 @@ function decimalizeFloatLiterals(code) {
   };
   const literal = /(?<![\w.])\d+(?![\w.])/g;
   const replacements = [];
+  let scanned = 0, depth = 0;
   let m;
   while ((m = literal.exec(code))) {
     const at = m.index, value = m[0];
-    let depth = 0, inIndex = false;
-    for (let i = 0; i < at; i++) {
-      if (code[i] === "[") { if (!depth) inIndex = true; depth++; }
-      else if (code[i] === "]") { depth--; if (!depth) inIndex = false; }
+    for (; scanned < at; scanned++) {
+      if (code[scanned] === "[") depth++;
+      else if (code[scanned] === "]") depth--;
     }
-    if (inIndex) continue;
+    if (depth > 0) continue;
     const before = code.slice(Math.max(0, at - 120), at);
     const after = code.slice(at + value.length, Math.min(code.length, at + value.length + 120));
     if (/\b(?:uint|int|ivec[234])\s*\([^()]*$/.test(before) || /&\s*$/.test(before) || /^\s*&/.test(after)) continue;

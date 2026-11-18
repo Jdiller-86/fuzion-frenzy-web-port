@@ -252,15 +252,15 @@ function decimalizeFloatLiterals(code) {
   };
   const replacements = [];
   const literal = /(?<![\w.])\d+(?:\.\d*)?(?:[eE][+-]?\d+)?(?![\w.])/g;
+  let scanned = 0, depth = 0;
   for (const m of code.matchAll(literal)) {
     const at = m.index, value = m[0];
     if(/[.eE]/.test(value))continue;
-    let inIndex = false, depth = 0;
-    for (let i = 0; i < at; i++) {
-      if (code[i] === "[") { if (!depth) inIndex = true; depth++; }
-      else if (code[i] === "]") { depth--; if (!depth) inIndex = false; }
+    for (; scanned < at; scanned++) {
+      if (code[scanned] === "[") depth++;
+      else if (code[scanned] === "]") depth--;
     }
-    if (inIndex) continue;
+    if (depth > 0) continue;
     const before = code.slice(Math.max(0, at - 120), at), after = code.slice(at + value.length, at + value.length + 120);
     if (/\b(?:uint|int|ivec[234])\s*\([^()]*$/.test(before) || /&\s*$/.test(before) || /^\s*&/.test(after)) continue;
     let inferred;
