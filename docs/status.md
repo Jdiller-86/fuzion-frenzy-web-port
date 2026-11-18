@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** The complete mantissa fold removed the remaining digit-loop calls for admitted values. Water Gate Scramble sampled 6.40 and 4.95 ms in the broader decimal parser. The largest scene-entry gap stayed near 52.7 ms and steady acknowledgement p95 measured 17.05 ms. [Gameplay observations](browser-gpu.md#complete-decimal-mantissa-accumulation)
-- **Next.** The latest peak still sampled 29.34 ms in the shared guest loader. Check formatted scanner and conversion overhead, then measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser.** The grid batch evaluates the two endpoints of its second rejection check together. Water Gate Scramble sampled 7.81 and 7.19 ms in the combined intersection symbol. The largest scene-entry gap measured 52.71 and 49.89 ms across the two runs. [Gameplay observations](browser-gpu.md#paired-endpoint-checks-for-collision-rejection)
+- **Next.** The latest peak sampled 28.45 ms in the shared guest loader. Check formatted scanner and conversion overhead, then measure physical presentation on modest hardware before testing 120 FPS. [Scene-entry observations](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

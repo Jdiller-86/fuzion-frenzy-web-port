@@ -23,16 +23,25 @@ inline bool Overlaps(const uint8_t* first, size_t firstSize,
 }
 
 #if defined(__wasm_simd128__)
+using Float4 = float __attribute__((vector_size(16)));
+using Double2 = double __attribute__((vector_size(16)));
+
 struct SideMasks {
     uint32_t below;
     uint32_t above;
 };
 
+[[gnu::always_inline]] inline SideMasks ClassifySides(v128_t results, float tolerance, float zero) noexcept {
+    const auto magnitude = wasm_f32x4_abs(results);
+    const auto finite = wasm_f32x4_le(magnitude, wasm_f32x4_splat(std::numeric_limits<float>::max()));
+    const auto valid = wasm_v128_and(finite, wasm_f32x4_ge(magnitude, wasm_f32x4_splat(tolerance)));
+    const auto below = wasm_v128_and(valid, wasm_f32x4_lt(results, wasm_f32x4_splat(zero)));
+    return {uint32_t(wasm_i32x4_bitmask(below)), uint32_t(wasm_i32x4_bitmask(wasm_v128_xor(valid, below)))};
+}
+
 template<bool Wide, typename Side>
 [[gnu::always_inline]] inline SideMasks ClassifyFour(Side side, const std::array<float, 3>& terms,
                                                      const uint8_t* points, float tolerance, float zero) noexcept {
-    using Float4 = float __attribute__((vector_size(16)));
-    using Double2 = double __attribute__((vector_size(16)));
     const v128_t first = wasm_v128_load(points);
     const v128_t second = wasm_v128_load(points + 16);
     const v128_t xs = wasm_i32x4_shuffle(first, second, 0, 2, 4, 6);
@@ -57,11 +66,30 @@ template<bool Wide, typename Side>
         results = std::bit_cast<v128_t>(side(std::bit_cast<Float4>(xs), std::bit_cast<Float4>(ys),
                                            splat(terms[0]), splat(terms[1]), splat(terms[2])));
     }
-    const auto magnitude = wasm_f32x4_abs(results);
-    const auto finite = wasm_f32x4_le(magnitude, wasm_f32x4_splat(std::numeric_limits<float>::max()));
-    const auto valid = wasm_v128_and(finite, wasm_f32x4_ge(magnitude, wasm_f32x4_splat(tolerance)));
-    const auto below = wasm_v128_and(valid, wasm_f32x4_lt(results, wasm_f32x4_splat(zero)));
-    return {uint32_t(wasm_i32x4_bitmask(below)), uint32_t(wasm_i32x4_bitmask(wasm_v128_xor(valid, below)))};
+    return ClassifySides(results, tolerance, zero);
+}
+
+template<bool Wide, typename Side>
+[[gnu::always_inline]] inline auto MakeOppositeTest(Side side, const uint8_t* query,
+                                                   float tolerance, float zero) noexcept {
+    const auto unpack = [](v128_t lanes) {
+        if constexpr (Wide) return std::bit_cast<Double2>(wasm_f64x2_promote_low_f32x4(lanes));
+        else return std::bit_cast<Float4>(lanes);
+    };
+    const auto splat = [](float term) {
+        if constexpr (Wide) return std::bit_cast<Double2>(wasm_f64x2_splat(double(term)));
+        else return std::bit_cast<Float4>(wasm_f32x4_splat(term));
+    };
+    const auto endpoints = wasm_v128_load(query);
+    const auto x = unpack(wasm_i32x4_shuffle(endpoints, endpoints, 0, 2, 0, 2));
+    const auto y = unpack(wasm_i32x4_shuffle(endpoints, endpoints, 1, 3, 1, 3));
+    return [=](const std::array<float, 3>& terms) {
+        auto results = std::bit_cast<v128_t>(side(x, y, splat(terms[0]), splat(terms[1]), splat(terms[2])));
+        if constexpr (Wide) results = wasm_f32x4_demote_f64x2_zero(results);
+        const auto sides = ClassifySides(results, tolerance, zero);
+        // Only the two query endpoints participate, in the low lanes.
+        return (sides.below & 3u) == 3u || (sides.above & 3u) == 3u;
+    };
 }
 #endif
 
@@ -104,11 +132,18 @@ inline void BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
             return side < zero ? -1 : 1;
         };
 
+#if defined(__wasm_simd128__)
+        const auto oppositeTest = MakeOppositeTest<sizeof(Real) == sizeof(double)>(pointSide, query, tolerance, zero);
+#endif
         const auto rejectsOpposite = [&](uint32_t index) {
             const auto* segment = index ? rest + (index - 1) * 8 : edge;
             const auto terms = lineTerms.template operator()<Real>(segment);
+#if defined(__wasm_simd128__)
+            return oppositeTest(terms);
+#else
             const int first = classify(terms, query);
             return first && first == classify(terms, query + 8);
+#endif
         };
 
         int previous = classify(queryTerms, edge);
