@@ -64,4 +64,43 @@ inline void NormalizePrefix(uint8_t* frame) noexcept {
     WriteWord(frame - 4, ReadWord(frame - 4) + 0xFFFFu * shift);
 }
 
+inline void AccumulateProduct(uint32_t bp, uint32_t sp, uint32_t leftAddress,
+                              uint32_t rightAddress) noexcept {
+    if (sp != bp - 48u) return;
+    constexpr uint32_t scratchBelow = 68;
+    constexpr uint32_t frameBytes = scratchBelow + 16;
+    constexpr uint32_t operandBytes = 10;
+    using ff_browser_memory::TryWindow;
+    auto* scratch = TryWindow(bp - scratchBelow, frameBytes);
+    const auto* left = TryWindow(leftAddress, operandBytes);
+    const auto* right = TryWindow(rightAddress, operandBytes);
+    if (!scratch || !left || !right) return;
+    const auto aliasesScratch = [scratch](const uint8_t* bytes) {
+        return bytes < scratch + frameBytes && bytes + operandBytes > scratch;
+    };
+    auto* frame = scratch + scratchBelow;
+    if (ReadWord(frame + 4) != 0x001E8761u || aliasesScratch(left) || aliasesScratch(right)) return;
+
+    uint16_t a[5], b[5], product[6];
+    std::memcpy(a, left, sizeof(a));
+    std::memcpy(b, right, sizeof(b));
+    // The original starts at diagonal four of the full product. Lower
+    // diagonals contribute no carry to this truncated multiplication.
+    uint64_t carry = 0;
+    for (uint32_t diagonal = 0; diagonal < 4; ++diagonal) {
+        uint64_t sum = carry;
+        for (uint32_t i = diagonal; i < 5; ++i)
+            sum += uint32_t(a[i]) * b[4 + diagonal - i];
+        product[diagonal] = uint16_t(sum);
+        carry = sum >> 16;
+    }
+    product[4] = uint16_t(carry);
+    product[5] = uint16_t(carry >> 16);
+    std::memcpy(frame - 36, product, sizeof(product));
+    // Keep the final multiply-add and its guest stack writes.
+    WriteWord(frame - 16, 4);
+    WriteWord(frame - 4, bp - 24u);
+    WriteWord(frame + 12, 1);
+}
+
 } // namespace ff_browser_decimal
