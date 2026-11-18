@@ -216,6 +216,10 @@ The browser compiler groups 30,607 consecutive 32-bit loads or stores into 11,10
 
 LLVM ThinLTO rebuilt the same 92 C++ source objects, including the checked memory paths. In the next fresh foreground Twisted System replay, the largest acknowledgement gap was 53.56 ms versus 54.40 ms. P95 was 17.09 versus 17.19 ms across 831 and 850 pairs. This peak sampled 37.15 ms of active game code. The module shrank by 157,181 bytes, and the launcher ZIP grew by 140,233 bytes. First frame arrived near 1.68 seconds in both runs. The game stopped cleanly with zero blocking shader links. Scene and driver state can vary between launches. A focused two-file Wasm comparison passed direct and indirect SDK overrides, tail transfers and a caught guest exception. The ThinLTO Wasm SHA-256 is `19fb4f03f61aeccb5ab9d1cfe58a4f947524eb08bc2cc2a6c9f388c00dcc0419`.
 
+Two follow-up cold Twisted System replays measured 53.95 ms maximum and 17.11 ms p95 with full LTO, and 54.03 ms maximum and 17.15 ms p95 with the private stack-memory trial. Full LTO spent more than 16 minutes linking, reached about 10.2 GiB resident memory in the linker and produced a module 203,597 bytes larger than ThinLTO. The stack trial grouped 822 runs with 1,116 memory operands and matched 5,346 focused Wasm comparisons, including aliasing and partial faults. Both game runs stopped cleanly with zero blocking shader links. These comparisons favor ThinLTO for the packaged build.
+
+A separate ThinLTO trial let the linker inline ordinary weak forwarding wrappers. The SDK dispatch and exception probe passed. All 10,588 named guest function bodies retained their original lengths, the code section retained its byte size, and five inspected hot bodies matched byte for byte. Those hot routines need direct work on the operations inside their loops.
+
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 
 ## Remaining work toward modest-PC 60 FPS
