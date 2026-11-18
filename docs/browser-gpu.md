@@ -14,15 +14,17 @@ python3 tools/build-sdk-browser-full.py \
   --sdk ../../.tools/candidates/xboxxbe-codegen-58757ab \
   --config ../../.tools/candidates/fuzionfrenzy-recomp-071dbd9/config/game.toml \
   --generated ../../research/verification/sdk-title-bulk-command-20261107/generated \
-  --output .tools/artifacts/sdk-browser-wasm-eh --jobs 6 --link-opt=-O3
+  --output .tools/artifacts/sdk-browser-thinlto --jobs 6 --link-opt=-O3 --lto thin
 # Stop the game before installing a matched JS/Wasm/worker set.
 for name in fuzion-sdk-full.mjs fuzion-sdk-full.wasm fuzion-sdk-full.worker.js full-build-manifest.json; do
-  cp ".tools/artifacts/sdk-browser-wasm-eh/$name" ".tools/artifacts/sdk-browser-full/$name"
+  cp ".tools/artifacts/sdk-browser-thinlto/$name" ".tools/artifacts/sdk-browser-full/$name"
 done
 python3 tools/package-sdk-browser.py
 ```
 
 The pinned SDK is `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`; config checkout `071dbd97bdc098c4647cc24c99f9eae693fde1eb`, `game.toml` SHA-256 `c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f`. The measured build uses Emscripten 3.1.50 / LLVM18, O3 objects/link and native Wasm exceptions. `--exceptions js` preserves the slower development fallback and invalidates the object cache when selected. Build manifests record original title hashes; adapters modify disposable copies only. The published texture-cascade correction is consumed; native D3D12 descriptor-rollover changes remain untouched.
+
+The browser builder supports `--lto thin` and `--lto full` for LLVM optimization across compilation units. `--lto off` selects the original development build defaults. A mode change invalidates compiled objects, and the manifest records the mode. ThinLTO caches its link results inside the build output directory. [Emscripten LTO documentation](https://emscripten.org/docs/optimizing/Optimizing-Code#lto)
 
 ## Implemented optimizations
 
@@ -211,6 +213,8 @@ With the same Wasm and saved recipes disabled, a fresh foreground Chrome replay 
 A fresh Erodeo run and restart through Stop game used the same Chrome profile with local recipes enabled. The first run compiled and reflected 12 programs through the deferred queue. The restart prepared all 12 saved programs during loading in 0.21 ms, reused them in gameplay, and recorded zero fallback draws, runtime shader links or blocking link queries. The largest submission across four sampled windows was 11.05 ms cold and 10.74 ms warm. First frame arrived in 1.72 and 0.87 seconds, with the browser and driver caches both warm on restart. Both games stopped cleanly. Shader coverage and sustained frame timing on modest laptops remain open.
 
 The browser compiler groups 30,607 consecutive 32-bit loads or stores into 11,106 runs with the same guest base. Each run checks one complete span. A rejected span executes the scalar moves in their original order, preserving partial effects on a fault. A focused Wasm comparison matched 23,232 cases, including overlapping stores, repeated destinations, address wrap and partially admitted spans. The module shrank by 147,677 bytes, and the launcher ZIP grew from 5.58 to 5.86 MB. In a fresh foreground Twisted System replay with local shader recipes disabled, the largest frame acknowledgement gap was 54.40 ms versus 56.25 ms, and active guest samples in that gap were 37.88 ms versus 39.45 ms. Acknowledgement p95 was 17.19 versus 17.15 ms across 850 and 848 pairs. Both runs stopped cleanly and recorded zero blocking shader links. The game and driver state can vary between launches. The candidate Wasm SHA-256 is `b918300a969c4d5d3c4f203cf17cc607fa458397c4b2af7b7ae537fb3d9491ed`.
+
+LLVM ThinLTO rebuilt the same 92 C++ source objects, including the checked memory paths. In the next fresh foreground Twisted System replay, the largest acknowledgement gap was 53.56 ms versus 54.40 ms. P95 was 17.09 versus 17.19 ms across 831 and 850 pairs. This peak sampled 37.15 ms of active game code. The module shrank by 157,181 bytes, and the launcher ZIP grew by 140,233 bytes. First frame arrived near 1.68 seconds in both runs. The game stopped cleanly with zero blocking shader links. Scene and driver state can vary between launches. A focused two-file Wasm comparison passed direct and indirect SDK overrides, tail transfers and a caught guest exception. The ThinLTO Wasm SHA-256 is `19fb4f03f61aeccb5ab9d1cfe58a4f947524eb08bc2cc2a6c9f388c00dcc0419`.
 
 Private samples, screenshots, profiles, matched module sets and input/build identities are in `artifacts/browser-gpu/` and `output/playwright/`. No original images, shader captures, title listings or compiled packages belong in public commits. Older measurements remain in Git history and retained private evidence.
 

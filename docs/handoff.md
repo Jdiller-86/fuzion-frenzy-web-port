@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Twisted System's largest cold gap was 54.40 ms with batched guest memory access, down from 56.25 ms in the preceding replay. About 38 ms of that interval was active game code. A warm Erodeo restart reused all 12 saved programs with zero fallback draws. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
+- **Browser.** With ThinLTO, the largest cold Twisted System gap measured 53.56 ms versus 54.40 ms in the preceding replay. About 37 ms of that interval was active game code. A warm Erodeo restart reused all 12 saved programs with zero fallback draws. [Gameplay observations](browser-gpu.md#actual-gameplay-observations)
 - **Next.** Reduce the remaining guest scene-entry and GPU submission costs. Measure modest hardware, then qualify 60 FPS and verify original game timing before testing 120 FPS.
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

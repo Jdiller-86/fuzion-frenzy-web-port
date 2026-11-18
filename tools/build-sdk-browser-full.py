@@ -33,6 +33,8 @@ def main() -> int:
     parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O3')
     parser.add_argument('--link-opt', choices=['-O0', '-O1', '-O2', '-O3'], default=None,
                         help='Override link optimization for incremental development; objects retain --opt')
+    parser.add_argument('--lto', choices=['off', 'thin', 'full'], default='off',
+                        help='Enable LLVM link-time optimization for the browser module')
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
@@ -55,6 +57,8 @@ def main() -> int:
     exception_flag='-fwasm-exceptions' if args.exceptions=='wasm' else '-fexceptions'
     common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', exception_flag, '-fno-strict-aliasing',
               '-DXBE_RAW_VERTICES=0', '-DXBE_RENDER_THREAD=0', '-DXBE_BROWSER=1']
+    if args.lto != 'off':
+        common.append(f'-flto={args.lto}')
     for directory in includes:
         common += ['-I', str(directory)]
     runtime = []
@@ -178,7 +182,10 @@ def main() -> int:
     exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template', '_malloc', '_free']
     link_output = output / 'link-stage'
     link_output.mkdir(exist_ok=True)
-    link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
+    lto_flags = []
+    if args.lto == 'thin':
+        lto_flags = [f'-Wl,--thinlto-jobs={args.jobs}', f'-Wl,--thinlto-cache-dir={output / "thinlto-cache"}']
+    link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
             '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
             '-sINITIAL_MEMORY=536870912', '-sMAXIMUM_MEMORY=2147483648', '-sALLOW_MEMORY_GROWTH=1',
             '-sSTACK_SIZE=8388608', '-sDEFAULT_PTHREAD_STACK_SIZE=2097152', '-sPTHREAD_POOL_SIZE=12',
@@ -194,6 +201,7 @@ def main() -> int:
     revision = subprocess.check_output(['git', '-C', str(sdk), 'rev-parse', 'HEAD'], text=True).strip()
     (output / 'full-build-manifest.json').write_text(json.dumps({
         'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt, 'linkOptimization': args.link_opt or args.opt,
+        'lto': args.lto,
         'exceptions':args.exceptions,
         'sourceCount': len(sources), 'moduleBytes': (output / 'fuzion-sdk-full.wasm').stat().st_size,
         'runtimePatchManifestSha256': digest(ROOT / 'desktop/windows/patches/manifest.json'),
