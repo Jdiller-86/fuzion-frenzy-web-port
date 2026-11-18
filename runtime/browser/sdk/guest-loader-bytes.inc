@@ -180,7 +180,19 @@ inline SubstringMiss TrySubstringMiss(uint32_t stack, uint32_t esi, uint32_t ebx
     if (!frame) return {};
     uint32_t caller;
     std::memcpy(&caller, frame + saves, 4);
-    if (caller != 0x001ba1b4 && caller != 0x001ba2c6) return {};
+    // Fixed marker searches in the count and fill passes of the scene parser.
+    switch (caller) {
+        case 0x001ba1b4:
+        case 0x001ba20c:
+        case 0x001ba2c6:
+        case 0x001ba3d3:
+        case 0x001ba458:
+        case 0x001ba486:
+        case 0x001ba49c:
+            break;
+        default:
+            return {};
+    }
     uint32_t source, needle;
     std::memcpy(&source, frame + saves + 4, 4);
     std::memcpy(&needle, frame + saves + 8, 4);

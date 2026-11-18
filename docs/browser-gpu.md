@@ -420,13 +420,21 @@ The grid batch now passes its validated stack span to the original mapped inters
 
 In Water Gate Scramble, sampled grid time fell from 9.88 to 8.67 ms. The scene-entry acknowledgement gap measured 51.74 and 50.77 ms, and the following gap measured 35.44 and 31.16 ms. Steady acknowledgement p95 was 16.98 and 17.02 ms over 483 and 482 adjacent pairs. Both runs reached keyboard-controlled play with zero draw-path shader links or blocking checks. Scene and scheduling state varied, and the shared loader sampled 26.04 and 28.30 ms. The new 40,253,380-byte Wasm has SHA-256 `75d9c532c478366db7346254f9bdb738b5e4b917f2f9ad5c94a57192aca0763e`.
 
+A one-entry cache for the exact query bytes and prepared SIMD operands matched 1,152 focused grid cases. Its Water Gate replay sampled 10.22 ms in the grid and measured a 55.23 ms scene-entry gap. The cache was discarded.
+
+### Extend checked misses to the remaining fixed scene markers
+
+The checked miss path now covers all seven fixed-marker sites in the scene parser's count and fill passes. It verifies the argument and saved-stack spans and requires the two-byte prefix to be absent before a mapped terminator. Searches outside that proof use the original instructions. The comparison matched 2,376 search cases, including 484 faults and 781 direct misses.
+
+In Water Gate Scramble, sampled substring-search time fell from 5.47 to 4.43 ms. The largest acknowledgement gap measured 50.77 and 51.86 ms. The following gap measured 31.16 and 30.37 ms, with steady acknowledgement p95 at 17.02 and 17.03 ms. The shared loader sampled 28.30 and 28.52 ms. Scene and scheduling state varied between the captures. Both reached keyboard-controlled gameplay with zero draw-path links or blocking checks. The new 40,253,777-byte Wasm has SHA-256 `485b3cc1e88cfbabd17eee79a9a60dbc501d19bb6e75eb754e878e91cbc72683`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 49.78 ms of active guest work, with 28.30 ms in the shared loader at `0x001B43C0` and 8.67 ms in the collision grid. The loader's two-pass parser at `0x001BA160` sampled 9.81 ms and the recursive tree reader at `0x0007F2F0` sampled 9.33 ms. The measured grid pass repeated 65,965 exact consecutive queries. Check whether preparing a query once reduces the remaining grid cost without a geometry cache.
+1. **Guest scene setup.** The latest Water Gate Scramble peak sampled 50.88 ms of active guest work, with 28.52 ms in the shared loader at `0x001B43C0` and 9.30 ms in the collision grid. The loader's two-pass parser at `0x001BA160` sampled 9.89 ms and the recursive tree reader at `0x0007F2F0` sampled 10.44 ms. Isolate repeated per-file parsing and allocation so the next change targets a larger share of scene entry.
 2. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Use the resident path and completed exact programs where the observed inputs support them.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. During the latest Water Gate Scramble steady window, guest enqueues were 16.74 ms apart at p95 and renderer acknowledgements were 17.10 ms apart. Measure physical presentation at a verified display cadence while preserving the original virtual-blank period and callback sequence.
