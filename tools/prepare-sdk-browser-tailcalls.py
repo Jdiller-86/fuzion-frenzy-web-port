@@ -206,6 +206,10 @@ DECIMAL_CONVERSION_HELPERS = {
     b"001E65FD": ("3e751a40410a804cf975b758b3ee048a2e29c019d31e08766f294e90bfffd200", b"ShiftConversionMantissa"),
     b"001E6557": ("21d50b27d27c3e3877d1a29ba686f1c9e2a2a512716418ac001c6d8f276393c2", b"TruncateConversionMantissa"),
 }
+DECIMAL_ROUND_HELPERS = {
+    b"001E64D8": "fd2b08ed933b47b05fbca4bcb43b95223822549653e8d7459fa1ac3918166baf",
+    b"001E650A": "ae6334a71572133a99b44018bb7d9776f7789c8dfbe041bc3c2fdac84d0331d3",
+}
 REPEATED_LINE_ENTRY = b"X86_FUNC(__imp__sub_0007F08E) {"
 REPEATED_LINE_DIGEST = "d0459384057379296516e727f0dd42875ed504afbc0f073fa7844052f18db17c"
 SCANNER_DIGEST = "e168ac6f3c74e7d67eeda4356e26e73bdea86537d92607cea9e64be627471772"
@@ -524,6 +528,27 @@ def lower_decimal_conversion_helpers(source: bytes) -> tuple[bytes, int]:
     if any(matched_body(source, address, digest) is None for address, digest in DECIMAL_CONVERSION_CALLERS.items()):
         return source, 0
     count = 0
+    rounding_check = b"false"
+    rounding_declaration = b""
+    truncate_address = b"001E6557"
+    if (matched_body(source, truncate_address, DECIMAL_CONVERSION_HELPERS[truncate_address][0]) is not None
+            and all(matched_body(source, address, digest) is not None for address, digest in DECIMAL_ROUND_HELPERS.items())):
+        aliases = []
+        for address in DECIMAL_ROUND_HELPERS:
+            symbol = b"sub_" + address
+            implementation = b"__imp__" + symbol
+            wrapper = b"X86_WEAK_FUNC(" + symbol + b", " + implementation + b")"
+            if source.count(wrapper) != 1:
+                break
+            alias = (b'extern "C" void ' + symbol + b'(X86Context&, uint8_t*) '
+                     b'__attribute__((weak, alias("' + implementation + b'")));')
+            aliases.append((wrapper, alias))
+        else:
+            for wrapper, alias in aliases:
+                source = source.replace(wrapper, alias, 1)
+            rounding_check = b" && ".join(uses_default_implementation(address)
+                                          for address in (*DECIMAL_ROUND_HELPERS, b"001E7E6D"))
+            rounding_declaration = b"X86_EXTERN_FUNC(__imp__sub_001E7E6D);\n"
     for address, (digest, helper) in DECIMAL_CONVERSION_HELPERS.items():
         body = matched_body(source, address, digest)
         if body is None:
@@ -531,7 +556,12 @@ def lower_decimal_conversion_helpers(source: bytes) -> tuple[bytes, int]:
         # The entry binding remains intact. Only the verified default body
         # handles the fast case, ahead of its original faultable operations.
         head = b"X86_FUNC(__imp__sub_" + address + b") {"
-        entry = head + b"\n\tif (ff_browser_decimal::" + helper + b"(ctx)) return;"
+        args = b"ctx"
+        if helper == b"TruncateConversionMantissa":
+            args += b", [] { return " + rounding_check + b"; }"
+        entry = head + b"\n\tif (ff_browser_decimal::" + helper + b"(" + args + b")) return;"
+        if helper == b"TruncateConversionMantissa":
+            entry = rounding_declaration + entry
         source = source.replace(body, body.replace(head, entry, 1), 1)
         count += 1
     return source, count

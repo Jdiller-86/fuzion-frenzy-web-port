@@ -180,7 +180,42 @@ inline bool ShiftConversionMantissa(X86Context& ctx) noexcept {
     return true;
 }
 
-inline bool TruncateConversionMantissa(X86Context& ctx) noexcept {
+inline uint32_t RoundConversionMantissa(uint8_t* stack, uint8_t* mantissa, uint32_t address,
+                                       uint32_t precision, uint32_t word, uint32_t bit) noexcept {
+    const uint32_t lowerMask = (1u << bit) - 1;
+    bool more = (ReadWord(mantissa + word * 4) & lowerMask) != 0;
+    for (uint32_t index = word + 1; index < 3; ++index)
+        more |= ReadWord(mantissa + index * 4) != 0;
+    if (!more) {
+        const uint32_t tieScratch[]{31, 0x001e658fu, address};
+        std::memcpy(stack - 36, tieScratch, sizeof(tieScratch));
+        return 0;
+    }
+
+    const uint32_t retained = precision - 1;
+    uint32_t index = retained / 32;
+    uint32_t addend = 1u << (31 - retained % 32);
+    uint32_t returnAddress = 0x001e6532u;
+    for (;;) {
+        const uint32_t before = ReadWord(mantissa + index * 4);
+        const uint32_t sum = before + addend;
+        const uint32_t carry = sum < before;
+        WriteWord(mantissa + index * 4, sum);
+        if (!carry || index == 0) {
+            // The final add overwrites these call words on each carry step.
+            const uint32_t scratch[]{index, returnAddress, before, addend, address + index * 4,
+                                     retained, bit, 0x001e659eu, address};
+            std::memcpy(stack - 60, scratch, sizeof(scratch));
+            return carry;
+        }
+        --index;
+        addend = 1;
+        returnAddress = 0x001e6549u;
+    }
+}
+
+template<typename RoundingBindings>
+inline bool TruncateConversionMantissa(X86Context& ctx, RoundingBindings useDefaultRounding) noexcept {
     uint32_t distance;
     auto* stack = ConversionStack(ctx, distance);
     if (!stack || ctx.df) return false;
@@ -191,16 +226,22 @@ inline bool TruncateConversionMantissa(X86Context& ctx) noexcept {
 
     const uint32_t word = precision / 32, bit = 31 - precision % 32;
     auto* mantissa = stack + distance - 12;
-    const uint32_t value = ReadWord(mantissa + word * 4);
-    // A set rounding bit can invoke the original tie and carry helpers.
-    if (value & (1u << bit)) return false;
+    uint32_t value = ReadWord(mantissa + word * 4);
+    uint32_t carry = 0;
+    if (value & (1u << bit)) {
+        // The add helper uses a deeper part of this same caller-owned stack.
+        if (!useDefaultRounding() || !ff_browser_memory::TryWindow(ctx.esp - 60, 60 + distance))
+            return false;
+        carry = RoundConversionMantissa(stack, mantissa, ctx.ebp - 12, precision, word, bit);
+        value = ReadWord(mantissa + word * 4);
+    }
     const uint32_t mask = ~0u << bit;
-    const uint32_t scratch[]{3, ctx.edi, ctx.esi, ctx.ebx, 0, ctx.ebp};
+    const uint32_t scratch[]{3, ctx.edi, ctx.esi, ctx.ebx, carry, ctx.ebp};
     std::memcpy(stack - 24, scratch, sizeof(scratch));
     WriteWord(mantissa + word * 4, value & mask);
     if (word == 0) WriteWord(mantissa + 4, 0);
     if (word < 2) WriteWord(mantissa + 8, 0);
-    ctx.eax = 0;
+    ctx.eax = carry;
     ctx.ecx = word == 2 ? 3 : 0;
     ctx.edx = mask;
     ctx.esp += 4;
