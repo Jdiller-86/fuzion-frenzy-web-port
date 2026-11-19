@@ -15,6 +15,15 @@ inline constexpr uint32_t kWindowSize = 1u << kWindowBits;
 inline constexpr uint32_t kBackingSize = 4 * kWindowSize;
 alignas(65536) extern uint8_t backing[kBackingSize];
 
+struct ContiguousAllocation {
+    uint32_t base = 0;
+    uint32_t bytes = 0;
+};
+
+// Returns the live allocation containing a physical or write-combine VA.
+// A zero length means the allocator has no owner for that address.
+ContiguousAllocation FindContiguousAllocation(uint32_t va);
+
 inline constexpr auto kWindowOffsets = [] {
     std::array<uint32_t, 1u << (32 - kWindowBits)> offsets;
     offsets.fill(kBackingSize);

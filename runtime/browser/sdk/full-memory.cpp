@@ -164,6 +164,15 @@ public:
         return it == used_.end() ? 0 : it->second;
     }
 
+    ff_browser_memory::ContiguousAllocation Containing(uint32_t a) const {
+        auto it = used_.upper_bound(a);
+        if (it == used_.begin()) return {};
+        --it;
+        const auto [start, bytes] = *it;
+        if (a - start >= bytes) return {};
+        return {start, bytes};
+    }
+
     uint64_t Used() const {
         uint64_t n = 0;
         for (auto& u : used_) n += u.second;
@@ -409,3 +418,10 @@ Stats Query() {
 }
 
 }  // namespace mem
+
+ff_browser_memory::ContiguousAllocation ff_browser_memory::FindContiguousAllocation(uint32_t va) {
+    if (!mem::InPhysical(va)) return {};
+    const uint32_t canonical = mem::VirtualFromPhysical(mem::PhysicalFromVirtual(va));
+    std::lock_guard<std::recursive_mutex> lock(mem::g_lock);
+    return mem::g_contig.Containing(canonical);
+}

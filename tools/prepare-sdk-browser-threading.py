@@ -186,6 +186,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     render = _replace_once(
         render,
         'namespace gpu {\n',
+        '#include "full-memory.h"\n\n'
         'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n'
         'bool ff_browser_pacing_timing_enabled();\n'
         'void ff_webgl_begin_recorded_draws();\n'
@@ -324,10 +325,12 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             const auto use = last_use_.find(resource);
             const uint64_t last = use == last_use_.end() ? 0 : use->second;
             const uint32_t allocation = mem::AllocationSize(backing);
+            const auto owner = ff_browser_memory::FindContiguousAllocation(backing);
             MAIN_THREAD_ASYNC_EM_ASM({
-                Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5, $6, $7, $8 >>> 0);
+                Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5, $6, $7, $8 >>> 0,
+                                                   $9 >>> 0, $10 >>> 0);
             }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), finished,
-               double(last), double(completed), allocation);
+               double(last), double(completed), allocation, owner.base, owner.bytes);
         }
     }""",
         "Alias-safe resource barrier",
