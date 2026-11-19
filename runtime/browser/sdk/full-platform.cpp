@@ -78,6 +78,18 @@ bool ff_browser_pacing_timing_enabled() {
 #endif
 }
 
+int ff_browser_resource_fence_mode() {
+#ifdef __EMSCRIPTEN__
+    static const int mode = MAIN_THREAD_EM_ASM_INT({
+        const fence = Module.onFuzionGpu?.resourceFences;
+        return fence === 'selective' ? 2 : fence === 'trace' ? 1 : 0;
+    });
+    return mode;
+#else
+    return 0;
+#endif
+}
+
 #ifdef __EMSCRIPTEN__
 constexpr double kFrameCapPrecisionMs = 2.0;
 

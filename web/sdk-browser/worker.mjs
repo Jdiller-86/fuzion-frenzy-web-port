@@ -167,7 +167,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -258,6 +258,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     if (shaderFallback && rawVertices && module._ff_browser_fallback_vertex_template)
       module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());
     module.onFuzionGpu.measurePacing=measurePacing===true;
+    module.onFuzionGpu.resourceFences=resourceFences;
     module.onFuzionGpu.precisePacing=precisePacing===true;
     module.onFuzionGpu.frameCapPrecision=frameCapPrecision===true;
     postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});

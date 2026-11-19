@@ -20,7 +20,8 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
             raise RuntimeError('Browser raw vertex source anchor differs: '+old[:64])
         text = text.replace(old, new, 1)
 
-    replace('namespace gpu {', '#include <cstdlib>\nbool ff_webgl_raw_vertices_enabled();\n\nnamespace gpu {')
+    replace('namespace gpu {', '#include <bit>\n#include <cstdlib>\n#include "render-page-fences.h"\n'
+            'bool ff_webgl_raw_vertices_enabled();\n\nnamespace gpu {')
     replace('bool raw = kRawVertices && RawReadable(s, inputs);',
             'bool raw = ff_webgl_raw_vertices_enabled() && RawReadable(s, inputs);')
     replace('bool RawReadable(const State& s, const Inputs& inputs) {', '''bool RawReadable(const State& s, const Inputs& inputs) {
@@ -51,6 +52,57 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
     replace('    if (NativePrimitive(d.prim)) return DrawNative(d, dense, out);',
             '    // Use the same ordered list expansion as the converted reference.\n'
             '    // WebGL has no base-vertex draw: the list below rebases every index.')
+    anchor = 'bool Assemble(const State& s, uint32_t prim, uint32_t start, uint32_t count, const uint8_t* ip, Assembled& out) {'
+    replace(anchor, '''void RecordBrowserVertexReads(const State& s, uint32_t prim, uint32_t start, uint32_t count,
+                              const uint8_t* indices, ff_browser_render::PageFences& fences, uint64_t batch) {
+    constexpr auto vertex = ff_browser_render::PageFences::Vertex;
+    if (!count || prim < 1 || prim > 10) return;
+    VertexShader fvf;
+    const auto* layout = PickLayout(s, fvf);
+    if (!layout) return;
+    std::array<uint64_t, 16> tails{};
+    uint32_t streams = 0;
+    for (const auto& in : layout->inputs) {
+        if (in.stream < 0 || !in.type || in.type == kTypeNone) continue;
+        if (size_t(in.stream) >= s.streams.size()) {
+            fences.Unknown(batch, vertex);
+            return;
+        }
+        if (!s.streams[in.stream].vb) continue;
+        const auto element = HostFormat(in.type);
+        const uint64_t tail = uint64_t(in.offset) + (element.bytes ? element.bytes : 16u);
+        tails[in.stream] = std::max(tails[in.stream], tail);
+        streams |= 1u << in.stream;
+    }
+    if (!streams) return;
+
+    const IndexBounds bounds = indices ? IndexRange(indices, count) : IndexBounds{0, count - 1};
+    const uint64_t base = indices ? s.base_vertex : start;
+    const uint64_t first = base + bounds.first;
+    const uint64_t last = base + bounds.last;
+    if (last > UINT32_MAX) {
+        fences.Unknown(batch, vertex);
+        return;
+    }
+    while (streams) {
+        const auto stream = std::countr_zero(streams);
+        streams &= streams - 1;
+        const auto& binding = s.streams[stream];
+        const uint32_t stride = binding.stride ? binding.stride : layout->stream_stride[stream];
+        const auto* header = ff_browser_memory::TryWindow(binding.vb, 8);
+        if (!header) {
+            fences.Unknown(batch, vertex);
+            return;
+        }
+        uint32_t data;
+        std::memcpy(&data, header + kResData, sizeof(data));
+        // Include the whole raw stride and any converted element that extends beyond it.
+        const uint64_t end = last * stride + std::max<uint64_t>(stride, tails[stream]);
+        fences.Record(batch, mem::VirtualFromPhysical(data), first * stride, end, vertex);
+    }
+}
+
+''' + anchor)
     path.write_text(text, encoding='utf-8')
     (runtime/'browser-vertices-manifest.json').write_text(json.dumps({
         'inputSha256':before, 'outputSha256':hashlib.sha256(text.encode()).hexdigest(),

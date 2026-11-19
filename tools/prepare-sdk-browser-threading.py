@@ -193,9 +193,10 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     render = _replace_once(
         render,
         'namespace gpu {\n',
-        '#include "full-memory.h"\n\n'
+        '#include "full-memory.h"\n#include "render-page-fences.h"\n\n'
         'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n'
         'bool ff_browser_pacing_timing_enabled();\n'
+        'int ff_browser_resource_fence_mode();\n'
         'void ff_webgl_begin_recorded_draws();\n'
         'void ff_webgl_invalidate_prepared_draw();\n\nnamespace gpu {\n',
         "Optional checked browser span declaration",
@@ -240,6 +241,84 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         """    uint32_t ring_ = 0;
     uint64_t ring_pos_ = 0, scratch_reserve_end_ = 0;""",
         "Scratch reservation state",
+    )
+    render = _replace_once(
+        render,
+        """    State sent_;  // the state as the render thread will have it""",
+        """    State sent_;  // the state as the render thread will have it
+    const int fence_mode_ = ff_browser_resource_fence_mode();
+    std::unique_ptr<ff_browser_render::PageFences> pages_ = fence_mode_
+        ? std::make_unique<ff_browser_render::PageFences>() : nullptr;""",
+        "Optional recorder-owned physical page fences",
+    )
+    render = _replace_once(
+        render,
+        """        cur_->cmds.push_back(c);
+        for (uint32_t tex : s.textures) Use(tex);""",
+        """        if (pages_) {
+            using Access = ff_browser_render::PageFences;
+            const uint64_t batch = cur_->id;
+            if (!ring_) pages_->Unknown(batch, Access::Uncaptured);
+            else {
+                RecordBrowserVertexReads(sent_, prim, start, count, c.d ? cur_->bytes.data() + c.data : nullptr,
+                                        *pages_, batch);
+                for (uint32_t texture : sent_.textures) pages_->Pixels(batch, texture, Access::Image);
+                for (uint32_t palette : sent_.palettes) pages_->Colors(batch, palette);
+                pages_->Pixels(batch, sent_.rt.header, Access::Surface);
+                pages_->Pixels(batch, sent_.zs.header, Access::Surface);
+            }
+        }
+        cur_->cmds.push_back(c);
+        for (uint32_t tex : s.textures) Use(tex);""",
+        "Capture draw footprints from the sent state and owned indices",
+    )
+    render = _replace_once(
+        render,
+        """        if (flags & kClearTarget) Written(s.rt);""",
+        """        if (pages_) {
+            using Access = ff_browser_render::PageFences;
+            if (!ring_) pages_->Unknown(cur_->id, Access::Uncaptured);
+            else {
+                if (flags & kClearTarget) pages_->Pixels(cur_->id, sent_.rt.header, Access::Surface);
+                if (flags & (kClearZ | kClearStencil)) pages_->Pixels(cur_->id, sent_.zs.header, Access::Surface);
+            }
+        }
+        if (flags & kClearTarget) Written(s.rt);""",
+        "Track flagged clear planes",
+    )
+    render = _replace_once(
+        render,
+        """        c.s2.header = Header(dst.header);
+        cur_->cmds.push_back(c);""",
+        """        c.s2.header = Header(dst.header);
+        // Copy can read back an older cached target layout at the same address.
+        if (pages_) pages_->Unknown(cur_->id, ff_browser_render::PageFences::Readback);
+        cur_->cmds.push_back(c);""",
+        "Keep a full barrier around Copy and its possible readbacks",
+    )
+    render = _replace_once(
+        render,
+        """        c.s1.header = Header(front.header);
+        cur_->cmds.push_back(c);""",
+        """        c.s1.header = Header(front.header);
+        if (pages_) {
+            using Access = ff_browser_render::PageFences;
+            if (ring_) pages_->Pixels(cur_->id, c.s1.header, Access::Surface);
+            else pages_->Unknown(cur_->id, Access::Uncaptured);
+        }
+        cur_->cmds.push_back(c);""",
+        "Track the source bytes that Present may decode in software",
+    )
+    render = _replace_once(
+        render,
+        """        c.b = size;
+        cur_->cmds.push_back(c);
+        Wait(Submit(), WaitFor::ReadBack, "read-back");""",
+        """        c.b = size;
+        if (pages_ && size) pages_->Unknown(cur_->id, ff_browser_render::PageFences::Readback);
+        cur_->cmds.push_back(c);
+        Wait(Submit(), WaitFor::ReadBack, "read-back");""",
+        "Keep a full barrier around queued readback writes",
     )
     render = _replace_once(
         render,
@@ -320,24 +399,33 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
                 sampled = true;
             }
         }
-        // A guest resource can alias another header or backing span. Until the
-        // browser route proves canonical spans, drain all prior work here.
         const uint64_t completed = sampled ? done_.load() : 0;
-        const uint64_t through = (!cur_->cmds.empty() || !cur_->bytes.empty()) ? Submit() : cur_->id - 1;
+        uint64_t last = 0;
+        if (sampled || (pages_ && slotBytes)) {
+            const auto use = last_use_.find(resource);
+            if (use != last_use_.end()) last = use->second;
+        }
+        const bool recording = !cur_->cmds.empty() || !cur_->bytes.empty();
+        const uint64_t full = recording ? cur_->id : cur_->id - 1;
+        const uint64_t page_fence = pages_ && slotBytes
+            ? std::min(full, std::max(last, pages_->LastAccess(slotBase, slotBytes))) : full;
+        const bool selective = fence_mode_ == 2 && page_fence < full;
+        const uint64_t through = selective ? page_fence : (recording ? Submit() : full);
         const uint64_t waited = Wait(through, WaitFor::Resource, "resource");
-        if (sampled && waited >= 500000) {
+        if (sampled && (waited >= 500000 || selective)) {
             const double finished = emscripten_get_now();
             const auto data = mem::VirtualFromPhysical(header[1]);
             const auto backing = mem::VirtualFromPhysical(mem::PhysicalFromVirtual(data));
-            const auto use = last_use_.find(resource);
-            const uint64_t last = use == last_use_.end() ? 0 : use->second;
             const uint32_t allocation = mem::AllocationSize(backing);
             const auto owner = ff_browser_memory::FindContiguousAllocation(backing);
+            const uint64_t unknown = pages_ ? pages_->UnknownBatch() : 0;
+            const uint32_t unknown_kinds = pages_ ? pages_->UnknownKinds() : 0;
             MAIN_THREAD_ASYNC_EM_ASM({
                 Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5, $6, $7, $8 >>> 0,
-                                                   $9 >>> 0, $10 >>> 0, $11 >>> 0, $12 >>> 0);
+                                                   $9 >>> 0, $10 >>> 0, $11 >>> 0, $12 >>> 0, $13, $14, $15);
             }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), finished,
-               double(last), double(completed), allocation, owner.base, owner.bytes, slotBase, slotBytes);
+               double(last), double(completed), allocation, owner.base, owner.bytes, slotBase, slotBytes,
+               double(page_fence), double(unknown), unknown_kinds);
         }
     }""",
         "Alias-safe resource barrier",
@@ -415,7 +503,8 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     d3d = _replace_once(
         d3d,
         "HLE_STDCALL(D3D_BlockOnResource, 1) {",
-        '#include "guest-vertex-lock.inc"\n\nbool ff_browser_pacing_timing_enabled();\n\n'
+        '#include "guest-vertex-lock.inc"\n\nbool ff_browser_pacing_timing_enabled();\n'
+        'int ff_browser_resource_fence_mode();\n\n'
         "HLE_STDCALL(D3D_BlockOnResource, 1) {",
         "Use the checked title vertex lock observer only on the browser",
     )
@@ -427,7 +516,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         """            g_backend->WaitResource(res);
             g_backend->Sync(data, SurfaceBytes(res));
         } else {
-            const auto slot = type == 0 && ff_browser_pacing_timing_enabled()
+            const auto slot = type == 0 && (ff_browser_resource_fence_mode() || ff_browser_pacing_timing_enabled())
                 ? ff_browser_vertex_lock::FindSlot(ctx.esp, res) : ff_browser_vertex_lock::Slot{};
             g_backend->WaitResource(res, slot.base, slot.bytes);""",
         "Wait for resource reads before CPU readback",
@@ -523,8 +612,8 @@ uint64_t DirtyEpoch(uint32_t data) {
             "invalidate prepared raw draw state at state updates and non-draw commands",
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
-            "resource waits drain all preceding work to preserve aliases; D3D_BlockOnResource waits before Sync",
-            "pacing diagnostics record the drain, exact-header use, completed batch and allocation extent",
+            "optional page fences for validated rotating vertex slots, with a full barrier for unknown accesses",
+            "pacing diagnostics record the full or selective drain and the latest page and unknown batch IDs",
             "pixel header descriptions read all required fields through one checked guest mapping",
             "dirty epoch reads reuse thread-local values at the same published revision, with locked lookup on misses",
             "submit Clear/Copy/RecordLate/Gamma once a complete command reaches the batch threshold",
