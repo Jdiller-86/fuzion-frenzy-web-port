@@ -4,7 +4,8 @@
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
 - **Browser.** The completed mantissa product reduced its isolated Wasm benchmark from 8.03 to 6.08 ms. Water Gate Scramble entry remained near 36 ms. Twisted System completed 15 saved shader warm draws during loading on integrated Radeon. [Product evidence](browser-gpu.md#complete-the-truncated-mantissa-product) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
-- **Next.** Inspect the recursive reader and shared scene loading. Measure physical presentation on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser pacing.** The latest Water Gate Scramble run delivered one compositor feedback record per sampled game frame. The visible cadence alternated between two and three refreshes on the 165 Hz display. [Compositor trace](browser-gpu.md#current-compositor-cadence-at-165-hz)
+- **Next.** Inspect the recursive reader and shared scene loading. Measure sustained presentation at a compatible display cadence on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).
