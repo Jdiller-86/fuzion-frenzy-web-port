@@ -64,7 +64,7 @@ def main() -> int:
     parser.add_argument('--config', type=Path, default=ROOT / '.tools/fuzion-native/config/game.toml')
     parser.add_argument('--generated', type=Path, default=ROOT / 'research/verification/sdk-title-bulk-command-20261107/generated')
     parser.add_argument('--output', type=Path,
-                        help='Use the default working output or .tools/artifacts/sdk-browser-candidate for a comparison')
+                        help='Select the working output, or the managed candidate slot with --compare')
     parser.add_argument('--compiler', default=shutil.which('em++'))
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O3')
@@ -89,6 +89,8 @@ def main() -> int:
     output = (args.output or (COMPARISON_OUTPUT if comparison else WORKING_OUTPUT)).resolve()
     if output not in (WORKING_OUTPUT, COMPARISON_OUTPUT):
         parser.error('Select the working output or the single sdk-browser-candidate comparison slot')
+    if output == COMPARISON_OUTPUT and not comparison:
+        parser.error('The candidate slot requires --compare COMMAND to clean up the build and replay on exit')
     if comparison and (not args.compare or output != COMPARISON_OUTPUT or args.host_only or args.no_link or args.keep_build_cache):
         parser.error('--compare needs a command and a complete uncached build in the candidate slot')
     try:
