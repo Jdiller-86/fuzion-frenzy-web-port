@@ -1267,6 +1267,30 @@ The same scan found **19** distinct direct return sites for each of the scene-no
 
 The existing captures put the large spikes in the shared scene loader and first textured frame. For example, the opt-in [scene-node pool](#verify-scene-node-pool-fallback-and-ownership) removed **3.96 ms** of tree CPU, and [early texture staging](#stage-verified-early-textures-in-webgl) removed **4.59 ms** of opening WebGL worker CPU in separate replays. In sampled dense Erodeo play, the title and preparation threads measured **4.64 ms** and **3.06 ms** median CPU respectively in separate comparisons. The worker and GPU measured **1.65 ms** and **2.63 ms** at p95 in another replay. These clocks overlap. They point to distinct loading and steady-play budgets and favor measuring missed display slots over another broad shader or draw rewrite.
 
+### Select workloads with a whole-title scan
+
+The read-only audit matches the 64 generated shards and dispatch map to the installed build manifest. It counts **10,589** guest addresses and **335,131** scalar memory sites. The current [memory-run lowering](../tools/prepare-sdk-browser-tailcalls.py) groups consecutive reads or consecutive writes. The source has **7,727** sites across **2,630** same-base runs that mix reads and writes, about **2.3%** of scalar sites before existing lowerings. Dynamic frequency, register and fault behavior, and any frame-time savings would require separate evidence.
+
+The 64-shard scan also found **13 explicit address references** to the two heap counters reported by the scene pool. Four external read routines already have observer hooks. The other sites are in allocator initialization, allocation and release. This covers those literal references. Computed addresses, alias reads, metadata inspection and pool lifetime in additional workloads still require evidence before changing the default.
+
+The same audit ranks texture-named package spans by encoded byte count. The retained census covers **89 packages and 9,660 indexed rows**. Counting distinct `(offset, length)` pairs per package gives **6,748** `.bmp` or `.gif` leads totaling **308.93 MiB**. The largest package has **13.97 MiB** across **365** such spans. These are workload leads based on names and stored sizes. Use a verified loader/package join to select a second stress workload. Texture decode, order of use, residency and the bytes uploaded in a particular frame require runtime evidence.
+
+Run in the browser GPU worktree. The command reads the working Wasm, its manifest, the retained generated inputs, and the existing private package census. It prints local counts and package names and creates no build, cache or asset copies. Keep its raw output local.
+
+```powershell
+python -B tools/audit-sdk-browser-workload.py --build .tools/artifacts/sdk-browser-full --generated research/verification/sdk-title-bulk-command-20261107/generated --package-census ../../artifacts/ui-inventory/package-census.json
+```
+
+The installed Wasm was `b0a733af734d210c38d3fc67b0da1c99d8782eb6c8fe3953b52262c5625141ed`. The workload priorities below use retained replays on their respective builds.
+
+| Rank | What limits the frame | Next shared change to evaluate |
+| --- | --- | --- |
+| 1 | Guest loading and collision setup. The default tree comparison used **15.51 ms** of CPU on tree build and teardown. The existing opt-in pool removed **4.74 ms** from that bracket. | Resolve computed or aliased heap observations at the shared tree boundary, then evaluate wider admission in one independently selected workload. Keep allocation and collision effects separate when comparing the two adjacent opening frames. [Pool evidence](#enable-the-verified-pool-in-the-normal-browser-build) |
+| 2 | Texture transfers and CPU contention at arena entry. Moving Chrome's GPU process onto a third core reduced one equal-payload heavy frame from **39.95 to 24.11 ms**. Staging cut **4.59 ms** from WebGL CPU in one Erodeo opening, while the two-frame result was effectively flat in Water Gate Scramble. | Reduce and schedule upload work at the verified shared producer. Select changes by the combined preceding and opening gaps on the same core mask. The process-affinity comparison identified competition on that setup. [Contention](#isolate-gpu-service-contention-and-compare-preparation-paths) · [Staging](#stage-verified-early-textures-in-webgl) |
+| 3 | Active-play GPU headroom and display cadence. An earlier residency comparison measured **11.27 → 3.80 ms GPU p95** with background specialization on integrated graphics. The current shader path already uses that approach. | Keep the resident fallback and measure missed presentation slots on a compatible output before changing the 60 Hz guest clock. Investigate live shader compilation when the trace identifies it. [Specialization](#exact-shader-specialization-during-the-first-session) · [Presentation](#join-active-erodeo-cap-timing-to-chrome-presentation) |
+
+Use the existing cold-entry and dense-play captures to select changes to shared code. Reuse one representative replay to decide whether each change moves the affected deadline. The opt-in audio worklet takes **0.005 ms** at p95 per remaining browser worker callback and its active acknowledgement p95 was effectively unchanged in the pair. Prioritize the loader and texture boundary before removing that callback. [Audio comparison](#play-original-pcm-through-a-shared-audio-worklet)
+
 ### Avoid unused depth copies and repeated draw lookups
 
 `ff_webgl_target` keeps its checked depth snapshot and dirty-generation changes. The WebGL command carries an empty pixel pointer for depth because the consumer allocates that storage with null pixels. Color commands still own their uploaded bytes. The draw path resolves attachment objects once per draw for the same feedback checks and caches the active pixel uniform upload descriptors per linked program. Uniform comparisons still use the original bits and apply uploads in the original order. Independent review checked ownership, range and failure behavior, target invalidation, and the resident and specialized shader paths.
