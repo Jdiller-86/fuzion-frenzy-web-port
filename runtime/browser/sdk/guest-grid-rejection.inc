@@ -1,5 +1,6 @@
 #include "cpu/x86_ops.h"
 #include "full-memory.h"
+#include "guest-grid-contours.h"
 
 #include <algorithm>
 #include <array>
@@ -173,12 +174,29 @@ inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSi
     const auto* query = stack + 0x70;
     const auto scan = [&]<typename Real>() {
         const auto queryTerms = lineTerms.template operator()<Real>(query);
-        const auto classify = [&](const auto& terms, const uint8_t* point) {
-            const float side = float(pointSide(Real(ReadFloat(point)), Real(ReadFloat(point + 4)),
-                                               Real(terms[0]), Real(terms[1]), Real(terms[2])));
+        const auto classifyValue = [&](float side) {
             if (!std::isfinite(side) || !(std::fabs(side) >= tolerance)) return 0;
             return side < zero ? -1 : 1;
         };
+        const auto classify = [&](const auto& terms, const uint8_t* point) {
+            return classifyValue(float(pointSide(Real(ReadFloat(point)), Real(ReadFloat(point + 4)),
+                                                  Real(terms[0]), Real(terms[1]), Real(terms[2]))));
+        };
+
+        int previous = classify(queryTerms, edge);
+        if (previous && zero == 0.0f && tolerance >= 0.0f) {
+            const auto [a, b, c] = queryTerms;
+            const uint32_t contour = ContourScope::Reject(ctx, stack, [&](float minX, float minY, float maxX, float maxY) {
+                // c + (x*b + y*a) is monotone after rounding in each
+                // coordinate. Finite rounded extrema bound all points.
+                const auto at = [&](float x, float y) {
+                    return classifyValue(float(pointSide(Real(x), Real(y), Real(a), Real(b), Real(c))));
+                };
+                return at(b < 0 ? maxX : minX, a < 0 ? maxY : minY) == previous &&
+                       at(b < 0 ? minX : maxX, a < 0 ? minY : maxY) == previous;
+            });
+            if (contour) return contour;
+        }
 
 #if defined(__wasm_simd128__)
         const auto oppositeTest = MakeOppositeTest<sizeof(Real) == sizeof(double)>(pointSide, query, tolerance, zero);
@@ -194,7 +212,6 @@ inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSi
 #endif
         };
 
-        int previous = classify(queryTerms, edge);
         uint32_t rejected = 0;
 #if defined(__wasm_simd128__)
         if constexpr (sizeof(Real) == sizeof(double))

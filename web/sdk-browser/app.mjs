@@ -185,6 +185,7 @@ runButton.addEventListener('click', () => {
     gpuTiming: options.get('gpuTiming') === '1',
     pacingTiming: options.get('pacingTiming') === '1',
     resourceFences: options.get('resourceFences'),
+    gridContours: options.get('gridContours') === '1',
     precisePacing: options.has('precisePacing')
       ? options.get('precisePacing') === '1'
       : windowsPacing,

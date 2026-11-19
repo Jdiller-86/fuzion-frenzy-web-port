@@ -902,8 +902,8 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
     vector_side = re.sub(rb"double\(terms\[([012])\]\)",
                          lambda match: (b"a", b"b", b"c")[int(match[1])], vector_side)
     vector_side = vector_side.replace(b"x87_prec(ctx, ", b"(")
-    if not re.fullmatch(rb"[xyabc ()+*\-]+", vector_side):
-        raise ValueError("grid SIMD endpoint expression leaves its admitted arithmetic")
+    if vector_side != b"((c + ((((x * b)) + ((y * a))))))":
+        raise ValueError("grid endpoint expression differs from the checked contour proof")
     typed_line = [line[key].replace(b"double(", b"Real(").replace(b"x87_prec(ctx, ", b"(") for key in offsets]
     constants = []
     for comparisons in ((0x001EA5C7, 0x001EA5D8, 0x001EA686, 0x001EA697),
@@ -961,7 +961,8 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
     if stores != 4 or pushes != 4:
         raise ValueError("grid call differs from the reviewed argument layout")
 
-    setup = b"\n\tuint32_t gridStackEsp = 0;\n\tuint8_t* gridStack = nullptr;"
+    setup = (b"\n\tff_browser_grid::ContourScope contourScope(ctx);"
+             b"\n\tuint32_t gridStackEsp = 0;\n\tuint8_t* gridStack = nullptr;")
     guard = (b"\n\tif (gridStackEsp != ctx.esp) {\n\t\tgridStackEsp = ctx.esp;\n"
              b"\t\tgridStack = ff_browser_memory::TryWindow(gridStackEsp - 16, 0x50);\n\t}"
              b"\n\tif (gridStack) [[likely]] {")
@@ -1076,7 +1077,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
         helper_digest = sha256(INTERSECTION_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Intersection spans helper SHA-256: ' + helper_digest + b'\n#include "guest-intersection-spans.inc"\n' + adapted
     if mapped_grid_calls:
-        adapted = b'#include "full-memory.h"\n' + adapted
+        adapted = b'#include "guest-grid-contours.h"\n' + adapted
     if mapped_intersections and grid_predicate is not None:
         digest = sha256(GRID_REJECTION_HELPER.read_bytes()).encode("ascii")
         adapted = (b'// Grid rejection helper SHA-256: ' + digest + b'\n#include "guest-grid-rejection.inc"\n'

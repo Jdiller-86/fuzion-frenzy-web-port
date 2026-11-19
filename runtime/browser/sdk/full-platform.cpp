@@ -90,6 +90,17 @@ int ff_browser_resource_fence_mode() {
 #endif
 }
 
+bool ff_browser_grid_contours_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.gridContours === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 #ifdef __EMSCRIPTEN__
 constexpr double kFrameCapPrecisionMs = 2.0;
 

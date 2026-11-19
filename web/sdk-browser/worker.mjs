@@ -167,7 +167,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -237,7 +237,8 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     const presents = [];
     const resourceWaits = [];
     const scenePhases = [];
-    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases };
+    const contourBuilds = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases, contourBuilds };
     module.onFuzionPacingWait = (kind, ...sample) => {
       const list = waits[kind];
       if (list && list.length < 120) list.push(sample);
@@ -251,6 +252,9 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     module.onFuzionSceneTiming = (...sample) => {
       if (scenePhases.length < 128) scenePhases.push(sample);
     };
+    module.onFuzionGridContours = (...sample) => {
+      if (contourBuilds.length < 16) contourBuilds.push(sample);
+    };
   }
   if (renderer === 'webgl') {
     module.onFuzionGpu = gpu ?? createGpu();
@@ -263,6 +267,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
       module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());
     module.onFuzionGpu.measurePacing=measurePacing===true;
     module.onFuzionGpu.resourceFences=resourceFences;
+    module.onFuzionGpu.gridContours=gridContours===true;
     module.onFuzionGpu.precisePacing=precisePacing===true;
     module.onFuzionGpu.frameCapPrecision=frameCapPrecision===true;
     postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});
