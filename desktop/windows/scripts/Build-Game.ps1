@@ -21,7 +21,7 @@ $script:NativeRoot = $null
 $script:SdkRoot = $null
 $script:GameRoot = $null
 $script:InstallRoot = $null
-$script:ImageStage = $null
+$script:InstallStage = $null
 $script:PythonExe = $null
 $script:PythonPrefix = @()
 $script:Status = [ordered]@{
@@ -348,7 +348,7 @@ function Ensure-PinnedCheckout {
 }
 
 function Copy-InstallFiles {
-    param([string]$BuildDirectory, [string]$StagingDirectory, [string]$InputKind, [string]$SourcePath)
+    param([string]$BuildDirectory, [string]$StagingDirectory, [string]$DestinationDirectory, [string]$InputKind, [string]$SourcePath)
 
     [IO.Directory]::CreateDirectory($StagingDirectory) | Out-Null
     $exe = Join-Path $BuildDirectory 'FuzionFrenzy.exe'
@@ -375,14 +375,22 @@ function Copy-InstallFiles {
     $xbe = Join-Path $script:GameRoot 'default.xbe'
     [IO.File]::Copy($xbe, (Join-Path $assets 'default.xbe'), $true)
     if ($InputKind -eq 'image') {
-        [IO.File]::Copy($SourcePath, (Join-Path $assets 'game.iso'), $true)
+        $installedIso = Join-Path $DestinationDirectory 'assets\game.iso'
+        Assert-NoReparsePointInPath -Root $DestinationDirectory -Path $installedIso
+        $installed = Get-Item -LiteralPath $installedIso -ErrorAction SilentlyContinue
+        $selected = Get-Item -LiteralPath $SourcePath
+        if ($installed -and -not $installed.PSIsContainer -and $installed.Length -eq $selected.Length -and
+            (Get-FileHash -LiteralPath $installedIso).Hash -eq (Get-FileHash -LiteralPath $SourcePath).Hash) {
+            return
+        }
+        [IO.File]::Copy($SourcePath, (Join-Path $assets 'game.iso'), $false)
     } else {
         Copy-ValidatedGameTree -Source $SourcePath -Destination $assets
     }
 }
 
 function Install-StagedOutput {
-    param([string]$StagingDirectory, [string]$DestinationDirectory)
+    param([string]$StagingDirectory, [string]$DestinationDirectory, [string]$InputKind)
 
     [IO.Directory]::CreateDirectory($DestinationDirectory) | Out-Null
     foreach ($file in Get-ChildItem -LiteralPath $StagingDirectory -File -Force) {
@@ -404,7 +412,24 @@ function Install-StagedOutput {
     Assert-NoReparsePointInPath -Root $DestinationDirectory -Path $destAssets
     $stagedXbe = Join-Path $sourceAssets 'default.xbe'
     [IO.File]::Copy($stagedXbe, (Join-Path $destAssets 'default.xbe'), $true)
-    Copy-ValidatedGameTree -Source $sourceAssets -Destination $destAssets
+    if ($InputKind -eq 'folder') {
+        Copy-ValidatedGameTree -Source $sourceAssets -Destination $destAssets
+        return
+    }
+
+    $stagedIso = Join-Path $sourceAssets 'game.iso'
+    $installedIso = Join-Path $destAssets 'game.iso'
+    Assert-NoReparsePointInPath -Root $DestinationDirectory -Path $installedIso
+    if ([IO.File]::Exists($stagedIso)) {
+        # Staging lives inside the install directory, so both names are on the same volume.
+        if ([IO.File]::Exists($installedIso)) {
+            [IO.File]::Replace($stagedIso, $installedIso, [NullString]::Value, $true)
+        } else {
+            [IO.File]::Move($stagedIso, $installedIso)
+        }
+    } elseif (-not [IO.File]::Exists($installedIso)) {
+        throw 'The reused installed disc disappeared during the build.'
+    }
 }
 
 try {
@@ -481,10 +506,16 @@ try {
         if ($inputInfo.Extension -notmatch '(?i)^\.(iso|xiso)$') { throw 'Choose an ISO/XISO image or a folder with extracted game files.' }
         $script:InputKind = 'image'
         $script:InputSource = $inputInfo.FullName
-        $safeStage = Join-Path $workspaceFull ('.xbe-extract-' + [Guid]::NewGuid().ToString('N'))
-        [IO.Directory]::CreateDirectory($safeStage) | Out-Null
-        $script:ImageStage = $safeStage
     }
+
+    $staging = Join-Path $gameDirectoryFull '.install-staging'
+    Assert-NoReparsePointInPath -Root $gameDirectoryFull -Path $staging
+    if (Test-Path -LiteralPath $staging) {
+        throw "Install staging already exists at $staging. Remove it after confirming the previous build has stopped."
+    }
+    [IO.Directory]::CreateDirectory($gameDirectoryFull) | Out-Null
+    New-Item -ItemType Directory -Path $staging | Out-Null
+    $script:InstallStage = $staging
 
     Write-ProgressStatus -Phase 'prerequisites' -Message 'Checking Git, Python 3.12, CMake, Ninja, and Clang.' -Progress 5
     $vsInstall = Get-VsInstallPath
@@ -503,9 +534,11 @@ try {
     if ($script:InputKind -eq 'image') {
         Write-ProgressStatus -Phase 'extract' -Message 'Validating and reading default.xbe from the local image.' -Progress 28
         $extractor = Join-Path $script:NativeRoot 'tools\xiso_extract.py'
+        $imageStage = Join-Path $staging 'image-input'
+        [IO.Directory]::CreateDirectory($imageStage) | Out-Null
         Invoke-Native -FilePath $script:PythonExe -Arguments ($script:PythonPrefix + @($extractor, 'info', $script:InputSource)) -Phase 'extract' -Message 'Validating the disc image.'
-        Invoke-Native -FilePath $script:PythonExe -Arguments ($script:PythonPrefix + @($extractor, 'extract', $script:InputSource, $script:ImageStage, '--only', 'default.xbe')) -Phase 'extract' -Message 'Extracting the pinned default.xbe.'
-        $xbePath = Get-TopLevelXbe -Folder $script:ImageStage
+        Invoke-Native -FilePath $script:PythonExe -Arguments ($script:PythonPrefix + @($extractor, 'extract', $script:InputSource, $imageStage, '--only', 'default.xbe')) -Phase 'extract' -Message 'Extracting the pinned default.xbe.'
+        $xbePath = Get-TopLevelXbe -Folder $imageStage
         Assert-ValidXbe -Path $xbePath
     } else {
         $xbePath = Get-TopLevelXbe -Folder $script:InputSource
@@ -538,30 +571,27 @@ try {
     $uiPack = Join-Path $workspaceFull '.local-ui\ui.bgra'
     Invoke-Native -FilePath $script:PythonExe -Arguments ($script:PythonPrefix + @((Join-Path $PSScriptRoot 'Build-UiPack.py'), '--source', $script:InputSource, '--native', $script:NativeRoot, '--output', $uiPack)) -Phase 'ui-assets' -Message 'Extracting the three original UI components locally.'
 
-    $staging = Join-Path $gameDirectoryFull ('.install-staging-' + [Guid]::NewGuid().ToString('N'))
-    try {
-        Write-ProgressStatus -Phase 'install' -Message 'Staging the executable, runtime files, license notices, and local game data.' -Progress 92
-        Copy-InstallFiles -BuildDirectory (Join-Path $script:NativeRoot 'out\build\release') -StagingDirectory $staging -InputKind $script:InputKind -SourcePath $script:InputSource
-        [IO.File]::Copy($uiPack, (Join-Path $staging 'ui.bgra'), $true)
-        [IO.File]::Copy(($uiPack + '.json'), (Join-Path $staging 'ui-pack.json'), $true)
-        Install-StagedOutput -StagingDirectory $staging -DestinationDirectory $gameDirectoryFull
-        $installedExe = Join-Path $gameDirectoryFull 'FuzionFrenzy.exe'
-    }
-    finally {
-        if (Test-Path -LiteralPath $staging) { [IO.Directory]::Delete($staging, $true) }
-        if ($script:ImageStage -and (Test-Path -LiteralPath $script:ImageStage)) { [IO.Directory]::Delete($script:ImageStage, $true) }
-    }
-    Write-Status -Phase 'complete' -Message 'The native game build is ready.' -Progress 100 -State 'completed' -OutputExe $installedExe
-    Write-Output ('Game ready: {0}' -f $installedExe)
-    exit 0
+    Write-ProgressStatus -Phase 'install' -Message 'Staging the executable, runtime files, license notices, and local game data.' -Progress 92
+    Copy-InstallFiles -BuildDirectory (Join-Path $script:NativeRoot 'out\build\release') -StagingDirectory $staging -DestinationDirectory $gameDirectoryFull -InputKind $script:InputKind -SourcePath $script:InputSource
+    [IO.File]::Copy($uiPack, (Join-Path $staging 'ui.bgra'), $true)
+    [IO.File]::Copy(($uiPack + '.json'), (Join-Path $staging 'ui-pack.json'), $true)
+    Install-StagedOutput -StagingDirectory $staging -DestinationDirectory $gameDirectoryFull -InputKind $script:InputKind
+    $installedExe = Join-Path $gameDirectoryFull 'FuzionFrenzy.exe'
 }
 catch {
     $message = $_.Exception.Message
-    if ($script:ImageStage -and (Test-Path -LiteralPath $script:ImageStage)) {
-        try { [IO.Directory]::Delete($script:ImageStage, $true) } catch { }
-    }
     try { Write-Status -Phase 'error' -Message 'The build did not complete.' -Progress $null -State 'failed' -ErrorMessage $message }
     catch { Write-Output ('Could not write build status: {0}' -f $_.Exception.Message) }
     Write-Error -Message $message
     exit 1
 }
+finally {
+    if ($script:InstallStage -and (Test-Path -LiteralPath $script:InstallStage)) {
+        Assert-NoReparsePointInPath -Root $gameDirectoryFull -Path $script:InstallStage
+        [IO.Directory]::Delete($script:InstallStage, $true)
+    }
+}
+
+Write-Status -Phase 'complete' -Message 'The native game build is ready.' -Progress 100 -State 'completed' -OutputExe $installedExe
+Write-Output ('Game ready: {0}' -f $installedExe)
+exit 0
