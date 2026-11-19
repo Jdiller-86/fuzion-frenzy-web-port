@@ -62,7 +62,8 @@ python3 tools/package-sdk-browser.py
 python3 tools/serve-sdk-browser.py --open
 ```
 
-The builder prunes its ThinLTO cache on each link with a 128 MiB size policy.
+The builder trims generated ThinLTO cache entries to 128 MiB after the linker
+exits, including entries from the current job.
 Successful full builds remove stale generated objects. Keep one current package
 and reuse one scratch directory for transient browser evidence. [Browser build storage](../AGENTS.md#browser-build-storage)
 

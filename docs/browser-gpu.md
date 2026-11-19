@@ -546,6 +546,8 @@ In Water Gate Scramble on RX 9070 XT, the parser sampled 7.67 and 7.15 ms, inclu
 
 A separate trial mapped constant frame operands across the scanner and decimal parser. It removed 14 existing short memory runs. The scanner's own samples stayed near 2.2 ms, and the largest entry gap increased to 36.50 ms. The packaged build uses the existing frame operations and the buffered byte reader.
 
+A checked bulk copy trial in the recursive reader at `0x0007EDBA` replayed the same Water Gate Scramble route. The peak entry gap was 37.76 ms and the retained packaged control measured 34.215 ms. Steady acknowledgement p95 was 17.035 and 17.01 ms over 483 and 482 pairs, respectively. Both reached keyboard-controlled gameplay and stopped cleanly. These sequential runs did not show a frame-time improvement, so the packaged reader stays on the previous path.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.

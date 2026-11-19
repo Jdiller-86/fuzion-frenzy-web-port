@@ -17,10 +17,29 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+THINLTO_CACHE_BYTES = 128 * 1024 * 1024
 
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def trim_thinlto_cache(directory: Path) -> None:
+    if directory.is_symlink():
+        return
+    entries = []
+    for path in directory.glob('llvmcache-*'):
+        if path.is_file() and not path.is_symlink():
+            stat = path.stat()
+            entries.append((stat.st_atime_ns, path.name, stat.st_size, path))
+    total = sum(entry[2] for entry in entries)
+    # LLD can retain more than its policy when the current link uses those
+    # entries. Once it exits, retain the most recently read files within budget.
+    for _, _, size, path in sorted(entries):
+        if total <= THINLTO_CACHE_BYTES:
+            break
+        path.unlink(missing_ok=True)
+        total -= size
 
 
 def main() -> int:
@@ -192,12 +211,13 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
                '_ff_browser_warm_guest_code', '_malloc', '_free']
     link_output = output / 'link-stage'
     link_output.mkdir(exist_ok=True)
+    thinlto_cache = output / 'thinlto-cache'
     lto_flags = []
     if args.lto == 'thin':
         lto_flags = [
             f'-Wl,--thinlto-jobs={args.jobs}',
-            f'-Wl,--thinlto-cache-dir={output / "thinlto-cache"}',
-            '-Wl,--thinlto-cache-policy=cache_size_bytes=128m:prune_interval=0s',
+            f'-Wl,--thinlto-cache-dir={thinlto_cache}',
+            f'-Wl,--thinlto-cache-policy=cache_size_bytes={THINLTO_CACHE_BYTES}:prune_interval=0s',
         ]
     link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
             '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
@@ -207,7 +227,11 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
             '-lworkerfs.js', '-lidbfs.js', '-sEXPORTED_FUNCTIONS=' + json.dumps(exports),
             '-sEXPORTED_RUNTIME_METHODS=' + json.dumps(['FS', 'WORKERFS', 'IDBFS', 'HEAPU8', 'HEAPF32', 'PThread']),
             '-o', str(link_output / 'fuzion-sdk-full.mjs')]
-    subprocess.run(link, check=True)
+    try:
+        subprocess.run(link, check=True)
+    finally:
+        if args.lto == 'thin':
+            trim_thinlto_cache(thinlto_cache)
     # Never serve a partially written wasm paired with the previous JS glue.
     for name in ['fuzion-sdk-full.wasm', 'fuzion-sdk-full.worker.js', 'fuzion-sdk-full.mjs']:
         if (link_output / name).is_file():
