@@ -708,11 +708,26 @@ The following frame had a **30.21 ms** acknowledgement gap, including **12.21 ms
 
 ### Batch plain digits in the shared integer converter
 
-`?fastInteger=1` enables the checked digit loop at the verified `0x001DEFE6` entry. The original guest code classifies whitespace and sign first. When the first digit and the following mapped bytes contain a complete run within the 32-byte scan limit, the browser accumulates the value with the original 32-bit wraparound. It passes the consumed terminator to the original sign and return path. A missing terminator, unsupported address or first non-digit uses the existing loop. Independent source review checked alternate entries, weak override bindings and ordered fault behavior.
+The browser enables the checked digit loop at the verified `0x001DEFE6` entry by default. Use `?fastInteger=0` to restore the original loop for comparison. The original guest code classifies whitespace and sign first. When the first digit and the following mapped bytes contain a complete run within the 32-byte scan limit, the browser accumulates the value with the original 32-bit wraparound. It passes the consumed terminator to the original sign and return path. A missing terminator, unsupported address or first non-digit uses the existing loop. Independent source review checked alternate entries, weak override bindings and ordered fault behavior.
 
 Two foreground two-core Water Gate Scramble replays used the same Wasm, with the shortcut enabled first. It handled **5,110 values and 14,165 digits**. Across 13 parser calls, thread CPU time measured **7.55 ms disabled and 5.64 ms enabled**. The full loader measured **19.15 and 16.59 ms on-CPU**. Unrelated collision CPU time moved from **6.19 to 9.49 ms**, and total scene CPU time was **27.19 and 27.64 ms**. The scene-entry frame gap was **62.42 and 63.15 ms**, with **10.24 ms** of worker dispatch delay in the enabled run. Steady acknowledgement p95 was **19.71 and 18.49 ms**. These sequential runs show a localized timing improvement and leave the overall gain unconfirmed. Both reached keyboard-controlled gameplay and stopped cleanly, with zero live shader links or blocking validations.
 
 The same traces recorded two synchronous local ISO reads in each capture, both outside the scene scope. The two-pass branch still spent **14.58 and 13.39 ms off-CPU**. Its delay needs attribution among the remaining runtime waits and scheduling. The retained comparison Wasm SHA-256 is `faa5acdb12a5b66356f4f94ec99e24259aaf122c3548c1f79448cac93ae96f3a`.
+
+With both hardware threads available on each of two Ryzen 9 9900X cores and integrated Radeon graphics, the working Wasm (`4228b710cf99805fe16d513f9970e1a79369fcd2f5cf4057ee45d45dfa843d67`) handled the same **5,110 values and 14,165 digits**. Foreground Chrome ran the control first. Both runs had selective resource fences enabled and saved shader warmup and promotion disabled. Scene CPU clocks recorded **1.80 and 1.21 ms off-CPU** and no synchronous disc reads inside the measured scene. All CPU spans below are inclusive.
+
+| Water Gate Scramble measurement | Original loop | Checked digit loop |
+| --- | ---: | ---: |
+| Parser CPU across 13 calls | 9.86 ms | 9.34 ms |
+| Shared loader CPU | 24.93 ms | 24.70 ms |
+| Recursive reader CPU | 10.64 ms | 9.91 ms |
+| Collision setup CPU | 11.21 ms | 14.64 ms |
+| Whole scene CPU | 38.22 ms | 41.45 ms |
+| Scene-entry acknowledgement gap | 44.78 ms | 47.49 ms |
+| Active acknowledgement p95 | 17.32 ms | 17.17 ms |
+| Active acknowledgement maximum | 18.37 ms | 18.43 ms |
+
+The parser CPU saving recurred across both CPU arrangements. The sequential replays leave the overall scene and steady-cadence effects unresolved. Both reached keyboard-controlled play, stopped cleanly, and recorded zero live shader links or blocking validations. Active timing covers 483 and 482 adjacent acknowledgements, with median guest vertical blank near 60.00 Hz in both. The default switch uses the measured route on the existing Wasm.
 
 ### Send controller snapshots only when they change
 
@@ -909,7 +924,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Scene entry and first textured frame.** The guest scene still uses over 25 ms of title CPU on the measured route. Single-pass tree normalization and contour subdivision produced no direct CPU savings. GPU-process isolation and sibling threads reduced renderer stalls in diagnostic profiles. Preparing the recorded frame during the cap removed post-cap preparation from the critical path without improving the measured active cadence. For scene CPU, focus on the two-pass parser and qualify the already measured integer-conversion gain on the two-core, four-thread setup.
+1. **Scene entry and first textured frame.** The four-thread comparison measured 38–41 ms of guest CPU at scene entry. The recursive reader and collision setup each used about 10 ms or more. Attribute the reader's allocation and cleanup calls separately from its formatted conversions, and isolate the collision classifier from the grid builder's remaining work. Single-pass tree normalization and contour subdivision already had direct trials. GPU-process isolation and sibling threads reduced worker stalls in diagnostic profiles.
 2. **Active-play pacing.** Use the replay after the GO banner for steady measurements and keep scene entry and first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default. Compare future scene CPU savings against the active threaded reference.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
