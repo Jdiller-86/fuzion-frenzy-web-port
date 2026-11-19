@@ -152,11 +152,9 @@ runButton.addEventListener('click', () => {
       if (audioContext && data.frames > 0 && data.frames <= 65536) {
         const samples = new Float32Array(data.samplesBuffer);
         const buffer = audioContext.createBuffer(2, data.frames, data.rate);
-        const left = new Float32Array(data.frames);
-        const right = new Float32Array(data.frames);
+        const left = buffer.getChannelData(0);
+        const right = buffer.getChannelData(1);
         for (let i = 0; i < data.frames; i++) { left[i] = samples[i * 2]; right[i] = samples[i * 2 + 1]; }
-        buffer.copyToChannel(left, 0);
-        buffer.copyToChannel(right, 1);
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
@@ -201,6 +199,7 @@ runButton.addEventListener('click', () => {
     resourceFences: options.get('resourceFences'),
     gridContours: options.get('gridContours') === '1',
     fastInteger: options.get('fastInteger') === '1',
+    asyncAudio: options.get('audioHandoff') !== 'sync',
     precisePacing: options.has('precisePacing')
       ? options.get('precisePacing') === '1'
       : windowsPacing,

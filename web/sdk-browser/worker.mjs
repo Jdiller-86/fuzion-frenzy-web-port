@@ -122,13 +122,17 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
   }
   blankStartCount=validBlank?blankCount:null;blankStartMs=validBlank?completionMs:null;
 }
-function onAudio(ptr, frames, rate) {
+function onAudio(ptr, frames, rate, queued, waitStart, waitMs) {
   if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
   const start = Number(ptr) >>> 2;
   const count = frames * 2;
   if (!Number.isSafeInteger(start) || start + count > moduleInstance.HEAPF32.length) return;
+  const audioTiming = pacingTiming?.audio;
+  const sample = queued && audioTiming && audioTiming.length < 120;
+  const received = sample ? performance.timeOrigin + performance.now() : 0;
   const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
   postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+  if (sample) audioTiming.push([queued, received, performance.timeOrigin + performance.now(), waitStart, waitMs]);
 }
 function pushInput() {
   if (!moduleInstance || cancelled) return;
@@ -167,7 +171,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,asyncAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -218,6 +222,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     onFuzionFrame: onFrame,
     onFuzionMetrics: onMetrics,
     onFuzionAudio: onAudio,
+    asyncAudio: asyncAudio === true,
     preRun: [runtime => {
       const FS = runtime.FS;
       if (!FS || !runtime.WORKERFS) throw new Error('Full SDK build does not expose WorkerFS for local game files.');
@@ -239,7 +244,8 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     const scenePhases = [];
     const contourBuilds = [];
     const sceneIntegers = [];
-    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases, contourBuilds, sceneIntegers };
+    const audio = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases, contourBuilds, sceneIntegers, audio };
     module.onFuzionPacingWait = (kind, ...sample) => {
       const list = waits[kind];
       if (list && list.length < 120) list.push(sample);

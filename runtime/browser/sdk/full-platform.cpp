@@ -471,14 +471,62 @@ void Pace() {
 namespace audio {
 void StartOutput(std::function<void(float*, uint32_t)> render) {
 #ifdef __EMSCRIPTEN__
-    // JS must synchronously copy PCM during this callback; the buffer is reused.
-    static std::vector<float> pcm(kRate / 100 * 2);
+    constexpr uint32_t frames = kRate / 100;
+    struct Block {
+        std::array<float, frames * 2> pcm;
+        std::atomic<int32_t> pending{0};
+    };
+    static std::array<Block, 4> blocks{};
     static std::atomic_flag active = ATOMIC_FLAG_INIT;
     if (active.test_and_set()) return;
     std::thread([render = std::move(render)] {
+        const bool async = MAIN_THREAD_EM_ASM_INT({
+            return Module.asyncAudio === true ? 1 : 0;
+        }) != 0;
+        const bool trace = ff_browser_pacing_timing_enabled();
+        size_t next = 0;
+        double waitStart = 0;
+        double waitMs = 0;
         for (;;) {
-            render(pcm.data(), kRate / 100);
-            MAIN_THREAD_EM_ASM({ if (Module.onFuzionAudio) Module.onFuzionAudio($0, $1, $2); }, pcm.data(), kRate / 100, kRate);
+            auto& block = blocks[next];
+            if (async) {
+                waitStart = waitMs = 0;
+                // A stalled worker can queue four blocks. Preserve PCM order
+                // and wait for that slot only when the queue is full.
+                if (block.pending.load(std::memory_order_acquire)) {
+                    waitStart = trace ? emscripten_get_now() : 0;
+                    do {
+                        emscripten_futex_wait(&block.pending, 1, 1000);
+                    } while (block.pending.load(std::memory_order_acquire));
+                    if (trace) waitMs = emscripten_get_now() - waitStart;
+                }
+            }
+            render(block.pcm.data(), frames);
+            const double queued = trace ? emscripten_get_now() : 0;
+            if (async) {
+                block.pending.store(1, std::memory_order_release);
+                MAIN_THREAD_ASYNC_EM_ASM({
+                    const heap = new Int32Array(Module.wasmMemory?.buffer || Module.HEAPU8.buffer);
+                    const pending = $3 >>> 2;
+                    try {
+                        if (Atomics.load(heap, pending) !== 1) throw new Error('Audio block ownership changed before delivery');
+                        Module.onFuzionAudio?.($0, $1, $2, $4, $5, $6);
+                    } finally {
+                        Atomics.store(heap, pending, 0);
+                        Atomics.notify(heap, pending);
+                    }
+                }, block.pcm.data(), frames, kRate, &block.pending, queued, waitStart, waitMs);
+                next = (next + 1) % blocks.size();
+            } else {
+                MAIN_THREAD_EM_ASM({
+                    Module.onFuzionAudio?.($0, $1, $2, $3, $4, $5);
+                }, block.pcm.data(), frames, kRate, queued, waitStart, waitMs);
+                // Report the completed synchronous call with the next block.
+                if (trace) {
+                    waitStart = queued;
+                    waitMs = emscripten_get_now() - queued;
+                }
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }).detach();
