@@ -116,16 +116,26 @@ DIRECT_MAIN_RAM_SHARDS = {
 }
 DIRECT_MAIN_RAM_ACCESS = re.compile(rb"\bX86_MEM(?:8|16|32|64|F32|F64)(?=\()")
 GRID_WEAK_WRAPPER = b"X86_WEAK_FUNC(sub_001EA530, __imp__sub_001EA530)"
-GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_001EA530(
-    X86Context& __restrict ctx, uint8_t* base) {
-    if (auto* stack = ff_browser_grid_batch(ctx)) {
+GRID_DEFAULT_WRAPPER = b'''static bool ff_browser_grid_run_mapped(X86Context& ctx, uint8_t* stack) {
+    if (stack) {
         ff_browser_intersection::Spans spans;
         if (ff_browser_intersection::TryMappedGridSpans(stack, ctx.esp, spans)) {
             ff_browser_mapped_intersection(ctx, spans);
-            return;
+            return true;
         }
     }
+    return false;
+}
+
+X86_FUNC(ff_browser_grid_default_intersection) {
+    if (ff_browser_grid_run_mapped(ctx, ff_browser_grid_batch(ctx))) return;
     [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
+}
+X86_EXTERN_FUNC(sub_001EA530) __attribute__((weak, alias("ff_browser_grid_default_intersection")));
+
+extern "C" void ff_browser_grid_call_from_frame(X86Context& ctx, uint8_t* base, uint8_t* frame) {
+    if (ff_browser_grid_run_mapped(ctx, ff_browser_grid_batch(ctx, frame))) return;
+    __imp__sub_001EA530(ctx, base);
 }'''
 LOADER_BYTE_LOOPS = (
     (b"X86_FUNC(__imp__sub_001DEFE6) {",
@@ -928,15 +938,15 @@ def grid_rejection_source(leaf: bytes) -> bytes | None:
         if not all(addresses) or len({match[1] for match in addresses}) != 1:
             raise ValueError("grid endpoint comparisons use different constants")
         constants.append(addresses[0][1])
-    return (b"static uint8_t* ff_browser_grid_batch(X86Context& ctx) noexcept {\n"
+    return (b"static uint8_t* ff_browser_grid_batch(X86Context& ctx, uint8_t* frame = nullptr) noexcept {\n"
             b"    const auto lineTerms = []<typename Real>(const uint8_t* query) {\n"
             b"        return std::array<float, 3>{" + b", ".join(typed_line) + b"};\n    };\n"
             b"    const auto vectorSide = [](auto x, auto y, auto a, auto b, auto c) { return " + vector_side + b"; };\n"
             b"    return ff_browser_grid::BatchRejectedEdges(ctx, lineTerms, vectorSide, 0x0019EBAEu, "
-            + b", ".join(constants) + b");\n}\n")
+            + b", ".join(constants) + b", frame);\n}\n")
 
 
-def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
+def lower_grid_arguments(block: bytes, reuse_frame: bool = False) -> tuple[bytes, int]:
     if not block.startswith(GRID_ENTRY):
         return block, 0
     head, closing, tail = block.replace(b"\r\n", b"\n").partition(b"\n}")
@@ -1010,6 +1020,23 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
              b"\n\t\tconst auto* gridFirstEdge = ff_browser_memory::TryWindow(ctx.eax, 8);"
              b"\n\t\tconst auto* gridSecondEdge = ff_browser_memory::TryWindow(ctx.esi, 8);"
              b"\n\t\tif (gridFirstEdge && gridSecondEdge) [[likely]] {")
+    if reuse_frame:
+        setup += (b"\n\tff_browser_grid::CallerFrameUse gridFrameUse;"
+                  b"\n\tuint8_t* gridFrame = nullptr;"
+                  b"\n\tconst bool reuseGridFrame = ff_browser_grid_caller_frame_enabled() && "
+                  b"ff_browser_guest_binding::UsesDefaultImplementation(sub_001EA530, "
+                  b"ff_browser_grid_default_intersection);")
+        guard = guard.replace(b"gridStack = ff_browser_memory::TryWindow(gridStackEsp - 16, 0x50);",
+            b"gridFrame = reuseGridFrame ? ff_browser_memory::TryWindow(gridStackEsp - 48, 0x98) : nullptr;"
+            b"\n\t\tgridStack = gridFrame ? gridFrame + 32 : "
+            b"ff_browser_memory::TryWindow(gridStackEsp - 16, 0x50);")
+        call = b"sub_001EA530(ctx, base);"
+        direct = (b"if (gridFrame) { ++gridFrameUse.calls; "
+                  b"ff_browser_grid_call_from_frame(ctx, base, gridFrame); } else " + call)
+        if mapped.count(call) != 1 or mapped_edges.count(call) != 1:
+            raise ValueError("grid call binding anchor differs")
+        mapped = mapped.replace(call, direct)
+        mapped_edges = mapped_edges.replace(call, direct)
     # Only translate the two input spans early. Individual reads remain
     # interleaved with the original stack stores so aliases behave identically.
     mapped_edges = mapped_edges.replace(b"\n\t", b"\n\t\t\t")
@@ -1053,7 +1080,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
         if block.startswith(b"X86_FUNC("):
             block, count = lower_intersection(block)
             mapped_intersections += count
-            block, count = lower_grid_arguments(block)
+            block, count = lower_grid_arguments(block, grid_predicate is not None)
             mapped_grid_calls += count
             block, count = lower_loader_byte_loop(block)
             loader_byte_loops += count

@@ -101,6 +101,17 @@ bool ff_browser_grid_contours_enabled() {
 #endif
 }
 
+bool ff_browser_grid_caller_frame_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.gridCallerFrame === false ? 0 : 1;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 bool ff_browser_fast_integer_enabled() {
 #ifdef __EMSCRIPTEN__
     static const bool enabled = MAIN_THREAD_EM_ASM_INT({

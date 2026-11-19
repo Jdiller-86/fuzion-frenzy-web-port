@@ -13,9 +13,24 @@
 #include <emscripten.h>
 
 bool ff_browser_grid_contours_enabled();
+bool ff_browser_grid_caller_frame_enabled();
 bool ff_browser_pacing_timing_enabled();
 
+X86_EXTERN_FUNC(ff_browser_grid_default_intersection);
+extern "C" void ff_browser_grid_call_from_frame(X86Context& ctx, uint8_t* base, uint8_t* frame);
+
 namespace ff_browser_grid {
+
+struct CallerFrameUse {
+    uint32_t calls = 0;
+
+    ~CallerFrameUse() {
+        if (!calls || !ff_browser_pacing_timing_enabled()) return;
+        EM_ASM({
+            console.timeStamp?.("ff-grid-caller-frame:" + $0);
+        }, calls);
+    }
+};
 
 // The same contour ordinal and first edge recur for each cell in this
 // digest-matched grid builder. Capture bounds at most once per ordinal.

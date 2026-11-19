@@ -135,14 +135,20 @@ inline uint32_t ProveOneSidedPrefix(Side side, const std::array<float, 3>& terms
 
 template<typename Line, typename Side>
 inline uint8_t* BatchRejectedEdges(X86Context& ctx, Line lineTerms, Side pointSide,
-                                  uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress) noexcept {
+                                  uint32_t returnAddress, uint32_t toleranceAddress, uint32_t zeroAddress,
+                                  uint8_t* callerFrame = nullptr) noexcept {
     using ff_browser_memory::TryWindow;
     const uint32_t esp = ctx.esp;
-    if (int32_t(ctx.edi) < 3 || ctx.eax != esp + 0x40 || ctx.ecx != esp + 0x50 || ctx.edx != esp + 0x60) return nullptr;
-    auto* stack = TryWindow(esp - 32, 0x98);
-    if (!stack) return nullptr;
-    const auto word = [stack](uint32_t offset) { return *reinterpret_cast<const x86_u32u*>(stack + offset); };
-    if (word(32) != returnAddress || word(36) != ctx.ecx || word(40) != ctx.eax || word(44) != ctx.edx) return nullptr;
+    if (int32_t(ctx.edi) < 3) return callerFrame;
+    auto* stack = callerFrame;
+    if (!stack) {
+        if (ctx.eax != esp + 0x40 || ctx.ecx != esp + 0x50 || ctx.edx != esp + 0x60) return nullptr;
+        stack = TryWindow(esp - 32, 0x98);
+        if (!stack) return nullptr;
+        const auto word = [stack](uint32_t offset) { return *reinterpret_cast<const x86_u32u*>(stack + offset); };
+        if (word(32) != returnAddress || word(36) != ctx.ecx || word(40) != ctx.eax || word(44) != ctx.edx)
+            return nullptr;
+    }
 
     const auto* toleranceBytes = TryWindow(toleranceAddress, 4);
     const auto* zeroBytes = TryWindow(zeroAddress, 4);
