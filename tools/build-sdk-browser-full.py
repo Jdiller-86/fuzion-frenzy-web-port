@@ -199,6 +199,8 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
         source_digest=digest(source)
         if source.name=='full-webgl.cpp':source_digest+=digest(work/'fixed-constants.inc')
+        if source == overlay / 'xdk/d3d8.cpp':
+            source_digest += digest(ROOT / 'runtime/browser/sdk/guest-vertex-lock.inc')
         signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, source_digest]).encode()).hexdigest()
         stamp = obj.with_suffix('.signature')
         if obj.is_file() and stamp.is_file() and stamp.read_text() == signature:

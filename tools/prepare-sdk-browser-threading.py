@@ -24,13 +24,20 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     if not any(runtime.is_relative_to(base.resolve()) and runtime != base.resolve() for base in allowed):
         raise RuntimeError("threading adapter requires a disposable runtime overlay under .tools/artifacts or artifacts")
     render_path = runtime / "gpu" / "render_thread.cpp"
+    backend_path = runtime / "gpu" / "backend.h"
     d3d_path = runtime / "xdk" / "d3d8.cpp"
     texture_path = runtime / "gpu" / "texture.cpp"
-    if not all(source.is_file() for source in (render_path, d3d_path, texture_path)):
+    if not all(source.is_file() for source in (render_path, backend_path, d3d_path, texture_path)):
         raise RuntimeError(f"not a copied SDK runtime overlay: {runtime}")
 
     render = render_path.read_text(encoding="utf-8")
     d3d = d3d_path.read_text(encoding="utf-8")
+    backend = _replace_once(
+        backend_path.read_text(encoding="utf-8"),
+        "    virtual void WaitResource(uint32_t /*resource*/) {}",
+        "    virtual void WaitResource(uint32_t /*resource*/, uint32_t /*slotBase*/ = 0, uint32_t /*slotBytes*/ = 0) {}",
+        "Pass an optional observed vertex slot through the wait diagnostic",
+    )
     render = _replace_once(render,
         "    uint32_t Put(const void* p, size_t n) {\n        size_t at =",
         "    uint32_t Put(const void* p, size_t n) {\n        if(n>128u*1024*1024 || cur_->bytes.size()>256u*1024*1024-n-3) std::abort();\n        size_t at =",
@@ -304,7 +311,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         auto it = last_use_.find(resource);
         if (it != last_use_.end()) Wait(it->second, WaitFor::Resource, "resource");
     }""",
-        """    void WaitResource(uint32_t resource) override {
+        """    void WaitResource(uint32_t resource, uint32_t slotBase, uint32_t slotBytes) override {
         uint32_t header[2];
         bool sampled = false;
         if (resource && ff_browser_pacing_timing_enabled()) {
@@ -328,9 +335,9 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             const auto owner = ff_browser_memory::FindContiguousAllocation(backing);
             MAIN_THREAD_ASYNC_EM_ASM({
                 Module.onFuzionPacingResourceWait?.($0 >>> 0, $1, $2 >>> 0, $3, $4, $5, $6, $7, $8 >>> 0,
-                                                   $9 >>> 0, $10 >>> 0);
+                                                   $9 >>> 0, $10 >>> 0, $11 >>> 0, $12 >>> 0);
             }, resource, header[0] & 0x70000, backing, waited / 1e6, double(through), finished,
-               double(last), double(completed), allocation, owner.base, owner.bytes);
+               double(last), double(completed), allocation, owner.base, owner.bytes, slotBase, slotBytes);
         }
     }""",
         "Alias-safe resource barrier",
@@ -407,13 +414,22 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
 
     d3d = _replace_once(
         d3d,
+        "HLE_STDCALL(D3D_BlockOnResource, 1) {",
+        '#include "guest-vertex-lock.inc"\n\nbool ff_browser_pacing_timing_enabled();\n\n'
+        "HLE_STDCALL(D3D_BlockOnResource, 1) {",
+        "Use the checked title vertex lock observer only on the browser",
+    )
+    d3d = _replace_once(
+        d3d,
         """            g_backend->Sync(data, SurfaceBytes(res));
         } else {
             g_backend->WaitResource(res);""",
         """            g_backend->WaitResource(res);
             g_backend->Sync(data, SurfaceBytes(res));
         } else {
-            g_backend->WaitResource(res);""",
+            const auto slot = type == 0 && ff_browser_pacing_timing_enabled()
+                ? ff_browser_vertex_lock::FindSlot(ctx.esp, res) : ff_browser_vertex_lock::Slot{};
+            g_backend->WaitResource(res, slot.base, slot.bytes);""",
         "Wait for resource reads before CPU readback",
     )
 
@@ -490,11 +506,12 @@ uint64_t DirtyEpoch(uint32_t data) {
     )
 
     render_path.write_text(render, encoding="utf-8", newline="\n")
+    backend_path.write_text(backend, encoding="utf-8", newline="\n")
     d3d_path.write_text(d3d, encoding="utf-8", newline="\n")
     texture_path.write_text(texture, encoding="utf-8", newline="\n")
     return {
         "runtime": str(runtime),
-        "files": ["gpu/render_thread.cpp", "xdk/d3d8.cpp", "gpu/texture.cpp"],
+        "files": ["gpu/render_thread.cpp", "gpu/backend.h", "xdk/d3d8.cpp", "gpu/texture.cpp"],
         "changes": [
             "contiguous 32-header-slot plus payload scratch reservations before Draw/Clear/Copy and Present",
             "wait for submitted consumers before scratch-ring lap reuse; clear stale header-copy references",
