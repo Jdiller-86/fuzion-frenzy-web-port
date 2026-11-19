@@ -22,6 +22,7 @@ ARTIFACTS = ROOT / '.tools/artifacts'
 WORKING_OUTPUT = ARTIFACTS / 'sdk-browser-full'
 COMPARISON_OUTPUT = ARTIFACTS / 'sdk-browser-candidate'
 THINLTO_CACHE_BYTES = 128 * 1024 * 1024
+BUILD_CACHE_BYTES = 384 * 1024 * 1024
 
 
 def digest(path: Path) -> str:
@@ -46,6 +47,16 @@ def trim_thinlto_cache(directory: Path) -> None:
         total -= size
 
 
+def finish_build_cache(cache: Path) -> None:
+    if cache.resolve() != cache or cache.is_symlink():
+        raise ValueError(f'Build cache must be a local directory: {cache}')
+    size = sum(path.stat().st_size for path in cache.rglob('*')
+               if not path.is_symlink() and path.is_file())
+    if size > BUILD_CACHE_BYTES:
+        shutil.rmtree(cache)
+        print(f'Discarded the {size} byte build cache (384 MiB limit).', file=sys.stderr)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', type=Path, default=ROOT / '.tools/XboxXBERecomp')
@@ -63,7 +74,7 @@ def main() -> int:
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
     parser.add_argument('--keep-build-cache', action='store_true',
-                        help='Keep one build-cache directory in the selected output for incremental builds')
+                        help='Keep an incremental cache up to 384 MiB in the selected output')
     parser.add_argument('--scene-timing', action='store_true', help='Instrument calls in the pinned guest scene loader')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
     args = parser.parse_args()
@@ -80,17 +91,23 @@ def main() -> int:
         run.mkdir()
     except FileExistsError:
         parser.error(f'Build workspace exists at {run}. If its build has stopped, remove it before retrying.')
+    cache = output / 'build-cache'
+    keep_cache = args.keep_build_cache or args.host_only or args.no_link
     try:
-        work = run / 'intermediates'
-        if args.keep_build_cache or args.host_only or args.no_link:
-            work = output / 'build-cache'
-            if work.is_symlink() or work.resolve() != work:
-                parser.error(f'Build cache must be a local directory: {work}')
+        if cache.is_symlink() or cache.resolve() != cache:
+            parser.error(f'Build cache must be a local directory: {cache}')
+        if not keep_cache and cache.exists():
+            shutil.rmtree(cache)
+        work = cache if keep_cache else run / 'intermediates'
         work.mkdir(exist_ok=True)
         compiler_temp = run / 'compiler'
         compiler_temp.mkdir()
         compiler_env = {**os.environ, 'EMCC_TEMP_DIR': str(compiler_temp), 'TMPDIR': str(compiler_temp)}
-        return build(args, parser, output, work, run, compiler_env)
+        try:
+            return build(args, parser, output, work, run, compiler_env)
+        finally:
+            if keep_cache:
+                finish_build_cache(cache)
     finally:
         shutil.rmtree(run)
 
