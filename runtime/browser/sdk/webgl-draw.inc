@@ -50,7 +50,7 @@ if (ff_webgl_enabled()) {
             q[2] = image->lo; q[3] = image->w; q[4] = image->h;
             q[5] = image->faces | (image->gpu_encoding << 8);
             q[6] = uint32_t(reinterpret_cast<uintptr_t>(image->gpu_encoding ?
-                static_cast<const void*>(image->gpu_pixels.data()) :
+                static_cast<const void*>(image->gpu_pixels.get()) :
                 static_cast<const void*>(image->texels[0].data())));
             q[7] = unit.address_u; q[8] = unit.address_v; q[9] = unit.min; q[10] = unit.mag;
             // Cube faces are separate owned vectors in the SDK decoder.

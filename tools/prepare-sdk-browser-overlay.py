@@ -133,7 +133,7 @@ def adapt_browser_texture_decode(runtime: Path, root: Path) -> None:
     helper = (root / "runtime/browser/sdk/texture-rgba.inc").read_text(encoding="utf-8")
     simd_header = "#if defined(__wasm_simd128__)\n#include <wasm_simd128.h>\n#endif\n"
     probe_header = "#ifdef FF_BROWSER_TEXTURE_PROBE\n#include <emscripten.h>\n#endif\n"
-    source.write_text(simd_header + probe_header +
+    source.write_text("#include <memory>\n" + simd_header + probe_header +
                       text.replace(next_function, helper + "\n" + next_function, 1),
                       encoding="utf-8")
 
