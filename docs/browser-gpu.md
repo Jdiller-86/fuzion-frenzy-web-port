@@ -830,6 +830,22 @@ Two Water Gate Scramble replays on the same Wasm recorded **45,246** wait/releas
 
 CPU scheduling and other scene phases varied across the sequential replays. This comparison provides no measured loader CPU gain from bypassing the table, so the trial was discarded. The allocator still performs the original managed heap operations. The private patch, replay and summaries are in `artifacts/browser-gpu/wait-handle-lookup/`. Trial Wasm SHA-256 `b71f36460a7f6d5e6e5ce178613cdca30693beb17edc1a365028623fd92ae58c`. The comparison slot was removed.
 
+### Compare grouped scene-list link accesses
+
+The node and value insertions in the shared reader already take constant time. A scoped trial grouped address checks for two insertion sites and the repeated teardown unlink site. It matched the original reader shard by digest, checked the guest spans and physical aliases, and kept the original code for failed admission. The trial preserved the existing register outputs, stack writes, heap calls and list update order. Independent review checked the three instruction ranges and the fault paths.
+
+Two same-Wasm Water Gate Scramble replays recorded **10,556** insertions and **10,691** unlinks each. The enabled run admitted all of them. Both used integrated Radeon with both hardware threads on each of two physical desktop cores. Integer and decimal-memo counts matched. Both reached original gameplay, stopped normally, and recorded zero live shader links or blocking validations.
+
+| Measurement | Existing accesses | Grouped accesses |
+| --- | ---: | ---: |
+| Recursive reader CPU | 11.733 ms | 12.255 ms |
+| Tree build, consumption and teardown CPU | 15.067 ms | 16.121 ms |
+| Inclusive loader CPU | 28.002 ms | 28.517 ms |
+| Whole scene off-CPU time | 3.926 ms | 0.984 ms |
+| Scene-entry acknowledgement gap | 47.62 ms | 45.39 ms |
+
+The shorter acknowledgement gap coincided with less time off CPU. The reader and tree CPU measurements gave no reason to retain this change. The trial was discarded. Reducing the number of managed heap operations remains a larger opportunity based on the node pool comparison below. Local patch, helper, replay and summaries are in `artifacts/browser-gpu/scene-links/`. The comparison module SHA-256 was `458c4ff363b8ba2d4820b739cadf818267581b79a40bede6784f346fb1e6fa38`. The working Wasm stayed in place.
+
 ### Compare pooled scene-reader allocation
 
 The opt-in prototype requests blocks of 256 aligned slots through the original managed allocator. Only the verified 300-byte node and value creator sites can receive slots. The original initializer, link updates and recursive traversal still run. The original free routine receives each block's base at its last payload release. Ordinary allocations retain their existing path. Source review checked the guest call frames, the exact payload free edge, physical aliases and release ownership.
