@@ -7,6 +7,7 @@ stay in an ignored overlay. Upstream notice: runtime/browser/sdk/SDK-NOTICE.txt.
 from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -58,23 +59,42 @@ def main() -> int:
                         help='Enable LLVM link-time optimization for the browser module')
     parser.add_argument('--host-only', action='store_true', help='Compile runtime integration before title shards')
     parser.add_argument('--no-link', action='store_true')
+    parser.add_argument('--keep-build-cache', action='store_true',
+                        help='Keep one build-cache directory in the selected output for incremental builds')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
     args = parser.parse_args()
     if not args.compiler:
         parser.error('em++ missing: source .tools/emscripten-env.sh or select an Emscripten compiler')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
-    sdk, generated, output = args.sdk.resolve(), args.generated.resolve(), args.output.resolve()
+    output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    overlay = output / 'sdk-overlay'
+    if args.keep_build_cache or args.host_only or args.no_link:
+        cache = output / 'build-cache'
+        if cache.is_symlink() or cache.resolve() != cache:
+            parser.error(f'Build cache must be a local directory: {cache}')
+        cache.mkdir(exist_ok=True)
+        workspace = nullcontext(cache)
+    else:
+        workspace = TemporaryDirectory(prefix='.build-', dir=output)
+    with workspace as work:
+        with TemporaryDirectory(prefix='compiler-', dir=work) as compiler_temp:
+            compiler_env = {**os.environ, 'EMCC_TEMP_DIR': compiler_temp}
+            return build(args, parser, output, Path(work), compiler_env)
+
+
+def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
+          output: Path, work: Path, compiler_env: dict[str, str]) -> int:
+    sdk, generated = args.sdk.resolve(), args.generated.resolve()
+    overlay = work / 'sdk-overlay'
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-overlay.py'), '--sdk', str(sdk), '--output', str(overlay)], check=True)
-    subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-host-header.py'), '--config', str(args.config), '--xdk', str(sdk / 'xdk'), '--output', str(output / 'image_symbols.h')], check=True)
-    title_overlay = output / 'title-overlay'
+    subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-host-header.py'), '--config', str(args.config), '--xdk', str(sdk / 'xdk'), '--output', str(work / 'image_symbols.h')], check=True)
+    title_overlay = work / 'title-overlay'
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-tailcalls.py'),
                     '--generated', str(generated), '--output', str(title_overlay)], check=True)
-    includes = [overlay, output, title_overlay, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
+    includes = [overlay, work, title_overlay, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
     subprocess.run([sys.executable,str(ROOT/'tools/prepare-sdk-browser-fixed.py'),
-                    '--sdk',str(sdk),'--output',str(output)],check=True)
+                    '--sdk',str(sdk),'--output',str(work)],check=True)
     exception_flag='-fwasm-exceptions' if args.exceptions=='wasm' else '-fexceptions'
     common = [args.compiler, '-std=c++20', args.opt, '-DNDEBUG', '-msimd128', '-pthread', exception_flag, '-fno-strict-aliasing',
               '-DXBE_RAW_VERTICES=0', '-DXBE_RENDER_THREAD=0', '-DXBE_BROWSER=1']
@@ -90,7 +110,7 @@ def main() -> int:
     runtime += [overlay / ('gpu/' + name) for name in ['texture.cpp', 'vertex.cpp', 'shaders.cpp', 'render_thread.cpp']]
     runtime += [ROOT / ('runtime/browser/sdk/' + name) for name in ['full-memory.cpp', 'full-platform.cpp', 'full-entry.cpp', 'full-webgl.cpp']]
     # The reference renderer uses kernel::HostPtr, already translated by the overlay.
-    reference = output / 'reference_renderer.cpp'
+    reference = work / 'reference_renderer.cpp'
     reference_text = (sdk / 'harness/reference_renderer.cpp').read_text()
     image_fields = '    std::vector<Vec> texels[6];'
     if reference_text.count(image_fields) != 1:
@@ -169,8 +189,8 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         for path in sorted(directory.rglob('*.h')):
             header_state.update(str(path).encode()); header_state.update(path.read_bytes())
     header_signature = header_state.hexdigest()
-    compiler_version = subprocess.check_output([args.compiler, '--version'], text=True).splitlines()[0]
-    objects_dir = output / 'objects'
+    compiler_version = subprocess.check_output([args.compiler, '--version'], env=compiler_env, text=True).splitlines()[0]
+    objects_dir = work / 'objects'
     objects_dir.mkdir(exist_ok=True)
 
     def compile_source(source: Path):
@@ -178,14 +198,15 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         obj = objects_dir / (source.stem + '-' + key + '.o')
         source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
         source_digest=digest(source)
-        if source.name=='full-webgl.cpp':source_digest+=digest(output/'fixed-constants.inc')
+        if source.name=='full-webgl.cpp':source_digest+=digest(work/'fixed-constants.inc')
         signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, source_digest]).encode()).hexdigest()
         stamp = obj.with_suffix('.signature')
         if obj.is_file() and stamp.is_file() and stamp.read_text() == signature:
             return obj, True, ''
         temporary = obj.with_suffix('.tmp.o')
         try:
-            result = subprocess.run([*common, *source_flags, '-c', str(source), '-o', str(temporary)], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            result = subprocess.run([*common, *source_flags, '-c', str(source), '-o', str(temporary)],
+                                    env=compiler_env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if result.returncode:
                 return None, False, f'{source}\n{result.stdout[-16000:]}'
             temporary.replace(obj)
@@ -210,7 +231,7 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         return 0
     exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template',
                '_ff_browser_warm_guest_code', '_ff_browser_warm_guest_code_extra', '_malloc', '_free']
-    thinlto_cache = output / 'thinlto-cache'
+    thinlto_cache = work / 'thinlto-cache'
     lto_flags = []
     if args.lto == 'thin':
         lto_flags = [
@@ -218,7 +239,7 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
             f'-Wl,--thinlto-cache-dir={thinlto_cache}',
             f'-Wl,--thinlto-cache-policy=cache_size_bytes={THINLTO_CACHE_BYTES}:prune_interval=0s',
         ]
-    with TemporaryDirectory(prefix='link-', dir=output) as staging:
+    with TemporaryDirectory(prefix='link-', dir=work) as staging:
         link_output = Path(staging)
         link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
                 '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
@@ -229,7 +250,7 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
                 '-sEXPORTED_RUNTIME_METHODS=' + json.dumps(['FS', 'WORKERFS', 'IDBFS', 'HEAPU8', 'HEAPF32', 'PThread']),
                 '-o', str(link_output / 'fuzion-sdk-full.mjs')]
         try:
-            subprocess.run(link, check=True)
+            subprocess.run(link, env=compiler_env, check=True)
         finally:
             if args.lto == 'thin':
                 trim_thinlto_cache(thinlto_cache)

@@ -18,11 +18,13 @@ python3 tools/build-sdk-browser-full.py \
 python3 tools/serve-sdk-browser.py --open
 ```
 
-The linker stages one temporary output and clears it on exit, including failed links. For an explicit comparison use the single private `--output .tools/artifacts/sdk-browser-candidate` slot. Remove that slot once the comparison is recorded, including rejected candidates. Point local shortcuts at `tools/serve-sdk-browser.py --open` in the working tree so they share the active Wasm. Create a portable ZIP only on request. Close disposable browser sessions and clear their temporary profiles after collecting evidence.
+The default build keeps the runnable module and its manifest. SDK and title overlays, object files, compiler temporary files and ThinLTO files live in a temporary directory beside the module. The builder removes it on completion or failure. Use `--keep-build-cache` for repeated edits that benefit from incremental builds. It reuses one `build-cache/` directory and caps a retained ThinLTO cache at 128 MiB. The compile-only modes also use that directory. Remove `build-cache/` when the incremental work ends.
+
+For an explicit comparison use the single private `--output .tools/artifacts/sdk-browser-candidate` slot. Remove that slot once the comparison is recorded, including rejected candidates. Point local shortcuts at `tools/serve-sdk-browser.py --open` in the working tree so they share the active Wasm. Create a portable ZIP only on request. Close disposable browser sessions and clear their temporary profiles after collecting evidence.
 
 The pinned SDK is `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`; config checkout `071dbd97bdc098c4647cc24c99f9eae693fde1eb`, `game.toml` SHA-256 `c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f`. The measured build uses Emscripten 3.1.50 / LLVM18, O3 objects/link and native Wasm exceptions. `--exceptions js` preserves the slower development fallback and invalidates the object cache when selected. Build manifests record original title hashes; adapters modify disposable copies only. The published texture-cascade correction is consumed; native D3D12 descriptor-rollover changes remain untouched.
 
-The browser builder supports `--lto thin` and `--lto full` for LLVM optimization across compilation units. `--lto off` selects the original development build defaults. A mode change invalidates compiled objects, and the manifest records the mode. ThinLTO caches its link results inside the build output directory. [Emscripten LTO documentation](https://emscripten.org/docs/optimizing/Optimizing-Code#lto)
+The browser builder supports `--lto thin` and `--lto full` for LLVM optimization across compilation units. `--lto off` selects the original development build defaults. A mode change invalidates compiled objects, and the manifest records the mode. [Emscripten LTO documentation](https://emscripten.org/docs/optimizing/Optimizing-Code#lto)
 
 ## Implemented optimizations
 
