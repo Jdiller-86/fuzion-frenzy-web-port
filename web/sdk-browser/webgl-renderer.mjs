@@ -9,6 +9,8 @@ const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
 const WARMUP_STARTUP_BUDGET_MS = 400;
 const WARMUP_POLL_INTERVAL_MS = 8;
 const WARMUP_DRAW_BATCH = 4;
+const PROMOTION_UPLOAD_BURST_BYTES = 1024 * 1024;
+const PROMOTION_SETTLE_FRAMES = 8;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -103,7 +105,8 @@ export class WebGLRenderer {
     Object.assign(this.shaderStats,{fixedFallbackEnabled:false,fixedFallbackStartupWaitMs:0,fixedFallbackDraws:0,fixedFallbackFrames:0});
     Object.assign(this.shaderStats,{programmableFallbackEnabled:false,programmableFallbackStartupWaitMs:0,programmableFallbackDraws:0,programmableFallbackFrames:0});
     Object.assign(this.shaderStats,{liveLinks:0,residentVariants:0,inlineTranslations:0,inlineTranslationMaxMs:0,fastCombinerDraws:0});
-    Object.assign(this.shaderStats,{backgroundLinks:0,promotedVariants:0,promotionFailures:0,promotionMaxStepMs:0});
+    Object.assign(this.shaderStats,{backgroundLinks:0,promotedVariants:0,promotionFailures:0,promotionMaxStepMs:0,promotionUploadDeferrals:0});
+    this.shaderPromotionResumeFrame = 0;
     if (shaderFallback && shaderPromotion && this.parallelShaderCompile) this.shaderPromotionCandidates = new Set();
     this.shaderPrewarmSeen=new Set();this.shaderPrewarmPending=new Map();this.shaderPrewarmDiscovered=new Map();this.shaderPrewarmPairCount=0;
     this.vertexPrograms=new Map();
@@ -991,6 +994,10 @@ void main() {
     // on earlier draws. Run one step after the latest frame fence signals.
     const candidates = this.shaderPromotionCandidates;
     if (!candidates || this.contextLost || this.frameError) return;
+    if (this.frame < this.shaderPromotionResumeFrame) {
+      if (this.activeShaderPromotion || candidates.size) this.shaderStats.promotionUploadDeferrals++;
+      return;
+    }
     let job = this.activeShaderPromotion;
     if (!job) {
       // Prefer the busiest resident shader in the last completed frame.
@@ -1523,6 +1530,9 @@ void main() {
       this.usedProgrammableFallback = false;
     }
     this.lastSubmitMs=this.submitMs||0;this.lastIssuedDraws=this.issuedDraws||0;this.submitMs=0;this.issuedDraws=0;
+    // Let the new scene use resident shaders while its first textures arrive.
+    if (this.shaderPromotionCandidates && this.frameStats?.textureUploadBytes >= PROMOTION_UPLOAD_BURST_BYTES)
+      this.shaderPromotionResumeFrame = this.frame + PROMOTION_SETTLE_FRAMES;
     this.lastFrameStats=this.frameStats;this.frameStats=undefined;
     for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}
     if(onError)this.scheduleFrameErrorCheck(onError);
