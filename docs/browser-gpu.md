@@ -570,6 +570,12 @@ In one foreground Water Gate Scramble replay on the packaged Wasm, Windows repor
 
 Chrome presentation feedback intervals clustered around two or three refreshes, approximately 12.1 or 18.2 ms. The full feedback sample, including the trace's adjoining intervals, had 122 two-refresh intervals and 362 three-refresh intervals, with p95 at 18.265 ms. Feedback followed renderer acknowledgement by 5.042 ms at the median and 7.933 ms at p95. This is cadence quantization at 165 Hz in the observed browser path. A 60 FPS frame spans 2.75 refreshes there, so regular 16.67 ms presentation requires a compatible output cadence. Physical panel scanout, the other minigames and modest hardware still need qualification. [Chromium presentation feedback](https://chromium.googlesource.com/chromium/src/+/e8df5a1fac2ece75d6523fa3222666f3dd4cedf3/components/viz/service/display/display.cc#1310)
 
+### Scene-entry read timing and the outer reader
+
+Two foreground Water Gate Scramble replays with resident shaders recorded one 64 KiB WorkerFS disc read each in seven sampled windows. Each read cost about 0.90 ms and fell outside the largest frame gap. The gap was already visible at renderer enqueue in both traces. These observations constrain the measured hitch to work other than the synchronous disc read in this route.
+
+The comparison build applied the five existing bounded repeated-line hooks to the exact outer reader body at `0x0007EFE0`. It used the same title inputs, SDK revision and compiler. Independent source review checked the scalar exits, alias guards and recursive path. Peak acknowledgement gaps measured 29.70 ms for the packaged build and 28.95 ms for the trial. Both reached keyboard-controlled gameplay and stopped cleanly. Earlier samples of the packaged path span a larger range, so the selected browser build retains the existing reader. The next CPU candidate should target the nested parsing or scene setup work within the measured guest gap.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
