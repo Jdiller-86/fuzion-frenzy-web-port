@@ -6,6 +6,7 @@ import { decodeFallbackVertexCode, programmableFallbackVertexGlsl, FALLBACK_VERT
 const MAX_LINKED_PROGRAMS = 2048;
 const FRAME_ERROR_CHECK_DELAY_MS = 250;
 const MIN_GEOMETRY_REUSE_BYTES = 64 * 1024;
+const GEOMETRY_GAP_WORDS = 256 * 1024 / 4;
 const WARMUP_STARTUP_BUDGET_MS = 400;
 const WARMUP_POLL_INTERVAL_MS = 8;
 const WARMUP_DRAW_BATCH = 4;
@@ -293,13 +294,31 @@ void main() {
     if (end <= storage.validWords) {
       while (end > first && words[end - 1] === snapshot[end - 1]) --end;
     }
+    let uploaded = 0;
+    // One large unchanged interior range can avoid hundreds of KiB of
+    // transfer. Bound both the extra scan and the upload count.
+    if (end - first >= 2 * GEOMETRY_GAP_WORDS) {
+      const gapStart = Math.floor((first + end - GEOMETRY_GAP_WORDS) / 2);
+      const gapEnd = gapStart + GEOMETRY_GAP_WORDS;
+      if (gapEnd <= overlap && words[gapEnd - 1] === snapshot[gapEnd - 1]) {
+        let checked = gapStart;
+        while (checked < gapEnd && words[checked] === snapshot[checked]) ++checked;
+        if (checked === gapEnd) {
+          const beforeGap = words.subarray(first, gapStart);
+          g.bufferSubData(target, first * 4, beforeGap);
+          snapshot.set(beforeGap, first);
+          uploaded = beforeGap.byteLength;
+          first = gapEnd;
+        }
+      }
+    }
     if (first < end) {
       const changed = words.subarray(first, end);
       g.bufferSubData(target, first * 4, changed);
       snapshot.set(changed, first);
     }
     storage.validWords = words.length;
-    return (end - first) * 4;
+    return uploaded + (end - first) * 4;
   }
   rawLayout(stride,words,mask) {
     if(!stride||stride>252||(stride&3))throw new Error('Unsupported raw vertex stride');
