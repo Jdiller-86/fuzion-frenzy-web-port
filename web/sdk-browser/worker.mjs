@@ -171,7 +171,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,asyncAudio}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,asyncAudio,deadlineAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -223,6 +223,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     onFuzionMetrics: onMetrics,
     onFuzionAudio: onAudio,
     asyncAudio: asyncAudio === true,
+    deadlineAudio: deadlineAudio === true,
     preRun: [runtime => {
       const FS = runtime.FS;
       if (!FS || !runtime.WORKERFS) throw new Error('Full SDK build does not expose WorkerFS for local game files.');

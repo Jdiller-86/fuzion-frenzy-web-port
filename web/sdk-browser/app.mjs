@@ -13,7 +13,7 @@ let stopping = false;
 let inputTimer;
 let sentInput;
 let audioContext;
-let audioCursor = 0;
+let audioCursor;
 let hasFrame = false;
 function showFrame() {
   if (!hasFrame) {
@@ -39,7 +39,7 @@ function stop() {
   globalThis.fuzionPerformance = undefined;
   window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:false}}));
   if (audioContext) { audioContext.close().catch(() => {}); audioContext = undefined; }
-  audioCursor = 0;
+  audioCursor = undefined;
   clearInterval(inputTimer);
   inputTimer = undefined;
   sentInput = undefined;
@@ -97,6 +97,9 @@ runButton.addEventListener('click', () => {
   if (!iso) { error.textContent = 'Select your local Fuzion Frenzy disc image.'; return; }
   stop();
   heldKeys.clear();
+  const options = new URLSearchParams(location.search);
+  const deadlineAudio = options.get('audioClock') !== 'relative';
+  const audioLead = deadlineAudio ? 0.03 : 0;
   const renderer = document.querySelector('#renderer').value;
   if (renderer === 'webgl' && !canvas.transferControlToOffscreen) {
     error.textContent = 'This browser needs OffscreenCanvas for GPU rendering. Choose Software reference or use current Chrome/Edge.';
@@ -112,7 +115,6 @@ runButton.addEventListener('click', () => {
   if (typeof AudioContext !== 'undefined') {
     audioContext ??= new AudioContext();
     audioContext.resume().catch(() => {});
-    audioCursor = audioContext.currentTime;
   }
   worker = new Worker('./worker.mjs', { type: 'module' });
   const current = worker;
@@ -158,8 +160,9 @@ runButton.addEventListener('click', () => {
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(audioContext.destination);
-        if (audioCursor > audioContext.currentTime + 0.5) return;
-        audioCursor = Math.max(audioCursor, audioContext.currentTime);
+        const now = audioContext.currentTime;
+        if (audioCursor > now + 0.5) return;
+        if (audioCursor === undefined || audioCursor < now) audioCursor = now + audioLead;
         source.start(audioCursor);
         audioCursor += buffer.duration;
       }
@@ -177,7 +180,6 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
-  const options = new URLSearchParams(location.search);
   const windowsPacing = /Windows/.test(navigator.userAgent);
   current.postMessage({
     type: 'run', iso, renderer, canvas: offscreen, compiledWasm,
@@ -200,6 +202,7 @@ runButton.addEventListener('click', () => {
     gridContours: options.get('gridContours') === '1',
     fastInteger: options.get('fastInteger') === '1',
     asyncAudio: options.get('audioHandoff') !== 'sync',
+    deadlineAudio,
     precisePacing: options.has('precisePacing')
       ? options.get('precisePacing') === '1'
       : windowsPacing,

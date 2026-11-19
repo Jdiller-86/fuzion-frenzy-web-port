@@ -480,10 +480,15 @@ void StartOutput(std::function<void(float*, uint32_t)> render) {
     static std::atomic_flag active = ATOMIC_FLAG_INIT;
     if (active.test_and_set()) return;
     std::thread([render = std::move(render)] {
-        const bool async = MAIN_THREAD_EM_ASM_INT({
-            return Module.asyncAudio === true ? 1 : 0;
-        }) != 0;
+        const int mode = MAIN_THREAD_EM_ASM_INT({
+            return (Module.asyncAudio === true ? 1 : 0) | (Module.deadlineAudio === true ? 2 : 0);
+        });
+        const bool async = (mode & 1) != 0;
+        const bool deadlineAudio = (mode & 2) != 0;
         const bool trace = ff_browser_pacing_timing_enabled();
+        using Clock = std::chrono::steady_clock;
+        constexpr auto period = std::chrono::nanoseconds(1'000'000'000ull * frames / kRate);
+        auto deadline = Clock::now();
         size_t next = 0;
         double waitStart = 0;
         double waitMs = 0;
@@ -527,7 +532,16 @@ void StartOutput(std::function<void(float*, uint32_t)> render) {
                     waitMs = emscripten_get_now() - queued;
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (deadlineAudio) {
+                deadline += period;
+                const auto now = Clock::now();
+                // Recover small overruns without accumulating drift. Restart
+                // the deadline after a long stall instead of mixing a burst.
+                if (deadline < now - period) deadline = now + period;
+                std::this_thread::sleep_until(deadline);
+            } else {
+                std::this_thread::sleep_for(period);
+            }
         }
     }).detach();
 #else
