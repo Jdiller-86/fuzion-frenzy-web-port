@@ -548,6 +548,12 @@ A separate trial mapped constant frame operands across the scanner and decimal p
 
 A checked bulk copy trial in the recursive reader at `0x0007EDBA` replayed the same Water Gate Scramble route. The peak entry gap was 37.76 ms and the retained packaged control measured 34.215 ms. Steady acknowledgement p95 was 17.035 and 17.01 ms over 483 and 482 pairs, respectively. Both reached keyboard-controlled gameplay and stopped cleanly. These sequential runs did not show a frame-time improvement, so the packaged reader stays on the previous path.
 
+### Reuse immutable uniform packets during submission
+
+The bridge already interns pixel and vertex uniform packets in an arena that stays immutable through WebGL submission. Each GL program now skips repeated uniform comparisons when the packet address matches within the same submission batch. A fresh batch token distinguishes recycled arena addresses. Fixed-function and programmable packets have separate mode checks. Packet changes still use the existing bitwise comparisons and uploads. Independent review covered ownership, program changes, fog and startup draws.
+
+In one foreground Water Gate Scramble replay on an RX 9070 XT, the browser alternated the preceding and new uniform paths every eight frames on the same Wasm. Across 240 steady frames per path, median WebGL submission fell from **1.67 to 1.26 ms** and p95 from **2.07 to 1.62 ms**, at about 969 submitted draws per frame. Median savings across 29 neighboring pairs of blocks were **0.40 ms**. The new path skipped a median of 795 pixel and 881 vertex packet comparisons per frame. The combined replay had a 17.20 ms acknowledgement p95 over 484 intervals, reached keyboard-controlled play, recorded zero live shader links or blocking validations and stopped cleanly. The test measured submission cost on this scene and adapter.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.

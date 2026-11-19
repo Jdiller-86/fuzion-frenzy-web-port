@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** The scanner uses one checked span for its buffered cursor and count. Water Gate Scramble's entry gaps measured 36.09 and 22.60 ms. Twisted System completed 15 saved shader warm draws during loading on integrated Radeon. [Scanner evidence](browser-gpu.md#consolidate-buffered-scanner-reads) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
+- **Browser.** The renderer reuses immutable uniform packets within each batch. Water Gate Scramble saved about 0.40 ms per frame in WebGL submission in a paired replay. Twisted System completed 15 saved shader warm draws during loading on integrated Radeon. [Uniform evidence](browser-gpu.md#reuse-immutable-uniform-packets-during-submission) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
 - **Next.** Inspect the recursive reader and shared scene loading. Measure physical presentation on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

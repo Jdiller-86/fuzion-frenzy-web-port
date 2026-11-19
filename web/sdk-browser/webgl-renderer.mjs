@@ -833,11 +833,14 @@ void main() {
       stats.gpuIndexUploadBytes = (stats.gpuIndexUploadBytes ?? 0) + indexUpload;
       stats.geometryUploadMs = (stats.geometryUploadMs ?? 0) + performance.now() - uploadStarted;
     }
+    // The bridge owns immutable uniform packets until this batch completes.
+    // Its arena can reuse the same addresses in the next batch.
+    const uniformBatch = {};
     let pendingRow=-1,pendingCount=0,pendingBinding,pendingOffset=0,indexOffset=0;
     const emit=()=>{
       if(pendingRow<0)return;
       const b=pendingRow,layout=words[b]===3?words[b+10]:0;
-      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset))throw new Error('GPU draw rejected');
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,uniformBatch))throw new Error('GPU draw rejected');
       pendingRow=-1;
     };
     for(let i=0;i<count;i++) {
@@ -1034,6 +1037,7 @@ void main() {
       lt:new Float32Array(fixedVertexConstants.buffer,136*4,224),
     };
     Object.assign(result,{p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
+      uniformBatch:null,uniformPacket:null,vertexConstantPacket:null,vertexConstantMode:0,
       vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false,
       addresses:new Float32Array(16),addressScratch:new Float32Array(16),addressesValid:false,
       borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false});
@@ -1238,7 +1242,7 @@ void main() {
     this.lastDrawVariant={source,vertex,flat,regs,kinds,shadows,variant};
     return variant;
   }
-  draw(n,state,uniforms,source,textures,layout,binding,indexOffset) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,uniformBatch) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
@@ -1269,18 +1273,27 @@ void main() {
           this.usedFallbackThisFrame = true;
         }
       }
-      const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
-      const uniform=(name,offset,count)=>{
-        const location=loc(name);if(location===null)return;
-        let changed=forceUniforms;
-        if(!changed)for(let i=0;i<count;i++)if(inputUniformWords[offset+i]!==uniformWords[offset+i]){changed=true;break;}
-        if(changed){for(let i=0;i<count;i++)uniformWords[offset+i]=inputUniformWords[offset+i];g.uniform4fv(location,program.uniformSpans.get(name));}
-      };
-      uniform('surf',0,4);uniform('fogcolor',4,4);uniform('misc',8,4);uniform('pc',12,72);uniform('tfactor',84,4);uniform('texsize',88,16);uniform('bumpmat',104,16);uniform('bumplum',120,16);uniform('uvrect',136,16);
-      program.uniformsValid=true;
-      if(s[37]) {
+      if (!uniformBatch || program.uniformBatch !== uniformBatch) {
+        program.uniformBatch = uniformBatch;
+        program.uniformPacket = null;
+        program.vertexConstantPacket = null;
+      }
+      if (program.uniformPacket !== uniforms) {
+        const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
+        const uniform=(name,offset,count)=>{
+          const location=loc(name);if(location===null)return;
+          let changed=forceUniforms;
+          if(!changed)for(let i=0;i<count;i++)if(inputUniformWords[offset+i]!==uniformWords[offset+i]){changed=true;break;}
+          if(changed){for(let i=0;i<count;i++)uniformWords[offset+i]=inputUniformWords[offset+i];g.uniform4fv(location,program.uniformSpans.get(name));}
+        };
+        uniform('surf',0,4);uniform('fogcolor',4,4);uniform('misc',8,4);uniform('pc',12,72);uniform('tfactor',84,4);uniform('texsize',88,16);uniform('bumpmat',104,16);uniform('bumplum',120,16);uniform('uvrect',136,16);
+        program.uniformsValid=true;
+        program.uniformPacket=uniforms;
+      }
+      const vertexConstantMode = s[39] & 0x10000;
+      if(s[37] && (program.vertexConstantPacket !== s[38] || program.vertexConstantMode !== vertexConstantMode)) {
         const constants=this.floatView(s[38],772),constantWords=new Uint32Array(constants.buffer,constants.byteOffset,772);
-        if(s[39]&0x10000) {
+        if(vertexConstantMode) {
           const fixedWords=program.fixedVertexConstantWords,forceFixed=!program.fixedVertexConstantsValid;
           const upload=(name,offset,count,matrix)=>{
             const location=loc(name);if(location===null)return;
@@ -1310,6 +1323,8 @@ void main() {
           if(changed){for(let i=0;i<4;i++)snapshotWords[768+i]=constantWords[768+i];g.uniform4fv(fogLocation,program.vertexConstantSpans.fogp);}
         }
         program.fogConstantsValid=true;
+        program.vertexConstantPacket=s[38];
+        program.vertexConstantMode=vertexConstantMode;
       }
       const addressLocation=loc('addresses');
       if(addressLocation!==null){
