@@ -15,6 +15,7 @@ ROUTES = {
     '/sdk-browser/index.html': ('web/sdk-browser/index.html', 'text/html; charset=utf-8'),
     '/sdk-browser/app.mjs': ('web/sdk-browser/app.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/worker.mjs': ('web/sdk-browser/worker.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/audio-ring.mjs': ('web/sdk-browser/audio-ring.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/presentation.mjs': ('web/sdk-browser/presentation.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/webgl-renderer.mjs': ('web/sdk-browser/webgl-renderer.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/pixel-glsl.mjs': ('web/sdk-browser/pixel-glsl.mjs', 'text/javascript; charset=utf-8'),

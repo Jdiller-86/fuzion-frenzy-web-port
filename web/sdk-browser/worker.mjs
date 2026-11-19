@@ -1,6 +1,7 @@
 import createFuzionSdkRuntime from '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs';
 import { openXiso } from '/host/xdvdfs.mjs';
 import { WebGLRenderer } from './webgl-renderer.mjs';
+import {GAME_AUDIO_RATE, StereoPcmRing} from './audio-ring.mjs';
 
 const PINNED_XBE = {
   bytes: 2_834_432,
@@ -20,6 +21,7 @@ let cancelled = false;
 let saveTimer;
 let persistentSaves = false;
 let pacingTiming;
+let audioOutput;
 
 async function flushSaves() {
   if (persistentSaves && moduleInstance) await new Promise((resolve, reject) => moduleInstance.FS.syncfs(false, error => error ? reject(error) : resolve()));
@@ -115,6 +117,7 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     rawDrawReuses,
     gpuTiming: moduleInstance?.onFuzionGpu?.gpuTimingStats,
     pacingTiming,
+    audioRing: pacingTiming && audioOutput?.stats(),
     metricsCallbackIntervalMs,
     frameMs: metricsCallbackIntervalMs,
     prepareCompletionIntervalMs,vblankHz});
@@ -134,8 +137,16 @@ function onAudio(ptr, frames, rate, queued, waitStart, waitMs) {
   const audioTiming = pacingTiming?.audio;
   const sample = queued && audioTiming && audioTiming.length < 120;
   const received = sample ? performance.timeOrigin + performance.now() : 0;
-  const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
-  postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+  if (audioOutput && rate !== GAME_AUDIO_RATE) {
+    audioOutput = undefined;
+    postMessage({type: 'audio-fallback'});
+  }
+  if (audioOutput) {
+    audioOutput.write(moduleInstance.HEAPF32, start, frames);
+  } else {
+    const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
+    postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+  }
   if (sample) audioTiming.push([queued, received, performance.timeOrigin + performance.now(), waitStart, waitMs]);
 }
 function pushInput() {
@@ -174,9 +185,10 @@ async function compileWasm(previous) {
   }
 }
 
-async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
+async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,pcm,
                      shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,directTextureUploads,retainOrdinaryImages,earlyTextureDecode,earlyTextureUpload,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,decimalProductMemo,sceneNodePool,asyncAudio,deadlineAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
+  if (pcm) audioOutput = new StereoPcmRing(pcm);
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
   // each known base; it never reads or hashes the full ISO.
@@ -348,6 +360,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
 
 onmessage = async ({ data }) => {
   if (data?.type === 'input') { parseInput(data); pushInput(); return; }
+  if (data?.type === 'audio-fallback') { audioOutput = undefined; return; }
   if (data?.type === 'stop') {
     cancelled = true;
     clearInterval(saveTimer);

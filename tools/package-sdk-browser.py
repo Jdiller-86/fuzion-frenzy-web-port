@@ -13,7 +13,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/browser/FuzionFrenzyBrowser.zip')
     args = parser.parse_args()
     required = [
-        'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs',
+        'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs', 'web/sdk-browser/audio-ring.mjs',
         'web/sdk-browser/presentation.mjs', 'web/sdk-browser/webgl-renderer.mjs', 'web/sdk-browser/pixel-glsl.mjs',
         'web/sdk-browser/vertex-glsl.mjs', 'web/sdk-browser/shader-warmup.mjs',
         'web/sdk-browser/fixed-vertex-fallback.mjs', 'web/sdk-browser/programmable-vertex-fallback.mjs',

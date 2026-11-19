@@ -79,6 +79,10 @@ pool only for matching title source shards. Ordinary launches use the
 original allocator. Add `&pacingTiming=1` to capture local pool timing.
 [Scene-node pool evidence](browser-gpu.md#verify-scene-node-pool-fallback-and-ownership).
 
+Append `?audioOutput=worklet` to try the bounded shared PCM queue with
+AudioWorklet. The scheduled-buffer path remains available on ordinary launches
+and if the worklet cannot run. [Audio worklet evidence](browser-gpu.md#play-original-pcm-through-a-shared-audio-worklet).
+
 The packager includes only the browser files, compiled module, host, SDK notice
 and build manifest, plus startup instructions. It includes compiled title code
 from the source supplied to the project, but no ISO or original assets.

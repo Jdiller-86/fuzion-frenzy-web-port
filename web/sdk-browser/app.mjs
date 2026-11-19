@@ -1,3 +1,5 @@
+import {GAME_AUDIO_RATE, GAME_AUDIO_PROCESSOR, StereoPcmRing} from './audio-ring.mjs';
+
 const isoPicker = document.querySelector('#iso');
 const runButton = document.querySelector('#run');
 const stopButton = document.querySelector('#stop');
@@ -13,6 +15,7 @@ let stopping = false;
 let inputTimer;
 let sentInput;
 let audioContext;
+let audioWorkletNode;
 let audioCursor;
 let hasFrame = false;
 function showFrame() {
@@ -38,6 +41,7 @@ function stop() {
   hasFrame = false;
   globalThis.fuzionPerformance = undefined;
   window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:false}}));
+  if (audioWorkletNode) { audioWorkletNode.disconnect(); audioWorkletNode = undefined; }
   if (audioContext) { audioContext.close().catch(() => {}); audioContext = undefined; }
   audioCursor = undefined;
   clearInterval(inputTimer);
@@ -86,7 +90,7 @@ function keyboardBits() {
 }
 const heldKeys = keyboardBits();
 
-runButton.addEventListener('click', () => {
+runButton.addEventListener('click', async () => {
   if (stopping) return;
   error.textContent = '';
   if (!globalThis.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
@@ -98,6 +102,7 @@ runButton.addEventListener('click', () => {
   stop();
   heldKeys.clear();
   const options = new URLSearchParams(location.search);
+  const workletAudio = options.get('audioOutput') === 'worklet' && typeof AudioWorkletNode !== 'undefined';
   const deadlineAudio = options.get('audioClock') !== 'relative';
   const audioLead = deadlineAudio ? 0.03 : 0;
   const renderer = document.querySelector('#renderer').value;
@@ -114,7 +119,8 @@ runButton.addEventListener('click', () => {
   context = renderer === 'software' ? canvas.getContext('2d', {alpha:false}) : undefined;
   const offscreen = renderer === 'webgl' ? canvas.transferControlToOffscreen() : undefined;
   if (typeof AudioContext !== 'undefined') {
-    audioContext ??= new AudioContext();
+    try { audioContext = new AudioContext(workletAudio ? {sampleRate: GAME_AUDIO_RATE} : undefined); }
+    catch { audioContext = new AudioContext(); }
     audioContext.resume().catch(() => {});
   }
   worker = new Worker('./worker.mjs', { type: 'module' });
@@ -167,6 +173,8 @@ runButton.addEventListener('click', () => {
         source.start(audioCursor);
         audioCursor += buffer.duration;
       }
+    } else if (data.type === 'audio-fallback') {
+      if (audioWorkletNode) { audioWorkletNode.disconnect(); audioWorkletNode = undefined; }
     } else if (data.type === 'result') {
       status.textContent = data.text;
       error.textContent = data.error || '';
@@ -181,9 +189,34 @@ runButton.addEventListener('click', () => {
     status.textContent = 'Game stopped.';
     stop();
   });
+  let pcm;
+  const graph = audioContext;
+  if (workletAudio && graph?.audioWorklet && graph.sampleRate === GAME_AUDIO_RATE) {
+    try {
+      await graph.audioWorklet.addModule('./audio-ring.mjs');
+      if (worker !== current) return;
+      const ring = new StereoPcmRing();
+      const node = new AudioWorkletNode(graph, GAME_AUDIO_PROCESSOR, {
+        numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+        processorOptions: {pcm: ring.buffer},
+      });
+      node.addEventListener('processorerror', () => {
+        if (worker !== current || audioWorkletNode !== node) return;
+        node.disconnect();
+        audioWorkletNode = undefined;
+        current.postMessage({type: 'audio-fallback'});
+      }, {once: true});
+      node.connect(graph.destination);
+      pcm = ring.buffer;
+      audioWorkletNode = node;
+    } catch {
+      // A failed graph setup leaves the worker on scheduled buffers.
+    }
+  }
+  if (worker !== current) return;
   const windowsPacing = /Windows/.test(navigator.userAgent);
   current.postMessage({
-    type: 'run', iso, renderer, canvas: offscreen, compiledWasm,
+    type: 'run', iso, renderer, canvas: offscreen, compiledWasm, pcm,
     gpuVertices: options.get('cpuVertices') !== '1',
     threadedGpu,
     pipelinedGpu: options.get('pipelinedGpu') !== '0',
