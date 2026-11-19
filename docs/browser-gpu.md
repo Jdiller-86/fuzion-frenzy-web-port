@@ -804,6 +804,18 @@ Two same-build Water Gate Scramble replays on integrated Radeon and two physical
 
 A separate replay waited until active play before delivering the same keyboard actions. The end capture showed **1:21**, separated boats and nonzero scores. Eight measured windows in the running round had **19.58 ms acknowledgement p95** and a **20.91 ms maximum** across 485 adjacent intervals. GPU elapsed p95 was **2.61 ms** over 81 queries. Median callback FPS and virtual blank were both near 60. The first arena setup in this same replay still had a **63.46 ms** gap. The three runs used Wasm `4228b710cf99805fe16d513f9970e1a79369fcd2f5cf4057ee45d45dfa843d67`, reached original play, and stopped cleanly with zero live shader links or blocking validations. A short running-round sample does not cover the whole scene or prove physical presentation cadence.
 
+### Compare preparation and submission order during active play
+
+Three sequential Water Gate Scramble replays reused the same `4228b71` Wasm, integrated Radeon and two shared physical desktop cores. All kept GPU pipelining, selective resource fences, virtual blank and shader promotion. The same keyboard sequence ran after the countdown. Each active measurement covered eight seconds and 484 consecutive acknowledgement pairs starting **15.81–16.13 seconds** after scene setup. The captures showed a **1:21** round clock and nonzero scores. No CPU profiler ran in these comparisons.
+
+| Preparation and frame-cap order | Active p95 | Active maximum | Scene-entry gap | First heavy upload frame |
+| --- | ---: | ---: | ---: | ---: |
+| Threaded, wait before submit | 18.26 ms | 21.02 ms | 63.28 ms | 31.43 ms |
+| Inline, wait before submit | 18.07 ms | 23.69 ms | 57.20 ms | 48.42 ms |
+| Threaded, submit before wait | 17.82 ms | 20.25 ms | 76.29 ms | 33.99 ms |
+
+Inline preparation moved work onto the title thread and recorded one active gap above 20 ms, versus four for the threaded default. Its worst active gap and first heavy upload frame were longer. Submitting before the wait gave the lowest active p95 and a longer arena-entry gap, matching the previously observed tradeoff. Guest and scheduling state varied between runs, so the pair differences do not isolate a causal effect. All runs reached keyboard-controlled gameplay and stopped cleanly, with zero live shader links or blocking validations. The working build keeps threaded preparation and pre-submit pacing. The arena loader and collision setup each account for substantially more time than the active p95 differences.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
@@ -811,7 +823,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 The next changes should stay targeted to measured costs:
 
 1. **Guest scene setup.** Direct dispatcher and queue brackets explain only a small fraction of the instrumented scene gap. The ISO reads also did not overlap the previously measured delay. Correlate remaining loader work with thread scheduling or a CPU clock capture that separates the recursive reader from the two-pass loader before rewriting either one.
-2. **Active-play pacing.** Evaluate the render-preparation cost with the replay after the GO banner. Compare threaded and inline preparation at the same active-play point with the cap and input sequence fixed. Keep the intro and scene-entry maxima as separate measures.
+2. **Active-play pacing.** Use the replay after the GO banner for steady measurements and keep scene entry and first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default. Compare future scene CPU savings against the active threaded reference.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 5. **Presentation pacing.** The Water Gate Scramble trace separates the renderer's 17.055 ms acknowledgement p95 from 165 Hz presentation quantization. Test sustained play at a verified fixed 60 Hz or 120 Hz output cadence to isolate remaining missed slots. Keep the original virtual-blank period and callback sequence.
