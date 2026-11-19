@@ -836,11 +836,15 @@ void main() {
     // The bridge owns immutable uniform packets until this batch completes.
     // Its arena can reuse the same addresses in the next batch.
     const uniformBatch = {};
+    // Ordinary images stay in the cache until presentation, outside this batch.
+    const imageSlots = Array.from({length: 4}, () => ({
+      address: 0, width: 0, height: 0, encoding: 0, image: null,
+    }));
     let pendingRow=-1,pendingCount=0,pendingBinding,pendingOffset=0,indexOffset=0;
     const emit=()=>{
       if(pendingRow<0)return;
       const b=pendingRow,layout=words[b]===3?words[b+10]:0;
-      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,uniformBatch))throw new Error('GPU draw rejected');
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,uniformBatch,imageSlots))throw new Error('GPU draw rejected');
       pendingRow=-1;
     };
     for(let i=0;i<count;i++) {
@@ -1242,7 +1246,7 @@ void main() {
     this.lastDrawVariant={source,vertex,flat,regs,kinds,shadows,variant};
     return variant;
   }
-  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,uniformBatch) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,uniformBatch,imageSlots) {
     try {
       const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
@@ -1363,9 +1367,22 @@ void main() {
           // consumed. Encoding is independent of the guest texture layout.
           const format=tx[base+5],encoding=format>>>8,width=tx[base+3],height=tx[base+4];
           if((format&255)!==1||encoding>1)throw new Error('Unsupported GPU image encoding');
-          const key=`${address}:${width}:${height}:${encoding}`;
-          image=this.images.get(key);
-          if(!image){if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');image={texture:g.createTexture(),frame:-1};this.images.set(key,image);}
+          const slot = imageSlots?.[t];
+          if (slot?.image && slot.address === address && slot.width === width &&
+              slot.height === height && slot.encoding === encoding) {
+            image = slot.image;
+          } else {
+            const key=`${address}:${width}:${height}:${encoding}`;
+            image=this.images.get(key);
+            if(!image){if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');image={texture:g.createTexture(),frame:-1};this.images.set(key,image);}
+            if (slot) {
+              slot.address = address;
+              slot.width = width;
+              slot.height = height;
+              slot.encoding = encoding;
+              slot.image = image;
+            }
+          }
           this.bindTexture(t,image.texture);
           const hashLo=tx[base+11],hashHi=tx[base+12];
           if(image.hashLo!==hashLo || image.hashHi!==hashHi){
@@ -1394,7 +1411,10 @@ void main() {
         } else this.bindTexture(t,image.texture);
         if(image===this.targets.get(s[0]&0x1fffffff)||image===this.targets.get(s[1]&0x1fffffff))throw new Error('GPU feedback texture overlaps an active attachment');
         const sampler=this.samplers[t],wrapS=tx[base+7],wrapT=tx[base+8],min=tx[base+9],mag=tx[base+10];
-        const samplerKey=`${wrapS}:${wrapT}:${min}:${mag}`;
+        // Key the actual WebGL state, including the existing default mappings.
+        const sMode = wrapS === 1 || wrapS === 2 ? wrapS : 0;
+        const tMode = wrapT === 1 || wrapT === 2 ? wrapT : 0;
+        const samplerKey = sMode | (tMode << 2) | (Number(min === 1) << 4) | (Number(mag === 1) << 5);
         if(this.samplerKeys[t]!==samplerKey){
           const wrap=mode=>mode===1?g.REPEAT:mode===2?g.MIRRORED_REPEAT:g.CLAMP_TO_EDGE;
           g.samplerParameteri(sampler,g.TEXTURE_WRAP_S,wrap(wrapS));g.samplerParameteri(sampler,g.TEXTURE_WRAP_T,wrap(wrapT));

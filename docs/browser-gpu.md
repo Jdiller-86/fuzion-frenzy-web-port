@@ -576,6 +576,12 @@ Two foreground Water Gate Scramble replays with resident shaders recorded one 64
 
 The comparison build applied the five existing bounded repeated-line hooks to the exact outer reader body at `0x0007EFE0`. It used the same title inputs, SDK revision and compiler. Independent source review checked the scalar exits, alias guards and recursive path. Peak acknowledgement gaps measured 29.70 ms for the packaged build and 28.95 ms for the trial. Both reached keyboard-controlled gameplay and stopped cleanly. Earlier samples of the packaged path span a larger range, so the selected browser build retains the existing reader. The next CPU candidate should target the nested parsing or scene setup work within the measured guest gap.
 
+### Reduce texture lookup work during WebGL submission
+
+Each sampler unit remembers its most recent ordinary image lookup for the lifetime of one synchronous batch. Exact address, width, height and encoding matches reuse the existing image object. Each draw still checks its version, resolves render targets, rejects texture feedback and updates the image's lifetime. The sampler key now fits in six bits and represents the effective WebGL wrap and filter state. Independent review checked texture ownership, eviction, aliasing and shader warmup.
+
+In one foreground Water Gate Scramble run on the RX 9070 XT, the same Wasm alternated the old and new paths every eight frames. The comparison excluded each switching frame. Across 210 frames per path, median WebGL submission fell from **1.265 to 1.140 ms**, and p95 from **1.660 to 1.485 ms**, with about 969 issued draws per frame. The new path was faster in 27 of 29 neighboring block pairs, with a median paired saving of 0.130 ms and a median of 749 image-map lookups bypassed per frame. Across both paths, frame acknowledgement p95 was 17.115 ms. Keyboard-controlled gameplay reached the sampled windows with zero live shader links or blocking validations and stopped cleanly. These timings cover renderer CPU submission in this scene. A whole-packet experiment reused a median of 37 setups and showed no meaningful speedup, so the selected build uses the per-stage approach.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
