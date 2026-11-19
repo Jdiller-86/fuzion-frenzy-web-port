@@ -23,14 +23,19 @@ bool ff_browser_early_texture_decode_enabled() {
 namespace ff_browser_texture {
 namespace {
 constexpr size_t kBudget = 24u * 1024 * 1024;
+constexpr uint32_t kJobLimit = 256;
+constexpr uint64_t kJobUnit = uint64_t{1} << 32;
 constexpr uint64_t kReadyLifetime = 8;
-std::atomic<size_t> reserved{0};
+// A single reservation covers payload bytes and one live job, from copy
+// through adoption, replacement or expiry.
+std::atomic<uint64_t> reserved{0};
 // Only the preparation consumer reads or mutates this table.
 thread_local std::map<uint32_t, std::unique_ptr<Work>> ready;
 
-bool Reserve(size_t charge) {
+bool Reserve(size_t bytes, uint32_t job_limit) {
+    const uint64_t charge = kJobUnit + bytes;
     auto used = reserved.load(std::memory_order_relaxed);
-    while (charge <= kBudget - used) {
+    while ((used >> 32) < job_limit && bytes <= kBudget - uint32_t(used)) {
         if (reserved.compare_exchange_weak(used, used + charge, std::memory_order_relaxed)) return true;
     }
     return false;
@@ -55,15 +60,25 @@ Work::~Work() {
     // Release the allocation budget after destroying both private buffers.
     rgba.reset();
     std::vector<uint8_t>().swap(encoded);
-    if (charge) reserved.fetch_sub(charge, std::memory_order_relaxed);
+    if (charge) reserved.fetch_sub(kJobUnit + charge, std::memory_order_relaxed);
 }
 
 std::unique_ptr<Work> Copy(const Source& source) {
-    // Charge the eventual decoded bytes up front and also bound small jobs.
+    // Reserve the complete encoded and decoded payload before copying.
     if (!source.pixels || !source.bytes || source.bytes > 1024 * 1024 ||
         source.desc.width > 512 || source.desc.height > 512 || source.desc.format != 0x02) return {};
-    const size_t charge = std::max<size_t>(65536, source.bytes + size_t(source.desc.width) * source.desc.height * 4);
-    if (!Reserve(charge)) return {};
+    size_t charge = source.bytes + size_t(source.desc.width) * source.desc.height * 4;
+    uint32_t job_limit = kJobLimit;
+#ifdef FF_BROWSER_TEXTURE_WARMUP_PROBE
+    static const bool legacy_charge = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.legacyTextureCharges === true;
+    });
+    if (legacy_charge) {
+        charge = std::max<size_t>(65536, charge);
+        job_limit = kBudget / 65536;
+    }
+#endif
+    if (!Reserve(charge, job_limit)) return {};
     std::unique_ptr<Work> work;
     try {
         work = std::make_unique<Work>();
@@ -72,7 +87,7 @@ std::unique_ptr<Work> Copy(const Source& source) {
         work->backing = source.backing;
         work->encoded.assign(source.pixels, source.pixels + source.bytes);
     } catch (const std::bad_alloc&) {
-        if (!work) reserved.fetch_sub(charge, std::memory_order_relaxed);
+        if (!work) reserved.fetch_sub(kJobUnit + charge, std::memory_order_relaxed);
         return {};
     }
     return work;

@@ -1266,7 +1266,7 @@ The reviewed `0x00041A10` loader obtains the full packed resource through `0x000
 
 ### Prepare validated packed textures early
 
-The opt-in browser path snapshots checked A1R5G5B5 texture spans at the digest-matched successful loader return `0x00041A3F`. Admission checks the source package row, full resource span, frame stride, canonical backing and native descriptor. A job is limited to 512×512 and 1 MiB encoded. The queue reserves up to 24 MiB for encoded and decoded data, with a minimum charge per job. The existing preparation worker decodes owned snapshots when the recorded queue is empty. Unused results expire after eight frames. At a real cache miss, adoption matches the descriptor and every encoded byte, including mip data. A mismatch or unfinished job uses the ordinary path. Independent review covered source bounds, ownership, queue priority, stop behavior and the adopted cache entry. [Worker and cache handoff](../runtime/browser/sdk/texture-warmup.cpp)
+The opt-in browser path snapshots checked A1R5G5B5 texture spans at the digest-matched successful loader return `0x00041A3F`. Admission checks the source package row, full resource span, frame stride, canonical backing and native descriptor. A job is limited to 512×512 and 1 MiB encoded. Reservations cover up to 24 MiB of encoded and decoded data across at most 256 live jobs. The existing preparation worker decodes owned snapshots when the recorded queue is empty. Unused results expire after eight frames. At a real cache miss, adoption matches the descriptor and every encoded byte, including mip data. A mismatch or unfinished job uses the ordinary path. Independent review covered source bounds, ownership, queue priority, stop behavior and the adopted cache entry. [Worker and cache handoff](../runtime/browser/sdk/texture-warmup.cpp)
 
 The first Erodeo pair used the same Wasm on integrated Radeon with two desktop cores and both siblings. The enabled path adopted 154 snapshots and opening decode and copy CPU fell from **7.87 to 5.57 ms**. Whole-frame acknowledgement measured **34.39 and 37.40 ms**. Encoded workload and scheduling varied between runs.
 
@@ -1279,7 +1279,7 @@ The reversed pair used the same module and matched all 270 texture cache misses,
 | Time before render enqueue | 22.78 ms | 17.08 ms |
 | Frame acknowledgement gap | 35.63 ms | 29.30 ms |
 
-Both pairs reduced decode and copy time at the draw. Including the immediately preceding acknowledgement interval, the first pair took **51.55 and 56.16 ms** and the reversed pair took **52.31 and 49.40 ms**. Keep the path opt-in with `?earlyTextureDecode=1`. The working Wasm SHA-256 is `0023c59922a6dd1c9bef672d06743148cb7396a3278b2b91363f639688c46c99`. The local replay and summaries are under `artifacts/browser-gpu/early-packed-decode/`.
+Both pairs reduced decode and copy time at the draw. Including the immediately preceding acknowledgement interval, the first pair took **51.55 and 56.16 ms** and the reversed pair took **52.31 and 49.40 ms**. Keep the path opt-in with `?earlyTextureDecode=1`. The Wasm used for these pairs had SHA-256 `0023c59922a6dd1c9bef672d06743148cb7396a3278b2b91363f639688c46c99`. The local replay and summaries are under `artifacts/browser-gpu/early-packed-decode/`.
 
 ### Attribute early texture copy and job outcomes
 
@@ -1287,7 +1287,24 @@ One instrumented Erodeo replay at `870e46c` matched each loader request to its c
 
 The opening frame adopted **155** exact matches. The other **48** expired unused, with **2,788,352 encoded bytes** and **1.46 ms** of combined measured copy and decode CPU. There were no overlapping same-backing hints, copied requests lost at queue admission, or queued jobs decoded after a matching ordinary cache miss. The budget refused **49** requests before copying. The traced game reached the arena and stopped normally with zero live shader links or blocking validations. The disposable Wasm SHA-256 was `784ee3da0f09c6981e4b2f9778e9c903c0db86124b01e5328531148051466654`.
 
-An offline admission projection preserved the request order and reproduced the 203 admissions with the current 64 KiB minimum charge. Charging encoded and decoded bytes directly with a separate 256-job limit would admit **229** requests within the same **24 MiB** byte budget, even using the larger decoded size for ambiguous encoded layouts. Use a matched replay to check whether those extra admissions reach actual draws and improve the combined preceding and opening intervals. The projection establishes capacity only. The trace recipe, compact job records and projection command are under `artifacts/browser-gpu/early-packed-lifecycle/`.
+An offline admission projection preserved the request order and reproduced the 203 admissions with the 64 KiB minimum charge. Charging encoded and decoded bytes directly with a separate 256-job limit projected **229** requests within the same **24 MiB** byte budget, even using the larger decoded size for ambiguous encoded layouts. The trace recipe, compact job records and projection command are under `artifacts/browser-gpu/early-packed-lifecycle/`.
+
+### Charge early textures for their payload
+
+The opt-in path now reserves the encoded and decoded bytes together with one job slot in a single atomic update. Both limits apply to queued, decoding and ready work. The job releases both charges when its owned buffers are discarded or moved into the ordinary cache. Independent review checked overflow, allocation failure and exact release across queue drops, adoption and expiry.
+
+One same-Wasm Erodeo pair on integrated Radeon and two desktop cores compared the previous minimum charge with exact charging. Both runs decoded or reused 270 cache misses with the same total RGBA byte count. The format mix differed by three textures. Both reached original gameplay and stopped normally with zero live shader links or blocking validations.
+
+| Measurement | 64 KiB minimum | Exact charge |
+| --- | ---: | ---: |
+| Jobs decoded early before opening enqueue | 203 | 229 |
+| Exact snapshots adopted in the opening frame | 155 | 169 |
+| Early decode CPU | 3.84 ms | 5.13 ms |
+| Decode and copy CPU at the draw | 4.96 ms | 4.05 ms |
+| Opening acknowledgement gap | 38.64 ms | 37.41 ms |
+| Preceding plus opening acknowledgement gaps | 58.77 ms | 57.04 ms |
+
+The new budget supplied fourteen more validated textures at first use. The timing pair supports less texture preparation at the draw and leaves the effect on whole-frame pacing uncertain. Exact charging is used with `?earlyTextureDecode=1`. The working Wasm SHA-256 is `72fc6335237d28ab4cdd639591a5bb607258079de054875ce7de445c64f9f20f`. Private summaries and replay are under `artifacts/browser-gpu/early-packed-charge/`.
 
 The requested later target is consistent 120 FPS after stable 60 FPS frame timing. `app::Pace` in `runtime/browser/sdk/full-platform.cpp` reads `app::Get().fps_cap`, while the SDK `VerticalBlank` loop still schedules 16,667 us guest events and callbacks. The timer adjustment keeps both deadlines and the blank event sequence. A 120 FPS implementation needs an 8.33 ms render budget and evidence that input, physics, animation and game timers retain their original behavior; raising a cap or doubling guest blank callbacks alone does not establish this.
 
