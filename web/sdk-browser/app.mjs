@@ -101,6 +101,7 @@ runButton.addEventListener('click', () => {
   const deadlineAudio = options.get('audioClock') !== 'relative';
   const audioLead = deadlineAudio ? 0.03 : 0;
   const renderer = document.querySelector('#renderer').value;
+  const threadedGpu = options.get('threadedGpu') !== '0';
   if (renderer === 'webgl' && !canvas.transferControlToOffscreen) {
     error.textContent = 'This browser needs OffscreenCanvas for GPU rendering. Choose Software reference or use current Chrome/Edge.';
     return;
@@ -184,7 +185,7 @@ runButton.addEventListener('click', () => {
   current.postMessage({
     type: 'run', iso, renderer, canvas: offscreen, compiledWasm,
     gpuVertices: options.get('cpuVertices') !== '1',
-    threadedGpu: options.get('threadedGpu') !== '0',
+    threadedGpu,
     pipelinedGpu: options.get('pipelinedGpu') !== '0',
     paceBeforePresent: options.has('presentPacing')
       ? options.get('presentPacing') === 'before'
@@ -199,7 +200,7 @@ runButton.addEventListener('click', () => {
     gpuTiming: options.get('gpuTiming') === '1',
     directTextureUploads: options.get('textureUpload') !== 'copy',
     pacingTiming: options.get('pacingTiming') === '1',
-    resourceFences: options.get('resourceFences'),
+    resourceFences: options.get('resourceFences') ?? (renderer === 'webgl' && threadedGpu ? 'selective' : 'full'),
     gridContours: options.get('gridContours') === '1',
     fastInteger: options.get('fastInteger') !== '0',
     decimalProductMemo: options.get('decimalProductMemo') !== '0',
