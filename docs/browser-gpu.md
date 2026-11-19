@@ -456,6 +456,14 @@ The two parser loops now scan a checked file span for line endings and the activ
 
 The original Water Gate Scramble replay sampled 4.43 and 2.77 ms in substring searches, and 9.89 and 8.94 ms in the two-pass parser. The largest frame acknowledgement gap was 51.86 and 50.64 ms. The following gap was 30.37 and 32.09 ms, respectively. Steady acknowledgement p95 was 17.03 and 16.98 ms over 483 adjacent pairs in each run. Both reached keyboard-controlled gameplay with zero draw-path shader links and stopped cleanly. Scene and scheduling state varied. A later release-build probe showed the binding guard could prevent batching. The 40,253,711-byte Wasm has SHA-256 `49a6b34828a656b23719275b2dc0a6a6d2cea4d524633121646ce2967446695e`. [Binding diagnosis](#check-resolved-bindings-before-parser-shortcuts)
 
+### Compare carrying delimiter masks across quiet lines
+
+The trial retained the unexamined lanes of a 16-byte scan after a line ended. Each next line reevaluated marker prefixes with its current limit and discarded lanes in the consumed delimiter run. The same checked spans, scratch suffix writes, and final original line remained in use. Independent review checked the bounds, the parser's return and the lifetime of the saved mask. A focused Wasm check matched the existing scanner's complete scratch and cursor state on **1,800** inputs, including **1,588** that advanced the cursor.
+
+Two Water Gate Scramble replays used the same normal Wasm on integrated Radeon and two physical desktop cores with both siblings. Both reached original play and stopped normally with zero live shader links or blocking validations. The parser ran **13** times on each replay. Its total CPU time measured **10.09 ms** when each line scanned again and **11.22 ms** when lines reused masks. Arena-entry acknowledgement measured **39.91 and 45.08 ms**. Active acknowledgement p95 was **17.32 and 17.27 ms**. Scene work and scheduling varied between launches. The working build retains the existing per-line scan.
+
+The trial Wasm SHA-256 was `fe61e1ac3e0496d9d62411fbdb3b6a5b6ec690d2e8a6f038b74508fa64f27182`. The patch, replay and compact summaries remain in `artifacts/browser-gpu/scene-line-masks/`. The temporary build and browser profiles were removed.
+
 ### Batch mantissa operations in the shared numeric converter
 
 The integer converter used by both the tree loader and formatted scanner now maps its caller-owned mantissa and scratch once per operation. Three digest-matched helpers copy or right-shift the three words, or clear the unused bits when the rounding bit is already clear. They preserve the original saved stack words, output words and register state. Calls with a set rounding bit, an unexpected caller frame or an unsupported access use the existing conversion code. The focused Wasm comparison matched 1,560 cases including 460 ordered faults and covered 480 copies, 760 shifts and 258 truncations.
