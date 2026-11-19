@@ -468,7 +468,7 @@ static void PushDraw(std::array<uint32_t, 12> packet, const void* vertices, uint
         RebaseRawIndices(raw_geometry.indices.data() + packet[4],
                          static_cast<const uint32_t*>(indices), index_count, count, base);
         if (extend) {
-            // Only prepared reuse extends a consecutive row with the same state.
+            // The caller matched this consecutive row's complete owned draw state.
             (*previous)[2] += count;
             (*previous)[5] += index_count;
             ++(*previous)[11];
@@ -578,10 +578,19 @@ static bool SubmitDraw(const void* v, uint32_t count, uint32_t stride, const voi
             q[6]=copy;q[11]=uint32_t(hash);q[12]=uint32_t(hash>>32);
         } else {q[6]=found->second[0];q[11]=found->second[1];q[12]=found->second[2];}
     }
-    PushDraw({layout?3u:1u,0,0,0,0,0,
+    const std::array<uint32_t, 12> packet{layout?3u:1u,0,0,0,0,0,
         InternLast(states,sizeof(states),last_draw_state),InternLast(uniforms,152*4,last_pixel_uniforms),
         uint32_t(reinterpret_cast<uintptr_t>(shader)),InternLast(tx,sizeof(tx),last_texture_state),
-        layout?InternLast(layout,16*sizeof(*layout),last_raw_layout):0}, v, count, stride, indices, n);
+        layout?InternLast(layout,16*sizeof(*layout),last_raw_layout):0};
+    bool extend_raw = false;
+    if (layout && !commands.empty()) {
+        const auto& previous = commands.back();
+        // Full preparation already interned byte-identical state. Merge here
+        // so the worker doesn't have to repack rows it would draw together.
+        extend_raw = previous[0] == 3 && previous[3] == stride &&
+                     std::equal(packet.begin()+6, packet.begin()+11, previous.begin()+6);
+    }
+    PushDraw(packet, v, count, stride, indices, n, extend_raw);
     return true;
 }
 bool ff_webgl_draw(const void* v,uint32_t count,uint32_t stride,const void* indices,uint32_t n,
