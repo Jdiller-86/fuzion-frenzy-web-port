@@ -425,7 +425,11 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         target_snapshot_bytes=other+size;
         target.cpu_coherent=true;
         if(++target.hash==0)std::abort();
-        commands.push_back({0,key,d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
+        // WebGL creates depth storage with null data. Keep the guest snapshot
+        // for dirty checks, but copy bytes into the command arena only for color.
+        if (depth && bridge_failed.load(std::memory_order_acquire)) std::abort();
+        const uint32_t pixels = depth ? 0 : Own(guest, size);
+        commands.push_back({0,key,d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),pixels,size,uint32_t(target.hash),uint32_t(target.hash>>32)});
     }
 }
 static inline void RebaseRawIndices(uint32_t* output, const uint32_t* input, uint32_t length,

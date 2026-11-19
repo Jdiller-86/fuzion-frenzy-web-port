@@ -1088,9 +1088,7 @@ void main() {
   }
   finishProgram(p,result={}) {
     const g=this.gl;
-    const uniforms=new Float32Array(152),uniformWords=new Uint32Array(uniforms.buffer),uniformSpans=new Map();
-    for(const [name,offset,count] of PIXEL_UNIFORMS)
-      uniformSpans.set(name,new Float32Array(uniforms.buffer,offset*4,count));
+    const uniformWords = new Uint32Array(152);
     const vertexConstants=new Float32Array(772),vertexConstantWords=new Uint32Array(vertexConstants.buffer);
     const vertexConstantSpans={c:new Float32Array(vertexConstants.buffer,0,768),fogp:new Float32Array(vertexConstants.buffer,768*4,4)};
     const fixedVertexConstants=new Float32Array(772),fixedVertexConstantWords=new Uint32Array(fixedVertexConstants.buffer);
@@ -1100,7 +1098,7 @@ void main() {
       mat:new Float32Array(fixedVertexConstants.buffer,112*4,20),amb:new Float32Array(fixedVertexConstants.buffer,132*4,4),
       lt:new Float32Array(fixedVertexConstants.buffer,136*4,224),
     };
-    Object.assign(result,{p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
+    Object.assign(result,{p,locations:new Map(),uniformWords,pixelUniformUploads:null,uniformsValid:false,
       uniformBatch:null,uniformPacket:null,vertexConstantPacket:null,vertexConstantMode:0,
       vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false,
       addresses:new Float32Array(16),addressesValid:false,
@@ -1315,7 +1313,9 @@ void main() {
       const variant=this.drawVariant(source,s,tx);
       const {specialized, fallback} = variant;
       const program = specialized ? this.readyProgram(specialized) : fallback.pipeline;
-      this.attach(this.targets.get(s[0]&0x1fffffff),this.targets.get(s[1]&0x1fffffff));
+      const colorAttachment = this.targets.get(s[0] & 0x1fffffff);
+      const depthAttachment = this.targets.get(s[1] & 0x1fffffff);
+      this.attach(colorAttachment, depthAttachment);
       if(this.lastProgram!==program.p){g.useProgram(program.p);this.lastProgram=program.p;}
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};
       if (fallback) {
@@ -1346,13 +1346,31 @@ void main() {
       }
       if (program.uniformPacket !== uniforms) {
         const inputUniformWords=new Uint32Array(u.buffer,u.byteOffset,152),uniformWords=program.uniformWords,forceUniforms=!program.uniformsValid;
-        const uniform=(name,offset,count)=>{
-          const location=loc(name);if(location===null)return;
-          let changed=forceUniforms;
-          if(!changed)for(let i=0;i<count;i++)if(inputUniformWords[offset+i]!==uniformWords[offset+i]){changed=true;break;}
-          if(changed){for(let i=0;i<count;i++)uniformWords[offset+i]=inputUniformWords[offset+i];g.uniform4fv(location,program.uniformSpans.get(name));}
-        };
-        uniform('surf',0,4);uniform('fogcolor',4,4);uniform('misc',8,4);uniform('pc',12,72);uniform('tfactor',84,4);uniform('texsize',88,16);uniform('bumpmat',104,16);uniform('bumplum',120,16);uniform('uvrect',136,16);
+        if (program.pixelUniformUploads === null) {
+          const uploads = [];
+          for (const [name, offset, count] of PIXEL_UNIFORMS) {
+            const location = loc(name);
+            if (location === null) continue;
+            const span = new Float32Array(uniformWords.buffer, offset * 4, count);
+            uploads.push({location, offset, count, span});
+          }
+          program.pixelUniformUploads = uploads;
+        }
+        for (const {location, offset, count, span} of program.pixelUniformUploads) {
+          let changed = forceUniforms;
+          if (!changed) {
+            for (let i = 0; i < count; i++) {
+              if (inputUniformWords[offset + i] !== uniformWords[offset + i]) {
+                changed = true;
+                break;
+              }
+            }
+          }
+          if (changed) {
+            for (let i = 0; i < count; i++) uniformWords[offset + i] = inputUniformWords[offset + i];
+            g.uniform4fv(location, span);
+          }
+        }
         program.uniformsValid=true;
         program.uniformPacket=uniforms;
       }
@@ -1489,7 +1507,7 @@ void main() {
           }
           image.frame=this.frame;
         } else this.bindTexture(t,image.texture);
-        if(image===this.targets.get(s[0]&0x1fffffff)||image===this.targets.get(s[1]&0x1fffffff))throw new Error('GPU feedback texture overlaps an active attachment');
+        if(image===colorAttachment||image===depthAttachment)throw new Error('GPU feedback texture overlaps an active attachment');
         const sampler=this.samplers[t],wrapS=tx[base+7],wrapT=tx[base+8],min=tx[base+9],mag=tx[base+10];
         // Key the actual WebGL state, including the existing default mappings.
         const sMode = wrapS === 1 || wrapS === 2 ? wrapS : 0;
