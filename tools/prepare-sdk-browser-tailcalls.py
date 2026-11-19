@@ -965,16 +965,46 @@ def lower_grid_arguments(block: bytes) -> tuple[bytes, int]:
     if stores != 4 or pushes != 4:
         raise ValueError("grid call differs from the reviewed argument layout")
 
+    edge_reads = {
+        0x0019EB80: (b"ctx.eax", b"gridFirstEdge", 0),
+        0x0019EB86: (b"ctx.eax + 0x4u", b"gridFirstEdge", 4),
+        0x0019EB8D: (b"ctx.esi", b"gridSecondEdge", 0),
+        0x0019EB93: (b"ctx.esi + 0x4u", b"gridSecondEdge", 4),
+    }
+    loads = 0
+
+    def map_edge_read(match: re.Match[bytes]) -> bytes:
+        nonlocal loads
+        expected = edge_reads.get(int(match["pc"], 16))
+        if not expected:
+            return match[0]
+        address, pointer, offset = expected
+        body = match["body"]
+        if match["address"] != address or body.count(b"X86_MEM32(ea)") != 1:
+            raise ValueError("grid edge read differs from the reviewed layout")
+        target = b"(*reinterpret_cast<const x86_u32u*>(" + pointer + f" + {offset}))".encode()
+        loads += 1
+        return match["comment"] + match["indent"] + b"{ " + body.replace(b"X86_MEM32(ea)", target) + b" }"
+
+    mapped_edges = INTERSECTION_ACCESS.sub(map_edge_read, mapped)
+    if loads != len(edge_reads):
+        raise ValueError("grid call does not contain the reviewed edge reads")
+
     setup = (b"\n\tff_browser_grid::ContourScope contourScope(ctx);"
              b"\n\tuint32_t gridStackEsp = 0;\n\tuint8_t* gridStack = nullptr;")
     guard = (b"\n\tif (gridStackEsp != ctx.esp) {\n\t\tgridStackEsp = ctx.esp;\n"
              b"\t\tgridStack = ff_browser_memory::TryWindow(gridStackEsp - 16, 0x50);\n\t}"
-             b"\n\tif (gridStack) [[likely]] {")
-    # The existing call and its binding remain in both paths. The cached
-    # host pointer covers only argument stores, and is refreshed on ESP changes.
-    mapped = mapped.replace(b"\n\t", b"\n\t\t")
+             b"\n\tif (gridStack) [[likely]] {"
+             b"\n\t\tconst auto* gridFirstEdge = ff_browser_memory::TryWindow(ctx.eax, 8);"
+             b"\n\t\tconst auto* gridSecondEdge = ff_browser_memory::TryWindow(ctx.esi, 8);"
+             b"\n\t\tif (gridFirstEdge && gridSecondEdge) [[likely]] {")
+    # Only translate the two input spans early. Individual reads remain
+    # interleaved with the original stack stores so aliases behave identically.
+    mapped_edges = mapped_edges.replace(b"\n\t", b"\n\t\t\t")
+    mapped = mapped.replace(b"\n\t", b"\n\t\t\t")
     checked = checked.replace(b"\n\t", b"\n\t\t")
-    return (GRID_ENTRY + setup + head[len(GRID_ENTRY):start] + guard + mapped
+    return (GRID_ENTRY + setup + head[len(GRID_ENTRY):start] + guard + mapped_edges
+            + b"\n\t\t} else {" + mapped + b"\n\t\t}"
             + b"\n\t} else {" + checked + b"\n\t}" + head[end:] + closing + tail), 1
 
 
