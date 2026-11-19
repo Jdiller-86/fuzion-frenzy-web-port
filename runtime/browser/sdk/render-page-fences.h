@@ -133,6 +133,18 @@ private:
 } // namespace ff_browser_render
 
 namespace gpu {
+struct BrowserVertexReads {
+    struct Stream {
+        uint32_t base, stride;
+        uint64_t tail;
+    };
+    std::array<Stream, 16> spans{};
+    uint64_t batch = 0;
+    uint32_t streams = 0;
+    bool unknown = false;
+};
+
 void RecordBrowserVertexReads(const State& s, uint32_t prim, uint32_t start, uint32_t count,
-                              const uint8_t* indices, ff_browser_render::PageFences& fences, uint64_t batch);
+                              const uint8_t* indices, ff_browser_render::PageFences& fences,
+                              uint64_t batch, BrowserVertexReads& reuse);
 }

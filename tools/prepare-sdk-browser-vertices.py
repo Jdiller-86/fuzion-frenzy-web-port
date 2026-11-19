@@ -53,10 +53,10 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
             '    // Use the same ordered list expansion as the converted reference.\n'
             '    // WebGL has no base-vertex draw: the list below rebases every index.')
     anchor = 'bool Assemble(const State& s, uint32_t prim, uint32_t start, uint32_t count, const uint8_t* ip, Assembled& out) {'
-    replace(anchor, '''void RecordBrowserVertexReads(const State& s, uint32_t prim, uint32_t start, uint32_t count,
-                              const uint8_t* indices, ff_browser_render::PageFences& fences, uint64_t batch) {
-    constexpr auto vertex = ff_browser_render::PageFences::Vertex;
-    if (!count || prim < 1 || prim > 10) return;
+    replace(anchor, '''static void CaptureBrowserVertexReads(const State& s, BrowserVertexReads& reuse, uint64_t batch) {
+    reuse.batch = batch;
+    reuse.streams = 0;
+    reuse.unknown = false;
     VertexShader fvf;
     const auto* layout = PickLayout(s, fvf);
     if (!layout) return;
@@ -65,7 +65,7 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
     for (const auto& in : layout->inputs) {
         if (in.stream < 0 || !in.type || in.type == kTypeNone) continue;
         if (size_t(in.stream) >= s.streams.size()) {
-            fences.Unknown(batch, vertex);
+            reuse.unknown = true;
             return;
         }
         if (!s.streams[in.stream].vb) continue;
@@ -74,7 +74,37 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
         tails[in.stream] = std::max(tails[in.stream], tail);
         streams |= 1u << in.stream;
     }
-    if (!streams) return;
+    reuse.streams = streams;
+    while (streams) {
+        const auto stream = std::countr_zero(streams);
+        streams &= streams - 1;
+        const auto& binding = s.streams[stream];
+        const uint32_t stride = binding.stride ? binding.stride : layout->stream_stride[stream];
+        const auto* header = ff_browser_memory::TryWindow(binding.vb, 8);
+        if (!header) {
+            reuse.unknown = true;
+            return;
+        }
+        uint32_t data;
+        std::memcpy(&data, header + kResData, sizeof(data));
+        // Include the whole raw stride and any converted element that extends beyond it.
+        reuse.spans[stream] = {mem::VirtualFromPhysical(data), stride, std::max<uint64_t>(stride, tails[stream])};
+    }
+}
+
+void RecordBrowserVertexReads(const State& s, uint32_t prim, uint32_t start, uint32_t count,
+                              const uint8_t* indices, ff_browser_render::PageFences& fences,
+                              uint64_t batch, BrowserVertexReads& reuse) {
+    constexpr auto vertex = ff_browser_render::PageFences::Vertex;
+    if (!count || prim < 1 || prim > 10) return;
+    // Sent state invalidates the cached layout. A new batch also refreshes
+    // the copied header addresses because the scratch ring can reuse them.
+    if (reuse.batch != batch) CaptureBrowserVertexReads(s, reuse, batch);
+    if (reuse.unknown) {
+        fences.Unknown(batch, vertex);
+        return;
+    }
+    if (!reuse.streams) return;
 
     const IndexBounds bounds = indices ? IndexRange(indices, count) : IndexBounds{0, count - 1};
     const uint64_t base = indices ? s.base_vertex : start;
@@ -84,21 +114,12 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
         fences.Unknown(batch, vertex);
         return;
     }
+    uint32_t streams = reuse.streams;
     while (streams) {
         const auto stream = std::countr_zero(streams);
         streams &= streams - 1;
-        const auto& binding = s.streams[stream];
-        const uint32_t stride = binding.stride ? binding.stride : layout->stream_stride[stream];
-        const auto* header = ff_browser_memory::TryWindow(binding.vb, 8);
-        if (!header) {
-            fences.Unknown(batch, vertex);
-            return;
-        }
-        uint32_t data;
-        std::memcpy(&data, header + kResData, sizeof(data));
-        // Include the whole raw stride and any converted element that extends beyond it.
-        const uint64_t end = last * stride + std::max<uint64_t>(stride, tails[stream]);
-        fences.Record(batch, mem::VirtualFromPhysical(data), first * stride, end, vertex);
+        const auto& span = reuse.spans[stream];
+        fences.Record(batch, span.base, first * span.stride, last * span.stride + span.tail, vertex);
     }
 }
 

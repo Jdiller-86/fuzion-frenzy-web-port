@@ -253,6 +253,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         render,
         """    State sent_;  // the state as the render thread will have it""",
         """    State sent_;  // the state as the render thread will have it
+    BrowserVertexReads vertex_reads_;
     const int fence_mode_ = ff_browser_resource_fence_mode();
     std::unique_ptr<ff_browser_render::PageFences> pages_ = fence_mode_
         ? std::make_unique<ff_browser_render::PageFences>() : nullptr;""",
@@ -268,7 +269,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             if (!ring_) pages_->Unknown(batch, Access::Uncaptured);
             else {
                 RecordBrowserVertexReads(sent_, prim, start, count, c.d ? cur_->bytes.data() + c.data : nullptr,
-                                        *pages_, batch);
+                                        *pages_, batch, vertex_reads_);
                 for (uint32_t texture : sent_.textures) pages_->Pixels(batch, texture, Access::Image);
                 for (uint32_t palette : sent_.palettes) pages_->Colors(batch, palette);
                 pages_->Pixels(batch, sent_.rt.header, Access::Surface);
@@ -278,6 +279,13 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         cur_->cmds.push_back(c);
         for (uint32_t tex : s.textures) Use(tex);""",
         "Capture draw footprints from the sent state and owned indices",
+    )
+    render = _replace_once(
+        render,
+        "        if (cur_->bytes.size() == first && c.vs < 0 && c.ps < 0) return;",
+        "        if (cur_->bytes.size() == first && c.vs < 0 && c.ps < 0) return;\n"
+        "        vertex_reads_.batch = 0;",
+        "Invalidate the vertex footprint when any captured state changes",
     )
     render = _replace_once(
         render,
