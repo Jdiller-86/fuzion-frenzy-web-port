@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { createSdlCheckServer } from '../tools/serve-sdl-check.mjs';
 
-test('synthetic runtime proof serves isolated outputs with thread headers and rejects other files/uploads', async () => {
+test('synthetic runtime proof serves isolated outputs with thread headers and rejects other files/uploads', async t => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.tools/emulation');
   await fs.mkdir(root, { recursive: true });
   const directory = await fs.mkdtemp(path.join(root, 'sdl-browser-test-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const attempt = path.basename(directory).slice('sdl-browser-'.length);
   for (const name of ['index.html', 'check.js', 'check.worker.js', 'check.wasm', 'private.xbe']) {
     await fs.writeFile(path.join(directory, name), `synthetic:${name}`, { flag: 'wx' });

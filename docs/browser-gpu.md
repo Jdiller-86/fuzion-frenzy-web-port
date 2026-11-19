@@ -18,7 +18,7 @@ python3 tools/build-sdk-browser-full.py \
 python3 tools/serve-sdk-browser.py --open
 ```
 
-The linker stages one temporary output and clears it on exit, including failed links. For an explicit comparison use the single private `--output .tools/artifacts/sdk-browser-candidate` slot. After adopting or rejecting the candidate, clear that slot. Keep one packaged launcher and create a ZIP only for a portable copy.
+The linker stages one temporary output and clears it on exit, including failed links. For an explicit comparison use the single private `--output .tools/artifacts/sdk-browser-candidate` slot. Remove that slot once the comparison is recorded, including rejected candidates. Point local shortcuts at `tools/serve-sdk-browser.py --open` in the working tree so they share the active Wasm. Create a portable ZIP only on request. Close disposable browser sessions and clear their temporary profiles after collecting evidence.
 
 The pinned SDK is `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`; config checkout `071dbd97bdc098c4647cc24c99f9eae693fde1eb`, `game.toml` SHA-256 `c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f`. The measured build uses Emscripten 3.1.50 / LLVM18, O3 objects/link and native Wasm exceptions. `--exceptions js` preserves the slower development fallback and invalidates the object cache when selected. Build manifests record original title hashes; adapters modify disposable copies only. The published texture-cascade correction is consumed; native D3D12 descriptor-rollover changes remain untouched.
 

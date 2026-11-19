@@ -37,6 +37,8 @@ Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md),
 
 Preserve in-flight edits and lane ownership. Do not discard work, force-push, rewrite published history, change global settings, or add unrelated cleanup.
 
+Keep one runnable build per platform and launch it in place. Use one disposable comparison slot when evidence requires a separate build. Remove that slot, temporary browser profiles, and scratch media at the end of the task. Keep only the evidence needed to reproduce a finding. Preserve original inputs, saves and unique research. Use the installed read-only disc and toolchains in place. Remove verified download archives after installation and create portable packages only on request.
+
 ## Current documentation
 
 - [Documentation map](docs/README.md): canonical guides and reading order.

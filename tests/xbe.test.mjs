@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {mkdir,mkdtemp,writeFile,readFile,stat} from 'node:fs/promises';
+import {mkdir,mkdtemp,writeFile,readFile,stat,rm} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';import {fileURLToPath} from 'node:url';import path from 'node:path';
 import {readXbeProfile} from '../host/xbe.mjs';
 // Entirely source-owned executable metadata. No original instructions/resources.
@@ -37,15 +37,16 @@ test('kernel-free executables and bounded library declarations are profiled with
   const p=readXbeProfile(b);assert.deepEqual(p.imports,[]);assert.equal(p.nonKernelImportsAddress,0);assert.equal(p.libraries[0].name,'XAPILIB');assert.equal(p.libraries[0].build,3911);
   u(0x160,129);assert.throws(()=>readXbeProfile(b),/library count/);u(0x160,1);u(0x164,0x12100);assert.throws(()=>readXbeProfile(b),/file backed/);
 });
-test('profile CLI keeps reports in ignored research and preserves existing files',async()=>{
+test('profile CLI keeps reports in ignored research and preserves existing files',async t=>{
   const root=fileURLToPath(new URL('../',import.meta.url)),research=path.join(root,'research'),tools=path.join(root,'.tools');
   await mkdir(research,{recursive:true});await mkdir(tools,{recursive:true});
-  const work=await mkdtemp(path.join(research,'source-owned-xbe-')),outside=await mkdtemp(path.join(tools,'source-owned-xbe-'));
+  const work=await mkdtemp(path.join(research,'source-owned-xbe-'));
+  t.after(()=>rm(work,{recursive:true,force:true}));
+  const outside=await mkdtemp(path.join(tools,'source-owned-xbe-'));
+  t.after(()=>rm(outside,{recursive:true,force:true}));
   const input=path.join(work,'fixture.xbe'),output=path.join(work,'profile.json');await writeFile(input,new Uint8Array(fixture()),{flag:'wx'});
   const run=target=>spawnSync(process.execPath,[path.join(root,'tools/profile-execution.mjs'),input,target],{encoding:'utf8'});
   const rejected=path.join(outside,'must-not-exist.json');assert.notEqual(run(rejected).status,0);await assert.rejects(stat(rejected),{code:'ENOENT'});
   assert.equal(run(output).status,0);const first=await readFile(output,'utf8');assert.equal(JSON.parse(first).kind,'static-execution-dependencies');
   assert.notEqual(run(output).status,0);assert.equal(await readFile(output,'utf8'),first);assert.deepEqual(await readFile(input),Buffer.from(fixture()));
-  // Retain these tiny, source-owned fixtures in ignored directories. Never clean
-  // a supplied-content directory or delete any pre-existing local file.
 });
