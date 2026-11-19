@@ -54,8 +54,10 @@ from the source supplied to the project, SDK runtime and reference renderer;
 it includes no ISO or original assets. No compiler is needed to use this build.
 
 Controls: Enter Start, Space A, Escape B, X/Y face buttons, WASD left stick,
-arrows D-pad, Z/C triggers. Standard gamepads are supported on the first seat.
-Save files stay in this browser's local storage; use Stop game to flush saves.
+arrows D-pad, Z/C triggers. Keyboard and the first standard gamepad share seat
+one, with three additional standard gamepads supported by the current module.
+F1 opens Settings. F2 toggles performance. The Game menu has fullscreen and
+Stop game. Wait for Game stopped before closing the tab to finish local saves.
 
 GPU (WebGL2) is the default renderer; the slower Software diagnostic is under
 Compatibility options before
@@ -79,7 +81,7 @@ during play. Stop game flushes recipes still queued for saving.
 ?guestCodeWarmup=0 skips startup preparation of previously measured Wasm functions.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window
-at its original aspect ratio. Controls opens fullscreen and Stop game actions.
+at its original aspect ratio unless you choose another display shape in Settings.
 This remains an experimental browser port with incomplete rendering coverage.
 Compilation/linking alone does not prove original-game execution or fidelity.
 The build manifest records the SDK revision and published rendering patch.

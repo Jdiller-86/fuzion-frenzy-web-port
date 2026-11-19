@@ -123,15 +123,13 @@ font report, launch/build commands and source/input identities. Original art and
 proprietary listings are excluded from commits. The application/compiler and
 publication checks were used; broad regression/synthetic suites were deferred.
 
-The compiled browser renderer/input/audio pipeline from `797e9ae` is preserved.
-Its next adapter seam is `web/sdk-browser/app.mjs` (host panel/focus),
-`worker.mjs` (`parseInput`/settings messages), and
-`runtime/browser/sdk/full-platform.cpp` / `full-entry.cpp` plus the SDK's
-`harness/reference_renderer.cpp` decode/cache path, admitted through
-`tools/prepare-sdk-browser-overlay.py` and `tools/build-sdk-browser-full.py`.
-Browser capability validation, local preference persistence and replacement
-admission need explicit implementations; native DXGI VSync and SRVs do not port.
-This batch establishes no browser UI parity or milestone acceptance.
+The [browser beta](browser-beta.md) now has a host F1 panel in
+`web/sdk-browser/presentation.mjs` and `app.mjs`, with local preferences and a
+live frame-cap adapter through `worker.mjs` and `full-platform.cpp`. Its display
+shape applies to the browser canvas. A browser texture-replacement follow-up
+can use the checked decode and cache path in `runtime/browser/sdk/webgl-images.inc`
+through `tools/build-sdk-browser-full.py`. The native backend's DXGI settings
+and SRV ownership are specific to that backend.
 
 Next bounded native batch: exercise a connected physical controller through
 open/adjust/cancel/release/return, then identify a validated guest pause-mode

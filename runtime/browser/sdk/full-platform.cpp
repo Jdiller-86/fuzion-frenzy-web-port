@@ -286,6 +286,7 @@ struct PadState {
     std::atomic<bool> connected{false};
 };
 std::array<PadState, 4> g_pads;
+std::atomic<uint32_t> g_frame_cap{60};
 
 uint32_t Pair16(int16_t a, int16_t b) {
     return uint16_t(a) | (uint32_t(uint16_t(b)) << 16);
@@ -409,11 +410,20 @@ extern "C" void ff_browser_set_pad(int port, uint32_t buttons, int16_t lx, int16
                                     int16_t rx, int16_t ry, uint8_t lt, uint8_t rt) {
     if (port < 0 || port >= int(g_pads.size())) return;
     auto& p = g_pads[size_t(port)];
-    p.connected.store(true, std::memory_order_relaxed);
     p.buttons.store(buttons, std::memory_order_relaxed);
     p.left_stick.store(Pair16(lx, ly), std::memory_order_relaxed);
     p.right_stick.store(Pair16(rx, ry), std::memory_order_relaxed);
     p.triggers.store(uint32_t(lt) | (uint32_t(rt) << 8), std::memory_order_relaxed);
+    p.connected.store(true, std::memory_order_release);
+}
+
+extern "C" void ff_browser_disconnect_pad(int port) {
+    if (port <= 0 || port >= int(g_pads.size())) return;
+    g_pads[size_t(port)].connected.store(false, std::memory_order_release);
+}
+
+extern "C" void ff_browser_set_frame_cap(uint32_t cap) {
+    if (cap == 30 || cap == 60) g_frame_cap.store(cap, std::memory_order_relaxed);
 }
 
 namespace input {
@@ -422,7 +432,8 @@ Pad Poll(int port) {
     Pad result;
     if (port < 0 || port >= int(g_pads.size())) return result;
     const auto& p = g_pads[size_t(port)];
-    result.connected = p.connected.load(std::memory_order_relaxed);
+    result.connected = p.connected.load(std::memory_order_acquire);
+    if (!result.connected) return result;
     uint32_t button_pack = p.buttons.load(std::memory_order_relaxed);
     result.buttons = uint16_t(button_pack);
     uint32_t sticks = p.left_stick.load(std::memory_order_relaxed);
@@ -476,9 +487,13 @@ std::recursive_mutex& UiLock() { static std::recursive_mutex m; return m; }
 void Pace() {
     using clock = std::chrono::steady_clock;
     static clock::time_point next = clock::now();
-    const uint32_t cap = Get().fps_cap;
+    static uint32_t previous_cap = 60;
+    const uint32_t cap = g_frame_cap.load(std::memory_order_relaxed);
     const auto now = clock::now();
-    if (!cap) { next = now; return; }
+    if (cap != previous_cap) {
+        previous_cap = cap;
+        next = now;
+    }
     const auto period = std::chrono::nanoseconds(1000000000ull / cap);
     next += period;
     if (next < now - period) next = now;

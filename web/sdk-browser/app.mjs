@@ -1,4 +1,5 @@
 import {GAME_AUDIO_RATE, GAME_AUDIO_PROCESSOR, StereoPcmRing} from './audio-ring.mjs';
+import {applyLaunchDisplay, getSettings} from './presentation.mjs';
 
 const isoPicker = document.querySelector('#iso');
 const runButton = document.querySelector('#run');
@@ -6,6 +7,7 @@ const stopButton = document.querySelector('#stop');
 const status = document.querySelector('#status');
 const error = document.querySelector('#error');
 const log = document.querySelector('#log');
+const storageWarning = document.querySelector('#storage-warning');
 let canvas = document.querySelector('#screen');
 const performanceReadout = document.querySelector('#performance');
 let context;
@@ -15,9 +17,20 @@ let stopping = false;
 let inputTimer;
 let sentInput;
 let audioContext;
+let audioGain;
 let audioWorkletNode;
 let audioCursor;
 let hasFrame = false;
+let multiPad = false;
+const seats = Array(4).fill(null);
+let menuArmed = false;
+let lastMenuCommand;
+let menuRepeatAt = 0;
+
+function showStorageWarning(text) {
+  storageWarning.textContent = text;
+  storageWarning.hidden = !text;
+}
 function showFrame() {
   if (!hasFrame) {
     status.textContent = 'Rendering original game frames.';
@@ -32,34 +45,49 @@ function showFrame() {
 function setBusy(busy) {
   runButton.disabled = busy || stopping;
   stopButton.disabled = !busy;
-  isoPicker.disabled = busy;
-  document.querySelector('#renderer').disabled = busy;
+  isoPicker.disabled = busy || stopping;
+  document.querySelector('#renderer').disabled = busy || stopping;
   runButton.textContent = busy ? 'Starting…' : stopping ? 'Stopping…' : 'Start game';
-  window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy}}));
+  window.dispatchEvent(new CustomEvent('fuzion-busy',{detail:{busy, stopping}}));
 }
-function stop() {
+function stop(requested = false) {
   hasFrame = false;
   globalThis.fuzionPerformance = undefined;
   window.dispatchEvent(new CustomEvent('fuzion-state',{detail:{running:false}}));
   if (audioWorkletNode) { audioWorkletNode.disconnect(); audioWorkletNode = undefined; }
   if (audioContext) { audioContext.close().catch(() => {}); audioContext = undefined; }
+  audioGain = undefined;
   audioCursor = undefined;
   clearInterval(inputTimer);
   inputTimer = undefined;
   sentInput = undefined;
+  seats.fill(null);
+  multiPad = false;
+  menuArmed = false;
+  lastMenuCommand = undefined;
+  performanceReadout.textContent = 'Waiting for a running game.';
   if (worker) {
     const previous = worker;
     worker = undefined;
     stopping = true;
-    const finish = () => {
+    if (requested) status.textContent = 'Finishing local saves and stopping…';
+    let finished = false;
+    const finish = (reply) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
       previous.terminate();
       stopping = false;
+      if (requested) {
+        status.textContent = 'Game stopped.';
+        if (!reply) showStorageWarning('The game stopped before its final save could be confirmed.');
+        else if (reply.saveError) showStorageWarning(`The final local save could not be written. ${reply.saveError}`);
+      }
       setBusy(false);
     };
-    const timeout = setTimeout(finish, 3000);
+    const timeout = setTimeout(() => finish(), 5000);
     previous.addEventListener('message', ({data}) => {
-      if (data.type === 'stopped') finish();
+      if (data.type === 'stopped') finish(data);
     });
     previous.postMessage({ type: 'stop' });
   }
@@ -68,38 +96,115 @@ function stop() {
 function sameInputValues(previous, next) {
   return previous.length === next.length && next.every((value, index) => value === previous[index]);
 }
-function sendInput(current, keys, buttons, axes) {
+function samePad(previous, next) {
+  if (!previous || !next) return previous === next;
+  return sameInputValues(previous.buttons, next.buttons) && sameInputValues(previous.axes, next.axes);
+}
+function sendInput(current, keys, pads) {
   if (!current || current !== worker) return;
   if (sentInput && sameInputValues(sentInput.keys, keys)
-      && sameInputValues(sentInput.buttons, buttons)
-      && sameInputValues(sentInput.axes, axes)) return;
-  const snapshot = { type: 'input', keys, buttons, axes };
+      && pads.every((pad, index) => samePad(sentInput.pads[index], pad))) return;
+  const snapshot = { type: 'input', keys, pads };
   current.postMessage(snapshot);
   sentInput = snapshot;
 }
+
+const neutralPad = {buttons: [], axes: []};
+function neutralizeInput() {
+  heldKeys.clear();
+  for (const seat of seats) if (seat) seat.armed = false;
+  sendInput(worker, [], seats.map(seat => seat ? neutralPad : null));
+}
+
 function keyboardBits() {
   const keys = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter','Escape','Space','Tab','Backspace','KeyW','KeyA','KeyS','KeyD','KeyX','KeyY','KeyZ','KeyC','Digit1','Digit2']);
   const held = new Set();
-  window.addEventListener('keydown', e => { if (worker && e.target === canvas && keys.has(e.code)) { held.add(e.code); e.preventDefault(); } });
+  window.addEventListener('keydown', event => {
+    const active = worker && event.target === canvas && keys.has(event.code);
+    if (!active) return;
+    if (!event.repeat) held.add(event.code);
+    event.preventDefault();
+  });
   window.addEventListener('keyup', e => held.delete(e.code));
-  const release = () => { held.clear(); sendInput(worker, [], [], []); };
-  window.addEventListener('blur', release);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
-  document.addEventListener('focusin', e => { if(e.target !== canvas) release(); });
+  window.addEventListener('blur', neutralizeInput);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) neutralizeInput(); });
+  document.addEventListener('focusin', event => { if (event.target !== canvas) neutralizeInput(); });
   return held;
 }
 const heldKeys = keyboardBits();
 
+function assignPads() {
+  let available;
+  try { available = navigator.getGamepads?.(); } catch { /* Keep keyboard input available when gamepad access is denied. */ }
+  const pads = [...(available ?? [])].filter(pad => pad?.connected && pad.mapping === 'standard');
+  for (const [port, seat] of seats.entries()) {
+    if (seat && !pads.some(pad => pad.index === seat.index && pad.id === seat.id)) seats[port] = null;
+  }
+  for (const pad of pads) {
+    if (seats.some(seat => seat?.index === pad.index)) continue;
+    const free = seats.indexOf(null);
+    if (free === -1 || (!multiPad && free > 0)) break;
+    seats[free] = {index: pad.index, id: pad.id, armed: false};
+  }
+  return seats.map(seat => seat && pads.find(pad => pad.index === seat.index));
+}
+
+function pollMenu(pad) {
+  if (!pad || !document.querySelector('#settings-dialog').open || document.hidden || !document.hasFocus()) {
+    menuArmed = false;
+    lastMenuCommand = undefined;
+    return;
+  }
+  const pressed = index => pad.buttons[index]?.pressed;
+  const x = pad.axes[0] ?? 0, y = pad.axes[1] ?? 0;
+  const command = pressed(1) ? 'back' : pressed(0) ? 'confirm' :
+    pressed(12) || y < -.6 ? 'up' : pressed(13) || y > .6 ? 'down' :
+    pressed(14) || x < -.6 ? 'left' : pressed(15) || x > .6 ? 'right' : undefined;
+  if (!command) {
+    menuArmed = true;
+    lastMenuCommand = undefined;
+    return;
+  }
+  if (!menuArmed) return;
+  const now = performance.now();
+  const repeat = command === lastMenuCommand;
+  if (repeat && (command === 'confirm' || command === 'back' || now < menuRepeatAt)) return;
+  lastMenuCommand = command;
+  menuRepeatAt = now + (repeat ? 140 : 320);
+  window.dispatchEvent(new CustomEvent('fuzion-menu-command', {detail: command}));
+}
+
+function pollInput(current) {
+  const pads = assignPads();
+  const dialogOpen = document.querySelector('#settings-dialog').open;
+  const focused = document.activeElement === canvas && !dialogOpen && !document.hidden && document.hasFocus();
+  const snapshots = pads.map((pad, port) => {
+    if (!pad) return null;
+    const seat = seats[port];
+    if (!focused) seat.armed = false;
+    else if (!seat.armed && pad.buttons.every(button => button.value <= .2) && pad.axes.every(axis => Math.abs(axis) <= .2))
+      seat.armed = true;
+    return seat.armed ? {buttons: pad.buttons.map(button => button.value), axes: [...pad.axes]} : neutralPad;
+  });
+  sendInput(current, focused ? [...heldKeys] : [], snapshots);
+  pollMenu(pads[0]);
+}
+
+window.addEventListener('fuzion-settings', ({detail: settings}) => {
+  if (audioGain) audioGain.gain.setTargetAtTime(settings.volume / 100, audioContext.currentTime, .015);
+  worker?.postMessage({type: 'settings', frameCap: settings.frameCap});
+});
+
 runButton.addEventListener('click', async () => {
-  if (stopping) return;
+  if (stopping || worker) return;
   error.textContent = '';
+  showStorageWarning('');
   if (!globalThis.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
     error.textContent = 'This build needs browser thread support. Use a current 64-bit Chrome or Edge and start the included local server; do not open the HTML file directly.';
     return;
   }
   const iso = isoPicker.files?.[0];
   if (!iso) { error.textContent = 'Select your local Fuzion Frenzy disc image.'; return; }
-  stop();
   heldKeys.clear();
   const options = new URLSearchParams(location.search);
   const workletAudio = options.get('audioOutput') === 'worklet' && typeof AudioWorkletNode !== 'undefined';
@@ -111,6 +216,7 @@ runButton.addEventListener('click', async () => {
     error.textContent = 'This browser needs OffscreenCanvas for GPU rendering. Choose Software reference or use current Chrome/Edge.';
     return;
   }
+  const settings = getSettings();
   // A transferred canvas belongs to one worker. A fresh element makes restart
   // and backend switching deterministic after its worker has been terminated.
   const nextCanvas = canvas.cloneNode(false);
@@ -120,9 +226,15 @@ runButton.addEventListener('click', async () => {
   const offscreen = renderer === 'webgl' ? canvas.transferControlToOffscreen() : undefined;
   if (typeof AudioContext !== 'undefined') {
     try { audioContext = new AudioContext(workletAudio ? {sampleRate: GAME_AUDIO_RATE} : undefined); }
-    catch { audioContext = new AudioContext(); }
-    audioContext.resume().catch(() => {});
+    catch { try { audioContext = new AudioContext(); } catch { /* Audio is optional during device failure. */ } }
+    if (audioContext) {
+      audioGain = audioContext.createGain();
+      audioGain.gain.value = settings.volume / 100;
+      audioGain.connect(audioContext.destination);
+      audioContext.resume().catch(() => {});
+    }
   }
+  applyLaunchDisplay();
   worker = new Worker('./worker.mjs', { type: 'module' });
   const current = worker;
   setBusy(true);
@@ -135,6 +247,11 @@ runButton.addEventListener('click', async () => {
       log.textContent = lines.slice(-200).join('\n');
     }
     else if (data.type === 'progress') status.textContent = data.text;
+    else if (data.type === 'storage-warning') showStorageWarning(data.text);
+    else if (data.type === 'capabilities') {
+      multiPad = data.multiPad;
+      window.dispatchEvent(new CustomEvent('fuzion-capabilities', {detail: data}));
+    }
     else if (data.type === 'compiled-wasm') compiledWasm = data.build;
     else if (data.type === 'gpu-error') {
       error.textContent = data.text; status.textContent = 'GPU renderer stopped.'; stop();
@@ -166,7 +283,7 @@ runButton.addEventListener('click', async () => {
         for (let i = 0; i < data.frames; i++) { left[i] = samples[i * 2]; right[i] = samples[i * 2 + 1]; }
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
-        source.connect(audioContext.destination);
+        source.connect(audioGain);
         const now = audioContext.currentTime;
         if (audioCursor > now + 0.5) return;
         if (audioCursor === undefined || audioCursor < now) audioCursor = now + audioLead;
@@ -206,7 +323,7 @@ runButton.addEventListener('click', async () => {
         audioWorkletNode = undefined;
         current.postMessage({type: 'audio-fallback'});
       }, {once: true});
-      node.connect(graph.destination);
+      node.connect(audioGain);
       pcm = ring.buffer;
       audioWorkletNode = node;
     } catch {
@@ -216,7 +333,7 @@ runButton.addEventListener('click', async () => {
   if (worker !== current) return;
   const windowsPacing = /Windows/.test(navigator.userAgent);
   current.postMessage({
-    type: 'run', iso, renderer, canvas: offscreen, compiledWasm, pcm,
+    type: 'run', iso, renderer, canvas: offscreen, compiledWasm, pcm, frameCap: getSettings().frameCap,
     gpuVertices: options.get('cpuVertices') !== '1',
     threadedGpu,
     pipelinedGpu: options.get('pipelinedGpu') !== '0',
@@ -250,14 +367,9 @@ runButton.addEventListener('click', async () => {
       ? options.get('frameCapPrecision') === '1'
       : windowsPacing,
   }, offscreen ? [offscreen] : []);
-  inputTimer = setInterval(() => {
-    const focused = document.activeElement === canvas && !document.hidden;
-    const pad = focused ? [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard') : undefined;
-    sendInput(current, focused ? [...heldKeys] : [], pad ? pad.buttons.map(b => b.value) : [], pad ? [...pad.axes] : []);
-  }, 1000 / 60);
+  inputTimer = setInterval(() => pollInput(current), 1000 / 60);
 });
 
 stopButton.addEventListener('click', () => {
-  stop();
-  status.textContent = 'Game stopped.';
+  stop(true);
 });

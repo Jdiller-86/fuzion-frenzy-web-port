@@ -334,7 +334,8 @@ void BrowserTextureProbeMark(double, unsigned, unsigned, unsigned, unsigned, uns
     if args.host_only or args.no_link:
         print(f'Compiled {len(built)} real SDK integration objects; no title execution claimed')
         return 0
-    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template',
+    exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_disconnect_pad',
+               '_ff_browser_set_frame_cap', '_ff_browser_fallback_vertex_template',
                '_ff_browser_warm_guest_code', '_ff_browser_warm_guest_code_extra', '_malloc', '_free']
     thinlto_cache = work / 'thinlto-cache'
     lto_flags = []

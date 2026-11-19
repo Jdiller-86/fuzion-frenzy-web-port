@@ -16,15 +16,24 @@ const BUILD_ETAG = /^"[0-9a-f]{64}"$/;
 const XISO_PARTITION_BASES = [0, 0x0fd90000, 0x18300000, 0x02080000, 0x1fb20000];
 const BUTTON = { dpadUp: 1, dpadDown: 2, dpadLeft: 4, dpadRight: 8, start: 0x10, back: 0x20, leftThumb: 0x40, rightThumb: 0x80, a: 1 << 16, b: 1 << 17, x: 1 << 18, y: 1 << 19, black: 1 << 20, white: 1 << 21 };
 let moduleInstance;
-let lastInput = { buttons: 0, lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
+const PORTS = 4;
+let lastInput = [readPad(new Set()), null, null, null];
+let connectedPads = 0;
+let frameCap = 60;
 let cancelled = false;
 let saveTimer;
 let persistentSaves = false;
+let pendingSave = Promise.resolve();
 let pacingTiming;
 let audioOutput;
 
-async function flushSaves() {
-  if (persistentSaves && moduleInstance) await new Promise((resolve, reject) => moduleInstance.FS.syncfs(false, error => error ? reject(error) : resolve()));
+function flushSaves() {
+  if (!persistentSaves || !moduleInstance) return Promise.resolve();
+  const fs = moduleInstance.FS;
+  pendingSave = pendingSave.catch(() => {}).then(() => new Promise((resolve, reject) => {
+    fs.syncfs(false, error => error ? reject(error) : resolve());
+  }));
+  return pendingSave;
 }
 
 function report(text) { postMessage({ type: 'progress', text }); }
@@ -151,21 +160,45 @@ function onAudio(ptr, frames, rate, queued, waitStart, waitMs) {
 }
 function pushInput() {
   if (!moduleInstance || cancelled) return;
-  const setPad = moduleInstance._ff_browser_set_pad;
+  const {_ff_browser_set_pad: setPad, _ff_browser_disconnect_pad: disconnectPad} = moduleInstance;
   if (typeof setPad !== 'function') return;
-  const p = lastInput;
-  setPad(0, p.buttons, p.lx, p.ly, p.rx, p.ry, p.lt, p.rt);
+  const ports = typeof disconnectPad === 'function' ? PORTS : 1;
+  for (let port = 0; port < ports; ++port) {
+    const bit = 1 << port;
+    const pad = lastInput[port];
+    if (pad) {
+      setPad(port, pad.buttons, pad.lx, pad.ly, pad.rx, pad.ry, pad.lt, pad.rt);
+      connectedPads |= bit;
+    } else if (connectedPads & bit) {
+      disconnectPad(port);
+      connectedPads &= ~bit;
+    }
+  }
 }
-function parseInput(message) {
-  const keySet = new Set(message.keys || []);
+function readPad(keySet, pad) {
   let buttons = 0;
   const keyMap = { ArrowUp: BUTTON.dpadUp, ArrowDown: BUTTON.dpadDown, ArrowLeft: BUTTON.dpadLeft, ArrowRight: BUTTON.dpadRight, Enter: BUTTON.start, Tab: BUTTON.back, Space: BUTTON.a, Escape: BUTTON.b, Backspace: BUTTON.b, KeyX: BUTTON.x, KeyY: BUTTON.y, Digit1: BUTTON.black, Digit2: BUTTON.white };
   for (const [key, bit] of Object.entries(keyMap)) if (keySet.has(key)) buttons |= bit;
-  const padButtons = message.buttons || [];
+  const padButtons = pad?.buttons ?? [];
   const mapping = [[0,BUTTON.a],[1,BUTTON.b],[2,BUTTON.x],[3,BUTTON.y],[4,BUTTON.black],[5,BUTTON.white],[8,BUTTON.back],[9,BUTTON.start],[10,BUTTON.leftThumb],[11,BUTTON.rightThumb],[12,BUTTON.dpadUp],[13,BUTTON.dpadDown],[14,BUTTON.dpadLeft],[15,BUTTON.dpadRight]];
   for (const [index, bit] of mapping) if ((padButtons[index] || 0) > 0.2) buttons |= bit;
-  const axes = message.axes || [];
-  lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
+  const axes = pad?.axes ?? [];
+  return { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
+}
+
+function parseInput(message) {
+  const pads = message.pads ?? [message];
+  const noKeys = new Set();
+  lastInput = Array.from({length: PORTS}, (_, port) => {
+    const pad = pads[port];
+    if (port === 0) return readPad(new Set(message.keys ?? []), pad);
+    return pad ? readPad(noKeys, pad) : null;
+  });
+}
+
+function applyFrameCap(cap) {
+  frameCap = cap === 30 ? 30 : 60;
+  moduleInstance?._ff_browser_set_frame_cap?.(frameCap);
 }
 
 async function compileWasm(previous) {
@@ -249,6 +282,9 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     }],
   });
   moduleInstance = module;
+  applyFrameCap(frameCap);
+  postMessage({type: 'capabilities', frameCap: typeof module._ff_browser_set_frame_cap === 'function',
+    multiPad: typeof module._ff_browser_disconnect_pad === 'function'});
   if (compiled && compiled !== compiledWasm && BUILD_ETAG.test(compiled.etag)) {
     // Only the compiled module is shared. Each worker creates its own instance,
     // guest memory and threads, and first verifies the local disc identity.
@@ -315,9 +351,12 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     try {
       module.FS.mount(module.IDBFS, {}, '/hdd');
       await new Promise((resolve, reject) => module.FS.syncfs(true, error => error ? reject(error) : resolve()));
+      if (cancelled) return;
       persistentSaves = true;
       saveTimer = setInterval(() => flushSaves().catch(error => postMessage({ type: 'log', text: `Save persistence: ${error.message}` })), 30000);
-    } catch (error) { report(`Browser save storage is unavailable: ${error.message}. Saves will last only for this run.`); }
+    } catch (error) { postMessage({type: 'storage-warning', text: `Local save storage is unavailable (${error.message}). Saves will last only for this run.`}); }
+  } else {
+    postMessage({type: 'storage-warning', text: 'Local save storage is unavailable. Saves will last only for this run.'});
   }
   if (warmup) await warmup;
   if (cancelled) { stopThreads(module); return; }
@@ -360,20 +399,24 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
 
 onmessage = async ({ data }) => {
   if (data?.type === 'input') { parseInput(data); pushInput(); return; }
+  if (data?.type === 'settings') { if (!cancelled) applyFrameCap(data.frameCap); return; }
   if (data?.type === 'audio-fallback') { audioOutput = undefined; return; }
   if (data?.type === 'stop') {
+    if (cancelled) return;
     cancelled = true;
     clearInterval(saveTimer);
     stopThreads(moduleInstance);
     const saveShaders=moduleInstance?.onFuzionGpu?.shaderWarmup?.save().catch(()=>{
       postMessage({type:'log',text:'Local shader warmup could not be saved.'});
     });
-    try { await flushSaves(); } catch (error) { postMessage({ type: 'log', text: `Save flush failed: ${error.message}` }); }
+    let saveError;
+    try { await flushSaves(); } catch (error) { saveError = error.message; }
     await saveShaders;
-    postMessage({ type: 'stopped' });
+    postMessage({ type: 'stopped', saveError });
     return;
   }
   if (data?.type !== 'run') return;
+  applyFrameCap(data.frameCap);
   try { await boot(data); }
   catch (cause) {
     stopThreads(moduleInstance);
