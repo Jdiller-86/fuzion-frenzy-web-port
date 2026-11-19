@@ -220,6 +220,40 @@ void main() {
   floatView(ptr,n) { const heap=this.checkedHeapSpan(ptr,n*4);return new Float32Array(heap.buffer,heap.byteOffset+ptr,n); }
   words(ptr,n) { return new Uint32Array(this.bytes(ptr,n*4).slice().buffer); }
   floats(ptr,n) { return new Float32Array(this.bytes(ptr,n*4).slice().buffer); }
+  uploadImagePixels(image, width, height, rgba) {
+    const g = this.gl;
+    if (image.allocated) {
+      g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, width, height, g.RGBA, g.UNSIGNED_BYTE, rgba);
+    } else {
+      g.texImage2D(g.TEXTURE_2D, 0, g.RGBA8, width, height, 0, g.RGBA, g.UNSIGNED_BYTE, rgba);
+      image.allocated = true;
+    }
+  }
+  uploadOrdinaryImage(image, encoding, pointer, width, height, size) {
+    const bytes = encoding === 1 ? this.bytes(pointer, size) : null;
+    if (bytes && this.directTextureUploads !== false) {
+      // The bridge pins these immutable bytes until the command batch returns.
+      try {
+        this.uploadImagePixels(image, width, height, bytes);
+        return true;
+      } catch (error) {
+        if (!(error instanceof TypeError) || typeof SharedArrayBuffer === 'undefined' ||
+            !(bytes.buffer instanceof SharedArrayBuffer)) throw error;
+        this.directTextureUploads = false;
+      }
+    }
+    if (size > this.imageUpload.length) {
+      this.imageUpload = new Uint8Array(this.capacity(this.imageUpload.length, size, 32 * 1024 * 1024));
+    }
+    const rgba = this.imageUpload.subarray(0, size);
+    if (bytes) rgba.set(bytes);
+    else {
+      const pixels = this.floatView(pointer, size);
+      for (let j = 0; j < size; j++) rgba[j] = Math.round(Math.max(0, Math.min(1, pixels[j])) * 255);
+    }
+    this.uploadImagePixels(image, width, height, rgba);
+    return false;
+  }
   capacity(current,required,limit) {
     if(required>limit)throw new Error('GPU geometry budget exceeded');
     let size=Math.max(current,256);
@@ -1412,22 +1446,17 @@ void main() {
             this.bindTexture(t,image.texture,true);
             const size=width*height*4,pixelsPointer=tx[base+6];
             if(!width||!height||!Number.isSafeInteger(size)||size>32*1024*1024)throw new Error('GPU image staging budget exceeded');
-            if(size>this.imageUpload.length)this.imageUpload=new Uint8Array(this.capacity(this.imageUpload.length,size,32*1024*1024));
-            const rgba=this.imageUpload.subarray(0,size);
-            if(encoding===1)rgba.set(this.bytes(pixelsPointer,size));
-            else {
-              const pixels=this.floatView(pixelsPointer,size);
-              for(let j=0;j<size;j++)rgba[j]=Math.round(Math.max(0,Math.min(1,pixels[j]))*255);
-            }
-            // An ordinary ArrayBuffer also works on WebGL implementations
-            // that reject views backed by the shared Wasm memory.
-            if(image.allocated)g.texSubImage2D(g.TEXTURE_2D,0,0,0,width,height,g.RGBA,g.UNSIGNED_BYTE,rgba);
-            else {g.texImage2D(g.TEXTURE_2D,0,g.RGBA8,width,height,0,g.RGBA,g.UNSIGNED_BYTE,rgba);image.allocated=true;}
+            const uploadStarted = this.measurePacing ? performance.now() : 0;
+            const direct = this.uploadOrdinaryImage(image, encoding, pixelsPointer, width, height, size);
             image.hashLo=hashLo;image.hashHi=hashHi;
             if(this.frameStats){
               this.frameStats.textureUploads=(this.frameStats.textureUploads||0)+1;
               this.frameStats.textureUploadBytes=(this.frameStats.textureUploadBytes||0)+size;
               if(encoding===1)this.frameStats.byteTextureUploads=(this.frameStats.byteTextureUploads||0)+1;
+              if(this.measurePacing){
+                this.frameStats.textureUploadMs=(this.frameStats.textureUploadMs??0)+performance.now()-uploadStarted;
+                if(direct)this.frameStats.directTextureUploadBytes=(this.frameStats.directTextureUploadBytes??0)+size;
+              }
             }
           }
           image.frame=this.frame;

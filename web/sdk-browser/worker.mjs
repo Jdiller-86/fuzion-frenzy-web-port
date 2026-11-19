@@ -171,7 +171,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,asyncAudio,deadlineAudio}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,directTextureUploads,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,asyncAudio,deadlineAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -277,6 +277,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     if (shaderFallback && rawVertices && module._ff_browser_fallback_vertex_template)
       module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());
     module.onFuzionGpu.measurePacing=measurePacing===true;
+    module.onFuzionGpu.directTextureUploads=directTextureUploads!==false;
     module.onFuzionGpu.resourceFences=resourceFences;
     module.onFuzionGpu.gridContours=gridContours===true;
     module.onFuzionGpu.fastInteger=fastInteger===true;

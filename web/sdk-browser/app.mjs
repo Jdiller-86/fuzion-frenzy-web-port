@@ -197,6 +197,7 @@ runButton.addEventListener('click', () => {
     shaderPromotion: options.get('shaderPromotion') !== '0',
     guestCodeWarmup: options.get('guestCodeWarmup') !== '0',
     gpuTiming: options.get('gpuTiming') === '1',
+    directTextureUploads: options.get('textureUpload') !== 'copy',
     pacingTiming: options.get('pacingTiming') === '1',
     resourceFences: options.get('resourceFences'),
     gridContours: options.get('gridContours') === '1',
