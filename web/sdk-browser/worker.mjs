@@ -236,7 +236,8 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     const waits = [[], [], []];
     const presents = [];
     const resourceWaits = [];
-    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits };
+    const scenePhases = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases };
     module.onFuzionPacingWait = (kind, ...sample) => {
       const list = waits[kind];
       if (list && list.length < 120) list.push(sample);
@@ -246,6 +247,9 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
     };
     module.onFuzionPacingResourceWait = (...sample) => {
       if (resourceWaits.length < 120) resourceWaits.push(sample);
+    };
+    module.onFuzionSceneTiming = (...sample) => {
+      if (scenePhases.length < 128) scenePhases.push(sample);
     };
   }
   if (renderer === 'webgl') {

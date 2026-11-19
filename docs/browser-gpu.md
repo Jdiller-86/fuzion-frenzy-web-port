@@ -654,13 +654,21 @@ A two-core Water Gate Scramble replay with the full barrier recorded **734** wai
 
 Steady acknowledgement p95 was **18.72 ms** with the full barrier and **18.78 ms** with selective fences. The selective run's longest gap was **63.85 ms**, including **53.28 ms before enqueue** and **10.14 ms before worker dispatch**. These were separate foreground Chrome replays. The wait itself went away in the selected scene, while frame cadence still missed the 60 FPS target. The trace Wasm SHA-256 is `2db2a4489d690f5248909ad368b3bcd904217c43e79bcbdb033b2609aef1b627`. The reviewed selective Wasm SHA-256 is `5c9e6cb916c3f44c0c56079cd3746547b77853b2045f7a178adafb4da1c8c11f`.
 
+### Timestamp guest scene setup directly
+
+Build the disposable comparison slot with `--scene-timing` and run with `?pacingTiming=1` to collect `pacingTiming.scenePhases`. The option requires the matching input shards. It brackets the verified guest calls and aggregates their elapsed spans on the original game thread before posting samples at scene exit. The replay selects a scene span with both the loader and collision setup and aligns it with consecutive renderer acknowledgements. Normal builds omit the guest instrumentation.
+
+The foreground two-core Water Gate Scramble replay with selective fences measured a **56.42 ms** peak acknowledgement gap. The guest scene call covered **53.39 ms** inside the **56.23 ms** before enqueue. Its shared loader took **31.26 ms**, including the **22.14 ms** tree branch and its **18.46 ms** recursive reader. The other loader branch took **9.12 ms** across its full two-pass setup, including **8.08 ms** in 13 parser calls. Collision setup took **19.80 ms**. Dispatch and worker service together took **0.19 ms** on the peak frame. Nested spans are inclusive, and elapsed times include any thread descheduling.
+
+Steady acknowledgement p95 was **18.78 ms** over 483 pairs. The replay reached keyboard-controlled play, recorded zero live shader links and blocking validations, and stopped cleanly. The temporary instrumented Wasm SHA-256 was `3475ba6e87c8306ce4f8f3da0d77d88c73e43b11873d85ef58c9ffee176aec08`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** Directly timestamp the work before enqueue at scene entry. Selective fences removed the observed resource waits while the worst entry still spent 53.28 ms before enqueue. Earlier profiler samples found the shared loader, recursive reader, two-pass parser and collision grid in this interval. Sparse samples limited attribution, so isolate these phases before changing their behavior.
+1. **Guest scene setup.** The direct capture places the recursive reader and collision setup on the critical frame. Look for work the collision builder can avoid up front under the verified input lifetime. Earlier per-query caches increased grid time. Continue reducing the recursive reader's parsing work at shared entry points, preserving guest memory and numeric behavior.
 2. **Resource fences.** Keep the selective path opt-in while its frame-cadence effect varies. Check recorder costs and other dense scenes before changing the default. The recorder currently scans the captured index range separately from the consumer's assembler.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws still depend on resident coverage and queued specialization.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.

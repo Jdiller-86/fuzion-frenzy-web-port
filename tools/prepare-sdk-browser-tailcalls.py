@@ -1087,6 +1087,51 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
             mapped_grid_calls, mapped_intersections)
 
 
+def instrument_scene_timing(original: bytes, source: bytes, shard: int) -> bytes:
+    identities = {
+        14: '3eb3b65c203bd8d50870ec7c599612a17f0bccd7072b3cd1e734e82bd230534f',
+        48: '4cf909c61b1465dc6ac0f6fa17f62061da558d69d18c9c0d189cb83f10668004',
+    }
+    if shard not in identities:
+        return source
+    if sha256(original) != identities[shard]:
+        raise ValueError(f'Scene timing requires the verified source for title shard {shard}')
+
+    callers = {
+        14: [('0007F2F0', '0007EFE0', 'Reader', 1)],
+        48: [('001B6170', '001B43C0', 'Loader', 1),
+             ('001B6170', '0019F0F0', 'Grid', 1),
+             ('001B6170', '0019EC50', 'Grid', 1),
+             ('001B43C0', '001B4310', 'Tree', 1),
+             ('001B43C0', '001B2C30', 'TwoPass', 1),
+             ('001B2C30', '001BA160', 'Parser', 13)],
+    }
+    for caller, callee, phase, expected in callers[shard]:
+        entry = f'X86_FUNC(__imp__sub_{caller}) {{'.encode()
+        if source.count(entry) != 1:
+            raise ValueError(f'Scene timing caller differs: {caller}')
+        start = source.index(entry) + len(entry)
+        end = source.index(b'\n}', start)
+        call = rb'(?m)^\t(X86_PUSH32\(0x[0-9A-F]+u\); sub_' + callee.encode() + rb'\(ctx, base\);)\r?$'
+        scope = f'ff_browser_scene_timing::Scope sceneTiming{{ff_browser_scene_timing::{phase}}};'.encode()
+        timed, matches = re.subn(call, lambda match: b'\t{\n\t\t' + scope + b'\n\t\t' + match[1] + b'\n\t}',
+                                 source[start:end])
+        if matches != expected:
+            raise ValueError(f'Scene timing edge differs: {caller} to {callee} ({matches} calls)')
+        source = source[:start] + timed + source[end:]
+
+    if shard == 48:
+        entry = b'X86_FUNC(__imp__sub_001B6170) {'
+        source = source.replace(entry, b'''X86_FUNC(ff_browser_timed_scene_original);
+X86_FUNC(__imp__sub_001B6170) {
+\tff_browser_scene_timing::Scope sceneTiming{ff_browser_scene_timing::Scene};
+\tff_browser_timed_scene_original(ctx, base);
+}
+X86_FUNC(ff_browser_timed_scene_original) {''', 1)
+    helper = ROOT / 'runtime/browser/sdk/guest-scene-timing.h'
+    return b'// Scene timing helper SHA-256: ' + sha256(helper.read_bytes()).encode() + b'\n#include "guest-scene-timing.h"\n' + source
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1101,6 +1146,7 @@ def main() -> int:
         default=ROOT / ".tools/artifacts/sdk-browser-full/title-overlay",
         help="ignored destination for adapted title sources",
     )
+    parser.add_argument('--scene-timing', action='store_true', help='Instrument verified scene setup calls')
     args = parser.parse_args()
 
     generated = args.generated.resolve()
@@ -1192,6 +1238,8 @@ def main() -> int:
         if source.name == "x86_func_mapping.cpp":
             adapted += emit_code_warmup(warmup_batches[0], b"ff_browser_warm_guest_code")
             adapted += emit_code_warmup(warmup_batches[1], b"ff_browser_warm_guest_code_extra")
+        if args.scene_timing:
+            adapted = instrument_scene_timing(original, adapted, shard_numbers.get(source, -1))
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")

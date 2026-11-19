@@ -61,6 +61,7 @@ def main() -> int:
     parser.add_argument('--no-link', action='store_true')
     parser.add_argument('--keep-build-cache', action='store_true',
                         help='Keep one build-cache directory in the selected output for incremental builds')
+    parser.add_argument('--scene-timing', action='store_true', help='Instrument calls in the pinned guest scene loader')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
     args = parser.parse_args()
     if not args.compiler:
@@ -90,8 +91,11 @@ def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-overlay.py'), '--sdk', str(sdk), '--output', str(overlay)], check=True)
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-host-header.py'), '--config', str(args.config), '--xdk', str(sdk / 'xdk'), '--output', str(work / 'image_symbols.h')], check=True)
     title_overlay = work / 'title-overlay'
-    subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-tailcalls.py'),
-                    '--generated', str(generated), '--output', str(title_overlay)], check=True)
+    title_command = [sys.executable, str(ROOT / 'tools/prepare-sdk-browser-tailcalls.py'),
+                     '--generated', str(generated), '--output', str(title_overlay)]
+    if args.scene_timing:
+        title_command.append('--scene-timing')
+    subprocess.run(title_command, check=True)
     includes = [overlay, work, title_overlay, generated, sdk / 'harness', ROOT / 'runtime/browser/sdk']
     subprocess.run([sys.executable,str(ROOT/'tools/prepare-sdk-browser-fixed.py'),
                     '--sdk',str(sdk),'--output',str(work)],check=True)
@@ -267,6 +271,7 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
     (output / 'full-build-manifest.json').write_text(json.dumps({
         'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt, 'linkOptimization': args.link_opt or args.opt,
         'lto': args.lto,
+        'sceneTiming': args.scene_timing,
         'exceptions':args.exceptions,
         'sourceCount': len(sources), 'moduleBytes': (output / 'fuzion-sdk-full.wasm').stat().st_size,
         'runtimePatchManifestSha256': digest(ROOT / 'desktop/windows/patches/manifest.json'),
