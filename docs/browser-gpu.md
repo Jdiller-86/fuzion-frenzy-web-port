@@ -745,6 +745,22 @@ The accepted checks compare about **2.49 MiB** of live point data against captur
 
 The four comparison runs used both siblings on each of two desktop cores and the integrated Radeon. All reached keyboard-controlled play and stopped cleanly with zero live shader links or blocking validations. The SIMD candidate was discarded after the direct CPU comparison. The existing contour shortcut stays opt-in.
 
+### Count scene reader allocations and teardown
+
+A disposable Water Gate Scramble build counted calls at the checked allocation and free entries and timed the outer read and teardown separately. It matched the guest thread, call site, and phase before joining individual samples. The 300-byte requests came through the node and value paths at `0x0007ED18` and `0x0007ED98`. Recursive blocks requested 52 bytes at `0x0007F251`. Teardown ran through `0x0007F3A0` after the reader returned. Source review checked the caller and argument checks and the absence of guest writes in the probe.
+
+| Measured in the original scene | Calls | Title CPU |
+| --- | ---: | ---: |
+| Recursive read | 10,925 allocations | 11.00 ms including parsing |
+| 300-byte node / value requests | 4,880 / 5,676 | |
+| 52-byte recursive blocks | 117 | |
+| Other requests | 252, with all 32 sampled requests at 300 bytes | |
+| Teardown | 10,928 frees | 2.07 ms including traversal |
+
+The reader and teardown made **21,853 heap acquires** and the same number of releases. Among 159 captured samples on each synchronization edge, both median CPU and median elapsed time were **1 µs**, matching the median empty-marker cost. Each request class had at most 32 detailed samples. Instrumentation cost and coverage make those short call samples unsuitable for estimating total synchronization time. The whole teardown's **2.07 ms** is the directly timed budget for that routine.
+
+The instrumented replay used integrated Radeon and two desktop cores with both hardware threads available. Scene-entry acknowledgement took **45.12 ms** and active acknowledgement p95 was **17.33 ms** across 484 adjacent pairs. It reached keyboard-controlled gameplay and stopped cleanly with zero live shader links or blocking validations. The timed module SHA-256 was `c331dd30df1f43960cd27e46b39da0cb9be97435b5db18c3940c1b86135743d8`. The probe was removed after the replay. The allocator still acquires and releases the same guest heap mutant at each original call.
+
 ### Send controller snapshots only when they change
 
 The page still samples keyboard and controller state at 60 Hz. It posts the first snapshot and any changes to keys, buttons or axes. Focus loss clears held keys and immediately submits a neutral snapshot through the same comparison. Restart clears the cache for the new worker. The Wasm input mapping and guest polling remain in place.
@@ -940,8 +956,8 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Scene entry and first textured frame.** Recent four-thread runs measured about 36–41 ms of guest CPU at scene entry. The recursive reader and collision setup each used about 10 ms or more. The contour validation trials did not show a grid CPU gain on this setup. Measure the recursive reader's node allocation and cleanup by request class and distinguish allocator work from dispatcher work. GPU-process isolation and sibling threads reduced worker stalls in diagnostic profiles.
-2. **Active-play pacing.** Use the replay after the GO banner for steady measurements and keep scene entry and first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default. Compare future scene CPU savings against the active threaded reference.
+1. **Scene entry and first textured frame.** Recent four-thread runs measured about 36–41 ms of guest CPU at scene entry. Recursive reading and collision setup each used about 10 ms or more. Teardown used 2.07 ms and the sampled heap synchronization was at the probe's resolution floor. Focus further reader work on the repeated parsing and construction paths. GPU-process isolation and sibling threads reduced worker stalls in diagnostic profiles.
+2. **Active-play pacing.** Measure dense Erodeo gameplay on the same constrained integrated-GPU setup, with guest, render worker and GPU spans aligned. Use the replay after the start banner for steady measurements and keep scene entry and the first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 5. **Presentation pacing.** The Water Gate Scramble trace separates the renderer's 17.055 ms acknowledgement p95 from 165 Hz presentation quantization. Test sustained play at a verified fixed 60 Hz or 120 Hz output cadence to isolate remaining missed slots. Keep the original virtual-blank period and callback sequence.
