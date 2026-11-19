@@ -1320,14 +1320,18 @@ void main() {
       const loc=name=>{if(!program.locations.has(name))program.locations.set(name,g.getUniformLocation(program.p,name));return program.locations.get(name);};
       if (fallback) {
         if (program.fixedKeys !== fallback) {
+          const previous = program.fixedKeys;
           if (fallback.vertexCode) {
-            g.bindBuffer(g.UNIFORM_BUFFER, program.codeBuffer);
-            g.bufferSubData(g.UNIFORM_BUFFER, 0, fallback.vertexCode);
-            g.uniform1i(loc('fallbackInstructionCount'), fallback.vertexCode.length / 4);
-          } else {
+            if (previous?.vertexCode !== fallback.vertexCode) {
+              g.bindBuffer(g.UNIFORM_BUFFER, program.codeBuffer);
+              g.bufferSubData(g.UNIFORM_BUFFER, 0, fallback.vertexCode);
+              g.uniform1i(loc('fallbackInstructionCount'), fallback.vertexCode.length / 4);
+            }
+          } else if (previous?.vertexKey !== fallback.vertexKey) {
             g.uniform1uiv(loc('fallbackVertexKey[0]'), fallback.vertexKey);
           }
-          g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey.words);
+          if (previous?.pixelKey.words !== fallback.pixelKey.words)
+            g.uniform1uiv(loc('fallbackPixelKey[0]'), fallback.pixelKey.words);
           program.fixedKeys = fallback;
         }
         if (fallback.pixelKey.fast) this.shaderStats.fastCombinerDraws++;
