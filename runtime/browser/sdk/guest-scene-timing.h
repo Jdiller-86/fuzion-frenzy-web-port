@@ -5,6 +5,8 @@
 
 #include <emscripten.h>
 
+#include "guest-integer.h"
+
 bool ff_browser_pacing_timing_enabled();
 
 namespace ff_browser_scene_timing {
@@ -43,6 +45,7 @@ public:
             if (trace.active || !ff_browser_pacing_timing_enabled()) return;
             trace = {};
             trace.active = true;
+            ff_browser_integer::counts = {};
         }
         if (trace.active) {
             marked_ = trace.markedScopes < 128;
@@ -61,6 +64,12 @@ public:
         if (phase_ != Scene) return;
 
         trace.active = false;
+        const auto counts = ff_browser_integer::counts;
+        if (counts.values) {
+            MAIN_THREAD_ASYNC_EM_ASM({
+                Module.onFuzionSceneIntegers?.($0, $1, $2);
+            }, started_, counts.values, counts.digits);
+        }
         for (uint32_t phase = 0; phase < PhaseCount; ++phase) {
             const auto& span = trace.phases[phase];
             if (!span.calls) continue;

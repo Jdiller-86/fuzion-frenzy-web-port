@@ -101,6 +101,17 @@ bool ff_browser_grid_contours_enabled() {
 #endif
 }
 
+bool ff_browser_fast_integer_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.fastInteger === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 #ifdef __EMSCRIPTEN__
 constexpr double kFrameCapPrecisionMs = 2.0;
 

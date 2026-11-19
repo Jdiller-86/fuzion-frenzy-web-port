@@ -116,6 +116,10 @@ GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_0
     [[clang::musttail]] return __imp__sub_001EA530(ctx, base);
 }'''
 LOADER_BYTE_LOOPS = (
+    (b"X86_FUNC(__imp__sub_001DEFE6) {",
+     "4b6878305f59d689c55829f1f65de8f07a30bd11642f1cde8370ef62cf9794b3",
+     b"\nloc_001DF012:",
+     b"\n\tif (ff_browser_integer::TryAccumulate(ctx)) goto loc_001DF021;"),
     (b"X86_FUNC(__imp__sub_001E70BE) {",
      "d0c503fa178bfd1612d0742e1e0f0bb9f6842b5a7a6db0ada1974353ccd285b8",
      b"\n\tX86_LOAD_FLAGS();",
@@ -1070,6 +1074,8 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
     if repeated_lines:
         helper_digest = sha256(LOADER_BYTES_HELPER.read_bytes() + REPEATED_LINE_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Repeated line helper SHA-256: ' + helper_digest + b'\n#include "guest-repeated-line.inc"\n' + adapted
+    if b"ff_browser_integer::TryAccumulate(ctx)" in adapted:
+        adapted = b'#include "guest-integer.h"\n' + adapted
     if decimal_prefixes:
         helper_digest = sha256(DECIMAL_PREFIX_HELPER.read_bytes()).encode("ascii")
         adapted = b'// Decimal prefix helper SHA-256: ' + helper_digest + b'\n#include "guest-decimal-prefix.inc"\n' + adapted
