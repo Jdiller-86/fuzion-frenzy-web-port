@@ -1134,6 +1134,22 @@ Two Erodeo replays used the same Wasm on integrated Radeon with both hardware th
 
 On `--scene-timing` builds set `onFuzionGpu.textureProbeMode` to 3 for the cleared direct decoder or 2 for overwrite. The comparison clears the direct decoder destination on the same allocation path. The working Wasm is **40,313,242 bytes**, SHA-256 `2abbb726fb382c416e7122bc115d7947a56d5ec878cb526fe927b27ac88a56ef`.
 
+### Compare exact packed uploads for large color textures
+
+The WebGL2 trial reused an owned guest-format snapshot for swizzled A1R5G5B5 images between 16,384 and 262,144 pixels. It uploaded only the packed base-level words to an R16UI staging texture and converted them into the ordinary RGBA8 texture before its first draw. The conversion interleaved the shared Morton bits, appended the longer axis bits, and replicated each five-bit channel exactly. A startup readback matched all **98,304** test pixels across a square containing every 16-bit value and two rectangular orientations. Original cache generation, write checks, image dimensions and filtering remained in use.
+
+The paired Erodeo replays used the same trial Wasm on integrated Radeon with two physical desktop cores and both siblings. The frame opened with 271 uploads in both runs. The packed path converted **51** images and cut their source upload by **4,947,968 bytes**. Both reached the opening gameplay frame, reported zero live links and blocking validations, and stopped normally.
+
+| Opening frame measurement | SIMD CPU decode | Packed GPU conversion |
+| --- | ---: | ---: |
+| Texture decode CPU | 5.73 ms | 1.87 ms |
+| Encoded snapshot CPU | 1.67 ms | 1.78 ms |
+| Time before render enqueue | 17.08 ms | 18.16 ms |
+| WebGL worker CPU | 11.79 ms | 11.39 ms |
+| Frame acknowledgement gap | 30.69 ms | 30.59 ms |
+
+The CPU reduction did not shorten the measured opening gap. Title compilation used **1.53 and 2.53 ms** in the two openings, and other preparation and scheduling also varied. GPU elapsed time for the conversion was unmeasured. The default renderer retains the SIMD path. The trial source patch and compact summaries are local under `artifacts/browser-gpu/erodeo-packed-upload/`. Trial Wasm SHA-256 `b5bdf2ebb5c97ddc0c18f21a6f526d8b8649438662a2f8457394311c11e5686d`.
+
 ### Compare an early ordered handoff for texture bursts
 
 A trial sent the first fully prepared commands of a texture-heavy frame through the existing render queue after it pinned 4 MiB of newly decoded images. The worker executed target setup, uploads, and draws in order, refreshed its validation fence, and acknowledged the batch. Only the final batch presented the frame. Independent review checked command and texture ownership, the combined command limit, and synchronous readback ordering.
@@ -1150,8 +1166,8 @@ The whole-title source census and independent CPU and renderer source reviews us
 
 | Priority | Shared path and measured cost | Decision |
 | --- | --- | --- |
-| Scene loading | [Latest Water Gate Scramble](#scope-the-main-ram-fast-path-to-hot-title-shards) spent about 37 ms of CPU in setup. Its loader and grid dominate that budget. The shared recursive reader made 10,925 allocations in a separate capture. | Inspect both callbacks and the consumer between tree creation and destruction in the path at `0x001B4310` for retained pointers and allocator dependencies. A confined tree could use a bounded region allocator. Teardown measured 2.07 ms and allocation CPU is unresolved. Keep the shared heap and existing collision path until the larger change has a lifetime and cost proof. |
-| First textured frame | [Erodeo's swizzled A1R5G5B5](#vectorize-the-dominant-opening-texture-format) supplied 12.1 MB of the 13.9 MB RGBA burst. After SIMD it still used 5.08 ms of decode CPU plus 1.50 ms copying its encoded snapshots. | Prototype packed input and exact GPU unpack for the largest admitted images through [the image cache](../runtime/browser/sdk/webgl-images.inc), [the owned command bridge](../runtime/browser/sdk/full-webgl.cpp) and [the upload path](../web/sdk-browser/webgl-renderer.mjs). Pin the validated snapshot and unpack the base mip to identical RGBA8 at original dimensions with identical alpha and filtering. The packed base level is 2 bytes per pixel. The GPU pass adds work, so keep the current decode as fallback and compare combined worker, GPU and first-frame time. |
+| Scene loading | [Latest Water Gate Scramble](#scope-the-main-ram-fast-path-to-hot-title-shards) spent about 37 ms of CPU in setup. Its loader and grid dominate that budget. The shared recursive reader made 10,925 allocations in a separate capture. The consumer in `0x001B4310` also creates persistent outputs. | Track the two 300-byte tree-node allocation sites at `0x0007ED18` and `0x0007ED98` through teardown at the call site `0x001B43A3`. Check exact lifetime, resolved callbacks, inline name bounds and allocator behavior before trying a bounded allocation pool for those two callers. Teardown measured 2.07 ms and allocation CPU is unresolved. Keep the shared heap and existing collision path until that proof. |
+| First textured frame | [Packed GPU conversion](#compare-exact-packed-uploads-for-large-color-textures) saved 3.86 ms in CPU decode and 4.95 MB in uploads across 51 images. Both opening gaps were about 30.6 ms. | Keep the SIMD path as the default. Revisit packed conversion if a modest-hardware trace identifies decode as the remaining deadline cost and can also measure GPU work. |
 | Active presentation | [The retained Erodeo capture](#join-active-erodeo-cap-timing-to-chrome-presentation) measured 1.69 ms renderer CPU and 2.75 ms GPU p95 with one presentation feedback record per frame window. At 165 Hz the output alternated between two and three refresh periods. | Use one fixed 60 or 120 Hz output capture on modest hardware to separate missed slots from refresh mismatch. Preserve the guest virtual-blank sequence. Count consecutive compatible draw runs before trying a shared constants table or multi-draw. The measured worker budget limits likely steady CPU savings. |
 | Shader stalls | Recent cold routes stayed at zero live links and blocking validations with resident shaders. [Recipe reuse](#shader-recipe-reuse-after-reload) helped the earlier live-link path. The current cache retains one observed draw layout per shader pair. | If a cold trace shows a first-draw driver stall, count additional layouts for that exact program and warm a bounded set in the existing startup budget. Profiles without draw-path linking or a driver stall give little reason to expand cache work. |
 
