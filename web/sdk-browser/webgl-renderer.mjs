@@ -1527,7 +1527,10 @@ void main() {
     for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}
     if(onError)this.scheduleFrameErrorCheck(onError);
     g.flush();
-    postMessage({type:'gpu-frame',width:t.w,height:t.h});return true;
+    // The page uses this signal to leave its startup state. The transferred
+    // canvas presents subsequent frames without a separate page message.
+    if(this.frame===1)postMessage({type:'gpu-frame',width:t.w,height:t.h});
+    return true;
   }
   pixels(ptr,w,h,pitch) {
     const g=this.gl;
