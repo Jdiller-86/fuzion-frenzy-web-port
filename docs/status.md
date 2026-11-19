@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Per-stage texture lookups lowered median WebGL submission from 1.265 to 1.140 ms in a matched Water Gate Scramble run. The latest scene-entry profile still points to guest loading and setup. [Texture comparison](browser-gpu.md#reduce-texture-lookup-work-during-webgl-submission) · [Scene-entry timing](browser-gpu.md#scene-entry-read-timing-and-the-outer-reader)
+- **Browser.** Packing texture parameters only when they change reduced median WebGL submission from 1.145 to 1.080 ms in a matched Water Gate Scramble run. The latest scene-entry profile still points to guest loading and setup. [Texture parameter comparison](browser-gpu.md#pack-texture-parameters-only-when-they-change) · [Scene-entry timing](browser-gpu.md#scene-entry-read-timing-and-the-outer-reader)
 - **Next.** Target nested parsing and scene setup inside the guest. The latest Water Gate Scramble trace recorded zero disc reads during the hitch. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Scene-entry timing](browser-gpu.md#scene-entry-read-timing-and-the-outer-reader) · [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

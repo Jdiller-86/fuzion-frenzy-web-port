@@ -1043,8 +1043,8 @@ void main() {
     Object.assign(result,{p,locations:new Map(),uniforms,uniformWords,uniformSpans,uniformsValid:false,
       uniformBatch:null,uniformPacket:null,vertexConstantPacket:null,vertexConstantMode:0,
       vertexConstants,vertexConstantWords,vertexConstantSpans,vertexConstantsValid:false,fixedVertexConstants,fixedVertexConstantWords,fixedVertexSpans,fixedVertexConstantsValid:false,fogConstantsValid:false,
-      addresses:new Float32Array(16),addressScratch:new Float32Array(16),addressesValid:false,
-      borders:new Float32Array(16),borderScratch:new Float32Array(16),bordersValid:false});
+      addresses:new Float32Array(16),addressesValid:false,
+      borders:new Float32Array(16),borderColors:new Uint32Array(4),bordersValid:false});
     return result;
   }
   readyProgram(program, allowWait = true) {
@@ -1330,25 +1330,48 @@ void main() {
         program.vertexConstantPacket=s[38];
         program.vertexConstantMode=vertexConstantMode;
       }
-      const addressLocation=loc('addresses');
-      if(addressLocation!==null){
-        const candidate=program.addressScratch,previous=program.addresses;let changed=!program.addressesValid;
-        for(let t=0;t<4;t++){
-          const base=t*14,o=t*4;
-          for(let c=0;c<4;c++){const value=tx[base+7+c];candidate[o+c]=value;if(!changed&&candidate[o+c]!==previous[o+c])changed=true;}
+      const addressLocation = loc('addresses');
+      if (addressLocation !== null) {
+        const addresses = program.addresses;
+        let changed = !program.addressesValid;
+        for (let unit = 0; unit < 4 && !changed; ++unit) {
+          const base = unit * 14 + 7, offset = unit * 4;
+          for (let axis = 0; axis < 4; ++axis) {
+            const value = tx[base + axis], previous = addresses[offset + axis];
+            // Most modes are small integers. Preserve the old float rounding
+            // for any descriptor word outside the exact integer range.
+            if (value !== previous && Math.fround(value) !== previous) {
+              changed = true;
+              break;
+            }
+          }
         }
-        if(changed){g.uniform4fv(addressLocation,candidate);program.addresses=candidate;program.addressScratch=previous;program.addressesValid=true;}
+        if (changed) {
+          for (let unit = 0; unit < 4; ++unit) {
+            const base = unit * 14 + 7, offset = unit * 4;
+            for (let axis = 0; axis < 4; ++axis) addresses[offset + axis] = tx[base + axis];
+          }
+          g.uniform4fv(addressLocation, addresses);
+          program.addressesValid = true;
+        }
       }
-      const borderLocation=loc('border');
-      if(borderLocation!==null){
-        const candidate=program.borderScratch,previous=program.borders;let changed=!program.bordersValid;
-        for(let t=0;t<4;t++){
-          const base=t*14,o=t*4,c=tx[base+13];
-          const r=Math.fround((c>>>16&255)/255),green=Math.fround((c>>>8&255)/255),b=Math.fround((c&255)/255),a=Math.fround((c>>>24)/255);
-          candidate[o]=r;candidate[o+1]=green;candidate[o+2]=b;candidate[o+3]=a;
-          if(!changed&&(r!==previous[o]||green!==previous[o+1]||b!==previous[o+2]||a!==previous[o+3]))changed=true;
+      const borderLocation = loc('border');
+      if (borderLocation !== null) {
+        const colors = program.borderColors;
+        if (!program.bordersValid || colors[0] !== tx[13] || colors[1] !== tx[27] ||
+            colors[2] !== tx[41] || colors[3] !== tx[55]) {
+          const borders = program.borders;
+          for (let unit = 0; unit < 4; ++unit) {
+            const color = tx[unit * 14 + 13], offset = unit * 4;
+            colors[unit] = color;
+            borders[offset] = (color >>> 16 & 255) / 255;
+            borders[offset + 1] = (color >>> 8 & 255) / 255;
+            borders[offset + 2] = (color & 255) / 255;
+            borders[offset + 3] = (color >>> 24) / 255;
+          }
+          g.uniform4fv(borderLocation, borders);
+          program.bordersValid = true;
         }
-        if(changed){g.uniform4fv(borderLocation,candidate);program.borders=candidate;program.borderScratch=previous;program.bordersValid=true;}
       }
       for(let t=0;t<4;t++) {
         const base=t*14;
