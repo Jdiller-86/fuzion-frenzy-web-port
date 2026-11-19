@@ -588,6 +588,12 @@ WebGL programs now compare texture address modes against their uploaded values b
 
 One foreground Water Gate Scramble run alternated the original and new packing paths in eight-frame blocks on the same Wasm and RX 9070 XT. Across 210 steady frames per path, median WebGL submission fell from **1.145 to 1.080 ms** and p95 from **1.505 to 1.355 ms**, at about 979 issued draws per frame. The new version was faster in 24 of 29 neighboring block pairs, with a median paired saving of 0.045 ms. It skipped a median of 979 border conversions and 203 address scratch fills per frame. Frame acknowledgement p95 across both paths was 16.985 ms. The run had zero live shader links or blocking validations and stopped cleanly. These results measure CPU submission in one scene on resident shaders.
 
+### Validate and rebase raw triangle indices with SIMD
+
+The Wasm bridge checks and rebases four indices together, with the existing scalar checks for the tail. Unsigned bounds are checked before the draw is queued. Prepared raw draws also walk only the active vertex registers in the same order as the previous scan. Independent review covered index ownership, unaligned vector access and invalid indices before submission.
+
+The isolated Wasm kernel matched 3,096 scalar output cases and rejected 3,072 out-of-range cases in both paths. Over seven alternating passes of 240,000 draws each, a 12-index span dropped from **1.064 to 0.761 ms**, and a 36-index span from **2.742 to 1.670 ms**. The full build then reached keyboard-controlled Water Gate Scramble in foreground Chrome on the RX 9070 XT. The eight steady windows had about 9,734 original draws per frame. Worker acknowledgement p95 was 17.045 ms across 482 intervals, with a 17.675 ms maximum. Zero live shader links or blocking validations were recorded, and the game stopped cleanly. The isolated timings measure index processing. The gameplay run verifies integration and frame pacing on this configuration. Wasm SHA-256 `48dfc4539af71d79f8d7886acca027e81e12ec040f694ad72c3ea30737159890`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.

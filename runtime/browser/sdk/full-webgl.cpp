@@ -6,6 +6,7 @@
 #include "gpu/shaders.h"
 #include "gpu/vertex.h"
 #include <algorithm>
+#include <bit>
 #include <cstring>
 #include <cstdlib>
 #include <array>
@@ -427,6 +428,22 @@ void ff_webgl_target(const gpu::Surface& surface, bool depth) {
         commands.push_back({0,key,d.width,d.height,d.format,d.pitch,d.linear,uint32_t(depth),Own(guest,size),size,uint32_t(target.hash),uint32_t(target.hash>>32)});
     }
 }
+static inline void RebaseRawIndices(uint32_t* output, const uint32_t* input, uint32_t length,
+                                    uint32_t vertexCount, uint32_t base) {
+    const auto limit = wasm_i32x4_splat(vertexCount);
+    const auto offset = wasm_i32x4_splat(base);
+    uint32_t i = 0;
+    for (; length - i >= 4; i += 4) {
+        const auto indices = wasm_v128_load(input + i);
+        if (wasm_v128_any_true(wasm_u32x4_ge(indices, limit))) std::abort();
+        wasm_v128_store(output + i, wasm_i32x4_add(indices, offset));
+    }
+    for (; i < length; ++i) {
+        if (input[i] >= vertexCount) std::abort();
+        output[i] = input[i] + base;
+    }
+}
+
 static void PushDraw(std::array<uint32_t, 12> packet, const void* vertices, uint32_t count,
                      uint32_t stride, const void* indices, uint32_t index_count, bool extend_raw = false) {
     if (!count || count > kVertexLimit || index_count > kIndexLimit) std::abort();
@@ -448,12 +465,8 @@ static void PushDraw(std::array<uint32_t, 12> packet, const void* vertices, uint
         const auto* vertex_data = static_cast<const uint8_t*>(vertices);
         raw_geometry.vertices.insert(raw_geometry.vertices.end(), vertex_data, vertex_data + vertex_bytes);
         raw_geometry.indices.resize(packet[4] + index_count);
-        auto* out = raw_geometry.indices.data() + packet[4];
-        const auto* in = static_cast<const uint32_t*>(indices);
-        for (uint32_t i = 0; i < index_count; ++i) {
-            if (in[i] >= count) std::abort();
-            out[i] = in[i] + base;
-        }
+        RebaseRawIndices(raw_geometry.indices.data() + packet[4],
+                         static_cast<const uint32_t*>(indices), index_count, count, base);
         if (extend) {
             // Only prepared reuse extends a consecutive row with the same state.
             (*previous)[2] += count;
@@ -493,8 +506,8 @@ bool ff_webgl_reuse_raw_draw(const gpu::Assembled& as, uint64_t revision) {
     const auto* state = reinterpret_cast<const uint32_t*>(previous[6]);
     if ((state[39] & 0xffff) != as.regs) return false;
     const auto* layout = reinterpret_cast<const uint32_t*>(previous[10]);
-    for (unsigned reg = 0; reg < 16; ++reg) {
-        if (!(as.regs & (1u << reg))) continue;
+    for (uint32_t active = as.regs; active; active &= active - 1) {
+        const auto reg = std::countr_zero(active);
         const auto& element = as.elements[reg];
         const auto word = uint32_t(element.format) | (uint32_t(element.offset) << 8);
         if (element.buffer || layout[reg] != word) return false;
