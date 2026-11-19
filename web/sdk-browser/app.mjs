@@ -199,6 +199,7 @@ runButton.addEventListener('click', () => {
     guestCodeWarmup: options.get('guestCodeWarmup') !== '0',
     gpuTiming: options.get('gpuTiming') === '1',
     directTextureUploads: options.get('textureUpload') !== 'copy',
+    retainOrdinaryImages: options.get('textureRetention') !== '0',
     earlyTextureDecode: options.get('earlyTextureDecode') === '1' || options.get('earlyTextureUpload') === '1',
     earlyTextureUpload: options.get('earlyTextureUpload') === '1',
     pacingTiming: options.get('pacingTiming') === '1',

@@ -17,6 +17,9 @@ const EARLY_IMAGE_JOBS = 256;
 const EARLY_IMAGE_LIFETIME = 8;
 const EARLY_IMAGE_BATCH_UPLOADS = 32;
 const EARLY_IMAGE_BATCH_BYTES = 2 * 1024 * 1024;
+const RETAINED_IMAGE_BYTES = 16 * 1024 * 1024;
+const RETAINED_IMAGE_COUNT = 512;
+const RETAINED_IMAGE_FRAMES = 120;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -120,6 +123,7 @@ export class WebGLRenderer {
     this.programVariants=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
     this.stagedImages = new Map(); this.stagedImageBytes = 0;
+    this.retainedImages = new Map(); this.retainedImageBytes = 0;
     if(gpuTiming) {
       const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
       const bits=ext?gl.getQuery(ext.TIME_ELAPSED_EXT,ext.QUERY_COUNTER_BITS_EXT):0;
@@ -162,6 +166,7 @@ void main() {
       this.contextLost = true;
       this.deferGpuErrors = false;
       this.clearStagedImages();
+      this.clearRetainedImages();
       this.cancelShaderPromotion();
       this.cancelFrameErrorCheck();
       this.disposeGpuTiming();
@@ -264,6 +269,37 @@ void main() {
     }
     this.uploadImagePixels(image, width, height, rgba);
     return false;
+  }
+  clearRetainedImages() {
+    for (const image of this.retainedImages.values()) this.gl.deleteTexture(image.texture);
+    this.retainedImages.clear();
+    this.retainedImageBytes = 0;
+  }
+  trimRetainedImages(incomingBytes = 0) {
+    // Insertion order is when the textures fell out of active use.
+    for (const [key, image] of this.retainedImages) {
+      if (this.frame - image.frame <= RETAINED_IMAGE_FRAMES &&
+          this.retainedImageBytes + incomingBytes <= RETAINED_IMAGE_BYTES &&
+          (!incomingBytes || this.retainedImages.size < RETAINED_IMAGE_COUNT)) break;
+      this.gl.deleteTexture(image.texture);
+      this.retainedImages.delete(key);
+      this.retainedImageBytes -= image.bytes;
+    }
+  }
+  takeRetainedImage(key, versionLo, versionHi) {
+    const image = this.retainedImages.get(key);
+    if (!image) return undefined;
+    this.retainedImages.delete(key);
+    this.retainedImageBytes -= image.bytes;
+    if (image.hashLo !== versionLo || image.hashHi !== versionHi) {
+      this.gl.deleteTexture(image.texture);
+      return undefined;
+    }
+    if (this.frameStats) {
+      this.frameStats.retainedTextureReuses = (this.frameStats.retainedTextureReuses ?? 0) + 1;
+      this.frameStats.retainedTextureBytes = (this.frameStats.retainedTextureBytes ?? 0) + image.bytes;
+    }
+    return image;
   }
   clearStagedImages() {
     for (const image of this.stagedImages.values()) this.gl.deleteTexture(image.texture);
@@ -1587,18 +1623,23 @@ void main() {
           } else {
             const key=`${address}:${width}:${height}:${encoding}`;
             image=this.images.get(key);
-            if(!image){
+            if(!image) {
               if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');
-              const staged=encoding===1&&hashHi===0x80000000?this.stagedImages.get(hashLo):undefined;
-              if(staged&&staged.address===address&&staged.width===width&&staged.height===height&&
-                  this.frame-staged.stagedFrame<EARLY_IMAGE_LIFETIME){
-                image=staged;
-                this.stagedImages.delete(hashLo);this.stagedImageBytes-=staged.bytes;
-                if(this.frameStats){
-                  this.frameStats.earlyTextureAdoptions=(this.frameStats.earlyTextureAdoptions??0)+1;
-                  this.frameStats.earlyTextureAdoptedBytes=(this.frameStats.earlyTextureAdoptedBytes??0)+staged.bytes;
-                }
-              } else image={texture:g.createTexture(),frame:-1};
+              if (encoding === 1 && this.retainOrdinaryImages !== false) {
+                image = this.takeRetainedImage(key, hashLo, hashHi);
+              }
+              if (!image) {
+                const staged=encoding===1&&hashHi===0x80000000?this.stagedImages.get(hashLo):undefined;
+                if(staged&&staged.address===address&&staged.width===width&&staged.height===height&&
+                    this.frame-staged.stagedFrame<EARLY_IMAGE_LIFETIME){
+                  image=staged;
+                  this.stagedImages.delete(hashLo);this.stagedImageBytes-=staged.bytes;
+                  if(this.frameStats){
+                    this.frameStats.earlyTextureAdoptions=(this.frameStats.earlyTextureAdoptions??0)+1;
+                    this.frameStats.earlyTextureAdoptedBytes=(this.frameStats.earlyTextureAdoptedBytes??0)+staged.bytes;
+                  }
+                } else image={texture:g.createTexture(),frame:-1};
+              }
               this.images.set(key,image);
             }
             if (slot) {
@@ -1617,6 +1658,7 @@ void main() {
             const uploadStarted = this.measurePacing ? performance.now() : 0;
             const direct = this.uploadOrdinaryImage(image, encoding, pixelsPointer, width, height, size);
             image.hashLo=hashLo;image.hashHi=hashHi;
+            if (encoding === 1) image.bytes = size;
             if(this.frameStats){
               this.frameStats.textureUploads=(this.frameStats.textureUploads||0)+1;
               this.frameStats.textureUploadBytes=(this.frameStats.textureUploadBytes||0)+size;
@@ -1715,7 +1757,17 @@ void main() {
     if (this.shaderPromotionCandidates && this.frameStats?.textureUploadBytes >= PROMOTION_UPLOAD_BURST_BYTES)
       this.shaderPromotionResumeFrame = this.frame + PROMOTION_SETTLE_FRAMES;
     this.lastFrameStats=this.frameStats;this.frameStats=undefined;
-    for(const [key,image] of this.images)if(image.frame<this.frame-2){g.deleteTexture(image.texture);this.images.delete(key);}
+    if (this.retainedImages.size) this.trimRetainedImages();
+    for (const [key, image] of this.images) {
+      if (image.frame >= this.frame - 2) continue;
+      this.images.delete(key);
+      // Retain RGBA8 packets, whose SDK versions identify validated bytes.
+      if (this.retainOrdinaryImages !== false && image.bytes && image.bytes <= RETAINED_IMAGE_BYTES) {
+        this.trimRetainedImages(image.bytes);
+        this.retainedImages.set(key, image);
+        this.retainedImageBytes += image.bytes;
+      } else g.deleteTexture(image.texture);
+    }
     if(onError)this.scheduleFrameErrorCheck(onError);
     g.flush();
     // The page uses this signal to leave its startup state. The transferred

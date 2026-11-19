@@ -34,11 +34,13 @@ function stopThreads(module) {
   const gpu = module?.onFuzionGpu;
   if (gpu) {
     gpu.earlyTextureUpload = false;
+    gpu.retainOrdinaryImages = false;
     gpu.deferGpuErrors = false;
     gpu.cancelShaderPromotion();
     try { gpu.cancelFrameErrorCheck(); } catch {}
     try { gpu.disposeGpuTiming(); } catch {}
     try { gpu.clearStagedImages?.(); } catch {}
+    try { gpu.clearRetainedImages(); } catch {}
   }
   try { module?._ff_browser_stop?.(); } catch {}
   try { module?.PThread?.terminateAllThreads?.(); } catch {}
@@ -173,7 +175,7 @@ async function compileWasm(previous) {
 }
 
 async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,
-                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,directTextureUploads,earlyTextureDecode,earlyTextureUpload,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,decimalProductMemo,sceneNodePool,asyncAudio,deadlineAudio}) {
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,directTextureUploads,retainOrdinaryImages,earlyTextureDecode,earlyTextureUpload,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,decimalProductMemo,sceneNodePool,asyncAudio,deadlineAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
@@ -276,6 +278,7 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
   if (renderer === 'webgl') {
     module.onFuzionGpu = gpu ?? createGpu();
     module.onFuzionGpu.threaded=threadedGpu===true;
+    module.onFuzionGpu.retainOrdinaryImages=retainOrdinaryImages!==false;
     module.onFuzionGpu.earlyTextureDecode=threadedGpu===true&&earlyTextureDecode===true;
     module.onFuzionGpu.earlyTextureUpload=module.onFuzionGpu.earlyTextureDecode&&pipelinedGpu===true&&earlyTextureUpload===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
