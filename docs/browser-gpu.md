@@ -803,7 +803,27 @@ The same-Wasm Water Gate Scramble pair used integrated Radeon and both hardware 
 
 The tree used **3.44 ms less CPU** in this pair. Scene setup covered more off-CPU time in the pool run, and sequential scheduling and workload variation limit the acknowledgement comparison. Sampled live heap accounting advanced by **73,840 and 73,808 bytes** over the tree scope. The cumulative peak counter advanced by **3,288,768 and 2,843,680 bytes**. Those are unsynchronized guest counter samples.
 
-The working build uses the original allocator. The prototype stops if a larger block reservation fails, and its ownership hooks cover the title context only. A default path needs a safe per-node fallback under heap pressure and checks for any observation of interior pointers or changed heap accounting from other contexts. The local patch and compact summaries are under `artifacts/browser-gpu/scene-node-pool/`. Trial Wasm SHA-256 `0f6b11c953cf0ad5abfad1903efbdae2aa1487d9f791d72fe2f32283570bcb58`.
+This prototype stopped on failed block reservations, and its ownership hooks covered the title context only. The local patch and summaries are under `artifacts/browser-gpu/scene-node-pool/`. Trial Wasm SHA-256 `0f6b11c953cf0ad5abfad1903efbdae2aa1487d9f791d72fe2f32283570bcb58`.
+
+### Verify scene-node pool fallback and ownership
+
+The pool now keeps the original 300-byte request on the guest stack. It widens the fit search only after the managed heap lock is acquired. On a block miss it restores the ordinary size and starts the original search under the same lock. A miss disables pooling for subsequent allocations in that tree scope. The block directory publishes a range before returning any slot and retires it before the guest unlock allows the backing block to be reused. The instrumented free and size-query entries consult the directory for calls from other guest contexts. Source review checked the original wait, retry and unlock paths and lock ordering.
+
+A separate pressure replay forced the second block reservation to miss by raising its fit threshold. One managed block served **256** allocations and was released at teardown. The original 300-byte retry succeeded and the scene reached keyboard-controlled play. A second Wasm pthread recognized the live block through the physical alias, excluded its boundary neighbors, and confirmed retirement after release. The two checks exercised directory visibility. Broader game coverage and observation of heap state outside the hooked entry points remain open.
+
+The browser diagnostic build offers the pool via `?pacingTiming=1&sceneNodePool=1`. Ordinary launches use the original allocator. The pressure setting is limited to the local replay harness.
+
+The same-Wasm performance pair in Water Gate Scramble ran on integrated Radeon with two physical desktop cores and both hardware threads per core. The opt-in path served **10,556** requests in **42** blocks and released them all, with zero reservation misses or monitored heap observers. The control, pool and pressure runs all reached keyboard-controlled play and stopped cleanly with zero live shader links or blocking validations.
+
+| Measurement | Pool off | Pool on |
+| --- | ---: | ---: |
+| Recursive reader CPU | 11.20 ms | 8.88 ms |
+| Tree build, consumption and teardown CPU | 14.56 ms | 10.60 ms |
+| Total scene setup CPU | 44.00 ms | 35.80 ms |
+| Scene-entry acknowledgement gap | 49.36 ms | 45.19 ms |
+| Active acknowledgement p95 | 17.65 ms | 17.32 ms |
+
+Tree CPU fell by **3.96 ms**. Collision setup also varied between runs, so the tree measurement gives the narrower allocator comparison. Local results and the replay recipe are under `artifacts/browser-gpu/scene-node-pool-hardened/`. The same-Wasm comparison SHA-256 was `79863500d8a22ce085a89f7811e2aee3c69af931becd24cd54638b5e17c6bb0f`.
 
 ### Directly translate contained main RAM accesses
 
@@ -1194,7 +1214,7 @@ The whole-title source census and independent CPU and renderer source reviews us
 
 | Priority | Shared path and measured cost | Decision |
 | --- | --- | --- |
-| Scene loading | [The scene-node pool trial](#compare-pooled-scene-reader-allocation) used 42 blocks for 10,556 temporary nodes and reduced tree CPU by 3.44 ms in a Water Gate Scramble pair. Full scene CPU remained about 37 ms, including 10.61 ms in collision setup. | Qualify pool fallback and ownership before default use. Continue reducing setup work in the shared collision path. |
+| Scene loading | [The opt-in scene-node pool](#verify-scene-node-pool-fallback-and-ownership) used 42 blocks for 10,556 temporary nodes and reduced tree CPU by 3.96 ms in a Water Gate Scramble pair. A separate replay verified the small-request fallback and block directory visibility. | Qualify heap observations and pool coverage across other scenes before default use. Continue reducing setup work in the shared collision path. |
 | First textured frame | [Packed GPU conversion](#compare-exact-packed-uploads-for-large-color-textures) saved 3.86 ms in CPU decode and 4.95 MB in uploads across 51 images. Both opening gaps were about 30.6 ms. | Keep the SIMD path as the default. Revisit packed conversion if a modest-hardware trace identifies decode as the remaining deadline cost and can also measure GPU work. |
 | Active presentation | [The retained Erodeo capture](#join-active-erodeo-cap-timing-to-chrome-presentation) measured 1.69 ms renderer CPU and 2.75 ms GPU p95 with one presentation feedback record per frame window. At 165 Hz the output alternated between two and three refresh periods. | Use one fixed 60 or 120 Hz output capture on modest hardware to separate missed slots from refresh mismatch. Preserve the guest virtual-blank sequence. Count consecutive compatible draw runs before trying a shared constants table or multi-draw. The measured worker budget limits likely steady CPU savings. |
 | Shader stalls | Recent cold routes stayed at zero live links and blocking validations with resident shaders. [Recipe reuse](#shader-recipe-reuse-after-reload) helped the earlier live-link path. The current cache retains one observed draw layout per shader pair. | If a cold trace shows a first-draw driver stall, count additional layouts for that exact program and warm a bounded set in the existing startup budget. Profiles without draw-path linking or a driver stall give little reason to expand cache work. |

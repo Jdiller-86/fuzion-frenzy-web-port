@@ -1138,6 +1138,7 @@ def adapt_source(original: bytes, grid_predicate: bytes | None = None
 
 def instrument_scene_timing(original: bytes, source: bytes, shard: int) -> bytes:
     identities = {
+        7: 'df5cd9784e083fc1f93d5d18f1ce4cde7bb586d87e4a78e2579ce8d564947027',
         14: '3eb3b65c203bd8d50870ec7c599612a17f0bccd7072b3cd1e734e82bd230534f',
         48: '4cf909c61b1465dc6ac0f6fa17f62061da558d69d18c9c0d189cb83f10668004',
     }
@@ -1155,7 +1156,7 @@ def instrument_scene_timing(original: bytes, source: bytes, shard: int) -> bytes
              ('001B43C0', '001B2C30', 'TwoPass', 1),
              ('001B2C30', '001BA160', 'Parser', 13)],
     }
-    for caller, callee, phase, expected in callers[shard]:
+    for caller, callee, phase, expected in callers.get(shard, ()):
         entry = f'X86_FUNC(__imp__sub_{caller}) {{'.encode()
         if source.count(entry) != 1:
             raise ValueError(f'Scene timing caller differs: {caller}')
@@ -1169,6 +1170,9 @@ def instrument_scene_timing(original: bytes, source: bytes, shard: int) -> bytes
             raise ValueError(f'Scene timing edge differs: {caller} to {callee} ({matches} calls)')
         source = source[:start] + timed + source[end:]
 
+    if shard in (7, 48):
+        source = instrument_scene_node_pool(source, shard)
+
     if shard == 48:
         entry = b'X86_FUNC(__imp__sub_001B6170) {'
         source = source.replace(entry, b'''X86_FUNC(ff_browser_timed_scene_original);
@@ -1179,6 +1183,58 @@ X86_FUNC(__imp__sub_001B6170) {
 X86_FUNC(ff_browser_timed_scene_original) {''', 1)
     helper = ROOT / 'runtime/browser/sdk/guest-scene-timing.h'
     return b'// Scene timing helper SHA-256: ' + sha256(helper.read_bytes()).encode() + b'\n#include "guest-scene-timing.h"\n' + source
+
+
+def instrument_scene_node_pool(source: bytes, shard: int) -> bytes:
+    def replace_once(before: bytes, after: bytes) -> None:
+        nonlocal source
+        if source.count(before) != 1:
+            raise ValueError(f'Scene node pool anchor differs in shard {shard}: {before!r}')
+        source = source.replace(before, after, 1)
+
+    def wrap_entry(address: bytes, operation: bytes, body: bytes) -> None:
+        name = b'ff_browser_original_scene_pool_' + operation
+        entry = b'X86_FUNC(__imp__sub_' + address + b') {'
+        replace_once(entry, b'X86_FUNC(' + name + b');\n' + entry +
+                     b'\n\t' + body.replace(b'ORIGINAL', name) +
+                     b'\n}\nX86_FUNC(' + name + b') {')
+
+    if shard == 48:
+        wrap_entry(b'001B4310', b'tree',
+                   b'ff_browser_scene_node_pool::Pool pool{ctx};\n\tORIGINAL(ctx, base);')
+        for callee, phase, push in [
+            (b'0007F2F0', b'Create', b'ctx.esi, ctx.edx, 0x2u, ctx.eax, 0x1B4358u'),
+            (b'0007F3A0', b'Destroy', b'ctx.esi, 0x1B43A8u'),
+        ]:
+            lead = b'\tff_browser_stack::Push(ctx, ' + push + b');'
+            call = b'\tsub_' + callee + b'(ctx, base);'
+            newline = b'\r\n' if lead + b'\r\n' + call in source else b'\n'
+            body = lead + newline + call
+            replace_once(body, b'\t{\n\t\tff_browser_scene_node_pool::PhaseScope phase{'
+                         b'ff_browser_scene_node_pool::Phase::' + phase + b'};\n\t' +
+                         lead + b'\n\t' + call + b'\n\t}')
+    else:
+        for address, operation in [(b'0004C480', b'Allocate'), (b'0004C110', b'Free')]:
+            wrap_entry(address, operation, b'ff_browser_scene_node_pool::' +
+                       operation + b'(ctx, base, ORIGINAL);')
+        for address in (b'0004C210', b'0004C230', b'0004C25F', b'0004BC80', b'0004BCBA'):
+            entry = b'X86_FUNC(__imp__sub_' + address + b') {'
+            replace_once(entry, entry + b'\n\tff_browser_scene_node_pool::HeapObserver(ctx, ' +
+                         (b'true' if address == b'0004C210' else b'false') + b');')
+        for address, mnemonic, hook in [
+            (b'0004C0FB', b'ret', b'MarkManagedAllocation(ctx);'),
+            (b'0004C102', b'ret', b'MarkManagedAllocation(ctx);'),
+            (b'0004C207', b'call', b'MarkManagedFree(ctx);'),
+        ]:
+            line = b'\t// ' + address + b' ' + mnemonic
+            replace_once(line, b'\tff_browser_scene_node_pool::' + hook + b'\n' + line)
+        line = b'\t// 0004BF85 mov'
+        replace_once(line, b'\tff_browser_scene_node_pool::BeginReservation(ctx);\n'
+                     b'ff_browser_retry_scene_node:\n' + line)
+        line = b'loc_0004BFAD:'
+        replace_once(line, line + b'\n\tif (ff_browser_scene_node_pool::RetryOrdinary(ctx)) '
+                     b'goto ff_browser_retry_scene_node;')
+    return b'#include "guest-scene-node-pool.h"\n' + source
 
 
 def main() -> int:

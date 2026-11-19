@@ -72,6 +72,12 @@ current package and reuse one scratch directory for transient browser evidence.
 The existing Node host, `node tools/serve-sdk-browser.mjs`, serves the same page.
 Both hosts bind loopback and expose only explicit source/module routes. They
 never serve the game image, the repository as a directory, or arbitrary files.
+
+For a WebGL2 build compiled with `--scene-timing`, append
+`?pacingTiming=1&sceneNodePool=1` to the local browser URL to try pooled
+allocation for the two verified scene-reader node creators. Ordinary launches
+use the existing allocator. [Scene-node pool evidence](browser-gpu.md#verify-scene-node-pool-fallback-and-ownership).
+
 The packager includes only the browser files, compiled module, host, SDK notice
 and build manifest, plus startup instructions. It includes compiled title code
 from the source supplied to the project, but no ISO or original assets.
