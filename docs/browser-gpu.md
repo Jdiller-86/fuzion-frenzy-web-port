@@ -870,7 +870,7 @@ The pool now keeps the original 300-byte request on the guest stack. It widens t
 
 A separate pressure replay forced the second block reservation to miss by raising its fit threshold. One managed block served **256** allocations and was released at teardown. The original 300-byte retry succeeded and the scene reached keyboard-controlled play. A second Wasm pthread recognized the live block through the physical alias, excluded its boundary neighbors, and confirmed retirement after release. The two checks exercised directory visibility. Broader game coverage and observation of heap state outside the hooked entry points remain open.
 
-The browser diagnostic build offers the pool via `?pacingTiming=1&sceneNodePool=1`. Ordinary launches use the original allocator. The pressure setting is limited to the local replay harness.
+The pressure setting is limited to the local replay harness.
 
 The same-Wasm performance pair in Water Gate Scramble ran on integrated Radeon with two physical desktop cores and both hardware threads per core. The opt-in path served **10,556** requests in **42** blocks and released them all, with zero reservation misses or monitored heap observers. The control, pool and pressure runs all reached keyboard-controlled play and stopped cleanly with zero live shader links or blocking validations.
 
@@ -883,6 +883,20 @@ The same-Wasm performance pair in Water Gate Scramble ran on integrated Radeon w
 | Active acknowledgement p95 | 17.65 ms | 17.32 ms |
 
 Tree CPU fell by **3.96 ms**. Collision setup also varied between runs, so the tree measurement gives the narrower allocator comparison. Local results and the replay recipe are under `artifacts/browser-gpu/scene-node-pool-hardened/`. The same-Wasm comparison SHA-256 was `79863500d8a22ce085a89f7811e2aee3c69af931becd24cd54638b5e17c6bb0f`.
+
+#### Enable the verified pool in the normal browser build
+
+The normal build installs both hooks only after matching all three generated shards that contain the scene entry, heap operations and original allocation/free call sites. The scene wrapper binds the tree to its guest context. Nested trees suspend the outer pool and restore it on return. The scope checks that teardown returned every block and releases directory ownership even with timing disabled. Independent source review checked these paths and the existing fallback. Use `?sceneNodePool=1` to opt in. Add `&pacingTiming=1` to collect the local tree timing.
+
+Two Water Gate Scramble replays used a normal build without `--scene-timing`, integrated Radeon and both hardware threads on two desktop cores. The pool was the only setting that changed. It served **10,556** node and value requests in **42** guest heap blocks and released all 42. The replay counted zero reservation misses and monitored heap observers.
+
+| Measurement | Pool off | Pool on |
+| --- | ---: | ---: |
+| Tree build and teardown CPU | 15.51 ms | 10.77 ms |
+| Arena-entry acknowledgement gap | 47.22 ms | 45.92 ms |
+| Active acknowledgement p95 | 17.70 ms | 17.34 ms |
+
+The bracketed tree used **4.74 ms less CPU**. The entry gap includes scheduling and other setup work. Both runs reached keyboard-controlled original play and stopped normally with zero live shader links or blocking validations. Evidence covers the checked tree in one arena. Pooling changes guest heap accounting, so the original allocator remains the default while broader heap observer and lifetime coverage is open. The promoted normal Wasm SHA-256 was `b0a733af734d210c38d3fc67b0da1c99d8782eb6c8fe3953b52262c5625141ed`. The local replay and compact summaries are in `artifacts/browser-gpu/scene-node-pool-launch/`. The comparison build and temporary profiles were removed after promotion.
 
 ### Directly translate contained main RAM accesses
 

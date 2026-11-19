@@ -14,7 +14,8 @@
 
 #include "cpu/x86_context.h"
 #include "full-memory.h"
-#include "guest-scene-timing.h"
+
+bool ff_browser_pacing_timing_enabled();
 
 namespace ff_browser_scene_node_pool {
 
@@ -50,6 +51,13 @@ struct Chunk {
 
 struct Pool;
 inline thread_local Pool* current = nullptr;
+inline thread_local const X86Context* sceneOwner = nullptr;
+
+struct SceneScope {
+    explicit SceneScope(const X86Context& ctx) : previous(std::exchange(sceneOwner, &ctx)) {}
+    ~SceneScope() { sceneOwner = previous; }
+    const X86Context* previous;
+};
 
 // Foreign contexts only consult this directory. Pool slot bookkeeping stays
 // on the title thread, and directory updates occur once per block.
@@ -91,23 +99,28 @@ inline int Mode() {
 }
 
 struct Pool {
-    explicit Pool(const X86Context& ctx) : owner(&ctx) {
-        if (!ff_browser_scene_timing::trace.active || current) return;
-        tracing = true;
-        liveBefore = HeapCounter(0x002CCEC8);
-        peakBefore = HeapCounter(0x002CD700);
+    explicit Pool(const X86Context& ctx) : owner(&ctx), outer(std::exchange(current, nullptr)) {
+        if (sceneOwner != &ctx || outer) return;
+        tracing = ff_browser_pacing_timing_enabled();
+        if (tracing) {
+            liveBefore = HeapCounter(0x002CCEC8);
+            peakBefore = HeapCounter(0x002CD700);
+        }
         mode = Mode();
+        if (mode == 2 && !tracing) mode = 0;
         if (mode) {
             std::lock_guard lock(directoryMutex);
             if (!active.load(std::memory_order_relaxed)) {
                 current = this;
                 foreignObservers = 0;
                 active.store(true, std::memory_order_release);
+            } else {
+                mode = 0;
             }
         }
+        if (tracing) EM_ASM({ console.timeStamp?.("ff-scene-node-pool-begin:" + $0); }, mode);
     }
     ~Pool() {
-        if (!tracing) return;
         if (live || chunkCount != chunkFrees) std::abort();
         if (current == this) {
             std::lock_guard lock(directoryMutex);
@@ -115,6 +128,8 @@ struct Pool {
             heapObservers += foreignObservers;
             active.store(false, std::memory_order_release);
         }
+        current = outer;
+        if (!tracing) return;
         EM_ASM({
             console.timeStamp?.("ff-scene-node-pool:" +
                 [$0,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14].join(":"));
@@ -133,6 +148,7 @@ struct Pool {
     }
 
     const X86Context* owner;
+    Pool* const outer;
     Phase phase = Phase::Other;
     std::array<Chunk, kChunkLimit> chunks{};
     Chunk* lastFree = nullptr;

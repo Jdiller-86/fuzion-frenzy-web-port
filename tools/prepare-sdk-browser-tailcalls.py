@@ -1215,9 +1215,6 @@ def instrument_scene_timing(original: bytes, source: bytes, shard: int) -> bytes
             raise ValueError(f'Scene timing edge differs: {caller} to {callee} ({matches} calls)')
         source = source[:start] + timed + source[end:]
 
-    if shard in (7, 48):
-        source = instrument_scene_node_pool(source, shard)
-
     if shard == 48:
         entry = b'X86_FUNC(__imp__sub_001B6170) {'
         source = source.replace(entry, b'''X86_FUNC(ff_browser_timed_scene_original);
@@ -1245,6 +1242,8 @@ def instrument_scene_node_pool(source: bytes, shard: int) -> bytes:
                      b'\n}\nX86_FUNC(' + name + b') {')
 
     if shard == 48:
+        wrap_entry(b'001B6170', b'scene',
+                   b'ff_browser_scene_node_pool::SceneScope scene{ctx};\n\tORIGINAL(ctx, base);')
         wrap_entry(b'001B4310', b'tree',
                    b'ff_browser_scene_node_pool::Pool pool{ctx};\n\tORIGINAL(ctx, base);')
         for callee, phase, push in [
@@ -1368,8 +1367,12 @@ def main() -> int:
         warmup_profiles.append(profile)
     warmup_alias_count = 0
     total_ready_texture_returns = 0
+    # Shard 14 owns the return PCs used by the hooks in shards 7 and 48.
+    scene_pool_inputs = {shards[number][1]: shards[number][1].read_bytes() for number in (7, 14, 48)}
+    scene_pool_hooks = all(sha256(data) == DIRECT_MAIN_RAM_SHARDS[shard_numbers[path]]
+                           for path, data in scene_pool_inputs.items())
     for source in package:
-        original = source.read_bytes()
+        original = scene_pool_inputs[source] if source in scene_pool_inputs else source.read_bytes()
         source_digest = sha256(original)
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
@@ -1393,6 +1396,9 @@ def main() -> int:
             adapted += emit_code_warmup(warmup_batches[1], b"ff_browser_warm_guest_code_extra")
         if args.scene_timing:
             adapted = instrument_scene_timing(original, adapted, shard_numbers.get(source, -1))
+        scene_pool = scene_pool_hooks and shard_numbers.get(source) in (7, 48)
+        if scene_pool:
+            adapted = instrument_scene_node_pool(adapted, shard_numbers[source])
         direct_main_ram_count = 0
         if DIRECT_MAIN_RAM_SHARDS.get(shard_numbers.get(source, -1)) == source_digest:
             adapted, direct_main_ram_count = DIRECT_MAIN_RAM_ACCESS.subn(rb"FF_BROWSER_DIRECT_\g<0>", adapted)
@@ -1426,6 +1432,7 @@ def main() -> int:
                 "mappedGridCallCount": mapped_grid_calls,
                 "gridRejectBatchCount": grid_reject_batches,
                 "directMainRamAccessCount": direct_main_ram_count,
+                "sceneNodePoolHooks": bool(scene_pool),
                 "adaptedSha256": sha256(adapted),
             }
         )
