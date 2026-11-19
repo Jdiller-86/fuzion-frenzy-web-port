@@ -914,6 +914,14 @@ One sequential Water Gate Scramble pair reused integrated Radeon and both hardwa
 
 The working Wasm SHA-256 is `f37f6cac55cea0e1d87fbdde29029b40fbc4586da80d0722f361f539ab1fdb04`. Local comparison summaries are under `artifacts/browser-gpu/ram-scalar-scoped/`. Reproduce the census by matching each `x86_recomp.*.cpp` input to the working manifest, counting unique guest addresses from the `X86_FUNC`, `X86_WEAK_FUNC` and `X86_TRACED_FUNC` definitions, and counting the six `X86_MEM*` scalar calls in those original shards. The candidate adapter records its actual rewrite count as `directMainRamAccessCount` per file in `tailcall-manifest.json`. The comparison slot was cleared after promotion.
 
+### Compare a direct check for guest stack accesses
+
+The SDK starts guest threads in the `0xD0000000` stack window. A trial selected a direct unsigned stack-window check for **7,230** emitted ESP-relative scalar accesses after the existing lowerings in the same seven hash-matched shards. It kept the scalar mapping and fault path for other addresses and boundary crossings. Independent review checked the exact effective addresses, access widths, aliases and fallback.
+
+One Water Gate Scramble comparison used the installed and trial Wasm on integrated Radeon with both hardware threads on two physical desktop cores. Both used the original allocator and reached keyboard-controlled gameplay with zero live shader links or blocking validations. The bracketed scene tree used **13.83 ms** CPU on the installed build and **13.28 ms** on the trial. The full entry gap measured **42.58 and 46.02 ms**, and active acknowledgement p95 measured **17.28 and 17.51 ms**. The tree bracket covers the loader's tree work. The separate grid phase was unmeasured in this comparison.
+
+The candidate added **87,757 bytes** to the Wasm. The small tree CPU saving and variable entry timing favor keeping the installed mapping. The local recipe, patch and compact summaries are under `artifacts/browser-gpu/stack-window-assist/`. The candidate SHA-256 was `4546314d024a58652f3be159942180ccca5bc31951dc5fa74f4cebe0776736b0`. The build and temporary profiles were removed.
+
 ### Split the recursive reader and contour timing
 
 A disposable Water Gate Scramble replay put thread CPU clocks around both `0x001B9EA0` calls. They used **1.50 ms** in total. The main parser at `0x001BA160` used **9.96 ms** across 13 calls in the same phase. Together they account for **11.46 ms** of the two-pass branch's **11.55 ms**.
