@@ -1190,6 +1190,21 @@ Two Erodeo replays used the same Wasm on integrated Radeon with both hardware th
 
 On `--scene-timing` builds set `onFuzionGpu.textureProbeMode` to 3 for the cleared direct decoder or 2 for overwrite. The comparison clears the direct decoder destination on the same allocation path. The working Wasm is **40,313,242 bytes**, SHA-256 `2abbb726fb382c416e7122bc115d7947a56d5ec878cb526fe927b27ac88a56ef`.
 
+### Compare a fused decode and encoded snapshot
+
+A trial stored the packed A1R5G5B5 words already loaded by the SIMD decoder at the matching offset in the encoded cache snapshot. The decoder copied the remaining mip bytes separately. Independent review checked tile coverage, bounds and snapshot ownership. A focused Wasm check matched **2,557,776 decoded pixels** and **516,138 encoded bytes**, including mip tails, against the existing SDK decode and source spans. It refused the truncated input for all 78 layouts.
+
+The same Wasm ran both Erodeo replays on integrated Radeon with both siblings on each of two desktop cores. Both decoded 191 matching A1R5G5B5 textures and 270 images in total. The runtimes reached the arena, stopped normally and recorded zero live links or blocking validations.
+
+| Opening frame measurement | Separate passes | Fused |
+| --- | ---: | ---: |
+| A1R5G5B5 decode and snapshot CPU | 6.69 ms | 6.88 ms |
+| All texture decode and snapshot CPU | 7.95 ms | 7.85 ms |
+| Time before render enqueue | 17.04 ms | 24.14 ms |
+| Frame acknowledgement gap | 32.75 ms | 35.77 ms |
+
+The lower copy timing did not translate into lower CPU for the affected format. Sequential scheduling differed, so the full gap difference does not isolate the change. The trial was discarded and the existing build retained. [The registration trace](#join-texture-registration-to-first-sampling) remains the route to moving preparation out of the opening frame. Private recipe, patch and summaries are under `artifacts/browser-gpu/texture-fused-snapshot/`. Trial Wasm SHA-256 `0e2561bf6af8194b74b747540747d15287d12e1fa78175f6a36c3de9b32e7d00`.
+
 ### Compare exact packed uploads for large color textures
 
 The WebGL2 trial reused an owned guest-format snapshot for swizzled A1R5G5B5 images between 16,384 and 262,144 pixels. It uploaded only the packed base-level words to an R16UI staging texture and converted them into the ordinary RGBA8 texture before its first draw. The conversion interleaved the shared Morton bits, appended the longer axis bits, and replicated each five-bit channel exactly. A startup readback matched all **98,304** test pixels across a square containing every 16-bit value and two rectangular orientations. Original cache generation, write checks, image dimensions and filtering remained in use.
