@@ -131,7 +131,11 @@ def adapt_browser_texture_decode(runtime: Path, root: Path) -> None:
     text = text.replace(texel, "template<uint32_t KnownFormat = UINT32_MAX>\n" + texel +
                         "\n    if constexpr (KnownFormat != UINT32_MAX) fmt = KnownFormat;", 1)
     helper = (root / "runtime/browser/sdk/texture-rgba.inc").read_text(encoding="utf-8")
-    source.write_text(text.replace(next_function, helper + "\n" + next_function, 1), encoding="utf-8")
+    simd_header = "#if defined(__wasm_simd128__)\n#include <wasm_simd128.h>\n#endif\n"
+    probe_header = "#ifdef FF_BROWSER_TEXTURE_PROBE\n#include <emscripten.h>\n#endif\n"
+    source.write_text(simd_header + probe_header +
+                      text.replace(next_function, helper + "\n" + next_function, 1),
+                      encoding="utf-8")
 
 
 def main() -> int:

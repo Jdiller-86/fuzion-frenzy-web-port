@@ -104,7 +104,8 @@ def main() -> int:
     parser.add_argument('--no-link', action='store_true')
     parser.add_argument('--keep-build-cache', action='store_true',
                         help='Keep an incremental cache up to 384 MiB in the selected output')
-    parser.add_argument('--scene-timing', action='store_true', help='Instrument calls in the pinned guest scene loader')
+    parser.add_argument('--scene-timing', action='store_true',
+                        help='Instrument the pinned scene loader and compile the opt-in texture timing probe')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
     replay_modes = parser.add_mutually_exclusive_group()
     replay_modes.add_argument('--compare', nargs=argparse.REMAINDER, metavar='COMMAND',
@@ -261,6 +262,10 @@ def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
     texture_interface = '''#include "gpu/texture.h"
 namespace gpu {
 bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const uint32_t*, std::vector<uint8_t>&);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+int BrowserTextureProbeMode();
+void BrowserTextureProbeMark(double, unsigned, unsigned, unsigned, unsigned, unsigned);
+#endif
 }
 '''
     reference.write_text(texture_interface + reference_text)
@@ -285,6 +290,8 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
         if args.scene_timing and source == overlay / 'kernel/objects.cpp':
             source_flags.append('-DFF_BROWSER_DISPATCHER_PROBE')
+        if args.scene_timing and source in (overlay / 'gpu/texture.cpp', reference):
+            source_flags.append('-DFF_BROWSER_TEXTURE_PROBE')
         source_digest=digest(source)
         if source.name=='full-webgl.cpp':source_digest+=digest(work/'fixed-constants.inc')
         if source == overlay / 'xdk/d3d8.cpp':

@@ -169,6 +169,14 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         const size_t reserve_payload=byte_path?size_t(pixel_count)*4:size_t(decoded64);
         if(reserve_payload>limit-size_t(bytes)-metadata)std::abort();
         BrowserImageReserve(size_t(bytes)+metadata+reserve_payload,frame);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        const bool probe = gpu::BrowserTextureProbeMode() != 0;
+        const auto mark = [&](unsigned phase) {
+            if (probe) gpu::BrowserTextureProbeMark(double(frame + 1), phase, d.format, bytes,
+                                                   uint32_t(pixel_count), uint32_t(d.linear));
+        };
+        mark(0);
+#endif
         std::shared_ptr<Image> image;
         if(byte_path)image=BrowserImageDecode(d,format,guest,bytes,palette,d.data,d.data+bytes);
         if(!image) {
@@ -176,13 +184,22 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
             if(byte_path)BrowserImageReserve(size_t(bytes)+metadata+size_t(decoded64),frame);
             g_images.clear();image=FindImage(header,palette_header);
         }
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(1);
+#endif
         if(!image||(image->texels[0].size()!=pixel_count&&image->gpu_pixels.empty()))std::abort();
         const size_t image_payload=image->gpu_encoding?image->gpu_pixels.capacity():image->texels[0].capacity()*sizeof(Vec);
         if(bytes>limit||image_payload>limit-bytes||metadata>limit-bytes-image_payload)std::abort();
         BrowserImageReserve(bytes+image_payload+metadata,frame);
         if (g_browser_image_version == std::numeric_limits<uint64_t>::max()) std::abort();
         BrowserImageEntry entry;
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(2);
+#endif
         entry.encoded.assign(guest, guest + bytes);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(3);
+#endif
         entry.image = std::move(image);
         entry.owner=entry.image;
         entry.epoch = epoch;

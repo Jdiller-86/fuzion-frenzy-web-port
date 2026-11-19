@@ -1030,6 +1030,22 @@ Of 108 resident fallback updates in the profiled batch, **103** changed variants
 
 The lighter replay also compared a proposed index loop that branches on flat shading once per row and rotates complete triangles in groups of three. Alternating eight-frame blocks measured **0.155 ms** median packing with the existing loop and **0.255 ms** with the trial across 244 and 240 active frames. The median paired difference over 29 pairs was **+0.100 ms**. Both paths issued a median of 652 draws per frame. The working renderer continues to use the existing packing loop. The replay reached actual play and stopped normally with zero draw-path links or blocking validations. The 270-upload opening gap measured **36.64 ms**, including **21.80 ms before enqueue**, **14.75 ms in the worker callback** and **0.43 ms in existing geometry packing**. The Wasm SHA-256 was `0729fa1f1c2d8e8b25e0c8a6de5b20086595d639b2f674ba05befa1387612430`.
 
+### Vectorize the dominant opening texture format
+
+Preparation-thread clocks separate image decoding and allocation from the encoded snapshot copy. In the Erodeo opening frame, **191 of 270** cache misses were swizzled A1R5G5B5. They supplied **12,107,776 of 13,865,984** decoded bytes. The remaining misses used P8 and A8R8G8B8. A trial that changed only the 16-bit texture traversal left A1R5G5B5 decoding near **9.4 ms**.
+
+The [browser decoder](../runtime/browser/sdk/texture-rgba.inc) now expands eight packed A1R5G5B5 pixels at once and writes two RGBA rows from each half of a contiguous Morton tile. It preserves the SDK's exact five-bit expansion and one-bit alpha. The original path handles linear textures, thin textures and all other formats. Independent review covered rectangular layouts, span checks and channel order. A focused Wasm comparison matched **393,504 pixels**, including all **65,536** packed values, across 12 layouts and refused all 12 truncated spans.
+
+| Erodeo opening frame | Scalar | SIMD |
+| --- | ---: | ---: |
+| A1R5G5B5 decode CPU | 9.37 ms | 5.08 ms |
+| All cache-miss decode CPU | 10.32 ms | 6.08 ms |
+| Encoded snapshot copy CPU | 1.73 ms | 1.75 ms |
+| Elapsed before render enqueue | 22.98 ms | 17.02 ms |
+| Frame acknowledgement gap | 37.59 ms | 33.79 ms |
+
+The sequential runs used integrated Radeon and both siblings on two desktop cores. Their format counts, encoded byte counts and final uploads matched. Their guest compilation and worker times varied. Both reached the opening gameplay frame, stopped cleanly and recorded zero live shader links or blocking validations. Measurements include the probe clocks. `--scene-timing` builds can emit preparation-thread texture markers when a local replay sets `onFuzionGpu.textureProbeMode` to 1 for the scalar control or 2 for normal SIMD decoding. Without that setting, they emit no texture markers. The working Wasm SHA-256 is `186dae2bf0ef9f61dae53c2bc0cb05f5fe8b560c99f8c96e3820a14118f0d46d`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
@@ -1037,7 +1053,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 The next changes should stay targeted to measured costs:
 
 1. **Scene entry and first textured frame.** Recent four-thread runs measured about 34–41 ms of guest CPU at scene entry. Recursive reading and collision setup each used about 10 ms or more. Teardown used 2.07 ms and the sampled heap synchronization was at the probe's resolution floor. The separate contour reader at `0x001B9EA0` walks line data twice to count and fill points. It sits outside the measured `0x001BA160` parser and its quiet-line batch path. Bracket its calls at `0x001B2CE7` and `0x001B2D51` before deciding whether to reuse that scan. GPU-process isolation and sibling threads reduced worker stalls in diagnostic profiles.
-2. **Erodeo opening and active pacing.** Startup warmup removed 8.29 ms of measured title compilation across two opening frames. The latest opening gap includes 21.80 ms before enqueue, and the lighter replay measured 0.43 ms in its geometry packing. Prioritize the shared pre-enqueue path and resource readiness. The active compositor replay matched one feedback record to each of 484 intervals at 165 Hz. The slowest intervals came from variation inside the worker callback with cap return under 0.814 ms late.
+2. **Erodeo opening and active pacing.** Startup warmup removed 8.29 ms of measured title compilation across two opening frames. The SIMD decoder saved 4.24 ms of measured texture preparation CPU and the sampled opening frame still took 33.79 ms. The updated split puts 17.02 ms before enqueue and 13.44 ms in the worker callback. Measure opportunities to prepare resources before first use at a proven resource handoff. The active compositor replay matched one feedback record to each of 484 intervals at 165 Hz. The slowest intervals came from variation inside the worker callback with cap return under 0.814 ms late.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 5. **Presentation pacing.** The Water Gate Scramble trace separates the renderer's 17.055 ms acknowledgement p95 from 165 Hz presentation quantization. Test sustained play at a verified fixed 60 Hz or 120 Hz output cadence to isolate remaining missed slots. Keep the original virtual-blank period and callback sequence.
