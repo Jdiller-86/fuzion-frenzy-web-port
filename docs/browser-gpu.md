@@ -787,6 +787,24 @@ The replay reached keyboard-controlled play, reported zero live links and blocki
 
 A bounded pool trial can keep the original node initialization, link changes and traversal and take its backing chunks from the managed guest heap. Prior source review identified separate persistent allocations by the consumer. Restrict enrollment to the two creator edges and verify the exact release edges and normal heap mode. Measure guest heap pressure and accounting, including the heap dump paths and historical peak counter, before considering default use.
 
+### Compare pooled scene-reader allocation
+
+The opt-in prototype requests blocks of 256 aligned slots through the original managed allocator. Only the verified 300-byte node and value creator sites can receive slots. The original initializer, link updates and recursive traversal still run. The original free routine receives each block's base at its last payload release. Ordinary allocations retain their existing path. Source review checked the guest call frames, the exact payload free edge, physical aliases and release ownership.
+
+The same-Wasm Water Gate Scramble pair used integrated Radeon and both hardware threads of two desktop cores. The pool served **4,880 node and 5,676 value requests** with **42 managed allocations and 42 releases**. It recorded zero remaining slots, admission rejections or calls to the monitored heap observers on the owning context. Both runs reached keyboard-controlled gameplay, reported zero live shader links and blocking validations, and stopped normally.
+
+| Measurement | Original allocations | Pooled allocations |
+| --- | ---: | ---: |
+| Recursive reader CPU | 10.53 ms | 8.38 ms |
+| Tree build, consumption and teardown CPU | 13.71 ms | 10.28 ms |
+| Total scene setup CPU | 39.62 ms | 36.93 ms |
+| Scene-entry acknowledgement gap | 49.36 ms | 47.97 ms |
+| Active acknowledgement p95 | 17.60 ms | 17.33 ms |
+
+The tree used **3.44 ms less CPU** in this pair. Scene setup covered more off-CPU time in the pool run, and sequential scheduling and workload variation limit the acknowledgement comparison. Sampled live heap accounting advanced by **73,840 and 73,808 bytes** over the tree scope. The cumulative peak counter advanced by **3,288,768 and 2,843,680 bytes**. Those are unsynchronized guest counter samples.
+
+The working build uses the original allocator. The prototype stops if a larger block reservation fails, and its ownership hooks cover the title context only. A default path needs a safe per-node fallback under heap pressure and checks for any observation of interior pointers or changed heap accounting from other contexts. The local patch and compact summaries are under `artifacts/browser-gpu/scene-node-pool/`. Trial Wasm SHA-256 `0f6b11c953cf0ad5abfad1903efbdae2aa1487d9f791d72fe2f32283570bcb58`.
+
 ### Directly translate contained main RAM accesses
 
 The fixed-width memory helper checks main RAM with an unsigned upper bound before consulting the window table. The old mapping path handles every non-main address and any access crossing the window boundary. Independent review checked the width arithmetic, aliases and the fault path. A focused Wasm comparison matched **3,456 cases** across all address-window slots. In standalone passes of 2,097,152 reads the new helper measured **1.257 → 0.837 ms** for main RAM, **1.289 → 1.382 ms** for stack addresses, and **1.492 → 1.179 ms** for a mixed array.
@@ -1176,7 +1194,7 @@ The whole-title source census and independent CPU and renderer source reviews us
 
 | Priority | Shared path and measured cost | Decision |
 | --- | --- | --- |
-| Scene loading | [Water Gate Scramble](#scope-the-main-ram-fast-path-to-hot-title-shards) spent about 37 ms of CPU in setup. Its loader and grid dominate that budget. A separate [lifetime capture](#match-scene-reader-nodes-to-teardown-frees) paired all 10,556 tracked allocations from the two creator sites to managed frees in the same teardown. | Measure an opt-in pool backed by the existing guest heap for those two creator sites. Keep original initialization and unlinking, check exact release edges and monitor allocator accounting. The consumer in `0x001B4310` also creates persistent outputs outside that cohort. |
+| Scene loading | [The scene-node pool trial](#compare-pooled-scene-reader-allocation) used 42 blocks for 10,556 temporary nodes and reduced tree CPU by 3.44 ms in a Water Gate Scramble pair. Full scene CPU remained about 37 ms, including 10.61 ms in collision setup. | Qualify pool fallback and ownership before default use. Continue reducing setup work in the shared collision path. |
 | First textured frame | [Packed GPU conversion](#compare-exact-packed-uploads-for-large-color-textures) saved 3.86 ms in CPU decode and 4.95 MB in uploads across 51 images. Both opening gaps were about 30.6 ms. | Keep the SIMD path as the default. Revisit packed conversion if a modest-hardware trace identifies decode as the remaining deadline cost and can also measure GPU work. |
 | Active presentation | [The retained Erodeo capture](#join-active-erodeo-cap-timing-to-chrome-presentation) measured 1.69 ms renderer CPU and 2.75 ms GPU p95 with one presentation feedback record per frame window. At 165 Hz the output alternated between two and three refresh periods. | Use one fixed 60 or 120 Hz output capture on modest hardware to separate missed slots from refresh mismatch. Preserve the guest virtual-blank sequence. Count consecutive compatible draw runs before trying a shared constants table or multi-draw. The measured worker budget limits likely steady CPU savings. |
 | Shader stalls | Recent cold routes stayed at zero live links and blocking validations with resident shaders. [Recipe reuse](#shader-recipe-reuse-after-reload) helped the earlier live-link path. The current cache retains one observed draw layout per shader pair. | If a cold trace shows a first-draw driver stall, count additional layouts for that exact program and warm a bounded set in the existing startup budget. Profiles without draw-path linking or a driver stall give little reason to expand cache work. |
