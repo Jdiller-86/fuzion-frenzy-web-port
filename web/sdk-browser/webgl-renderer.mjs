@@ -873,6 +873,9 @@ void main() {
     // The bridge owns immutable uniform packets until this batch completes.
     // Its arena can reuse the same addresses in the next batch.
     const uniformBatch = {};
+    // Consecutive draws may share a bridge-owned state packet. Keep its view
+    // local to this command batch because the arena can reuse its address.
+    const rasterPacket = {pointer: -1, words: null, reuses: 0};
     // Ordinary images stay in the cache until presentation, outside this batch.
     const imageSlots = Array.from({length: 4}, () => ({
       address: 0, width: 0, height: 0, encoding: 0, image: null,
@@ -881,7 +884,7 @@ void main() {
     const emit=()=>{
       if(pendingRow<0)return;
       const b=pendingRow,layout=words[b]===3?words[b+10]:0;
-      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,uniformBatch,imageSlots))throw new Error('GPU draw rejected');
+      if(!this.draw(pendingCount,words[b+6],words[b+7],words[b+8],words[b+9],layout,pendingBinding,pendingOffset,uniformBatch,imageSlots,rasterPacket))throw new Error('GPU draw rejected');
       pendingRow=-1;
     };
     for(let i=0;i<count;i++) {
@@ -903,6 +906,8 @@ void main() {
       else throw new Error('Unknown GPU command');
     }
     emit();
+    if (rasterPacket?.reuses && this.frameStats)
+      this.frameStats.rasterPacketReuses = (this.frameStats.rasterPacketReuses ?? 0) + rasterPacket.reuses;
     if(checkErrors)this.checkGpuError();
     this.submitMs=(this.submitMs||0)+performance.now()-started;
     return true;
@@ -1287,9 +1292,11 @@ void main() {
     this.lastDrawVariant={source,vertex,flat,regs,kinds,shadows,variant};
     return variant;
   }
-  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,uniformBatch,imageSlots) {
+  draw(n,state,uniforms,source,textures,layout,binding,indexOffset,uniformBatch,imageSlots,rasterPacket) {
     try {
-      const g=this.gl,s=this.wordView(state,40),tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
+      const samePacket = rasterPacket?.pointer === state;
+      const s = samePacket ? rasterPacket.words : this.wordView(state,40);
+      const g=this.gl,tx=this.wordView(textures,4*14),u=this.floatView(uniforms,152);
       if(!binding||((binding.kind==='raw')!==!!layout))throw new Error('GPU vertex binding does not match command layout');
       const variant=this.drawVariant(source,s,tx);
       const {specialized, fallback} = variant;
@@ -1484,8 +1491,15 @@ void main() {
       }
       program.samplersSet=true;
       let stateChanged=!this.lastState||u[2]!==this.lastZscale;
-      if(!stateChanged)for(let i=0;i<37;i++)if(s[i]!==this.lastState[i]){stateChanged=true;break;}
+      if(!stateChanged&&!samePacket)for(let i=0;i<37;i++)if(s[i]!==this.lastState[i]){stateChanged=true;break;}
       if(stateChanged)this.applyRasterState(s,u[2]);
+      if (rasterPacket) {
+        if (samePacket) ++rasterPacket.reuses;
+        else {
+          rasterPacket.pointer = state;
+          rasterPacket.words = s;
+        }
+      }
       this.bindGeometry(binding);
       g.drawElements(g.TRIANGLES,n,g.UNSIGNED_INT,indexOffset);
       const candidate = variant.promotion;

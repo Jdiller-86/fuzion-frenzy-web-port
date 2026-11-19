@@ -758,6 +758,28 @@ A separate replay ran the original direct upload path on the same Wasm, Radeon a
 
 Across 483 active callbacks, elapsed p95 was **4.04 ms**, CPU p95 **1.22 ms**, and off-CPU p95 **3.03 ms**. These are separate distributions. The slowest joined active gap took **22.47 ms**, including **17.50 ms before enqueue**, **1.10 ms of worker CPU**, and **3.18 ms off CPU inside the callback**. The trace measures blocked or descheduled time without distinguishing the two. The replay reached keyboard-controlled play, stopped cleanly, and reported zero live links or blocking validations. Both diagnostics used the working Wasm SHA-256 `4228b710cf99805fe16d513f9970e1a79369fcd2f5cf4057ee45d45dfa843d67`.
 
+### Trace GPU service across the whole textured frame
+
+Two foreground Water Gate Scramble replays used the working Wasm and integrated Radeon. The shared run put Chrome on two physical desktop cores. The isolated run moved only the verified GPU process to a third physical core. Both first textured frames uploaded **99 images and 9.34 MiB** and issued **887 draws**.
+
+| First textured frame | Shared cores | Isolated GPU process |
+| --- | ---: | ---: |
+| Full acknowledgement gap | 34.21 ms | 32.31 ms |
+| Time before enqueue | 17.08 ms | 26.59 ms |
+| Worker CPU time | 4.40 ms | 2.88 ms |
+| Worker off-CPU time | 12.49 ms | 0.23 ms |
+| Worker off-CPU time outside texture calls | 10.08 ms | 0.17 ms |
+
+GPU-process `CommandBufferStub::OnAsyncFlush` activity overlapped **15.01 and 1.38 ms** of the two callbacks, including **11.83 and 0.82 ms** outside texture upload spans. The trace matched Chrome's GPU process by PID. It did not link each GPU-service span to a specific WebGL command buffer. Neither replay exposed a matching client token, get-offset or sync-reply wait during the callback. The affinity comparison supports CPU contention on this workload. The overlap alone cannot attribute an individual suspension to the GPU service. [Chromium command-buffer client wait paths](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/gpu/ipc/client/command_buffer_proxy_impl.cc#418)
+
+Active acknowledgement p95 was **19.84 and 19.69 ms** across 484 and 482 intervals. Both games accepted keyboard input and stopped cleanly with zero draw-path links or blocking validations. The extra core was used only in the disposable comparison. The shorter worker callback left the steady cadence above the 16.67 ms target.
+
+### Reuse raster packet views within a command batch
+
+The renderer reuses the last checked view of an immutable raster state packet while consuming one batch. On a same-packet draw with a valid applied state and unchanged z-scale, it skips the word-by-word comparison. Clear and presentation still invalidate applied state. A batch starts with an empty cache, so an address reused by the Wasm arena receives a fresh check. Independent review covered ownership, framebuffer transitions, memory growth and cache invalidation.
+
+One keyboard-controlled Water Gate Scramble replay alternated reuse on even frames and the previous path on odd frames. Across 243 enabled frames the renderer reused **191,517 of 206,497** raster packet views. There were 242 control frames with 205,655 draws. Median WebGL worker CPU time was **0.958 ms control and 0.926 ms enabled**. CPU p95 moved from **1.157 to 1.044 ms** and the median adjacent-pair delta was **−0.038 ms**. Callback elapsed p95 was **2.79 and 2.88 ms**. The combined run recorded **18.79 ms** active acknowledgement p95. The repeated CPU work was reduced, and reuse is now enabled. The foreground replay used the same working Wasm, reached keyboard-controlled play and stopped cleanly with zero live shader links or blocking validations.
+
 ### Attribute first-use textures and signal only startup
 
 Direct instrumentation split WebGL presentation from command execution in two foreground two-core Water Gate Scramble replays. The heavy frame uploaded 99 textures totaling 9.34 MiB in each run. In the first replay, the upload path took **15.25 ms** out of **19.64 ms** on the worker, and measured presentation stages took **0.12 ms**. In steady play the blit group reached **1.92 ms p95**, compared with **0.035 ms p95** for `gl.flush()` across 484 frames. These wall times include work or waits while the caller is off CPU. They do not identify the owners of the unexplained time in the earlier staging and direct replays.
@@ -858,7 +880,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Scene entry and first textured frame.** The guest scene still uses over 25 ms of title CPU on the measured route. Single-pass tree normalization and contour subdivision produced no direct CPU savings. Batching ordinary textures increased transfer CPU time. The direct first textured frame spent 12.90 ms off CPU outside texture uploads. Join the renderer callback clocks to the retained GPU-service and client-wait spans across the full callback, including draw submission. Keep pre-enqueue title timing separate.
+1. **Scene entry and first textured frame.** The guest scene still uses over 25 ms of title CPU on the measured route. Single-pass tree normalization and contour subdivision produced no direct CPU savings. GPU-process isolation moves much of the first textured frame's worker stall off the critical path in the diagnostic setup. The remaining frame time includes the longer pre-enqueue interval. Compare title, recorder and worker scheduling with simultaneous logical threads on the same two physical cores to qualify how much of the tail comes from restricted CPU time.
 2. **Active-play pacing.** Use the replay after the GO banner for steady measurements and keep scene entry and first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default. Compare future scene CPU savings against the active threaded reference.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
