@@ -275,12 +275,14 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         """    uint64_t Submit() {
         const uint64_t id = cur_->id;
         uint64_t oldest = 0;
+        bool wake_worker;
         {
             std::lock_guard lock(m_);
             // Obtain the successor before handing the current batch to the worker.
             std::unique_ptr<Batch> created;
             if (free_.empty()) created = std::make_unique<Batch>();
             Batch* next = created ? created.get() : free_.back();
+            wake_worker = queue_.empty();
             queue_.push_back(cur_);
             if (created) (void)created.release();
             else free_.pop_back();
@@ -288,7 +290,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
             cur_ = next;
             if (queue_.size() >= 128) oldest = queue_.front()->id;
         }
-        cv_.notify_one();
+        if (wake_worker) cv_.notify_one();
         // Never hold m_ while waiting; worker completion needs that mutex.
         if (oldest) Wait(oldest, WaitFor::Resource, "render queue backpressure");
         return id;
@@ -349,6 +351,48 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         '    void Run() {\n',
         '    void Run() {\n        ff_webgl_begin_recorded_draws();\n',
         "Enable draw preparation reuse on the command consumer",
+    )
+    render = _replace_once(
+        render,
+        """        for (;;) {
+            Batch* b;
+            {
+                std::unique_lock lock(m_);
+                cv_.wait(lock, [&] { return stop_ || !queue_.empty(); });
+                if (queue_.empty()) break;
+                b = queue_.front();
+                queue_.pop_front();
+            }
+            for (const Cmd& c : b->cmds) Execute(*b, c);""",
+        """        Batch* b = nullptr;
+        for (;;) {
+            if (!b) {
+                std::unique_lock lock(m_);
+                cv_.wait(lock, [&] { return stop_ || !queue_.empty(); });
+                if (queue_.empty()) break;
+                b = queue_.front();
+                queue_.pop_front();
+            }
+            for (const Cmd& c : b->cmds) Execute(*b, c);""",
+        "Wait for a batch only when none was taken at completion",
+    )
+    render = _replace_once(
+        render,
+        """                free_.push_back(b);
+                done_.store(id);
+            }
+            done_cv_.notify_all();""",
+        """                free_.push_back(b);
+                done_.store(id);
+                b = nullptr;
+                // Take the next queued batch under the completion lock.
+                if (!queue_.empty()) {
+                    b = queue_.front();
+                    queue_.pop_front();
+                }
+            }
+            done_cv_.notify_all();""",
+        "Combine completion publication with the next queue pop",
     )
     render = _replace_once(
         render,
@@ -455,6 +499,7 @@ uint64_t DirtyEpoch(uint32_t data) {
             "skip resource header capture calls for empty bindings or an unavailable scratch ring",
             "capture each resource header from a checked single-window span while admitting short window-end headers",
             "publish a batch and take its successor under the same queue lock",
+            "wake the consumer on empty-to-nonempty transitions and take queued work under the completion lock",
             "invalidate prepared raw draw state at state updates and non-draw commands",
             "wait on the oldest queued batch when pending queue reaches 128, outside the queue mutex",
             "track depth/stencil writes only when Draw enables Z writes or stencil; flagged Clear is tracked",
