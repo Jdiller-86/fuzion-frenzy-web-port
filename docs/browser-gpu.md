@@ -1191,6 +1191,16 @@ The follow-up at `47d5d56` checked every generated title shard against the worki
 
 The source census scanned the 64 `x86_recomp.*.cpp` shards under the documented `--generated` input, matched each SHA-256 to `generatedSources`, and counted direct calls following an emitted guest return-address push. Deduplicating by guest return address gave **30 sites** for the shared allocator (`0x0004BF10`), **one** for the recursive number reader (`0x001E0FA8`), and **ten** for the intersection leaf (`0x001EA530`). The number reader's four emitted calls share the same guest return site. These counts exclude indirect dispatch and measure code shape. They favor caller-scoped changes over replacing the general heap or intersection helper. The Wasm used for the census was **40,311,106 bytes**, SHA-256 `774dd8f720bb9ffceeb01f1a525f509a6bb7b88ab837e6c1a9d0de9eb7f469db`.
 
+### Check code shape in the linked browser build
+
+The bulk audit at `bc929aa` matched the 64 original generated shards and the dispatch mapping to `generatedSources` in the working build manifest. The linked module used SDK `58757ab`, Emscripten 3.1.50, ThinLTO and `-O3`. Its SHA-256 was `b3d1c1b71f708e2b053b2998e964a15ef9803e3b4affe5b1f899cd7f80ca1be0`.
+
+The generated code contains **10,589** ordinary weak guest forwarders and **48,800** direct guest call expressions. Counting bodies in the Wasm code section against its function names found **123** separate, named forwarders that only load their two arguments and tail-call the corresponding named implementation. Together they occupy **1,230 bytes** of code entries, including size fields. This count requires both names to survive linking. The audit gives little reason to generalize the warmup alias transform for performance. The **10,593** generated barrier sites also need to retain the SDK's protection for guest polling of shared memory.
+
+The same scan found **19** distinct direct return sites for each of the scene-node create and destroy routines. The checked tree owns one site for each. The pool's allocation and teardown evidence applies to those two sites. Expanding admission to the shared routines would require independent lifetime evidence for the other callers.
+
+The existing captures put the large spikes in the shared scene loader and first textured frame. For example, the opt-in [scene-node pool](#verify-scene-node-pool-fallback-and-ownership) removed **3.96 ms** of tree CPU, and [early texture staging](#stage-verified-early-textures-in-webgl) removed **4.59 ms** of opening WebGL worker CPU in separate replays. In sampled dense Erodeo play, the title and preparation threads measured **4.64 ms** and **3.06 ms** median CPU respectively in separate comparisons. The worker and GPU measured **1.65 ms** and **2.63 ms** at p95 in another replay. These clocks overlap. They point to distinct loading and steady-play budgets and favor measuring missed display slots over another broad shader or draw rewrite.
+
 ### Avoid unused depth copies and repeated draw lookups
 
 `ff_webgl_target` keeps its checked depth snapshot and dirty-generation changes. The WebGL command carries an empty pixel pointer for depth because the consumer allocates that storage with null pixels. Color commands still own their uploaded bytes. The draw path resolves attachment objects once per draw for the same feedback checks and caches the active pixel uniform upload descriptors per linked program. Uniform comparisons still use the original bits and apply uploads in the original order. Independent review checked ownership, range and failure behavior, target invalidation, and the resident and specialized shader paths.
@@ -1373,6 +1383,20 @@ One same-Wasm Erodeo pair compared early decode alone with early decode and uplo
 | Preceding plus opening acknowledgement gaps | 55.59 ms | 53.54 ms |
 
 The replay workloads differed by one total texture and by format mix. Staging clearly removed uploads from the first draw, while variation before enqueue limits the whole-frame comparison. Keep `?earlyTextureUpload=1` opt-in and attribute the remaining pre-enqueue time before expanding the upload path. The working Wasm SHA-256 is `957007191b2b5a8f3bb921b1cd5dc1f580409821a03fea16a54782b634b01ff9`. The local replay and summaries are under `artifacts/browser-gpu/early-webgl-upload/`.
+
+#### Check staging on a second workload
+
+Two foreground Water Gate Scramble replays used the [audited working Wasm](#check-code-shape-in-the-linked-browser-build), integrated Radeon, two physical desktop cores with both siblings, and the default resource fences and texture retention. Both enabled early decode. The upload run staged **32** textures in two callbacks totaling **0.68 ms** elapsed. The first textured frame adopted **17** staged handles totaling **1,351,680 bytes**. Each run supplied **99** textures and **9,790,464 bytes** in that frame, with **877 and 887** issued draws.
+
+| Measurement | Early decode | Early decode and upload |
+| --- | ---: | ---: |
+| Arena entry acknowledgement gap | 51.99 ms | 46.01 ms |
+| First textured frame WebGL worker CPU | 5.81 ms | 5.62 ms |
+| First textured frame WebGL worker elapsed | 6.66 ms | 14.25 ms |
+| Entry plus first textured frame gaps | 75.24 ms | 76.51 ms |
+| Active acknowledgement p95 | 17.43 ms | 17.38 ms |
+
+Both runs reached the original arena, received gameplay keyboard input, and stopped normally with zero live shader links or blocking validations. The paired launches differ in scheduling and draw workload. Keep staging opt-in given the differing transition outcomes across the two arenas. Prioritize shared scene setup within the **45.58–51.90 ms** before renderer enqueue on the entry frame. The replay recipe and compact summaries are in `artifacts/browser-gpu/water-gate-early/`. It reused the installed module and removed both temporary profiles.
 
 ### Attribute recorder waits before the opening enqueue
 
