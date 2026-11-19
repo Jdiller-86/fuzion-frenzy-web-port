@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -163,10 +164,13 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         if obj.is_file() and stamp.is_file() and stamp.read_text() == signature:
             return obj, True, ''
         temporary = obj.with_suffix('.tmp.o')
-        result = subprocess.run([*common, *source_flags, '-c', str(source), '-o', str(temporary)], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if result.returncode:
-            return None, False, f'{source}\n{result.stdout[-16000:]}'
-        temporary.replace(obj)
+        try:
+            result = subprocess.run([*common, *source_flags, '-c', str(source), '-o', str(temporary)], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if result.returncode:
+                return None, False, f'{source}\n{result.stdout[-16000:]}'
+            temporary.replace(obj)
+        finally:
+            temporary.unlink(missing_ok=True)
         stamp.write_text(signature)
         return obj, False, ''
 
@@ -190,7 +194,11 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
     link_output.mkdir(exist_ok=True)
     lto_flags = []
     if args.lto == 'thin':
-        lto_flags = [f'-Wl,--thinlto-jobs={args.jobs}', f'-Wl,--thinlto-cache-dir={output / "thinlto-cache"}']
+        lto_flags = [
+            f'-Wl,--thinlto-jobs={args.jobs}',
+            f'-Wl,--thinlto-cache-dir={output / "thinlto-cache"}',
+            '-Wl,--thinlto-cache-policy=cache_size_bytes=128m:prune_interval=0s',
+        ]
     link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
             '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
             '-sINITIAL_MEMORY=536870912', '-sMAXIMUM_MEMORY=2147483648', '-sALLOW_MEMORY_GROWTH=1',
@@ -218,6 +226,10 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         'evidence': 'full SDK and title compilation/link only; original execution requires player-local image',
         'generatedSources': {path.name: digest(path) for path in original_title},
     }, indent=2) + '\n')
+    live_objects = {path.name for obj in built for path in (obj, obj.with_suffix('.signature'))}
+    for cached in objects_dir.iterdir():
+        if cached.name not in live_objects and re.fullmatch(r'.+-[0-9a-f]{12}\.(?:o|signature)', cached.name) and cached.is_file():
+            cached.unlink(missing_ok=True)
     print(f'Full SDK browser module: {output / "fuzion-sdk-full.mjs"}')
     return 0
 

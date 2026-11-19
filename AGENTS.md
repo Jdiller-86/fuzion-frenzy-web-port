@@ -62,6 +62,12 @@ Run `npm run check` for preparation/publication contracts and `git diff --check`
 
 `npm run dev` serves the research app on loopback port 4174; `npm run dev:research` serves an allowlisted proof on 4173. `npm run build` creates source-only `dist/`. Never serve the repository or local media through a generic file server.
 
+### Browser build storage
+
+- Keep the working module in `.tools/artifacts/sdk-browser-full` and reuse at most one candidate output at `.tools/artifacts/sdk-browser-candidate`.
+- Keep one launchable browser package. Reuse `artifacts/browser` for the current archive and launcher on the next package update. Verify the new launcher before removing the previous package.
+- Use disposable browser profiles for replays. When a replay needs persistence, reuse a profile inside `artifacts/browser-gpu/scratch`. Keep raw captures, screenshots, test modules, and server logs in that same scratch directory. Stop the replay's processes and clear the verified scratch directory after each batch, including failed runs. Keep compact measurement summaries and the source recipe needed to reproduce them.
+
 ## Content, analysis, and publication
 
 - Never commit or upload game archives/images, XBE/firmware, extracted or converted assets, generated title code, game pseudocode, Ghidra projects/raw logs, credentials, environment files, or downloaded tools.

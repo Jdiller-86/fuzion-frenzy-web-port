@@ -62,6 +62,10 @@ python3 tools/package-sdk-browser.py
 python3 tools/serve-sdk-browser.py --open
 ```
 
+The builder prunes its ThinLTO cache on each link with a 128 MiB size policy.
+Successful full builds remove stale generated objects. Keep one current package
+and reuse one scratch directory for transient browser evidence. [Browser build storage](../AGENTS.md#browser-build-storage)
+
 The existing Node host, `node tools/serve-sdk-browser.mjs`, serves the same page.
 Both hosts bind loopback and expose only explicit source/module routes. They
 never serve the game image, the repository as a directory, or arbitrary files.
