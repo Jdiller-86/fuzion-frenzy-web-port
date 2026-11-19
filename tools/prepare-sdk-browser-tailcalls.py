@@ -103,6 +103,18 @@ X86_LABEL = re.compile(rb"(loc_[0-9A-F]{8}):")
 GRID_ENTRY = b"X86_FUNC(__imp__sub_0019EAA0) {"
 GRID_DIGEST = "9214230456b79b7634b56cc54ad7c0c5d272611e28b166ceea9fa4351d88f7a7"
 GRID_PUSH = re.compile(rb"X86_PUSH32\((v|0x[0-9A-F]+u)\);")
+# Reader, heap, loader, parser, and grid sources identified by the scene profile.
+# Match the original source bytes before choosing the larger inlined access path.
+DIRECT_MAIN_RAM_SHARDS = {
+    7: "df5cd9784e083fc1f93d5d18f1ce4cde7bb586d87e4a78e2579ce8d564947027",
+    14: "3eb3b65c203bd8d50870ec7c599612a17f0bccd7072b3cd1e734e82bd230534f",
+    46: "8f442f9c497f7f4f1e2f022ecf0fe1e5231295ced65e39c6d86bcb2c05b81da2",
+    48: "4cf909c61b1465dc6ac0f6fa17f62061da558d69d18c9c0d189cb83f10668004",
+    49: "bf2a710933ec4b23bccdb86ac57382856f81349dfcacc53897ecaa80e3da6faf",
+    53: "049b5aebbef05c6f320aeead2387fb011ac34ee40bedc0020ebfaec4b9bf5ea4",
+    54: "bfbf8db7809ba9209b0d525064767315b0482fc5ae7dbe3b14cdfb0a25d10278",
+}
+DIRECT_MAIN_RAM_ACCESS = re.compile(rb"\bX86_MEM(?:8|16|32|64|F32|F64)(?=\()")
 GRID_WEAK_WRAPPER = b"X86_WEAK_FUNC(sub_001EA530, __imp__sub_001EA530)"
 GRID_DEFAULT_WRAPPER = b'''extern "C" __attribute__((weak, noinline)) void sub_001EA530(
     X86Context& __restrict ctx, uint8_t* base) {
@@ -1256,6 +1268,7 @@ def main() -> int:
     warmup_alias_count = 0
     for source in package:
         original = source.read_bytes()
+        source_digest = sha256(original)
         (adapted, count, excluded_eh_transfers, eh_functions,
          f32_transforms, push_runs, pop_runs, f32_compares, memory_runs, memory_words,
          matching_byte_loops, loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products, decimal_conversions,
@@ -1277,6 +1290,9 @@ def main() -> int:
             adapted += emit_code_warmup(warmup_batches[1], b"ff_browser_warm_guest_code_extra")
         if args.scene_timing:
             adapted = instrument_scene_timing(original, adapted, shard_numbers.get(source, -1))
+        direct_main_ram_count = 0
+        if DIRECT_MAIN_RAM_SHARDS.get(shard_numbers.get(source, -1)) == source_digest:
+            adapted, direct_main_ram_count = DIRECT_MAIN_RAM_ACCESS.subn(rb"FF_BROWSER_DIRECT_\g<0>", adapted)
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
@@ -1285,7 +1301,7 @@ def main() -> int:
         records.append(
             {
                 "name": source.name,
-                "originalSha256": sha256(original),
+                "originalSha256": source_digest,
                 "transformCount": count,
                 "excludedEHTransferCount": excluded_eh_transfers,
                 "EHFunctionCount": eh_functions,
@@ -1305,6 +1321,7 @@ def main() -> int:
                 "mappedIntersectionCount": mapped_intersections,
                 "mappedGridCallCount": mapped_grid_calls,
                 "gridRejectBatchCount": grid_reject_batches,
+                "directMainRamAccessCount": direct_main_ram_count,
                 "adaptedSha256": sha256(adapted),
             }
         )

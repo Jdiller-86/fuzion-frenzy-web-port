@@ -43,14 +43,15 @@ inline constexpr auto kWindowOffsets = [] {
 }
 } // namespace ff_browser_memory
 
-// The main RAM window maps directly to the beginning of the backing array.
-// Other windows use the same checked alias table. The last byte carries
-// into kWindowSize only when the span crosses its initial window.
-template<size_t Width>
+// Selected hot guest code can check main RAM before looking up its window.
+// The last byte carries into kWindowSize only when the span crosses its window.
+template<size_t Width, bool DirectMainRam = false>
 [[gnu::always_inline]] inline uint8_t* ff_sdk_guest_scalar_ptr(uint32_t va) {
     using namespace ff_browser_memory;
     static_assert(Width > 0 && Width <= kWindowSize);
-    if (va <= kWindowSize - Width) return backing + kWindowOffsets[0] + va;
+    if constexpr (DirectMainRam) {
+        if (va <= kWindowSize - Width) return backing + kWindowOffsets[0] + va;
+    }
     const uint32_t offset = va & (kWindowSize - 1);
     const uint32_t window = kWindowOffsets[va >> kWindowBits];
     const uint32_t lastByte = offset + uint32_t(Width - 1);
