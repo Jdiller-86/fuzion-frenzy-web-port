@@ -950,6 +950,27 @@ The same candidate Wasm ran Water Gate Scramble on integrated Radeon with both h
 
 The scene-entry gaps were **45.04 and 44.11 ms**. The following textured-frame gaps were **25.32 and 24.51 ms**, with matching upload counts and payload sizes but 887 and 897 draws. One inconsistent worker CPU-clock pair was excluded from CPU analysis. Frame timestamps remained in the pacing sample. Both games accepted keyboard input and stopped cleanly with zero live links and blocking validations. The gate was discarded because it added synchronization without improving active cadence. The temporary candidate SHA-256 was `3fb86a82944712df86d5ab23d93fae0c7100565b5bcc5981304a326d2342444f`.
 
+### Align active Erodeo timing and compare early image uploads
+
+Foreground Erodeo used integrated Radeon and both hardware threads on each of two Ryzen 9 9900X cores. The working Wasm was `4228b710cf99805fe16d513f9970e1a79369fcd2f5cf4057ee45d45dfa843d67`. The cold runs bypassed saved shader recipes, retained background promotion, and used the selective resource-fence diagnostic. Chrome thread CPU markers covered the renderer's pipelined callback. GPU elapsed query IDs matched the same renderer acknowledgement IDs. The active capture took the last eight windows after the original round entered play and the replay delivered gameplay input.
+
+| Original Erodeo measurement | Working renderer | Early-upload trial |
+| --- | ---: | ---: |
+| Median original draws per frame | 10,111 | 11,156 |
+| Active acknowledgement p95 | 17.53 ms | 17.20 ms |
+| Active acknowledgement maximum | 18.88 ms | 19.65 ms |
+| Active enqueue cadence p95 | 17.19 ms | 16.81 ms |
+| Active worker elapsed p95 | 2.17 ms | 2.31 ms |
+| Active worker CPU p95 | 1.65 ms | 1.81 ms |
+| Active GPU elapsed p95 | 2.63 ms | 2.72 ms |
+| Largest opening gap | 33.50 ms | 34.61 ms |
+| Time before enqueue on that frame | 19.02 ms | 20.91 ms |
+| Worker elapsed on that frame | 14.45 ms | 13.67 ms |
+
+The largest opening frame carried the same **271 uploads and 13.26 MiB** in both runs. The trial moved all 271 immutable ordinary-image transfers ahead of drawing inside the same callback. It kept the original version checks and excluded addresses associated with render targets. Review identified a possible stale deleted texture handle in binding restoration. A correction was prepared during the replay without an independent runtime check. The trial was discarded because it added per-batch scanning without establishing a reduction in the complete heavy-frame gap.
+
+The two sequential runs differ in the active draw workload and scheduling. They cover 482 and 484 active acknowledgement pairs and 81 and 80 joined GPU samples. The trial excluded one worker CPU marker with an inconsistent clock and retained its frame timing. Both runs accepted keyboard input, stopped normally, recorded no disjoint GPU queries, and reported zero draw-path shader links or blocking validations. The active samples point to timing variation around submission while the opening outlier has substantial costs on both sides of enqueue.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
@@ -957,7 +978,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 The next changes should stay targeted to measured costs:
 
 1. **Scene entry and first textured frame.** Recent four-thread runs measured about 36–41 ms of guest CPU at scene entry. Recursive reading and collision setup each used about 10 ms or more. Teardown used 2.07 ms and the sampled heap synchronization was at the probe's resolution floor. Focus further reader work on the repeated parsing and construction paths. GPU-process isolation and sibling threads reduced worker stalls in diagnostic profiles.
-2. **Active-play pacing.** Measure dense Erodeo gameplay on the same constrained integrated-GPU setup, with guest, render worker and GPU spans aligned. Use the replay after the start banner for steady measurements and keep scene entry and the first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default.
+2. **Active-play pacing.** Dense Erodeo on this constrained desktop measured 17.53 ms acknowledgement p95, with 2.63 ms GPU and 1.65 ms worker CPU p95. Match the longest active gaps to the cap return and fixed-refresh presentation feedback. Keep scene entry and the first heavy upload separate. Moving ordinary uploads earlier inside one callback did not establish a reduction in the opening gap.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 5. **Presentation pacing.** The Water Gate Scramble trace separates the renderer's 17.055 ms acknowledgement p95 from 165 Hz presentation quantization. Test sustained play at a verified fixed 60 Hz or 120 Hz output cadence to isolate remaining missed slots. Keep the original virtual-blank period and callback sequence.
