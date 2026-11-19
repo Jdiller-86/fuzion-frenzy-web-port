@@ -18,13 +18,24 @@ struct Measurement {
 
 struct Trace {
     bool active = false;
+    uint32_t markedScopes = 0;
     std::array<Measurement, PhaseCount> phases{};
 };
 
 inline thread_local Trace trace;
 
-// Only the profiling build injects these scopes. Aggregate nested calls before
-// emitting so the browser bridge does not run inside the measured scene setup.
+inline double PhaseClock(Phase phase, bool entering, bool mark) {
+    if (!mark) return emscripten_get_now();
+    // Emit on the guest pthread so Chrome records that thread's CPU clock.
+    return EM_ASM_DOUBLE({
+        const time = performance.timeOrigin + performance.now();
+        console.timeStamp?.("ff-scene-cpu:" + $0 + ":" + $1 + ":" + time);
+        return time;
+    }, phase, int(entering));
+}
+
+// Only the profiling build injects these scopes. The worker bridge receives
+// the aggregated wall spans once the guest scene setup exits.
 class Scope {
 public:
     explicit Scope(Phase phase) : phase_(phase) {
@@ -33,12 +44,16 @@ public:
             trace = {};
             trace.active = true;
         }
-        if (trace.active) started_ = emscripten_get_now();
+        if (trace.active) {
+            marked_ = trace.markedScopes < 128;
+            if (marked_) ++trace.markedScopes;
+            started_ = PhaseClock(phase_, true, marked_);
+        }
     }
 
     ~Scope() {
         if (!started_) return;
-        const double finished = emscripten_get_now();
+        const double finished = PhaseClock(phase_, false, marked_);
         auto& sample = trace.phases[phase_];
         if (!sample.calls++) sample.first = started_;
         sample.last = finished;
@@ -61,6 +76,7 @@ public:
 private:
     Phase phase_;
     double started_ = 0;
+    bool marked_ = false;
 };
 
 } // namespace ff_browser_scene_timing
