@@ -24,9 +24,34 @@ public:
         return false;
     }
 
+#ifdef FF_BROWSER_DISPATCHER_PROBE
+    static bool HasWaiters() { return head_ != nullptr; }
+#endif
+
 private:
     static inline ParkedWait* head_ = nullptr;
     std::span<const ObjectRef> objects_;
     ParkedWait* next_ = head_;
     ParkedWait** link_ = &head_;
 };
+
+#ifdef FF_BROWSER_DISPATCHER_PROBE
+static std::atomic<uint32_t> event_wake_probe{0};
+static std::atomic<uint32_t> event_signals{0};
+static std::atomic<uint32_t> event_matched{0};
+static std::atomic<uint32_t> event_unrelated{0};
+#endif
+
+static bool ShouldWakeEvent(const Object& object) {
+    const bool interested = ParkedWait::Includes(object);
+#ifdef FF_BROWSER_DISPATCHER_PROBE
+    const uint32_t probe = event_wake_probe.load(std::memory_order_relaxed);
+    if (probe) {
+        event_signals.fetch_add(1, std::memory_order_relaxed);
+        if (interested) event_matched.fetch_add(1, std::memory_order_relaxed);
+        else if (ParkedWait::HasWaiters()) event_unrelated.fetch_add(1, std::memory_order_relaxed);
+        if (probe == 2) return true;
+    }
+#endif
+    return interested;
+}

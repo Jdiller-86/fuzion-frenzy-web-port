@@ -26,6 +26,24 @@ def adapt_dispatcher_waits(runtime: Path) -> None:
     release = "        o.owner = 0;\n        SetSignal(o, 1);\n        g_cv.notify_all();"
     single_wait = "uint32_t WaitOne(const ObjectRef& object, int64_t timeout, bool alertable)"
     set_event = "int32_t SetEvent(Object& o) {"
+    event_signal = set_event + "\n    std::lock_guard<std::mutex> lock(g_dispatch);\n    int32_t old = o.signal;\n    SetSignal(o, 1);\n    g_cv.notify_all();"
+    probe_exports = """\
+#ifdef FF_BROWSER_DISPATCHER_PROBE
+extern "C" EMSCRIPTEN_KEEPALIVE void ff_browser_set_event_wake_probe(uint32_t mode) {
+    event_wake_probe.store(mode <= 2 ? mode : 0, std::memory_order_relaxed);
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE uint32_t ff_browser_event_wake_count(uint32_t index) {
+    switch (index) {
+    case 0: return event_signals.load(std::memory_order_relaxed);
+    case 1: return event_matched.load(std::memory_order_relaxed);
+    case 2: return event_unrelated.load(std::memory_order_relaxed);
+    default: return 0;
+    }
+}
+#endif
+
+"""
     wrappers = f"""\
 {wait} {{
     return WaitObjects(objs, wait_all, timeout, alertable);
@@ -41,12 +59,14 @@ def adapt_dispatcher_waits(runtime: Path) -> None:
     declaration = kernel_namespace + "\n" + single_wait + ";\n"
     replacements = {
         "objects.cpp": (
-            ("#include <queue>\n", "#include <queue>\n#include <span>\n"),
+            ("#include <queue>\n", "#include <queue>\n#include <span>\n"
+             "#ifdef FF_BROWSER_DISPATCHER_PROBE\n#include <emscripten.h>\n#endif\n"),
             (dispatcher, dispatcher + "\n" + helper),
             (wait_for, "static uint32_t WaitFor(std::span<const ObjectRef> objs,"),
             (wait, "static uint32_t WaitObjects(std::span<const ObjectRef> objs, bool wait_all, "
                    "int64_t timeout, bool alertable)"),
             (set_event, wrappers),
+            (event_signal, probe_exports + event_signal.replace("g_cv.notify_all();", "if (ShouldWakeEvent(o)) g_cv.notify_all();")),
             (finite, "            ParkedWait parked(objs);\n" + finite),
             (infinite, "            ParkedWait parked(objs);\n" + infinite),
             (release, release.replace("g_cv.notify_all();", "if (ParkedWait::Includes(o)) g_cv.notify_all();")),

@@ -229,6 +229,8 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         key = hashlib.sha256(str(source).encode()).hexdigest()[:12]
         obj = objects_dir / (source.stem + '-' + key + '.o')
         source_flags = ['-msimd128', '-msse4.1'] if source.name == 'render_thread.cpp' else ['-mtail-call'] if source.parent == title_overlay else []
+        if args.scene_timing and source == overlay / 'kernel/objects.cpp':
+            source_flags.append('-DFF_BROWSER_DISPATCHER_PROBE')
         source_digest=digest(source)
         if source.name=='full-webgl.cpp':source_digest+=digest(work/'fixed-constants.inc')
         if source == overlay / 'xdk/d3d8.cpp':
