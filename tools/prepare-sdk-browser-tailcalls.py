@@ -522,9 +522,12 @@ def lower_decimal_product(source: bytes) -> tuple[bytes, int]:
     if body is None or matched_body(source, DECIMAL_PRODUCT_CALLER, DECIMAL_PRODUCT_CALLER_DIGEST) is None:
         return source, 0
     label = b"\nloc_001E8599:"
-    entry = (b"\n\tif (" + uses_default_implementation(b"001E7E6D") + b")\n"
-             b"\t\tff_browser_decimal::AccumulateProduct(ctx.ebp, ctx.esp, ctx.esi, ctx.ebx);")
-    return source.replace(body, body.replace(label, entry + label, 1), 1), 1
+    exit_point = b"\n\t// 001E85FD "
+    entry = (b"\n\tif (" + uses_default_implementation(b"001E7E6D") +
+             b" && ff_browser_decimal::CompleteMantissaProduct(ctx)) goto ff_mantissa_product_ready;")
+    lowered = body.replace(label, entry + label, 1).replace(
+        exit_point, b"\nff_mantissa_product_ready:" + exit_point, 1)
+    return source.replace(body, lowered, 1), 1
 
 
 def lower_decimal_conversion_helpers(source: bytes) -> tuple[bytes, int]:

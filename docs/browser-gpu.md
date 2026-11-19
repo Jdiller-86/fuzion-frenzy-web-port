@@ -560,6 +560,12 @@ The bridge already interns pixel and vertex uniform packets in an arena that sta
 
 In one foreground Water Gate Scramble replay on an RX 9070 XT, the browser alternated the preceding and new uniform paths every eight frames on the same Wasm. Across 240 steady frames per path, median WebGL submission fell from **1.67 to 1.26 ms** and p95 from **2.07 to 1.62 ms**, at about 969 submitted draws per frame. Median savings across 29 neighboring pairs of blocks were **0.40 ms**. The new path skipped a median of 795 pixel and 881 vertex packet comparisons per frame. The combined replay had a 17.20 ms acknowledgement p95 over 484 intervals, reached keyboard-controlled play, recorded zero live shader links or blocking validations and stopped cleanly. The test measured submission cost on this scene and adapter.
 
+### Complete the truncated mantissa product
+
+The checked decimal multiply now computes the final 16-bit product and its carry sum inside the existing bounded helper. The maximum sum is `UINT32_MAX`. The helper writes the same last-call scratch and live registers before entering the original exponent, normalization and rounding paths. The existing body digests, mapped spans, caller identity and default add binding still control admission. Independent review checked the carry proof, ordered faults, register and flag state.
+
+Two focused Wasm builds matched 2,400 cases each, one with the default add and one with a strong override. Each included 313 ordered faults. Five alternating passes of 150,000 products took a median **8.03 ms** with the preceding code and **6.08 ms** with the complete product. The Water Gate Scramble replay reached keyboard-controlled play, used zero live shader links and stopped cleanly. Its first two acknowledgement gaps were 36.085 and 21.35 ms versus 35.65 and 21.47 ms in the retained control. Steady acknowledgement p95 was 16.895 and 16.915 ms across 483 and 482 pairs. The isolated benchmark measures the arithmetic change. Scene and scheduling state varied between browser runs. The 40,290,365-byte module has SHA-256 `1f57d8860be2e80c7dcf05f5317537a03f00fb3b0864b4f78b4d10889d25f3b2`.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.

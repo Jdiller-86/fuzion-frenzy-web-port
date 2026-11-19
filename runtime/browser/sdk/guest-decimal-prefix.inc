@@ -80,9 +80,9 @@ inline void NormalizePrefix(uint8_t* frame) noexcept {
     WriteWord(frame - 4, ReadWord(frame - 4) + 0xFFFFu * shift);
 }
 
-inline void AccumulateProduct(uint32_t bp, uint32_t sp, uint32_t leftAddress,
-                              uint32_t rightAddress) noexcept {
-    if (sp != bp - 48u) return;
+inline bool CompleteMantissaProduct(X86Context& ctx) noexcept {
+    const uint32_t bp = ctx.ebp, leftAddress = ctx.esi, rightAddress = ctx.ebx;
+    if (ctx.esp != bp - 48u) return false;
     constexpr uint32_t scratchBelow = 68;
     constexpr uint32_t frameBytes = scratchBelow + 16;
     constexpr uint32_t operandBytes = 10;
@@ -90,12 +90,12 @@ inline void AccumulateProduct(uint32_t bp, uint32_t sp, uint32_t leftAddress,
     auto* scratch = TryWindow(bp - scratchBelow, frameBytes);
     const auto* left = TryWindow(leftAddress, operandBytes);
     const auto* right = TryWindow(rightAddress, operandBytes);
-    if (!scratch || !left || !right) return;
+    if (!scratch || !left || !right) return false;
     const auto aliasesScratch = [scratch](const uint8_t* bytes) {
         return bytes < scratch + frameBytes && bytes + operandBytes > scratch;
     };
     auto* frame = scratch + scratchBelow;
-    if (ReadWord(frame + 4) != 0x001E8761u || aliasesScratch(left) || aliasesScratch(right)) return;
+    if (ReadWord(frame + 4) != 0x001E8761u || aliasesScratch(left) || aliasesScratch(right)) return false;
 
     uint16_t a[5], b[5], product[6];
     std::memcpy(a, left, sizeof(a));
@@ -110,13 +110,26 @@ inline void AccumulateProduct(uint32_t bp, uint32_t sp, uint32_t leftAddress,
         product[diagonal] = uint16_t(sum);
         carry = sum >> 16;
     }
-    product[4] = uint16_t(carry);
-    product[5] = uint16_t(carry >> 16);
+    const uint32_t term = uint32_t(a[4]) * b[4];
+    // Four preceding diagonals contribute at most 0x1fffe. With the final
+    // 16-bit product the sum is at most UINT32_MAX, so no carry reaches the
+    // adjacent loop counter.
+    const uint32_t lastSum = uint32_t(carry) + term;
+    product[4] = uint16_t(lastSum);
+    product[5] = uint16_t(lastSum >> 16);
+    const uint32_t lastCall[]{leftAddress, 0x001e85d3u, uint32_t(carry), term, bp - 28u};
+    std::memcpy(scratch, lastCall, sizeof(lastCall));
     std::memcpy(frame - 36, product, sizeof(product));
-    // Keep the final multiply-add and its guest stack writes.
-    WriteWord(frame - 16, 4);
-    WriteWord(frame - 4, bp - 24u);
-    WriteWord(frame + 12, 1);
+    WriteWord(frame - 24, 0);
+    WriteWord(frame - 16, 5);
+    WriteWord(frame - 12, rightAddress + 6u);
+    WriteWord(frame - 8, leftAddress + 10u);
+    WriteWord(frame - 4, bp - 22u);
+    WriteWord(frame + 12, 0);
+    ctx.eax = 0;
+    ctx.ecx = lastSum;
+    ctx.edx = bp - 28u;
+    return true;
 }
 
 inline uint8_t* ConversionStack(const X86Context& ctx, uint32_t& distance) noexcept {

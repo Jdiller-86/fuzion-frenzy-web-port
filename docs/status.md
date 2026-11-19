@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Warming 42 additional guest functions cut lazy compilation from 3.15 to 0.94 ms across Water Gate Scramble's first two entry gaps in a same-build replay. The largest gap fell from 38.66 to 33.83 ms. Steady acknowledgement p95 was 16.96 ms in both runs. [Warmup evidence](browser-gpu.md#prepare-the-remaining-measured-scene-entry-functions) · [Uniform evidence](browser-gpu.md#reuse-immutable-uniform-packets-during-submission)
+- **Browser.** Completing the mantissa product reduced its isolated Wasm benchmark from 8.03 to 6.08 ms per 150,000 products. Water Gate Scramble entry remained near 36 ms. The preceding startup warmup reduced lazy compilation across the first two entry gaps from 3.15 to 0.94 ms. [Product evidence](browser-gpu.md#complete-the-truncated-mantissa-product) · [Warmup evidence](browser-gpu.md#prepare-the-remaining-measured-scene-entry-functions)
 - **Next.** Target the recursive reader and shared scene loading. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 

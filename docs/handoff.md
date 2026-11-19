@@ -3,7 +3,7 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** The startup warmup covers 42 more digest-matched guest functions. In Water Gate Scramble, the largest entry gap fell from 38.66 to 33.83 ms with the extra pass. Twisted System completed 15 saved shader warm draws during loading on integrated Radeon. [Warmup evidence](browser-gpu.md#prepare-the-remaining-measured-scene-entry-functions) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
+- **Browser.** The completed mantissa product reduced its isolated Wasm benchmark from 8.03 to 6.08 ms. Water Gate Scramble entry remained near 36 ms. Twisted System completed 15 saved shader warm draws during loading on integrated Radeon. [Product evidence](browser-gpu.md#complete-the-truncated-mantissa-product) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
 - **Next.** Inspect the recursive reader and shared scene loading. Measure physical presentation on modest hardware before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
