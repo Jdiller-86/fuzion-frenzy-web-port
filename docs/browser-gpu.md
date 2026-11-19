@@ -780,6 +780,27 @@ The renderer reuses the last checked view of an immutable raster state packet wh
 
 One keyboard-controlled Water Gate Scramble replay alternated reuse on even frames and the previous path on odd frames. Across 243 enabled frames the renderer reused **191,517 of 206,497** raster packet views. There were 242 control frames with 205,655 draws. Median WebGL worker CPU time was **0.958 ms control and 0.926 ms enabled**. CPU p95 moved from **1.157 to 1.044 ms** and the median adjacent-pair delta was **−0.038 ms**. Callback elapsed p95 was **2.79 and 2.88 ms**. The combined run recorded **18.79 ms** active acknowledgement p95. The repeated CPU work was reduced, and reuse is now enabled. The foreground replay used the same working Wasm, reached keyboard-controlled play and stopped cleanly with zero live shader links or blocking validations.
 
+### Measure frame pacing with sibling CPU threads
+
+Two Water Gate Scramble replays used the same browser build and integrated Radeon. Every Chrome process in each disposable profile used the same two physical desktop cores. The first profile admitted one logical thread per core. The second admitted both siblings on those cores. The cap, virtual blank and game input sequence were the same. Both replays alternated the shader-prepass shortcut described below.
+
+| Active-play measurement | Two logical threads | Four logical threads |
+| --- | ---: | ---: |
+| Frame acknowledgement p95 | 19.46 ms | 17.26 ms |
+| Maximum acknowledgement interval | 20.71 ms | 19.03 ms |
+| Intervals above 20 ms | 9 of 486 | 0 of 485 |
+| Pre-enqueue interval p95 | 15.81 ms | 15.79 ms |
+| WebGL worker elapsed p95 | 4.34 ms | 1.65 ms |
+| Dispatch p95 | 0.045 ms | 0.040 ms |
+
+The first textured frame carried 99 uploads totaling 9.34 MiB and 887 draws in both runs. Its acknowledgement gap measured **25.43 and 21.50 ms**. The largest scene-entry gap measured **51.21 and 46.58 ms**. Both runs reached keyboard-controlled play and stopped cleanly with zero draw-path links or blocking validations. The sibling replay excluded two inconsistent worker CPU-clock pairs from CPU analysis and retained their frame timestamps in pacing analysis. These profiles exercise a desktop CPU with imposed affinity. The shorter tail helps characterize the earlier contention result and does not establish locked presentation or qualify a low-end laptop.
+
+### Reuse known shader discovery packets
+
+Within one command batch, the shader prepass remembers one exact source and validated state packet whose signature already hit the discovery set. The pair can bypass repeat decoding and set lookups until the batch ends. Undiscovered pairs still take the existing prepass and budget checks. Independent review covered state ownership, arena address reuse, map updates and draw-time fallback.
+
+Even frames used the shortcut and odd frames used the previous path. The two-thread run skipped **188,854** repeat lookups and reduced median prepass CPU time from **14 to 7 microseconds**. The four-thread run skipped **188,125** and reduced the median from **14 to 9 microseconds**. The median adjacent-frame deltas were **−7 and −6 microseconds**, respectively. The whole worker CPU distributions showed no consistent improvement. The shortcut is enabled for its measured reduction in prepass work. Both replays used the working Wasm SHA-256 `4228b710cf99805fe16d513f9970e1a79369fcd2f5cf4057ee45d45dfa843d67`.
+
 ### Attribute first-use textures and signal only startup
 
 Direct instrumentation split WebGL presentation from command execution in two foreground two-core Water Gate Scramble replays. The heavy frame uploaded 99 textures totaling 9.34 MiB in each run. In the first replay, the upload path took **15.25 ms** out of **19.64 ms** on the worker, and measured presentation stages took **0.12 ms**. In steady play the blit group reached **1.92 ms p95**, compared with **0.035 ms p95** for `gl.flush()` across 484 frames. These wall times include work or waits while the caller is off CPU. They do not identify the owners of the unexplained time in the earlier staging and direct replays.
@@ -880,7 +901,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 
 The next changes should stay targeted to measured costs:
 
-1. **Scene entry and first textured frame.** The guest scene still uses over 25 ms of title CPU on the measured route. Single-pass tree normalization and contour subdivision produced no direct CPU savings. GPU-process isolation moves much of the first textured frame's worker stall off the critical path in the diagnostic setup. The remaining frame time includes the longer pre-enqueue interval. Compare title, recorder and worker scheduling with simultaneous logical threads on the same two physical cores to qualify how much of the tail comes from restricted CPU time.
+1. **Scene entry and first textured frame.** The guest scene still uses over 25 ms of title CPU on the measured route. Single-pass tree normalization and contour subdivision produced no direct CPU savings. GPU-process isolation and sibling threads both reduced renderer stalls in diagnostic profiles. The two-core, four-thread replay still had a 46.58 ms scene-entry gap and a 17.26 ms active acknowledgement p95. Use this less restrictive profile to separate the late title or recorder handoffs from remaining worker stalls before choosing a pacing change.
 2. **Active-play pacing.** Use the replay after the GO banner for steady measurements and keep scene entry and first heavy upload separate. The preparation and pacing-order switches exposed tradeoffs without establishing a better default. Compare future scene CPU savings against the active threaded reference.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws depend on resident coverage and queued specialization. Correlate any remaining cold driver compile with promotion and upload markers before expanding the delay.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.

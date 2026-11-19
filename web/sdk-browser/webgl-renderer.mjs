@@ -734,15 +734,27 @@ void main() {
     else if(this.frameError)throw this.frameError;
     if(count>65536)throw new Error('GPU command budget exceeded');
     const words=this.wordView(ptr,count*12);
+    let prepassPacketReuses = 0;
     if(this.parallelShaderCompile){
       const prewarmStart=performance.now(),heapBytes=this.memory().HEAPU8,heapWords=new Uint32Array(heapBytes.buffer,heapBytes.byteOffset,heapBytes.byteLength>>>2);this.shaderPrewarmSeen.clear();this.shaderPrewarmPending.clear();let prewarmAttempts=0,pendingPairCount=0;
+      // A previously discovered pair stays discovered until this scan ends.
+      // State packet addresses are safe to reuse only within this batch.
+      let discoveredSource = -1, discoveredState = -1;
       for(let i=0;i<count;i++){
         const b=i*12,opcode=words[b];if(opcode!==1&&opcode!==3)continue;
         try{
           const sourcePointer=words[b+8],statePointer=words[b+6];
+          if (sourcePointer === discoveredSource && statePointer === discoveredState) {
+            ++prepassPacketReuses;
+            continue;
+          }
           if((statePointer&3)||statePointer>heapBytes.length-160)continue;
           const stateOffset=statePointer>>>2,flat=!!heapWords[stateOffset+32],vertexPointer=heapWords[stateOffset+37],regs=heapWords[stateOffset+39]&0xffff,signature=vertexPointer*131072+(flat?65536:0)+regs;
-          if(this.shaderPrewarmDiscovered.get(sourcePointer)?.has(signature))continue;
+          if(this.shaderPrewarmDiscovered.get(sourcePointer)?.has(signature)) {
+            discoveredSource = sourcePointer;
+            discoveredState = statePointer;
+            continue;
+          }
           let pending=this.shaderPrewarmPending.get(sourcePointer);
           if(!pending){if(this.shaderPrewarmPairCount+pendingPairCount>=2048)continue;pending=new Set();this.shaderPrewarmPending.set(sourcePointer,pending);}
           if(!pending.has(signature)){if(this.shaderPrewarmPairCount+pendingPairCount>=2048)continue;pending.add(signature);pendingPairCount++;}
@@ -908,6 +920,8 @@ void main() {
     emit();
     if (rasterPacket?.reuses && this.frameStats)
       this.frameStats.rasterPacketReuses = (this.frameStats.rasterPacketReuses ?? 0) + rasterPacket.reuses;
+    if (prepassPacketReuses && this.frameStats)
+      this.frameStats.prepassPacketReuses = (this.frameStats.prepassPacketReuses ?? 0) + prepassPacketReuses;
     if(checkErrors)this.checkGpuError();
     this.submitMs=(this.submitMs||0)+performance.now()-started;
     return true;
