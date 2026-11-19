@@ -202,6 +202,7 @@ runButton.addEventListener('click', () => {
     resourceFences: options.get('resourceFences'),
     gridContours: options.get('gridContours') === '1',
     fastInteger: options.get('fastInteger') !== '0',
+    decimalProductMemo: options.get('decimalProductMemo') !== '0',
     asyncAudio: options.get('audioHandoff') !== 'sync',
     deadlineAudio,
     precisePacing: options.has('precisePacing')

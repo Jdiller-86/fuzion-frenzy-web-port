@@ -1,9 +1,13 @@
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstring>
 
 #include "cpu/x86_context.h"
 #include "full-memory.h"
+#include "guest-decimal-product-stats.h"
+
+bool ff_browser_decimal_product_memo_enabled();
 
 namespace ff_browser_decimal {
 
@@ -80,6 +84,53 @@ inline void NormalizePrefix(uint8_t* frame) noexcept {
     WriteWord(frame - 4, ReadWord(frame - 4) + 0xFFFFu * shift);
 }
 
+struct MantissaProduct {
+    std::array<uint16_t, 6> words;
+    uint32_t carry, term, sum;
+};
+
+inline MantissaProduct MultiplyMantissas(const std::array<uint16_t, 5>& a,
+                                         const std::array<uint16_t, 5>& b) noexcept {
+    MantissaProduct result{};
+    // The original starts at diagonal four of the full product. Lower
+    // diagonals contribute no carry to this truncated multiplication.
+    uint64_t carry = 0;
+    for (uint32_t diagonal = 0; diagonal < 4; ++diagonal) {
+        uint64_t sum = carry;
+        for (uint32_t i = diagonal; i < 5; ++i)
+            sum += uint32_t(a[i]) * b[4 + diagonal - i];
+        result.words[diagonal] = uint16_t(sum);
+        carry = sum >> 16;
+    }
+    result.carry = uint32_t(carry);
+    result.term = uint32_t(a[4]) * b[4];
+    // The sum and its final carry fit in a single word.
+    result.sum = result.carry + result.term;
+    result.words[4] = uint16_t(result.sum);
+    result.words[5] = uint16_t(result.sum >> 16);
+    return result;
+}
+
+inline MantissaProduct MemoizedMantissaProduct(const std::array<uint16_t, 5>& a,
+                                               const std::array<uint16_t, 5>& b) noexcept {
+    struct Entry {
+        bool valid = false;
+        std::array<uint16_t, 5> a{}, b{};
+        MantissaProduct product{};
+    };
+    static thread_local std::array<Entry, 256> table{};
+    const uint32_t hash = (uint32_t(a[0]) + a[2] + (uint32_t(a[4]) << 16)) * 0x9e3779b1u ^
+                          (uint32_t(b[0]) + b[2] + (uint32_t(b[4]) << 16)) * 0x85ebca6bu;
+    auto& entry = table[hash >> 24];
+    if (entry.valid && entry.a == a && entry.b == b) {
+        ++productMemoStats.hits;
+        return entry.product;
+    }
+    ++productMemoStats.misses;
+    entry = {true, a, b, MultiplyMantissas(a, b)};
+    return entry.product;
+}
+
 inline bool CompleteMantissaProduct(X86Context& ctx) noexcept {
     const uint32_t bp = ctx.ebp, leftAddress = ctx.esi, rightAddress = ctx.ebx;
     if (ctx.esp != bp - 48u) return false;
@@ -97,29 +148,14 @@ inline bool CompleteMantissaProduct(X86Context& ctx) noexcept {
     auto* frame = scratch + scratchBelow;
     if (ReadWord(frame + 4) != 0x001E8761u || aliasesScratch(left) || aliasesScratch(right)) return false;
 
-    uint16_t a[5], b[5], product[6];
-    std::memcpy(a, left, sizeof(a));
-    std::memcpy(b, right, sizeof(b));
-    // The original starts at diagonal four of the full product. Lower
-    // diagonals contribute no carry to this truncated multiplication.
-    uint64_t carry = 0;
-    for (uint32_t diagonal = 0; diagonal < 4; ++diagonal) {
-        uint64_t sum = carry;
-        for (uint32_t i = diagonal; i < 5; ++i)
-            sum += uint32_t(a[i]) * b[4 + diagonal - i];
-        product[diagonal] = uint16_t(sum);
-        carry = sum >> 16;
-    }
-    const uint32_t term = uint32_t(a[4]) * b[4];
-    // Four preceding diagonals contribute at most 0x1fffe. With the final
-    // 16-bit product the sum is at most UINT32_MAX, so no carry reaches the
-    // adjacent loop counter.
-    const uint32_t lastSum = uint32_t(carry) + term;
-    product[4] = uint16_t(lastSum);
-    product[5] = uint16_t(lastSum >> 16);
-    const uint32_t lastCall[]{leftAddress, 0x001e85d3u, uint32_t(carry), term, bp - 28u};
+    std::array<uint16_t, 5> a, b;
+    std::memcpy(a.data(), left, operandBytes);
+    std::memcpy(b.data(), right, operandBytes);
+    const auto product = ff_browser_decimal_product_memo_enabled()
+        ? MemoizedMantissaProduct(a, b) : MultiplyMantissas(a, b);
+    const uint32_t lastCall[]{leftAddress, 0x001e85d3u, product.carry, product.term, bp - 28u};
     std::memcpy(scratch, lastCall, sizeof(lastCall));
-    std::memcpy(frame - 36, product, sizeof(product));
+    std::memcpy(frame - 36, product.words.data(), 12);
     WriteWord(frame - 24, 0);
     WriteWord(frame - 16, 5);
     WriteWord(frame - 12, rightAddress + 6u);
@@ -127,7 +163,7 @@ inline bool CompleteMantissaProduct(X86Context& ctx) noexcept {
     WriteWord(frame - 4, bp - 22u);
     WriteWord(frame + 12, 0);
     ctx.eax = 0;
-    ctx.ecx = lastSum;
+    ctx.ecx = product.sum;
     ctx.edx = bp - 28u;
     return true;
 }

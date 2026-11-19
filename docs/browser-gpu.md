@@ -773,6 +773,23 @@ Inside the separate recursive reader, a lightweight elapsed clock accumulated **
 
 The run used integrated Radeon, two physical desktop cores and both hardware threads. It reached keyboard-controlled gameplay, recorded zero live shader links or blocking validations, and stopped cleanly. Its scene-entry gap was **55.50 ms**, and the active acknowledgement p95 was **17.45 ms** across 484 intervals. Independent review verified the digest-pinned call sites, including the four generated copies of the number-reader call, and the probe's lack of guest writes. Trial Wasm SHA-256 `ae7f30eab0a3f5a9d676ff8ed18ce2a43b5c656b64bf42754bf77d9324e10cbd`. The working build retains its existing loading code.
 
+### Reuse exact decimal mantissa products
+
+The shared number reader now reuses the checked truncated integer product when both live 10-byte operands match a cached pair. The browser keeps 256 slots per thread. A conflicting key recomputes the product. Each call still writes scratch words and registers for its current guest addresses, then runs the original normalization, rounding, and floating-point return. Independent review checked the key, bounds, weak bindings, thread ownership, and carry and scratch writes.
+
+The cached Water Gate Scramble replay reused **5,492 of 8,781 products** in the scene setup. Sequential replays on the same Wasm and integrated Radeon with two desktop cores and both siblings measured:
+
+| Scene-entry measurement | Cache off | Cache on |
+| --- | ---: | ---: |
+| Loader CPU | 26.16 ms | 23.41 ms |
+| Recursive reader CPU | 10.45 ms | 9.81 ms |
+| Main parser CPU | 10.46 ms | 9.29 ms |
+| Whole scene CPU | 38.14 ms | 35.76 ms |
+| Frame acknowledgement gap | 45.63 ms | 47.13 ms |
+| Active acknowledgement p95 | 17.46 ms | 17.39 ms |
+
+The cache run used more wall time off the title thread. Both reached keyboard-controlled play, stopped cleanly, and recorded zero live shader links or blocking validations. Both recorded the same checked integer counts and a guest virtual-blank rate near 60 Hz. A separate launch through the default browser configuration recorded the same cache counts, **23.32 ms** of loader CPU and a **42.63 ms** scene-entry gap. Use `?decimalProductMemo=0` for the uncached path or `?pacingTiming=1` on a profiling build to collect scene hit and miss counts. Wasm SHA-256 `774dd8f720bb9ffceeb01f1a525f509a6bb7b88ab837e6c1a9d0de9eb7f469db`.
+
 ### Send controller snapshots only when they change
 
 The page still samples keyboard and controller state at 60 Hz. It posts the first snapshot and any changes to keys, buttons or axes. Focus loss clears held keys and immediately submits a neutral snapshot through the same comparison. Restart clears the cache for the new worker. The Wasm input mapping and guest polling remain in place.

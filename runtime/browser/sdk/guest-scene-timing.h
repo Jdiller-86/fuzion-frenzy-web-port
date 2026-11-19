@@ -5,6 +5,7 @@
 
 #include <emscripten.h>
 
+#include "guest-decimal-product-stats.h"
 #include "guest-integer.h"
 
 bool ff_browser_pacing_timing_enabled();
@@ -45,6 +46,7 @@ public:
             if (trace.active || !ff_browser_pacing_timing_enabled()) return;
             trace = {};
             trace.active = true;
+            ff_browser_decimal::productMemoStats = {};
             ff_browser_integer::counts = {};
         }
         if (trace.active) {
@@ -64,6 +66,12 @@ public:
         if (phase_ != Scene) return;
 
         trace.active = false;
+        const auto products = ff_browser_decimal::productMemoStats;
+        if (products.hits || products.misses) {
+            MAIN_THREAD_ASYNC_EM_ASM({
+                Module.onFuzionSceneDecimalMemo?.($0, $1, $2);
+            }, started_, products.hits, products.misses);
+        }
         const auto counts = ff_browser_integer::counts;
         if (counts.values) {
             MAIN_THREAD_ASYNC_EM_ASM({

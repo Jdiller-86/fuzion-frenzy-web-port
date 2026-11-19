@@ -112,6 +112,17 @@ bool ff_browser_fast_integer_enabled() {
 #endif
 }
 
+bool ff_browser_decimal_product_memo_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.decimalProductMemo === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 #ifdef __EMSCRIPTEN__
 constexpr double kFrameCapPrecisionMs = 2.0;
 
