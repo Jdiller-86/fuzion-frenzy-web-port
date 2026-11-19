@@ -777,6 +777,14 @@ The reader and teardown made **21,853 heap acquires** and the same number of rel
 
 The instrumented replay used integrated Radeon and two desktop cores with both hardware threads available. Scene-entry acknowledgement took **45.12 ms** and active acknowledgement p95 was **17.33 ms** across 484 adjacent pairs. It reached keyboard-controlled gameplay and stopped cleanly with zero live shader links or blocking validations. The timed module SHA-256 was `c331dd30df1f43960cd27e46b39da0cb9be97435b5db18c3940c1b86135743d8`. The probe was removed after the replay. The allocator still acquires and releases the same guest heap mutant at each original call.
 
+### Directly translate contained main RAM accesses
+
+The fixed-width memory helper checks main RAM with an unsigned upper bound before consulting the window table. The old mapping path handles every non-main address and any access crossing the window boundary. Independent review checked the width arithmetic, aliases and the fault path. A focused Wasm comparison matched **3,456 cases** across all address-window slots. In standalone passes of 2,097,152 reads the new helper measured **1.257 → 0.837 ms** for main RAM, **1.289 → 1.382 ms** for stack addresses, and **1.492 → 1.179 ms** for a mixed array.
+
+Sequential Water Gate Scramble replays used integrated Radeon and both hardware threads of two desktop cores. The candidate reduced measured scene CPU from **38.591 to 35.816 ms**. Collision used **10.950 and 8.917 ms**, the recursive reader **10.070 and 8.881 ms**, and the inclusive loader **25.608 and 25.286 ms**. The scene-entry acknowledgement gap measured **44.88 and 42.34 ms**. Active acknowledgement p95 was **17.50 and 17.44 ms**. Both reached keyboard-controlled play, stopped normally, recorded zero live links and blocking validations, and kept virtual blank near 60 Hz. Scene and scheduling variation limits attribution from one pair.
+
+The inline check grew the working Wasm from **40,313,506 to 45,985,780 bytes**. First frame arrived in **3.20 and 3.29 seconds** in the two runs. The promoted Wasm SHA-256 is `3feda95058689b2a0b414bff3b2d38f365b946fabb9d840bcf7cc5dedbf5f9ba`. The build retains one runnable module and clears comparison artifacts.
+
 ### Split the recursive reader and contour timing
 
 A disposable Water Gate Scramble replay put thread CPU clocks around both `0x001B9EA0` calls. They used **1.50 ms** in total. The main parser at `0x001BA160` used **9.96 ms** across 13 calls in the same phase. Together they account for **11.46 ms** of the two-pass branch's **11.55 ms**.

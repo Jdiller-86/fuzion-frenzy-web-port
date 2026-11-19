@@ -43,13 +43,14 @@ inline constexpr auto kWindowOffsets = [] {
 }
 } // namespace ff_browser_memory
 
-// Check each fixed-width access with one rejection test. Window entries use
-// kBackingSize for unmapped addresses. The last byte carries into kWindowSize
-// only when the complete span crosses the first byte's window.
+// The main RAM window maps directly to the beginning of the backing array.
+// Other windows use the same checked alias table. The last byte carries
+// into kWindowSize only when the span crosses its initial window.
 template<size_t Width>
 [[gnu::always_inline]] inline uint8_t* ff_sdk_guest_scalar_ptr(uint32_t va) {
     using namespace ff_browser_memory;
     static_assert(Width > 0 && Width <= kWindowSize);
+    if (va <= kWindowSize - Width) return backing + kWindowOffsets[0] + va;
     const uint32_t offset = va & (kWindowSize - 1);
     const uint32_t window = kWindowOffsets[va >> kWindowBits];
     const uint32_t lastByte = offset + uint32_t(Width - 1);
