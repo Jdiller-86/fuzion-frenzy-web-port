@@ -815,6 +815,21 @@ The replay reached keyboard-controlled play, reported zero live links and blocki
 
 A bounded pool trial can keep the original node initialization, link changes and traversal and take its backing chunks from the managed guest heap. Prior source review identified separate persistent allocations by the consumer. Restrict enrollment to the two creator edges and verify the exact release edges and normal heap mode. Measure guest heap pressure and accounting, including the heap dump paths and historical peak counter, before considering default use.
 
+### Compare reusing heap wait and release handles
+
+The arena reader's managed heap repeatedly looks up the same guest mutant (mutex) handle on the NT wait and release paths. A disposable SDK trial used one weak per-thread entry. An exact handle hit pinned an object for the call and rechecked the handle-table revision. Creation and successful closure advanced the revision under the existing table lock. The dispatcher, heap, suspend points and wait rules still executed. Independent review checked revision publication, concurrent closure and object lifetime.
+
+Two Water Gate Scramble replays on the same Wasm recorded **45,246** wait/release handle lookups each during scene setup. All 45,246 were cache hits in the enabled run. Both runs used integrated Radeon and both hardware threads on each of two physical desktop cores. Both had matching integer and decimal-memo counts, reached keyboard-controlled play, recorded zero live shader links or blocking validations, and stopped normally.
+
+| Measurement | Ordinary table lookup | Weak per-thread lookup |
+| --- | ---: | ---: |
+| Recursive reader CPU | 10.579 ms | 11.994 ms |
+| Tree build, consumption and teardown CPU | 14.259 ms | 15.189 ms |
+| Inclusive loader CPU | 27.325 ms | 27.904 ms |
+| Scene-entry acknowledgement gap | 45.02 ms | 47.04 ms |
+
+CPU scheduling and other scene phases varied across the sequential replays. This comparison provides no measured loader CPU gain from bypassing the table, so the trial was discarded. The allocator still performs the original managed heap operations. The private patch, replay and summaries are in `artifacts/browser-gpu/wait-handle-lookup/`. Trial Wasm SHA-256 `b71f36460a7f6d5e6e5ce178613cdca30693beb17edc1a365028623fd92ae58c`. The comparison slot was removed.
+
 ### Compare pooled scene-reader allocation
 
 The opt-in prototype requests blocks of 256 aligned slots through the original managed allocator. Only the verified 300-byte node and value creator sites can receive slots. The original initializer, link updates and recursive traversal still run. The original free routine receives each block's base at its last payload release. Ordinary allocations retain their existing path. Source review checked the guest call frames, the exact payload free edge, physical aliases and release ownership.
