@@ -69,7 +69,8 @@ uint8_t BrowserImageByte(float value) {
 }
 
 std::shared_ptr<Image> BrowserImageDecode(const gpu::TextureDesc& d,const gpu::FormatInfo& format,
-                        const uint8_t* guest,size_t size,const uint32_t* palette,uint32_t lo,uint32_t hi) {
+                        const uint8_t* guest,size_t size,const uint32_t* palette,uint32_t lo,uint32_t hi,
+                        ff_browser_texture::Work* warm) {
     const uint64_t pixel_count=uint64_t(d.width)*d.height;
     if(!pixel_count||pixel_count>8u*1024*1024)return {};
     const size_t bytes=size_t(pixel_count)*4;
@@ -77,7 +78,7 @@ std::shared_ptr<Image> BrowserImageDecode(const gpu::TextureDesc& d,const gpu::F
     image->depth16=false;image->lo=lo;image->hi=hi;
     image->gpu_pixel_capacity = bytes;
     if(format.host==gpu::Host::BGRA8) {
-        image->gpu_pixels = gpu::DecodeBrowserColor(d, guest, size, palette);
+        image->gpu_pixels = warm ? std::move(warm->rgba) : gpu::DecodeBrowserColor(d, guest, size, palette);
         if (!image->gpu_pixels) {
             auto bgra = std::make_shared<std::vector<uint8_t>>();
             uint32_t pitch=0;
@@ -184,8 +185,9 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         };
         mark(0);
 #endif
+        auto warm = ff_browser_texture::Take(d, backing, guest, bytes);
         std::shared_ptr<Image> image;
-        if(byte_path)image=BrowserImageDecode(d,format,guest,bytes,palette,d.data,d.data+bytes);
+        if(byte_path)image=BrowserImageDecode(d,format,guest,bytes,palette,d.data,d.data+bytes,warm.get());
         if(!image) {
             if(byte_path&&decoded64>limit-size_t(bytes)-metadata)std::abort();
             if(byte_path)BrowserImageReserve(size_t(bytes)+metadata+size_t(decoded64),frame);
@@ -203,7 +205,8 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
 #ifdef FF_BROWSER_TEXTURE_PROBE
         mark(2);
 #endif
-        entry.encoded.assign(guest, guest + bytes);
+        if (warm) entry.encoded = std::move(warm->encoded);
+        else entry.encoded.assign(guest, guest + bytes);
 #ifdef FF_BROWSER_TEXTURE_PROBE
         mark(3);
 #endif

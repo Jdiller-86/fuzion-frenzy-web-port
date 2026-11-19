@@ -398,6 +398,24 @@ def matched_body(source: bytes, address: bytes, digest: str) -> bytes | None:
     return body if sha256(body) == digest else None
 
 
+def instrument_ready_texture(original: bytes, source: bytes, shard: int) -> tuple[bytes, int]:
+    if shard != 6 or sha256(original) != "d7e0b565462e21a2e79feee5d2f414fecfb1b7d431504c62561a5f524a359b85":
+        return source, 0
+    original = original.replace(b"\r\n", b"\n")
+    if matched_body(original, b"00041A10",
+                    "581480d37ead0b9208c52a39498d060e944205cd98580a8954cf4c69c9f3f372") is None:
+        raise ValueError("Texture readiness factory differs from the reviewed body")
+    source = source.replace(b"\r\n", b"\n")
+    anchor = b"\t// 00041A3F ret\n\tctx.esp += 4; return;"
+    header = b'#include "x86_recomp_shared.h"'
+    if source.count(anchor) != 1 or source.count(header) != 1:
+        raise ValueError("Texture readiness successful-return anchor differs")
+    source = source.replace(anchor, b"\tff_browser_texture_bank_ready(ctx.eax, ctx.esp);\n" + anchor, 1)
+    source = source.replace(header, header +
+                            b"\nvoid ff_browser_texture_bank_ready(uint32_t, uint32_t);", 1)
+    return source, 1
+
+
 def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]) -> tuple[bytes, list[bytes], int]:
     original = original.replace(b"\r\n", b"\n")
     admitted = []
@@ -1349,6 +1367,7 @@ def main() -> int:
         warmup_addresses.update(addresses)
         warmup_profiles.append(profile)
     warmup_alias_count = 0
+    total_ready_texture_returns = 0
     for source in package:
         original = source.read_bytes()
         source_digest = sha256(original)
@@ -1357,6 +1376,7 @@ def main() -> int:
          matching_byte_loops, loader_byte_loops, repeated_lines, decimal_prefixes, decimal_products, decimal_conversions,
          mapped_grid_calls, mapped_intersections) = adapt_source(original, grid_predicate)
         scene_line_batches = 0
+        adapted, ready_texture_returns = instrument_ready_texture(original, adapted, shard_numbers.get(source, -1))
         if scene_lines:
             adapted, scene_line_batches = lower_scene_line_batches(adapted, shard_numbers.get(source, -1))
         for profile, names in zip(warmup_profiles, warmup_batches):
@@ -1397,6 +1417,7 @@ def main() -> int:
                 "matchingByteLoopCount": matching_byte_loops,
                 "loaderByteLoopCount": loader_byte_loops,
                 "sceneLineBatchCount": scene_line_batches,
+                "readyTextureReturnCount": ready_texture_returns,
                 "repeatedLineCount": repeated_lines,
                 "decimalPrefixCount": decimal_prefixes,
                 "decimalProductCount": decimal_products,
@@ -1419,6 +1440,7 @@ def main() -> int:
         total_matching_byte_loops += matching_byte_loops
         total_loader_byte_loops += loader_byte_loops
         total_scene_line_batches += scene_line_batches
+        total_ready_texture_returns += ready_texture_returns
         total_repeated_lines += repeated_lines
         total_decimal_prefixes += decimal_prefixes
         total_decimal_products += decimal_products
@@ -1446,6 +1468,7 @@ def main() -> int:
         "matchingByteLoopCount": total_matching_byte_loops,
         "loaderByteLoopCount": total_loader_byte_loops,
         "sceneLineBatchCount": total_scene_line_batches,
+        "readyTextureReturnCount": total_ready_texture_returns,
         "repeatedLineCount": total_repeated_lines,
         "decimalPrefixCount": total_decimal_prefixes,
         "decimalProductCount": total_decimal_products,

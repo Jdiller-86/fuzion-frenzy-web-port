@@ -38,6 +38,13 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         "    virtual void WaitResource(uint32_t /*resource*/, uint32_t /*slotBase*/ = 0, uint32_t /*slotBytes*/ = 0) {}",
         "Pass an optional observed vertex slot through the wait diagnostic",
     )
+    backend = _replace_once(backend, '#include "gpu/state.h"\n',
+        '#include "gpu/state.h"\n\nnamespace ff_browser_texture { struct Source; }\n',
+        "Declare the borrowed packed-texture input")
+    backend = _replace_once(backend, '    virtual void Sync(uint32_t data_va, uint32_t size) = 0;\n',
+        '    virtual void Sync(uint32_t data_va, uint32_t size) = 0;\n'
+        '    virtual void QueueWarmTexture(const ff_browser_texture::Source&) {}\n',
+        "Default to ordinary first-use decode on direct backends")
     render = _replace_once(render,
         "    uint32_t Put(const void* p, size_t n) {\n        size_t at =",
         "    uint32_t Put(const void* p, size_t n) {\n        if(n>128u*1024*1024 || cur_->bytes.size()>256u*1024*1024-n-3) std::abort();\n        size_t at =",
@@ -193,7 +200,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     render = _replace_once(
         render,
         'namespace gpu {\n',
-        '#include "full-memory.h"\n#include "render-page-fences.h"\n\n'
+        '#include "full-memory.h"\n#include "render-page-fences.h"\n#include "texture-warmup.h"\n#include <new>\n\n'
         'const uint8_t* ff_sdk_try_guest_ptr(uint32_t va, size_t bytes) noexcept;\n'
         'bool ff_browser_pacing_timing_enabled();\n'
         'int ff_browser_resource_fence_mode();\n'
@@ -450,6 +457,29 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         '    void Run() {\n        ff_webgl_begin_recorded_draws();\n',
         "Enable draw preparation reuse on the command consumer",
     )
+    render = _replace_once(render, '    std::deque<Batch*> queue_;\n',
+        '    std::deque<Batch*> queue_;\n'
+        '    std::deque<std::unique_ptr<ff_browser_texture::Work>> warm_textures_;\n',
+        "Only the existing preparation worker consumes early textures")
+    render = _replace_once(render,
+        '    bool Init(uint32_t width, uint32_t height) override { return inner_->Init(width, height); }\n',
+        '''    void QueueWarmTexture(const ff_browser_texture::Source& source) override {
+        auto work = ff_browser_texture::Copy(source);
+        if (!work) return;
+        {
+            std::unique_lock lock(m_, std::try_to_lock);
+            if (!lock.owns_lock() || stop_) return;
+            try {
+                warm_textures_.push_back(std::move(work));
+            } catch (const std::bad_alloc&) {
+                return;
+            }
+        }
+        cv_.notify_one();
+    }
+
+    bool Init(uint32_t width, uint32_t height) override { return inner_->Init(width, height); }
+''', "Publish an owned copy without waiting on the render queue")
     render = _replace_once(
         render,
         """        for (;;) {
@@ -465,11 +495,23 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         """        Batch* b = nullptr;
         for (;;) {
             if (!b) {
-                std::unique_lock lock(m_);
-                cv_.wait(lock, [&] { return stop_ || !queue_.empty(); });
-                if (queue_.empty()) break;
-                b = queue_.front();
-                queue_.pop_front();
+                std::unique_ptr<ff_browser_texture::Work> warm;
+                {
+                    std::unique_lock lock(m_);
+                    cv_.wait(lock, [&] { return stop_ || !queue_.empty() || !warm_textures_.empty(); });
+                    if (!queue_.empty()) {
+                        b = queue_.front();
+                        queue_.pop_front();
+                    } else {
+                        if (stop_) break;
+                        warm = std::move(warm_textures_.front());
+                        warm_textures_.pop_front();
+                    }
+                }
+                if (warm) {
+                    ff_browser_texture::Prepare(std::move(warm));
+                    continue;
+                }
             }
             for (const Cmd& c : b->cmds) Execute(*b, c);""",
         "Wait for a batch only when none was taken at completion",
@@ -505,6 +547,11 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         "HLE_STDCALL(D3D_BlockOnResource, 1) {",
         '#include "guest-vertex-lock.inc"\n\nbool ff_browser_pacing_timing_enabled();\n'
         'int ff_browser_resource_fence_mode();\n\n'
+        '#include "texture-warmup.h"\n\n'
+        'void ff_browser_queue_warm_texture(const ff_browser_texture::Source& source) {\n'
+        '    std::lock_guard<std::recursive_mutex> lock(g_lock);\n'
+        '    if (g_backend) g_backend->QueueWarmTexture(source);\n'
+        '}\n\n'
         "HLE_STDCALL(D3D_BlockOnResource, 1) {",
         "Use the checked title vertex lock observer only on the browser",
     )

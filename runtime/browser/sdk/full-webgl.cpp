@@ -2,6 +2,7 @@
 // consumed them, synchronously or through the bounded pipelined handoff.
 #include "full-webgl.h"
 #include "full-memory.h"
+#include "texture-warmup.h"
 #include "gpu/texture.h"
 #include "gpu/shaders.h"
 #include "gpu/vertex.h"
@@ -399,7 +400,7 @@ const uint32_t* ff_webgl_palette(uint32_t header, uint64_t& hash) {
     }
     hash=p.hash;return p.colors.data();
 }
-void ff_webgl_advance_frame() { ++frame; }
+void ff_webgl_advance_frame() { ff_browser_texture::Expire(++frame); }
 void ff_webgl_target(const gpu::Surface& surface, bool depth) {
     gpu::TextureDesc d;
     if (!gpu::DescribeSurface(surface, d) || !d.width || !d.height || d.width > 4096 || d.height > 4096) std::abort();

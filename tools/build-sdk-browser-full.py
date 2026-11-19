@@ -195,7 +195,8 @@ def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
     runtime = [path for path in runtime if path.name != 'memory.cpp']
     runtime += [overlay / 'core/log.cpp']
     runtime += [overlay / ('gpu/' + name) for name in ['texture.cpp', 'vertex.cpp', 'shaders.cpp', 'render_thread.cpp']]
-    runtime += [ROOT / ('runtime/browser/sdk/' + name) for name in ['full-memory.cpp', 'full-platform.cpp', 'full-entry.cpp', 'full-webgl.cpp']]
+    runtime += [ROOT / ('runtime/browser/sdk/' + name) for name in
+                ['full-memory.cpp', 'full-platform.cpp', 'full-entry.cpp', 'full-webgl.cpp', 'texture-warmup.cpp']]
     # The reference renderer uses kernel::HostPtr, already translated by the overlay.
     reference = work / 'reference_renderer.cpp'
     reference_text = (sdk / 'harness/reference_renderer.cpp').read_text()
@@ -262,6 +263,7 @@ def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
     reference_text = '// Authored vertex bridge: ' + bridge_hash + '\n#include "full-webgl.h"\n#include "full-memory.h"\n#include <array>\n#include <cmath>\n#include <limits>\n#include <optional>\n#include <tuple>\n#include <utility>\nbool ff_webgl_equal_bytes(const void*,const void*,size_t);\nconst uint32_t* ff_webgl_palette(uint32_t, uint64_t&);\nconst float* ff_webgl_program_constants(const void*,const float*);\nvoid ff_webgl_image_owner(const void*,uint64_t,const std::shared_ptr<const void>&,uint32_t,uint32_t,bool);\nbool ff_webgl_gpu_vertex_enabled();\nconst char* ff_webgl_vertex_source(const gpu::State&,uint32_t,uint64_t,uint32_t);\nconst char* ff_webgl_fixed_source(const gpu::State&,uint32_t,bool,uint64_t,uint32_t);\nnamespace gpu { struct Assembled; struct PixelKey; }\nstd::string ff_webgl_pixel_source(const gpu::PixelKey&);\nuint64_t ff_webgl_begin_prepare_raw_draw();\nbool ff_webgl_reuse_raw_draw(const gpu::Assembled&, uint64_t);\nbool ff_webgl_draw_raw(const gpu::Assembled&,const uint32_t*,const float*,const char*,const uint32_t*,const uint32_t*,uint64_t);\nfloat* ff_webgl_fixed_constants(const gpu::State&,uint32_t,uint32_t);\n' + reference_text.replace(anchor,evaluated_vertex+anchor)
     texture_interface = '''#include <memory>
 #include "gpu/texture.h"
+#include "texture-warmup.h"
 namespace gpu {
 std::shared_ptr<uint8_t[]> DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const uint32_t*);
 #ifdef FF_BROWSER_TEXTURE_PROBE
@@ -294,8 +296,12 @@ void BrowserTextureProbeMark(double, unsigned, unsigned, unsigned, unsigned, uns
             source_flags.append('-DFF_BROWSER_DISPATCHER_PROBE')
         if args.scene_timing and source in (overlay / 'gpu/texture.cpp', reference):
             source_flags.append('-DFF_BROWSER_TEXTURE_PROBE')
+        if args.scene_timing and source.name == 'texture-warmup.cpp':
+            source_flags.append('-DFF_BROWSER_TEXTURE_WARMUP_PROBE')
         source_digest=digest(source)
         if source.name=='full-webgl.cpp':source_digest+=digest(work/'fixed-constants.inc')
+        if source.name == 'texture-warmup.cpp':
+            source_digest += digest(ROOT / 'runtime/browser/sdk/guest-ready-texture.inc')
         if source == overlay / 'xdk/d3d8.cpp':
             source_digest += digest(ROOT / 'runtime/browser/sdk/guest-vertex-lock.inc')
         signature = hashlib.sha256(json.dumps([common, source_flags, compiler_version, header_signature, source_digest]).encode()).hexdigest()

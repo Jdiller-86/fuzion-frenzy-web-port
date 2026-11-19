@@ -6,6 +6,8 @@ The original title executes in WebAssembly and renders through WebGL2. This is a
 
 Run `python tools/serve-sdk-browser.py --open --port 8765`, select a compatible local ISO and Start game. GPU rendering is the default; the slower software diagnostic is under Compatibility options. The game fills the window while preserving its original aspect ratio. F1 opens host controls; it does not pause the guest.
 
+For the early texture decode trial, serve the working module and open `/sdk-browser/?earlyTextureDecode=1`. Use threaded WebGL preparation. [Timing and admission](#prepare-validated-packed-textures-early)
+
 Stop the game and serve the existing module directly for development. Rebuild into the same output from the retained `.worktrees/browser-gpu` layout in WSL.
 
 ```sh
@@ -1262,7 +1264,22 @@ A focused replay at `516348f` joined the opening misses to the registration call
 
 The reviewed `0x00041A10` loader obtains the full packed resource through `0x0004E390`, then constructs and registers its frame descriptors in `0x00041890`. The full byte length is in the selected `0x0004E150` package table row. Resident resources can be views into their package. Other registration callers can allocate unfilled textures or render targets, so admission should use the verified loader return and the full resource span.
 
-Start the early-decode experiment at `0x00041A3F` with checked, owned A1R5G5B5 payloads inside the resource's recorded length. Give existing render preparation priority over speculative work. First sampling must validate the full descriptor and exact encoded bytes even within the same frame and dirty epoch. Use the usual decode whenever a completed match is unavailable. Later byte validation can be replaced by generations only after all guest aliases and allocation reuse are covered by invalidation.
+### Prepare validated packed textures early
+
+The opt-in browser path snapshots checked A1R5G5B5 texture spans at the digest-matched successful loader return `0x00041A3F`. Admission checks the source package row, full resource span, frame stride, canonical backing and native descriptor. A job is limited to 512×512 and 1 MiB encoded. The queue reserves up to 24 MiB for encoded and decoded data, with a minimum charge per job. The existing preparation worker decodes owned snapshots when the recorded queue is empty. Unused results expire after eight frames. At a real cache miss, adoption matches the descriptor and every encoded byte, including mip data. A mismatch or unfinished job uses the ordinary path. Independent review covered source bounds, ownership, queue priority, stop behavior and the adopted cache entry. [Worker and cache handoff](../runtime/browser/sdk/texture-warmup.cpp)
+
+The first Erodeo pair used the same Wasm on integrated Radeon with two desktop cores and both siblings. The enabled path adopted 154 snapshots and opening decode and copy CPU fell from **7.87 to 5.57 ms**. Whole-frame acknowledgement measured **34.39 and 37.40 ms**. Encoded workload and scheduling varied between runs.
+
+The reversed pair used the same module and matched all 270 texture cache misses, including format counts, encoded and decoded byte totals, and 271 WebGL uploads. The enabled path adopted 155 exact matches (5,142,016 encoded bytes), with zero rejections in the opening frame. The worker completed 203 early jobs with **3.90 ms** of measured decode CPU before enqueue. Both pairs reached original gameplay and stopped normally with zero live links or blocking validations.
+
+| Opening frame measurement in the reversed pair | Ordinary | Early decode |
+| --- | ---: | ---: |
+| A1R5G5B5 decode and copy CPU at the draw | 6.10 ms | 3.38 ms |
+| All texture decode and copy CPU at the draw | 7.30 ms | 4.70 ms |
+| Time before render enqueue | 22.78 ms | 17.08 ms |
+| Frame acknowledgement gap | 35.63 ms | 29.30 ms |
+
+Both pairs reduced decode and copy time at the draw. Whole-frame timing varied, so keep the path opt-in with `?earlyTextureDecode=1`. The next comparison should attribute the title-thread copy cost and count prepared jobs that expire or arrive too late before widening admission. The working Wasm SHA-256 is `0023c59922a6dd1c9bef672d06743148cb7396a3278b2b91363f639688c46c99`. The local replay and summaries are under `artifacts/browser-gpu/early-packed-decode/`.
 
 The requested later target is consistent 120 FPS after stable 60 FPS frame timing. `app::Pace` in `runtime/browser/sdk/full-platform.cpp` reads `app::Get().fps_cap`, while the SDK `VerticalBlank` loop still schedules 16,667 us guest events and callbacks. The timer adjustment keeps both deadlines and the blank event sequence. A 120 FPS implementation needs an 8.33 ms render budget and evidence that input, physics, animation and game timers retain their original behavior; raising a cap or doubling guest blank callbacks alone does not establish this.
 
