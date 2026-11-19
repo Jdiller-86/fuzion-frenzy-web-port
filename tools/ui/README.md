@@ -12,7 +12,7 @@ generated instruction indexes and recipes stay in Git-ignored output directories
 
 Run from the latest Windows-rendering-fix checkout. Requirements are project-pinned
 Node **24.14.0**, Python 3 with **Pillow** (the recorded pilot used 12.2.0), Git,
-the compatible player-supplied loose game tree/disc, and the matching retained
+the compatible player-supplied disc, and the matching retained
 native generated source. No game data or generated title code is supplied here.
 The native reference is pinned to `071dbd97bdc098c4647cc24c99f9eae693fde1eb`;
 SDK `58757ab255c0a6b3929f405d7a5f1567fcd7fda3` plus the rendering patches in
@@ -24,7 +24,6 @@ repository's Git revision.
 
 ```powershell
 ./tools/ui/Build-Inventory.ps1 `
-  -SourceTree '<loose supplied game folder>' `
   -NativeSource '<matching retained fuzion-native source>' `
   -SdkSource '<matching SDK with published rendering repairs>' `
   -DiscImage '<the disc used by the native reference>' `
@@ -32,6 +31,12 @@ repository's Git revision.
   -OutputRoot '<project>/artifacts' `
   -NodeExe '<Node 24.14.0>/node.exe'
 ```
+
+The default reads the compatible XISO by staging `default.xbe` and the XBP
+files under `Packages/` in one ignored `ui-source-scratch` directory.
+The wrapper removes that directory when the run finishes or fails.
+After a forced termination, clear that scratch directory once the process has
+stopped. Pass `-SourceTree` to reuse a loose input tree you already have.
 
 This runs extraction → full package metadata census → original-source reference/vtable index → bounded geometry
 views → font-container check → evidence join → disc/input verification → static

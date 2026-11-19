@@ -58,14 +58,16 @@ From the repository root:
 ```sh
 source .tools/emscripten-env.sh
 python3 tools/build-sdk-browser-full.py --opt=-O3 --jobs 2
-python3 tools/package-sdk-browser.py
 python3 tools/serve-sdk-browser.py --open
 ```
 
 The builder trims generated ThinLTO cache entries to 128 MiB after the linker
 exits, including entries from the current job.
-Successful full builds remove stale generated objects. Keep one current package
-and reuse one scratch directory for transient browser evidence. [Browser build storage](../AGENTS.md#browser-build-storage)
+Successful full builds remove stale generated objects. Run the host against
+the current module directly during development. Use
+`python3 tools/package-sdk-browser.py` when you need a portable ZIP. Keep one
+current package and reuse one scratch directory for transient browser evidence.
+[Browser build storage](../AGENTS.md#browser-build-storage)
 
 The existing Node host, `node tools/serve-sdk-browser.mjs`, serves the same page.
 Both hosts bind loopback and expose only explicit source/module routes. They

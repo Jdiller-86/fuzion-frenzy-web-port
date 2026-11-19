@@ -66,6 +66,7 @@ Run `npm run check` for preparation/publication contracts and `git diff --check`
 
 - Keep the working module in `.tools/artifacts/sdk-browser-full` and reuse at most one candidate output at `.tools/artifacts/sdk-browser-candidate`.
 - Keep one launchable browser package. Reuse `artifacts/browser` for the current archive and launcher on the next package update. Verify the new launcher before removing the previous package.
+- Serve the working module directly for development. Package a ZIP only when a portable copy is needed. Mount the local disc in the browser. For UI inventory, use the wrapper's disposable package input from the XISO.
 - Use disposable browser profiles for replays. When a replay needs persistence, reuse a profile inside `artifacts/browser-gpu/scratch`. Keep raw captures, screenshots, test modules, and server logs in that same scratch directory. Stop the replay's processes and clear the verified scratch directory after each batch, including failed runs. Keep compact measurement summaries and the source recipe needed to reproduce them.
 
 ## Content, analysis, and publication
