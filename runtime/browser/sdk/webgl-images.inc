@@ -200,7 +200,7 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         const size_t image_payload=image->gpu_encoding?image->gpu_pixel_capacity:image->texels[0].capacity()*sizeof(Vec);
         if(bytes>limit||image_payload>limit-bytes||metadata>limit-bytes-image_payload)std::abort();
         BrowserImageReserve(bytes+image_payload+metadata,frame);
-        if (g_browser_image_version == std::numeric_limits<uint64_t>::max()) std::abort();
+        if (g_browser_image_version == ff_browser_texture::kUploadVersionBit - 1) std::abort();
         BrowserImageEntry entry;
 #ifdef FF_BROWSER_TEXTURE_PROBE
         mark(2);
@@ -214,7 +214,9 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         entry.owner=entry.image;
         entry.epoch = epoch;
         entry.checked_frame = frame;
-        entry.version = ++g_browser_image_version;
+        entry.version = warm && warm->upload_token
+            ? ff_browser_texture::kUploadVersionBit | warm->upload_token
+            : ++g_browser_image_version;
         entry.accounted = bytes + image_payload + metadata;
         BrowserImageReserve(entry.accounted,frame);
         g_browser_image_bytes += entry.accounted;

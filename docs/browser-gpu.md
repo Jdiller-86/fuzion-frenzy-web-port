@@ -8,6 +8,8 @@ Run `python tools/serve-sdk-browser.py --open --port 8765`, select a compatible 
 
 For the early texture decode trial, serve the working module and open `/sdk-browser/?earlyTextureDecode=1`. Use threaded WebGL preparation. [Timing and admission](#prepare-validated-packed-textures-early)
 
+Use `/sdk-browser/?earlyTextureUpload=1` to also stage WebGL uploads. This option enables early decode and uses threaded, pipelined WebGL. [Upload comparison](#stage-verified-early-textures-in-webgl)
+
 Stop the game and serve the existing module directly for development. Rebuild into the same output from the retained `.worktrees/browser-gpu` layout in WSL.
 
 ```sh
@@ -1304,7 +1306,25 @@ One same-Wasm Erodeo pair on integrated Radeon and two desktop cores compared th
 | Opening acknowledgement gap | 38.64 ms | 37.41 ms |
 | Preceding plus opening acknowledgement gaps | 58.77 ms | 57.04 ms |
 
-The new budget supplied fourteen more validated textures at first use. The timing pair supports less texture preparation at the draw and leaves the effect on whole-frame pacing uncertain. Exact charging is used with `?earlyTextureDecode=1`. The working Wasm SHA-256 is `72fc6335237d28ab4cdd639591a5bb607258079de054875ce7de445c64f9f20f`. Private summaries and replay are under `artifacts/browser-gpu/early-packed-charge/`.
+The new budget supplied fourteen more validated textures at first use. The timing pair supports less texture preparation at the draw and leaves the effect on whole-frame pacing uncertain. Exact charging is used with `?earlyTextureDecode=1`. The comparison Wasm had SHA-256 `72fc6335237d28ab4cdd639591a5bb607258079de054875ce7de445c64f9f20f`. Private summaries and replay are under `artifacts/browser-gpu/early-packed-charge/`.
+
+### Stage verified early textures in WebGL
+
+The opt-in path gives each texture queued for staging a unique token. The preparation worker posts immutable RGBA views in one asynchronous flight slot and holds its owners until the WebGL worker acknowledges the callback. Pending and in-flight RGBA pins each have an 8 MiB limit. Each callback has limits of 32 staged images and 2 MiB. It uses the ordinary RGBA upload and restores the active binding. Staged GPU objects have a separate 256-job, 16 MiB payload cap and expire after eight frames. Stop and context loss clear the staging cache.
+
+The ordinary draw packet carries the reserved version token only after the CPU texture descriptor and complete encoded bytes match live guest memory. At an ordinary WebGL cache miss the renderer also checks the token, backing and dimensions and then transfers the staged object. Existing cache entries, render targets, skipped stages and expired results use their normal paths. Independent review checked the asynchronous ownership and version separation. A staging callback can still precede a regular frame on the same worker, with work bounded by the per-callback cap. [Staging and draw adoption](../web/sdk-browser/webgl-renderer.mjs)
+
+One same-Wasm Erodeo pair compared early decode alone with early decode and upload. With both hardware threads on each of two desktop cores and integrated Radeon, the upload run staged **188** textures in eight callbacks, all before the previous frame acknowledgement. Those callbacks took **2.24 ms** of elapsed time in total and **0.47 ms** at most. The opening draw adopted **140** staged textures totaling **6,131,712 RGBA bytes**. Both replays reached original gameplay and stopped cleanly with zero live shader links or blocking validations.
+
+| Opening measurement | Early decode | Early decode and upload |
+| --- | ---: | ---: |
+| Ordinary WebGL uploads during drawing | 271 | 130 |
+| WebGL worker CPU | 11.95 ms | 7.36 ms |
+| Time before render enqueue | 17.72 ms | 22.45 ms |
+| Opening acknowledgement gap | 33.25 ms | 30.91 ms |
+| Preceding plus opening acknowledgement gaps | 55.59 ms | 53.54 ms |
+
+The replay workloads differed by one total texture and by format mix. Staging clearly removed uploads from the first draw, while variation before enqueue limits the whole-frame comparison. Keep `?earlyTextureUpload=1` opt-in and attribute the remaining pre-enqueue time before expanding the upload path. The working Wasm SHA-256 is `957007191b2b5a8f3bb921b1cd5dc1f580409821a03fea16a54782b634b01ff9`. The local replay and summaries are under `artifacts/browser-gpu/early-webgl-upload/`.
 
 The requested later target is consistent 120 FPS after stable 60 FPS frame timing. `app::Pace` in `runtime/browser/sdk/full-platform.cpp` reads `app::Get().fps_cap`, while the SDK `VerticalBlank` loop still schedules 16,667 us guest events and callbacks. The timer adjustment keeps both deadlines and the blank event sequence. A 120 FPS implementation needs an 8.33 ms render budget and evidence that input, physics, animation and game timers retain their original behavior; raising a cap or doubling guest blank callbacks alone does not establish this.
 

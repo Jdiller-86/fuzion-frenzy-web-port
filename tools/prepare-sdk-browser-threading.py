@@ -513,6 +513,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
                     continue;
                 }
             }
+            ff_browser_texture::FlushUploads();
             for (const Cmd& c : b->cmds) Execute(*b, c);""",
         "Wait for a batch only when none was taken at completion",
     )

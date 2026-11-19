@@ -12,6 +12,11 @@ const WARMUP_POLL_INTERVAL_MS = 8;
 const WARMUP_DRAW_BATCH = 4;
 const PROMOTION_UPLOAD_BURST_BYTES = 1024 * 1024;
 const PROMOTION_SETTLE_FRAMES = 8;
+const EARLY_IMAGE_BYTES = 16 * 1024 * 1024;
+const EARLY_IMAGE_JOBS = 256;
+const EARLY_IMAGE_LIFETIME = 8;
+const EARLY_IMAGE_BATCH_UPLOADS = 32;
+const EARLY_IMAGE_BATCH_BYTES = 2 * 1024 * 1024;
 const PIXEL_UNIFORMS = [
   ['surf',0,4],['fogcolor',4,4],['misc',8,4],['pc',12,72],['tfactor',84,4],
   ['texsize',88,16],['bumpmat',104,16],['bumplum',120,16],['uvrect',136,16],
@@ -114,6 +119,7 @@ export class WebGLRenderer {
     this.fragmentShaders=new Map();
     this.programVariants=new Map();
     this.targets = new Map(); this.images = new Map(); this.programs = new Map(); this.frame = 0;
+    this.stagedImages = new Map(); this.stagedImageBytes = 0;
     if(gpuTiming) {
       const ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
       const bits=ext?gl.getQuery(ext.TIME_ELAPSED_EXT,ext.QUERY_COUNTER_BITS_EXT):0;
@@ -155,6 +161,7 @@ void main() {
       e.preventDefault();
       this.contextLost = true;
       this.deferGpuErrors = false;
+      this.clearStagedImages();
       this.cancelShaderPromotion();
       this.cancelFrameErrorCheck();
       this.disposeGpuTiming();
@@ -257,6 +264,85 @@ void main() {
     }
     this.uploadImagePixels(image, width, height, rgba);
     return false;
+  }
+  clearStagedImages() {
+    for (const image of this.stagedImages.values()) this.gl.deleteTexture(image.texture);
+    this.stagedImages.clear();
+    this.stagedImageBytes = 0;
+  }
+  expireStagedImages() {
+    for (const [token, image] of this.stagedImages) {
+      if (this.frame - image.stagedFrame < EARLY_IMAGE_LIFETIME) continue;
+      this.gl.deleteTexture(image.texture);
+      this.stagedImages.delete(token);
+      this.stagedImageBytes -= image.bytes;
+    }
+  }
+  stageOrdinaryImages(ptr, count) {
+    const started = this.measurePacing ? performance.now() : 0;
+    if (this.frameError) throw this.frameError;
+    if (this.contextLost) throw new Error('Cannot stage textures after graphics context loss');
+    if (!Number.isInteger(count) || count < 0 || count > 128 || (ptr & 3))
+      throw new Error('Invalid early texture batch');
+    const rows = this.wordView(ptr, count * 6), unique = new Map();
+    for (let i = 0; i < count; ++i) {
+      const row = i * 6, token = rows[row], address = rows[row + 1];
+      const width = rows[row + 2], height = rows[row + 3], pointer = rows[row + 4], bytes = rows[row + 5];
+      if (!token || address >= 256 * 1024 * 1024 || !width || width > 512 || !height || height > 512 ||
+          width > this.maxTextureSize || height > this.maxTextureSize || !pointer || bytes !== width * height * 4)
+        throw new Error('Invalid early texture image');
+      this.checkedHeapSpan(pointer, bytes);
+      const previous = unique.get(token) || this.stagedImages.get(token);
+      if (previous && (previous.address !== address || previous.width !== width ||
+          previous.height !== height || previous.bytes !== bytes)) throw new Error('Early texture token identity mismatch');
+      if (!unique.has(token)) unique.set(token, {token, address, width, height, pointer, bytes});
+    }
+    this.expireStagedImages();
+    const jobs = [];
+    let bytes = 0;
+    for (const job of unique.values()) {
+      if (this.stagedImages.has(job.token) || this.targets.has(job.address & 0x1fffffff) ||
+          this.images.has(`${job.address}:${job.width}:${job.height}:1`)) continue;
+      if (jobs.length >= EARLY_IMAGE_BATCH_UPLOADS || bytes + job.bytes > EARLY_IMAGE_BATCH_BYTES ||
+          this.stagedImages.size + jobs.length >= EARLY_IMAGE_JOBS ||
+          this.stagedImageBytes + bytes + job.bytes > EARLY_IMAGE_BYTES) continue;
+      jobs.push(job);
+      bytes += job.bytes;
+    }
+    const g = this.gl, created = [];
+    if (jobs.length) {
+      // Use and restore the actual current unit, including its actual binding.
+      // No heap view, framebuffer, sampler or ordinary image is retained here.
+      const active = g.getParameter(g.ACTIVE_TEXTURE), binding = g.getParameter(g.TEXTURE_BINDING_2D);
+      const unit = active - g.TEXTURE0;
+      let complete = false;
+      try {
+        for (const job of jobs) {
+          const texture = g.createTexture();
+          if (!texture) throw new Error('Early texture allocation failed');
+          const image = {...job, texture, frame: -1, stagedFrame: this.frame, hashLo: job.token, hashHi: 0x80000000};
+          // Drop the borrowed pointer before publishing a staged GL object.
+          delete image.pointer;
+          created.push(image);
+          g.bindTexture(g.TEXTURE_2D, texture);
+          this.uploadOrdinaryImage(image, 1, job.pointer, job.width, job.height, job.bytes);
+        }
+        complete = true;
+      } finally {
+        g.activeTexture(active);
+        g.bindTexture(g.TEXTURE_2D, binding);
+        this.activeUnit = unit;
+        this.boundTextures[unit] = binding;
+        if (!complete) for (const image of created) g.deleteTexture(image.texture);
+      }
+      for (const image of created) this.stagedImages.set(image.token, image);
+      this.stagedImageBytes += bytes;
+      // Submit the bounded upload prefix while C++ prepares later commands.
+      g.flush();
+    }
+    if (this.measurePacing)
+      console.timeStamp?.(`ff-early-image-upload:${created.length}:${bytes}:${performance.now() - started}`);
+    return true;
   }
   capacity(current,required,limit) {
     if(required>limit)throw new Error('GPU geometry budget exceeded');
@@ -1492,6 +1578,7 @@ void main() {
           // Versioned SDK pixels have immutable owners until this batch is
           // consumed. Encoding is independent of the guest texture layout.
           const format=tx[base+5],encoding=format>>>8,width=tx[base+3],height=tx[base+4];
+          const hashLo=tx[base+11],hashHi=tx[base+12];
           if((format&255)!==1||encoding>1)throw new Error('Unsupported GPU image encoding');
           const slot = imageSlots?.[t];
           if (slot?.image && slot.address === address && slot.width === width &&
@@ -1500,7 +1587,20 @@ void main() {
           } else {
             const key=`${address}:${width}:${height}:${encoding}`;
             image=this.images.get(key);
-            if(!image){if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');image={texture:g.createTexture(),frame:-1};this.images.set(key,image);}
+            if(!image){
+              if(this.images.size>=4096)throw new Error('GPU texture cache budget exceeded');
+              const staged=encoding===1&&hashHi===0x80000000?this.stagedImages.get(hashLo):undefined;
+              if(staged&&staged.address===address&&staged.width===width&&staged.height===height&&
+                  this.frame-staged.stagedFrame<EARLY_IMAGE_LIFETIME){
+                image=staged;
+                this.stagedImages.delete(hashLo);this.stagedImageBytes-=staged.bytes;
+                if(this.frameStats){
+                  this.frameStats.earlyTextureAdoptions=(this.frameStats.earlyTextureAdoptions??0)+1;
+                  this.frameStats.earlyTextureAdoptedBytes=(this.frameStats.earlyTextureAdoptedBytes??0)+staged.bytes;
+                }
+              } else image={texture:g.createTexture(),frame:-1};
+              this.images.set(key,image);
+            }
             if (slot) {
               slot.address = address;
               slot.width = width;
@@ -1510,7 +1610,6 @@ void main() {
             }
           }
           this.bindTexture(t,image.texture);
-          const hashLo=tx[base+11],hashHi=tx[base+12];
           if(image.hashLo!==hashLo || image.hashHi!==hashHi){
             this.bindTexture(t,image.texture,true);
             const size=width*height*4,pixelsPointer=tx[base+6];
@@ -1602,6 +1701,7 @@ void main() {
     this.endGpuTimer();
     this.boundAttachments=null;this.lastState=undefined;
     ++this.frame;
+    if (this.stagedImages.size) this.expireStagedImages();
     if (this.usedFallbackThisFrame) {
       this.shaderStats.fixedFallbackFrames++;
       this.usedFallbackThisFrame = false;
