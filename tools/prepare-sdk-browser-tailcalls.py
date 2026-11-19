@@ -55,6 +55,9 @@ SCENE_LINES_HELPER = ROOT / "runtime/browser/sdk/guest-scene-lines.inc"
 GUEST_BINDING_HELPER = ROOT / "runtime/browser/sdk/guest-function-binding.inc"
 CODE_WARMUP_HELPER = ROOT / "runtime/browser/sdk/guest-code-warmup.h"
 CODE_WARMUP_PROFILE = ROOT / "profiles/browser-code-warmup.json"
+CODE_WARMUP_EXTRA_PROFILE = ROOT / "profiles/browser-code-warmup-extra.json"
+CODE_WARMUP_BATCH_LIMIT = 256
+CODE_WARMUP_EXTRA_LIMIT = 64
 REPEATED_LINE_HELPER = ROOT / "runtime/browser/sdk/guest-repeated-line.inc"
 DECIMAL_PREFIX_HELPER = ROOT / "runtime/browser/sdk/guest-decimal-prefix.inc"
 INTERSECTION_HELPER = ROOT / "runtime/browser/sdk/guest-intersection-spans.inc"
@@ -404,8 +407,8 @@ def prepare_code_warmup(original: bytes, adapted: bytes, records: dict[str, str]
     return adapted, admitted, alias_count
 
 
-def emit_code_warmup(names: list[bytes]) -> bytes:
-    entry = b'\nextern "C" unsigned ff_browser_warm_guest_code() {\n'
+def emit_code_warmup(names: list[bytes], symbol: bytes) -> bytes:
+    entry = b'\nextern "C" unsigned ' + symbol + b'() {\n'
     if not names:
         return entry + b"    return 0;\n}\n"
     declarations = b"".join(b"X86_EXTERN_FUNC(" + name + b");\n" for name in names)
@@ -1151,10 +1154,19 @@ def main() -> int:
         grid_predicate = grid_rejection_source(shards[54][1].read_bytes())
     scene_lines = scene_line_batch_available(shards)
     shard_numbers = {path: number for number, path in shards}
-    warmup_profile = json.loads(CODE_WARMUP_PROFILE.read_text(encoding="utf-8"))
-    if sum(map(len, warmup_profile.values())) > 256:
-        raise ValueError("guest code warmup target limit exceeded")
-    warmup_names: list[bytes] = []
+    warmup_batches: list[list[bytes]] = [[], []]
+    warmup_profiles = []
+    warmup_addresses = set()
+    for profile_path, limit in ((CODE_WARMUP_PROFILE, CODE_WARMUP_BATCH_LIMIT),
+                                (CODE_WARMUP_EXTRA_PROFILE, CODE_WARMUP_EXTRA_LIMIT)):
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        addresses = [address for records in profile.values() for address in records]
+        if len(addresses) > limit:
+            raise ValueError("guest code warmup target limit exceeded")
+        if len(set(addresses)) != len(addresses) or warmup_addresses.intersection(addresses):
+            raise ValueError("duplicate guest code warmup target")
+        warmup_addresses.update(addresses)
+        warmup_profiles.append(profile)
     warmup_alias_count = 0
     for source in package:
         original = source.read_bytes()
@@ -1165,16 +1177,18 @@ def main() -> int:
         scene_line_batches = 0
         if scene_lines:
             adapted, scene_line_batches = lower_scene_line_batches(adapted, shard_numbers.get(source, -1))
-        warmup_records = warmup_profile.get(str(shard_numbers.get(source)))
-        if warmup_records:
-            adapted, admitted, alias_count = prepare_code_warmup(original, adapted, warmup_records)
-            warmup_names.extend(admitted)
-            warmup_alias_count += alias_count
+        for profile, names in zip(warmup_profiles, warmup_batches):
+            warmup_records = profile.get(str(shard_numbers.get(source)))
+            if warmup_records:
+                adapted, admitted, alias_count = prepare_code_warmup(original, adapted, warmup_records)
+                names.extend(admitted)
+                warmup_alias_count += alias_count
         if b"ff_browser_guest_binding::UsesDefaultImplementation(" in adapted:
             digest = sha256(GUEST_BINDING_HELPER.read_bytes()).encode("ascii")
             adapted = b'// Guest binding helper SHA-256: ' + digest + b'\n#include "guest-function-binding.inc"\n' + adapted
         if source.name == "x86_func_mapping.cpp":
-            adapted += emit_code_warmup(warmup_names)
+            adapted += emit_code_warmup(warmup_batches[0], b"ff_browser_warm_guest_code")
+            adapted += emit_code_warmup(warmup_batches[1], b"ff_browser_warm_guest_code_extra")
         grid_reject_batches = mapped_intersections if grid_predicate is not None else 0
         destination = output / source.name
         temporary = destination.with_name(destination.name + ".tmp")
@@ -1251,7 +1265,8 @@ def main() -> int:
         "mappedIntersectionCount": total_mapped_intersections,
         "mappedGridCallCount": total_mapped_grid_calls,
         "gridRejectBatchCount": total_grid_reject_batches,
-        "guestCodeWarmupCount": len(warmup_names),
+        "guestCodeWarmupCount": sum(map(len, warmup_batches)),
+        "guestCodeWarmupExtraCount": len(warmup_batches[1]),
         "guestCodeWarmupAliasCount": warmup_alias_count,
         "files": records,
     }
@@ -1273,7 +1288,7 @@ def main() -> int:
     print(f"Hoisted memory checks for {total_mapped_intersections} segment intersection bodies")
     print(f"Reused stack spans at {total_mapped_grid_calls} grid intersection calls")
     print(f"Added proven early-rejection batches to {total_grid_reject_batches} grid calls")
-    print(f"Prepared {len(warmup_names)} guest code warmup targets with {warmup_alias_count} public aliases")
+    print(f"Prepared {sum(map(len, warmup_batches))} guest code warmup targets with {warmup_alias_count} public aliases")
     print(f"Combined {total_f32_compares} x87 comparison sequences")
     print(f"Manifest: {manifest_path}")
     return 0

@@ -13,13 +13,13 @@ source ../../.tools/emulation/emsdk/emsdk_env.sh
 python3 tools/build-sdk-browser-full.py \
   --sdk ../../.tools/candidates/xboxxbe-codegen-58757ab \
   --config ../../.tools/candidates/fuzionfrenzy-recomp-071dbd9/config/game.toml \
-  --generated ../../research/verification/sdk-title-bulk-command-20261107/generated \
-  --output .tools/artifacts/sdk-browser-thinlto --jobs 6 --link-opt=-O3 --lto thin
+  --generated research/verification/sdk-title-bulk-command-20261107/generated \
+  --output .tools/artifacts/sdk-browser-candidate --jobs 8 --link-opt=-O3 --lto thin
 # Stop the game before installing a matched JS/Wasm/worker set.
 for name in fuzion-sdk-full.mjs fuzion-sdk-full.wasm fuzion-sdk-full.worker.js full-build-manifest.json; do
-  cp ".tools/artifacts/sdk-browser-thinlto/$name" ".tools/artifacts/sdk-browser-full/$name"
+  cp ".tools/artifacts/sdk-browser-candidate/$name" ".tools/artifacts/sdk-browser-full/$name"
 done
-python3 tools/package-sdk-browser.py
+python3 tools/serve-sdk-browser.py --open
 ```
 
 The pinned SDK is `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`; config checkout `071dbd97bdc098c4647cc24c99f9eae693fde1eb`, `game.toml` SHA-256 `c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f`. The measured build uses Emscripten 3.1.50 / LLVM18, O3 objects/link and native Wasm exceptions. `--exceptions js` preserves the slower development fallback and invalidates the object cache when selected. Build manifests record original title hashes; adapters modify disposable copies only. The published texture-cascade correction is consumed; native D3D12 descriptor-rollover changes remain untouched.
@@ -469,6 +469,12 @@ Public entry thunks for prepared bodies accounted for 7.59 ms of the 9.34 ms res
 The builder now makes 253 untouched weak forwarders aliases of their prepared implementations. Normal calls and guest dispatch still resolve the public symbol, so a strong SDK definition takes precedence. Two pre-existing scene parser aliases and the checked intersection wrapper retain their existing bindings. The focused ThinLTO probe matched default and strong override calls, including indirect dispatch, tail transfer and exception handling.
 
 In the next cold Water Gate Scramble replay on the same desktop, the acknowledgement gaps fell from 44.32 and 22.96 ms to 40.95 and 22.21 ms. Guest-thread compilation across them fell from 9.34 to 2.46 ms. The startup warmup took 15.77 ms, versus 14.74 ms. Steady acknowledgement p95 measured 17.01 ms across 482 pairs, versus 17.06 ms across 483. The comparison used resident shaders to isolate guest execution. Both replays reached keyboard-controlled play and stopped cleanly with zero draw-path links. Scene and scheduling state varied. The 40,280,174-byte Wasm has SHA-256 `68884064efd8c4f7ae5baa353e706ae1e1b82caffcd2e0f33b67267bcea9d32e`.
+
+### Prepare the remaining measured scene-entry functions
+
+Two traces from the preceding Wasm reported the same 50 lazy-compiled functions across the first two Water Gate Scramble entry gaps. Forty-two matched previously unprofiled guest bodies by digest. They now run through the existing no-guest-instruction warmup as a second pass, with a separate 64-function limit. The worker yields and checks for cancellation and context loss between passes. The original pass retains its 256 functions and older modules can still use it alone.
+
+Two fresh foreground Chrome replays on an RX 9070 XT used the same 40,290,250-byte Wasm. Enabling the second pass reduced guest-thread lazy compile events across the two entry gaps from 51 to 11 and time from **3.15 to 0.94 ms**. Observed events for the selected functions fell from 42 to two. The largest acknowledgement gap fell from **38.66 to 33.83 ms** and the following gap was 21.45 versus 21.50 ms. Warmup took 14.49 and 14.37 ms. Steady acknowledgement p95 was 16.96 ms in each run across 482 and 483 pairs. Both used resident shaders, reached keyboard-controlled play with zero live shader links and stopped cleanly. Scene and scheduling state varied between replays. The module SHA-256 is `1a593acbaa1fe2463e46f429853682ff66076e43b6d0d7a52049b804c365bdc3`.
 
 ### Check resolved bindings before parser shortcuts
 

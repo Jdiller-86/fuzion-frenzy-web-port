@@ -285,12 +285,19 @@ async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,pa
   }
   if (guestCodeWarmup !== false && typeof module._ff_browser_warm_guest_code === 'function') {
     report('Preparing original game code…');
-    const start = performance.now();
-    const count = module._ff_browser_warm_guest_code();
-    const elapsed = (performance.now() - start).toFixed(2);
-    postMessage({type:'log',text:`Prepared ${count} guest functions in ${elapsed} ms.`});
-    await new Promise(resolve => setTimeout(resolve, 0));
-    if (cancelled) { stopThreads(module); return; }
+    let count = 0;
+    let elapsed = 0;
+    for (const warmup of [module._ff_browser_warm_guest_code, module._ff_browser_warm_guest_code_extra]) {
+      if (typeof warmup !== 'function') continue;
+      const start = performance.now();
+      count += warmup();
+      elapsed += performance.now() - start;
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (cancelled) { stopThreads(module); return; }
+      if (webgl?.contextLost || webgl?.gl.isContextLost())
+        throw new Error('The graphics context was lost. Start the game again to recreate its resources.');
+    }
+    postMessage({type:'log',text:`Prepared ${count} guest functions in ${elapsed.toFixed(2)} ms.`});
   }
   if (webgl?.contextLost || webgl?.gl.isContextLost())
     throw new Error('The graphics context was lost. Start the game again to recreate its resources.');
