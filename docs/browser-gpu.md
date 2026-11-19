@@ -479,6 +479,19 @@ A temporary probe observed the source span after the original descriptor rewind.
 
 A bounded replay of previously scanned spans should validate only the bytes needed to prove the skip and reconstruct its ordered scratch writes. The existing original line at the end of each skip can still execute. Put ownership at the full loader call so the cache expires even on routes that omit the optional first parser call. Candidate SHA-256 `dec7360fc1314ce55dbe2336619a368eff9e8ba73678b653af696c991404f220`. The recipe and compact summary are under `artifacts/browser-gpu/scene-input-overlap/`. Source snapshots stayed in memory and the temporary build and profile were removed.
 
+### Compare replaying checked scene skips
+
+The trial recorded each skip's cursor advance and ordered scratch suffix writes in a cache scoped to the verified loader call. It matched the live stream span and marker values, then compared bytes through the retained line and its marker lookahead. The original parser still consumed that retained line. A changed prefix or expired scope took the existing scan. Independent review checked bounds, aliases and ownership. A focused Wasm comparison matched **1,800** complete scratch and cursor results, including **778** replay hits and **778** byte-change fallbacks.
+
+Both enabled Water Gate Scramble runs recorded **2,850** hits and **1,463** entries. Hits advanced **1,832,306** bytes and validated **1,895,834** bytes. This reduced the overlapping validation volume from the earlier full-window estimate of **11,461,044** bytes. The three source snapshots occupied **232,522** bytes for the duration of the loader.
+
+| Same-Wasm run order | Parser CPU off | Parser CPU on | Entry acknowledgement off | Entry acknowledgement on |
+| --- | ---: | ---: | ---: | ---: |
+| Off, then on | 12.34 ms | 11.48 ms | 60.51 ms | 43.92 ms |
+| On, then off | 9.22 ms | 12.29 ms | 38.63 ms | 46.20 ms |
+
+Each run timed 13 parser calls on integrated Radeon with both hardware threads on two desktop cores. All reached original play and stopped cleanly with zero live shader links or blocking validations. The tree outside the measured parser also varied from **12.08 to 19.72 ms** on CPU across launches. The pair in reverse order did not reproduce the saving, so the installed build keeps its existing scan. The trial Wasm SHA-256 was `af8c75b4c433b8c04afad5afad00ec8f125e3ae2a4d111ea6ce4048d1c3ad662`. The source recipe and compact summaries are under `artifacts/browser-gpu/scene-skip-memo/`. The temporary build and profiles were removed.
+
 ### Batch mantissa operations in the shared numeric converter
 
 The integer converter used by both the tree loader and formatted scanner now maps its caller-owned mantissa and scratch once per operation. Three digest-matched helpers copy or right-shift the three words, or clear the unused bits when the rounding bit is already clear. They preserve the original saved stack words, output words and register state. Calls with a set rounding bit, an unexpected caller frame or an unsupported access use the existing conversion code. The focused Wasm comparison matched 1,560 cases including 460 ordered faults and covered 480 copies, 760 shifts and 258 truncations.
