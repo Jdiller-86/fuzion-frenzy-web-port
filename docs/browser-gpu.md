@@ -690,6 +690,14 @@ Two foreground two-core Water Gate Scramble replays used the same Wasm, with the
 
 The same traces recorded two synchronous local ISO reads in each capture, both outside the scene scope. The two-pass branch still spent **14.58 and 13.39 ms off-CPU**. Its delay needs attribution among the remaining runtime waits and scheduling. The retained comparison Wasm SHA-256 is `faa5acdb12a5b66356f4f94ec99e24259aaf122c3548c1f79448cac93ae96f3a`.
 
+### Send controller snapshots only when they change
+
+The page still samples keyboard and controller state at 60 Hz. It posts the first snapshot and any changes to keys, buttons or axes. Focus loss clears held keys and immediately submits a neutral snapshot through the same comparison. Restart clears the cache for the new worker. The Wasm input mapping and guest polling remain in place.
+
+In one foreground two-core Water Gate Scramble replay, **3,329 polls produced 59 input messages**, including menu navigation, gameplay and the focus-release check. The previous timer posted every poll. Focusing the toolbar while Space was held posted a neutral state immediately. The game reached keyboard-controlled play, recorded zero live shader links and stopped cleanly. Steady acknowledgement p95 was **18.49 ms** over 485 intervals, and the scene-entry gap was **66.36 ms**. This capture verifies the reduction in worker traffic and leaves the frame-time effect and physical controller coverage open. The replay used the existing `faa5acdb12a5b66356f4f94ec99e24259aaf122c3548c1f79448cac93ae96f3a` Wasm.
+
+A separate empty WebGL flush trial shared deferred-validation state across the existing frame acknowledgement. The first launch exposed the pinned toolchain's 16-parameter limit for generated inline JavaScript. The locally repaired comparison skipped four validation calls before steady play and zero during the last eight gameplay windows. The optimization was discarded because the observed path rarely reached it.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
@@ -697,7 +705,7 @@ A true lock for all gameplay is **not established**. The measured machine is pow
 The next changes should stay targeted to measured costs:
 
 1. **Guest scene setup.** Check SDK waits within the two-pass loader and the renderer handoff around scene entry. The ISO reads did not overlap the measured delay. The enabled integer run recorded 13.39 ms off-CPU in the two-pass loader and 10.24 ms between render enqueue and worker dispatch. Use a kernel context-switch capture when available to distinguish blocked time from runnable delays.
-2. **Resource fences.** Keep the selective path opt-in while its frame-cadence effect varies. Check recorder costs and other dense scenes before changing the default. The recorder currently scans the captured index range separately from the consumer's assembler.
+2. **Worker contention and resource fences.** Measure the synchronous audio handoff and render queue dispatch together before changing their scheduling. Keep the selective fence path opt-in while its frame-cadence effect varies. Check the recorder's duplicate index scan and other dense scenes before changing the default.
 3. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws still depend on resident coverage and queued specialization.
 4. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 5. **Presentation pacing.** The Water Gate Scramble trace separates the renderer's 17.055 ms acknowledgement p95 from 165 Hz presentation quantization. Test sustained play at a verified fixed 60 Hz or 120 Hz output cadence to isolate remaining missed slots. Keep the original virtual-blank period and callback sequence.

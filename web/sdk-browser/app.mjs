@@ -11,6 +11,7 @@ let worker;
 let compiledWasm;
 let stopping = false;
 let inputTimer;
+let sentInput;
 let audioContext;
 let audioCursor = 0;
 let hasFrame = false;
@@ -41,6 +42,7 @@ function stop() {
   audioCursor = 0;
   clearInterval(inputTimer);
   inputTimer = undefined;
+  sentInput = undefined;
   if (worker) {
     const previous = worker;
     worker = undefined;
@@ -59,12 +61,24 @@ function stop() {
   }
   setBusy(false);
 }
+function sameInputValues(previous, next) {
+  return previous.length === next.length && next.every((value, index) => value === previous[index]);
+}
+function sendInput(current, keys, buttons, axes) {
+  if (!current || current !== worker) return;
+  if (sentInput && sameInputValues(sentInput.keys, keys)
+      && sameInputValues(sentInput.buttons, buttons)
+      && sameInputValues(sentInput.axes, axes)) return;
+  const snapshot = { type: 'input', keys, buttons, axes };
+  current.postMessage(snapshot);
+  sentInput = snapshot;
+}
 function keyboardBits() {
   const keys = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter','Escape','Space','Tab','Backspace','KeyW','KeyA','KeyS','KeyD','KeyX','KeyY','KeyZ','KeyC','Digit1','Digit2']);
   const held = new Set();
   window.addEventListener('keydown', e => { if (worker && e.target === canvas && keys.has(e.code)) { held.add(e.code); e.preventDefault(); } });
   window.addEventListener('keyup', e => held.delete(e.code));
-  const release = () => { held.clear(); worker?.postMessage({ type: 'input', keys: [], buttons: [], axes: [] }); };
+  const release = () => { held.clear(); sendInput(worker, [], [], []); };
   window.addEventListener('blur', release);
   document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
   document.addEventListener('focusin', e => { if(e.target !== canvas) release(); });
@@ -195,8 +209,9 @@ runButton.addEventListener('click', () => {
       : windowsPacing,
   }, offscreen ? [offscreen] : []);
   inputTimer = setInterval(() => {
-    const pad = document.activeElement !== canvas || document.hidden ? undefined : [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard');
-    current.postMessage({ type: 'input', keys: document.activeElement === canvas ? [...heldKeys] : [], buttons: pad ? pad.buttons.map(b => b.value) : [], axes: pad ? [...pad.axes] : [] });
+    const focused = document.activeElement === canvas && !document.hidden;
+    const pad = focused ? [...navigator.getGamepads()].find(item => item?.connected && item.mapping === 'standard') : undefined;
+    sendInput(current, focused ? [...heldKeys] : [], pad ? pad.buttons.map(b => b.value) : [], pad ? [...pad.axes] : []);
   }, 1000 / 60);
 });
 
