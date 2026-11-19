@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / '.tools/artifacts'
 WORKING_OUTPUT = ARTIFACTS / 'sdk-browser-full'
 COMPARISON_OUTPUT = ARTIFACTS / 'sdk-browser-candidate'
+REPLAY_SCRATCH = ARTIFACTS / 'sdk-browser-replay'
 THINLTO_CACHE_BYTES = 128 * 1024 * 1024
 BUILD_CACHE_BYTES = 384 * 1024 * 1024
 
@@ -58,6 +59,33 @@ def finish_build_cache(cache: Path) -> None:
         print(f'Discarded the {size} byte build cache (384 MiB limit).', file=sys.stderr)
 
 
+def isolated_environment(directory: Path) -> dict[str, str]:
+    return {**os.environ, **dict.fromkeys(('TMPDIR', 'TEMP', 'TMP'), str(directory))}
+
+
+def replay(command: list[str], output: Path, scratch: Path, *, candidate: bool = False) -> int:
+    if scratch.resolve() != scratch:
+        raise ValueError(f'Replay scratch must be a local directory: {scratch}')
+    try:
+        scratch.mkdir(parents=True)
+    except FileExistsError:
+        raise ValueError(f'Replay scratch already exists at {scratch}. '
+                         f'Remove it after the previous replay has stopped.') from None
+    try:
+        env = isolated_environment(scratch)
+        env['FUZION_BROWSER_SCRATCH'] = str(scratch)
+        env['FUZION_BROWSER_BUILD'] = str(output)
+        env.pop('FUZION_BROWSER_CANDIDATE', None)
+        if candidate:
+            env['FUZION_BROWSER_CANDIDATE'] = str(output)
+        return subprocess.run(command, env=env, check=False).returncode
+    finally:
+        if scratch.resolve() != scratch:
+            raise ValueError(f'Replay scratch became a linked directory: {scratch}')
+        if scratch.exists():
+            shutil.rmtree(scratch)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', type=Path, default=ROOT / '.tools/XboxXBERecomp')
@@ -78,9 +106,21 @@ def main() -> int:
                         help='Keep an incremental cache up to 384 MiB in the selected output')
     parser.add_argument('--scene-timing', action='store_true', help='Instrument calls in the pinned guest scene loader')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
-    parser.add_argument('--compare', nargs=argparse.REMAINDER, metavar='COMMAND',
-                        help='Build a disposable candidate, run this command, and clean up both. Put this option last.')
+    replay_modes = parser.add_mutually_exclusive_group()
+    replay_modes.add_argument('--compare', nargs=argparse.REMAINDER, metavar='COMMAND',
+                              help='Build a disposable candidate, run this command, and clean up both. Put this option last.')
+    replay_modes.add_argument('--replay', nargs=argparse.REMAINDER, metavar='COMMAND',
+                              help='Run this command with the existing build and one disposable scratch slot. Put this option last.')
     args = parser.parse_args()
+    if args.replay is not None:
+        if not args.replay or args.output or args.host_only or args.no_link or args.keep_build_cache:
+            parser.error('--replay requires a command and uses the existing working output')
+        if not (WORKING_OUTPUT / 'fuzion-sdk-full.wasm').is_file():
+            parser.error(f'No runnable browser build at {WORKING_OUTPUT}')
+        try:
+            return replay(args.replay, WORKING_OUTPUT, REPLAY_SCRATCH)
+        except ValueError as error:
+            parser.error(str(error))
     if not args.compiler:
         parser.error('em++ missing: source .tools/emscripten-env.sh or select an Emscripten compiler')
     if args.jobs < 1:
@@ -114,7 +154,8 @@ def main() -> int:
         work.mkdir(exist_ok=True)
         compiler_temp = run / 'compiler'
         compiler_temp.mkdir()
-        compiler_env = {**os.environ, 'EMCC_TEMP_DIR': str(compiler_temp), 'TMPDIR': str(compiler_temp)}
+        compiler_env = isolated_environment(compiler_temp)
+        compiler_env['EMCC_TEMP_DIR'] = str(compiler_temp)
         try:
             status = build(args, parser, output, work, run, compiler_env)
         finally:
@@ -122,12 +163,7 @@ def main() -> int:
                 finish_build_cache(cache)
         if status or not comparison:
             return status
-        scratch = run / 'replay'
-        scratch.mkdir()
-        replay_env = {**os.environ, 'FUZION_BROWSER_CANDIDATE': str(output),
-                      'FUZION_BROWSER_SCRATCH': str(scratch), 'TMPDIR': str(scratch),
-                      'TEMP': str(scratch), 'TMP': str(scratch)}
-        return subprocess.run(args.compare, env=replay_env, check=False).returncode
+        return replay(args.compare, output, run / 'replay', candidate=True)
 
 
 def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
