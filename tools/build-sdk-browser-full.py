@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 THINLTO_CACHE_BYTES = 128 * 1024 * 1024
@@ -209,8 +210,6 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
         return 0
     exports = ['_ff_browser_boot', '_ff_browser_set_pad', '_ff_browser_fallback_vertex_template',
                '_ff_browser_warm_guest_code', '_ff_browser_warm_guest_code_extra', '_malloc', '_free']
-    link_output = output / 'link-stage'
-    link_output.mkdir(exist_ok=True)
     thinlto_cache = output / 'thinlto-cache'
     lto_flags = []
     if args.lto == 'thin':
@@ -219,23 +218,28 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
             f'-Wl,--thinlto-cache-dir={thinlto_cache}',
             f'-Wl,--thinlto-cache-policy=cache_size_bytes={THINLTO_CACHE_BYTES}:prune_interval=0s',
         ]
-    link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
-            '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
-            '-sINITIAL_MEMORY=536870912', '-sMAXIMUM_MEMORY=2147483648', '-sALLOW_MEMORY_GROWTH=1',
-            '-sSTACK_SIZE=8388608', '-sDEFAULT_PTHREAD_STACK_SIZE=2097152', '-sPTHREAD_POOL_SIZE=12',
-            '-sPTHREAD_POOL_SIZE_STRICT=0', '-sEXIT_RUNTIME=0', '-sFORCE_FILESYSTEM=1',
-            '-lworkerfs.js', '-lidbfs.js', '-sEXPORTED_FUNCTIONS=' + json.dumps(exports),
-            '-sEXPORTED_RUNTIME_METHODS=' + json.dumps(['FS', 'WORKERFS', 'IDBFS', 'HEAPU8', 'HEAPF32', 'PThread']),
-            '-o', str(link_output / 'fuzion-sdk-full.mjs')]
-    try:
-        subprocess.run(link, check=True)
-    finally:
-        if args.lto == 'thin':
-            trim_thinlto_cache(thinlto_cache)
-    # Never serve a partially written wasm paired with the previous JS glue.
-    for name in ['fuzion-sdk-full.wasm', 'fuzion-sdk-full.worker.js', 'fuzion-sdk-full.mjs']:
-        if (link_output / name).is_file():
-            (link_output / name).replace(output / name)
+    with TemporaryDirectory(prefix='link-', dir=output) as staging:
+        link_output = Path(staging)
+        link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
+                '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
+                '-sINITIAL_MEMORY=536870912', '-sMAXIMUM_MEMORY=2147483648', '-sALLOW_MEMORY_GROWTH=1',
+                '-sSTACK_SIZE=8388608', '-sDEFAULT_PTHREAD_STACK_SIZE=2097152', '-sPTHREAD_POOL_SIZE=12',
+                '-sPTHREAD_POOL_SIZE_STRICT=0', '-sEXIT_RUNTIME=0', '-sFORCE_FILESYSTEM=1',
+                '-lworkerfs.js', '-lidbfs.js', '-sEXPORTED_FUNCTIONS=' + json.dumps(exports),
+                '-sEXPORTED_RUNTIME_METHODS=' + json.dumps(['FS', 'WORKERFS', 'IDBFS', 'HEAPU8', 'HEAPF32', 'PThread']),
+                '-o', str(link_output / 'fuzion-sdk-full.mjs')]
+        try:
+            subprocess.run(link, check=True)
+        finally:
+            if args.lto == 'thin':
+                trim_thinlto_cache(thinlto_cache)
+        # Check all required outputs before replacing the working module.
+        for name in ('fuzion-sdk-full.wasm', 'fuzion-sdk-full.mjs'):
+            if not (link_output / name).is_file():
+                raise FileNotFoundError(link_output / name)
+        for name in ['fuzion-sdk-full.wasm', 'fuzion-sdk-full.worker.js', 'fuzion-sdk-full.mjs']:
+            if (link_output / name).is_file():
+                (link_output / name).replace(output / name)
     revision = subprocess.check_output(['git', '-C', str(sdk), 'rev-parse', 'HEAD'], text=True).strip()
     (output / 'full-build-manifest.json').write_text(json.dumps({
         'sdkCommit': revision, 'compiler': compiler_version, 'optimization': args.opt, 'linkOptimization': args.link_opt or args.opt,

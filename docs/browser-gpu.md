@@ -6,7 +6,7 @@ The original title executes in WebAssembly and renders through WebGL2. This is a
 
 Run `python tools/serve-sdk-browser.py --open --port 8765`, select a compatible local ISO and Start game. GPU rendering is the default; the slower software diagnostic is under Compatibility options. The game fills the window while preserving its original aspect ratio. F1 opens host controls; it does not pause the guest.
 
-From the retained `.worktrees/browser-gpu` layout in WSL:
+Stop the game and serve the existing module directly for development. Rebuild into the same output from the retained `.worktrees/browser-gpu` layout in WSL.
 
 ```sh
 source ../../.tools/emulation/emsdk/emsdk_env.sh
@@ -14,13 +14,11 @@ python3 tools/build-sdk-browser-full.py \
   --sdk ../../.tools/candidates/xboxxbe-codegen-58757ab \
   --config ../../.tools/candidates/fuzionfrenzy-recomp-071dbd9/config/game.toml \
   --generated research/verification/sdk-title-bulk-command-20261107/generated \
-  --output .tools/artifacts/sdk-browser-candidate --jobs 8 --link-opt=-O3 --lto thin
-# Stop the game before installing a matched JS/Wasm/worker set.
-for name in fuzion-sdk-full.mjs fuzion-sdk-full.wasm fuzion-sdk-full.worker.js full-build-manifest.json; do
-  cp ".tools/artifacts/sdk-browser-candidate/$name" ".tools/artifacts/sdk-browser-full/$name"
-done
+  --jobs 8 --link-opt=-O3 --lto thin
 python3 tools/serve-sdk-browser.py --open
 ```
+
+The linker stages one temporary output and clears it on exit, including failed links. For an explicit comparison use the single private `--output .tools/artifacts/sdk-browser-candidate` slot. After adopting or rejecting the candidate, clear that slot. Keep one packaged launcher and create a ZIP only for a portable copy.
 
 The pinned SDK is `58757ab255c0a6b3929f405d7a5f1567fcd7fda3`; config checkout `071dbd97bdc098c4647cc24c99f9eae693fde1eb`, `game.toml` SHA-256 `c45bed067026b71ff2415d2b901f5bece66ad54dd94796405ce2cd0c2e1cec2f`. The measured build uses Emscripten 3.1.50 / LLVM18, O3 objects/link and native Wasm exceptions. `--exceptions js` preserves the slower development fallback and invalidates the object cache when selected. Build manifests record original title hashes; adapters modify disposable copies only. The published texture-cascade correction is consumed; native D3D12 descriptor-rollover changes remain untouched.
 
