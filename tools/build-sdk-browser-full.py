@@ -7,7 +7,6 @@ stay in an ignored overlay. Upstream notice: runtime/browser/sdk/SDK-NOTICE.txt.
 from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -19,6 +18,9 @@ import sys
 from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
+ARTIFACTS = ROOT / '.tools/artifacts'
+WORKING_OUTPUT = ARTIFACTS / 'sdk-browser-full'
+COMPARISON_OUTPUT = ARTIFACTS / 'sdk-browser-candidate'
 THINLTO_CACHE_BYTES = 128 * 1024 * 1024
 
 
@@ -49,7 +51,8 @@ def main() -> int:
     parser.add_argument('--sdk', type=Path, default=ROOT / '.tools/XboxXBERecomp')
     parser.add_argument('--config', type=Path, default=ROOT / '.tools/fuzion-native/config/game.toml')
     parser.add_argument('--generated', type=Path, default=ROOT / 'research/verification/sdk-title-bulk-command-20261107/generated')
-    parser.add_argument('--output', type=Path, default=ROOT / '.tools/artifacts/sdk-browser-full')
+    parser.add_argument('--output', type=Path, default=WORKING_OUTPUT,
+                        help='Use the default working output or .tools/artifacts/sdk-browser-candidate for a comparison')
     parser.add_argument('--compiler', default=shutil.which('em++'))
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--opt', choices=['-O0', '-O1', '-O2', '-O3'], default='-O3')
@@ -69,23 +72,31 @@ def main() -> int:
     if args.jobs < 1:
         parser.error('--jobs must be positive')
     output = args.output.resolve()
+    if output not in (WORKING_OUTPUT, COMPARISON_OUTPUT):
+        parser.error('Select the working output or the single sdk-browser-candidate comparison slot')
     output.mkdir(parents=True, exist_ok=True)
-    if args.keep_build_cache or args.host_only or args.no_link:
-        cache = output / 'build-cache'
-        if cache.is_symlink() or cache.resolve() != cache:
-            parser.error(f'Build cache must be a local directory: {cache}')
-        cache.mkdir(exist_ok=True)
-        workspace = nullcontext(cache)
-    else:
-        workspace = TemporaryDirectory(prefix='.build-', dir=output)
-    with workspace as work:
-        with TemporaryDirectory(prefix='compiler-', dir=work) as compiler_temp:
-            compiler_env = {**os.environ, 'EMCC_TEMP_DIR': compiler_temp}
-            return build(args, parser, output, Path(work), compiler_env)
+    run = output / '.build'
+    try:
+        run.mkdir()
+    except FileExistsError:
+        parser.error(f'Build workspace exists at {run}. If its build has stopped, remove it before retrying.')
+    try:
+        work = run / 'intermediates'
+        if args.keep_build_cache or args.host_only or args.no_link:
+            work = output / 'build-cache'
+            if work.is_symlink() or work.resolve() != work:
+                parser.error(f'Build cache must be a local directory: {work}')
+        work.mkdir(exist_ok=True)
+        compiler_temp = run / 'compiler'
+        compiler_temp.mkdir()
+        compiler_env = {**os.environ, 'EMCC_TEMP_DIR': str(compiler_temp), 'TMPDIR': str(compiler_temp)}
+        return build(args, parser, output, work, run, compiler_env)
+    finally:
+        shutil.rmtree(run)
 
 
 def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
-          output: Path, work: Path, compiler_env: dict[str, str]) -> int:
+          output: Path, work: Path, run: Path, compiler_env: dict[str, str]) -> int:
     sdk, generated = args.sdk.resolve(), args.generated.resolve()
     overlay = work / 'sdk-overlay'
     subprocess.run([sys.executable, str(ROOT / 'tools/prepare-sdk-browser-overlay.py'), '--sdk', str(sdk), '--output', str(overlay)], check=True)
@@ -245,7 +256,7 @@ bool DecodeBrowserColor(const TextureDesc&, const uint8_t*, std::size_t, const u
             f'-Wl,--thinlto-cache-dir={thinlto_cache}',
             f'-Wl,--thinlto-cache-policy=cache_size_bytes={THINLTO_CACHE_BYTES}:prune_interval=0s',
         ]
-    with TemporaryDirectory(prefix='link-', dir=work) as staging:
+    with TemporaryDirectory(prefix='link-', dir=run) as staging:
         link_output = Path(staging)
         link = [*common, args.link_opt or args.opt, '-msimd128', '-mtail-call', *lto_flags, *map(str, built), '--profiling-funcs', '--emit-symbol-map', '--no-entry', '-sMODULARIZE=1', '-sEXPORT_ES6=1',
                 '-sEXPORT_NAME=createFuzionSdkRuntime', '-sENVIRONMENT=web,worker',
