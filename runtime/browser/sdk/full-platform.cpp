@@ -104,7 +104,13 @@ static uint32_t WaitForBrowserDeadline(double deadline, double precision_ms, dou
         const address = $0 >>> 2;
         const deadline = $1;
         const timing = $2;
-        const precision = $3;
+        const maximumPrecision = $3;
+        const pacing = maximumPrecision > 0 ? Module.onFuzionGpu : undefined;
+        // Allow one millisecond for rounding the delay up and keep a short
+        // recent margin for callback lateness. Start with the full budget.
+        const precision = pacing
+            ? Math.min(maximumPrecision, Math.max(1.25, 1 + (pacing.frameCapTimerDelay ?? 1)))
+            : maximumPrecision;
         const armed = timing ? performance.timeOrigin + performance.now() : 0;
         let timers = 0;
         let completed = false;
@@ -130,15 +136,22 @@ static uint32_t WaitForBrowserDeadline(double deadline, double precision_ms, dou
             try { signal(2); } catch {}
             postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
         };
-        const arm = () => {
+        const arm = expected => {
             if (completed) return;
             try {
                 const now = performance.timeOrigin + performance.now();
                 if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
+                if (pacing && expected !== undefined) {
+                    // Recover promptly from a late callback and decrease
+                    // the estimate gradually when the timers stay on time.
+                    pacing.frameCapTimerDelay = Math.min(1, Math.max(
+                        0, now - expected, (pacing.frameCapTimerDelay ?? 1) - 0.035));
+                }
                 const remaining = deadline - now;
                 if (remaining > precision) {
                     if (timing) ++timers;
-                    setTimeout(arm, Math.ceil(remaining - precision));
+                    const delay = Math.ceil(remaining - precision);
+                    setTimeout(arm, delay, now + delay);
                 } else {
                     signal(remaining > 0 ? 3 : 1);
                 }
