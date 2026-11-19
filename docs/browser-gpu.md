@@ -464,6 +464,21 @@ Two Water Gate Scramble replays used the same normal Wasm on integrated Radeon a
 
 The trial Wasm SHA-256 was `fe61e1ac3e0496d9d62411fbdb3b6a5b6ec690d2e8a6f038b74508fa64f27182`. The patch, replay and compact summaries remain in `artifacts/browser-gpu/scene-line-masks/`. The temporary build and browser profiles were removed.
 
+### Trace repeated input across scene parser calls
+
+A temporary probe observed the source span after the original descriptor rewind. The replay verified the exact ordered set of **13** calls in one Water Gate Scramble scene, including the first call that resets the probe history. One descriptor referred to three byte-verified streams. The probe grouped the complete admitted spans by exact byte comparison and checked each successful skip window against its in-memory snapshot. It matched repeat windows only across different parser calls with the same relative offset, length, cursor advance and all active marker values. The capture reached original play and stopped normally.
+
+| Verified stream size | Parser calls | Bytes advanced by quiet skips | Bytes advanced on repeat windows |
+| ---: | ---: | ---: | ---: |
+| 33,220 bytes | 1 | 58,525 | 0 |
+| 47,168 bytes | 4 | 302,491 | 170,470 |
+| 152,134 bytes | 8 | 2,067,542 | 1,661,836 |
+| Total | 13 | 2,428,558 | 1,832,306 |
+
+**2,850 of 4,313** successful quiet-skip occurrences matched a prior call, covering **75.45%** of the bytes advanced. No successful window hit the snapshot mismatch or record limit. Checking the full matched windows covered **11,461,044** overlapping bytes, and those occurrences performed **20,558** scratch suffix writes. These are work counts. The probe adds copies and comparisons, and the replay measures no optimization speedup.
+
+A bounded replay of previously scanned spans should validate only the bytes needed to prove the skip and reconstruct its ordered scratch writes. The existing original line at the end of each skip can still execute. Put ownership at the full loader call so the cache expires even on routes that omit the optional first parser call. Candidate SHA-256 `dec7360fc1314ce55dbe2336619a368eff9e8ba73678b653af696c991404f220`. The recipe and compact summary are under `artifacts/browser-gpu/scene-input-overlap/`. Source snapshots stayed in memory and the temporary build and profile were removed.
+
 ### Batch mantissa operations in the shared numeric converter
 
 The integer converter used by both the tree loader and formatted scanner now maps its caller-owned mantissa and scratch once per operation. Three digest-matched helpers copy or right-shift the three words, or clear the unused bits when the rounding bit is already clear. They preserve the original saved stack words, output words and register state. Calls with a set rounding bit, an unexpected caller frame or an unsupported access use the existing conversion code. The focused Wasm comparison matched 1,560 cases including 460 ordered faults and covered 480 copies, 760 shifts and 258 truncations.
