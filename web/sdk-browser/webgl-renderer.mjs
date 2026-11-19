@@ -1584,8 +1584,20 @@ void main() {
     else if(this.frameError)throw this.frameError;
     const t=this.targets.get(id);if(!t||t.depth){this.disposeGpuTiming();return false;}
     if(this.gpuTimerExtension)this.beginGpuTimer();
-    const g=this.gl;if(this.canvas.width!==t.w||this.canvas.height!==t.h){this.canvas.width=t.w;this.canvas.height=t.h;}
-    g.bindFramebuffer(g.READ_FRAMEBUFFER,this.readFbo);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,t.texture,0);g.framebufferTexture2D(g.READ_FRAMEBUFFER,g.DEPTH_STENCIL_ATTACHMENT,g.TEXTURE_2D,null,0);g.readBuffer(g.COLOR_ATTACHMENT0);this.readFramebufferTarget=t;
+    const g = this.gl;
+    const resized = this.canvas.width !== t.w || this.canvas.height !== t.h;
+    if (resized) { this.canvas.width = t.w; this.canvas.height = t.h; }
+    // attach() binds the draw target for reading too. If that exact color
+    // image is being presented, the read binding is already ready for the blit.
+    if (resized || this.boundAttachments?.color !== t) {
+      g.bindFramebuffer(g.READ_FRAMEBUFFER, this.readFbo);
+      if (resized || this.readFramebufferTarget !== t) {
+        g.framebufferTexture2D(g.READ_FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, t.texture, 0);
+        g.framebufferTexture2D(g.READ_FRAMEBUFFER, g.DEPTH_STENCIL_ATTACHMENT, g.TEXTURE_2D, null, 0);
+        g.readBuffer(g.COLOR_ATTACHMENT0);
+        this.readFramebufferTarget = t;
+      }
+    }
     g.bindFramebuffer(g.DRAW_FRAMEBUFFER,null);g.disable(g.SCISSOR_TEST);g.blitFramebuffer(0,0,t.w,t.h,0,t.h,t.w,0,g.COLOR_BUFFER_BIT,g.NEAREST);
     this.endGpuTimer();
     this.boundAttachments=null;this.lastState=undefined;
