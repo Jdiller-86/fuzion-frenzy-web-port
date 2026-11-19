@@ -538,13 +538,21 @@ In foreground Water Gate Scramble on RX 9070 XT, the shared loader sampled 21.10
 
 A separate profiling build used an indirect call boundary and disabled V8 Wasm inlining to distinguish the grid phases. At the 33.49 ms entry gap it sampled 3.88 ms in the rejection scan, 0.53 ms in the intersection wrapper outside that scan, and 2.17 ms in the grid caller. This split ranks the work on that replay. A scan-only cache can address the scan share, while the shared loader spans the larger entry cost.
 
+### Consolidate buffered scanner reads
+
+The digest-matched scanner getter maps its cursor and remaining count together. It checks the source byte before admission and reads it after decrementing the count, preserving aliases and the original order of stores. Refill and unadmitted spans use the existing checked path. Independent review covered aliasing, sign and wrap behavior, and ordered faults. A focused Wasm comparison matched 512 states, with a fixed refill stand-in, and took a median 1.82 ms and 1.49 ms over five passes of 500,000 buffered reads.
+
+In Water Gate Scramble on RX 9070 XT, the parser sampled 7.67 and 7.15 ms, including 6.07 and 2.72 ms under the formatted scanner. The getter itself sampled 0.53 and 0.55 ms. The whole loader sampled 20.72 and 21.32 ms. Frame acknowledgement gaps were 35.625 and 36.09 ms at entry and 24.23 and 22.60 ms on the following frames. Steady p95 was 16.93 and 16.95 ms over 484 and 482 adjacent pairs. Both replays reached keyboard-controlled gameplay and stopped cleanly with zero draw-path shader links. Scene and scheduling state varied. The new 40,287,706-byte Wasm has SHA-256 `7ad4835eb9b3dc9464652eb73cc6e4ae010d2327648904c56f3f7e34e8a7fe62`.
+
+A separate trial mapped constant frame operands across the scanner and decimal parser. It removed 14 existing short memory runs. The scanner's own samples stayed near 2.2 ms, and the largest entry gap increased to 36.50 ms. The packaged build uses the existing frame operations and the buffered byte reader.
+
 ## Remaining work toward modest-PC 60 FPS
 
 A true lock for all gameplay is **not established**. The measured machine is powerful. The browser rejected CPU throttling on worker targets, so page-only throttling must not be passed off as a low-end Wasm-worker benchmark. Actual integrated-GPU laptop runs, a declared device/browser matrix, longer scenes/full rounds and all minigames remain necessary.
 
 The next changes should stay targeted to measured costs:
 
-1. **Guest scene setup.** The packaged Water Gate Scramble replay measured a 35.625 ms entry gap, including 2.20 ms of guest-thread lazy compilation. The shared loader and collision grid sampled 20.72 and 9.30 ms. The recursive reader and two-pass parser sampled 7.54 and 7.67 ms within the loader. Prioritize work shared by the loader passes. A private phase profile measured 3.88 ms in the collision rejection scan, and an earlier allocator span trial increased the longest gap from 40.02 to 41.29 ms.
+1. **Guest scene setup.** The packaged Water Gate Scramble replay measured a 36.09 ms entry gap, including 2.08 ms of guest-thread lazy compilation. The shared loader and collision grid sampled 21.32 and 8.32 ms. The recursive reader and two-pass parser sampled 8.73 and 7.15 ms within the loader. Inspect the recursive reader's child traversal and remaining per-line control work. A private phase profile measured 3.88 ms in the collision rejection scan, and an earlier allocator span trial increased the longest gap from 40.02 to 41.29 ms.
 2. **Shader first use.** Check uncovered layouts and texture combinations when a scene reports draw-path links. Saved recipes warm one observed layout per program at startup. First-time or differently configured draws still depend on resident coverage and queued specialization.
 3. **Compressed uploads:** defer the private [S3TC](https://registry.khronos.org/webgl/extensions/WEBGL_compressed_texture_s3tc/) prototype until an actual title texture requiring it is confirmed. The observed routes exercised only RGBA uploads. Any later integration needs native block/alpha/dimension checks, RGBA fallback and explicit qualification of hardware interpolation differences.
 4. **Presentation pacing.** Chrome traced all 340 ready Erodeo frames through swap and presentation feedback. In the latest Water Gate Scramble replay, steady renderer acknowledgements were 17.02 ms apart at p95. Measure physical presentation at a verified display cadence while preserving the original virtual-blank period and callback sequence.

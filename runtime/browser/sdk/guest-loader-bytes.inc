@@ -168,6 +168,25 @@ inline uint32_t SkipSuppressedWord(uint32_t frame, uint32_t stack) noexcept {
     return advance;
 }
 
+inline bool TryReadStreamByte(X86Context& ctx) noexcept {
+    using ff_browser_memory::TryWindow;
+    auto* stream = TryWindow(ctx.edx, 8);
+    if (!stream) return false;
+    const uint32_t remaining = ReadWord(stream + 4) - 1;
+    if (remaining & 0x80000000u) return false;
+    const uint32_t cursor = ReadWord(stream);
+    const auto* input = TryWindow(cursor, 1);
+    if (!input) return false;
+
+    // The byte can alias the remaining count. Read it after the decrement.
+    WriteWord(stream + 4, remaining);
+    ctx.eax = *input;
+    ctx.ecx = cursor + 1;
+    WriteWord(stream, ctx.ecx);
+    ctx.esp += 4;
+    return true;
+}
+
 inline bool TryUnreadStringByte(X86Context& ctx) noexcept {
     using ff_browser_memory::TryWindow;
     constexpr uint32_t saves = 8;

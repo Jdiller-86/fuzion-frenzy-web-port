@@ -3,8 +3,8 @@
 ## Current status
 
 - **Windows:** builder 0.2.1 adds a clickable in-game PC menu (Settings / Exit to Desktop); rebuild the game to include it. Builder 0.2.0 was published with the Control Room launcher, native F1 settings, three player-local UI replacements and rendering fixes. Working gameplay and geometry stability are reported by the user/local agent.
-- **Browser.** Water Gate Scramble's largest entry gap measured 36.67 ms before the checked mantissa rounding path and 35.625 ms with it. The following gap rose to 24.23 ms. The shader layout warmup remains enabled during ordinary launches. [Converter evidence](browser-gpu.md#complete-the-rounded-mantissa-path) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
-- **Next.** Target shared work in the scene loader. A private replay sampled 3.88 ms in the collision rejection scan. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
+- **Browser.** The buffered scanner reader matched 512 checked Wasm states. Water Gate Scramble's entry gaps measured 36.09 and 22.60 ms, with steady acknowledgement p95 at 16.95 ms. [Scanner evidence](browser-gpu.md#consolidate-buffered-scanner-reads) · [Shader evidence](browser-gpu.md#warm-webgl-draw-layouts-before-boot)
+- **Next.** Target the recursive reader and shared scene loading. Modest-CPU performance and physical display cadence need verification before testing 120 FPS. [Remaining measurements](browser-gpu.md#remaining-work-toward-modest-pc-60-fps)
 - **Later:** complete offline coverage/conversion, online multiplayer, accounts/friends/lobbies and release qualification. No product milestone is accepted; M44 remains the separate startup reference.
 
 [Downloads](../README.md#available-now) · [Browser guide](sdk-browser.md) · [Windows guide](../desktop/windows/README.md) · [Remaining browser work](m1-browser-work.md).

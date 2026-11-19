@@ -586,7 +586,10 @@ def lower_scanner_word(source: bytes) -> tuple[bytes, int]:
         b"\n\t\tctx.ebx += ff_browser_loader_bytes::SkipSuppressedWord(ctx.ebp, ctx.esp);" + entry,
         1,
     )
-    return normalized.replace(scanner, lifted, 1).replace(wrapper, alias, 1), 1
+    getter_entry = b"X86_FUNC(__imp__sub_001E3C71) {"
+    read = getter.replace(getter_entry,
+                          getter_entry + b"\n\tif (ff_browser_loader_bytes::TryReadStreamByte(ctx)) return;", 1)
+    return normalized.replace(scanner, lifted, 1).replace(getter, read, 1).replace(wrapper, alias, 1), 2
 
 
 def lower_stack_runs(block: bytes) -> tuple[bytes, int, int]:
