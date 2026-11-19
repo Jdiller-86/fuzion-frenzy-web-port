@@ -205,7 +205,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         'bool ff_browser_pacing_timing_enabled();\n'
         'int ff_browser_resource_fence_mode();\n'
         'void ff_webgl_begin_recorded_draws();\n'
-        'void ff_webgl_invalidate_prepared_draw();\n\nnamespace gpu {\n',
+        'void ff_webgl_invalidate_prepared_draw();\n\nnamespace gpu {\nvoid ResetBrowserRawLayout();\n',
         "Optional checked browser span declaration",
     )
     render = _replace_once(render, '#include <smmintrin.h>\n', '#include <smmintrin.h>\n#include <emscripten.h>\n', "Resource wait timing bridge")
@@ -462,7 +462,7 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
     render = _replace_once(
         render,
         '    void Run() {\n',
-        '    void Run() {\n        ff_webgl_begin_recorded_draws();\n',
+        '    void Run() {\n        ff_webgl_begin_recorded_draws();\n        ResetBrowserRawLayout();\n',
         "Enable draw preparation reuse on the command consumer",
     )
     render = _replace_once(render, '    std::deque<Batch*> queue_;\n',
@@ -547,7 +547,10 @@ def adapt_browser_threading(runtimeRoot: str | Path) -> dict[str, object]:
         render,
         '    void Execute(const Batch& b, const Cmd& c) {\n',
         '    void Execute(const Batch& b, const Cmd& c) {\n'
-        '        if (c.op != Op::Draw) ff_webgl_invalidate_prepared_draw();\n',
+        '        if (c.op != Op::Draw) {\n'
+        '            ff_webgl_invalidate_prepared_draw();\n'
+        '            ResetBrowserRawLayout();\n'
+        '        }\n',
         "Invalidate prepared draws at state and non-draw commands",
     )
 

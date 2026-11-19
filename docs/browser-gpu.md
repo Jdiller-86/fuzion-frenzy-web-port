@@ -678,6 +678,14 @@ One dense Erodeo replay alternated 16-frame blocks with reuse on and with the la
 
 The replay reached keyboard-controlled gameplay and stopped normally with zero live shader links or blocking validations. The trial's additional contained-range shortcut had zero hits, so the working source retains only the layout reuse. The local recipe and summary are in `artifacts/browser-gpu/vertex-footprints/`. The disposable comparison Wasm SHA-256 was `cd3d2c572a8b8ce560845895da8db7ea3eea13adb24c93755573e82c09e58593`.
 
+#### Reuse single-stream raw layouts during assembly
+
+The preparation worker now projects an admitted single-stream raw layout into owned format, offset, stride, stream, register-mask and decode values. It reuses those values across consecutive recorded draws. Any non-draw command invalidates the projection. Each draw still reads the current buffer header, checks the span, selects dense or sparse assembly, and expands its own indices. The converted path and the inline renderer keep per-call layout handling. Independent review checked admission, invalidation, header lifetime and buffer ordering.
+
+A disposable Erodeo module alternated 16-frame blocks using the same checked single-stream assembler. The control projected each layout before assembly. Reuse hit **2,696,753 of 2,925,658 raw draws (92.2%)** over 272 frames. Both modes had a median of **11,123** assembly calls per frame. All sampled calls took the raw path. Median preparation-thread CPU moved from **3.691 to 3.062 ms**, and every one of 16 complete adjacent block pairs used less CPU with reuse. The median paired change was **−0.654 ms**, or **−0.056 ms per 1,000 draws**. Chrome clocks span the preparation thread between recorded presents and include other preparation work. Both modes had median recorder intervals of about **16.67 ms**.
+
+The local replay used integrated Radeon and both hardware threads of two physical desktop cores. It reached keyboard-controlled gameplay, stopped normally and recorded zero live shader links or blocking validations. It measures preparation CPU on that workload. Converted layouts and fixed-refresh presentation remain to be qualified. The recipe and summary are in `artifacts/browser-gpu/raw-assembly-layout/`. The diagnostic Wasm SHA-256 was `c31a728612a7af9ecb1a89bca65448eb92fde8ec382919bd5f6d876c47b10c7a`. The working build omits the diagnostics.
+
 ### Timestamp guest scene setup directly
 
 Build the disposable comparison slot with `--scene-timing` and run with `?pacingTiming=1` to collect `pacingTiming.scenePhases`. The option requires the matching input shards. It brackets the verified guest calls and aggregates their elapsed spans on the original game thread before posting samples at scene exit. The replay selects a scene span with both the loader and collision setup and aligns it with consecutive renderer acknowledgements. Normal builds omit the guest instrumentation.

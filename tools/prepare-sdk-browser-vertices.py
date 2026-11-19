@@ -22,8 +22,6 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
 
     replace('namespace gpu {', '#include <bit>\n#include <cstdlib>\n#include "render-page-fences.h"\n'
             'bool ff_webgl_raw_vertices_enabled();\n\nnamespace gpu {')
-    replace('bool raw = kRawVertices && RawReadable(s, inputs);',
-            'bool raw = ff_webgl_raw_vertices_enabled() && RawReadable(s, inputs);')
     replace('bool RawReadable(const State& s, const Inputs& inputs) {', '''bool RawReadable(const State& s, const Inputs& inputs) {
     // The first browser admission deliberately keeps a single native stream.
     // Other layouts retain the original converted representation.
@@ -36,6 +34,38 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
         if (stream != in.stream || !he.format || !stride || stride > 252 ||
             uint64_t(in.offset) + he.bytes > stride) return false;
     }''')
+    replace('constexpr uint64_t kDenseSpanPerVertex = 4;', '''struct BrowserRawLayout {
+    std::array<VertexElement, 16> elements{};
+    uint64_t decode = 0;
+    uint16_t regs = 0;
+    uint32_t stream = 0, stride = 0;
+};
+
+// Only the recorded consumer enables reuse. It invalidates the projection
+// before state and other non-draw commands. The projection owns only values.
+thread_local bool browser_recorded_vertices = false;
+thread_local BrowserRawLayout browser_raw_layout;
+
+BrowserRawLayout ProjectBrowserRawLayout(const State& s, const Inputs& inputs, uint16_t regs) {
+    BrowserRawLayout projection;
+    const auto& first = inputs.layout.inputs[size_t(inputs.regs[0])];
+    projection.stream = uint32_t(first.stream);
+    projection.stride = StrideOf(s, inputs.layout, first);
+    projection.regs = regs;
+    for (int k = 0; k < inputs.nregs; ++k) {
+        const int reg = inputs.regs[k];
+        const auto& input = inputs.layout.inputs[size_t(reg)];
+        const auto element = HostFormat(input.type);
+        projection.elements[size_t(reg)] = {element.format, 0, uint16_t(input.offset)};
+        projection.decode |= uint64_t(element.decode) << (reg * 4);
+    }
+    return projection;
+}
+
+constexpr uint64_t kDenseSpanPerVertex = 4;''')
+    replace('''int AddRawBuffer(const State& s, const VertexShader& layout, const VertexShader::Input& in, const DrawRange& d,
+                 bool dense, Assembled& out) {''', '''void AddRawBuffer(const State& s, uint32_t stream, uint32_t stride, const DrawRange& d,
+                  bool dense, Assembled& out) {''')
     replace('''    const uint8_t* data = static_cast<const uint8_t*>(HostPtr(mem::VirtualFromPhysical(R32(st.vb + kResData))));
     int slot = int(out.buffer_count);''', '''    const uint32_t address = mem::VirtualFromPhysical(R32(st.vb + kResData));
     const uint64_t end = (uint64_t(d.first_vertex) + d.span) * stride;
@@ -43,17 +73,35 @@ def adapt_browser_vertices(runtime_root: str | Path) -> None:
     // Check the complete source range before either the dense view or sparse
     // gather can read it; pointer arithmetic cannot wrap to another guest bank.
     if (!end || end > 128u * 1024 * 1024 || captured > 128u * 1024 * 1024) std::abort();
-    const uint8_t* data = ff_sdk_guest_ptr(address, size_t(end));
-    int slot = int(out.buffer_count);''')
-    replace('''bool AssembleRaw(const State& s, const Inputs& inputs, const DrawRange& d, Assembled& out) {
-    bool dense''', '''bool AssembleRaw(const State& s, const Inputs& inputs, const DrawRange& d, Assembled& out) {
+    const uint8_t* data = ff_sdk_guest_ptr(address, size_t(end));''')
+    replace('''    const auto& st = s.streams[size_t(in.stream)];
+    uint32_t stride = StrideOf(s, layout, in);
+    const uint32_t address''', '''    const auto& st = s.streams[stream];
+    const uint32_t address''')
+    replace('    return slot;\n}', '}')
+    raw_begin = text.index('bool AssembleRaw(')
+    raw_body_end = text.index('    out.vertex_count = dense ? d.span : d.count;', raw_begin)
+    raw_body = text[raw_begin:raw_body_end]
+    if hashlib.sha256(raw_body.encode()).hexdigest() != 'a4fe86f6c164979b5584e97835450accf31a158127478653a71db1abfc83726e':
+        raise RuntimeError('Browser raw assembly requires the pinned SDK body')
+    replace(raw_body, '''bool AssembleRaw(const State& s, const BrowserRawLayout& projection, const DrawRange& d, Assembled& out) {
     if (d.count > 1024u * 1024 || !d.span) std::abort();
-    bool dense''')
+    const bool dense = uint64_t(d.span) <= uint64_t(d.count) * kDenseSpanPerVertex + kDenseSpanSlack;
+    AddRawBuffer(s, projection.stream, projection.stride, d, dense, out);
+    out.regs = projection.regs;
+    out.elements = projection.elements;
+    out.decode = projection.decode;
+''')
     replace('    if (NativePrimitive(d.prim)) return DrawNative(d, dense, out);',
             '    // Use the same ordered list expansion as the converted reference.\n'
             '    // WebGL has no base-vertex draw: the list below rebases every index.')
     anchor = 'bool Assemble(const State& s, uint32_t prim, uint32_t start, uint32_t count, const uint8_t* ip, Assembled& out) {'
-    replace(anchor, '''static void CaptureBrowserVertexReads(const State& s, BrowserVertexReads& reuse, uint64_t batch) {
+    replace(anchor, '''void ResetBrowserRawLayout() {
+    browser_recorded_vertices = true;
+    browser_raw_layout.regs = 0;
+}
+
+static void CaptureBrowserVertexReads(const State& s, BrowserVertexReads& reuse, uint64_t batch) {
     reuse.batch = batch;
     reuse.streams = 0;
     reuse.unknown = false;
@@ -124,6 +172,25 @@ void RecordBrowserVertexReads(const State& s, uint32_t prim, uint32_t start, uin
 }
 
 ''' + anchor)
+    replace('''    VertexShader fvf_layout;
+    const VertexShader* layout = PickLayout(s, fvf_layout);
+    out.pretransformed = Pretransformed(s);
+    if (!layout) return false;''', '''    out.pretransformed = Pretransformed(s);
+    const bool reuse = browser_recorded_vertices && browser_raw_layout.regs != 0;
+    if (!reuse && (s.vs_handle & 1) && !s.vs) return false;''')
+    replace('''    int regs[16];
+    int nregs = CollectRegs(s, *layout, regs, out);''', '''    if (reuse) return AssembleRaw(s, browser_raw_layout, d, out);
+
+    VertexShader fvf_layout;
+    const auto* layout = PickLayout(s, fvf_layout);
+    int regs[16];
+    int nregs = CollectRegs(s, *layout, regs, out);''')
+    replace('''    bool raw = kRawVertices && RawReadable(s, inputs);
+    if (raw) return AssembleRaw(s, inputs, d, out);''', '''    if (ff_webgl_raw_vertices_enabled() && RawReadable(s, inputs)) {
+        const auto projection = ProjectBrowserRawLayout(s, inputs, out.regs);
+        if (browser_recorded_vertices) browser_raw_layout = projection;
+        return AssembleRaw(s, projection, d, out);
+    }''')
     path.write_text(text, encoding='utf-8')
     (runtime/'browser-vertices-manifest.json').write_text(json.dumps({
         'inputSha256':before, 'outputSha256':hashlib.sha256(text.encode()).hexdigest(),
