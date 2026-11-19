@@ -7,6 +7,7 @@ stay in an ignored overlay. Upstream notice: runtime/browser/sdk/SDK-NOTICE.txt.
 from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -62,7 +63,7 @@ def main() -> int:
     parser.add_argument('--sdk', type=Path, default=ROOT / '.tools/XboxXBERecomp')
     parser.add_argument('--config', type=Path, default=ROOT / '.tools/fuzion-native/config/game.toml')
     parser.add_argument('--generated', type=Path, default=ROOT / 'research/verification/sdk-title-bulk-command-20261107/generated')
-    parser.add_argument('--output', type=Path, default=WORKING_OUTPUT,
+    parser.add_argument('--output', type=Path,
                         help='Use the default working output or .tools/artifacts/sdk-browser-candidate for a comparison')
     parser.add_argument('--compiler', default=shutil.which('em++'))
     parser.add_argument('--jobs', type=int, default=2)
@@ -77,23 +78,32 @@ def main() -> int:
                         help='Keep an incremental cache up to 384 MiB in the selected output')
     parser.add_argument('--scene-timing', action='store_true', help='Instrument calls in the pinned guest scene loader')
     parser.add_argument('--exceptions',choices=['js','wasm'],default='wasm',help='C++ exception backend; js retains the slower development fallback')
+    parser.add_argument('--compare', nargs=argparse.REMAINDER, metavar='COMMAND',
+                        help='Build a disposable candidate, run this command, and clean up both. Put this option last.')
     args = parser.parse_args()
     if not args.compiler:
         parser.error('em++ missing: source .tools/emscripten-env.sh or select an Emscripten compiler')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
-    output = args.output.resolve()
+    comparison = args.compare is not None
+    output = (args.output or (COMPARISON_OUTPUT if comparison else WORKING_OUTPUT)).resolve()
     if output not in (WORKING_OUTPUT, COMPARISON_OUTPUT):
         parser.error('Select the working output or the single sdk-browser-candidate comparison slot')
-    output.mkdir(parents=True, exist_ok=True)
-    run = output / '.build'
+    if comparison and (not args.compare or output != COMPARISON_OUTPUT or args.host_only or args.no_link or args.keep_build_cache):
+        parser.error('--compare needs a command and a complete uncached build in the candidate slot')
     try:
-        run.mkdir()
+        output.mkdir(parents=True, exist_ok=not comparison)
     except FileExistsError:
-        parser.error(f'Build workspace exists at {run}. If its build has stopped, remove it before retrying.')
-    cache = output / 'build-cache'
-    keep_cache = args.keep_build_cache or args.host_only or args.no_link
-    try:
+        parser.error(f'Candidate slot already exists at {output}. Remove it after its replay has stopped.')
+    with ExitStack() as cleanup:
+        run = output / '.build'
+        try:
+            run.mkdir()
+        except FileExistsError:
+            parser.error(f'Build workspace exists at {run}. If its build has stopped, remove it before retrying.')
+        cleanup.callback(shutil.rmtree, output if comparison else run)
+        cache = output / 'build-cache'
+        keep_cache = args.keep_build_cache or args.host_only or args.no_link
         if cache.is_symlink() or cache.resolve() != cache:
             parser.error(f'Build cache must be a local directory: {cache}')
         if not keep_cache and cache.exists():
@@ -104,12 +114,18 @@ def main() -> int:
         compiler_temp.mkdir()
         compiler_env = {**os.environ, 'EMCC_TEMP_DIR': str(compiler_temp), 'TMPDIR': str(compiler_temp)}
         try:
-            return build(args, parser, output, work, run, compiler_env)
+            status = build(args, parser, output, work, run, compiler_env)
         finally:
             if keep_cache:
                 finish_build_cache(cache)
-    finally:
-        shutil.rmtree(run)
+        if status or not comparison:
+            return status
+        scratch = run / 'replay'
+        scratch.mkdir()
+        replay_env = {**os.environ, 'FUZION_BROWSER_CANDIDATE': str(output),
+                      'FUZION_BROWSER_SCRATCH': str(scratch), 'TMPDIR': str(scratch),
+                      'TEMP': str(scratch), 'TMP': str(scratch)}
+        return subprocess.run(args.compare, env=replay_env, check=False).returncode
 
 
 def build(args: argparse.Namespace, parser: argparse.ArgumentParser,
