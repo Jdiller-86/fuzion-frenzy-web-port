@@ -26,6 +26,7 @@
 void ff_webgl_advance_frame();
 void ff_webgl_flush();
 bool ff_webgl_pipelined();
+uint64_t ff_webgl_raw_draw_reuses();
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -50,73 +51,230 @@ extern "C" bool ff_browser_precise_pacing_enabled() {
 #endif
 }
 
+extern "C" bool ff_browser_pace_before_present() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.pipelined === true && Module.onFuzionGpu?.paceBeforePresent === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
 static std::atomic<uint32_t> browser_vblank_ticks{0};
 extern "C" void ff_browser_observe_vblank() {
     browser_vblank_ticks.fetch_add(1,std::memory_order_relaxed);
 }
 
-extern "C" void ff_browser_sleep_for(double milliseconds) {
-    if (!std::isfinite(milliseconds) || milliseconds <= 0.0) return;
-    milliseconds = std::min(milliseconds, 1000.0);
+bool ff_browser_pacing_timing_enabled() {
 #ifdef __EMSCRIPTEN__
-    if (ff_browser_precise_pacing_enabled() && !emscripten_is_main_runtime_thread()) {
-        const double deadline = emscripten_get_now() + milliseconds;
-        if (!std::isfinite(deadline)) std::abort();
-        std::atomic<uint32_t> ready{0};
-        static_assert(sizeof(ready) == sizeof(uint32_t));
-        int previous_cancel_state = PTHREAD_CANCEL_ENABLE;
-        if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_cancel_state) != 0) std::abort();
-        MAIN_THREAD_ASYNC_EM_ASM({
-            const address = $0 >>> 2;
-            const deadline = $1;
-            let completed = false;
-            let watchdog = null;
-            const signal = value => {
-                const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
-                const heap = new Int32Array(memory);
-                Atomics.store(heap, address, value);
-                Atomics.notify(heap, address, 1);
-                completed = true;
-                if (watchdog !== null) clearTimeout(watchdog);
-            };
-            const fail = error => {
-                if (completed) return;
-                try { signal(2); } catch {}
-                postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
-            };
-            const arm = () => {
-                if (completed) return;
-                try {
-                    const now = performance.timeOrigin + performance.now();
-                    if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
-                    const remaining = deadline - now;
-                    if (remaining > 0) {
-                        setTimeout(arm, remaining);
-                    } else {
-                        signal(1);
-                    }
-                } catch (error) {
-                    fail(error);
-                }
-            };
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return typeof Module.onFuzionPacingWait === 'function' ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+int ff_browser_resource_fence_mode() {
+#ifdef __EMSCRIPTEN__
+    static const int mode = MAIN_THREAD_EM_ASM_INT({
+        const fence = Module.onFuzionGpu?.resourceFences;
+        return fence === 'selective' ? 2 : fence === 'trace' ? 1 : 0;
+    });
+    return mode;
+#else
+    return 0;
+#endif
+}
+
+bool ff_browser_grid_contours_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.gridContours === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+bool ff_browser_grid_caller_frame_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.gridCallerFrame === false ? 0 : 1;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+bool ff_browser_fast_integer_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.fastInteger === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+bool ff_browser_decimal_product_memo_enabled() {
+#ifdef __EMSCRIPTEN__
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.decimalProductMemo === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+#else
+    return false;
+#endif
+}
+
+#ifdef __EMSCRIPTEN__
+constexpr double kFrameCapPrecisionMs = 2.0;
+
+static bool FrameCapPrecisionEnabled() {
+    static const bool enabled = MAIN_THREAD_EM_ASM_INT({
+        return Module.onFuzionGpu?.frameCapPrecision === true ? 1 : 0;
+    }) != 0;
+    return enabled;
+}
+
+static void RecordPacingWait(uint32_t kind, double queued, double deadline,
+                             double armed, double signalled, double finished, double timers, double precision_ms) {
+    MAIN_THREAD_ASYNC_EM_ASM({
+        Module.onFuzionPacingWait?.($0, $1, $2, $3, $4, $5, $6, $7);
+    }, kind, queued, deadline, armed, signalled, finished, timers, precision_ms);
+}
+
+// Cancellation stays disabled in the caller until the JS callback releases
+// the signal and timing storage. A result of 3 hands off the final time check.
+static uint32_t WaitForBrowserDeadline(double deadline, double precision_ms, double* timing) {
+    std::atomic<uint32_t> ready{0};
+    static_assert(sizeof(ready) == sizeof(uint32_t));
+    MAIN_THREAD_ASYNC_EM_ASM({
+        const address = $0 >>> 2;
+        const deadline = $1;
+        const timing = $2;
+        const maximumPrecision = $3;
+        const pacing = maximumPrecision > 0 ? Module.onFuzionGpu : undefined;
+        // Allow one millisecond for rounding the delay up and keep a short
+        // recent margin for callback lateness. Start with the full budget.
+        const precision = pacing
+            ? Math.min(maximumPrecision, Math.max(1.25, 1 + (pacing.frameCapTimerDelay ?? 1)))
+            : maximumPrecision;
+        const armed = timing ? performance.timeOrigin + performance.now() : 0;
+        let timers = 0;
+        let completed = false;
+        let watchdog = null;
+        const signal = value => {
+            const memory = Module.wasmMemory?.buffer || Module.HEAPU8.buffer;
+            const heap = new Int32Array(memory);
+            // Publish these words before the atomic release. Once signalled,
+            // the waiting thread can release both of its stack slots.
+            if (timing && value !== 2) {
+                const out = new Float64Array(memory, timing, 3);
+                out[0] = armed;
+                out[1] = performance.timeOrigin + performance.now();
+                out[2] = timers;
+            }
+            Atomics.store(heap, address, value);
+            Atomics.notify(heap, address, 1);
+            completed = true;
+            if (watchdog !== null) clearTimeout(watchdog);
+        };
+        const fail = error => {
+            if (completed) return;
+            try { signal(2); } catch {}
+            postMessage({ type: 'log', text: `Precise pacing timer failed: ${error?.message || error}` });
+        };
+        const arm = expected => {
+            if (completed) return;
             try {
-                watchdog = setTimeout(() => fail(new Error('Timer acknowledgement exceeded 5 seconds')), 5000);
-                arm();
+                const now = performance.timeOrigin + performance.now();
+                if (!Number.isFinite(now)) throw new Error('No finite synchronized browser clock');
+                if (pacing && expected !== undefined) {
+                    // Recover promptly from a late callback and decrease
+                    // the estimate gradually when the timers stay on time.
+                    pacing.frameCapTimerDelay = Math.min(1, Math.max(
+                        0, now - expected, (pacing.frameCapTimerDelay ?? 1) - 0.035));
+                }
+                const remaining = deadline - now;
+                if (remaining > precision) {
+                    if (timing) ++timers;
+                    const delay = Math.ceil(remaining - precision);
+                    setTimeout(arm, delay, now + delay);
+                } else {
+                    signal(remaining > 0 ? 3 : 1);
+                }
             } catch (error) {
                 fail(error);
             }
-        }, &ready, deadline);
-        while (ready.load(std::memory_order_acquire) == 0) {
-            const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
-            if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
+        };
+        try {
+            watchdog = setTimeout(() => fail(new Error('Timer acknowledgement exceeded 5 seconds')), 5000);
+            arm();
+        } catch (error) {
+            fail(error);
         }
-        const int result = ready.load(std::memory_order_acquire);
+    }, &ready, deadline, timing, precision_ms);
+    while (ready.load(std::memory_order_acquire) == 0) {
+        const int result = emscripten_futex_wait(&ready, 0, std::numeric_limits<double>::infinity());
+        if (result < 0 && result != -EWOULDBLOCK && ready.load(std::memory_order_acquire) == 0) std::abort();
+    }
+    return ready.load(std::memory_order_acquire);
+}
+#endif
+
+extern "C" void ff_browser_sleep_for(double milliseconds, uint32_t kind) {
+    if (!std::isfinite(milliseconds)) return;
+    milliseconds = std::min(milliseconds, 1000.0);
+#ifdef __EMSCRIPTEN__
+    if (ff_browser_precise_pacing_enabled() && !emscripten_is_main_runtime_thread()) {
+        // Frame cap, vertical blank, and event hold share a thread in different
+        // combinations. Sample each source separately so none is missed.
+        static thread_local uint32_t samples[3]{};
+        const bool trace = ff_browser_pacing_timing_enabled() && kind < 3 &&
+                           (samples[kind]++ & 3u) == 0;
+        if (milliseconds <= 0.0 && !trace) return;
+        const double queued = emscripten_get_now();
+        const double deadline = queued + milliseconds;
+        if (!std::isfinite(deadline)) std::abort();
+        if (milliseconds <= 0.0) {
+            RecordPacingWait(kind, queued, deadline, queued, queued, queued, 0, 0);
+            return;
+        }
+        const double precision = kind == 0 && milliseconds > kFrameCapPrecisionMs && FrameCapPrecisionEnabled()
+            ? kFrameCapPrecisionMs : 0.0;
+        double timing[3];
+        double precision_spent = 0;
+        int previous_cancel_state = PTHREAD_CANCEL_ENABLE;
+        if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &previous_cancel_state) != 0) std::abort();
+        uint32_t result = WaitForBrowserDeadline(deadline, precision, trace ? timing : nullptr);
+        if (result == 3u) {
+            const double start = emscripten_get_now();
+            if (deadline - start > precision) {
+                // A clock discrepancy must stay on the ordinary timer path.
+                result = WaitForBrowserDeadline(deadline, 0, trace ? timing : nullptr);
+            } else {
+                double now = start;
+                while (now < deadline) now = emscripten_get_now();
+                precision_spent = now - start;
+                result = 1;
+            }
+        }
         if (result != 1u) std::abort();
+        if (trace) RecordPacingWait(kind, queued, deadline, timing[0], timing[1],
+                                   emscripten_get_now(), timing[2], precision_spent);
         if (pthread_setcancelstate(previous_cancel_state, nullptr) != 0) std::abort();
         return;
     }
 #endif
-    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(milliseconds));
+    if (milliseconds > 0.0) std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(milliseconds));
 }
 
 namespace {
@@ -128,6 +286,7 @@ struct PadState {
     std::atomic<bool> connected{false};
 };
 std::array<PadState, 4> g_pads;
+std::atomic<uint32_t> g_frame_cap{60};
 
 uint32_t Pair16(int16_t a, int16_t b) {
     return uint16_t(a) | (uint32_t(uint16_t(b)) << 16);
@@ -206,12 +365,15 @@ public:
         // it is not the title thread's frame-start or physical display time.
         const double completion_ms = emscripten_get_now();
         const double frame_sequence = static_cast<double>(frames_ + 1);
+        const double raw_draw_reuses = static_cast<double>(ff_webgl_raw_draw_reuses());
         if(ff_webgl_enabled()&&ff_webgl_pipelined()) {
-            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
-                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
+            MAIN_THREAD_ASYNC_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6,$7); },
+                                    draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,
+                                    browser_vblank_ticks.load(std::memory_order_relaxed),raw_draw_reuses);
         } else {
-            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6); },
-                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,browser_vblank_ticks.load(std::memory_order_relaxed));
+            MAIN_THREAD_EM_ASM({ if (Module.onFuzionMetrics) Module.onFuzionMetrics($0,$1,$2,$3,$4,$5,$6,$7); },
+                              draw_ms_,clear_ms_,copy_ms_,static_cast<uint32_t>(draw_count_),completion_ms,frame_sequence,
+                              browser_vblank_ticks.load(std::memory_order_relaxed),raw_draw_reuses);
         }
 #endif
         ++frames_;
@@ -248,11 +410,20 @@ extern "C" void ff_browser_set_pad(int port, uint32_t buttons, int16_t lx, int16
                                     int16_t rx, int16_t ry, uint8_t lt, uint8_t rt) {
     if (port < 0 || port >= int(g_pads.size())) return;
     auto& p = g_pads[size_t(port)];
-    p.connected.store(true, std::memory_order_relaxed);
     p.buttons.store(buttons, std::memory_order_relaxed);
     p.left_stick.store(Pair16(lx, ly), std::memory_order_relaxed);
     p.right_stick.store(Pair16(rx, ry), std::memory_order_relaxed);
     p.triggers.store(uint32_t(lt) | (uint32_t(rt) << 8), std::memory_order_relaxed);
+    p.connected.store(true, std::memory_order_release);
+}
+
+extern "C" void ff_browser_disconnect_pad(int port) {
+    if (port <= 0 || port >= int(g_pads.size())) return;
+    g_pads[size_t(port)].connected.store(false, std::memory_order_release);
+}
+
+extern "C" void ff_browser_set_frame_cap(uint32_t cap) {
+    if (cap == 30 || cap == 60) g_frame_cap.store(cap, std::memory_order_relaxed);
 }
 
 namespace input {
@@ -261,7 +432,8 @@ Pad Poll(int port) {
     Pad result;
     if (port < 0 || port >= int(g_pads.size())) return result;
     const auto& p = g_pads[size_t(port)];
-    result.connected = p.connected.load(std::memory_order_relaxed);
+    result.connected = p.connected.load(std::memory_order_acquire);
+    if (!result.connected) return result;
     uint32_t button_pack = p.buttons.load(std::memory_order_relaxed);
     result.buttons = uint16_t(button_pack);
     uint32_t sticks = p.left_stick.load(std::memory_order_relaxed);
@@ -315,14 +487,18 @@ std::recursive_mutex& UiLock() { static std::recursive_mutex m; return m; }
 void Pace() {
     using clock = std::chrono::steady_clock;
     static clock::time_point next = clock::now();
-    const uint32_t cap = Get().fps_cap;
+    static uint32_t previous_cap = 60;
+    const uint32_t cap = g_frame_cap.load(std::memory_order_relaxed);
     const auto now = clock::now();
-    if (!cap) { next = now; return; }
+    if (cap != previous_cap) {
+        previous_cap = cap;
+        next = now;
+    }
     const auto period = std::chrono::nanoseconds(1000000000ull / cap);
     next += period;
     if (next < now - period) next = now;
     if (ff_browser_precise_pacing_enabled()) {
-        ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count());
+        ff_browser_sleep_for(std::chrono::duration<double, std::milli>(next - clock::now()).count(), 0);
     } else {
         std::this_thread::sleep_until(next);
     }
@@ -332,15 +508,77 @@ void Pace() {
 namespace audio {
 void StartOutput(std::function<void(float*, uint32_t)> render) {
 #ifdef __EMSCRIPTEN__
-    // JS must synchronously copy PCM during this callback; the buffer is reused.
-    static std::vector<float> pcm(kRate / 100 * 2);
+    constexpr uint32_t frames = kRate / 100;
+    struct Block {
+        std::array<float, frames * 2> pcm;
+        std::atomic<int32_t> pending{0};
+    };
+    static std::array<Block, 4> blocks{};
     static std::atomic_flag active = ATOMIC_FLAG_INIT;
     if (active.test_and_set()) return;
     std::thread([render = std::move(render)] {
+        const int mode = MAIN_THREAD_EM_ASM_INT({
+            return (Module.asyncAudio === true ? 1 : 0) | (Module.deadlineAudio === true ? 2 : 0);
+        });
+        const bool async = (mode & 1) != 0;
+        const bool deadlineAudio = (mode & 2) != 0;
+        const bool trace = ff_browser_pacing_timing_enabled();
+        using Clock = std::chrono::steady_clock;
+        constexpr auto period = std::chrono::nanoseconds(1'000'000'000ull * frames / kRate);
+        auto deadline = Clock::now();
+        size_t next = 0;
+        double waitStart = 0;
+        double waitMs = 0;
         for (;;) {
-            render(pcm.data(), kRate / 100);
-            MAIN_THREAD_EM_ASM({ if (Module.onFuzionAudio) Module.onFuzionAudio($0, $1, $2); }, pcm.data(), kRate / 100, kRate);
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            auto& block = blocks[next];
+            if (async) {
+                waitStart = waitMs = 0;
+                // A stalled worker can queue four blocks. Preserve PCM order
+                // and wait for that slot only when the queue is full.
+                if (block.pending.load(std::memory_order_acquire)) {
+                    waitStart = trace ? emscripten_get_now() : 0;
+                    do {
+                        emscripten_futex_wait(&block.pending, 1, 1000);
+                    } while (block.pending.load(std::memory_order_acquire));
+                    if (trace) waitMs = emscripten_get_now() - waitStart;
+                }
+            }
+            render(block.pcm.data(), frames);
+            const double queued = trace ? emscripten_get_now() : 0;
+            if (async) {
+                block.pending.store(1, std::memory_order_release);
+                MAIN_THREAD_ASYNC_EM_ASM({
+                    const heap = new Int32Array(Module.wasmMemory?.buffer || Module.HEAPU8.buffer);
+                    const pending = $3 >>> 2;
+                    try {
+                        if (Atomics.load(heap, pending) !== 1) throw new Error('Audio block ownership changed before delivery');
+                        Module.onFuzionAudio?.($0, $1, $2, $4, $5, $6);
+                    } finally {
+                        Atomics.store(heap, pending, 0);
+                        Atomics.notify(heap, pending);
+                    }
+                }, block.pcm.data(), frames, kRate, &block.pending, queued, waitStart, waitMs);
+                next = (next + 1) % blocks.size();
+            } else {
+                MAIN_THREAD_EM_ASM({
+                    Module.onFuzionAudio?.($0, $1, $2, $3, $4, $5);
+                }, block.pcm.data(), frames, kRate, queued, waitStart, waitMs);
+                // Report the completed synchronous call with the next block.
+                if (trace) {
+                    waitStart = queued;
+                    waitMs = emscripten_get_now() - queued;
+                }
+            }
+            if (deadlineAudio) {
+                deadline += period;
+                const auto now = Clock::now();
+                // Recover small overruns without accumulating drift. Restart
+                // the deadline after a long stall instead of mixing a burst.
+                if (deadline < now - period) deadline = now + period;
+                std::this_thread::sleep_until(deadline);
+            } else {
+                std::this_thread::sleep_for(period);
+            }
         }
     }).detach();
 #else

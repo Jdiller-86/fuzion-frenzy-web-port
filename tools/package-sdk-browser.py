@@ -13,9 +13,10 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/browser/FuzionFrenzyBrowser.zip')
     args = parser.parse_args()
     required = [
-        'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs',
+        'web/sdk-browser/index.html', 'web/sdk-browser/app.mjs', 'web/sdk-browser/worker.mjs', 'web/sdk-browser/audio-ring.mjs',
         'web/sdk-browser/presentation.mjs', 'web/sdk-browser/webgl-renderer.mjs', 'web/sdk-browser/pixel-glsl.mjs',
-        'web/sdk-browser/vertex-glsl.mjs',
+        'web/sdk-browser/vertex-glsl.mjs', 'web/sdk-browser/shader-warmup.mjs',
+        'web/sdk-browser/fixed-vertex-fallback.mjs', 'web/sdk-browser/programmable-vertex-fallback.mjs',
         'host/xdvdfs.mjs', 'tools/serve-sdk-browser.py',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs',
         '.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm',
@@ -53,8 +54,10 @@ from the source supplied to the project, SDK runtime and reference renderer;
 it includes no ISO or original assets. No compiler is needed to use this build.
 
 Controls: Enter Start, Space A, Escape B, X/Y face buttons, WASD left stick,
-arrows D-pad, Z/C triggers. Standard gamepads are supported on the first seat.
-Save files stay in this browser's local storage; use Stop game to flush saves.
+arrows D-pad, Z/C triggers. Keyboard and the first standard gamepad share seat
+one, with three additional standard gamepads supported by the current module.
+F1 opens Settings. F2 toggles performance. The Game menu has fullscreen and
+Stop game. Wait for Game stopped before closing the tab to finish local saves.
 
 GPU (WebGL2) is the default renderer; the slower Software diagnostic is under
 Compatibility options before
@@ -65,10 +68,20 @@ admitted. Native WebAssembly exceptions, SIMD/key/constant reuse, threaded
 preparation and pipelined submission are enabled. Windows uses browser-timer
 pacing; it remains best-effort. Development fallbacks:
 ?threadedGpu=0&pipelinedGpu=0 (serial), ?pipelinedGpu=0 (synchronous submit).
+?gpuErrorChecks=sync validates WebGL errors inside each pipelined frame batch.
 ?rawVertices=0 restores converted inputs; ?precisePacing=0 restores coarse waits.
+?frameCapPrecision=0 uses the browser timer for the entire frame-cap wait.
+Windows pipelined WebGL applies the cap before submitting each frame.
+?presentPacing=after restores the previous timing.
+Covered draws use shaders prepared during startup and switch to exact versions
+as parallel compilation finishes. The browser saves newly seen shader recipes
+during play. Stop game flushes recipes still queued for saving.
+?shaderPromotion=0 keeps the resident shaders for newly seen variants.
+?shaderFallback=0 disables the fallbacks; ?shaderWarmup=0 bypasses saved recipes.
+?guestCodeWarmup=0 skips startup preparation of previously measured Wasm functions.
 Observed scenes approach 60 FPS on the development desktop; this is not a locked
 60 FPS guarantee for all minigames or computers. The game fills the window
-at its original aspect ratio. Controls opens fullscreen and Stop game actions.
+at its original aspect ratio unless you choose another display shape in Settings.
 This remains an experimental browser port with incomplete rendering coverage.
 Compilation/linking alone does not prove original-game execution or fidelity.
 The build manifest records the SDK revision and published rendering patch.

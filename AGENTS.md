@@ -37,6 +37,8 @@ Read [scope/fidelity](docs/compatibility.md), [content policy](docs/content.md),
 
 Preserve in-flight edits and lane ownership. Do not discard work, force-push, rewrite published history, change global settings, or add unrelated cleanup.
 
+Keep one runnable build per platform and launch it in place. Use one disposable comparison slot when evidence requires a separate build. Remove that slot, temporary browser profiles, and scratch media at the end of the task. Keep only the evidence needed to reproduce a finding. Preserve original inputs, saves and unique research. Use the installed read-only disc and toolchains in place. Remove verified download archives after installation and create portable packages only on request.
+
 ## Current documentation
 
 - [Documentation map](docs/README.md): canonical guides and reading order.
@@ -61,6 +63,13 @@ Use Node 24.14.0 and npm 11.x (package-manager pin 11.9.0). The public workspace
 Run `npm run check` for preparation/publication contracts and `git diff --check` before handing off. Other checks are change-specific: `test:formats`, `test:gameplay`, `test:runtime`, `test:native`, and `test:evidence`. Native fixtures require gcc; evidence suites require Python 3. These checks are not an original-game playability test.
 
 `npm run dev` serves the research app on loopback port 4174; `npm run dev:research` serves an allowlisted proof on 4173. `npm run build` creates source-only `dist/`. Never serve the repository or local media through a generic file server.
+
+### Browser build storage
+
+- Keep the working module in `.tools/artifacts/sdk-browser-full` and reuse at most one candidate output at `.tools/artifacts/sdk-browser-candidate`.
+- Keep one launchable browser package. Reuse `artifacts/browser` for the current archive and launcher on the next package update. Verify the new launcher before removing the previous package.
+- Serve the working module directly for development. Package a ZIP only when a portable copy is needed. Mount the local disc in the browser. For UI inventory, use the wrapper's disposable package input from the XISO.
+- Use disposable browser profiles for replays. When a replay needs persistence, reuse a profile inside `artifacts/browser-gpu/scratch`. Keep raw captures, screenshots, test modules, and server logs in that same scratch directory. Stop the replay's processes and clear the verified scratch directory after each batch, including failed runs. Keep compact measurement summaries and the source recipe needed to reproduce them.
 
 ## Content, analysis, and publication
 

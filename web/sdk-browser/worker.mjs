@@ -1,11 +1,14 @@
 import createFuzionSdkRuntime from '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs';
 import { openXiso } from '/host/xdvdfs.mjs';
 import { WebGLRenderer } from './webgl-renderer.mjs';
+import {GAME_AUDIO_RATE, StereoPcmRing} from './audio-ring.mjs';
 
 const PINNED_XBE = {
   bytes: 2_834_432,
   sha256: '45bb49e1685a5d86165b84c0f70250c19b80ecd89741f6d4541d685aa4eb00d9',
 };
+const SDK_WASM = '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm';
+const BUILD_ETAG = /^"[0-9a-f]{64}"$/;
 // These are the bounded candidate partition bases used by the retained native
 // XISO extractor and the SDK's own disc reader. `openXiso` checks the volume
 // descriptor and both directory ranges after each slice, so this reads only a
@@ -13,13 +16,24 @@ const PINNED_XBE = {
 const XISO_PARTITION_BASES = [0, 0x0fd90000, 0x18300000, 0x02080000, 0x1fb20000];
 const BUTTON = { dpadUp: 1, dpadDown: 2, dpadLeft: 4, dpadRight: 8, start: 0x10, back: 0x20, leftThumb: 0x40, rightThumb: 0x80, a: 1 << 16, b: 1 << 17, x: 1 << 18, y: 1 << 19, black: 1 << 20, white: 1 << 21 };
 let moduleInstance;
-let lastInput = { buttons: 0, lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
+const PORTS = 4;
+let lastInput = [readPad(new Set()), null, null, null];
+let connectedPads = 0;
+let frameCap = 60;
 let cancelled = false;
 let saveTimer;
 let persistentSaves = false;
+let pendingSave = Promise.resolve();
+let pacingTiming;
+let audioOutput;
 
-async function flushSaves() {
-  if (persistentSaves && moduleInstance) await new Promise((resolve, reject) => moduleInstance.FS.syncfs(false, error => error ? reject(error) : resolve()));
+function flushSaves() {
+  if (!persistentSaves || !moduleInstance) return Promise.resolve();
+  const fs = moduleInstance.FS;
+  pendingSave = pendingSave.catch(() => {}).then(() => new Promise((resolve, reject) => {
+    fs.syncfs(false, error => error ? reject(error) : resolve());
+  }));
+  return pendingSave;
 }
 
 function report(text) { postMessage({ type: 'progress', text }); }
@@ -28,7 +42,17 @@ function digestHex(bytes) {
 }
 function boundedInt16(value) { return Math.max(-32768, Math.min(32767, Math.round(value * 32767))); }
 function stopThreads(module) {
-  try { module?.onFuzionGpu?.disposeGpuTiming?.(); } catch {}
+  const gpu = module?.onFuzionGpu;
+  if (gpu) {
+    gpu.earlyTextureUpload = false;
+    gpu.retainOrdinaryImages = false;
+    gpu.deferGpuErrors = false;
+    gpu.cancelShaderPromotion();
+    try { gpu.cancelFrameErrorCheck(); } catch {}
+    try { gpu.disposeGpuTiming(); } catch {}
+    try { gpu.clearStagedImages?.(); } catch {}
+    try { gpu.clearRetainedImages(); } catch {}
+  }
   try { module?._ff_browser_stop?.(); } catch {}
   try { module?.PThread?.terminateAllThreads?.(); } catch {}
 }
@@ -56,7 +80,7 @@ function intervalSummary(intervals) {
   const percentile = p => ordered[Math.min(ordered.length - 1, Math.floor((ordered.length - 1) * p))];
   return { p50: percentile(.5), p95: percentile(.95), p99: percentile(.99), max: ordered.at(-1), samples: ordered.length };
 }
-function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequence, blankCount) {
+function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequence, blankCount, rawDrawReuses) {
   if (cancelled || ![drawMs, clearMs, copyMs, drawCalls].every(v => Number.isFinite(v) && v >= 0)) return;
   const now = performance.now();
   // These timestamps are captured at BrowserBackend::EndFrame after Present
@@ -99,44 +123,105 @@ function onMetrics(drawMs, clearMs, copyMs, drawCalls, completionMs, frameSequen
     imageLookups: moduleInstance?.onFuzionGpu?.imageLookups,
     constantPacking: moduleInstance?.onFuzionGpu?.constantPacking,
     textureMetadataLookups: moduleInstance?.onFuzionGpu?.textureMetadataLookups,
+    rawDrawReuses,
     gpuTiming: moduleInstance?.onFuzionGpu?.gpuTimingStats,
+    pacingTiming,
+    audioRing: pacingTiming && audioOutput?.stats(),
     metricsCallbackIntervalMs,
     frameMs: metricsCallbackIntervalMs,
     prepareCompletionIntervalMs,vblankHz});
   // The SDK virtual-blank counter is independent of rendered/presented frames.
   metricStart = now; metricFrames = metricDraw = metricClear = metricCopy = metricCalls = 0;
   metricIntervals=[];completionIntervals=[];
+  if (pacingTiming) {
+    for (const samples of Object.values(pacingTiming)) samples.length = 0;
+  }
   blankStartCount=validBlank?blankCount:null;blankStartMs=validBlank?completionMs:null;
 }
-function onAudio(ptr, frames, rate) {
+function onAudio(ptr, frames, rate, queued, waitStart, waitMs) {
   if (!moduleInstance || cancelled || !Number.isInteger(frames) || frames < 1 || frames > 65536 || !Number.isFinite(rate) || rate < 8000 || rate > 192000) return;
   const start = Number(ptr) >>> 2;
   const count = frames * 2;
   if (!Number.isSafeInteger(start) || start + count > moduleInstance.HEAPF32.length) return;
-  const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
-  postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+  const audioTiming = pacingTiming?.audio;
+  const sample = queued && audioTiming && audioTiming.length < 120;
+  const received = sample ? performance.timeOrigin + performance.now() : 0;
+  if (audioOutput && rate !== GAME_AUDIO_RATE) {
+    audioOutput = undefined;
+    postMessage({type: 'audio-fallback'});
+  }
+  if (audioOutput) {
+    audioOutput.write(moduleInstance.HEAPF32, start, frames);
+  } else {
+    const samplesBuffer = moduleInstance.HEAPF32.slice(start, start + count).buffer;
+    postMessage({ type: 'audio', frames, rate, samplesBuffer }, [samplesBuffer]);
+  }
+  if (sample) audioTiming.push([queued, received, performance.timeOrigin + performance.now(), waitStart, waitMs]);
 }
 function pushInput() {
   if (!moduleInstance || cancelled) return;
-  const setPad = moduleInstance._ff_browser_set_pad;
+  const {_ff_browser_set_pad: setPad, _ff_browser_disconnect_pad: disconnectPad} = moduleInstance;
   if (typeof setPad !== 'function') return;
-  const p = lastInput;
-  setPad(0, p.buttons, p.lx, p.ly, p.rx, p.ry, p.lt, p.rt);
+  const ports = typeof disconnectPad === 'function' ? PORTS : 1;
+  for (let port = 0; port < ports; ++port) {
+    const bit = 1 << port;
+    const pad = lastInput[port];
+    if (pad) {
+      setPad(port, pad.buttons, pad.lx, pad.ly, pad.rx, pad.ry, pad.lt, pad.rt);
+      connectedPads |= bit;
+    } else if (connectedPads & bit) {
+      disconnectPad(port);
+      connectedPads &= ~bit;
+    }
+  }
 }
-function parseInput(message) {
-  const keySet = new Set(message.keys || []);
+function readPad(keySet, pad) {
   let buttons = 0;
   const keyMap = { ArrowUp: BUTTON.dpadUp, ArrowDown: BUTTON.dpadDown, ArrowLeft: BUTTON.dpadLeft, ArrowRight: BUTTON.dpadRight, Enter: BUTTON.start, Tab: BUTTON.back, Space: BUTTON.a, Escape: BUTTON.b, Backspace: BUTTON.b, KeyX: BUTTON.x, KeyY: BUTTON.y, Digit1: BUTTON.black, Digit2: BUTTON.white };
   for (const [key, bit] of Object.entries(keyMap)) if (keySet.has(key)) buttons |= bit;
-  const padButtons = message.buttons || [];
+  const padButtons = pad?.buttons ?? [];
   const mapping = [[0,BUTTON.a],[1,BUTTON.b],[2,BUTTON.x],[3,BUTTON.y],[4,BUTTON.black],[5,BUTTON.white],[8,BUTTON.back],[9,BUTTON.start],[10,BUTTON.leftThumb],[11,BUTTON.rightThumb],[12,BUTTON.dpadUp],[13,BUTTON.dpadDown],[14,BUTTON.dpadLeft],[15,BUTTON.dpadRight]];
   for (const [index, bit] of mapping) if ((padButtons[index] || 0) > 0.2) buttons |= bit;
-  const axes = message.axes || [];
-  lastInput = { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
+  const axes = pad?.axes ?? [];
+  return { buttons, lx: boundedInt16((axes[0] || 0) + Number(keySet.has('KeyD')) - Number(keySet.has('KeyA'))), ly: boundedInt16(-(axes[1] || 0) + Number(keySet.has('KeyW')) - Number(keySet.has('KeyS'))), rx: boundedInt16(axes[2] || 0), ry: boundedInt16(-(axes[3] || 0)), lt: keySet.has('KeyZ') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[6] || 0)) * 255), rt: keySet.has('KeyC') ? 255 : Math.round(Math.max(0, Math.min(1, padButtons[7] || 0)) * 255) };
 }
 
-async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,rawVertices,precisePacing,shaderPrewarm,gpuTiming) {
+function parseInput(message) {
+  const pads = message.pads ?? [message];
+  const noKeys = new Set();
+  lastInput = Array.from({length: PORTS}, (_, port) => {
+    const pad = pads[port];
+    if (port === 0) return readPad(new Set(message.keys ?? []), pad);
+    return pad ? readPad(noKeys, pad) : null;
+  });
+}
+
+function applyFrameCap(cap) {
+  frameCap = cap === 30 ? 30 : 60;
+  moduleInstance?._ff_browser_set_frame_cap?.(frameCap);
+}
+
+async function compileWasm(previous) {
+  if (typeof WebAssembly.compileStreaming !== 'function') return undefined;
+  try {
+    if (previous?.module instanceof WebAssembly.Module && BUILD_ETAG.test(previous.etag)) {
+      const head = await fetch(SDK_WASM, {method:'HEAD', cache:'no-store'});
+      if (head.ok && head.headers.get('ETag') === previous.etag) return previous;
+    }
+    if (cancelled) return undefined;
+    const response = await fetch(SDK_WASM, {cache:'no-store'});
+    if (!response.ok) return undefined;
+    const etag = response.headers.get('ETag');
+    return {etag, module:await WebAssembly.compileStreaming(response)};
+  } catch {
+    return undefined;
+  }
+}
+
+async function boot({iso,canvas,renderer,gpuVertices,threadedGpu,pipelinedGpu,paceBeforePresent,deferGpuErrors,rawVertices,precisePacing,frameCapPrecision,compiledWasm,pcm,
+                     shaderPrewarm,shaderWarmup,shaderFallback,shaderPromotion,guestCodeWarmup,gpuTiming,directTextureUploads,retainOrdinaryImages,earlyTextureDecode,earlyTextureUpload,pacingTiming:measurePacing,resourceFences,gridContours,fastInteger,decimalProductMemo,sceneNodePool,asyncAudio,deadlineAudio}) {
   if (!(iso instanceof File)) throw new Error('Select your local Fuzion Frenzy disc image.');
+  if (pcm) audioOutput = new StereoPcmRing(pcm);
   report('Checking the local disc image and locating DEFAULT.XBE…');
   // Partition probing reads only the descriptor and root-directory ranges for
   // each known base; it never reads or hashes the full ISO.
@@ -155,17 +240,39 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
   const xbeHash = await digestHex(await xbe.arrayBuffer());
   if (xbeHash !== PINNED_XBE.sha256) throw new Error(`DEFAULT.XBE does not match the pinned Fuzion Frenzy build (SHA-256 ${xbeHash}).`);
   if (cancelled) return;
+  const build = compileWasm(compiledWasm);
+  const createGpu=()=>new WebGLRenderer(canvas,()=>moduleInstance,text=>postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true,shaderFallback===true,shaderPromotion!==false);
+  const prepareShaders = renderer === 'webgl' && shaderPrewarm !== false;
+  const gpu = prepareShaders && (shaderWarmup === true || shaderFallback === true) ? createGpu() : undefined;
+  const warmup = gpu?.parallelShaderCompile && shaderWarmup === true
+    ? import('./shader-warmup.mjs')
+        .then(({openShaderWarmup}) => openShaderWarmup(xbeHash))
+        .then(store => { if (!cancelled) gpu.prepareWarmup(store); })
+        .catch(() => postMessage({type:'log',text:'Local shader warmup storage is unavailable.'}))
+    : undefined;
+  if(cancelled)return;
   report('Starting the full SDK runtime from the local disc image…');
   const gameXbe = new Blob([xbe], { type: 'application/octet-stream' });
+  const compiled = await build;
+  if (cancelled) return;
   const factory = createFuzionSdkRuntime;
   const module = await factory({
-    locateFile: name => name.endsWith('.wasm') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm' : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
+    locateFile: name => name.endsWith('.wasm') ? SDK_WASM : name.endsWith('.worker.js') ? '/artifacts/sdk-browser-full/fuzion-sdk-full.worker.js' : name,
+    ...(compiled && {
+      instantiateWasm(imports, receiveInstance) {
+        const instance = new WebAssembly.Instance(compiled.module, imports);
+        receiveInstance(instance, compiled.module);
+        return instance.exports;
+      },
+    }),
     print: line => report(`SDK: ${line}`),
     printErr: line => postMessage({ type: 'log', text: String(line) }),
     onAbort: reason => postMessage({ type: 'result', text: 'SDK runtime stopped.', error: String(reason || 'Runtime aborted; the local browser console contains the stack.'), done: true }),
     onFuzionFrame: onFrame,
     onFuzionMetrics: onMetrics,
     onFuzionAudio: onAudio,
+    asyncAudio: asyncAudio === true,
+    deadlineAudio: deadlineAudio === true,
     preRun: [runtime => {
       const FS = runtime.FS;
       if (!FS || !runtime.WORKERFS) throw new Error('Full SDK build does not expose WorkerFS for local game files.');
@@ -175,12 +282,68 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
     }],
   });
   moduleInstance = module;
+  applyFrameCap(frameCap);
+  postMessage({type: 'capabilities', frameCap: typeof module._ff_browser_set_frame_cap === 'function',
+    multiPad: typeof module._ff_browser_disconnect_pad === 'function'});
+  if (compiled && compiled !== compiledWasm && BUILD_ETAG.test(compiled.etag)) {
+    // Only the compiled module is shared. Each worker creates its own instance,
+    // guest memory and threads, and first verifies the local disc identity.
+    try { postMessage({type:'compiled-wasm', build:compiled}); } catch { /* Sharing is optional. */ }
+  }
+  if (measurePacing === true) {
+    const waits = [[], [], []];
+    const presents = [];
+    const resourceWaits = [];
+    const scenePhases = [];
+    const contourBuilds = [];
+    const sceneIntegers = [];
+    const sceneDecimalMemo = [];
+    const audio = [];
+    pacingTiming = { frameCap: waits[0], verticalBlank: waits[1], eventHold: waits[2], presents, resourceWaits, scenePhases, contourBuilds, sceneIntegers, sceneDecimalMemo, audio };
+    module.onFuzionPacingWait = (kind, ...sample) => {
+      const list = waits[kind];
+      if (list && list.length < 120) list.push(sample);
+    };
+    module.onFuzionPacingPresent = (...sample) => {
+      if (presents.length < 120) presents.push(sample);
+    };
+    module.onFuzionPacingResourceWait = (...sample) => {
+      if (resourceWaits.length < 120) resourceWaits.push(sample);
+    };
+    module.onFuzionSceneTiming = (...sample) => {
+      if (scenePhases.length < 128) scenePhases.push(sample);
+    };
+    module.onFuzionGridContours = (...sample) => {
+      if (contourBuilds.length < 16) contourBuilds.push(sample);
+    };
+    module.onFuzionSceneIntegers = (...sample) => {
+      if (sceneIntegers.length < 16) sceneIntegers.push(sample);
+    };
+    module.onFuzionSceneDecimalMemo = (...sample) => {
+      if (sceneDecimalMemo.length < 16) sceneDecimalMemo.push(sample);
+    };
+  }
   if (renderer === 'webgl') {
-    module.onFuzionGpu = new WebGLRenderer(canvas, () => moduleInstance, text => postMessage({type:'log',text}),gpuVertices,shaderPrewarm!==false,gpuTiming===true);
+    module.onFuzionGpu = gpu ?? createGpu();
     module.onFuzionGpu.threaded=threadedGpu===true;
+    module.onFuzionGpu.retainOrdinaryImages=retainOrdinaryImages!==false;
+    module.onFuzionGpu.earlyTextureDecode=threadedGpu===true&&earlyTextureDecode===true;
+    module.onFuzionGpu.earlyTextureUpload=module.onFuzionGpu.earlyTextureDecode&&pipelinedGpu===true&&earlyTextureUpload===true;
     module.onFuzionGpu.pipelined=pipelinedGpu===true;
+    module.onFuzionGpu.paceBeforePresent=paceBeforePresent===true;
+    module.onFuzionGpu.deferGpuErrors=deferGpuErrors===true;
     module.onFuzionGpu.rawVertices=rawVertices===true;
+    if (shaderFallback && rawVertices && module._ff_browser_fallback_vertex_template)
+      module.onFuzionGpu.beginProgrammableFallback(module._ff_browser_fallback_vertex_template());
+    module.onFuzionGpu.measurePacing=measurePacing===true;
+    module.onFuzionGpu.directTextureUploads=directTextureUploads!==false;
+    module.onFuzionGpu.resourceFences=resourceFences;
+    module.onFuzionGpu.gridContours=gridContours===true;
+    module.onFuzionGpu.fastInteger=fastInteger===true;
+    module.onFuzionGpu.decimalProductMemo=decimalProductMemo===true;
+    module.onFuzionGpu.sceneNodePool=sceneNodePool===true;
     module.onFuzionGpu.precisePacing=precisePacing===true;
+    module.onFuzionGpu.frameCapPrecision=frameCapPrecision===true;
     postMessage({type:'log',text:`Render preparation: ${module.onFuzionGpu.threaded?'threaded':'serial'}`});
   }
   if (cancelled) { stopThreads(module); return; }
@@ -188,10 +351,43 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
     try {
       module.FS.mount(module.IDBFS, {}, '/hdd');
       await new Promise((resolve, reject) => module.FS.syncfs(true, error => error ? reject(error) : resolve()));
+      if (cancelled) return;
       persistentSaves = true;
       saveTimer = setInterval(() => flushSaves().catch(error => postMessage({ type: 'log', text: `Save persistence: ${error.message}` })), 30000);
-    } catch (error) { report(`Browser save storage is unavailable: ${error.message}. Saves will last only for this run.`); }
+    } catch (error) { postMessage({type: 'storage-warning', text: `Local save storage is unavailable (${error.message}). Saves will last only for this run.`}); }
+  } else {
+    postMessage({type: 'storage-warning', text: 'Local save storage is unavailable. Saves will last only for this run.'});
   }
+  if (warmup) await warmup;
+  if (cancelled) { stopThreads(module); return; }
+  const webgl = module.onFuzionGpu;
+  if (webgl?.pendingFixedFallbackPrograms) {
+    report('Preparing resident WebGL shaders…');
+    webgl.finishFixedFallbacks();
+  }
+  if (webgl?.warmPrograms?.size) {
+    report('Preparing previously seen WebGL shaders…');
+    await webgl.finishWarmup(() => cancelled);
+    if (cancelled) return;
+  }
+  if (guestCodeWarmup !== false && typeof module._ff_browser_warm_guest_code === 'function') {
+    report('Preparing original game code…');
+    let count = 0;
+    let elapsed = 0;
+    for (const warmup of [module._ff_browser_warm_guest_code, module._ff_browser_warm_guest_code_extra]) {
+      if (typeof warmup !== 'function') continue;
+      const start = performance.now();
+      count += warmup();
+      elapsed += performance.now() - start;
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (cancelled) { stopThreads(module); return; }
+      if (webgl?.contextLost || webgl?.gl.isContextLost())
+        throw new Error('The graphics context was lost. Start the game again to recreate its resources.');
+    }
+    postMessage({type:'log',text:`Prepared ${count} guest functions in ${elapsed.toFixed(2)} ms.`});
+  }
+  if (webgl?.contextLost || webgl?.gl.isContextLost())
+    throw new Error('The graphics context was lost. Start the game again to recreate its resources.');
   pushInput();
   const bootFn = module._ff_browser_boot;
   if (typeof bootFn !== 'function') throw new Error('Full SDK build is missing ff_browser_boot().');
@@ -203,16 +399,25 @@ async function boot(iso, canvas, renderer, gpuVertices,threadedGpu,pipelinedGpu,
 
 onmessage = async ({ data }) => {
   if (data?.type === 'input') { parseInput(data); pushInput(); return; }
+  if (data?.type === 'settings') { if (!cancelled) applyFrameCap(data.frameCap); return; }
+  if (data?.type === 'audio-fallback') { audioOutput = undefined; return; }
   if (data?.type === 'stop') {
+    if (cancelled) return;
     cancelled = true;
     clearInterval(saveTimer);
     stopThreads(moduleInstance);
-    try { await flushSaves(); } catch (error) { postMessage({ type: 'log', text: `Save flush failed: ${error.message}` }); }
-    postMessage({ type: 'stopped' });
+    const saveShaders=moduleInstance?.onFuzionGpu?.shaderWarmup?.save().catch(()=>{
+      postMessage({type:'log',text:'Local shader warmup could not be saved.'});
+    });
+    let saveError;
+    try { await flushSaves(); } catch (error) { saveError = error.message; }
+    await saveShaders;
+    postMessage({ type: 'stopped', saveError });
     return;
   }
   if (data?.type !== 'run') return;
-  try { await boot(data.iso, data.canvas, data.renderer,data.gpuVertices,data.threadedGpu,data.pipelinedGpu,data.rawVertices,data.precisePacing,data.shaderPrewarm,data.gpuTiming); }
+  applyFrameCap(data.frameCap);
+  try { await boot(data); }
   catch (cause) {
     stopThreads(moduleInstance);
     postMessage({ type: 'result', text: 'The original game did not reach a running frame.', error: cause instanceof Error ? cause.message : String(cause), done: true });

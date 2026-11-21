@@ -67,6 +67,11 @@ need extracting first.
 The launcher keeps the built game, settings, saves and logs under
 `%LOCALAPPDATA%\FuzionFrenzy`, separately from the installed builder. Rebuilds
 preserve saves and settings. Uninstalling the builder preserves this directory.
+For disc inputs, the builder reuses a byte-identical installed ISO and copies
+a new or changed ISO once into its install staging directory. It moves that
+copy into place on the same volume. Builds clear their single
+`.install-staging` directory on exit. If a forced stop leaves it behind,
+remove that directory after the previous build has stopped, then retry.
 The built native executable is `game\FuzionFrenzy.exe`; it requires its local
 `assets` directory and any staged runtime DLLs.
 

@@ -50,7 +50,7 @@ if (ff_webgl_enabled()) {
             q[2] = image->lo; q[3] = image->w; q[4] = image->h;
             q[5] = image->faces | (image->gpu_encoding << 8);
             q[6] = uint32_t(reinterpret_cast<uintptr_t>(image->gpu_encoding ?
-                static_cast<const void*>(image->gpu_pixels.data()) :
+                static_cast<const void*>(image->gpu_pixels.get()) :
                 static_cast<const void*>(image->texels[0].data())));
             q[7] = unit.address_u; q[8] = unit.address_v; q[9] = unit.min; q[10] = unit.mag;
             // Cube faces are separate owned vectors in the SDK decoder.
@@ -80,14 +80,14 @@ if (ff_webgl_enabled()) {
         for(auto& entry:bucket)if(ff_webgl_equal_bytes(&entry.first,&mat.key,sizeof(mat.key))){source=entry.second.c_str();break;}
         if(!source) {
             if(shader_text.size()>2048)std::abort();
-            bucket.emplace_back(mat.key,PixelHlsl(mat.key));source=bucket.back().second.c_str();
+            bucket.emplace_back(mat.key,ff_webgl_pixel_source(mat.key));source=bucket.back().second.c_str();
         }
         std::memcpy(&previous_pixel_key,&mat.key,sizeof(mat.key));previous_pixel_source=source;
     }
     ff_webgl_target(s.rt, false);
     if (zs.ok) ff_webgl_target(s.zs, true);
     const bool submitted=bridge_layout?
-        ff_webgl_draw_raw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures,bridge_layout):
+        ff_webgl_draw_raw(as,states,uniforms,source,textures,bridge_layout,prepare_revision):
         ff_webgl_draw(bridge_vertices,bridge_count,bridge_stride,as.indices.data(),uint32_t(as.indices.size()),states,uniforms,source,textures);
     if(submitted)return;
     // A rejected shader/state is a visible stop, never an omitted draw.

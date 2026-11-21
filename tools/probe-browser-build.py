@@ -2,9 +2,11 @@
 
 Run with Linux Python in the existing WSL environment. Sources/SDK/dependencies
 must already be installed locally; this script never acquires game or firmware
-files, never activates global tools, and never removes a previous attempt.
+files or activates global tools. Each attempt retains its log and report;
+its disposable worktree and build directory are removed when it exits.
 """
 import argparse
+from contextlib import ExitStack
 import datetime
 import hashlib
 import json
@@ -14,15 +16,16 @@ import re
 import shutil
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 
-def browser_host_source(root, source, attempt, commit):
+def browser_host_source(source, destination, commit, cleanup):
     """Prepare an isolated partial host port; retain original machine/render code."""
-    destination = root / ("xemu-browser-source-" + attempt)
-    if destination.exists():
-        raise FileExistsError("preserve the existing browser source; choose a new label")
     subprocess.run(["git", "-C", str(source), "worktree", "add", "--detach",
                     str(destination), commit], check=True)
+    cleanup.callback(subprocess.run,
+                     ["git", "-C", str(source), "worktree", "remove", "--force", "--", str(destination)],
+                     check=True)
     changes = {}
 
     def replace(relative, before, after):
@@ -89,13 +92,17 @@ def main():
             parser.error(f"{directory} does not match the reviewed source commit")
     if subprocess.run(["git", "-C", str(root / "xemu-source"), "diff", "HEAD", "--quiet"]).returncode:
         parser.error("xemu source has local changes; review those before probing")
-    build = root / ("xemu-wasm-" + args.attempt)
     log = root / ("xemu-wasm-" + args.attempt + ".log")
     report = root / ("xemu-wasm-" + args.attempt + ".json")
     source = root / "xemu-source"
-    browser_source = root / ("xemu-browser-source-" + args.attempt)
-    if any(p.exists() for p in [build, log, report]) or (args.browser_host and browser_source.exists()):
+    if log.exists() or report.exists():
         parser.error("preserve the existing attempt; choose a new label")
+    with TemporaryDirectory(prefix="xemu-probe-", dir=root) as temporary, ExitStack() as cleanup:
+        return run_probe(args, root, source, manifest, Path(temporary), log, report, cleanup)
+
+
+def run_probe(args, root, source, manifest, staging, log, report, cleanup):
+    build = staging / "build"
     build.mkdir()
     source_changes = {}
     if args.browser_host:

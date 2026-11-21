@@ -2,7 +2,9 @@
 """Loopback-only, allowlisted host for the local-ISO browser build."""
 import argparse
 import errno
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 from pathlib import Path
 import threading
 import webbrowser
@@ -13,10 +15,14 @@ ROUTES = {
     '/sdk-browser/index.html': ('web/sdk-browser/index.html', 'text/html; charset=utf-8'),
     '/sdk-browser/app.mjs': ('web/sdk-browser/app.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/worker.mjs': ('web/sdk-browser/worker.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/audio-ring.mjs': ('web/sdk-browser/audio-ring.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/presentation.mjs': ('web/sdk-browser/presentation.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/webgl-renderer.mjs': ('web/sdk-browser/webgl-renderer.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/pixel-glsl.mjs': ('web/sdk-browser/pixel-glsl.mjs', 'text/javascript; charset=utf-8'),
     '/sdk-browser/vertex-glsl.mjs': ('web/sdk-browser/vertex-glsl.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/fixed-vertex-fallback.mjs': ('web/sdk-browser/fixed-vertex-fallback.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/programmable-vertex-fallback.mjs': ('web/sdk-browser/programmable-vertex-fallback.mjs', 'text/javascript; charset=utf-8'),
+    '/sdk-browser/shader-warmup.mjs': ('web/sdk-browser/shader-warmup.mjs', 'text/javascript; charset=utf-8'),
     '/host/xdvdfs.mjs': ('host/xdvdfs.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.mjs': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', 'text/javascript; charset=utf-8'),
     '/artifacts/sdk-browser-full/fuzion-sdk-full.wasm': ('.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', 'application/wasm'),
@@ -25,6 +31,22 @@ ROUTES = {
 
 
 class Handler(BaseHTTPRequestHandler):
+    _wasm_validator = None
+
+    @classmethod
+    def wasm_etag(cls, stream, stat):
+        key = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        cached = cls._wasm_validator
+        if cached and cached[0] == key:
+            return cached[1]
+        digest = hashlib.sha256()
+        while block := stream.read(1024 * 1024):
+            digest.update(block)
+        stream.seek(0)
+        etag = f'"{digest.hexdigest()}"'
+        cls._wasm_validator = (key, etag)
+        return etag
+
     def do_HEAD(self):
         self.do_GET()
 
@@ -37,20 +59,26 @@ class Handler(BaseHTTPRequestHandler):
         if source.is_symlink() or not source.is_file():
             self.send_error(503, 'Build artifact missing; compile the full SDK browser module first')
             return
-        self.send_response(200)
-        self.send_header('Content-Type', route[1])
-        self.send_header('Content-Length', str(source.stat().st_size))
-        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
-        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
-        self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
-        self.send_header('Cache-Control', 'no-store')
-        self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Referrer-Policy', 'no-referrer')
-        self.end_headers()
-        if self.command == 'HEAD':
-            return
         try:
             with source.open('rb') as stream:
+                stat = os.fstat(stream.fileno())
+                # Tag the exact module so the page can reuse compiled code
+                # when it starts another game worker.
+                etag = self.wasm_etag(stream, stat) if route[1] == 'application/wasm' else None
+                self.send_response(200)
+                self.send_header('Content-Type', route[1])
+                self.send_header('Content-Length', str(stat.st_size))
+                self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+                self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+                self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
+                self.send_header('Cache-Control', 'no-store')
+                if etag:
+                    self.send_header('ETag', etag)
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Referrer-Policy', 'no-referrer')
+                self.end_headers()
+                if self.command == 'HEAD':
+                    return
                 while block := stream.read(1024 * 1024):
                     self.wfile.write(block)
         except (BrokenPipeError, ConnectionResetError):

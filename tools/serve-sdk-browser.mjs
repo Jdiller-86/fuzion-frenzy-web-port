@@ -9,7 +9,10 @@ const routes = new Map([
   ['/sdk-browser/index.html', ['web/sdk-browser/index.html', 'text/html; charset=utf-8']],
   ['/sdk-browser/app.mjs', ['web/sdk-browser/app.mjs', 'text/javascript; charset=utf-8']],
   ['/sdk-browser/worker.mjs', ['web/sdk-browser/worker.mjs', 'text/javascript; charset=utf-8']],
-  ...['presentation', 'webgl-renderer', 'pixel-glsl', 'vertex-glsl'].map(name => [`/sdk-browser/${name}.mjs`, [`web/sdk-browser/${name}.mjs`, 'text/javascript; charset=utf-8']]),
+  ...[
+    'presentation', 'webgl-renderer', 'pixel-glsl', 'vertex-glsl', 'audio-ring',
+    'fixed-vertex-fallback', 'programmable-vertex-fallback', 'shader-warmup',
+  ].map(name => [`/sdk-browser/${name}.mjs`, [`web/sdk-browser/${name}.mjs`, 'text/javascript; charset=utf-8']]),
   ['/host/xdvdfs.mjs', ['host/xdvdfs.mjs', 'text/javascript; charset=utf-8']],
   ['/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', ['.tools/artifacts/sdk-browser-full/fuzion-sdk-full.mjs', 'text/javascript; charset=utf-8']],
   ['/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', ['.tools/artifacts/sdk-browser-full/fuzion-sdk-full.wasm', 'application/wasm']],

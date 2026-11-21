@@ -1,88 +1,852 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#000000">
-  <title>Fuzion Frenzy</title>
-  <style>
-    :root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#000;color:#eaf2ff}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#000}
-    button{font:inherit;color:inherit;background:#142234;border:1px solid #73849a;border-radius:7px;padding:.55rem .85rem;cursor:pointer}
-    button:hover{background:#20354b}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #72e6cb;outline-offset:3px}
-    button:disabled{opacity:.45;cursor:default}
-    .stage{position:relative;display:grid;place-items:center;width:100vw;height:100vh;min-height:300px;overflow:hidden;background:#000}
-    #screen{display:block;width:100vw;height:100vh;object-fit:contain;background:#000}
-    #screen:focus{outline:none}
-    .launch{position:fixed;z-index:3;inset:0;overflow:auto;padding:clamp(18px,4vw,56px);background:radial-gradient(ellipse at 50% 30%,#17263a 0,#080d15 65%,#000 100%);transition:opacity .25s ease,visibility .25s ease}
-    .launch-inner{max-width:760px;margin:4vh auto;padding:clamp(22px,4vw,44px);background:#101a28;border:1px solid #34445c;border-radius:14px;box-shadow:0 18px 70px #0009}
-    h1{font-size:clamp(2.4rem,7vw,5rem);line-height:1;margin:.2em 0 .35em;letter-spacing:-.04em}h2{font-size:1.15rem;margin:0 0 .6rem}
-    p{margin:.7rem 0}.eyebrow,.muted{color:#afbed2;font-size:.92rem}.eyebrow{letter-spacing:.12em;font-weight:700}
-    label{display:block;margin:20px 0;font-weight:650}input,select{display:block;margin-top:8px;max-width:100%;font:inherit;color:inherit;background:#080d15;border:1px solid #73849a;border-radius:6px;padding:.55rem}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.primary{background:#126b5b;border-color:#66c8b3}
-    .loading-line{height:3px;overflow:hidden;border-radius:2px;background:#34445c;margin:18px 0 10px;visibility:hidden}
-    .loading-line::after{content:"";display:block;height:100%;width:35%;background:#72e6cb;animation:loading 1.3s ease-in-out infinite alternate}
-    body.is-loading .loading-line{visibility:visible}
-    @keyframes loading{to{transform:translateX(185%)}}
-    body.is-running .launch{opacity:0;visibility:hidden;pointer-events:none}
-    body.is-running.show-launch .launch{opacity:1;visibility:visible;pointer-events:auto}
-    .toolbar{position:fixed;z-index:4;top:12px;right:12px;display:flex;gap:8px;align-items:center;padding:8px;background:#080d15d9;border:1px solid #44536a;border-radius:10px;opacity:.14;transform:translateY(-3px);transition:opacity .18s ease,transform .18s ease}
-    .toolbar:hover,.toolbar:focus-within,.toolbar.is-open{opacity:1;transform:none}.toolbar button{font-size:.9rem}
-    #toolbar-actions{display:none} .toolbar:hover #toolbar-actions,.toolbar:focus-within #toolbar-actions,.toolbar.is-open #toolbar-actions{display:flex}
-    .details{position:fixed;z-index:4;left:12px;bottom:12px;max-width:min(560px,calc(100vw - 24px));padding:8px 12px;background:#080d15e8;border:1px solid #44536a;border-radius:9px;opacity:.16;transition:opacity .18s ease}
-    .details:hover,.details:focus-within,.details[open]{opacity:1}.details summary{cursor:pointer}.details-content{max-height:min(45vh,320px);overflow:auto;padding-top:8px}
-    #status{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:10px;background:#05080d;border-radius:6px}#error{color:#ffaaa3;white-space:pre-wrap;overflow-wrap:anywhere}
-    #log{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem}
-    #performance{margin:0;color:#c6d3e2;font-size:.78rem;max-width:50vw;overflow-wrap:anywhere}
-    @media(max-width:600px){.stage{min-height:240px}.toolbar{top:8px;right:8px;gap:5px;padding:6px}.toolbar button{padding:.45rem .6rem}.details{left:8px;bottom:8px;max-width:calc(100vw - 16px)}.launch{padding:14px}.launch-inner{margin:2vh auto}}
-    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
-  </style>
-</head>
-<body>
-  <main class="stage" aria-label="Game viewport"><canvas id="screen" width="640" height="480" aria-label="Fuzion Frenzy game screen" tabindex="0"></canvas></main>
-  <section class="launch" id="launch-card" aria-labelledby="title">
-    <div class="launch-inner">
-      <p class="eyebrow">LOCAL BROWSER BUILD</p>
-      <h1 id="title">Fuzion Frenzy</h1>
-      <p>Start the original game from a compatible local disc image. Your image stays on this device.</p>
-      <label>Select your local Fuzion Frenzy disc image
-        <input id="iso" type="file" accept=".iso,.xiso,application/octet-stream">
-      </label>
-      <details><summary>Compatibility options</summary>
-      <label>Renderer
-        <select id="renderer">
-          <option value="webgl" selected>GPU (WebGL2)</option>
-          <option value="software">Software (diagnostic)</option>
-        </select>
-      </label>
-      <p class="muted">GPU rendering is recommended for playing. Software rendering is a much slower diagnostic fallback.</p>
-      </details>
-      <p class="muted">Keyboard: WASD moves, arrows use the D-pad, Enter is Start, Space is A, Escape is B, X/Y are X/Y, Z/C are triggers. A standard connected gamepad is also read locally.</p>
-      <div class="row"><button class="primary" id="run">Start game</button><button id="stop" disabled>Stop game</button></div>
-      <div class="loading-line" aria-hidden="true"></div>
-      <p id="launch-status" class="muted" role="status" aria-live="polite">Your game runs on this device.</p>
-      <p id="error" role="alert"></p>
-    </div>
-  </section>
-  <nav class="toolbar" aria-label="Game controls">
-    <button id="toolbar-toggle" type="button" aria-expanded="false" aria-controls="toolbar-actions" title="F1: show game controls">Controls</button>
-    <span id="toolbar-actions" class="row">
-      <button id="fullscreen" type="button">Enter fullscreen</button>
-      <button id="toolbar-stop" type="button" hidden>Stop game</button>
-      <button id="reopen-launch" type="button" hidden>Launch panel</button>
-    </span>
-  </nav>
-  <details class="details" id="run-details">
-    <summary>Run details</summary>
-    <div class="details-content">
-      <h2>Run status</h2>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#151614">
+    <title>Fuzion Frenzy · Browser beta</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font: 16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+        background: #0b0c0b;
+        color: #eeeae0;
+        --line: #42433a;
+        --muted: #b0b0a2;
+        --amber: #e4b45d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none!important;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #080908;
+      }
+
+      button, input, select {
+        font: inherit;
+      }
+
+      button, select, input[type=file] {
+        color: inherit;
+        background: #292a25;
+        border: 1px solid #56574b;
+        border-radius: 4px;
+      }
+
+      button {
+        padding: .6rem 1rem;
+        cursor: pointer;
+        font-weight: 650;
+      }
+
+      button: hover {
+        background: #36372e;
+        border-color: #898a72;
+      }
+
+      button: disabled, input:disabled, select:disabled {
+        opacity: .45;
+        cursor: default;
+      }
+
+      button: focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 4px;
+      }
+
+      .primary {
+        background: var(--amber);
+        border-color: var(--amber);
+        color: #211a0e;
+      }
+
+      .primary:hover {
+        background: #f2c675;
+        border-color: #f2c675;
+      }
+
+      .danger {
+        color: #f1c9b9;
+      }
+
+      h1, h2, p {
+        margin: 0;
+      }
+
+      h2 {
+        font-size: 1.15rem;
+      }
+
+      .eyebrow {
+        font-size: .72rem;
+        font-weight: 750;
+        letter-spacing: .18em;
+        color: var(--amber);
+      }
+
+      .muted, .setting-note {
+        color: var(--muted);
+        font-size: .86rem;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        flex-wrap: wrap;
+      }
+
+      .stage {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 100vw;
+        height: 100vh;
+        height: 100svh;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #screen {
+        display: block;
+        width: min(100vw,133.333333svh);
+        height: min(100svh,75vw);
+        object-fit: contain;
+        background: #000;
+      }
+
+      #screen:focus {
+        outline: none;
+      }
+
+      :root[data-aspect=widescreen] #screen {
+        width: min(100vw,177.777778svh);
+        height: min(100svh,56.25vw);
+        object-fit: fill;
+      }
+
+      :root[data-aspect=fill] #screen {
+        width: 100vw;
+        height: 100svh;
+        object-fit: fill;
+      }
+
+      .launch {
+        position: fixed;
+        z-index: 3;
+        inset: 0;
+        overflow: auto;
+        padding: 94px clamp(24px,5vw,72px) 112px;
+        background: linear-gradient(135deg,#252720 0,#171915 48%,#10120f 100%);
+        border-top: 3px solid var(--amber);
+      }
+
+      .launch-inner {
+        position: relative;
+        max-width: 1080px;
+        margin: max(1vh,12px) auto;
+      }
+
+      .launch-heading {
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 2rem;
+      }
+
+      .launch-heading h1 {
+        font-size: clamp(2.5rem,6.2vw,5.2rem);
+        font-weight: 850;
+        line-height: 1.04;
+        letter-spacing: -.055em;
+        margin-top: .7rem;
+      }
+
+      .beta-tag {
+        border: 1px solid #6b6147;
+        color: #dac99f;
+        padding: .3rem .6rem;
+        white-space: nowrap;
+        font-size: .75rem;
+        letter-spacing: .09em;
+      }
+
+      .launch-grid {
+        display: grid;
+        grid-template-columns: minmax(0,1.2fr) minmax(260px,.85fr);
+        gap: 2rem;
+        padding-top: 2rem;
+      }
+
+      .panel {
+        background: #20221dd9;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: clamp(20px,2.6vw,30px);
+      }
+
+      .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        margin-bottom: 1.2rem;
+      }
+
+      .launch p+p {
+        margin-top: .65rem;
+      }
+
+      .disc-label {
+        display: block;
+        margin: 1.4rem 0 1.7rem;
+        font-size: .9rem;
+        font-weight: 650;
+      }
+
+      input[type=file] {
+        display: block;
+        width: 100%;
+        margin-top: .7rem;
+        padding: .65rem;
+        font-size: .82rem;
+      }
+
+      input: :file-selector-button {
+        font: inherit;
+        background: #3a3b31;
+        color: #eeeae0;
+        border: 1px solid #737461;
+        border-radius: 3px;
+        padding: .4rem .6rem;
+        margin-right: .7rem;
+        cursor: pointer;
+      }
+
+      .launch-actions {
+        margin-top: 1.4rem;
+      }
+
+      .launch-actions button {
+        min-width: 140px;
+      }
+
+      .mapping {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: .55rem 1.1rem;
+        font-size: .85rem;
+        margin: 1rem 0;
+      }
+
+      .mapping dt {
+        color: var(--muted);
+      }
+
+      .mapping dd {
+        margin: 0;
+        text-align: right;
+        color: #e5d6b6;
+      }
+
+      .mapping kbd {
+        font: inherit;
+        font-size: .8rem;
+      }
+
+      .controller-note {
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+      }
+
+      .compatibility {
+        margin-top: 1.6rem;
+        font-size: .85rem;
+      }
+
+      summary {
+        cursor: pointer;
+        color: var(--muted);
+      }
+
+      .compatibility label {
+        display: block;
+        margin: .8rem 0 .45rem;
+      }
+
+      .compatibility select {
+        padding: .45rem;
+        width: 100%;
+        margin-top: .4rem;
+      }
+
+      .loading-line {
+        height: 2px;
+        background: #3c3e32;
+        margin-top: 1.4rem;
+        visibility: hidden;
+        overflow: hidden;
+      }
+
+      .loading-line::after {
+        content: "";
+        display: block;
+        height: 100%;
+        width: 35%;
+        background: var(--amber);
+        animation: loading 1.2s ease-in-out infinite alternate;
+      }
+
+      body.is-loading .loading-line, body.is-stopping .loading-line {
+        visibility: visible;
+      }
+
+      @keyframes loading {
+        to {
+          transform: translateX(185%);
+        }
+      }
+
+      body.is-running .launch {
+        display: none;
+      }
+
+      body.is-running.show-launch .launch {
+        display: block;
+      }
+
+      #error {
+        color: #f0b7a6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        margin-top: 1rem;
+      }
+
+      #error:empty {
+        display: none;
+      }
+
+      #storage-warning {
+        font-size: .84rem;
+        color: #dfc689;
+        margin-top: 1rem;
+      }
+
+      .toolbar {
+        position: fixed;
+        z-index: 5;
+        top: 18px;
+        right: 24px;
+        display: flex;
+        gap: .5rem;
+        align-items: center;
+        padding: .35rem;
+        background: #1a1c18ed;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+      }
+
+      .toolbar button {
+        font-size: .8rem;
+        padding: .48rem .75rem;
+      }
+
+      .toolbar .shortcut {
+        font-size: .67rem;
+        color: #a7a78f;
+        margin-left: .55rem;
+      }
+
+      #toolbar-actions {
+        display: flex;
+        gap: .5rem;
+      }
+
+      .session-status {
+        position: fixed;
+        z-index: 4;
+        bottom: 18px;
+        left: 24px;
+        max-width: min(650px,calc(100vw - 190px));
+        background: #181a16e8;
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--amber);
+        border-radius: 3px;
+        padding: .6rem .85rem;
+      }
+
+      #status {
+        font: inherit;
+        font-size: .8rem;
+        color: #d1d1c2;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        margin: 0;
+      }
+
+      #display-feedback {
+        font-size: .78rem;
+        color: #dfc689;
+        white-space: pre-wrap;
+      }
+
+      #display-feedback:empty {
+        display: none;
+      }
+
+      #performance {
+        position: fixed;
+        z-index: 4;
+        top: 78px;
+        left: 24px;
+        max-width: min(560px,calc(100vw - 48px));
+        margin: 0;
+        padding: .65rem .8rem;
+        border: 1px solid var(--line);
+        background: #10120eea;
+        color: #d1d1bf;
+        border-radius: 3px;
+        font: 12px/1.5 ui-monospace,monospace;
+        overflow-wrap: anywhere;
+      }
+
+      .details {
+        position: fixed;
+        z-index: 5;
+        right: 24px;
+        bottom: 18px;
+        max-width: min(520px,calc(100vw - 48px));
+        background: #181a16f2;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: .5rem .75rem;
+        font-size: .8rem;
+      }
+
+      .details[open] {
+        width: 520px;
+      }
+
+      .details-content {
+        max-height: 40svh;
+        overflow: auto;
+        padding-top: .6rem;
+      }
+
+      #log {
+        margin: 0;
+        max-height: 32svh;
+        overflow: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: .73rem;
+      }
+
+      body.is-running .session-status {
+        opacity: .7;
+      }
+
+      body.is-running .session-status:hover {
+        opacity: 1;
+      }
+
+      dialog {
+        width: min(580px,calc(100vw - 28px));
+        max-height: calc(100svh - 32px);
+        overflow: auto;
+        padding: 0;
+        color: #eeeae0;
+        background: #20221d;
+        border: 1px solid #74715a;
+        border-top: 3px solid var(--amber);
+        border-radius: 5px;
+        box-shadow: 0 24px 100px #000a;
+      }
+
+      dialog: :backdrop {
+        background: #050705b8;
+        backdrop-filter: blur(3px);
+      }
+
+      .dialog-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.35rem 1.6rem;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .dialog-heading h2 {
+        font-size: 1.45rem;
+        margin-top: .2rem;
+      }
+
+      .close-button {
+        background: transparent;
+        border-color: transparent;
+        font-size: 1.35rem;
+        padding: .1rem .5rem;
+      }
+
+      .settings-body {
+        padding: .25rem 1.6rem 1rem;
+      }
+
+      .setting-row {
+        display: grid;
+        grid-template-columns: 1fr minmax(150px,44%);
+        gap: 1rem;
+        align-items: center;
+        min-height: 76px;
+        padding: .8rem 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .setting-row label {
+        font-size: .9rem;
+        font-weight: 600;
+      }
+
+      .setting-row select {
+        width: 100%;
+        padding: .45rem .5rem;
+        font-size: .86rem;
+      }
+
+      .setting-note {
+        display: block;
+        margin-top: .25rem;
+        font-weight: 400;
+        font-size: .76rem;
+      }
+
+      .setting-row input[type=checkbox] {
+        justify-self: end;
+        accent-color: var(--amber);
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+      }
+
+      .volume-control {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+      }
+
+      .volume-control input {
+        min-width: 0;
+        width: 100%;
+        accent-color: var(--amber);
+      }
+
+      .volume-control output {
+        width: 3.2rem;
+        text-align: right;
+        font-size: .8rem;
+        color: #dfc689;
+      }
+
+      .settings-display-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: .7rem;
+        padding-top: 1rem;
+      }
+
+      .settings-display-actions button {
+        font-size: .8rem;
+      }
+
+      #settings-feedback {
+        font-size: .8rem;
+        color: #dfc689;
+        min-height: 1.25em;
+        margin-top: .7rem;
+      }
+
+      .settings-footer {
+        padding: 1rem 1.6rem 1.3rem;
+        border-top: 1px solid var(--line);
+        background: #191b17;
+      }
+
+      .settings-footer .row {
+        justify-content: end;
+      }
+
+      .settings-footer button {
+        font-size: .83rem;
+        padding: .55rem .8rem;
+      }
+
+      .settings-footer p {
+        margin-top: .7rem;
+        color: var(--muted);
+        font-size: .72rem;
+      }
+
+      .dialog-open .toolbar {
+        visibility: hidden;
+      }
+
+      @media(min-width:1500px) {
+        .launch-inner {
+          margin: 5vh auto;
+        }
+      }
+
+      @media(max-width:760px) {
+        .launch {
+          padding: 85px 18px 112px;
+        }
+        .launch-grid {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+          padding-top: 1.2rem;
+        }
+        .launch-heading {
+          padding-bottom: 1.3rem;
+        }
+        .beta-tag {
+          display: none;
+        }
+        .toolbar {
+          right: 14px;
+          top: 14px;
+        }
+        .toolbar .shortcut {
+          display: none;
+        }
+        .session-status {
+          left: 14px;
+          bottom: 14px;
+          max-width: calc(100vw - 150px);
+        }
+        .details {
+          right: 14px;
+          bottom: 14px;
+        }
+        #performance {
+          left: 14px;
+          top: 70px;
+          max-width: calc(100vw - 28px);
+        }
+      }
+
+      @media(max-width:420px) {
+        .setting-row {
+          grid-template-columns: 1fr minmax(130px,48%);
+          gap: .6rem;
+        }
+        .settings-body {
+          padding: 0 1rem 1rem;
+        }
+        .dialog-heading, .settings-footer {
+          padding: 1rem;
+        }
+        .settings-footer .row {
+          gap: .4rem;
+        }
+        .settings-footer button {
+          padding: .5rem .6rem;
+        }
+        .toolbar button {
+          padding: .45rem .6rem;
+        }
+        .launch-heading h1 {
+          font-size: 2.8rem;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce) {
+        *, *::before, *::after {
+          transition: none!important;
+          animation: none!important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" aria-label="Game viewport">
+      <canvas id="screen" width="640" height="480" aria-label="Fuzion Frenzy game screen" tabindex="0"></canvas>
+    </main>
+    <section class="launch" id="launch-card" aria-labelledby="title">
+      <div class="launch-inner">
+        <header class="launch-heading">
+          <div>
+            <p class="eyebrow">CONTROL ROOM / BROWSER</p>
+            <h1 id="title">Fuzion Frenzy</h1>
+          </div>
+          <span class="beta-tag">LOCAL PLAY · BETA</span>
+        </header>
+        <div class="launch-grid">
+          <section class="panel" aria-labelledby="disc-heading">
+            <div class="panel-heading">
+              <h2 id="disc-heading">Local disc</h2>
+            </div>
+            <p class="muted">Choose your compatible local disc image to start the original game. Your image stays on this device.</p>
+            <label class="disc-label" for="iso">
+              Fuzion Frenzy disc image
+              <input id="iso" type="file" accept=".iso,.xiso,application/octet-stream">
+            </label>
+            <div class="row launch-actions">
+              <button class="primary" id="run" type="button">Start game</button>
+              <button id="stop" type="button" disabled hidden>Cancel startup</button>
+              <button id="return-game" type="button" hidden>Return to game</button>
+            </div>
+            <div class="loading-line" aria-hidden="true"></div>
+            <span id="launch-status" hidden>Your game runs on this device.</span>
+            <p id="storage-warning" role="status" hidden></p>
+            <p id="error" role="alert"></p>
+          </section>
+          <section class="panel" aria-labelledby="controls-heading">
+            <div class="panel-heading">
+              <h2 id="controls-heading">Controls</h2>
+            </div>
+            <p class="muted">Keyboard controls player 1. Connect a standard gamepad to play with a controller.</p>
+            <dl class="mapping">
+              <dt>Move</dt>
+              <dd>
+                <kbd>W A S D</kbd>
+              </dd>
+              <dt>D-pad</dt>
+              <dd>
+                <kbd>Arrow keys</kbd>
+              </dd>
+              <dt>Start / A / B</dt>
+              <dd>
+                <kbd>Enter / Space / Esc</kbd>
+              </dd>
+              <dt>X / Y</dt>
+              <dd>
+                <kbd>X / Y</kbd>
+              </dd>
+              <dt>Left / right trigger</dt>
+              <dd>
+                <kbd>Z / C</kbd>
+              </dd>
+              <dt>Settings / performance</dt>
+              <dd>
+                <kbd>F1 / F2</kbd>
+              </dd>
+            </dl>
+            <p id="controller-status" class="muted controller-note">Controller ports are checked when the game starts.</p>
+            <details class="compatibility">
+              <summary>Compatibility</summary>
+              <label for="renderer">
+                Renderer
+                <select id="renderer">
+                  <option value="webgl" selected>GPU · WebGL 2</option>
+                  <option value="software">Software · diagnostic</option>
+                </select>
+              </label>
+              <p class="muted">Software rendering is a slower diagnostic fallback.</p>
+            </details>
+          </section>
+        </div>
+      </div>
+    </section>
+    <nav class="toolbar" aria-label="Game controls">
+      <button id="toolbar-toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-dialog" aria-keyshortcuts="F1">
+        Settings
+        <span class="shortcut">F1</span>
+      </button>
+      <span id="toolbar-actions">
+        <button id="fullscreen" type="button">Enter fullscreen</button>
+        <button id="toolbar-stop" class="danger" type="button" hidden>
+          Stop
+          &amp;
+          return
+        </button>
+        <button id="reopen-launch" type="button" hidden>Control Room</button>
+      </span>
+    </nav>
+    <aside class="session-status" aria-label="Session status">
       <pre id="status" role="status" aria-live="polite">Select your local Fuzion Frenzy disc image.</pre>
-      <p id="display-feedback" role="status"></p>
-      <p id="performance" class="muted">Performance is measured while the game runs.</p>
-      <details><summary>Local runtime log</summary><pre id="log"></pre></details>
-    </div>
-  </details>
-  <script type="module" src="./app.mjs"></script>
-  <script type="module" src="./presentation.mjs"></script>
-</body>
+      <p id="display-feedback"></p>
+    </aside>
+    <p id="performance" hidden>Performance is measured while the game runs.</p>
+    <details class="details" id="run-details">
+      <summary>Runtime log</summary>
+      <div class="details-content">
+        <pre id="log"></pre>
+      </div>
+    </details>
+    <dialog id="settings-dialog" aria-labelledby="settings-title" aria-describedby="settings-help">
+      <header class="dialog-heading">
+        <div>
+          <p class="eyebrow">CONTROL ROOM</p>
+          <h2 id="settings-title">Settings</h2>
+        </div>
+        <button id="settings-close" class="close-button" type="button" aria-label="Cancel and close settings">×</button>
+      </header>
+      <div class="settings-body">
+        <p class="setting-note">Use the original pause screen before changing settings during a round.</p>
+        <div class="setting-row">
+          <label for="settings-frame-cap">
+            Frame cap
+            <span id="frame-cap-note" class="setting-note" hidden>Unavailable in this runtime.</span>
+          </label>
+          <select id="settings-frame-cap">
+            <option value="60">60 FPS</option>
+            <option value="30">30 FPS</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label for="settings-aspect">Display shape</label>
+          <select id="settings-aspect">
+            <option value="original">Original · 4:3</option>
+            <option value="widescreen">Widescreen · 16:9 stretch</option>
+            <option value="fill">Fill window · stretch</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label for="settings-start-fullscreen">Start in fullscreen</label>
+          <input id="settings-start-fullscreen" type="checkbox">
+        </div>
+        <div class="setting-row">
+          <label for="settings-volume">Volume</label>
+          <div class="volume-control">
+            <input id="settings-volume" type="range" min="0" max="100" step="1">
+            <output id="settings-volume-value" for="settings-volume">100%</output>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label for="settings-show-performance">
+            Show performance
+            <span class="setting-note">Toggle with F2.</span>
+          </label>
+          <input id="settings-show-performance" type="checkbox">
+        </div>
+        <div class="settings-display-actions">
+          <button id="settings-fullscreen" type="button">Enter fullscreen</button>
+          <button id="settings-stop" class="danger" type="button" hidden>
+            Stop
+            &amp;
+            return
+          </button>
+        </div>
+        <p id="settings-feedback" aria-live="polite"></p>
+      </div>
+      <footer class="settings-footer">
+        <div class="row">
+          <button id="settings-cancel" type="button">Cancel</button>
+          <button id="settings-apply" type="button">Apply</button>
+          <button id="settings-save" class="primary" type="button">Apply and Save</button>
+        </div>
+        <p id="settings-help">Apply changes now. Save remembers them in this browser. Esc closes; arrows move and adjust.</p>
+      </footer>
+    </dialog>
+    <script type="module" src="./app.mjs"></script>
+  </body>
 </html>

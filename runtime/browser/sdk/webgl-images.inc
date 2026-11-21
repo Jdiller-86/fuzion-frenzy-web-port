@@ -69,19 +69,27 @@ uint8_t BrowserImageByte(float value) {
 }
 
 std::shared_ptr<Image> BrowserImageDecode(const gpu::TextureDesc& d,const gpu::FormatInfo& format,
-                        const uint8_t* guest,const uint32_t* palette,uint32_t lo,uint32_t hi) {
+                        const uint8_t* guest,size_t size,const uint32_t* palette,uint32_t lo,uint32_t hi,
+                        ff_browser_texture::Work* warm) {
     const uint64_t pixel_count=uint64_t(d.width)*d.height;
     if(!pixel_count||pixel_count>8u*1024*1024)return {};
     const size_t bytes=size_t(pixel_count)*4;
     auto image=std::make_shared<Image>();image->w=d.width;image->h=d.height;image->faces=1;
     image->depth16=false;image->lo=lo;image->hi=hi;
+    image->gpu_pixel_capacity = bytes;
     if(format.host==gpu::Host::BGRA8) {
-        std::vector<uint8_t> decoded;uint32_t pitch=0;
-        gpu::DecodeLevel(d,0,0,guest,palette,decoded,pitch);
-        if(pitch!=d.width*4||decoded.size()!=bytes)return {};
-        image->gpu_pixels=std::move(decoded);
-        for(size_t p=0;p<bytes;p+=4) {
-            std::swap(image->gpu_pixels[p],image->gpu_pixels[p+2]);
+        image->gpu_pixels = warm ? std::move(warm->rgba) : gpu::DecodeBrowserColor(d, guest, size, palette);
+        if (!image->gpu_pixels) {
+            auto bgra = std::make_shared<std::vector<uint8_t>>();
+            uint32_t pitch=0;
+            gpu::DecodeLevel(d,0,0,guest,palette,*bgra,pitch);
+            if(pitch!=d.width*4||bgra->size()!=bytes)return {};
+            for(size_t p=0;p<bytes;p+=4) {
+                std::swap((*bgra)[p],(*bgra)[p+2]);
+            }
+            image->gpu_pixel_capacity = bgra->capacity();
+            const uint8_t* pixels = bgra->data();
+            image->gpu_pixels = std::shared_ptr<const uint8_t[]>(std::move(bgra), pixels);
         }
         image->gpu_encoding=1;
     } else if(format.compressed) {
@@ -89,9 +97,10 @@ std::shared_ptr<Image> BrowserImageDecode(const gpu::TextureDesc& d,const gpu::F
         gpu::DecodeLevel(d,0,0,guest,palette,blocks,pitch);
         std::vector<Vec> decoded;DecodeBlocks(d,format.host,blocks,decoded);
         if(decoded.size()!=pixel_count)return {};
-        image->gpu_pixels.resize(bytes);
+        auto rgba = std::make_shared_for_overwrite<uint8_t[]>(bytes);
         for(size_t i=0;i<pixel_count;++i)for(size_t c=0;c<4;++c)
-            image->gpu_pixels[i*4+c]=BrowserImageByte(decoded[i][c]);
+            rgba[i*4+c]=BrowserImageByte(decoded[i][c]);
+        image->gpu_pixels = std::move(rgba);
         image->gpu_encoding=1;
     } else return {};
     return image;
@@ -168,25 +177,46 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         const size_t reserve_payload=byte_path?size_t(pixel_count)*4:size_t(decoded64);
         if(reserve_payload>limit-size_t(bytes)-metadata)std::abort();
         BrowserImageReserve(size_t(bytes)+metadata+reserve_payload,frame);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        const bool probe = gpu::BrowserTextureProbeMode() != 0;
+        const auto mark = [&](unsigned phase) {
+            if (probe) gpu::BrowserTextureProbeMark(double(frame + 1), phase, d.format, bytes,
+                                                   uint32_t(pixel_count), uint32_t(d.linear));
+        };
+        mark(0);
+#endif
+        auto warm = ff_browser_texture::Take(d, backing, guest, bytes);
         std::shared_ptr<Image> image;
-        if(byte_path)image=BrowserImageDecode(d,format,guest,palette,d.data,d.data+gpu::TotalSize(d));
+        if(byte_path)image=BrowserImageDecode(d,format,guest,bytes,palette,d.data,d.data+bytes,warm.get());
         if(!image) {
             if(byte_path&&decoded64>limit-size_t(bytes)-metadata)std::abort();
             if(byte_path)BrowserImageReserve(size_t(bytes)+metadata+size_t(decoded64),frame);
             g_images.clear();image=FindImage(header,palette_header);
         }
-        if(!image||(image->texels[0].size()!=pixel_count&&image->gpu_pixels.empty()))std::abort();
-        const size_t image_payload=image->gpu_encoding?image->gpu_pixels.capacity():image->texels[0].capacity()*sizeof(Vec);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(1);
+#endif
+        if(!image||(image->texels[0].size()!=pixel_count&&!image->gpu_pixels))std::abort();
+        const size_t image_payload=image->gpu_encoding?image->gpu_pixel_capacity:image->texels[0].capacity()*sizeof(Vec);
         if(bytes>limit||image_payload>limit-bytes||metadata>limit-bytes-image_payload)std::abort();
         BrowserImageReserve(bytes+image_payload+metadata,frame);
-        if (g_browser_image_version == std::numeric_limits<uint64_t>::max()) std::abort();
+        if (g_browser_image_version == ff_browser_texture::kUploadVersionBit - 1) std::abort();
         BrowserImageEntry entry;
-        entry.encoded.assign(guest, guest + bytes);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(2);
+#endif
+        if (warm) entry.encoded = std::move(warm->encoded);
+        else entry.encoded.assign(guest, guest + bytes);
+#ifdef FF_BROWSER_TEXTURE_PROBE
+        mark(3);
+#endif
         entry.image = std::move(image);
         entry.owner=entry.image;
         entry.epoch = epoch;
         entry.checked_frame = frame;
-        entry.version = ++g_browser_image_version;
+        entry.version = warm && warm->upload_token
+            ? ff_browser_texture::kUploadVersionBit | warm->upload_token
+            : ++g_browser_image_version;
         entry.accounted = bytes + image_payload + metadata;
         BrowserImageReserve(entry.accounted,frame);
         g_browser_image_bytes += entry.accounted;
@@ -198,7 +228,7 @@ std::shared_ptr<Image> BrowserImage(uint32_t header, uint32_t palette_header, co
         g_browser_last_entry=it;g_browser_last_valid=true;
     }
     const auto& image=*it->second.image;
-    const void* pixels=image.gpu_encoding?static_cast<const void*>(image.gpu_pixels.data()):static_cast<const void*>(image.texels[0].data());
+    const void* pixels=image.gpu_encoding?static_cast<const void*>(image.gpu_pixels.get()):static_cast<const void*>(image.texels[0].data());
     const uint32_t payload_bytes=uint32_t(size_t(image.w)*image.h*(image.gpu_encoding?4:sizeof(Vec)));
     ff_webgl_image_owner(pixels,it->second.version,it->second.owner,image.gpu_encoding,payload_bytes,shortcut_lookup);
     return it->second.image;

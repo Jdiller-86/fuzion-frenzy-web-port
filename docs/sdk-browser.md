@@ -41,12 +41,13 @@ image as the original disc before boot. Nothing uploads the ISO or assets.
 The check establishes build compatibility and local access, not legal ownership.
 
 Enter is Start, Space is A, Escape is B, X/Y are the corresponding face buttons,
-WASD is the left stick, arrows are the D-pad, and Z/C are triggers. A standard
-connected gamepad controls the first seat. Focus loss clears held keyboard
-input. Save data is stored in browser-local IndexedDB when available; **Stop
-game** requests a save flush and terminates the guest threads. Clearing browser
-site data clears those saves. Storage failure is reported with session-only
-fallback. No saves or logs are uploaded.
+WASD is the left stick, arrows are the D-pad, and Z/C are triggers. The current
+module supports four standard gamepads, with the keyboard sharing the first
+seat. Focus loss clears guest input and controllers must return to neutral
+before play resumes. Save data is stored in browser-local IndexedDB when
+available. **Stop game** waits for a final local save flush before re-enabling
+Start. Clearing browser site data clears those saves. See the [local beta
+guide](browser-beta.md) for settings, shortcuts and tester instructions.
 
 ## Build from source
 
@@ -58,13 +59,31 @@ From the repository root:
 ```sh
 source .tools/emscripten-env.sh
 python3 tools/build-sdk-browser-full.py --opt=-O3 --jobs 2
-python3 tools/package-sdk-browser.py
 python3 tools/serve-sdk-browser.py --open
 ```
+
+The builder trims generated ThinLTO cache entries to 128 MiB after the linker
+exits, including entries from the current job.
+Successful full builds remove stale generated objects. Run the host against
+the current module directly during development. Use
+`python3 tools/package-sdk-browser.py` when you need a portable ZIP. Keep one
+current package and reuse one scratch directory for transient browser evidence.
+[Browser build storage](../AGENTS.md#browser-build-storage)
 
 The existing Node host, `node tools/serve-sdk-browser.mjs`, serves the same page.
 Both hosts bind loopback and expose only explicit source/module routes. They
 never serve the game image, the repository as a directory, or arbitrary files.
+
+Append `?sceneNodePool=1` to the local WebGL2 launch URL to try pooled
+allocation for two verified scene-reader call sites. The build admits the
+pool only for matching title source shards. Ordinary launches use the
+original allocator. Add `&pacingTiming=1` to capture local pool timing.
+[Scene-node pool evidence](browser-gpu.md#verify-scene-node-pool-fallback-and-ownership).
+
+Append `?audioOutput=worklet` to try the bounded shared PCM queue with
+AudioWorklet. The scheduled-buffer path remains available on ordinary launches
+and if the worklet cannot run. [Audio worklet evidence](browser-gpu.md#play-original-pcm-through-a-shared-audio-worklet).
+
 The packager includes only the browser files, compiled module, host, SDK notice
 and build manifest, plus startup instructions. It includes compiled title code
 from the source supplied to the project, but no ISO or original assets.
@@ -99,10 +118,10 @@ descriptors. Native evidence remains separate from browser evidence.
 
 The local WebGL2 build navigated the original menus and character selection and reached an Erodeo winner. Four Erodeo gameplay windows measured roughly 60 callback FPS on the development desktop. Consumer interval p95 was 21.0–21.4 ms. Physical cadence, integrated-GPU performance and full audiovisual round acceptance remain open. [Measured results](browser-gpu.md#actual-gameplay-observations).
 
-The game now fills the browser window at its original aspect ratio. **Controls**
-or F1 reveals fullscreen/stop actions; F11 also provides browser fullscreen.
-Host controls take input focus and release held guest input. They do not pause
-the guest. Fullscreen permission remains subject to browser policy.
+The game uses the available browser window at its original aspect ratio by
+default. **Game menu** exposes fullscreen and Stop game. F1 opens Settings and
+F2 toggles performance. Pause in the original game before opening Settings
+during a round. Fullscreen permission remains subject to browser policy.
 
 Next: reduce remaining CPU assembly/submission costs, verify an entire controlled
 minigame and extend unsupported GPU contracts from actual failures. The
